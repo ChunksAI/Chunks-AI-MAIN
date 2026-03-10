@@ -2618,8 +2618,9 @@ body {
 
   // Restore last screen on load
   (function restoreScreen() {
-    // Always start on home screen on fresh page load
+    // Always start on home screen (landing) on fresh page load
     sessionStorage.removeItem('chunks_active_screen');
+    localStorage.removeItem('chunks_active_home_session');
     showScreen('home');
   })();
 
