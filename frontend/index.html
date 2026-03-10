@@ -2252,9 +2252,11 @@ body {
       <div class="bar-sep"></div>
 
       <!-- Library button -->
-      <button class="icon-btn" id="ws-open-lib-btn" onclick="openLibraryModal()" title="Open Library" style="display:flex;align-items:center;gap:5px;padding:0 14px;font-size:12px;font-weight:600;color:var(--gold);background:var(--gold-muted);border:1px solid var(--gold-border);border-radius:var(--r-sm);height:30px;white-space:nowrap;flex-shrink:0;">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-        Library
+      <button class="icon-btn" id="ws-open-lib-btn" onclick="openLibraryModal()" title="Library"
+        style="width:32px;height:32px;color:var(--text-3);background:transparent;border:1px solid transparent;border-radius:var(--r-sm);flex-shrink:0;transition:color var(--t-fast),background var(--t-fast),border-color var(--t-fast);"
+        onmouseover="this.style.color='var(--gold)';this.style.background='var(--gold-muted)';this.style.borderColor='var(--gold-border)';"
+        onmouseout="this.style.color='var(--text-3)';this.style.background='transparent';this.style.borderColor='transparent';">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
       </button>
     </div>
 
