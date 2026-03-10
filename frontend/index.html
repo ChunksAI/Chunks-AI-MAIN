@@ -2089,9 +2089,13 @@ body {
 
     <div class="sidebar-section">
       <div class="sidebar-section-label">Study</div>
-      <div class="sidebar-item active">
+      <div class="sidebar-item active" id="sidebar-home-btn" onclick="showScreen('home')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
+      </div>
+      <div class="sidebar-item" id="sidebar-general-btn" onclick="showScreen('home')" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>General AI</span>
       </div>
       <div class="sidebar-item" onclick="showScreen('workspace')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
@@ -2116,6 +2120,11 @@ body {
     </div>
 
     <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">General AI</div>
+      <div id="recent-list-general" class="recent-list"></div>
+    </div>
 
     <div class="sidebar-section">
       <div class="sidebar-section-label">Recent</div>
@@ -3812,7 +3821,7 @@ async function homeSendMessage() {
   const question = inp.value.trim();
   if (!question) return;
 
-  recentAdd(question, null);
+  recentAdd(question, null, 'general');
   homeHideLanding();
   homeAppendUser(question);
   inp.value = '';
@@ -4782,15 +4791,21 @@ function newChat() {
 }
 
 // ── Add to recents (called on every send) ────────────────
-function recentAdd(question, bookId) {
+function recentAdd(question, bookId, source) {
   if (!question) return;
   const label = question.length > 32 ? question.slice(0, 32).trimEnd() + '…' : question;
-  // Don't duplicate if same as most recent
-  if (_recentItems.length && _recentItems[0].question === question) {
+  // Don't duplicate if same as most recent of same source
+  if (_recentItems.length && _recentItems[0].question === question && _recentItems[0].source === source) {
     _setActiveRecent(_recentItems[0].id);
     return;
   }
-  const item = { id: 'r' + Date.now(), label, question, bookId: bookId || _wsBookId || 'atkins' };
+  const item = {
+    id: 'r' + Date.now(),
+    label,
+    question,
+    bookId: bookId || _wsBookId || '',
+    source: source || (bookId ? 'workspace' : 'general')
+  };
   _recentItems.unshift(item);
   if (_recentItems.length > RECENT_MAX) _recentItems = _recentItems.slice(0, RECENT_MAX);
   _saveRecent();
@@ -4814,13 +4829,24 @@ function _deleteRecent(id, e) {
 
 function _clickRecent(item) {
   _setActiveRecent(item.id);
-  if (!item.bookId) {
+  if (item.source === 'general' || !item.bookId) {
     // General AI question — open in home chat
     showScreen('home');
-    homeSetInput(item.question);
-    setTimeout(() => homeSendMessage(), 80);
+    // Restore landing hidden state and show bottom bar if history exists
+    const landing = document.getElementById('home-landing');
+    const hero = document.querySelector('.home-hero');
+    const bar = document.getElementById('home-input-bar');
+    const scrollArea = document.getElementById('home-scroll-area');
+    if (landing) landing.style.display = 'none';
+    if (hero) hero.style.display = 'none';
+    if (bar) bar.style.display = 'flex';
+    if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
+    setTimeout(() => {
+      const bi = document.getElementById('home-ask-input-bottom');
+      if (bi) { bi.value = item.question; bi.focus(); homeAutoResize(bi); }
+    }, 80);
   } else {
-    // Book question — open in workspace
+    // Workspace / book question — open in workspace
     showScreen('workspace');
     const go = () => { wsSetInput(item.question); wsChatSend(); };
     if (item.bookId !== _wsBookId) {
@@ -4848,15 +4874,31 @@ function _buildRecentItem(item) {
 }
 
 function _renderAllRecent() {
+  const generalItems   = _recentItems.filter(r => r.source === 'general' || !r.bookId);
+  const workspaceItems = _recentItems.filter(r => r.source === 'workspace' && r.bookId);
+
+  // General AI list (all sidebars)
+  ['recent-list-general'].forEach(id => {
+    const container = document.getElementById(id);
+    if (!container) return;
+    container.innerHTML = '';
+    if (!generalItems.length) {
+      container.innerHTML = '<div class="recent-empty">No chats yet</div>';
+      return;
+    }
+    generalItems.forEach(item => container.appendChild(_buildRecentItem(item)));
+  });
+
+  // Workspace/book recents
   ['recent-list-home','recent-list-workspace','recent-list-flash'].forEach(id => {
     const container = document.getElementById(id);
     if (!container) return;
     container.innerHTML = '';
-    if (!_recentItems.length) {
+    if (!workspaceItems.length) {
       container.innerHTML = '<div class="recent-empty">No recent chats yet</div>';
       return;
     }
-    _recentItems.forEach(item => container.appendChild(_buildRecentItem(item)));
+    workspaceItems.forEach(item => container.appendChild(_buildRecentItem(item)));
   });
 }
 
@@ -4866,7 +4908,7 @@ _renderAllRecent();
 // We hook at the DOM level so it works regardless of script order
 document.getElementById('ws-chat-send').addEventListener('click', () => {
   const q = document.getElementById('ws-chat-input')?.value?.trim();
-  if (q) recentAdd(q, _wsBookId);
+  if (q) recentAdd(q, _wsBookId, 'workspace');
 }, true); // capture phase — fires before wsChatSend clears the input
 
 document.getElementById('ws-chat-input').addEventListener('keydown', function(e) {
