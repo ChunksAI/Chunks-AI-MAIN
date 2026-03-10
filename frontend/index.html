@@ -443,6 +443,7 @@ body::after {
 /* ── Help submenu ── */
 .pd-submenu {
   position: fixed;
+  top: 0; left: 0;
   background: var(--surface-2);
   border: 1px solid var(--border-md);
   border-radius: var(--r-lg);
@@ -933,7 +934,7 @@ body::after {
 
 /* PDF panel */
 .pdf-panel {
-  flex: 0 0 52%;
+  flex: 0 0 50%;
   display: flex; flex-direction: column;
   border-right: 1px solid var(--border-xs);
   overflow: hidden; background: var(--bg);
@@ -1009,7 +1010,7 @@ body::after {
 
 /* Chat panel */
 .chat-panel {
-  flex: 1; display: flex; flex-direction: column;
+  flex: 0 0 50%; display: flex; flex-direction: column;
   overflow: hidden; background: var(--bg); min-width: 0;
 }
 
@@ -4551,14 +4552,14 @@ function pdToggleHelp(e) {
   item?.classList.toggle('active', _pdHelpOpen);
 
   if (_pdHelpOpen) {
-    const dd      = document.getElementById('profile-dropdown');
-    const ddRect  = dd.getBoundingClientRect();
+    const ddRect   = document.getElementById('profile-dropdown').getBoundingClientRect();
     const itemRect = item.getBoundingClientRect();
 
-    // Align submenu top with the Help item, right beside the dropdown
-    sub.style.left   = (ddRect.right + 6) + 'px';
-    sub.style.top    = itemRect.top + 'px';
-    sub.style.bottom = 'auto';
+    sub.style.position = 'fixed';
+    sub.style.left     = (ddRect.right + 6) + 'px';
+    sub.style.top      = itemRect.top + 'px';
+    sub.style.bottom   = 'auto';
+    sub.style.right    = 'auto';
   }
 }
 
