@@ -3058,9 +3058,18 @@ body {
 /* ── Library modal ── */
 function openLibraryModal() {
   document.getElementById('library-modal').classList.add('active');
+  sessionStorage.setItem('chunks_library_open', '1');
 }
 function closeLibraryModal() {
   document.getElementById('library-modal').classList.remove('active');
+  sessionStorage.removeItem('chunks_library_open');
+}
+
+// Restore library modal if it was open
+if (sessionStorage.getItem('chunks_library_open') === '1') {
+  document.addEventListener('DOMContentLoaded', () => openLibraryModal(), { once: true });
+  // Fallback if DOMContentLoaded already fired
+  if (document.readyState !== 'loading') openLibraryModal();
 }
 
 /* ══════════════════════════════════════════
@@ -3873,7 +3882,10 @@ async function homeSendMessage() {
       const answer = data.answer || 'No response.';
       homeAppendAI(answer, null);
       homeHistory.push({ role: 'assistant', content: answer });
-      if (_homeSessionId) _saveSession(_homeSessionId, homeHistory);
+      if (_homeSessionId) {
+        _saveSession(_homeSessionId, homeHistory);
+        sessionStorage.setItem('chunks_active_home_session', _homeSessionId);
+      }
     }
   } catch (e) {
     homeRemoveThinking();
@@ -4801,6 +4813,8 @@ function newChat() {
   _activeRecentId = null;
   homeHistory = [];
   _homeSessionId = null;
+  sessionStorage.removeItem('chunks_active_home_session');
+  sessionStorage.removeItem('chunks_home_session');
 
   // Reset home screen to landing state
   const homeChatHistory = document.getElementById('home-chat-history');
@@ -4842,7 +4856,10 @@ function recentAdd(question, bookId, source) {
   // Don't duplicate if same as most recent of same source
   if (_recentItems.length && _recentItems[0].question === question && _recentItems[0].source === source) {
     _setActiveRecent(_recentItems[0].id);
-    if (source === 'general') _homeSessionId = _recentItems[0].id;
+    if (source === 'general') {
+      _homeSessionId = _recentItems[0].id;
+      sessionStorage.setItem('chunks_home_session', _homeSessionId);
+    }
     return;
   }
   const item = {
@@ -4857,7 +4874,10 @@ function recentAdd(question, bookId, source) {
   _saveRecent();
   _renderAllRecent();
   _setActiveRecent(item.id);
-  if (source === 'general') _homeSessionId = item.id;
+  if (source === 'general') {
+    _homeSessionId = item.id;
+    sessionStorage.setItem('chunks_home_session', _homeSessionId);
+  }
 }
 
 function _setActiveRecent(id) {
@@ -4969,6 +4989,32 @@ function _renderAllRecent() {
 }
 
 _renderAllRecent();
+
+// ── Restore active General AI chat session on refresh ────
+(function restoreHomeSession() {
+  const savedId = sessionStorage.getItem('chunks_active_home_session');
+  if (!savedId) return;
+  let session;
+  try { session = JSON.parse(sessionStorage.getItem('chunks_session_' + savedId)); } catch(e) { return; }
+  if (!session || !session.html) return;
+
+  const landing    = document.getElementById('home-landing');
+  const hero       = document.querySelector('.home-hero');
+  const bar        = document.getElementById('home-input-bar');
+  const scrollArea = document.getElementById('home-scroll-area');
+  const chatHist   = document.getElementById('home-chat-history');
+
+  if (landing)    landing.style.display = 'none';
+  if (hero)       hero.style.display = 'none';
+  if (bar)        bar.style.display = 'flex';
+  if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
+  if (chatHist)   chatHist.innerHTML = session.html;
+
+  homeHistory    = session.history || [];
+  _homeSessionId = savedId;
+  _setActiveRecent(savedId);
+  setTimeout(() => homeScrollBottom(), 80);
+})();
 
 // ── Hook wsChatSend to add to recents on every send ──────
 // We hook at the DOM level so it works regardless of script order
