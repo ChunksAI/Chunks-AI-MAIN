@@ -420,6 +420,30 @@ body::after {
   0%, 100% { opacity: 1; transform: scale(1); }
   50%       { opacity: 0.35; transform: scale(0.6); }
 }
+[data-placeholder]:empty:before {
+  content: attr(data-placeholder);
+  color: var(--text-4);
+  pointer-events: none;
+}
+@keyframes shimmer {
+  0%,100% { opacity:0.4; }
+  50%      { opacity:1;   }
+}
+@keyframes cursorBlink {
+  0%,100% { opacity:1; }
+  50%      { opacity:0; }
+}
+.stream-cursor {
+  display: inline-block;
+  color: var(--violet);
+  font-weight: 300;
+  animation: cursorBlink 0.8s ease-in-out infinite;
+  margin-left: 1px;
+}
+.generated-para .para-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 .home-h1 {
   font-family: var(--font-head);
@@ -1402,7 +1426,6 @@ body {
 .library-modal-body::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 2px; }
 
 /* ── SECTION ────────────────────────────────────────────────── */
-.lib-section {}
 
 .lib-section-header {
   display: flex;
@@ -2059,14 +2082,16 @@ body {
 
     <!-- Top bar (hidden until project started) -->
     <div class="research-topbar" id="research-topbar" style="display:none;">
-      <button class="icon-btn" onclick="document.getElementById('research-view-main').style.display='none';document.getElementById('research-setup-view').style.display='flex';" style="margin-right:4px;">
+      <button class="icon-btn" onclick="_researchBackToSetup()" style="margin-right:4px;" title="Back to setup">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
       </button>
       <div class="research-topbar-title" id="research-paper-title">Untitled Research</div>
       <div class="research-status">
         <div class="research-status-dot"></div>
-        <span id="research-progress-label">2 of 12 layers complete</span>
+        <span id="research-progress-label">0 of 17 layers complete</span>
       </div>
+      <span id="autosave-indicator" style="font-family:var(--font-mono);font-size:10px;color:var(--text-4);opacity:0;transition:opacity 0.4s;margin-left:4px;">✓ Saved</span>
+      <button class="btn-sec-research" onclick="_confirmNewPaper()" style="font-size:11px;padding:5px 14px;margin-left:4px;">New Paper</button>
       <button class="btn-sec-research" style="font-size:11px;padding:5px 14px;">Export PDF</button>
     </div>
 
@@ -2093,7 +2118,7 @@ body {
           </div>
           <div class="setup-field" style="flex:1;">
             <div class="setup-label">Paper Type</div>
-            <select class="setup-input" style="cursor:pointer;">
+            <select class="setup-input" id="research-type-input" style="cursor:pointer;">
               <option>Quantitative Research</option>
               <option>Qualitative Research</option>
               <option>Mixed Methods</option>
@@ -2102,10 +2127,28 @@ body {
             </select>
           </div>
         </div>
-        <button class="setup-btn" onclick="_researchStart()">
+        <button class="setup-btn" id="generate-outline-btn" onclick="_researchStart()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          Generate Research Outline
+          <span id="generate-outline-btn-text">Generate Research Outline</span>
         </button>
+
+        <!-- AI Generation progress (hidden until generating) -->
+        <div id="outline-gen-progress" style="display:none;margin-top:16px;width:100%;max-width:520px;">
+          <div style="background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-md);padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="display:flex;gap:4px;" id="gen-thinking-dots">
+                <span style="width:5px;height:5px;border-radius:50%;background:var(--violet);animation:blink 1s ease-in-out infinite;display:inline-block;"></span>
+                <span style="width:5px;height:5px;border-radius:50%;background:var(--violet);animation:blink 1s ease-in-out 0.2s infinite;display:inline-block;"></span>
+                <span style="width:5px;height:5px;border-radius:50%;background:var(--violet);animation:blink 1s ease-in-out 0.4s infinite;display:inline-block;"></span>
+              </div>
+              <span id="gen-status-text" style="font-size:12px;color:var(--text-2);">Thinking about your research topic…</span>
+            </div>
+            <div style="height:3px;background:var(--surface-3);border-radius:2px;overflow:hidden;">
+              <div id="gen-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--violet),var(--gold));border-radius:2px;transition:width 0.5s ease;"></div>
+            </div>
+            <div id="gen-outline-preview" style="display:none;font-size:11px;color:var(--text-3);font-family:var(--font-mono);line-height:1.8;"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2117,7 +2160,7 @@ body {
         <nav class="research-outline">
           <div class="research-outline-head">
             <span>Outline</span>
-            <span style="color:var(--teal);font-size:9px;">2 / 12 done</span>
+            <span id="outline-done-counter" style="color:var(--teal);font-size:9px;">0 / 17 done</span>
           </div>
           <div class="research-outline-scroll">
 
@@ -2256,86 +2299,9 @@ body {
                 <div class="layer-desc">Describe the specific local context of your research problem — how this issue manifests in your country, institution, or community. The AI will search for locally relevant studies to support your argument.</div>
               </div>
 
-              <div class="layer-steps">
-
-                <!-- Step 1: Search -->
-                <div class="layer-step done-step">
-                  <div class="step-head">
-                    <div class="step-num">
-                      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                    </div>
-                    <div class="step-label">Search Academic Papers</div>
-                    <span class="step-badge done">3 selected</span>
-                  </div>
-                  <div class="step-body">
-                    <div class="paper-list">
-                      <div class="paper-card selected">
-                        <div class="paper-check">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#090900" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                        </div>
-                        <div class="paper-meta">
-                          <div class="paper-title">Effects of Social Media Usage on Academic Performance in Filipino College Students</div>
-                          <div class="paper-authors">Santos, M. R., Dela Cruz, J. P., Reyes, A. L.</div>
-                          <div class="paper-journal">Philippine Journal of Education Research <span class="paper-year">2022</span></div>
-                        </div>
-                      </div>
-                      <div class="paper-card selected">
-                        <div class="paper-check">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#090900" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                        </div>
-                        <div class="paper-meta">
-                          <div class="paper-title">Screen Time and GPA: A Correlational Study of University Students in Metro Manila</div>
-                          <div class="paper-authors">Villanueva, C. A., Torres, R. B.</div>
-                          <div class="paper-journal">Asian Educational Research Journal <span class="paper-year">2023</span></div>
-                        </div>
-                      </div>
-                      <div class="paper-card selected">
-                        <div class="paper-check">
-                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#090900" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                        </div>
-                        <div class="paper-meta">
-                          <div class="paper-title">Digital Distraction and Student Productivity in Philippine Higher Education</div>
-                          <div class="paper-authors">Mendoza, F. L., Garcia, I. M.</div>
-                          <div class="paper-journal">International Journal of Educational Technology <span class="paper-year">2021</span></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Step 2: Generate -->
-                <div class="layer-step active-step">
-                  <div class="step-head">
-                    <div class="step-num">2</div>
-                    <div class="step-label">Generate Paragraph with Citations</div>
-                    <span class="step-badge active">Ready</span>
-                  </div>
-                  <div class="step-body">
-                    <div class="generated-para">
-                      <div class="generated-para-label">✦ AI Generated — Local Problem</div>
-                      In the Philippine context, the pervasive use of social media platforms among college students has emerged as a significant concern for academic institutions. Studies conducted in Metro Manila universities reveal that students spend an average of 6.3 hours daily on social media, with a statistically significant negative correlation to GPA outcomes <span class="cite-tag">[Santos et al., 2022]</span>. This pattern of digital distraction is particularly pronounced during examination periods, where excessive screen time has been linked to decreased retention and cognitive fatigue <span class="cite-tag">[Villanueva & Torres, 2023]</span>. Furthermore, local research confirms that the lack of institutional digital literacy programs has exacerbated this issue in Philippine higher education <span class="cite-tag">[Mendoza & Garcia, 2021]</span>.
-                    </div>
-                    <div class="layer-actions" style="margin-top:12px;">
-                      <button class="btn-primary-research">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-                        Accept & Continue
-                      </button>
-                      <button class="btn-sec-research">Regenerate</button>
-                      <button class="btn-sec-research">Edit Manually</button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Step 3: Review -->
-                <div class="layer-step">
-                  <div class="step-head">
-                    <div class="step-num">3</div>
-                    <div class="step-label">Review & Accept</div>
-                    <span class="step-badge pending">Pending</span>
-                  </div>
-                </div>
-
-              </div><!-- /steps -->
+              <div class="layer-steps" id="layer-steps-container">
+                <!-- Rendered dynamically by _renderLayerEditor() -->
+              </div>
             </div><!-- /layer-editor -->
             </div><!-- /tab-write -->
 
@@ -2353,100 +2319,47 @@ body {
                 </div>
                 <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
                   <span style="font-size:11px;color:var(--text-4);">Try:</span>
-                  <span class="prompt-chip" style="font-size:11px;padding:3px 10px;" onclick="document.getElementById('paper-search-input').value=this.textContent;_runPaperSearch()">social media academic performance</span>
-                  <span class="prompt-chip" style="font-size:11px;padding:3px 10px;" onclick="document.getElementById('paper-search-input').value=this.textContent;_runPaperSearch()">digital distraction students</span>
-                  <span class="prompt-chip" style="font-size:11px;padding:3px 10px;" onclick="document.getElementById('paper-search-input').value=this.textContent;_runPaperSearch()">screen time GPA correlation</span>
+                  <span id="search-chip-1" class="prompt-chip" style="font-size:11px;padding:3px 10px;" onclick="document.getElementById('paper-search-input').value=this.textContent;_runPaperSearch()">social media academic performance</span>
+                  <span id="search-chip-2" class="prompt-chip" style="font-size:11px;padding:3px 10px;" onclick="document.getElementById('paper-search-input').value=this.textContent;_runPaperSearch()">digital distraction students</span>
+                  <span id="search-chip-3" class="prompt-chip" style="font-size:11px;padding:3px 10px;" onclick="document.getElementById('paper-search-input').value=this.textContent;_runPaperSearch()">screen time GPA correlation</span>
+                </div>
+              </div>
+              <!-- Ready-to-write banner — shown when sources are attached -->
+              <div id="sources-ready-banner" style="display:none;padding:10px 24px;background:var(--gold-muted);border-bottom:1px solid var(--gold-border);flex-shrink:0;">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span id="sources-ready-label" style="font-size:12px;color:var(--gold);font-weight:600;">1 source attached to this layer</span>
+                  </div>
+                  <button onclick="switchResearchTab('write', document.querySelectorAll('.research-tab')[0])" style="padding:5px 14px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap;">
+                    Write Layer →
+                  </button>
                 </div>
               </div>
               <div id="paper-search-results" style="flex:1;overflow-y:auto;padding:16px 24px;display:flex;flex-direction:column;gap:8px;">
                 <!-- Default state -->
                 <div id="paper-search-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;">
                   <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                  <div style="font-size:12px;">Enter a search query to find academic papers</div>
+                  <div style="font-size:12px;">Search for papers and attach them to this layer</div>
+                  <div style="font-size:11px;color:var(--text-4);opacity:0.6;">Sources give the AI context to write a better paragraph</div>
                 </div>
               </div>
             </div><!-- /tab-search -->
 
-            <!-- TAB: Full Paper -->
+            <!-- TAB: Full Paper — rendered dynamically by _renderFullPaper() -->
             <div id="tab-paper" class="research-tab-panel" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
               <div style="padding:16px 24px 12px;border-bottom:1px solid var(--border-xs);flex-shrink:0;display:flex;align-items:center;gap:10px;">
                 <div style="flex:1;">
                   <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);">Full Paper Preview</div>
-                  <div style="font-size:12px;color:var(--text-3);margin-top:2px;">All accepted layers compiled — <span style="color:var(--gold);">17% complete</span></div>
+                  <div style="font-size:12px;color:var(--text-3);margin-top:2px;" id="full-paper-subtitle">All accepted layers compiled</div>
                 </div>
-                <button style="padding:6px 14px;border-radius:var(--r-pill);background:transparent;border:1px solid var(--border-md);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);display:flex;align-items:center;gap:6px;transition:all var(--t-fast);" onmouseenter="this.style.borderColor='var(--border-lg)';this.style.color='var(--text-1)'" onmouseleave="this.style.borderColor='var(--border-md)';this.style.color='var(--text-2)'">
+                <button onclick="_exportPDF()" style="padding:6px 14px;border-radius:var(--r-pill);background:transparent;border:1px solid var(--border-md);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);display:flex;align-items:center;gap:6px;transition:all var(--t-fast);" onmouseenter="this.style.borderColor='var(--border-lg)';this.style.color='var(--text-1)'" onmouseleave="this.style.borderColor='var(--border-md)';this.style.color='var(--text-2)'">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Export PDF
                 </button>
               </div>
-              <div style="flex:1;overflow-y:auto;padding:32px 48px;max-width:800px;margin:0 auto;width:100%;">
-
-                <!-- Paper title block -->
-                <div style="text-align:center;margin-bottom:36px;padding-bottom:28px;border-bottom:1px solid var(--border-xs);">
-                  <div style="font-family:var(--font-head);font-size:20px;font-weight:800;color:var(--text-1);line-height:1.35;margin-bottom:10px;">The Impact of Social Media on Academic Performance Among College Students</div>
-                  <div style="font-size:12px;color:var(--text-3);">Alex Cruz &nbsp;·&nbsp; <span style="color:var(--text-4);">College of Education, 2024</span></div>
-                </div>
-
-                <!-- Section I: Introduction -->
-                <div style="margin-bottom:28px;">
-                  <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-4);margin-bottom:6px;">Section I</div>
-                  <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);margin-bottom:16px;">Introduction</div>
-
-                  <!-- Layer: Background (done) -->
-                  <div style="margin-bottom:16px;">
-                    <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
-                      <div style="width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0;"></div>
-                      <span style="font-size:10px;font-family:var(--font-mono);color:var(--teal);letter-spacing:0.06em;text-transform:uppercase;">Background of the Study</span>
-                    </div>
-                    <p style="font-size:13px;color:var(--text-2);line-height:1.85;">The proliferation of social media platforms has fundamentally transformed how individuals communicate, consume information, and allocate their time. With over 4.9 billion active users globally as of 2023, platforms such as Facebook, Instagram, TikTok, and X (formerly Twitter) have become deeply embedded in daily routines — particularly among young adults aged 18–24 <span style="display:inline-block;font-size:10px;background:var(--violet-muted);color:var(--violet);border:1px solid var(--violet-border);border-radius:3px;padding:0 4px;font-family:var(--font-mono);margin:0 1px;cursor:pointer;">[Huang et al., 2020]</span>. For college students, this constant connectivity presents a dual-edged challenge: while social media offers opportunities for peer learning and academic networking, its compulsive use patterns raise significant concerns about cognitive focus and scholastic achievement.</p>
-                  </div>
-
-                  <!-- Layer: Global Problem (done) -->
-                  <div style="margin-bottom:16px;">
-                    <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
-                      <div style="width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0;"></div>
-                      <span style="font-size:10px;font-family:var(--font-mono);color:var(--teal);letter-spacing:0.06em;text-transform:uppercase;">Global Problem</span>
-                    </div>
-                    <p style="font-size:13px;color:var(--text-2);line-height:1.85;">Globally, researchers have documented a troubling correlation between excessive social media engagement and declining academic metrics. A comprehensive meta-analysis spanning 42 countries found that students who exceeded three hours of daily social media use exhibited a measurable decrease in GPA compared to moderate users <span style="display:inline-block;font-size:10px;background:var(--violet-muted);color:var(--violet);border:1px solid var(--violet-border);border-radius:3px;padding:0 4px;font-family:var(--font-mono);margin:0 1px;cursor:pointer;">[Chen & Wang, 2019]</span>. This pattern transcends geographic and socioeconomic boundaries, suggesting a systemic challenge rooted in the psychological mechanisms of social media engagement — including variable reward loops, social comparison, and notification-driven interruption cycles.</p>
-                  </div>
-
-                  <!-- Layer: Local Problem (active) -->
-                  <div style="margin-bottom:16px;">
-                    <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
-                      <div style="width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 6px rgba(232,172,46,0.5);flex-shrink:0;"></div>
-                      <span style="font-size:10px;font-family:var(--font-mono);color:var(--gold);letter-spacing:0.06em;text-transform:uppercase;">Local Problem</span>
-                      <span style="font-size:9px;font-family:var(--font-mono);color:var(--gold);background:var(--gold-muted);border:1px solid var(--gold-border);padding:1px 6px;border-radius:var(--r-pill);">Current Layer</span>
-                    </div>
-                    <p style="font-size:13px;color:var(--text-1);line-height:1.85;">In the Philippine context, the pervasive use of social media platforms among college students has emerged as a significant concern for academic institutions. Studies conducted in Metro Manila universities reveal that students spend an average of 6.3 hours daily on social media, with a statistically significant negative correlation to GPA outcomes <span style="display:inline-block;font-size:10px;background:var(--violet-muted);color:var(--violet);border:1px solid var(--violet-border);border-radius:3px;padding:0 4px;font-family:var(--font-mono);margin:0 1px;cursor:pointer;">[Santos et al., 2022]</span>. This pattern of digital distraction is particularly pronounced during examination periods, where excessive screen time has been linked to decreased retention and cognitive fatigue <span style="display:inline-block;font-size:10px;background:var(--violet-muted);color:var(--violet);border:1px solid var(--violet-border);border-radius:3px;padding:0 4px;font-family:var(--font-mono);margin:0 1px;cursor:pointer;">[Villanueva &amp; Torres, 2023]</span>. Furthermore, local research confirms that the lack of institutional digital literacy programs has exacerbated this issue in Philippine higher education <span style="display:inline-block;font-size:10px;background:var(--violet-muted);color:var(--violet);border:1px solid var(--violet-border);border-radius:3px;padding:0 4px;font-family:var(--font-mono);margin:0 1px;cursor:pointer;">[Mendoza &amp; Garcia, 2021]</span>.</p>
-                  </div>
-
-                  <!-- Remaining layers: pending -->
-                  <div style="padding:14px 16px;background:var(--surface-1);border:1px dashed var(--border-xs);border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    <span style="font-size:12px;color:var(--text-4);">2 more layers pending in this section — <span style="color:var(--gold);cursor:pointer;" onclick="switchResearchTab('write', document.querySelectorAll('.research-tab')[0])">continue writing →</span></span>
-                  </div>
-                </div>
-
-                <!-- Remaining sections placeholder -->
-                <div style="display:flex;flex-direction:column;gap:10px;">
-                  <div style="padding:14px 16px;background:var(--surface-1);border:1px dashed var(--border-xs);border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;opacity:0.5;">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-                    <span style="font-size:12px;color:var(--text-4);">Section II — Review of Related Literature <span style="font-family:var(--font-mono);font-size:10px;">(0 / 3 layers)</span></span>
-                  </div>
-                  <div style="padding:14px 16px;background:var(--surface-1);border:1px dashed var(--border-xs);border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;opacity:0.5;">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-                    <span style="font-size:12px;color:var(--text-4);">Section III — Methodology <span style="font-family:var(--font-mono);font-size:10px;">(0 / 4 layers)</span></span>
-                  </div>
-                  <div style="padding:14px 16px;background:var(--surface-1);border:1px dashed var(--border-xs);border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;opacity:0.5;">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-                    <span style="font-size:12px;color:var(--text-4);">Section IV — Results &amp; Discussion <span style="font-family:var(--font-mono);font-size:10px;">(0 / 3 layers)</span></span>
-                  </div>
-                  <div style="padding:14px 16px;background:var(--surface-1);border:1px dashed var(--border-xs);border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;opacity:0.5;">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-                    <span style="font-size:12px;color:var(--text-4);">Section V — Conclusion <span style="font-family:var(--font-mono);font-size:10px;">(0 / 2 layers)</span></span>
-                  </div>
-                </div>
-
+              <div id="full-paper-body" style="flex:1;overflow-y:auto;padding:32px 48px;max-width:800px;margin:0 auto;width:100%;">
+                <!-- Rendered by _renderFullPaper() -->
               </div>
             </div><!-- /tab-paper -->
 
@@ -2457,66 +2370,27 @@ body {
         <div class="research-side">
           <div class="research-side-head">
             <span>Attached Sources</span>
-            <span style="color:var(--gold);">5 total</span>
+            <span id="sources-count-badge" style="color:var(--gold);">0 total</span>
           </div>
-          <div class="research-side-scroll">
-            <div style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px;">This Layer</div>
-
-            <div class="source-chip">
-              <div class="source-chip-num">1</div>
-              <div class="source-chip-text">
-                <div class="source-chip-title">Effects of Social Media Usage on Academic Performance in Filipino College Students</div>
-                <div class="source-chip-meta">Santos et al. · 2022</div>
-              </div>
-            </div>
-            <div class="source-chip">
-              <div class="source-chip-num">2</div>
-              <div class="source-chip-text">
-                <div class="source-chip-title">Screen Time and GPA: A Correlational Study of University Students in Metro Manila</div>
-                <div class="source-chip-meta">Villanueva & Torres · 2023</div>
-              </div>
-            </div>
-            <div class="source-chip">
-              <div class="source-chip-num">3</div>
-              <div class="source-chip-text">
-                <div class="source-chip-title">Digital Distraction and Student Productivity in Philippine Higher Education</div>
-                <div class="source-chip-meta">Mendoza & Garcia · 2021</div>
-              </div>
-            </div>
-
-            <div style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);letter-spacing:0.06em;text-transform:uppercase;margin:14px 0 8px;">Previous Layers</div>
-
-            <div class="source-chip">
-              <div class="source-chip-num" style="background:rgba(45,212,191,0.1);border-color:rgba(45,212,191,0.3);color:var(--teal);">4</div>
-              <div class="source-chip-text">
-                <div class="source-chip-title">Social Media and Academic Achievement: A Global Meta-Analysis</div>
-                <div class="source-chip-meta">Huang et al. · 2020 · Background</div>
-              </div>
-            </div>
-            <div class="source-chip">
-              <div class="source-chip-num" style="background:rgba(45,212,191,0.1);border-color:rgba(45,212,191,0.3);color:var(--teal);">5</div>
-              <div class="source-chip-text">
-                <div class="source-chip-title">The Global Rise of Social Media Addiction Among Adolescents</div>
-                <div class="source-chip-meta">Chen & Wang · 2019 · Global Problem</div>
-              </div>
-            </div>
+          <div class="research-side-scroll" id="sources-panel-scroll">
+            <!-- Rendered dynamically by _renderSourcesPanel() -->
           </div>
 
           <div class="research-paper-stats">
             <div class="rps-card">
-              <div class="rps-num">5</div>
+              <div class="rps-num" id="stat-sources">0</div>
               <div class="rps-label">Sources Used</div>
             </div>
             <div class="rps-card">
-              <div class="rps-num">2</div>
+              <div class="rps-num" id="stat-layers">0</div>
               <div class="rps-label">Layers Done</div>
             </div>
             <div class="rps-card">
-              <div class="rps-num">3</div>
-              <div class="rps-label">Paragraphs</div>
+              <div class="rps-num" id="stat-words">0</div>
+              <div class="rps-label">Words Written</div>
             </div>
             <div class="rps-card" style="border-color:var(--gold-border);">
-              <div class="rps-num" style="font-size:16px;">17%</div>
+              <div class="rps-num" id="stat-pct" style="font-size:16px;">0%</div>
               <div class="rps-label">Complete</div>
             </div>
           </div>
@@ -2529,158 +2403,1604 @@ body {
 </div><!-- /screen-research -->
 
 <script>
-/* ══════════════════════════════════════════
-   RESEARCH PAGE — Standalone
-   Connector: navigation links to index.html
-══════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   CHUNKS RESEARCH — STATE ENGINE
+   localStorage key: chunks_research_v1
+   All state lives in RS (Research State).
+   Call _save() after any mutation. _load() on page start.
+═══════════════════════════════════════════════════════════════ */
 
-/* ── Sidebar toggle ── */
+/* ── Backend URL — update to match your deployment ── */
+const BACKEND_URL = window.CHUNKS_BACKEND_URL || 'https://chunksai.up.railway.app';
+
+const LS_KEY = 'chunks_research_v1';
+
+/* ── Default outline structure (17 layers total) ── */
+const DEFAULT_OUTLINE = [
+  { id: 'intro',   num: 'I',   title: 'Introduction',               open: true,
+    layers: [
+      { id: 'intro-bg',      name: 'Background of the Study' },
+      { id: 'intro-global',  name: 'Global Problem'          },
+      { id: 'intro-local',   name: 'Local Problem'           },
+      { id: 'intro-gap',     name: 'Research Gap'            },
+      { id: 'intro-purpose', name: 'Purpose of the Study'    },
+    ]
+  },
+  { id: 'rrl',    num: 'II',  title: 'Review of Related Literature', open: false,
+    layers: [
+      { id: 'rrl-theory',   name: 'Theoretical Framework'    },
+      { id: 'rrl-global',   name: 'Related Studies (Global)' },
+      { id: 'rrl-local',    name: 'Related Studies (Local)'  },
+    ]
+  },
+  { id: 'method', num: 'III', title: 'Methodology',                  open: false,
+    layers: [
+      { id: 'method-design',    name: 'Research Design'          },
+      { id: 'method-sample',    name: 'Participants & Sampling'  },
+      { id: 'method-collect',   name: 'Data Collection'          },
+      { id: 'method-analysis',  name: 'Data Analysis'            },
+    ]
+  },
+  { id: 'results', num: 'IV', title: 'Results & Discussion',         open: false,
+    layers: [
+      { id: 'results-findings',  name: 'Key Findings'   },
+      { id: 'results-interp',    name: 'Interpretation' },
+      { id: 'results-impl',      name: 'Implications'   },
+    ]
+  },
+  { id: 'conclusion', num: 'V', title: 'Conclusion',                 open: false,
+    layers: [
+      { id: 'conc-summary', name: 'Summary'         },
+      { id: 'conc-rec',     name: 'Recommendations' },
+    ]
+  },
+];
+
+/* ── Blank state template ── */
+function _blankState() {
+  return {
+    title:    '',
+    problem:  '',
+    field:    '',
+    type:     'Quantitative Research',
+    started:  false,
+    activeLayerId: 'intro-bg',
+    layers: {},   // { [layerId]: { status:'pending'|'active'|'done', paragraph:'', sources:[], isEdited:false } }
+    outline: DEFAULT_OUTLINE,
+  };
+}
+
+/* ── RS: live state object ── */
+let RS = _blankState();
+
+/* ── Persist ── */
+function _save() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(RS));
+    _flashAutosave();
+  } catch(e) { console.warn('Save failed', e); }
+}
+
+function _load() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      RS = Object.assign(_blankState(), parsed);
+      // Ensure outline always has full structure
+      if (!RS.outline || RS.outline.length !== DEFAULT_OUTLINE.length) {
+        RS.outline = DEFAULT_OUTLINE;
+      }
+    }
+  } catch(e) {
+    console.warn('Load failed, using blank state', e);
+    RS = _blankState();
+  }
+}
+
+/* ── Get/set a single layer state ── */
+function _layer(id) {
+  if (!RS.layers[id]) {
+    RS.layers[id] = { status: 'pending', paragraph: '', sources: [], isEdited: false };
+  }
+  return RS.layers[id];
+}
+
+/* ── Autosave flash ── */
+let _saveTimer = null;
+function _flashAutosave() {
+  const el = document.getElementById('autosave-indicator');
+  if (!el) return;
+  el.style.opacity = '1';
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => { el.style.opacity = '0'; }, 2000);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SIDEBAR & NAVIGATION
+══════════════════════════════════════════════════════════════ */
 function animateOrbits(sidebar, toCompact) {
   const orbits = sidebar.querySelectorAll('.logo-mark .orbit');
-  const fromRx = toCompact ? 40 : 6,  toRx = toCompact ? 6  : 40;
-  const fromRy = toCompact ? 14 : 6,  toRy = toCompact ? 6  : 14;
+  const fromRx = toCompact ? 40 : 6, toRx = toCompact ? 6  : 40;
+  const fromRy = toCompact ? 14 : 6, toRy = toCompact ? 6  : 14;
   const dur = 420, start = performance.now();
   const ease = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
   function step(now) {
     const t = ease(Math.min((now - start) / dur, 1));
-    const rx = fromRx + (toRx - fromRx) * t;
-    const ry = fromRy + (toRy - fromRy) * t;
-    orbits.forEach(el => { el.setAttribute('rx', rx); el.setAttribute('ry', ry); });
+    orbits.forEach(el => { el.setAttribute('rx', fromRx + (toRx-fromRx)*t); el.setAttribute('ry', fromRy + (toRy-fromRy)*t); });
     if (t < 1) requestAnimationFrame(step);
   }
   requestAnimationFrame(step);
 }
-
 function toggleSidebar(el) {
   const sidebar = el.closest('.sidebar');
   const toCompact = !sidebar.classList.contains('compact');
   sidebar.classList.toggle('compact', toCompact);
   animateOrbits(sidebar, toCompact);
 }
-
-/* ── Navigation (back to main app) ── */
-function newChat() { location.href = 'index.html'; }
+function newChat()          { location.href = 'index.html'; }
 function openLibraryModal() { location.href = 'index.html'; }
 
-/* ── Research screen logic ── */
-function _researchStart() {
-  const title = document.getElementById('research-title-input').value.trim() || 'Untitled Research';
-  document.getElementById('research-setup-view').style.display = 'none';
-  document.getElementById('research-view-main').style.display = 'flex';
-  document.getElementById('research-view-main').style.flexDirection = 'column';
-  document.getElementById('research-topbar').style.display = 'flex';
-  document.getElementById('research-paper-title').textContent = title;
-  document.getElementById('research-view-main').style.flex = '1';
+/* ══════════════════════════════════════════════════════════════
+   SETUP FORM
+══════════════════════════════════════════════════════════════ */
+function _bindSetupForm() {
+  const fields = [
+    ['research-title-input',   'title'],
+    ['research-problem-input', 'problem'],
+    ['research-field-input',   'field'],
+    ['research-type-input',    'type'],
+  ];
+  fields.forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    // Restore
+    el.value = RS[key] || '';
+    // Save on input
+    el.addEventListener('input', () => { RS[key] = el.value; _save(); });
+    el.addEventListener('change', () => { RS[key] = el.value; _save(); });
+  });
 }
 
-function _researchSelectLayer(el, name, section) {
+async function _researchStart() {
+  const title   = document.getElementById('research-title-input')?.value.trim();
+  const problem = document.getElementById('research-problem-input')?.value.trim() || '';
+  const field   = document.getElementById('research-field-input')?.value.trim() || '';
+  const type    = document.getElementById('research-type-input')?.value || 'Quantitative Research';
+
+  // Validate
+  if (!title) {
+    const inp = document.getElementById('research-title-input');
+    inp?.focus();
+    inp.style.borderColor = 'var(--red)';
+    inp.style.boxShadow = '0 0 0 2px rgba(248,113,113,0.15)';
+    setTimeout(() => { inp.style.borderColor = ''; inp.style.boxShadow = ''; }, 1800);
+    return;
+  }
+
+  // Save form values
+  RS.title   = title;
+  RS.problem = problem;
+  RS.field   = field;
+  RS.type    = type;
+
+  // Show loading UI
+  const btn      = document.getElementById('generate-outline-btn');
+  const btnText  = document.getElementById('generate-outline-btn-text');
+  const progress = document.getElementById('outline-gen-progress');
+  const statusEl = document.getElementById('gen-status-text');
+  const barEl    = document.getElementById('gen-progress-bar');
+  const preview  = document.getElementById('gen-outline-preview');
+
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+  progress.style.display = 'block';
+
+  // Animate progress through stages
+  const stages = [
+    { pct: 15, text: 'Analyzing your research topic…' },
+    { pct: 35, text: 'Identifying key sections for ' + type + '…' },
+    { pct: 55, text: 'Generating layers and sub-topics…' },
+    { pct: 75, text: 'Structuring your research outline…' },
+    { pct: 90, text: 'Almost ready…' },
+  ];
+  let stageIdx = 0;
+  const stageTimer = setInterval(() => {
+    if (stageIdx >= stages.length) return;
+    const s = stages[stageIdx++];
+    statusEl.textContent = s.text;
+    barEl.style.width = s.pct + '%';
+  }, 800);
+
+  try {
+    const prompt = `Generate a structured research paper outline as raw JSON only. No explanation, no markdown, no backticks — just the JSON array.
+
+Research Title: ${title}
+Research Problem/Objective: ${problem || '(not specified)'}
+Field/Discipline: ${field || '(not specified)'}
+Paper Type: ${type}
+
+Return ONLY a JSON array like this:
+[
+  {
+    "id": "intro",
+    "title": "Introduction",
+    "layers": [
+      { "id": "intro_background", "name": "Background of the Study" },
+      { "id": "intro_global", "name": "Global Problem" }
+    ]
+  }
+]
+
+Rules:
+- 4 to 6 sections appropriate for ${type}
+- Each section has 2 to 5 layers (sub-sections)
+- IDs are unique snake_case strings
+- Layer names are specific and academic (e.g. "Background of the Study", "Research Gap", "Theoretical Framework")
+- Tailor sections and layers to the field and topic provided
+- For Quantitative Research: Introduction, Review of Related Literature, Methodology, Results and Discussion, Conclusion
+- For Qualitative Research: Introduction, Literature Review, Research Design, Findings and Analysis, Conclusion
+- For Literature Review: Introduction, Scope and Coverage, Thematic Analysis, Synthesis, Conclusion
+- For Case Study: Introduction, Background of Case, Analysis, Discussion, Conclusion
+- For Mixed Methods: Introduction, Literature Review, Quantitative Methods, Qualitative Methods, Integrated Findings, Conclusion
+- Output ONLY the JSON array — nothing before or after it`;
+
+    const response = await fetch(BACKEND_URL + '/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question:   prompt,
+        mode:       'study',
+        complexity: 7,
+        bookId:     'none',  // non-existent book = no textbook context injected
+        history:    []
+      })
+    });
+
+    if (!response.ok) throw new Error('API error: ' + response.status);
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Backend returned failure');
+    const raw = (data.answer || '').trim();
+    console.log('[Outline] raw answer:', raw);
+
+    // ── Aggressive JSON extractor ──────────────────────────────────────────
+    // Model may wrap in markdown, add prose before/after, or use single quotes.
+    // Strategy: find the outermost [ ... ] array in the response.
+    function extractJsonArray(str) {
+      // 1. Strip markdown fences
+      str = str.replace(/```json/gi, '').replace(/```/g, '').trim();
+      // 2. Find first '[' and last ']'
+      const start = str.indexOf('[');
+      const end   = str.lastIndexOf(']');
+      if (start === -1 || end === -1 || end <= start) throw new Error('No JSON array found in response');
+      let candidate = str.slice(start, end + 1);
+      // 3. Fix common model mistakes:
+      //    - Trailing commas before } or ]
+      candidate = candidate.replace(/,\s*([}\]])/g, '$1');
+      //    - Single-quoted strings → double-quoted
+      candidate = candidate.replace(/'([^'\n]*)'/g, '"$1"');
+      //    - Unquoted keys: word: → "word":
+      candidate = candidate.replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":');
+      return JSON.parse(candidate);
+    }
+
+    const parsed = extractJsonArray(raw);
+
+    if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Invalid outline structure');
+
+    // Finish progress bar
+    clearInterval(stageTimer);
+    barEl.style.width = '100%';
+    statusEl.textContent = '✓ Outline generated!';
+
+    // Show outline preview before transition
+    preview.style.display = 'block';
+    preview.innerHTML = parsed.map((sec, i) => {
+      const roman = ['I','II','III','IV','V','VI','VII','VIII'][i] || (i+1);
+      return `<span style="color:var(--text-1);font-weight:600;">${roman}. ${sec.title}</span>\n` +
+        sec.layers.map(l => `  · ${l.name}`).join('\n');
+    }).join('\n\n');
+
+    // Normalize parsed outline to match RS structure
+    RS.outline = parsed.map((sec, i) => ({
+      id:     sec.id || 'section_' + i,
+      num:    ['I','II','III','IV','V','VI','VII','VIII'][i] || String(i+1),
+      title:  sec.title,
+      open:   i === 0,
+      layers: (sec.layers || []).map(l => ({
+        id:   l.id || sec.id + '_' + l.name.toLowerCase().replace(/[^a-z0-9]/g,'_').replace(/__+/g,'_'),
+        name: l.name
+      }))
+    }));
+
+    // Set first layer active
+    const firstLayer = RS.outline[0]?.layers[0];
+    if (firstLayer) {
+      RS.activeLayerId = firstLayer.id;
+      _layer(firstLayer.id).status = 'active';
+    }
+
+    RS.started = true;
+    _save();
+
+    // Short pause so student can see the outline preview, then transition
+    await new Promise(r => setTimeout(r, 1200));
+    _showResearchView();
+
+  } catch (err) {
+    console.error('Outline generation failed:', err);
+    console.error('Backend URL was:', BACKEND_URL + '/ask');
+    clearInterval(stageTimer);
+
+    // Show the REAL error so it's debuggable
+    const errMsg = err?.message || String(err);
+    statusEl.textContent = '⚠ ' + errMsg;
+    statusEl.style.color = 'var(--red)';
+    barEl.style.width = '100%';
+    barEl.style.background = 'var(--red)';
+
+    // Use default outline as fallback
+    RS.outline = DEFAULT_OUTLINE.map(s => ({ ...s, layers: s.layers.map(l => ({ ...l })) }));
+    const firstLayer = RS.outline[0]?.layers[0];
+    if (firstLayer) {
+      RS.activeLayerId = firstLayer.id;
+      _layer(firstLayer.id).status = 'active';
+    }
+    RS.started = true;
+    _save();
+
+    await new Promise(r => setTimeout(r, 1600));
+    _showResearchView();
+  } finally {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+  }
+}
+
+function _researchBackToSetup() {
+  document.getElementById('research-view-main').style.display = 'none';
+  document.getElementById('research-setup-view').style.display = 'flex';
+  document.getElementById('research-topbar').style.display = 'none';
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SHOW / RESTORE RESEARCH VIEW
+══════════════════════════════════════════════════════════════ */
+function _showResearchView() {
+  document.getElementById('research-setup-view').style.display   = 'none';
+  document.getElementById('research-view-main').style.display    = 'flex';
+  document.getElementById('research-view-main').style.flex       = '1';
+  document.getElementById('research-view-main').style.overflow   = 'hidden';
+  document.getElementById('research-topbar').style.display       = 'flex';
+  document.getElementById('research-paper-title').textContent    = RS.title || 'Untitled Research';
+
+  _renderOutline();
+  _renderLayerEditor(RS.activeLayerId);
+  _renderSourcesPanel();
+  _updateStats();
+  _updateSearchChips();
+}
+
+function _updateSearchChips() {
+  // Build smart search suggestions from the paper's title, field, and active layer
+  const allLayers  = RS.outline.flatMap(s => s.layers);
+  const activeLayer = allLayers.find(l => l.id === RS.activeLayerId);
+  const field = RS.field || '';
+  const layerName = activeLayer?.name || '';
+
+  // Extract 2-3 key words from title
+  const titleWords = (RS.title || '')
+    .toLowerCase()
+    .replace(/[^a-z\s]/g,'')
+    .split(/\s+/)
+    .filter(w => w.length > 3 && !['among','between','effects','study','research','impact','role','relationship','analysis'].includes(w))
+    .slice(0,3);
+
+  const chip1 = titleWords.join(' ') || 'academic performance students';
+  const chip2 = field ? `${field.toLowerCase()} ${titleWords[0] || ''}`.trim() : (titleWords[0] || '') + ' systematic review';
+  const chip3 = layerName ? layerName.toLowerCase() : titleWords.slice(1).join(' ') || 'higher education';
+
+  const chips = [chip1, chip2, chip3];
+  chips.forEach((text, i) => {
+    const el = document.getElementById('search-chip-' + (i+1));
+    if (el && text) { el.textContent = text; }
+  });
+}
+
+/* ══════════════════════════════════════════════════════════════
+   OUTLINE TREE — fully dynamic
+══════════════════════════════════════════════════════════════ */
+function _renderOutline() {
+  const container = document.querySelector('.research-outline-scroll');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const totalLayers = RS.outline.flatMap(s => s.layers).length;
+  const doneLayers  = RS.outline.flatMap(s => s.layers).filter(l => _layer(l.id).status === 'done').length;
+
+  document.getElementById('outline-done-counter').textContent = `${doneLayers} / ${totalLayers} done`;
+
+  const romanNums = ['I','II','III','IV','V','VI','VII','VIII','IX','X'];
+
+  RS.outline.forEach((section, si) => {
+    const secLayers    = section.layers;
+    const doneSec      = secLayers.filter(l => _layer(l.id).status === 'done').length;
+    const isOpen       = section.open;
+
+    const secEl = document.createElement('div');
+    secEl.className = 'ro-section' + (isOpen ? ' open' : '');
+    secEl.dataset.sid = section.id;
+
+    // Build pip HTML
+    const pips = secLayers.map(l => {
+      const st = _layer(l.id).status;
+      return `<div class="ro-pip${st === 'done' ? ' filled' : ''}"></div>`;
+    }).join('');
+
+    const isSecActive = secLayers.some(l => _layer(l.id).status === 'active');
+
+    secEl.innerHTML = `
+      <div class="ro-section-header${isSecActive ? ' active' : ''}" onclick="_toggleSection('${section.id}')">
+        <span class="ro-section-num">${romanNums[si] || section.num}</span>
+        <span>${section.title}</span>
+        <div class="ro-progress">${pips}</div>
+        <svg class="ro-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+      </div>
+      <div class="ro-layers">
+        ${secLayers.map(layer => {
+          const st = _layer(layer.id).status;
+          const isActive = layer.id === RS.activeLayerId;
+          return `<div class="ro-layer ${st === 'done' ? 'done' : ''} ${isActive ? 'active' : ''}"
+            data-lid="${layer.id}"
+            onclick="_researchSelectLayer(this,'${layer.name}','${section.title}','${layer.id}')"
+          >${layer.name}</div>`;
+        }).join('')}
+      </div>`;
+
+    container.appendChild(secEl);
+  });
+}
+
+function _toggleSection(sectionId) {
+  const sec = RS.outline.find(s => s.id === sectionId);
+  if (sec) { sec.open = !sec.open; _save(); }
+  const el = document.querySelector(`.ro-section[data-sid="${sectionId}"]`);
+  if (el) el.classList.toggle('open', sec?.open);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LAYER EDITOR
+══════════════════════════════════════════════════════════════ */
+function _researchSelectLayer(el, name, section, layerId) {
+  RS.activeLayerId = layerId;
+  _save();
+  _renderLayerEditor(layerId);
+  _renderSourcesPanel();
+
+  // Update outline active highlight
   document.querySelectorAll('.ro-layer').forEach(l => l.classList.remove('active'));
   el.classList.add('active');
-  document.querySelector('.layer-section-crumb span:last-child').textContent = name;
-  document.querySelector('.layer-title').textContent = name;
 }
 
-/* ── Tab switching ── */
+function _renderLayerEditor(layerId) {
+  const allLayers = RS.outline.flatMap(s => s.layers);
+  const layerObj  = allLayers.find(l => l.id === layerId);
+  if (!layerObj) return;
+
+  const sectionObj = RS.outline.find(s => s.layers.some(l => l.id === layerId));
+  const ls         = _layer(layerId);
+
+  // Update crumb and title
+  const crumb = document.querySelector('.layer-section-crumb');
+  const title = document.querySelector('.layer-title');
+  const desc  = document.querySelector('.layer-desc');
+  if (crumb) crumb.innerHTML = `<span>${sectionObj?.title || ''}</span><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg><span style="color:var(--gold);">${layerObj.name}</span>`;
+  if (title) title.textContent = layerObj.name;
+  if (desc)  desc.textContent  = _layerHint(layerObj.name);
+
+  // Re-render steps based on layer status
+  const stepsEl = document.getElementById('layer-steps-container') || document.querySelector('.layer-steps');
+  if (!stepsEl) return;
+  stepsEl.innerHTML = _buildLayerSteps(layerId, layerObj, ls);
+  _bindLayerStepActions(layerId);
+}
+
+function _layerHint(name) {
+  const hints = {
+    'Background of the Study': 'Introduce your topic broadly — what is it, why does it matter globally? Aim for 2–3 paragraphs with at least 2 recent sources.',
+    'Global Problem':           'Present the problem at a worldwide scale. Use statistics and cite global studies to establish the severity of the issue.',
+    'Local Problem':            'Narrow down to your country, institution, or community. Show how the global problem manifests locally with local studies.',
+    'Research Gap':             'Identify what is missing in existing literature. What has not been studied yet? This justifies your paper\'s existence.',
+    'Purpose of the Study':     'State clearly what your study aims to achieve. Use action verbs: "This study aims to determine, explore, examine…"',
+    'Theoretical Framework':    'Present the theory or model that underpins your study. Explain how it connects to your research problem.',
+    'Related Studies (Global)': 'Summarize and synthesize relevant international studies. Group by themes, not by author.',
+    'Related Studies (Local)':  'Summarize local studies related to your topic. Highlight similarities and differences with global studies.',
+    'Research Design':          'Describe the overall approach: quantitative, qualitative, or mixed. Justify why this design suits your research questions.',
+    'Participants & Sampling':  'Describe who your participants are, how many, and how you will select them. Justify your sampling method.',
+    'Data Collection':          'Describe your instruments (survey, interview, test) and procedure for gathering data.',
+    'Data Analysis':            'Explain the statistical tests or qualitative methods you will use to analyze your data.',
+    'Key Findings':             'Present your main results clearly. Use data, tables, or quotes to support your findings.',
+    'Interpretation':           'Explain what your findings mean in context. Connect back to your theoretical framework.',
+    'Implications':             'Discuss practical and theoretical implications of your findings for the field.',
+    'Summary':                  'Briefly restate the purpose, methods, and key findings of your study.',
+    'Recommendations':          'Suggest future research directions and practical actions based on your findings.',
+  };
+  return hints[name] || `Write the "${name}" section of your research paper. The AI will help you find relevant sources and generate a structured paragraph.`;
+}
+
+function _buildLayerSteps(layerId, layerObj, ls) {
+  const isDone   = ls.status === 'done';
+  const isActive = ls.status === 'active' || ls.status === 'pending';
+  const hasPara  = !!ls.paragraph;
+
+  const sourcesHtml = ls.sources.length > 0
+    ? ls.sources.map((s,i) => `
+        <div class="paper-card selected" data-source-idx="${i}">
+          <div class="paper-check"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#090900" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <div class="paper-meta">
+            <div class="paper-title">${_esc(s.title)}</div>
+            <div class="paper-authors">${_esc(s.authors)}</div>
+            <div class="paper-journal">${_esc(s.journal)} <span class="paper-year">${s.year}</span></div>
+          </div>
+        </div>`).join('')
+    : `<div style="font-size:12px;color:var(--text-4);padding:10px 0;">No sources attached yet — go to <strong style="color:var(--text-3);">Search Papers</strong> tab to find and attach sources to this layer.</div>`;
+
+  const paraHtml = hasPara
+    ? `<div class="generated-para" id="layer-para-${layerId}">
+        <div class="generated-para-label">${ls.isEdited ? '✎ Edited' : '✦ AI Generated'} — ${_esc(layerObj.name)}</div>
+        <div class="para-text" contenteditable="${isDone ? 'false' : 'true'}" style="outline:none;line-height:1.8;" id="para-text-${layerId}">${ls.paragraph}</div>
+        <div style="font-size:10px;color:var(--text-4);margin-top:8px;font-family:var(--font-mono);" id="word-count-${layerId}">${_wordCount(ls.paragraph)} words</div>
+       </div>`
+    : ls.sources.length > 0
+      ? `<div style="padding:14px 16px;background:var(--gold-muted);border:1px solid var(--gold-border);border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;">
+           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+           <span style="font-size:12px;color:var(--gold);">${ls.sources.length} source${ls.sources.length > 1 ? 's' : ''} ready — click <strong>Generate with AI</strong> below or write manually.</span>
+         </div>`
+      : `<div style="padding:20px;background:var(--surface-2);border:1px dashed var(--border-xs);border-radius:var(--r-sm);text-align:center;color:var(--text-4);font-size:12px;">
+           No sources yet — go to <strong style="color:var(--text-3);">Search Papers</strong> tab to attach sources, or write manually below.
+         </div>`;
+
+  return `
+    <!-- Step 1: Sources -->
+    <div class="layer-step ${isDone ? 'done-step' : 'active-step'}" id="step1-${layerId}">
+      <div class="step-head">
+        <div class="step-num">${isDone ? '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>' : '1'}</div>
+        <div class="step-label">Attach Academic Sources</div>
+        <span class="step-badge ${isDone ? 'done' : ls.sources.length ? 'active' : 'pending'}">${ls.sources.length ? ls.sources.length + ' attached' : 'None yet'}</span>
+      </div>
+      <div class="step-body">
+        <div class="paper-list" id="attached-sources-${layerId}">${sourcesHtml}</div>
+        <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap;">
+          <button class="btn-sec-research" style="font-size:11px;" onclick="switchResearchTab('search', document.querySelectorAll('.research-tab')[1])">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:4px;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            ${ls.sources.length ? 'Add More Sources' : 'Search for Sources'}
+          </button>
+          ${ls.sources.length > 0 && !isDone ? `
+          <button onclick="document.getElementById('step2-${layerId}').classList.add('active-step');document.getElementById('btn-generate-${layerId}')?.scrollIntoView({behavior:'smooth',block:'nearest'})" style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body);">
+            Write Paragraph
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#090900" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Paragraph -->
+    <div class="layer-step ${hasPara ? (isDone ? 'done-step' : 'active-step') : (ls.sources.length > 0 && !isDone ? 'active-step' : '')}" id="step2-${layerId}">
+      <div class="step-head">
+        <div class="step-num">${isDone && hasPara ? '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>' : '2'}</div>
+        <div class="step-label">Write Paragraph</div>
+        <span class="step-badge ${hasPara ? (isDone ? 'done' : 'active') : 'pending'}">${hasPara ? (isDone ? 'Accepted' : 'Ready') : 'Pending'}</span>
+      </div>
+      <div class="step-body">
+        ${paraHtml}
+        ${!isDone ? `
+        <div class="layer-actions" style="margin-top:12px;">
+          <button class="btn-primary-research" id="btn-generate-${layerId}" onclick="_generateParagraph('${layerId}')">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            ${hasPara ? 'Regenerate' : 'Generate with AI'}
+          </button>
+          ${hasPara ? `<button class="btn-sec-research" onclick="_acceptLayer('${layerId}')">Accept & Continue</button>` : ''}
+          ${hasPara ? `<button class="btn-sec-research" onclick="_clearParagraph('${layerId}')">Clear</button>` : ''}
+        </div>` : `
+        <div class="layer-actions" style="margin-top:12px;">
+          <button class="btn-sec-research" style="font-size:11px;" onclick="_undoAccept('${layerId}')">↩ Undo Accept</button>
+        </div>`}
+        ${!hasPara && !isDone ? `
+        <div style="margin-top:10px;padding:12px 14px;background:var(--surface-1);border-radius:var(--r-sm);border:1px solid var(--border-xs);">
+          <div style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);margin-bottom:6px;letter-spacing:0.04em;">OR WRITE MANUALLY</div>
+          <div
+            id="manual-para-${layerId}"
+            contenteditable="true"
+            spellcheck="true"
+            style="min-height:80px;font-size:13px;color:var(--text-1);line-height:1.85;outline:none;caret-color:var(--gold);"
+            data-placeholder="Start typing your paragraph here…"
+            oninput="_onManualInput('${layerId}', this)"
+            onfocus="this.style.borderColor='var(--gold-border)'"
+          ></div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+            <span id="manual-wc-${layerId}" style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);">0 words</span>
+            <button onclick="_saveManualPara('${layerId}')" style="font-size:11px;padding:4px 12px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-md);color:var(--text-2);cursor:pointer;font-family:var(--font-body);">Save & Accept</button>
+          </div>
+        </div>` : ''}
+      </div>
+    </div>
+
+    <!-- Step 3: Review -->
+    <div class="layer-step ${isDone ? 'done-step' : ''}" id="step3-${layerId}">
+      <div class="step-head">
+        <div class="step-num">${isDone ? '<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>' : '3'}</div>
+        <div class="step-label">Review & Accept</div>
+        <span class="step-badge ${isDone ? 'done' : 'pending'}">${isDone ? 'Complete' : 'Pending'}</span>
+      </div>
+    </div>`;
+}
+
+function _bindLayerStepActions(layerId) {
+  // Bind contenteditable paragraph autosave
+  const paraEl = document.getElementById(`para-text-${layerId}`);
+  if (paraEl) {
+    let debounceTimer;
+    paraEl.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        const ls = _layer(layerId);
+        ls.paragraph = paraEl.innerHTML;
+        ls.isEdited  = true;
+        const wcEl = document.getElementById(`word-count-${layerId}`);
+        if (wcEl) wcEl.textContent = _wordCount(paraEl.innerText) + ' words';
+        _save();
+        _updateStats();
+      }, 600);
+    });
+  }
+
+  // Bind source removal
+  document.querySelectorAll(`#attached-sources-${layerId} .paper-card`).forEach(card => {
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.dataset.sourceIdx);
+      _layer(layerId).sources.splice(idx, 1);
+      _save();
+      _renderLayerEditor(layerId);
+      _renderSourcesPanel();
+      _updateStats();
+    });
+  });
+}
+
+/* ── Generate paragraph (placeholder until backend) ── */
+function _generateParagraph(layerId) {
+  const ls  = _layer(layerId);
+  const btn = document.getElementById(`btn-generate-${layerId}`);
+  if (!btn) return;
+
+  // ── Button loading state ──
+  btn.disabled = true;
+  btn.innerHTML = `<span style="display:inline-flex;gap:3px;align-items:center;">
+    <span style="width:4px;height:4px;border-radius:50%;background:#090900;animation:blink 1s ease-in-out infinite;"></span>
+    <span style="width:4px;height:4px;border-radius:50%;background:#090900;animation:blink 1s ease-in-out 0.2s infinite;"></span>
+    <span style="width:4px;height:4px;border-radius:50%;background:#090900;animation:blink 1s ease-in-out 0.4s infinite;"></span>
+  </span> Writing…`;
+
+  const allLayers  = RS.outline.flatMap(s => s.layers);
+  const layerObj   = allLayers.find(l => l.id === layerId);
+  const sectionObj = RS.outline.find(s => s.layers.some(l => l.id === layerId));
+
+  // Previous accepted paragraphs for context
+  const prevLayers = allLayers
+    .filter(l => l.id !== layerId && _layer(l.id).status === 'done' && _layer(l.id).paragraph)
+    .slice(-3)
+    .map(l => ({ name: l.name, paragraph: _layer(l.id).paragraph.replace(/<[^>]*>/g,' ').trim() }));
+
+  const payload = {
+    title:      RS.title,
+    problem:    RS.problem,
+    field:      RS.field,
+    type:       RS.type,
+    section:    sectionObj?.title || '',
+    layerName:  layerObj?.name || layerId,
+    sources:    ls.sources,
+    prevLayers
+  };
+
+  // ── Inject streaming container into the step body immediately ──
+  // This creates the paragraph box before the first token arrives
+  ls.paragraph = '';
+  ls.isEdited  = false;
+  _renderLayerEditor(layerId);   // renders the empty box
+
+  // After re-render, grab the live paragraph element
+  const paraEl   = document.getElementById(`para-text-${layerId}`);
+  const wcEl     = document.getElementById(`word-count-${layerId}`);
+  const btnAfter = document.getElementById(`btn-generate-${layerId}`);
+  if (btnAfter) {
+    btnAfter.disabled = true;
+    btnAfter.innerHTML = `<span style="display:inline-flex;gap:3px;align-items:center;">
+      <span style="width:4px;height:4px;border-radius:50%;background:#090900;animation:blink 1s ease-in-out infinite;"></span>
+      <span style="width:4px;height:4px;border-radius:50%;background:#090900;animation:blink 1s ease-in-out 0.2s infinite;"></span>
+      <span style="width:4px;height:4px;border-radius:50%;background:#090900;animation:blink 1s ease-in-out 0.4s infinite;"></span>
+    </span> Writing…`;
+  }
+
+  // Add blinking cursor
+  let streamedText = '';
+  if (paraEl) {
+    paraEl.contentEditable = 'false';
+    paraEl.innerHTML = '<span class="stream-cursor">▋</span>';
+  }
+
+  // ── SSE stream ──
+  fetch(BACKEND_URL + '/api/stream-layer', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(payload)
+  })
+  .then(resp => {
+    if (!resp.ok) throw new Error(`Stream error ${resp.status}`);
+    const reader  = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let   buffer  = '';
+
+    function pump() {
+      return reader.read().then(({ done, value }) => {
+        if (done) { _onStreamDone(layerId, streamedText); return; }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();   // keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('event: done')) {
+            _onStreamDone(layerId, streamedText);
+            reader.cancel();
+            return;
+          }
+          if (line.startsWith('event: error')) continue;
+          if (!line.startsWith('data: ')) continue;
+
+          try {
+            const obj   = JSON.parse(line.slice(6));
+            const token = obj.token || '';
+            if (!token) continue;
+            streamedText += token;
+
+            // Live update the paragraph box
+            if (paraEl) {
+              paraEl.innerHTML = _esc(streamedText).replace(/\n/g,'<br>') + '<span class="stream-cursor">▋</span>';
+              // Auto-scroll to bottom of the step body
+              paraEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+            if (wcEl) wcEl.textContent = _wordCount(streamedText) + ' words';
+          } catch(_) {}
+        }
+
+        return pump();
+      });
+    }
+
+    return pump();
+  })
+  .catch(err => {
+    console.error('Stream failed, falling back to /ask:', err);
+    _generateParagraphFallback(layerId, payload);
+  });
+}
+
+function _onStreamDone(layerId, text) {
+  const ls = _layer(layerId);
+  ls.paragraph = text.trim();
+  ls.isEdited  = false;
+  _save();
+  _renderLayerEditor(layerId);   // re-render with final text + accept button
+  _updateStats();
+  _showToast('✦', 'Paragraph written!', 'var(--violet)');
+}
+
+// Fallback for when /api/stream-layer isn't deployed yet — uses /ask
+async function _generateParagraphFallback(layerId, payload) {
+  const allLayers  = RS.outline.flatMap(s => s.layers);
+  const layerObj   = allLayers.find(l => l.id === layerId);
+  const sectionObj = RS.outline.find(s => s.layers.some(l => l.id === layerId));
+  const ls         = _layer(layerId);
+
+  const sourceContext = ls.sources.length
+    ? ls.sources.map((s,i) => `[${i+1}] ${s.title} — ${s.authors} (${s.year}), ${s.journal}`).join('\n')
+    : '';
+
+  const prevParagraphs = (payload.prevLayers || [])
+    .map(p => `[${p.name}]:\n${p.paragraph}`).join('\n\n');
+
+  const prompt = `Write exactly ONE academic paragraph (150–250 words) for the "${layerObj?.name}" sub-section of Section ${sectionObj?.title || ''}.
+
+Research title: "${RS.title}"
+${RS.problem ? 'Research problem: ' + RS.problem : ''}
+${RS.field   ? 'Field: '            + RS.field   : ''}
+Paper type: ${RS.type}
+
+${sourceContext ? 'Sources — cite as (Author, Year):\n' + sourceContext : 'No sources — write from general knowledge.'}
+${prevParagraphs ? '\nPrevious sections (maintain continuity, do not repeat):\n' + prevParagraphs : ''}
+
+Output the paragraph text only. No heading, no label, no preamble.`;
+
+  try {
+    const resp = await fetch(BACKEND_URL + '/ask', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: prompt, mode: 'study', complexity: 7, bookId: 'none', history: [] })
+    });
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error);
+    let para = (data.answer || '').trim().replace(/^#{1,3}[^\n]*\n/gm,'').trim();
+    ls.paragraph = para;
+    ls.isEdited  = false;
+    _save();
+    _renderLayerEditor(layerId);
+    _updateStats();
+    _showToast('✦', 'Paragraph written!', 'var(--violet)');
+  } catch(err) {
+    const paraEl = document.getElementById(`para-text-${layerId}`);
+    if (paraEl) paraEl.innerHTML = `<em style="color:var(--red);">⚠ ${_esc(err.message)}</em>`;
+    const btnEl = document.getElementById(`btn-generate-${layerId}`);
+    if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg> Retry'; }
+  }
+}
+
+
+/* ── Accept layer ── */
+function _acceptLayer(layerId) {
+  const ls = _layer(layerId);
+  if (!ls.paragraph) return;
+  ls.status = 'done';
+
+  const allLayers   = RS.outline.flatMap(s => s.layers);
+  const idx         = allLayers.findIndex(l => l.id === layerId);
+  const acceptedName = allLayers[idx]?.name || 'Layer';
+  const doneSoFar   = allLayers.filter(l => _layer(l.id).status === 'done').length;
+  const total       = allLayers.length;
+
+  // Find next pending layer
+  let nextLayerId = null;
+  let nextLayerName = null;
+  let crossedSection = false;
+  const currentSec = RS.outline.find(s => s.layers.some(l => l.id === layerId));
+
+  for (let i = idx + 1; i < allLayers.length; i++) {
+    if (_layer(allLayers[i].id).status !== 'done') {
+      _layer(allLayers[i].id).status = 'active';
+      nextLayerId   = allLayers[i].id;
+      nextLayerName = allLayers[i].name;
+      const nextSec = RS.outline.find(s => s.layers.some(l => l.id === nextLayerId));
+      if (nextSec) {
+        nextSec.open  = true;
+        crossedSection = nextSec !== currentSec;
+      }
+      RS.activeLayerId = nextLayerId;
+      break;
+    }
+  }
+
+  _save();
+  _renderOutline();
+  _renderSourcesPanel();
+  _updateStats();
+  _renderFullPaper();
+
+  // ── Animated transition ──
+  const editorEl = document.getElementById('layer-steps-container');
+  if (editorEl) {
+    // Flash green on the completed step
+    editorEl.style.transition = 'opacity 0.2s ease';
+    editorEl.style.opacity    = '0';
+    setTimeout(() => {
+      _renderLayerEditor(RS.activeLayerId);
+      editorEl.style.opacity = '1';
+
+      // Scroll the new layer into view in the outline
+      const newLayerEl = document.querySelector(`[data-lid="${RS.activeLayerId}"]`);
+      if (newLayerEl) {
+        newLayerEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        // Pulse the newly active layer in the outline
+        newLayerEl.style.transition = 'background 0.4s ease';
+        newLayerEl.style.background = 'var(--gold-muted)';
+        setTimeout(() => newLayerEl.style.background = '', 800);
+      }
+      // Update layer title + breadcrumb in header
+      const newLayer = RS.outline.flatMap(s => s.layers).find(l => l.id === RS.activeLayerId);
+      const newSec   = RS.outline.find(s => s.layers.some(l => l.id === RS.activeLayerId));
+      const titleEl  = document.getElementById('layer-editor-title');
+      const bcEl     = document.getElementById('layer-breadcrumb');
+      if (titleEl && newLayer) titleEl.textContent = newLayer.name;
+      if (bcEl && newSec)      bcEl.textContent    = newSec.title + ' › ' + (newLayer?.name || '');
+    }, 200);
+  } else {
+    _renderLayerEditor(RS.activeLayerId);
+  }
+
+  // ── Contextual toast ──
+  if (!nextLayerId) {
+    // All layers done — paper complete!
+    _showMilestone('🎉', 'Paper Complete!', 'All layers accepted. Your research paper is ready.');
+  } else if (doneSoFar === total - 1 && nextLayerId) {
+    _showMilestone('✦', 'Almost there!', `Just ${total - doneSoFar} layer left — "${nextLayerName}"`);
+  } else if (crossedSection) {
+    const nextSec = RS.outline.find(s => s.layers.some(l => l.id === nextLayerId));
+    _showToast('▶', `Moving to ${nextSec?.title || 'next section'}`, 'var(--violet)');
+  } else {
+    _showToast('✓', `"${acceptedName}" done — next: "${nextLayerName}"`, 'var(--teal)');
+  }
+}
+
+function _showMilestone(icon, title, message) {
+  // Full-screen milestone overlay — dismisses automatically after 3.5s or on click
+  let el = document.getElementById('milestone-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'milestone-overlay';
+    el.style.cssText = `
+      position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+      background:rgba(9,9,0,0.75);backdrop-filter:blur(6px);z-index:9999;
+      opacity:0;transition:opacity 0.3s ease;cursor:pointer;`;
+    el.innerHTML = `
+      <div style="text-align:center;padding:40px 56px;background:var(--surface-2);border:1px solid var(--border-md);border-radius:var(--r-lg);max-width:400px;">
+        <div id="ms-icon" style="font-size:40px;margin-bottom:12px;"></div>
+        <div id="ms-title" style="font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--text-1);margin-bottom:8px;"></div>
+        <div id="ms-msg" style="font-size:13px;color:var(--text-3);line-height:1.6;"></div>
+        <div style="margin-top:20px;font-size:11px;color:var(--text-4);">click anywhere to continue</div>
+      </div>`;
+    el.addEventListener('click', () => _dismissMilestone());
+    document.body.appendChild(el);
+  }
+  document.getElementById('ms-icon').textContent  = icon;
+  document.getElementById('ms-title').textContent = title;
+  document.getElementById('ms-msg').textContent   = message;
+  requestAnimationFrame(() => el.style.opacity = '1');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(_dismissMilestone, 3500);
+}
+
+function _dismissMilestone() {
+  const el = document.getElementById('milestone-overlay');
+  if (!el) return;
+  el.style.opacity = '0';
+  setTimeout(() => el.remove(), 300);
+}
+
+/* ── Undo accept ── */
+function _undoAccept(layerId) {
+  _layer(layerId).status = 'active';
+  RS.activeLayerId = layerId;
+  _save();
+  _renderOutline();
+  _renderLayerEditor(layerId);
+  _updateStats();
+}
+
+/* ── Clear paragraph ── */
+function _clearParagraph(layerId) {
+  _layer(layerId).paragraph = '';
+  _layer(layerId).isEdited  = false;
+  _save();
+  _renderLayerEditor(layerId);
+  _updateStats();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SOURCES PANEL
+══════════════════════════════════════════════════════════════ */
+function _updateSourcesBanner() {
+  const banner   = document.getElementById('sources-ready-banner');
+  const label    = document.getElementById('sources-ready-label');
+  if (!banner) return;
+  const count = (_layer(RS.activeLayerId).sources || []).length;
+  if (count > 0) {
+    banner.style.display = 'block';
+    label.textContent = `${count} source${count > 1 ? 's' : ''} attached to this layer — ready to write`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function _renderSourcesPanel() {
+  const panel = document.getElementById('sources-panel-scroll');
+  if (!panel) return;
+  panel.innerHTML = '';
+
+  const currentLayerId = RS.activeLayerId;
+  const currentSources = _layer(currentLayerId).sources;
+
+  // Gather all done-layer sources
+  const allLayers = RS.outline.flatMap(s => s.layers);
+  const prevSources = [];
+  allLayers.forEach(l => {
+    if (l.id !== currentLayerId && _layer(l.id).status === 'done') {
+      _layer(l.id).sources.forEach(s => prevSources.push({ ...s, fromLayer: l.name }));
+    }
+  });
+
+  const totalSources = currentSources.length + prevSources.length;
+  document.getElementById('sources-count-badge').textContent = totalSources + ' total';
+  _updateSourcesBanner();
+
+  if (!currentSources.length && !prevSources.length) {
+    panel.innerHTML = `<div style="padding:20px 12px;text-align:center;color:var(--text-4);font-size:12px;line-height:1.6;">No sources yet.<br>Search for papers and attach them to this layer.</div>`;
+    return;
+  }
+
+  if (currentSources.length) {
+    panel.innerHTML += `<div style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:8px;">This Layer</div>`;
+    currentSources.forEach((s, i) => {
+      const chip = document.createElement('div');
+      chip.className = 'source-chip';
+      chip.style.cursor = 'pointer';
+      chip.title = 'Click to remove';
+      chip.innerHTML = `
+        <div class="source-chip-num">${i + 1}</div>
+        <div class="source-chip-text">
+          <div class="source-chip-title">${_esc(s.title)}</div>
+          <div class="source-chip-meta">${_esc(s.authors.split(',')[0])} · ${s.year}</div>
+        </div>`;
+      chip.addEventListener('click', () => {
+        _layer(currentLayerId).sources.splice(i, 1);
+        _save();
+        _renderSourcesPanel();
+        _renderLayerEditor(currentLayerId);
+        _updateStats();
+      });
+      panel.appendChild(chip);
+    });
+  }
+
+  if (prevSources.length) {
+    const divider = document.createElement('div');
+    divider.style.cssText = 'font-size:10px;color:var(--text-4);font-family:var(--font-mono);letter-spacing:0.06em;text-transform:uppercase;margin:14px 0 8px;';
+    divider.textContent = 'Previous Layers';
+    panel.appendChild(divider);
+
+    prevSources.forEach((s, i) => {
+      const chip = document.createElement('div');
+      chip.className = 'source-chip';
+      chip.innerHTML = `
+        <div class="source-chip-num" style="background:rgba(45,212,191,0.1);border-color:rgba(45,212,191,0.3);color:var(--teal);">${currentSources.length + i + 1}</div>
+        <div class="source-chip-text">
+          <div class="source-chip-title">${_esc(s.title)}</div>
+          <div class="source-chip-meta">${_esc(s.authors.split(',')[0])} · ${s.year} · ${_esc(s.fromLayer)}</div>
+        </div>`;
+      panel.appendChild(chip);
+    });
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   STATS
+══════════════════════════════════════════════════════════════ */
+function _updateStats() {
+  const allLayers   = RS.outline.flatMap(s => s.layers);
+  const total       = allLayers.length;
+  const done        = allLayers.filter(l => _layer(l.id).status === 'done').length;
+  const pct         = Math.round((done / total) * 100);
+
+  // Unique sources across all layers
+  const allSourceTitles = new Set();
+  allLayers.forEach(l => _layer(l.id).sources.forEach(s => allSourceTitles.add(s.title)));
+
+  // Total words across all paragraphs
+  let words = 0;
+  allLayers.forEach(l => { if (_layer(l.id).paragraph) words += _wordCount(_layer(l.id).paragraph); });
+
+  // Update DOM
+  const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  set('stat-sources', allSourceTitles.size);
+  set('stat-layers',  done);
+  set('stat-words',   words);
+  set('stat-pct',     pct + '%');
+  set('research-progress-label', `${done} of ${total} layers complete`);
+  set('outline-done-counter',    `${done} / ${total} done`);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TAB SWITCHING
+══════════════════════════════════════════════════════════════ */
 function switchResearchTab(name, clickedTab) {
-  // Update tab active state
   document.querySelectorAll('.research-tab').forEach(t => t.classList.remove('active'));
   clickedTab.classList.add('active');
-
-  // Show/hide panels
-  document.querySelectorAll('.research-tab-panel').forEach(p => {
-    p.style.display = 'none';
-  });
+  document.querySelectorAll('.research-tab-panel').forEach(p => { p.style.display = 'none'; });
   const target = document.getElementById('tab-' + name);
   if (target) {
-    target.style.display = (name === 'write') ? 'flex' : 'flex';
+    target.style.display = 'flex';
     target.style.flex = '1';
     target.style.flexDirection = 'column';
     target.style.overflow = 'hidden';
   }
+  if (name === 'search') { setTimeout(() => document.getElementById('paper-search-input')?.focus(), 80); _updateSourcesBanner(); }
+  if (name === 'paper')  _renderFullPaper();
+}
 
-  // Focus search input when switching to search tab
-  if (name === 'search') {
-    setTimeout(() => document.getElementById('paper-search-input')?.focus(), 80);
+/* ══════════════════════════════════════════════════════════════
+   PAPER SEARCH — attach to layer
+══════════════════════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════════════════════
+   PAPER SEARCH — Semantic Scholar API
+   Free, no API key needed, 100M+ papers
+   Docs: https://api.semanticscholar.org/graph/v1
+══════════════════════════════════════════════════════════════ */
+
+const S2_API = 'https://api.semanticscholar.org/graph/v1/paper/search';
+const S2_FIELDS = 'title,authors,year,journal,externalIds,abstract,citationCount,openAccessPdf';
+
+let _searchAbortController = null;  // cancel in-flight requests on new search
+
+async function _runPaperSearch() {
+  const query     = document.getElementById('paper-search-input')?.value?.trim();
+  const container = document.getElementById('paper-search-results');
+  const emptyEl   = document.getElementById('paper-search-empty');
+  if (!query) return;
+
+  // Cancel any previous in-flight search
+  if (_searchAbortController) _searchAbortController.abort();
+  _searchAbortController = new AbortController();
+
+  // Hide empty state + clear old results
+  if (emptyEl) emptyEl.style.display = 'none';
+  container.querySelectorAll('.paper-card, #paper-no-results, #paper-searching').forEach(el => el.remove());
+
+  // Show loading skeleton
+  const loadingEl = document.createElement('div');
+  loadingEl.id = 'paper-searching';
+  loadingEl.style.cssText = 'display:flex;flex-direction:column;gap:10px;padding:4px 0;';
+  loadingEl.innerHTML = [1,2,3].map(() => `
+    <div style="background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:14px 16px;display:flex;flex-direction:column;gap:8px;">
+      <div style="height:12px;width:75%;background:var(--surface-3);border-radius:4px;animation:shimmer 1.4s ease-in-out infinite;"></div>
+      <div style="height:10px;width:50%;background:var(--surface-3);border-radius:4px;animation:shimmer 1.4s ease-in-out 0.15s infinite;"></div>
+      <div style="height:10px;width:35%;background:var(--surface-3);border-radius:4px;animation:shimmer 1.4s ease-in-out 0.3s infinite;"></div>
+    </div>`).join('');
+  container.appendChild(loadingEl);
+
+  try {
+    // Try backend proxy first, fall back to corsproxy.io if not deployed yet
+    const backendUrl = new URL(BACKEND_URL + '/api/paper-search');
+    backendUrl.searchParams.set('query', query);
+    backendUrl.searchParams.set('limit', '12');
+
+    // ── Paper search via /ask (AI returns structured paper data as JSON) ──
+    // This uses the already-deployed backend — no new routes needed.
+    // Build search prompt — framed as a JSON generation task so the model
+    // ignores any injected textbook context and just outputs papers
+    const searchPrompt = `TASK: Generate a JSON array of 10 real published academic papers.
+TOPIC: ${query}
+
+Ignore any textbook context. Output ONLY a raw JSON array — no markdown fences, no explanation, no preamble.
+
+[
+  {
+    "title": "Full exact paper title",
+    "authors": "LastName, F., LastName, F.",
+    "year": 2022,
+    "journal": "Journal Name",
+    "abstract": "What this paper studied and its key finding in 1-2 sentences.",
+    "citationCount": 87
+  }
+]
+
+- 10 papers, all real and published
+- Prefer 2015–2024, mix of foundational and recent
+- citationCount: realistic ballpark number
+- Start your response with [ and end with ] — nothing else`;
+
+    const resp = await fetch(BACKEND_URL + '/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: _searchAbortController.signal,
+      body: JSON.stringify({
+        question:   searchPrompt,
+        mode:       'study',
+        complexity: 5,
+        bookId:     'none',
+        web_search: false,
+        history:    []
+      })
+    });
+
+    if (!resp.ok) throw new Error(`Backend error ${resp.status}`);
+    const backendData = await resp.json();
+    if (!backendData.success) throw new Error(backendData.error || 'Search failed');
+
+    const raw = (backendData.answer || '').trim();
+    console.log('[PaperSearch] raw:', raw.slice(0, 400));
+
+    // Extract JSON array from response
+    function extractPaperArray(str) {
+      str = str.replace(/```json/gi,'').replace(/```/g,'').trim();
+      const start = str.indexOf('[');
+      const end   = str.lastIndexOf(']');
+      if (start === -1 || end <= start) throw new Error('No paper array in response');
+      let candidate = str.slice(start, end + 1);
+      candidate = candidate.replace(/,\s*([}\]])/g, '$1');  // trailing commas
+      return JSON.parse(candidate);
+    }
+
+    const parsedPapers = extractPaperArray(raw);
+    const papers = parsedPapers.filter(p => p.title && p.authors);
+
+    loadingEl.remove();
+
+    if (!papers.length) {
+      const msg = document.createElement('div');
+      msg.id = 'paper-no-results';
+      msg.style.cssText = 'padding:40px;text-align:center;color:var(--text-4);font-size:12px;line-height:1.8;';
+      msg.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.2" style="display:block;margin:0 auto 10px;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>No papers found for <strong style="color:var(--text-3);">"${_esc(query)}"</strong><br><span style="font-size:11px;">Try broader keywords or different terms</span>`;
+      container.appendChild(msg);
+      return;
+    }
+
+    _renderPaperResults(papers, container);
+
+  } catch (err) {
+    if (err.name === 'AbortError') return;  // user started a new search
+    loadingEl.remove();
+    console.error('Paper search failed:', err);
+
+    const errEl = document.createElement('div');
+    errEl.id = 'paper-no-results';
+    errEl.style.cssText = 'padding:24px;text-align:center;color:var(--red);font-size:12px;';
+    errEl.innerHTML = `⚠ Search failed: ${_esc(err.message)}<br><span style="color:var(--text-4);font-size:11px;">Check your connection and try again</span>`;
+    container.appendChild(errEl);
   }
 }
 
-/* ── Paper search (mock results) ── */
-const _mockPapers = [
-  { title: 'Social Media Use and Academic Performance: A Systematic Review', authors: 'Appel, G., Grewal, L., Hadi, R.', journal: 'Journal of Marketing Research', year: 2020 },
-  { title: 'Screen Time and Educational Outcomes in Adolescents and Young Adults', authors: 'Twenge, J. M., & Campbell, W. K.', journal: 'Psychological Science', year: 2019 },
-  { title: 'The Effects of Facebook on College Students\' GPA', authors: 'Kirschner, P. A., & Karpinski, A. C.', journal: 'Computers in Human Behavior', year: 2021 },
-  { title: 'Digital Distraction in the Classroom: Student Classroom Use of Digital Devices', authors: 'McCoy, B. R.', journal: 'Journal of Media Education', year: 2022 },
-  { title: 'Social Networking Sites and Academic Performance: A Review', authors: 'Stollak, M. J., Vandenberg, A., Burklund, A.', journal: 'Academy of Educational Leadership Journal', year: 2020 },
-  { title: 'Mobile Technology, Learning, and Academic Performance', authors: 'Lepp, A., Barkley, J. E., & Karpinski, A. C.', journal: 'Computers in Human Behavior', year: 2019 },
-  { title: 'Instagram Use and Academic Outcomes Among University Students', authors: 'Lup, K., Trub, L., & Rosenthal, L.', journal: 'Cyberpsychology, Behavior, and Social Networking', year: 2023 },
-  { title: 'TikTok and Study Habits: Implications for Higher Education', authors: 'Omar, B., & Dequan, W.', journal: 'Asian Journal of Communication', year: 2022 },
-];
+function _renderPaperResults(papers, container) {
+  const allLayers    = RS.outline.flatMap(s => s.layers);
+  const activeLayer  = allLayers.find(l => l.id === RS.activeLayerId);
+  const activeName   = activeLayer?.name || 'current layer';
+  const attachedTitles = new Set(_layer(RS.activeLayerId).sources.map(s => s.title));
 
-function _runPaperSearch() {
-  const query = document.getElementById('paper-search-input')?.value?.trim().toLowerCase();
-  const container = document.getElementById('paper-search-results');
-  const emptyState = document.getElementById('paper-search-empty');
-  if (!query) return;
+  papers.forEach(p => {
+    // Normalise fields — works for both S2 API objects and AI-generated objects
+    const title    = p.title || 'Untitled';
+    // S2 returns authors as [{name:...}], AI returns a plain string
+    const authors  = Array.isArray(p.authors)
+      ? p.authors.map(a => (typeof a === 'string' ? a : a.name)).join(', ')
+      : (p.authors || 'Unknown authors');
+    const year     = p.year || '—';
+    const journal  = (typeof p.journal === 'object' ? p.journal?.name : p.journal) || '';
+    const cites    = p.citationCount != null ? p.citationCount : null;
+    const openPdf  = p.openAccessPdf?.url || null;
+    const abstract = p.abstract || '';
+    const isAttached = attachedTitles.has(title);
 
-  // Hide empty state
-  if (emptyState) emptyState.style.display = 'none';
-
-  // Remove old results
-  container.querySelectorAll('.paper-card').forEach(c => c.remove());
-
-  // Filter mock papers
-  const results = _mockPapers.filter(p =>
-    p.title.toLowerCase().includes(query) ||
-    p.authors.toLowerCase().includes(query) ||
-    p.journal.toLowerCase().includes(query)
-  );
-
-  if (!results.length) {
-    // Show no-results message
-    const msg = document.createElement('div');
-    msg.id = 'paper-no-results';
-    msg.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:32px;';
-    msg.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><div style="font-size:12px;">No papers found for "<strong style="color:var(--text-3);">${query}</strong>"</div><div style="font-size:11px;color:var(--text-4);">Try different keywords</div>`;
-    container.appendChild(msg);
-    return;
-  }
-
-  results.forEach(p => {
     const card = document.createElement('div');
-    card.className = 'paper-card';
+    card.className = 'paper-card' + (isAttached ? ' selected' : '');
+    card.dataset.title = title;
+
     card.innerHTML = `
-      <div class="paper-check"></div>
+      <div class="paper-check">${isAttached ? `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#090900" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>` : ''}</div>
       <div class="paper-meta">
-        <div class="paper-title">${p.title}</div>
-        <div class="paper-authors">${p.authors}</div>
-        <div class="paper-journal">${p.journal} <span class="paper-year">${p.year}</span></div>
+        <div class="paper-title">${_esc(title)}</div>
+        <div class="paper-authors">${_esc(authors)}</div>
+        <div class="paper-journal" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          ${journal ? `<span>${_esc(journal)}</span>` : ''}
+          <span class="paper-year">${year}</span>
+          ${cites != null ? `<span style="font-size:10px;color:var(--text-4);">· ${cites.toLocaleString()} citations</span>` : ''}
+          ${openPdf ? `<a href="${openPdf}" target="_blank" style="font-size:10px;color:var(--teal);text-decoration:none;" onclick="event.stopPropagation()">↗ Open PDF</a>` : ''}
+        </div>
+        ${abstract ? `<div class="paper-abstract" style="font-size:11px;color:var(--text-4);margin-top:6px;line-height:1.6;max-height:0;overflow:hidden;transition:max-height 0.3s ease;">${_esc(abstract.slice(0, 320))}${abstract.length > 320 ? '…' : ''}</div>` : ''}
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+          <button class="attach-btn" style="font-size:11px;padding:4px 12px;border-radius:var(--r-pill);border:1px solid;cursor:pointer;font-family:var(--font-body);transition:all 0.15s;">
+            ${isAttached ? '✓ Attached' : '＋ Attach to ' + _esc(activeName)}
+          </button>
+          ${abstract ? `<button class="abstract-toggle" style="font-size:11px;padding:4px 10px;border-radius:var(--r-pill);background:transparent;border:1px solid var(--border-xs);color:var(--text-3);cursor:pointer;font-family:var(--font-body);">Abstract</button>` : ''}
+        </div>
       </div>`;
-    card.addEventListener('click', () => {
-      card.classList.toggle('selected');
-      const check = card.querySelector('.paper-check');
-      check.innerHTML = card.classList.contains('selected')
-        ? `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#090900" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`
-        : '';
+
+    // Style attach button
+    const attachBtn = card.querySelector('.attach-btn');
+    _styleAttachBtn(attachBtn, isAttached, activeName);
+
+    // Attach / detach
+    attachBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const ls = _layer(RS.activeLayerId);
+      const alreadyIn = ls.sources.some(s => s.title === title);
+      if (alreadyIn) {
+        ls.sources = ls.sources.filter(s => s.title !== title);
+        card.classList.remove('selected');
+        card.querySelector('.paper-check').innerHTML = '';
+        _styleAttachBtn(attachBtn, false, activeName);
+      } else {
+        ls.sources.push({ title, authors, journal: journal || '', year: parseInt(year) || year });
+        card.classList.add('selected');
+        card.querySelector('.paper-check').innerHTML = `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#090900" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+        _styleAttachBtn(attachBtn, true, activeName);
+        _showToast('📎', `Attached to "${activeName}"`, 'var(--gold-border)');
+      }
+      _save();
+      _renderSourcesPanel();
+      _renderLayerEditor(RS.activeLayerId);
+      _updateStats();
     });
+
+    // Abstract toggle
+    const abstractToggle = card.querySelector('.abstract-toggle');
+    if (abstractToggle) {
+      abstractToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const abstractEl = card.querySelector('.paper-abstract');
+        const isOpen = abstractEl.style.maxHeight !== '0px' && abstractEl.style.maxHeight !== '';
+        abstractEl.style.maxHeight = isOpen ? '0' : '200px';
+        abstractToggle.textContent = isOpen ? 'Abstract' : 'Hide';
+      });
+    }
+
     container.appendChild(card);
   });
 }
+
+function _styleAttachBtn(btn, attached, layerName) {
+  if (attached) {
+    btn.style.cssText += 'background:var(--surface-3);border-color:var(--border-xs);color:var(--text-3);';
+    btn.textContent = '✓ Attached';
+  } else {
+    btn.style.cssText += 'background:var(--gold-muted);border-color:var(--gold-border);color:var(--gold);';
+    btn.textContent = '＋ Attach to ' + layerName;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════
+   NEW PAPER — confirm + clear
+══════════════════════════════════════════════════════════════ */
+function _confirmNewPaper() {
+  const done = RS.outline.flatMap(s => s.layers).filter(l => _layer(l.id).status === 'done').length;
+  if (done === 0 && !RS.title) { _clearAndReset(); return; }
+
+  // Show confirmation modal
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  overlay.innerHTML = `
+    <div style="background:var(--surface-2);border:1px solid var(--border-md);border-radius:var(--r-lg);padding:28px 32px;max-width:380px;width:90%;text-align:center;">
+      <div style="font-family:var(--font-head);font-size:18px;font-weight:800;color:var(--text-1);margin-bottom:8px;">Start a New Paper?</div>
+      <div style="font-size:13px;color:var(--text-3);line-height:1.6;margin-bottom:24px;">
+        This will clear <strong style="color:var(--text-1);">${done} accepted layer${done !== 1 ? 's' : ''}</strong> and all your sources. This cannot be undone.
+      </div>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:9px 20px;border-radius:var(--r-pill);background:transparent;border:1px solid var(--border-md);color:var(--text-2);font-size:13px;cursor:pointer;font-family:var(--font-body);">Cancel</button>
+        <button onclick="_clearAndReset();this.closest('div[style*=fixed]').remove()" style="padding:9px 20px;border-radius:var(--r-pill);background:var(--red);border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);">Yes, Start Over</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+function _clearAndReset() {
+  localStorage.removeItem(LS_KEY);
+  RS = _blankState();
+  // Reset setup form
+  ['research-title-input','research-problem-input','research-field-input'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('research-topbar').style.display    = 'none';
+  document.getElementById('research-view-main').style.display = 'none';
+  document.getElementById('research-setup-view').style.display = 'flex';
+  _showToast('✓', 'Paper cleared. Ready to start fresh!', 'var(--teal)');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MANUAL WRITING HANDLERS
+══════════════════════════════════════════════════════════════ */
+let _manualDebounce = {};
+function _onManualInput(layerId, el) {
+  const text = el.innerText || '';
+  const wcEl = document.getElementById('manual-wc-' + layerId);
+  if (wcEl) wcEl.textContent = _wordCount(text) + ' words';
+  // Autosave draft to layer paragraph after 800ms of no typing
+  clearTimeout(_manualDebounce[layerId]);
+  _manualDebounce[layerId] = setTimeout(() => {
+    _layer(layerId).paragraph = text.trim();
+    _layer(layerId).isEdited  = true;
+    _save();
+  }, 800);
+}
+
+function _saveManualPara(layerId) {
+  const el   = document.getElementById('manual-para-' + layerId);
+  const text = (el?.innerText || '').trim();
+  if (!text) { _showToast('⚠', 'Write something first!', 'var(--red)'); return; }
+  _layer(layerId).paragraph = text;
+  _layer(layerId).isEdited  = true;
+  _acceptLayer(layerId);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FULL PAPER RENDERER
+   Reads from RS state — reflects real accepted paragraphs
+══════════════════════════════════════════════════════════════ */
+function _renderFullPaper() {
+  const body     = document.getElementById('full-paper-body');
+  const subtitle = document.getElementById('full-paper-subtitle');
+  if (!body) return;
+
+  const allLayers = RS.outline.flatMap(s => s.layers);
+  const total     = allLayers.length;
+  const done      = allLayers.filter(l => _layer(l.id).status === 'done').length;
+  const pct       = Math.round((done / total) * 100);
+
+  if (subtitle) subtitle.innerHTML = `All accepted layers compiled — <span style="color:var(--gold);">${pct}% complete</span>`;
+
+  let html = '';
+
+  // ── Title block ──
+  html += `
+    <div style="text-align:center;margin-bottom:36px;padding-bottom:28px;border-bottom:1px solid var(--border-xs);">
+      <div style="font-family:var(--font-head);font-size:20px;font-weight:800;color:var(--text-1);line-height:1.35;margin-bottom:10px;">${_esc(RS.title || 'Untitled Research')}</div>
+      <div style="font-size:12px;color:var(--text-3);">
+        ${RS.field ? _esc(RS.field) + ' &nbsp;·&nbsp; ' : ''}
+        <span style="color:var(--text-4);">${_esc(RS.type || '')} · ${new Date().getFullYear()}</span>
+      </div>
+      ${RS.problem ? `<div style="margin-top:10px;font-size:12px;color:var(--text-4);font-style:italic;max-width:500px;margin-left:auto;margin-right:auto;">${_esc(RS.problem)}</div>` : ''}
+    </div>`;
+
+  const romanNums = ['I','II','III','IV','V','VI','VII','VIII','IX','X'];
+
+  // ── Sections ──
+  RS.outline.forEach((section, si) => {
+    const secLayers  = section.layers;
+    const doneLayers = secLayers.filter(l => _layer(l.id).status === 'done');
+    const hasDone    = doneLayers.length > 0;
+    const pending    = secLayers.filter(l => _layer(l.id).status !== 'done');
+    const roman      = romanNums[si] || (si + 1);
+
+    if (!hasDone && si > 0) {
+      // Collapsed placeholder for sections with nothing written yet
+      html += `
+        <div style="padding:14px 16px;background:var(--surface-1);border:1px dashed var(--border-xs);border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;opacity:0.45;margin-bottom:10px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          <span style="font-size:12px;color:var(--text-4);">
+            Section ${roman} — ${_esc(section.title)}
+            <span style="font-family:var(--font-mono);font-size:10px;">(0 / ${secLayers.length} layers)</span>
+          </span>
+        </div>`;
+      return;
+    }
+
+    html += `<div style="margin-bottom:36px;">`;
+    html += `
+      <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-4);margin-bottom:4px;">Section ${roman}</div>
+      <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);margin-bottom:20px;">${_esc(section.title)}</div>`;
+
+    // ── Layers ──
+    secLayers.forEach(layer => {
+      const ls          = _layer(layer.id);
+      const isDone      = ls.status === 'done';
+      const isActive    = layer.id === RS.activeLayerId;
+      const isPending   = !isDone && !isActive;
+
+      if (isDone) {
+        // Format paragraph — convert (Author, Year) citations to styled tags
+        const paraText = (ls.paragraph || '')
+          .replace(/<[^>]*>/g, ' ')   // strip any HTML from editing
+          .trim();
+        const paraFormatted = paraText
+          .replace(/\(([^)]{3,60}?,\s*\d{4}[a-z]?)\)/g,
+            '<span style="display:inline-block;font-size:10px;background:var(--violet-muted);color:var(--violet);border:1px solid var(--violet-border);border-radius:3px;padding:0 5px;font-family:var(--font-mono);margin:0 2px;white-space:nowrap;">[$1]</span>');
+
+        html += `
+          <div style="margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+              <div style="width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0;"></div>
+              <span style="font-size:10px;font-family:var(--font-mono);color:var(--teal);letter-spacing:0.06em;text-transform:uppercase;">${_esc(layer.name)}</span>
+              <button onclick="_researchSelectLayer(document.querySelector('[data-lid=\'${layer.id}\']'),\'${layer.name.replace(/'/g,"\\'")}\',\'${section.title.replace(/'/g,"\\'")}\',\'${layer.id}\');switchResearchTab('write',document.querySelectorAll('.research-tab')[0])" style="font-size:9px;padding:1px 7px;border-radius:var(--r-pill);background:transparent;border:1px solid var(--border-xs);color:var(--text-4);cursor:pointer;font-family:var(--font-body);margin-left:4px;">edit</button>
+            </div>
+            <p style="font-size:13px;color:var(--text-2);line-height:1.9;margin:0;">${paraFormatted}</p>
+          </div>`;
+
+      } else if (isActive) {
+        const hasPara = !!ls.paragraph;
+        html += `
+          <div style="margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+              <div style="width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 6px rgba(232,172,46,0.4);flex-shrink:0;"></div>
+              <span style="font-size:10px;font-family:var(--font-mono);color:var(--gold);letter-spacing:0.06em;text-transform:uppercase;">${_esc(layer.name)}</span>
+              <span style="font-size:9px;font-family:var(--font-mono);color:var(--gold);background:var(--gold-muted);border:1px solid var(--gold-border);padding:1px 6px;border-radius:var(--r-pill);">Current Layer</span>
+            </div>
+            ${hasPara
+              ? `<p style="font-size:13px;color:var(--text-1);line-height:1.9;margin:0;">${_esc(ls.paragraph.replace(/<[^>]*>/g,' ').trim())}</p>`
+              : `<div style="padding:14px 16px;background:var(--surface-1);border:1px dashed var(--gold-border);border-radius:var(--r-sm);font-size:12px;color:var(--text-4);">
+                  Not written yet — <span style="color:var(--gold);cursor:pointer;" onclick="switchResearchTab('write',document.querySelectorAll('.research-tab')[0])">write this layer →</span>
+                </div>`
+            }
+          </div>`;
+      } else {
+        // Pending layer within a partially-done section
+        html += `
+          <div style="padding:10px 14px;background:var(--surface-1);border:1px dashed var(--border-xs);border-radius:var(--r-sm);display:flex;align-items:center;gap:8px;margin-bottom:8px;opacity:0.55;">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span style="font-size:12px;color:var(--text-4);">${_esc(layer.name)} — <span style="color:var(--gold);cursor:pointer;" onclick="switchResearchTab('write',document.querySelectorAll('.research-tab')[0])">write →</span></span>
+          </div>`;
+      }
+    });
+
+    html += `</div>`;
+  });
+
+  // ── References section ──
+  const allSources = [];
+  const seenTitles = new Set();
+  allLayers.forEach(l => {
+    _layer(l.id).sources.forEach(s => {
+      if (!seenTitles.has(s.title)) {
+        seenTitles.add(s.title);
+        allSources.push(s);
+      }
+    });
+  });
+
+  if (allSources.length) {
+    html += `
+      <div style="margin-top:48px;padding-top:24px;border-top:1px solid var(--border-xs);">
+        <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);margin-bottom:16px;">References</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          ${allSources.map((s, i) => `
+            <div style="font-size:12px;color:var(--text-3);line-height:1.7;padding-left:24px;text-indent:-24px;">
+              <span style="color:var(--text-4);font-family:var(--font-mono);font-size:10px;margin-right:6px;">[${i+1}]</span>
+              ${_esc(s.authors)} (${s.year}). ${_esc(s.title)}. <em>${_esc(s.journal || '')}</em>.
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  body.innerHTML = html;
+}
+
+function _exportPDF() {
+  // Inject print styles and trigger browser print dialog
+  const style = document.createElement('style');
+  style.id = 'print-style';
+  style.textContent = `
+    @media print {
+      body > *:not(#screen-research) { display:none !important; }
+      .sidebar, .research-tabs, .research-outline, .research-side,
+      .research-topbar, #research-setup-view { display:none !important; }
+      #tab-paper { display:block !important; overflow:visible !important; }
+      #full-paper-body { padding:0 !important; max-width:100% !important; color:#000 !important; }
+      p { color:#000 !important; }
+    }`;
+  document.head.appendChild(style);
+  window.print();
+  setTimeout(() => style.remove(), 1000);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════════════════════════ */
+let _toastEl = null;
+let _toastTimer = null;
+function _showToast(icon, text, color) {
+  if (!_toastEl) {
+    _toastEl = document.createElement('div');
+    _toastEl.style.cssText = `position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(8px);background:var(--surface-3);border:1px solid var(--border-md);border-radius:var(--r-pill);padding:8px 16px;font-size:12px;color:var(--text-1);display:flex;align-items:center;gap:8px;z-index:9997;opacity:0;transition:opacity 0.2s,transform 0.2s;font-family:var(--font-body);box-shadow:0 4px 24px rgba(0,0,0,0.5);`;
+    document.body.appendChild(_toastEl);
+  }
+  _toastEl.innerHTML = `<span style="font-size:14px;">${icon}</span><span>${text}</span>`;
+  if (color) _toastEl.style.borderColor = color;
+  _toastEl.style.opacity = '1';
+  _toastEl.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => {
+    _toastEl.style.opacity = '0';
+    _toastEl.style.transform = 'translateX(-50%) translateY(8px)';
+  }, 2600);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RECENT SIDEBAR LIST
+══════════════════════════════════════════════════════════════ */
 const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
-
 let _recentItems = JSON.parse(sessionStorage.getItem('chunks_recent') || 'null') || [
-  { id: 'r1', label: 'Thermodynamics Ch.4',  question: 'What are the key concepts in thermodynamics chapter 4?' },
-  { id: 'r2', label: 'Equilibrium Constants', question: 'Explain equilibrium constants and how to calculate them' },
-  { id: 'r3', label: 'Organic Reactions',     question: 'What are the main types of organic reactions?' },
+  { id: 'r1', label: 'Thermodynamics Ch.4',  question: 'Thermodynamics chapter 4 key concepts' },
+  { id: 'r2', label: 'Equilibrium Constants', question: 'Explain equilibrium constants' },
 ];
-
 function _renderRecentList() {
   const container = document.getElementById('recent-list-research');
   if (!container) return;
   container.innerHTML = '';
-  if (!_recentItems.length) {
-    container.innerHTML = '<div class="recent-empty">No recent chats yet</div>';
-    return;
-  }
+  if (!_recentItems.length) { container.innerHTML = '<div class="recent-empty">No recent chats yet</div>'; return; }
   _recentItems.forEach(item => {
     const el = document.createElement('div');
     el.className = 'recent-item';
@@ -2690,7 +4010,30 @@ function _renderRecentList() {
     container.appendChild(el);
   });
 }
-_renderRecentList();
+
+/* ══════════════════════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════════════════════ */
+function _esc(str) {
+  return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function _wordCount(str) {
+  return (str || '').replace(/<[^>]*>/g,' ').trim().split(/\s+/).filter(Boolean).length;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   BOOT — runs on page load
+══════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  _load();
+  _bindSetupForm();
+  _renderRecentList();
+
+  // If a paper was already started, go straight to research view
+  if (RS.started) {
+    _showResearchView();
+  }
+});
 </script>
 </body>
 </html>
