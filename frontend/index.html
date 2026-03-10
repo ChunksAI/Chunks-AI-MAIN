@@ -371,7 +371,7 @@ body::after {
   position: fixed;
   bottom: 60px;
   left: 10px;
-  width: 220px;
+  width: 230px;
   background: var(--surface-2);
   border: 1px solid var(--border-md);
   border-radius: var(--r-lg);
@@ -394,18 +394,19 @@ body::after {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 14px 12px;
+  padding: 12px 14px 11px;
   border-bottom: 1px solid var(--border-xs);
 }
 .pd-avatar {
   width: 32px; height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #8b7cf8, #e8ac2e);
+  background: var(--gold);
   display: flex; align-items: center; justify-content: center;
-  font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+  font-size: 11px; font-weight: 800; color: #090900; flex-shrink: 0;
+  letter-spacing: -0.02em;
 }
-.pd-name { font-size: 13px; font-weight: 600; color: var(--text-1); line-height: 1.3; }
-.pd-handle { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); }
+.pd-name { font-size: 13px; font-weight: 600; color: var(--text-1); line-height: 1.25; }
+.pd-handle { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); margin-top: 1px; }
 
 /* Menu items */
 .pd-menu { padding: 6px 0; }
@@ -436,7 +437,8 @@ body::after {
 .pd-item.danger svg { opacity: 0.7; color: var(--red); }
 .pd-item.danger:hover { background: rgba(248,113,113,0.08); }
 
-.pd-divider { height: 1px; background: var(--border-xs); margin: 4px 0; }
+.pd-item.active { background: var(--surface-3); color: var(--text-1); }
+.pd-item.active svg { opacity: 1; }
 
 /* ── Help submenu ── */
 .pd-submenu {
@@ -575,11 +577,16 @@ body::after {
   max-width: 320px;
 }
 
-/* Select dropdown */
-.settings-select {
+/* Custom select dropdown */
+.settings-select-wrap {
+  position: relative;
+  display: inline-block;
+  min-width: 130px;
+}
+.settings-select-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   background: var(--surface-2);
   border: 1px solid var(--border-sm);
   border-radius: var(--r-sm);
@@ -590,10 +597,42 @@ body::after {
   cursor: pointer;
   white-space: nowrap;
   transition: border-color var(--t-fast), background var(--t-fast);
-  min-width: 110px;
+  width: 100%;
   justify-content: space-between;
+  user-select: none;
 }
-.settings-select:hover { border-color: var(--border-md); background: var(--surface-3); }
+.settings-select-btn:hover { border-color: var(--border-md); background: var(--surface-3); }
+.settings-select-btn.open { border-color: var(--gold-border); }
+
+.settings-select-menu {
+  position: absolute;
+  right: 0; top: calc(100% + 4px);
+  background: var(--surface-2);
+  border: 1px solid var(--border-md);
+  border-radius: var(--r-md);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  z-index: 10010;
+  overflow: hidden;
+  display: none;
+  min-width: 100%;
+}
+.settings-select-menu.open { display: block; }
+.settings-select-option {
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  white-space: nowrap;
+}
+.settings-select-option:hover { background: var(--surface-3); color: var(--text-1); }
+.settings-select-option.selected { color: var(--gold); font-weight: 500; }
+.settings-select-option.selected::after {
+  content: '✓';
+  float: right;
+  color: var(--gold);
+  margin-left: 12px;
+}
 
 /* Toggle switch */
 .settings-toggle {
@@ -3545,28 +3584,87 @@ document.getElementById('home-ask-input').addEventListener('input', function() {
         <div class="settings-page-title">General</div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Appearance</div></div>
-          <div class="settings-select" onclick="settingsCycle(this, ['System','Dark','Light'])">System <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+          <div class="settings-select-wrap">
+            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+              <span>System</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="settings-select-menu">
+              <div class="settings-select-option selected" onclick="settingsSelect(this)">System</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Dark</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Light</div>
+            </div>
+          </div>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Accent color</div></div>
-          <div class="settings-select" onclick="settingsCycle(this, ['Default','Gold','Violet','Teal'])"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--text-3);margin-right:4px;"></span>Default <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+          <div class="settings-select-wrap">
+            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+              <span style="display:flex;align-items:center;gap:7px;"><span id="accent-dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--text-3);flex-shrink:0;"></span>Default</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="settings-select-menu">
+              <div class="settings-select-option selected" onclick="settingsSelectAccent(this,'#888','Default')">Default</div>
+              <div class="settings-select-option" onclick="settingsSelectAccent(this,'#e8ac2e','Gold')">Gold</div>
+              <div class="settings-select-option" onclick="settingsSelectAccent(this,'#8b7cf8','Violet')">Violet</div>
+              <div class="settings-select-option" onclick="settingsSelectAccent(this,'#2dd4bf','Teal')">Teal</div>
+            </div>
+          </div>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Language</div></div>
-          <div class="settings-select" onclick="settingsCycle(this, ['Auto-detect','English','Filipino','Spanish'])">Auto-detect <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+          <div class="settings-select-wrap">
+            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+              <span>Auto-detect</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="settings-select-menu">
+              <div class="settings-select-option selected" onclick="settingsSelect(this)">Auto-detect</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">English</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Filipino</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Spanish</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">French</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Japanese</div>
+            </div>
+          </div>
         </div>
         <div class="settings-row">
           <div class="settings-row-left">
             <div class="settings-row-label">Spoken language</div>
             <div class="settings-row-desc">For best results, select the language you mainly speak. If it's not listed, it may still be supported via auto-detection.</div>
           </div>
-          <div class="settings-select" onclick="settingsCycle(this, ['Auto-detect','English','Filipino','Spanish'])">Auto-detect <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+          <div class="settings-select-wrap">
+            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+              <span>Auto-detect</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="settings-select-menu">
+              <div class="settings-select-option selected" onclick="settingsSelect(this)">Auto-detect</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">English</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Filipino</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Spanish</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">French</div>
+            </div>
+          </div>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Voice</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <button class="settings-play-btn"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play</button>
-            <div class="settings-select" onclick="settingsCycle(this, ['Maple','Echo','Nova','Shimmer'])">Maple <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+            <button class="settings-play-btn" id="voice-play-btn" onclick="settingsPlayVoice()">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play
+            </button>
+            <div class="settings-select-wrap">
+              <div class="settings-select-btn" onclick="settingsDropdown(this)" style="min-width:90px;">
+                <span id="voice-label">Maple</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+              <div class="settings-select-menu">
+                <div class="settings-select-option selected" onclick="settingsSelectVoice(this)">Maple</div>
+                <div class="settings-select-option" onclick="settingsSelectVoice(this)">Echo</div>
+                <div class="settings-select-option" onclick="settingsSelectVoice(this)">Nova</div>
+                <div class="settings-select-option" onclick="settingsSelectVoice(this)">Shimmer</div>
+              </div>
+            </div>
           </div>
         </div>
         <div class="settings-row">
@@ -3575,7 +3673,7 @@ document.getElementById('home-ask-input').addEventListener('input', function() {
             <div class="settings-row-desc">Keep Chunks AI Voice in a separate full screen, without real time transcripts and visuals.</div>
           </div>
           <label class="settings-toggle">
-            <input type="checkbox" checked>
+            <input type="checkbox" checked onchange="settingsToggleChanged(this,'separate-voice')">
             <div class="settings-toggle-track"></div>
             <div class="settings-toggle-thumb"></div>
           </label>
@@ -3608,19 +3706,41 @@ document.getElementById('home-ask-input').addEventListener('input', function() {
         <div class="settings-page-title">Personalization</div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Default book</div><div class="settings-row-desc">The textbook that opens by default in Workspace.</div></div>
-          <div class="settings-select" onclick="settingsCycle(this, ['Atkins Chemistry','Zumdahl','Klein Organic','Harris'])">Atkins Chemistry <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+          <div class="settings-select-wrap">
+            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+              <span>Atkins Chemistry</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="settings-select-menu">
+              <div class="settings-select-option selected" onclick="settingsSelect(this)">Atkins Chemistry</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Zumdahl General Chemistry</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Klein Organic Chemistry</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Harris Analytical</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Netter Anatomy</div>
+            </div>
+          </div>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Study mode</div><div class="settings-row-desc">Adjust AI response depth and detail level.</div></div>
-          <div class="settings-select" onclick="settingsCycle(this, ['Balanced','Concise','Detailed'])">Balanced <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+          <div class="settings-select-wrap">
+            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+              <span>Balanced</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="settings-select-menu">
+              <div class="settings-select-option" onclick="settingsSelect(this)">Concise</div>
+              <div class="settings-select-option selected" onclick="settingsSelect(this)">Balanced</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Detailed</div>
+            </div>
+          </div>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Show follow-up questions</div><div class="settings-row-desc">Display suggested follow-ups after AI responses.</div></div>
-          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" checked onchange="settingsToggleChanged(this,'followups')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Auto-generate flashcards</div><div class="settings-row-desc">Suggest flashcard creation after key answers.</div></div>
-          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" onchange="settingsToggleChanged(this,'auto-flash')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
       </div>
 
@@ -4425,20 +4545,20 @@ function _closeHelp() {
 function pdToggleHelp(e) {
   e && e.stopPropagation();
   _pdHelpOpen = !_pdHelpOpen;
-  const sub = document.getElementById('pd-help-submenu');
+  const sub  = document.getElementById('pd-help-submenu');
   const item = document.getElementById('pd-help-item');
   sub.classList.toggle('open', _pdHelpOpen);
   item?.classList.toggle('active', _pdHelpOpen);
 
   if (_pdHelpOpen) {
-    // Position submenu to the right of the dropdown
-    const dd = document.getElementById('profile-dropdown');
-    const rect = dd.getBoundingClientRect();
-    sub.style.left  = (rect.right + 6) + 'px';
-    sub.style.bottom = dd.style.bottom || '60px';
-    sub.style.bottom = 'auto';
+    const dd      = document.getElementById('profile-dropdown');
+    const ddRect  = dd.getBoundingClientRect();
     const itemRect = item.getBoundingClientRect();
-    sub.style.top  = itemRect.top + 'px';
+
+    // Align submenu top with the Help item, right beside the dropdown
+    sub.style.left   = (ddRect.right + 6) + 'px';
+    sub.style.top    = itemRect.top + 'px';
+    sub.style.bottom = 'auto';
   }
 }
 
@@ -4539,12 +4659,97 @@ document.getElementById('settings-modal').addEventListener('click', function(e) 
   if (e.target === this) closeSettings();
 });
 
-// Cycle through options for select-style dropdowns
-function settingsCycle(el, options) {
-  const currentText = el.childNodes[0].textContent.trim();
-  const idx = options.indexOf(currentText);
-  const next = options[(idx + 1) % options.length];
-  el.childNodes[0].textContent = next + ' ';
+/* ── Custom dropdown logic ── */
+let _openDropdownBtn = null;
+
+function settingsDropdown(btn) {
+  const menu = btn.nextElementSibling;
+  const isOpen = menu.classList.contains('open');
+
+  // Close any other open menus
+  document.querySelectorAll('.settings-select-menu.open').forEach(m => m.classList.remove('open'));
+  document.querySelectorAll('.settings-select-btn.open').forEach(b => b.classList.remove('open'));
+
+  if (!isOpen) {
+    menu.classList.add('open');
+    btn.classList.add('open');
+    _openDropdownBtn = btn;
+  } else {
+    _openDropdownBtn = null;
+  }
+}
+
+function settingsSelect(optionEl) {
+  const menu = optionEl.closest('.settings-select-menu');
+  const btn  = menu.previousElementSibling;
+  const label = btn.querySelector('span');
+
+  // Update selected state
+  menu.querySelectorAll('.settings-select-option').forEach(o => o.classList.remove('selected'));
+  optionEl.classList.add('selected');
+
+  // Update button label text
+  label.textContent = optionEl.textContent.replace('✓','').trim();
+
+  // Close menu
+  menu.classList.remove('open');
+  btn.classList.remove('open');
+}
+
+function settingsSelectAccent(optionEl, color, name) {
+  settingsSelect(optionEl);
+  // Update the color dot
+  const dot = document.getElementById('accent-dot');
+  if (dot) dot.style.background = color;
+  // Update the button label to include dot
+  const menu = optionEl.closest('.settings-select-menu');
+  const btn  = menu.previousElementSibling;
+  btn.querySelector('span').innerHTML = `<span style="display:inline-flex;align-items:center;gap:7px;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0;"></span>${name}</span>`;
+}
+
+function settingsSelectVoice(optionEl) {
+  settingsSelect(optionEl);
+  const voice = optionEl.textContent.trim();
+  const lbl = document.getElementById('voice-label');
+  if (lbl) lbl.textContent = voice;
+}
+
+function settingsPlayVoice() {
+  const btn = document.getElementById('voice-play-btn');
+  const voice = document.getElementById('voice-label')?.textContent || 'Maple';
+  // Use browser speech synthesis as a demo
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(`Hi, I'm ${voice}, your Chunks AI study assistant.`);
+    utter.rate = 0.95;
+    window.speechSynthesis.speak(utter);
+    btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Playing`;
+    utter.onend = () => { btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play`; };
+  } else {
+    wsShowToast && wsShowToast('🔊', 'Voice preview not supported in this browser', '');
+  }
+}
+
+// Close dropdowns when clicking outside
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.settings-select-wrap')) {
+    document.querySelectorAll('.settings-select-menu.open').forEach(m => m.classList.remove('open'));
+    document.querySelectorAll('.settings-select-btn.open').forEach(b => b.classList.remove('open'));
+  }
+});
+
+function settingsToggleChanged(checkbox, key) {
+  const val = checkbox.checked;
+  // Persist to sessionStorage so other parts of the app can read it
+  sessionStorage.setItem('chunks_setting_' + key, val ? '1' : '0');
+  // Apply live effects
+  if (key === 'followups') {
+    // Show/hide follow-up blocks in existing messages
+    document.querySelectorAll('.followups').forEach(el => {
+      el.style.display = val ? '' : 'none';
+    });
+  }
+  wsShowToast && wsShowToast(val ? '✓' : '✕', `${key.replace(/-/g,' ')} ${val ? 'enabled' : 'disabled'}`, val ? '' : '');
 }
 
 function clearAllHistory() {
