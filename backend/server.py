@@ -2288,6 +2288,7 @@ def stream_layer():
     layer_name  = sanitize_text(data.get('layerName', ''), 100)
     sources     = data.get('sources', [])          # list of {title, authors, journal, year}
     prev_layers = data.get('prevLayers', [])        # list of {name, paragraph}
+    instruction = sanitize_text(data.get('instruction', ''), 500)  # user feedback for regeneration
 
     if not layer_name:
         return jsonify({'success': False, 'error': 'layerName required'}), 400
@@ -2326,6 +2327,7 @@ def stream_layer():
         f"- Formal academic tone appropriate for {paper_type}\n"
         f"{'- Cite every source at least once as (Author, Year)' if sources else ''}\n"
         f"- Begin writing immediately — no preamble"
+        + (f"\n\nSPECIAL INSTRUCTION FROM USER (highest priority — follow exactly): {instruction}" if instruction else "")
     )
 
     headers = {
@@ -2385,6 +2387,50 @@ def stream_layer():
             'X-Accel-Buffering': 'no',   # disables nginx buffering on Railway
         }
     )
+
+
+# ============================================
+# /api/paper-search — Semantic Scholar proxy
+# Browsers can't call S2 directly (CORS).
+# ============================================
+
+S2_API_BASE = 'https://api.semanticscholar.org/graph/v1/paper/search'
+S2_FIELDS   = 'title,authors,year,journal,externalIds,abstract,citationCount,openAccessPdf'
+S2_HEADERS  = {'User-Agent': 'ChunksAI/1.0 (https://chunks-ai.vercel.app)'}
+
+@app.route('/api/paper-search', methods=['GET', 'OPTIONS'])
+@limiter.limit('30 per minute; 200 per hour', exempt_when=lambda: request.method == 'OPTIONS')
+def paper_search():
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+
+    query = request.args.get('query', '').strip()
+    if not query:
+        return jsonify({'success': False, 'error': 'query parameter required'}), 400
+    if len(query) > 300:
+        return jsonify({'success': False, 'error': 'query too long'}), 400
+
+    limit  = min(int(request.args.get('limit', 12)), 25)
+    offset = max(0, int(request.args.get('offset', 0)))
+
+    try:
+        resp = _session.get(
+            S2_API_BASE,
+            params={'query': query, 'limit': limit, 'offset': offset, 'fields': S2_FIELDS},
+            headers=S2_HEADERS,
+            timeout=15
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            return jsonify({'success': True, 'data': data.get('data', []), 'total': data.get('total', 0)})
+        if resp.status_code == 429:
+            return jsonify({'success': False, 'error': 'Rate limit — try again shortly'}), 429
+        return jsonify({'success': False, 'error': f'Search error ({resp.status_code})'}), 502
+    except requests.Timeout:
+        return jsonify({'success': False, 'error': 'Search timed out'}), 504
+    except Exception as e:
+        logger.exception('paper_search error')
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ── PAEV — Prerequisite-Aware Epistemic Verification ─────────────────────────
