@@ -366,6 +366,278 @@ body::after {
 .profile-name { font-size: 13px; font-weight: 500; color: var(--text-1); }
 .profile-plan { font-size: 11px; color: var(--text-3); }
 
+/* ── Profile dropdown menu ── */
+.profile-dropdown {
+  position: fixed;
+  bottom: 60px;
+  left: 10px;
+  width: 220px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-md);
+  border-radius: var(--r-lg);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  z-index: 10000;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(8px) scale(0.97);
+  pointer-events: none;
+  transition: opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring);
+}
+.profile-dropdown.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: all;
+}
+
+/* Header inside dropdown */
+.pd-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 14px 12px;
+  border-bottom: 1px solid var(--border-xs);
+}
+.pd-avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b7cf8, #e8ac2e);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.pd-name { font-size: 13px; font-weight: 600; color: var(--text-1); line-height: 1.3; }
+.pd-handle { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); }
+
+/* Menu items */
+.pd-menu { padding: 6px 0; }
+.pd-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 9px 14px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  position: relative;
+}
+.pd-item:hover { background: var(--surface-3); color: var(--text-1); }
+.pd-item svg { opacity: 0.6; flex-shrink: 0; transition: opacity var(--t-fast); }
+.pd-item:hover svg { opacity: 1; }
+.pd-item .pd-arrow {
+  margin-left: auto;
+  opacity: 0.4;
+}
+.pd-item.upgrade {
+  color: var(--gold);
+}
+.pd-item.upgrade svg { opacity: 0.8; color: var(--gold); }
+.pd-item.upgrade:hover { background: var(--gold-muted); color: var(--gold-bright); }
+.pd-item.danger { color: var(--red); }
+.pd-item.danger svg { opacity: 0.7; color: var(--red); }
+.pd-item.danger:hover { background: rgba(248,113,113,0.08); }
+
+.pd-divider { height: 1px; background: var(--border-xs); margin: 4px 0; }
+
+/* ── Help submenu ── */
+.pd-submenu {
+  position: fixed;
+  background: var(--surface-2);
+  border: 1px solid var(--border-md);
+  border-radius: var(--r-lg);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  z-index: 10001;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateX(-6px) scale(0.97);
+  pointer-events: none;
+  transition: opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring);
+  min-width: 190px;
+}
+.pd-submenu.open {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  pointer-events: all;
+}
+.pd-submenu .pd-item { padding: 9px 16px; font-size: 13px; }
+
+/* ── Settings Modal ── */
+.settings-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10002;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: modal-fade-in 0.18s ease;
+}
+.settings-modal.active { display: flex; }
+
+.settings-content {
+  background: var(--surface-1);
+  border: 1px solid var(--border-md);
+  border-radius: 18px;
+  width: 100%;
+  max-width: 680px;
+  height: 520px;
+  display: flex;
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
+  animation: modal-slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Left nav */
+.settings-nav {
+  width: 200px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border-xs);
+  padding: 18px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  position: relative;
+}
+.settings-close {
+  position: absolute;
+  top: 14px; right: 12px;
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: transparent;
+  color: var(--text-3); cursor: pointer; border-radius: 6px;
+  font-size: 14px; font-family: var(--font-body);
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.settings-close:hover { background: var(--surface-3); color: var(--text-1); }
+
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--text-2);
+  cursor: pointer;
+  border-radius: 0;
+  transition: background var(--t-fast), color var(--t-fast);
+  margin: 0 8px;
+  border-radius: var(--r-sm);
+}
+.settings-nav-item:hover { background: var(--surface-2); color: var(--text-1); }
+.settings-nav-item.active { background: var(--surface-3); color: var(--text-1); font-weight: 500; }
+.settings-nav-item svg { opacity: 0.6; flex-shrink: 0; }
+.settings-nav-item.active svg { opacity: 1; }
+
+/* Right panel */
+.settings-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px;
+}
+.settings-panel::-webkit-scrollbar { width: 3px; }
+.settings-panel::-webkit-scrollbar-thumb { background: var(--surface-4); border-radius: 2px; }
+
+.settings-page { display: none; }
+.settings-page.active { display: block; }
+
+.settings-page-title {
+  font-family: var(--font-head);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.02em;
+  margin-bottom: 20px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-xs);
+  gap: 16px;
+}
+.settings-row:last-child { border-bottom: none; }
+
+.settings-row-left { flex: 1; }
+.settings-row-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-1);
+  margin-bottom: 2px;
+}
+.settings-row-desc {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.5;
+  max-width: 320px;
+}
+
+/* Select dropdown */
+.settings-select {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-sm);
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--text-1);
+  font-family: var(--font-body);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--t-fast), background var(--t-fast);
+  min-width: 110px;
+  justify-content: space-between;
+}
+.settings-select:hover { border-color: var(--border-md); background: var(--surface-3); }
+
+/* Toggle switch */
+.settings-toggle {
+  position: relative;
+  width: 42px; height: 24px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.settings-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.settings-toggle-track {
+  position: absolute; inset: 0;
+  background: var(--surface-4);
+  border-radius: 12px;
+  transition: background var(--t-mid);
+  border: 1px solid var(--border-sm);
+}
+.settings-toggle input:checked + .settings-toggle-track {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.settings-toggle-thumb {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 16px; height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform var(--t-mid) var(--ease-spring);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+  pointer-events: none;
+}
+.settings-toggle input:checked ~ .settings-toggle-thumb { transform: translateX(18px); }
+
+/* Play button for Voice */
+.settings-play-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: var(--r-pill);
+  background: var(--surface-3); border: 1px solid var(--border-sm);
+  color: var(--text-1); font-size: 12px; font-weight: 500;
+  cursor: pointer; font-family: var(--font-body);
+  transition: background var(--t-fast);
+  margin-right: 6px;
+}
+.settings-play-btn:hover { background: var(--surface-4); }
+
 /* Home main */
 .home-main {
   flex: 1;
@@ -1666,7 +1938,7 @@ body {
     </div>
 
     <div class="sidebar-footer">
-      <div class="profile-row">
+      <div class="profile-row" onclick="toggleProfileDropdown(event)">
         <div class="avatar">A</div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
@@ -1799,7 +2071,7 @@ body {
       <div id="recent-list-workspace" class="recent-list"></div>
     </div>
     <div class="sidebar-footer">
-      <div class="profile-row">
+      <div class="profile-row" onclick="toggleProfileDropdown(event)">
         <div class="avatar">A</div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
@@ -1965,7 +2237,7 @@ body {
     </div>
 
     <div class="sidebar-footer">
-      <div class="profile-row">
+      <div class="profile-row" onclick="toggleProfileDropdown(event)">
         <div class="avatar">A</div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
@@ -3200,6 +3472,279 @@ document.getElementById('home-ask-input').addEventListener('input', function() {
 <!-- Toast notification -->
 <div id="ws-toast"></div>
 
+<!-- ── Help Submenu ── -->
+<div class="pd-submenu" id="pd-help-submenu">
+  <div class="pd-menu" style="padding:6px 0;">
+    <div class="pd-item" onclick="pdAction('help-center')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      Help center
+    </div>
+    <div class="pd-item" onclick="pdAction('terms')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+      Terms &amp; policies
+    </div>
+    <div class="pd-item" onclick="pdAction('bug')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 4-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17 17c2.3.1 4 1.9 4 4"/></svg>
+      Report a bug
+    </div>
+    <div class="pd-item" onclick="pdAction('shortcuts')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
+      Keyboard shortcuts
+    </div>
+  </div>
+</div>
+
+<!-- ── Settings Modal ── -->
+<div class="settings-modal" id="settings-modal">
+  <div class="settings-content">
+
+    <!-- Left Nav -->
+    <div class="settings-nav">
+      <button class="settings-close" onclick="closeSettings()">✕</button>
+      <div style="height:38px;"></div>
+
+      <div class="settings-nav-item active" onclick="settingsNav('general', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        General
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('notifications', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        Notifications
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('personalization', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Personalization
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('apps', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="9" height="9" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="13" width="9" height="9" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>
+        Apps
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('data', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+        Data controls
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('security', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Security
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('parental', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Parental controls
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('account', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Account
+      </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="settings-panel">
+
+      <!-- General -->
+      <div class="settings-page active" id="settings-page-general">
+        <div class="settings-page-title">General</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Appearance</div></div>
+          <div class="settings-select" onclick="settingsCycle(this, ['System','Dark','Light'])">System <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Accent color</div></div>
+          <div class="settings-select" onclick="settingsCycle(this, ['Default','Gold','Violet','Teal'])"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--text-3);margin-right:4px;"></span>Default <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Language</div></div>
+          <div class="settings-select" onclick="settingsCycle(this, ['Auto-detect','English','Filipino','Spanish'])">Auto-detect <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <div class="settings-row-label">Spoken language</div>
+            <div class="settings-row-desc">For best results, select the language you mainly speak. If it's not listed, it may still be supported via auto-detection.</div>
+          </div>
+          <div class="settings-select" onclick="settingsCycle(this, ['Auto-detect','English','Filipino','Spanish'])">Auto-detect <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Voice</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button class="settings-play-btn"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play</button>
+            <div class="settings-select" onclick="settingsCycle(this, ['Maple','Echo','Nova','Shimmer'])">Maple <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <div class="settings-row-label">Separate Voice</div>
+            <div class="settings-row-desc">Keep Chunks AI Voice in a separate full screen, without real time transcripts and visuals.</div>
+          </div>
+          <label class="settings-toggle">
+            <input type="checkbox" checked>
+            <div class="settings-toggle-track"></div>
+            <div class="settings-toggle-thumb"></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="settings-page" id="settings-page-notifications">
+        <div class="settings-page-title">Notifications</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Study reminders</div><div class="settings-row-desc">Get reminded to study at your scheduled times.</div></div>
+          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Flashcard review alerts</div><div class="settings-row-desc">Be notified when cards are due for review.</div></div>
+          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">New library books</div><div class="settings-row-desc">Get notified when new textbooks are added.</div></div>
+          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Product updates</div><div class="settings-row-desc">Feature announcements and improvements.</div></div>
+          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+      </div>
+
+      <!-- Personalization -->
+      <div class="settings-page" id="settings-page-personalization">
+        <div class="settings-page-title">Personalization</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Default book</div><div class="settings-row-desc">The textbook that opens by default in Workspace.</div></div>
+          <div class="settings-select" onclick="settingsCycle(this, ['Atkins Chemistry','Zumdahl','Klein Organic','Harris'])">Atkins Chemistry <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Study mode</div><div class="settings-row-desc">Adjust AI response depth and detail level.</div></div>
+          <div class="settings-select" onclick="settingsCycle(this, ['Balanced','Concise','Detailed'])">Balanced <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Show follow-up questions</div><div class="settings-row-desc">Display suggested follow-ups after AI responses.</div></div>
+          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Auto-generate flashcards</div><div class="settings-row-desc">Suggest flashcard creation after key answers.</div></div>
+          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+      </div>
+
+      <!-- Apps -->
+      <div class="settings-page" id="settings-page-apps">
+        <div class="settings-page-title">Apps</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Connected apps</div><div class="settings-row-desc">No apps connected yet.</div></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">API access</div><div class="settings-row-desc">Manage your API keys and integrations.</div></div>
+          <div class="settings-select" style="color:var(--text-3);cursor:default;">Coming soon</div>
+        </div>
+      </div>
+
+      <!-- Data controls -->
+      <div class="settings-page" id="settings-page-data">
+        <div class="settings-page-title">Data controls</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Save chat history</div><div class="settings-row-desc">Store your conversations for future reference.</div></div>
+          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Use data to improve Chunks AI</div><div class="settings-row-desc">Help improve the product by sharing anonymised usage data.</div></div>
+          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Delete all chat history</div><div class="settings-row-desc">Permanently remove all saved conversations.</div></div>
+          <button onclick="clearAllHistory()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;">Delete all</button>
+        </div>
+      </div>
+
+      <!-- Security -->
+      <div class="settings-page" id="settings-page-security">
+        <div class="settings-page-title">Security</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Two-factor authentication</div><div class="settings-row-desc">Add an extra layer of security to your account.</div></div>
+          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Active sessions</div><div class="settings-row-desc">View and manage devices logged into your account.</div></div>
+          <div class="settings-select" style="color:var(--text-3);cursor:default;">1 device</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Change password</div></div>
+          <button style="padding:6px 14px;border-radius:var(--r-sm);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-family:var(--font-body);cursor:pointer;">Update</button>
+        </div>
+      </div>
+
+      <!-- Parental controls -->
+      <div class="settings-page" id="settings-page-parental">
+        <div class="settings-page-title">Parental controls</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Safe content mode</div><div class="settings-row-desc">Restrict content to age-appropriate study material.</div></div>
+          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Set a PIN</div><div class="settings-row-desc">Protect settings with a PIN code.</div></div>
+          <button style="padding:6px 14px;border-radius:var(--r-sm);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-family:var(--font-body);cursor:pointer;">Set PIN</button>
+        </div>
+      </div>
+
+      <!-- Account -->
+      <div class="settings-page" id="settings-page-account">
+        <div class="settings-page-title">Account</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Name</div></div>
+          <div style="font-size:13px;color:var(--text-2);">Charles Daryll Contridas</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Username</div></div>
+          <div style="font-size:13px;color:var(--text-2);font-family:var(--font-mono);">@contridascharles91</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Plan</div><div class="settings-row-desc">Upgrade to unlock more features.</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:12px;color:var(--text-3);">Free</span>
+            <button onclick="closeSettings();pdAction('upgrade')" style="padding:5px 12px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Upgrade</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label" style="color:var(--red);">Delete account</div><div class="settings-row-desc">Permanently delete your account and all data.</div></div>
+          <button style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;">Delete</button>
+        </div>
+      </div>
+
+    </div><!-- /settings-panel -->
+  </div><!-- /settings-content -->
+</div><!-- /settings-modal -->
+<div class="profile-dropdown" id="profile-dropdown">
+  <div class="pd-header">
+    <div class="pd-avatar">CD</div>
+    <div>
+      <div class="pd-name">Charles Daryll Contridas</div>
+      <div class="pd-handle">@contridascharles91</div>
+    </div>
+  </div>
+  <div class="pd-menu">
+    <div class="pd-item upgrade" onclick="pdAction('upgrade')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      Upgrade plan
+    </div>
+    <div class="pd-divider"></div>
+    <div class="pd-item" onclick="pdAction('personalization')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      Personalization
+    </div>
+    <div class="pd-item" onclick="pdAction('settings')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      Settings
+    </div>
+    <div class="pd-divider"></div>
+    <div class="pd-item" id="pd-help-item" onclick="pdToggleHelp(event)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      Help
+      <svg class="pd-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+    </div>
+    <div class="pd-item danger" onclick="pdAction('logout')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Log out
+    </div>
+  </div>
+</div>
+
 <script>
 /* ═══════════════════════════════════════════
    WORKSPACE CHAT
@@ -3714,11 +4259,7 @@ document.getElementById('ws-chat-input').addEventListener('input', function() {
 const RECENT_MAX = 8;
 const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
-let _recentItems = JSON.parse(sessionStorage.getItem('chunks_recent') || 'null') || [
-  { id: 'r1', label: 'Thermodynamics Ch.4',  question: 'What are the key concepts in thermodynamics chapter 4?', bookId: 'atkins' },
-  { id: 'r2', label: 'Equilibrium Constants', question: 'Explain equilibrium constants and how to calculate them', bookId: 'atkins' },
-  { id: 'r3', label: 'Organic Reactions',     question: 'What are the main types of organic reactions?',        bookId: 'klein'  },
-];
+let _recentItems = JSON.parse(sessionStorage.getItem('chunks_recent') || 'null') || [];
 let _activeRecentId = null;
 
 function _saveRecent() {
@@ -3854,6 +4395,166 @@ document.getElementById('ws-chat-input').addEventListener('keydown', function(e)
     if (q) recentAdd(q, _wsBookId);
   }
 }, true);
+</script>
+<script>
+/* ── Profile Dropdown ── */
+let _pdOpen = false;
+let _pdHelpOpen = false;
+
+function toggleProfileDropdown(e) {
+  e && e.stopPropagation();
+  const dd = document.getElementById('profile-dropdown');
+  _pdOpen = !_pdOpen;
+  if (!_pdOpen) { _closeHelp(); }
+  dd.classList.toggle('open', _pdOpen);
+
+  if (_pdOpen) {
+    const sidebar = e?.currentTarget?.closest('.sidebar');
+    const isCompact = sidebar?.classList.contains('compact');
+    dd.style.left = isCompact ? '58px' : '10px';
+    dd.style.bottom = '60px';
+  }
+}
+
+function _closeHelp() {
+  _pdHelpOpen = false;
+  document.getElementById('pd-help-submenu').classList.remove('open');
+  document.getElementById('pd-help-item')?.classList.remove('active');
+}
+
+function pdToggleHelp(e) {
+  e && e.stopPropagation();
+  _pdHelpOpen = !_pdHelpOpen;
+  const sub = document.getElementById('pd-help-submenu');
+  const item = document.getElementById('pd-help-item');
+  sub.classList.toggle('open', _pdHelpOpen);
+  item?.classList.toggle('active', _pdHelpOpen);
+
+  if (_pdHelpOpen) {
+    // Position submenu to the right of the dropdown
+    const dd = document.getElementById('profile-dropdown');
+    const rect = dd.getBoundingClientRect();
+    sub.style.left  = (rect.right + 6) + 'px';
+    sub.style.bottom = dd.style.bottom || '60px';
+    sub.style.bottom = 'auto';
+    const itemRect = item.getBoundingClientRect();
+    sub.style.top  = itemRect.top + 'px';
+  }
+}
+
+// Close when clicking outside
+document.addEventListener('click', function(e) {
+  const dd  = document.getElementById('profile-dropdown');
+  const sub = document.getElementById('pd-help-submenu');
+  const sm  = document.getElementById('settings-modal');
+  if (_pdHelpOpen && !sub.contains(e.target) && !dd.contains(e.target)) {
+    _closeHelp();
+  }
+  if (_pdOpen && !dd.contains(e.target)) {
+    _pdOpen = false;
+    _closeHelp();
+    dd.classList.remove('open');
+  }
+});
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    if (_pdHelpOpen) { _closeHelp(); return; }
+    if (_pdOpen) {
+      _pdOpen = false;
+      document.getElementById('profile-dropdown').classList.remove('open');
+      return;
+    }
+    closeSettings();
+  }
+});
+
+function pdAction(action) {
+  _pdOpen = false;
+  _closeHelp();
+  document.getElementById('profile-dropdown').classList.remove('open');
+
+  switch(action) {
+    case 'upgrade':
+      wsShowToast && wsShowToast('⭐', 'Upgrade plan — coming soon!', 'var(--gold-border)');
+      break;
+    case 'personalization':
+      openSettings('personalization');
+      break;
+    case 'settings':
+      openSettings('general');
+      break;
+    case 'help-center':
+      wsShowToast && wsShowToast('❓', 'Help center — coming soon!', '');
+      break;
+    case 'terms':
+      wsShowToast && wsShowToast('📄', 'Terms & policies — coming soon!', '');
+      break;
+    case 'bug':
+      wsShowToast && wsShowToast('🐛', 'Report a bug — coming soon!', '');
+      break;
+    case 'shortcuts':
+      wsShowToast && wsShowToast('⌨️', 'Keyboard shortcuts — coming soon!', '');
+      break;
+    case 'logout':
+      if (confirm('Log out of Chunks AI?')) {
+        wsShowToast && wsShowToast('👋', 'Logged out', '');
+      }
+      break;
+  }
+}
+
+/* ── Settings Modal ── */
+function openSettings(page) {
+  document.getElementById('settings-modal').classList.add('active');
+  if (page) {
+    const navItems = document.querySelectorAll('.settings-nav-item');
+    navItems.forEach(n => n.classList.remove('active'));
+    const pages = document.querySelectorAll('.settings-page');
+    pages.forEach(p => p.classList.remove('active'));
+
+    const pageMap = {
+      general: 0, notifications: 1, personalization: 2,
+      apps: 3, data: 4, security: 5, parental: 6, account: 7
+    };
+    const idx = pageMap[page] ?? 0;
+    navItems[idx]?.classList.add('active');
+    document.getElementById('settings-page-' + page)?.classList.add('active');
+  }
+}
+
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('active');
+}
+
+function settingsNav(page, el) {
+  document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.settings-page').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('settings-page-' + page)?.classList.add('active');
+}
+
+// Click outside settings modal to close
+document.getElementById('settings-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeSettings();
+});
+
+// Cycle through options for select-style dropdowns
+function settingsCycle(el, options) {
+  const currentText = el.childNodes[0].textContent.trim();
+  const idx = options.indexOf(currentText);
+  const next = options[(idx + 1) % options.length];
+  el.childNodes[0].textContent = next + ' ';
+}
+
+function clearAllHistory() {
+  if (confirm('Delete all chat history? This cannot be undone.')) {
+    sessionStorage.removeItem('chunks_recent');
+    _recentItems = [];
+    _renderAllRecent();
+    wsShowToast && wsShowToast('🗑️', 'Chat history cleared', '');
+  }
+}
 </script>
 </body>
 </html>
