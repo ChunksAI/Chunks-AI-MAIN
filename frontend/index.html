@@ -3827,13 +3827,16 @@ async function homeSendMessage() {
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
-        system: `You are Chunks AI, an intelligent study assistant with access to current web information. Answer questions clearly with well-structured explanations. Use markdown (headers, bold, lists, code blocks) where helpful. Think through problems step by step. Provide accurate, up-to-date information. Be thorough but concise.`,
-        messages: homeHistory.slice(-12),
-        tools: [{ type: 'web_search_20250305', name: 'web_search' }]
+        system: `You are Chunks AI, an intelligent and helpful study assistant. Answer questions clearly and thoroughly. Use markdown formatting (## headers, **bold**, bullet lists, numbered lists, code blocks) to structure your responses. Think step by step. Cover reasoning, examples, and key concepts. Be like a knowledgeable tutor.`,
+        messages: homeHistory.slice(-12)
       })
     });
 
