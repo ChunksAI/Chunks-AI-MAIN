@@ -2150,6 +2150,15 @@ body {
 
       <!-- ── LANDING (hidden once chat starts) ── -->
       <div id="home-landing">
+        <!-- Ask box centered on landing -->
+        <div class="ask-box" id="home-ask-box" style="margin-bottom:20px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-3);flex-shrink:0;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <textarea id="home-ask-input" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
+          <button class="ask-send" id="home-send-btn" onclick="homeSendMessage()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+
         <div class="quick-grid">
         <div class="quick-card" onclick="openLibraryModal()">
           <div class="qc-icon gold">📚</div>
@@ -2180,12 +2189,12 @@ body {
     </div> <!-- end home-landing -->
     </div> <!-- end home-scroll-area -->
 
-    <!-- Sticky bottom input bar -->
-    <div class="home-input-bar">
-      <div class="ask-box" id="home-ask-box">
+    <!-- Sticky bottom input bar — shown only after first message -->
+    <div class="home-input-bar" id="home-input-bar" style="display:none;">
+      <div class="ask-box" id="home-ask-box-bottom">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-3);flex-shrink:0;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        <textarea id="home-ask-input" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
-        <button class="ask-send" id="home-send-btn" onclick="homeSendMessage()">
+        <textarea id="home-ask-input-bottom" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
+        <button class="ask-send" id="home-send-btn-bottom" onclick="homeSendMessage()">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
@@ -3608,7 +3617,9 @@ function homeSetMode(mode) {
 
 /* ── Fill input from prompt chip / quick card ── */
 function homeSetInput(text) {
-  const inp = document.getElementById('home-ask-input');
+  const bar = document.getElementById('home-input-bar');
+  const chatActive = bar && bar.style.display !== 'none';
+  const inp = document.getElementById(chatActive ? 'home-ask-input-bottom' : 'home-ask-input');
   inp.value = text;
   inp.focus();
   homeAutoResize(inp);
@@ -3762,14 +3773,38 @@ function homeScrollBottom() {
 function homeHideLanding() {
   const landing = document.getElementById('home-landing');
   const hero = document.querySelector('.home-hero');
+  const bar = document.getElementById('home-input-bar');
   if (landing) landing.style.display = 'none';
   if (hero) hero.style.display = 'none';
+  if (bar) bar.style.display = 'flex';
+  // Focus bottom input going forward
+  setTimeout(() => {
+    const bi = document.getElementById('home-ask-input-bottom');
+    if (bi) bi.focus();
+  }, 50);
 }
+
+// Bottom input also triggers send on Enter
+document.addEventListener('DOMContentLoaded', () => {
+  const bottomInput = document.getElementById('home-ask-input-bottom');
+  if (bottomInput) {
+    bottomInput.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); homeSendMessage(); }
+    });
+    bottomInput.addEventListener('input', function() { homeAutoResize(this); });
+  }
+});
 
 /* ── Main send ── */
 async function homeSendMessage() {
   if (homeIsTyping) return;
-  const inp = document.getElementById('home-ask-input');
+  const bar = document.getElementById('home-input-bar');
+  const chatActive = bar && bar.style.display !== 'none';
+  const inp = chatActive
+    ? document.getElementById('home-ask-input-bottom')
+    : document.getElementById('home-ask-input');
+  const sendBtn = document.getElementById(chatActive ? 'home-send-btn-bottom' : 'home-send-btn');
+
   const question = inp.value.trim();
   if (!question) return;
 
@@ -3778,12 +3813,12 @@ async function homeSendMessage() {
   homeAppendUser(question);
   inp.value = '';
   inp.style.height = '24px';
-  inp.focus();
+  setTimeout(() => document.getElementById('home-ask-input-bottom')?.focus(), 60);
 
   homeHistory.push({ role: 'user', content: question });
   homeIsTyping = true;
   homeAppendThinking();
-  document.getElementById('home-send-btn').disabled = true;
+  if (sendBtn) sendBtn.disabled = true;
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -3806,7 +3841,6 @@ async function homeSendMessage() {
       homeHistory.pop();
     } else {
       const data = await res.json();
-      // Extract all text blocks from response (may include tool_use blocks)
       const answer = (data.content || [])
         .filter(b => b.type === 'text')
         .map(b => b.text)
@@ -3820,7 +3854,7 @@ async function homeSendMessage() {
     homeHistory.pop();
   } finally {
     homeIsTyping = false;
-    document.getElementById('home-send-btn').disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
   }
 }
 
