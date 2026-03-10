@@ -75,10 +75,6 @@ _default_origins = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://localhost:5000",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5173",
 ]
 if FRONTEND_URL and FRONTEND_URL not in _default_origins:
     _default_origins.append(FRONTEND_URL)
@@ -2270,6 +2266,57 @@ def openrouter_credits():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # ── PAEV — Prerequisite-Aware Epistemic Verification ─────────────────────────
+# ============================================
+# /api/paper-search — Semantic Scholar proxy
+# Browsers can't call S2 directly (no CORS).
+# This route proxies the request server-side.
+# ============================================
+
+S2_API_BASE   = 'https://api.semanticscholar.org/graph/v1/paper/search'
+S2_FIELDS     = 'title,authors,year,journal,externalIds,abstract,citationCount,openAccessPdf'
+S2_HEADERS    = {'User-Agent': 'ChunksAI/1.0 (https://chunks-ai.vercel.app)'}
+
+@app.route('/api/paper-search', methods=['GET', 'OPTIONS'])
+@limiter.limit('30 per minute; 200 per hour', exempt_when=lambda: request.method == 'OPTIONS')
+def paper_search():
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+
+    query = request.args.get('query', '').strip()
+    if not query:
+        return jsonify({'success': False, 'error': 'query parameter required'}), 400
+    if len(query) > 300:
+        return jsonify({'success': False, 'error': 'query too long'}), 400
+
+    limit  = min(int(request.args.get('limit', 12)), 25)
+    offset = max(0, int(request.args.get('offset', 0)))
+
+    try:
+        resp = _session.get(
+            S2_API_BASE,
+            params={'query': query, 'limit': limit, 'offset': offset, 'fields': S2_FIELDS},
+            headers=S2_HEADERS,
+            timeout=15
+        )
+
+        if resp.status_code == 200:
+            data = resp.json()
+            return jsonify({'success': True, 'data': data.get('data', []), 'total': data.get('total', 0)})
+
+        # S2 returns 429 when rate-limited
+        if resp.status_code == 429:
+            return jsonify({'success': False, 'error': 'Paper search rate limit reached — try again in a moment'}), 429
+
+        logger.warning(f'S2 paper search error {resp.status_code}: {resp.text[:200]}')
+        return jsonify({'success': False, 'error': f'Search service error ({resp.status_code})'}), 502
+
+    except requests.Timeout:
+        return jsonify({'success': False, 'error': 'Paper search timed out — try again'}), 504
+    except Exception as e:
+        logger.exception('paper_search error')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 from paev_routes import register_paev
 register_paev(app)
 
