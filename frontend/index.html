@@ -935,10 +935,23 @@ body::after {
 /* PDF panel */
 .pdf-panel {
   flex: 0 0 50%;
+  min-width: 260px;
   display: flex; flex-direction: column;
-  border-right: 1px solid var(--border-xs);
+  border-right: none;
   overflow: hidden; background: var(--bg);
 }
+
+/* Drag resizer */
+.ws-resizer {
+  width: 4px;
+  flex-shrink: 0;
+  background: var(--border-xs);
+  cursor: col-resize;
+  position: relative;
+  z-index: 10;
+  transition: background var(--t-fast);
+}
+.ws-resizer:hover, .ws-resizer.dragging { background: var(--gold); }
 
 .pdf-bar {
   display: flex;
@@ -1010,8 +1023,8 @@ body::after {
 
 /* Chat panel */
 .chat-panel {
-  flex: 0 0 50%; display: flex; flex-direction: column;
-  overflow: hidden; background: var(--bg); min-width: 0;
+  flex: 1 1 0; min-width: 260px; display: flex; flex-direction: column;
+  overflow: hidden; background: var(--bg);
 }
 
 .chat-bar {
@@ -2160,11 +2173,15 @@ body {
       <div class="pdf-view" id="ws-pdf-view">
 
         <!-- Empty state — shown when no book loaded -->
-        <div id="ws-default-content" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;color:var(--text-3);text-align:center;padding:32px;background:#18181e;">
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-          <div style="font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text-2);margin-top:4px;">No book loaded</div>
-          <div style="font-size:12px;max-width:200px;line-height:1.6;color:var(--text-3);">Open the Library to pick a textbook and it'll appear here.</div>
-          <button onclick="openLibraryModal()" style="margin-top:6px;padding:8px 18px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Browse Library</button>
+        <div id="ws-default-content" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:40px;background:#18181e;z-index:2;">
+          <div style="width:56px;height:56px;border-radius:16px;background:var(--gold-muted);border:1px solid var(--gold-border);display:flex;align-items:center;justify-content:center;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+          </div>
+          <div>
+            <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);margin-bottom:6px;">No book loaded</div>
+            <div style="font-size:13px;max-width:220px;line-height:1.65;color:var(--text-3);">Open the Library to pick a textbook and it'll appear here.</div>
+          </div>
+          <button onclick="openLibraryModal()" style="padding:9px 22px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Browse Library</button>
         </div>
 
         <!-- Loading state -->
@@ -2182,6 +2199,9 @@ body {
     </div>
   </section>
 
+  <!-- Drag resizer -->
+  <div class="ws-resizer" id="ws-resizer"></div>
+
   <!-- Chat Panel -->
   <section class="chat-panel">
     <div class="chat-bar">
@@ -2194,9 +2214,14 @@ body {
     </div>
 
     <div class="messages" id="ws-messages">
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;text-align:center;padding:40px;">
+        <div style="width:56px;height:56px;border-radius:16px;background:var(--violet-muted);border:1px solid var(--violet-border);display:flex;align-items:center;justify-content:center;">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="1.5" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div>
+          <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);margin-bottom:6px;">Ask anything</div>
+          <div style="font-size:13px;color:var(--text-3);line-height:1.65;max-width:220px;">Select a book and type a question to start studying with AI.</div>
+        </div>
       </div>
     </div>
 
@@ -4517,6 +4542,46 @@ document.getElementById('ws-chat-input').addEventListener('keydown', function(e)
   }
 }, true);
 </script>
+<script>
+/* ── Workspace drag-to-resize splitter ── */
+(function() {
+  const resizer   = document.getElementById('ws-resizer');
+  const pdfPanel  = document.querySelector('.pdf-panel');
+  const wsScreen  = document.getElementById('screen-workspace');
+  if (!resizer || !pdfPanel) return;
+
+  let dragging = false, startX = 0, startW = 0;
+
+  resizer.addEventListener('mousedown', e => {
+    dragging = true;
+    startX = e.clientX;
+    startW = pdfPanel.getBoundingClientRect().width;
+    resizer.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const container = wsScreen.getBoundingClientRect();
+    const sidebar   = wsScreen.querySelector('.sidebar')?.getBoundingClientRect();
+    const sideW     = sidebar ? sidebar.width : 244;
+    const available = container.width - sideW - 4; // 4 = resizer width
+    const delta     = e.clientX - startX;
+    const newW      = Math.min(Math.max(startW + delta, available * 0.25), available * 0.75);
+    pdfPanel.style.flex = `0 0 ${newW}px`;
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+</script>
+
 <script>
 /* ── Profile Dropdown ── */
 let _pdOpen = false;
