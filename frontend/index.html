@@ -3884,7 +3884,7 @@ async function homeSendMessage() {
       homeHistory.push({ role: 'assistant', content: answer });
       if (_homeSessionId) {
         _saveSession(_homeSessionId, homeHistory);
-        sessionStorage.setItem('chunks_active_home_session', _homeSessionId);
+        localStorage.setItem('chunks_active_home_session', _homeSessionId);
       }
     }
   } catch (e) {
@@ -4777,23 +4777,23 @@ document.getElementById('ws-chat-input').addEventListener('input', function() {
 const RECENT_MAX = 8;
 const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
-let _recentItems = JSON.parse(sessionStorage.getItem('chunks_recent') || 'null') || [];
+let _recentItems = JSON.parse(localStorage.getItem('chunks_recent') || 'null') || [];
 let _activeRecentId = null;
 
 function _saveRecent() {
-  sessionStorage.setItem('chunks_recent', JSON.stringify(_recentItems));
+  localStorage.setItem('chunks_recent', JSON.stringify(_recentItems));
 }
 
 // ── Chat session save/restore ────────────────────────────
 function _saveSession(id, historyArr) {
   // Save the rendered HTML + history array for a chat session
   const html = document.getElementById('home-chat-history')?.innerHTML || '';
-  sessionStorage.setItem('chunks_session_' + id, JSON.stringify({ html, history: historyArr }));
+  localStorage.setItem('chunks_session_' + id, JSON.stringify({ html, history: historyArr }));
 }
 
 function _loadSession(id) {
   try {
-    const raw = sessionStorage.getItem('chunks_session_' + id);
+    const raw = localStorage.getItem('chunks_session_' + id);
     return raw ? JSON.parse(raw) : null;
   } catch(e) { return null; }
 }
@@ -4813,8 +4813,8 @@ function newChat() {
   _activeRecentId = null;
   homeHistory = [];
   _homeSessionId = null;
-  sessionStorage.removeItem('chunks_active_home_session');
-  sessionStorage.removeItem('chunks_home_session');
+  localStorage.removeItem('chunks_active_home_session');
+  localStorage.removeItem('chunks_home_session');
 
   // Reset home screen to landing state
   const homeChatHistory = document.getElementById('home-chat-history');
@@ -4858,7 +4858,7 @@ function recentAdd(question, bookId, source) {
     _setActiveRecent(_recentItems[0].id);
     if (source === 'general') {
       _homeSessionId = _recentItems[0].id;
-      sessionStorage.setItem('chunks_home_session', _homeSessionId);
+      localStorage.setItem('chunks_home_session', _homeSessionId);
     }
     return;
   }
@@ -4876,7 +4876,7 @@ function recentAdd(question, bookId, source) {
   _setActiveRecent(item.id);
   if (source === 'general') {
     _homeSessionId = item.id;
-    sessionStorage.setItem('chunks_home_session', _homeSessionId);
+    localStorage.setItem('chunks_home_session', _homeSessionId);
   }
 }
 
@@ -4992,10 +4992,10 @@ _renderAllRecent();
 
 // ── Restore active General AI chat session on refresh ────
 (function restoreHomeSession() {
-  const savedId = sessionStorage.getItem('chunks_active_home_session');
+  const savedId = localStorage.getItem('chunks_active_home_session');
   if (!savedId) return;
   let session;
-  try { session = JSON.parse(sessionStorage.getItem('chunks_session_' + savedId)); } catch(e) { return; }
+  try { session = JSON.parse(localStorage.getItem('chunks_session_' + savedId)); } catch(e) { return; }
   if (!session || !session.html) return;
 
   const landing    = document.getElementById('home-landing');
@@ -5309,7 +5309,7 @@ function settingsToggleChanged(checkbox, key) {
 
 function clearAllHistory() {
   if (confirm('Delete all chat history? This cannot be undone.')) {
-    sessionStorage.removeItem('chunks_recent');
+    localStorage.removeItem('chunks_recent');
     _recentItems = [];
     _renderAllRecent();
     wsShowToast && wsShowToast('🗑️', 'Chat history cleared', '');
