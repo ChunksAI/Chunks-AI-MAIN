@@ -684,10 +684,41 @@ body::after {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 40px 24px 28px;
-  overflow-y: auto;
+  overflow: hidden;
   position: relative;
+}
+
+/* Scrollable content area above the fixed bar */
+.home-scroll-area {
+  flex: 1;
+  width: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 24px 24px;
+  scrollbar-width: thin;
+}
+
+/* Sticky bottom input bar */
+.home-input-bar {
+  width: 100%;
+  background: var(--bg);
+  padding: 12px 24px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-top: 1px solid var(--border-xs);
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.home-disclaimer {
+  font-size: 11.5px;
+  color: var(--text-4);
+  text-align: center;
+  margin-top: 8px;
+  line-height: 1.4;
 }
 
 .home-glow {
@@ -767,21 +798,22 @@ body::after {
   max-width: 760px;
   background: var(--surface-1);
   border: 1px solid var(--border-sm);
-  border-radius: var(--r-xl);
-  padding: 15px 15px 11px;
-  margin-bottom: 16px;
-  position: relative;
-  z-index: 1;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.025), 0 8px 48px rgba(0,0,0,0.5);
+  border-radius: 99px;
+  padding: 0 6px 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  box-shadow: 0 2px 24px rgba(0,0,0,0.35);
   transition: border-color var(--t-mid), box-shadow var(--t-mid);
 }
-.ask-box:hover {
-  border-color: var(--gold-border);
-  box-shadow: 0 0 0 1px rgba(232,172,46,0.06), 0 8px 48px rgba(0,0,0,0.5);
+.ask-box:focus-within {
+  border-color: var(--border-md);
+  box-shadow: 0 2px 32px rgba(0,0,0,0.5);
 }
 
 .ask-textarea {
-  width: 100%;
+  flex: 1;
   background: transparent;
   border: none;
   outline: none;
@@ -789,8 +821,11 @@ body::after {
   font-size: 15px;
   color: var(--text-1);
   resize: none;
-  line-height: 1.55;
-  min-height: 46px;
+  line-height: 1.5;
+  height: 24px;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 0;
 }
 .ask-placeholder { color: var(--text-3); }
 
@@ -824,8 +859,8 @@ body::after {
 .tool-chip.active { color: var(--violet); background: var(--violet-muted); border-color: var(--violet-border); }
 
 .ask-send {
-  width: 32px; height: 32px;
-  border-radius: var(--r-sm);
+  width: 36px; height: 36px;
+  border-radius: 99px;
   background: var(--gold);
   border: none;
   cursor: pointer;
@@ -1373,46 +1408,13 @@ body::after {
   color: var(--text-2); margin: 10px 0; font-style: italic;
 }
 .hc-ai-body hr { border: none; border-top: 1px solid var(--border-xs); margin: 14px 0; }
-.hc-topic-title {
-  font-family: var(--font-head);
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--text-1);
-  margin-bottom: 12px;
-  line-height: 1.25;
-}
-
-.hc-img-strip {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-.hc-img-strip:empty { display: none; margin: 0; }
-
-.hc-img-thumb {
-  flex: 1;
-  min-width: 0;
-  border-radius: 10px;
-  overflow: hidden;
-  aspect-ratio: 4/3;
-  display: block;
-  background: var(--surface-2);
-  border: 1px solid var(--border-xs);
-  transition: transform var(--t-fast), border-color var(--t-fast);
-}
-.hc-img-thumb:hover { transform: scale(1.02); border-color: var(--border-md); }
-.hc-img-thumb img {
-  width: 100%; height: 100%;
-  object-fit: cover; display: block;
-}
-
-.hc-answer-text { }
-.hc-answer-text p:first-child { margin-top: 0; }
+.hc-source-badge {
   margin-top: 10px; padding-top: 8px;
   border-top: 1px solid var(--border-xs);
   font-size: 11px; color: var(--text-3);
   font-family: var(--font-mono);
   display: flex; align-items: center; gap: 5px;
+}
 }
 .hc-error {
   background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);
@@ -2132,40 +2134,23 @@ body {
   <main class="home-main">
     <div class="home-glow"></div>
 
-    <div class="home-hero">
-      <div class="eyebrow-pill">
-        <span class="eyebrow-dot"></span>
-        AI Study Assistant
-      </div>
-      <h1 class="home-h1">Study smarter,<br>not <em>harder</em></h1>
-      <p class="home-sub">Ask questions, explore your textbooks, and generate study tools — all in one place.</p>
-    </div>
-
-    <!-- ── CHAT HISTORY (hidden until first message) ── -->
-    <div class="home-chat-history" id="home-chat-history"></div>
-
-    <div class="ask-box" id="home-ask-box">
-      <textarea id="home-ask-input" class="ask-textarea" placeholder="Ask anything about your textbooks…" rows="1"></textarea>
-      <div class="ask-footer">
-        <div class="ask-tools">
-          <button class="tool-chip active" id="book-chip" onclick="homeSetMode('book')">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-            Atkins Chemistry
-          </button>
-          <button class="tool-chip" id="general-chip" onclick="homeSetMode('general')">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-            General AI
-          </button>
+    <!-- Scrollable content -->
+    <div class="home-scroll-area" id="home-scroll-area">
+      <div class="home-hero">
+        <div class="eyebrow-pill">
+          <span class="eyebrow-dot"></span>
+          AI Study Assistant
         </div>
-        <button class="ask-send" id="home-send-btn" onclick="homeSendMessage()">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
+        <h1 class="home-h1">Study smarter,<br>not <em>harder</em></h1>
+        <p class="home-sub">Ask questions, explore your textbooks, and generate study tools — all in one place.</p>
       </div>
-    </div>
 
-    <!-- ── LANDING (hidden once chat starts) ── -->
-    <div id="home-landing">
-      <div class="quick-grid">
+      <!-- ── CHAT HISTORY (hidden until first message) ── -->
+      <div class="home-chat-history" id="home-chat-history"></div>
+
+      <!-- ── LANDING (hidden once chat starts) ── -->
+      <div id="home-landing">
+        <div class="quick-grid">
         <div class="quick-card" onclick="openLibraryModal()">
           <div class="qc-icon gold">📚</div>
           <div class="qc-title">Open Textbook</div>
@@ -2192,7 +2177,21 @@ body {
         <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Supply and Demand</button>
         <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Pythagorean Theorem</button>
       </div>
+    </div> <!-- end home-landing -->
+    </div> <!-- end home-scroll-area -->
+
+    <!-- Sticky bottom input bar -->
+    <div class="home-input-bar">
+      <div class="ask-box" id="home-ask-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-3);flex-shrink:0;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <textarea id="home-ask-input" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
+        <button class="ask-send" id="home-send-btn" onclick="homeSendMessage()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+      <div class="home-disclaimer">Chunks AI can make mistakes. Verify important information.</div>
     </div>
+
   </main>
 </div>
 
@@ -3729,18 +3728,9 @@ function homeRemoveThinking() {
   if (el) { clearInterval(el._labelTimer); el.remove(); }
 }
 
-async function homeAppendAI(text, sources, question) {
+function homeAppendAI(text, sources) {
   const wrap = document.createElement('div');
   wrap.className = 'hc-ai';
-
-  // Extract a clean topic title from the first heading or first bold phrase
-  let topic = '';
-  const headingMatch = text.match(/^#+\s*(.+)$/m);
-  const boldMatch    = text.match(/\*\*([^*]{3,40})\*\*/);
-  if (headingMatch)   topic = headingMatch[1].replace(/\*+/g,'').trim();
-  else if (boldMatch) topic = boldMatch[1].trim();
-  else if (question)  topic = question.replace(/^(what is|explain|define|tell me about)\s+/i,'').trim();
-
   let sourceBadge = '';
   if (sources && sources.length > 0) {
     sourceBadge = `<div class="hc-source-badge">
@@ -3748,45 +3738,11 @@ async function homeAppendAI(text, sources, question) {
       📖 Page ${sources[0].page}
     </div>`;
   }
-
-  // Build image strip placeholder
-  const imgStripId = 'img-strip-' + Date.now();
-  const topicHtml = topic
-    ? `<div class="hc-topic-title">${topic}</div>`
-    : '';
-
   wrap.innerHTML = `
     <div class="hc-ai-avatar">✦</div>
-    <div class="hc-ai-body" style="min-width:0;">
-      ${topicHtml}
-      <div class="hc-img-strip" id="${imgStripId}"></div>
-      <div class="hc-answer-text">${homeMarkdown(text)}</div>
-      ${sourceBadge}
-    </div>`;
-
+    <div class="hc-ai-body">${homeMarkdown(text)}${sourceBadge}</div>`;
   document.getElementById('home-chat-history').appendChild(wrap);
   homeScrollBottom();
-
-  // Fetch 3 images for the topic
-  if (topic) {
-    try {
-      const q = encodeURIComponent(topic);
-      const res = await fetch(`https://api.unsplash.com/search/photos?query=${q}&per_page=3&orientation=landscape`, {
-        headers: { Authorization: 'Client-ID MHvjkxhCJrxBgIEZfvEHFKL2ZV74y3g2Kj3z2UO4sGc' }
-      });
-      const data = await res.json();
-      const strip = document.getElementById(imgStripId);
-      if (strip && data.results && data.results.length > 0) {
-        strip.innerHTML = data.results.map(img => `
-          <a href="${img.links.html}" target="_blank" class="hc-img-thumb">
-            <img src="${img.urls.small}" alt="${img.alt_description || topic}" loading="lazy">
-          </a>`).join('');
-        homeScrollBottom();
-      }
-    } catch(e) {
-      // silently skip images if fetch fails
-    }
-  }
 }
 
 function homeAppendError(msg) {
@@ -3798,17 +3754,16 @@ function homeAppendError(msg) {
 }
 
 function homeScrollBottom() {
-  const main = document.querySelector('#screen-home main');
-  if (main) main.scrollTop = main.scrollHeight;
+  const area = document.getElementById('home-scroll-area');
+  if (area) area.scrollTop = area.scrollHeight;
 }
 
 /* ── Hide landing when first message sent ── */
 function homeHideLanding() {
   const landing = document.getElementById('home-landing');
   const hero = document.querySelector('.home-hero');
-  if (landing) { landing.style.display = 'none'; }
-  if (hero) { hero.style.display = 'none'; }
-  document.getElementById('home-ask-box').classList.add('chat-mode');
+  if (landing) landing.style.display = 'none';
+  if (hero) hero.style.display = 'none';
 }
 
 /* ── Main send ── */
@@ -3818,11 +3773,11 @@ async function homeSendMessage() {
   const question = inp.value.trim();
   if (!question) return;
 
-  recentAdd(question, homeMode === 'book' ? 'atkins' : null);
+  recentAdd(question, null);
   homeHideLanding();
   homeAppendUser(question);
   inp.value = '';
-  homeAutoResize(inp);
+  inp.style.height = '24px';
   inp.focus();
 
   homeHistory.push({ role: 'user', content: question });
@@ -3831,55 +3786,33 @@ async function homeSendMessage() {
   document.getElementById('home-send-btn').disabled = true;
 
   try {
-    if (homeMode === 'general') {
-      // ── Direct Anthropic API — no book context ──────────
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1000,
-          system: `You are Chunks AI, a smart and helpful study assistant. Answer questions clearly, thoroughly, and in a well-structured way. Use markdown formatting (headers, bold, lists, code blocks) where it improves clarity. Be like a knowledgeable tutor — explain reasoning, give examples, and break down complex ideas. You are NOT limited to any textbook — answer any academic or general knowledge question confidently.`,
-          messages: homeHistory.slice(-12)
-        })
-      });
-      homeRemoveThinking();
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        homeAppendError(err.error?.message || `Error ${res.status}`);
-        homeHistory.pop();
-      } else {
-        const data = await res.json();
-        const answer = data.content?.map(b => b.text || '').join('') || 'No response.';
-        homeAppendAI(answer, null, question);
-        homeHistory.push({ role: 'assistant', content: answer });
-      }
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: `You are Chunks AI, an intelligent study assistant with access to current web information. Answer questions clearly with well-structured explanations. Use markdown (headers, bold, lists, code blocks) where helpful. Think through problems step by step. Provide accurate, up-to-date information. Be thorough but concise.`,
+        messages: homeHistory.slice(-12),
+        tools: [{ type: 'web_search_20250305', name: 'web_search' }]
+      })
+    });
+
+    homeRemoveThinking();
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      homeAppendError(err.error?.message || `Error ${res.status}`);
+      homeHistory.pop();
     } else {
-      // ── Book mode — use backend /ask endpoint ───────────
-      const payload = {
-        question,
-        bookId: 'atkins',
-        mode: 'study',
-        complexity: 5,
-        history: homeHistory.slice(-10),
-        web_search: false
-      };
-      const res = await fetch(`${BACKEND}/ask`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      homeRemoveThinking();
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        homeAppendError(err.error || `Server error ${res.status}`);
-        homeHistory.pop();
-      } else {
-        const data = await res.json();
-        const answer = data.answer || 'No response received.';
-        homeAppendAI(answer, data.sources, question);
-        homeHistory.push({ role: 'assistant', content: answer });
-      }
+      const data = await res.json();
+      // Extract all text blocks from response (may include tool_use blocks)
+      const answer = (data.content || [])
+        .filter(b => b.type === 'text')
+        .map(b => b.text)
+        .join('') || 'No response.';
+      homeAppendAI(answer, null);
+      homeHistory.push({ role: 'assistant', content: answer });
     }
   } catch (e) {
     homeRemoveThinking();
