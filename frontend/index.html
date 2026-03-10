@@ -2619,29 +2619,28 @@ body {
   // Detect refresh vs fresh open:
   // sessionStorage is empty on fresh open but survives a refresh within the same tab.
   (function restoreScreen() {
-    // Detect refresh vs fresh open using performance.navigation (most reliable)
-    const navType = (performance.getEntriesByType?.('navigation')[0]?.type)
-                 || (performance.navigation?.type === 1 ? 'reload' : 'navigate');
-    const isRefresh = navType === 'reload';
+    // 'chunks_was_here' is set on beforeunload — present = refresh, absent = fresh open
+    const isRefresh = sessionStorage.getItem('chunks_was_here') === '1';
 
     if (isRefresh) {
-      // Refresh — restore last screen
       const last = sessionStorage.getItem('chunks_active_screen');
       if (last && document.getElementById('screen-' + last)) {
         showScreen(last);
       }
-      // Restore library modal if it was open
       if (sessionStorage.getItem('chunks_library_open') === '1') {
         document.getElementById('library-modal')?.classList.add('active');
       }
-      // Flag for home session restore (runs later after variables are declared)
       sessionStorage.setItem('chunks_is_refresh', '1');
     } else {
-      // Fresh open — always show home landing, clear active chat
       showScreen('home');
       sessionStorage.removeItem('chunks_is_refresh');
       localStorage.removeItem('chunks_active_home_session');
     }
+
+    // Set flag — will survive refresh but not a fresh open
+    window.addEventListener('beforeunload', () => {
+      sessionStorage.setItem('chunks_was_here', '1');
+    });
   })();
 
   /* ── Flashcard flip ── */
