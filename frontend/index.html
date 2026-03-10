@@ -2618,7 +2618,9 @@ body {
 
   // Restore last screen on load
   (function restoreScreen() {
-    // Always start on home screen — don't restore last screen on fresh open
+    // Always start on home screen on fresh page load
+    sessionStorage.removeItem('chunks_active_screen');
+    showScreen('home');
   })();
 
   /* ── Flashcard flip ── */
