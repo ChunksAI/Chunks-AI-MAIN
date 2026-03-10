@@ -3825,23 +3825,15 @@ async function homeSendMessage() {
   if (sendBtn) sendBtn.disabled = true;
 
   try {
-    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const res = await fetch(`${BACKEND}/ask`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://chunksai.app',
-        'X-Title': 'Chunks AI'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'arcee-ai/trinity-large-preview:free',
-        max_tokens: 1000,
-        messages: [
-          {
-            role: 'system',
-            content: `You are Chunks AI, an intelligent and helpful study assistant. Answer questions clearly and thoroughly. Use markdown formatting (## headers, **bold**, bullet lists, numbered lists, code blocks) to structure your responses. Think step by step. Cover reasoning, examples, and key concepts. Be like a knowledgeable tutor.`
-          },
-          ...homeHistory.slice(-12)
-        ]
+        question,
+        bookId: '',
+        mode: 'general',
+        complexity: 5,
+        history: homeHistory.slice(-12)
       })
     });
 
@@ -3849,11 +3841,11 @@ async function homeSendMessage() {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      homeAppendError(err.error?.message || `Error ${res.status}`);
+      homeAppendError(err.error || `Error ${res.status}`);
       homeHistory.pop();
     } else {
       const data = await res.json();
-      const answer = data.choices?.[0]?.message?.content || 'No response.';
+      const answer = data.answer || 'No response.';
       homeAppendAI(answer, null);
       homeHistory.push({ role: 'assistant', content: answer });
     }
@@ -4290,14 +4282,9 @@ async function wsMakeFlashcard(btn, msgId, question) {
     const res = await fetch(`${WS_BACKEND}/generate-flashcards`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        topic,
-        bookId: _wsBookId || 'atkins',
-        count: 10,
-      })
+      body: JSON.stringify({ topic, bookId: _wsBookId || 'atkins', count: 10 })
     });
     const data = await res.json();
-
     if (!data.success || !data.flashcards?.length) throw new Error(data.error || 'No cards returned');
 
     // Load into flashcard screen
@@ -4709,10 +4696,10 @@ async function _wsAsk(question) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         question,
-        bookId:     _wsBookId || 'atkins',
-        mode:       'study',
+        bookId: _wsBookId || 'atkins',
+        mode: 'study',
         complexity: 5,
-        history:    _wsChatHistory.slice(-10),
+        history: _wsChatHistory.slice(-10),
       })
     });
     wsRemoveThinking();
@@ -4723,7 +4710,6 @@ async function _wsAsk(question) {
     } else {
       const data = await res.json();
       const answer = data.answer || 'No response.';
-      // sources shape: [{page: int, text: str}]
       wsAppendAI(answer, data.sources || [], question);
       _wsChatHistory.push({ role: 'assistant', content: answer });
     }
