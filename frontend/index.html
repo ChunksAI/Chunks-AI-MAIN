@@ -2997,12 +2997,32 @@ async function selectBook(bookId) {
   _wsBookId = bookId;
   _wsChatHistory = [];
   const short = meta.name.split(' ').slice(0,2).join(' ');
-  const ctag  = document.getElementById('ws-context-tag');
+  const ctag   = document.getElementById('ws-context-tag');
   const ctitle = document.getElementById('ws-chat-title');
   if (ctag)   ctag.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg> ${short}`;
   if (ctitle) ctitle.textContent = meta.name;
+
+  // Clear messages and show downloading banner
   const msgs = document.getElementById('ws-messages');
-  if (msgs) msgs.innerHTML = '';
+  if (msgs) {
+    msgs.innerHTML = `
+      <div id="ws-download-banner" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:18px;text-align:center;padding:40px;">
+        <div style="width:56px;height:56px;border-radius:16px;background:var(--gold-muted);border:1px solid var(--gold-border);display:flex;align-items:center;justify-content:center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+            <path d="M12 8v8M9 13l3 3 3-3"/>
+          </svg>
+        </div>
+        <div>
+          <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);margin-bottom:5px;">Downloading textbook…</div>
+          <div style="font-size:12px;color:var(--text-3);line-height:1.6;max-width:220px;">Loading <strong style="color:var(--text-2);">${meta.name}</strong>. This may take a moment on first load.</div>
+        </div>
+        <div style="width:180px;height:3px;background:var(--surface-4);border-radius:99px;overflow:hidden;">
+          <div id="ws-chat-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--violet));border-radius:99px;transition:width 0.4s ease;"></div>
+        </div>
+        <div id="ws-chat-progress-text" style="font-family:var(--font-mono);font-size:11px;color:var(--text-3);">Connecting…</div>
+      </div>`;
+  }
 
   showScreen('workspace');
 
@@ -3016,24 +3036,80 @@ async function selectBook(bookId) {
   document.getElementById('ws-loading-progress').textContent  = 'Fetching from server…';
 
   const pdfUrl = `${WS_BACKEND}/pdf/${bookId}`;
+  const CACHE_NAME = 'chunks-pdf-v1';
 
   try {
     const pdfjsLib = await _loadPdfJs();
 
-    const loadingTask = pdfjsLib.getDocument({
-      url: pdfUrl,
-      rangeChunkSize: 65536,
-      disableAutoFetch: false,
-      disableStream: false,
-    });
+    // ── Try Cache API first ────────────────────────────────
+    let pdfData = null;
+    let fromCache = false;
 
-    loadingTask.onProgress = function(data) {
-      if (data.total) {
-        const pct = Math.round((data.loaded / data.total) * 100);
-        document.getElementById('ws-loading-progress').textContent =
-          `${pct}% — ${(data.loaded / 1048576).toFixed(1)} MB`;
+    if ('caches' in window) {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match(pdfUrl);
+        if (cached) {
+          const bar = document.getElementById('ws-chat-progress-bar');
+          const txt = document.getElementById('ws-chat-progress-text');
+          if (bar) bar.style.width = '100%';
+          if (txt) txt.textContent = 'Loaded from cache ⚡';
+          document.getElementById('ws-loading-progress').textContent = 'From cache — rendering…';
+          pdfData = await cached.arrayBuffer();
+          fromCache = true;
+        }
+      } catch(e) { console.warn('Cache read failed:', e); }
+    }
+
+    // ── Fetch from network if not cached ──────────────────
+    if (!pdfData) {
+      const response = await fetch(pdfUrl);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      // Read as stream to track progress
+      const contentLength = response.headers.get('Content-Length');
+      const total = contentLength ? parseInt(contentLength) : 0;
+      const reader = response.body.getReader();
+      const chunks = [];
+      let loaded = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.length;
+        if (total) {
+          const pct = Math.round((loaded / total) * 100);
+          const mb  = (loaded / 1048576).toFixed(1);
+          document.getElementById('ws-loading-progress').textContent = `${pct}% — ${mb} MB`;
+          const bar = document.getElementById('ws-chat-progress-bar');
+          const txt = document.getElementById('ws-chat-progress-text');
+          if (bar) bar.style.width = pct + '%';
+          if (txt) txt.textContent = `${pct}% — ${mb} MB`;
+        }
       }
-    };
+
+      // Combine chunks into one ArrayBuffer
+      const totalBytes = chunks.reduce((sum, c) => sum + c.length, 0);
+      const merged = new Uint8Array(totalBytes);
+      let offset = 0;
+      for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length; }
+      pdfData = merged.buffer;
+
+      // ── Save to Cache API for next time ──────────────────
+      if ('caches' in window) {
+        try {
+          const cache = await caches.open(CACHE_NAME);
+          const responseToCache = new Response(pdfData.slice(0), {
+            headers: { 'Content-Type': 'application/pdf' }
+          });
+          await cache.put(pdfUrl, responseToCache);
+          console.log(`📦 Cached ${bookId} (${(totalBytes/1048576).toFixed(1)} MB)`);
+        } catch(e) { console.warn('Cache write failed:', e); }
+      }
+    }
+
+    const loadingTask = pdfjsLib.getDocument({ data: pdfData });
 
     _wsPdfDoc      = await loadingTask.promise;
     _wsTotalPages  = _wsPdfDoc.numPages;
@@ -3051,11 +3127,9 @@ async function selectBook(bookId) {
       const pageWrap = document.createElement('div');
       pageWrap.style.cssText = 'position:relative;box-shadow:0 4px 24px rgba(0,0,0,0.6);flex-shrink:0;';
       pageWrap.dataset.pageNum = i;
-
       const canvas = document.createElement('canvas');
       canvas.style.display = 'block';
       pageWrap.appendChild(canvas);
-
       wrap.appendChild(pageWrap);
       _wsPageContainers.push(pageWrap);
     }
@@ -3071,8 +3145,7 @@ async function selectBook(bookId) {
         const cv = c.querySelector('canvas');
         cv.width = 850; cv.height = 1100;
         c.style.width = '850px'; c.style.height = '1100px';
-        // Grey placeholder
-        cv.getContext('2d').fillStyle = '#f9f8f5';
+        cv.getContext('2d').fillStyle = '#1e1e24';
         cv.getContext('2d').fillRect(0,0,850,1100);
       }
     });
@@ -3089,7 +3162,7 @@ async function selectBook(bookId) {
     }, { root: wrap, rootMargin: '300px' });
     _wsPageContainers.slice(2).forEach(c => observer.observe(c));
 
-    // Scroll-sync: update page badge as user scrolls
+    // Scroll-sync
     wrap.addEventListener('scroll', () => {
       const scrollMid = wrap.scrollTop + wrap.clientHeight / 2;
       let closest = 1;
@@ -3109,14 +3182,61 @@ async function selectBook(bookId) {
     document.getElementById('ws-default-content').style.display = 'none';
     wrap.style.display = 'flex';
 
-    // Build outline from PDF TOC (or fallback to book-specific hardcoded)
-    await _wsBuildOutline(pdfDoc, bookId);
+    // ── Replace downloading banner with welcome message ──
+    _wsShowWelcome(meta);
+
+    // Build outline — fix: use _wsPdfDoc not undefined pdfDoc
+    await _wsBuildOutline(_wsPdfDoc, bookId);
 
   } catch (err) {
     console.error('PDF load error:', err);
     document.getElementById('ws-pdf-loading').style.display     = 'none';
     document.getElementById('ws-default-content').style.display = 'flex';
+    // Show error in chat
+    const msgs = document.getElementById('ws-messages');
+    if (msgs) msgs.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;text-align:center;padding:40px;">
+        <div style="font-size:13px;color:var(--red);">⚠ Could not load this textbook. The server may be unavailable.</div>
+        <button onclick="selectBook('${bookId}')" style="padding:7px 18px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-family:var(--font-body);cursor:pointer;">Retry</button>
+      </div>`;
   }
+}
+
+// ── Welcome message after book loads ──────────────────────
+function _wsShowWelcome(meta) {
+  const msgs = document.getElementById('ws-messages');
+  if (!msgs) return;
+
+  const suggestions = {
+    atkins:   ['Explain entropy and the second law', 'What is Gibbs free energy?', 'Derive the Clausius inequality', 'Compare enthalpy and internal energy'],
+    zumdahl:  ['Explain Le Chatelier\'s principle', 'What is a limiting reagent?', 'How do ionic bonds form?', 'Explain gas laws'],
+    klein:    ['What are SN1 vs SN2 reactions?', 'Explain stereoisomerism', 'How does aromaticity work?', 'What is Markovnikov\'s rule?'],
+    harris:   ['What is a titration?', 'Explain standard deviation in measurements', 'What is activity coefficient?', 'How does EDTA work?'],
+    netter:   ['Describe the brachial plexus', 'What bones make up the shoulder?', 'Explain the femoral triangle', 'What is the carpal tunnel?'],
+    anaphy2e: ['Explain the sliding filament theory', 'What is a sarcomere?', 'How does the renal system work?', 'Describe the cardiac cycle'],
+  };
+  const chips = (suggestions[_wsBookId] || ['Summarize chapter 1', 'What are the key topics?', 'Give me an overview', 'Start a quiz']).slice(0,3);
+
+  msgs.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:14px;padding:20px 16px 8px;">
+      <div class="hc-ai" style="align-items:flex-start;">
+        <div class="hc-ai-avatar" style="background:var(--gold-muted);border:1px solid var(--gold-border);color:var(--gold);font-size:13px;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">✦</div>
+        <div style="background:var(--surface-1);border:1px solid var(--border-sm);border-radius:4px 14px 14px 14px;padding:13px 15px;font-size:13px;color:var(--text-1);line-height:1.65;flex:1;">
+          <p style="margin:0 0 8px;"><strong>${meta.name}</strong> is ready! I've indexed the full textbook — ask me anything about it.</p>
+          <p style="margin:0;color:var(--text-2);">Here are a few things you could ask:</p>
+          <div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;">
+            ${chips.map(q => `
+              <div onclick="wsSetInput('${q.replace(/'/g,"\\'")}');document.getElementById('ws-chat-input').focus();"
+                style="display:flex;align-items:center;justify-content:space-between;padding:7px 11px;border:1px solid var(--border-xs);border-radius:8px;background:var(--surface-2);cursor:pointer;font-size:12px;color:var(--text-2);transition:all 120ms;"
+                onmouseover="this.style.borderColor='var(--gold-border)';this.style.color='var(--gold)';"
+                onmouseout="this.style.borderColor='var(--border-xs)';this.style.color='var(--text-2)';">
+                ${q}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`;
 }
 
 function togglePdfOutline() {
@@ -3796,6 +3916,10 @@ document.getElementById('home-ask-input').addEventListener('input', function() {
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Delete all chat history</div><div class="settings-row-desc">Permanently remove all saved conversations.</div></div>
           <button onclick="clearAllHistory()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;">Delete all</button>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Cached textbooks</div><div class="settings-row-desc" id="cache-size-label">Textbooks are cached locally so they load instantly after the first download.</div></div>
+          <button onclick="clearPdfCache()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;">Clear cache</button>
         </div>
       </div>
 
@@ -4718,6 +4842,7 @@ function settingsNav(page, el) {
   document.querySelectorAll('.settings-page').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('settings-page-' + page)?.classList.add('active');
+  if (page === 'data') _updateCacheSizeLabel();
 }
 
 // Click outside settings modal to close
@@ -4826,6 +4951,47 @@ function clearAllHistory() {
     wsShowToast && wsShowToast('🗑️', 'Chat history cleared', '');
   }
 }
+
+async function clearPdfCache() {
+  if (!('caches' in window)) {
+    wsShowToast && wsShowToast('⚠', 'Cache not supported in this browser', '');
+    return;
+  }
+  if (confirm('Clear all cached textbooks? They will re-download next time.')) {
+    await caches.delete('chunks-pdf-v1');
+    wsShowToast && wsShowToast('🗑️', 'PDF cache cleared', '');
+    _updateCacheSizeLabel();
+  }
+}
+
+async function _updateCacheSizeLabel() {
+  const el = document.getElementById('cache-size-label');
+  if (!el || !('caches' in window)) return;
+  try {
+    const cache = await caches.open('chunks-pdf-v1');
+    const keys  = await cache.keys();
+    if (keys.length === 0) {
+      el.textContent = 'No textbooks cached yet.';
+    } else {
+      // Estimate total size
+      let totalBytes = 0;
+      for (const req of keys) {
+        const res = await cache.match(req);
+        const buf = await res.clone().arrayBuffer();
+        totalBytes += buf.byteLength;
+      }
+      const mb = (totalBytes / 1048576).toFixed(1);
+      el.textContent = `${keys.length} textbook${keys.length > 1 ? 's' : ''} cached — ${mb} MB`;
+    }
+  } catch(e) {
+    el.textContent = 'Textbooks cached locally for fast loading.';
+  }
+}
+
+// Update cache size when Data controls page is opened
+document.addEventListener('DOMContentLoaded', () => {
+  _updateCacheSizeLabel();
+});
 </script>
 </body>
 </html>
