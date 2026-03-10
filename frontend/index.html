@@ -2618,10 +2618,7 @@ body {
 
   // Restore last screen on load
   (function restoreScreen() {
-    const last = sessionStorage.getItem('chunks_active_screen');
-    if (last && last !== 'home' && document.getElementById('screen-' + last)) {
-      showScreen(last);
-    }
+    // Always start on home screen — don't restore last screen on fresh open
   })();
 
   /* ── Flashcard flip ── */
