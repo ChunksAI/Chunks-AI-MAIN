@@ -764,7 +764,7 @@ body::after {
 /* Ask box */
 .ask-box {
   width: 100%;
-  max-width: 640px;
+  max-width: 760px;
   background: var(--surface-1);
   border: 1px solid var(--border-sm);
   border-radius: var(--r-xl);
@@ -1321,43 +1321,60 @@ body::after {
 
 /* ── HOME CHAT ─────────────────────────────────────────────── */
 .home-chat-history {
-  width: 100%; max-width: 640px;
-  display: flex; flex-direction: column; gap: 16px;
+  width: 100%; max-width: 760px;
+  display: flex; flex-direction: column; gap: 24px;
   margin-bottom: 16px;
+  padding: 0 4px;
 }
 .home-chat-history:empty { display: none; }
 .hc-user {
   align-self: flex-end;
   background: var(--surface-2); border: 1px solid var(--border-sm);
-  border-radius: 16px 16px 4px 16px;
-  padding: 10px 14px; font-size: 14px; color: var(--text-1);
-  max-width: 85%; line-height: 1.5; white-space: pre-wrap;
+  border-radius: 18px 18px 4px 18px;
+  padding: 11px 16px; font-size: 14px; color: var(--text-1);
+  max-width: 72%; line-height: 1.55; white-space: pre-wrap;
 }
-.hc-ai { align-self: flex-start; display: flex; gap: 10px; max-width: 95%; }
+.hc-ai { align-self: stretch; display: flex; gap: 14px; max-width: 100%; }
 .hc-ai-avatar {
   width: 28px; height: 28px; border-radius: 8px;
   background: var(--gold-muted); border: 1px solid var(--gold-border);
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; margin-top: 2px; color: var(--gold); font-size: 13px;
+  flex-shrink: 0; margin-top: 3px; color: var(--gold); font-size: 13px;
 }
 .hc-ai-body {
-  background: var(--surface-1); border: 1px solid var(--border-sm);
-  border-radius: 4px 16px 16px 16px;
-  padding: 12px 14px; font-size: 14px; color: var(--text-1);
-  line-height: 1.65; flex: 1;
+  flex: 1; font-size: 14px; color: var(--text-1);
+  line-height: 1.75; padding: 2px 0;
+  border: none; background: none;
 }
-.hc-ai-body p { margin: 0 0 8px; }
+.hc-ai-body p { margin: 0 0 10px; }
 .hc-ai-body p:last-child { margin: 0; }
 .hc-ai-body strong { color: var(--text-1); font-weight: 600; }
-.hc-ai-body code {
-  font-family: var(--font-mono); font-size: 12px;
-  background: var(--surface-3); padding: 1px 5px;
-  border-radius: 4px; color: var(--teal);
+.hc-ai-body h1, .hc-ai-body h2, .hc-ai-body h3 {
+  font-family: var(--font-head); color: var(--text-1);
+  margin: 14px 0 6px; font-weight: 700;
 }
-.hc-ai-body ul, .hc-ai-body ol { padding-left: 20px; margin: 6px 0; }
-.hc-ai-body li { margin-bottom: 4px; }
+.hc-ai-body h2 { font-size: 15px; }
+.hc-ai-body h3 { font-size: 13.5px; color: var(--text-2); }
+.hc-ai-body code {
+  font-family: var(--font-mono); font-size: 12.5px;
+  background: var(--surface-3); padding: 2px 6px;
+  border-radius: 5px; color: var(--teal);
+}
+.hc-ai-body pre {
+  background: var(--surface-2); border: 1px solid var(--border-xs);
+  border-radius: 10px; padding: 14px 16px; overflow-x: auto;
+  margin: 10px 0;
+}
+.hc-ai-body pre code { background: none; padding: 0; font-size: 13px; }
+.hc-ai-body ul, .hc-ai-body ol { padding-left: 22px; margin: 8px 0; }
+.hc-ai-body li { margin-bottom: 5px; line-height: 1.6; }
+.hc-ai-body blockquote {
+  border-left: 3px solid var(--gold-border); padding-left: 14px;
+  color: var(--text-2); margin: 10px 0; font-style: italic;
+}
+.hc-ai-body hr { border: none; border-top: 1px solid var(--border-xs); margin: 14px 0; }
 .hc-source-badge {
-  margin-top: 8px; padding-top: 8px;
+  margin-top: 10px; padding-top: 8px;
   border-top: 1px solid var(--border-xs);
   font-size: 11px; color: var(--text-3);
   font-family: var(--font-mono);
@@ -2115,7 +2132,7 @@ body {
     <!-- ── LANDING (hidden once chat starts) ── -->
     <div id="home-landing">
       <div class="quick-grid">
-        <div class="quick-card" onclick="homeSetInput('Explain Le Chatelier\'s principle')">
+        <div class="quick-card" onclick="openLibraryModal()">
           <div class="qc-icon gold">📚</div>
           <div class="qc-title">Open Textbook</div>
           <div class="qc-desc">Browse your library and study alongside AI</div>
@@ -2125,20 +2142,21 @@ body {
           <div class="qc-title">Flashcards</div>
           <div class="qc-desc">Generate and review study cards from any chapter</div>
         </div>
-        <div class="quick-card">
+        <div class="quick-card" onclick="document.getElementById('home-pdf-upload').click()">
           <div class="qc-icon teal">⬆️</div>
           <div class="qc-title">Upload PDF</div>
           <div class="qc-desc">Add your own notes or textbooks to chat with</div>
         </div>
       </div>
+      <input type="file" id="home-pdf-upload" accept="application/pdf" style="display:none;" onchange="homeHandlePdfUpload(this)">
       <p class="prompts-label">Try asking</p>
       <div class="prompts-chips">
-        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Explain Le Chatelier's principle</button>
-        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Summarize Chapter 5 of Atkins</button>
-        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Generate flashcards on thermodynamics</button>
-        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">What is Gibbs free energy?</button>
-        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Quiz me on organic reactions</button>
-        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Compare SN1 vs SN2 mechanisms</button>
+        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Photosynthesis</button>
+        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Newton's Laws of Motion</button>
+        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Cell Division</button>
+        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">The French Revolution</button>
+        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Supply and Demand</button>
+        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Pythagorean Theorem</button>
       </div>
     </div>
   </main>
@@ -3563,6 +3581,20 @@ function homeSetInput(text) {
   homeAutoResize(inp);
 }
 
+function homeHandlePdfUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const name = file.name.replace(/\.pdf$/i, '');
+  // Store file reference for use in chat
+  window._uploadedPdfFile = file;
+  window._uploadedPdfName = name;
+  // Show a toast and pre-fill the input
+  wsShowToast && wsShowToast('📄', `"${name}" ready to chat`, '');
+  homeSetInput(`Summarize "${name}" for me`);
+  // Reset input so same file can be re-selected
+  input.value = '';
+}
+
 /* ── Auto-resize textarea ── */
 function homeAutoResize(el) {
   el.style.height = 'auto';
@@ -3571,23 +3603,53 @@ function homeAutoResize(el) {
 
 /* ── Render simple markdown → HTML ── */
 function homeMarkdown(text) {
-  return text
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    // bold **text**
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // inline code `code`
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // headers ### ## #
-    .replace(/^###\s(.+)$/gm, '<strong>$1</strong>')
-    .replace(/^##\s(.+)$/gm, '<strong>$1</strong>')
-    .replace(/^#\s(.+)$/gm, '<strong>$1</strong>')
-    // bullet points
-    .replace(/^[\-\*]\s(.+)$/gm, '<li>$1</li>')
-    .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
-    // numbered list
-    .replace(/^\d+\.\s(.+)$/gm, '<li>$1</li>')
-    // double newline → paragraph break
-    .split('\n\n').map(p => p.trim() ? `<p>${p.replace(/\n/g,'<br>')}</p>` : '').join('');
+  // Escape HTML first
+  let t = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Code blocks ```lang\n...\n```
+  t = t.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) =>
+    `<pre><code>${code.trim()}</code></pre>`);
+
+  // Inline code
+  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // Headers
+  t = t.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  t = t.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
+  t = t.replace(/^# (.+)$/gm,   '<h2>$1</h2>');
+
+  // Bold + italic
+  t = t.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+  // Horizontal rule
+  t = t.replace(/^---$/gm, '<hr>');
+
+  // Blockquote
+  t = t.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+
+  // Lists — numbered
+  t = t.replace(/((?:^\d+\. .+\n?)+)/gm, block => {
+    const items = block.trim().split('\n').map(l => `<li>${l.replace(/^\d+\. /,'')}</li>`).join('');
+    return `<ol>${items}</ol>`;
+  });
+
+  // Lists — bullets
+  t = t.replace(/((?:^[-*] .+\n?)+)/gm, block => {
+    const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[-*] /,'')}</li>`).join('');
+    return `<ul>${items}</ul>`;
+  });
+
+  // Paragraphs — double newlines, skip block elements
+  t = t.split(/\n{2,}/).map(block => {
+    block = block.trim();
+    if (!block) return '';
+    if (/^<(h[123]|ul|ol|pre|blockquote|hr)/.test(block)) return block;
+    return `<p>${block.replace(/\n/g, '<br>')}</p>`;
+  }).join('');
+
+  return t;
 }
 
 /* ── Append a message bubble ── */
@@ -3679,57 +3741,68 @@ async function homeSendMessage() {
   const question = inp.value.trim();
   if (!question) return;
 
-  // Add to recents sidebar
   recentAdd(question, homeMode === 'book' ? 'atkins' : null);
-
-  // Hide landing on first message
   homeHideLanding();
-
-  // Show user bubble + clear input
   homeAppendUser(question);
   inp.value = '';
   homeAutoResize(inp);
   inp.focus();
 
-  // Add to history
   homeHistory.push({ role: 'user', content: question });
-
-  // Show thinking dots
   homeIsTyping = true;
   homeAppendThinking();
   document.getElementById('home-send-btn').disabled = true;
 
   try {
-    const payload = {
-      question,
-      bookId: 'atkins',
-      mode: 'study',
-      complexity: 5,
-      history: homeHistory.slice(-10),
-      web_search: false
-    };
-    // If general mode, send without a book context
     if (homeMode === 'general') {
-      payload.bookId = '';
-    }
-
-    const res = await fetch(`${BACKEND}/ask`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    homeRemoveThinking();
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      homeAppendError(err.error || `Server error ${res.status}`);
-      homeHistory.pop(); // remove the failed user message
+      // ── Direct Anthropic API — no book context ──────────
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: `You are Chunks AI, a smart and helpful study assistant. Answer questions clearly, thoroughly, and in a well-structured way. Use markdown formatting (headers, bold, lists, code blocks) where it improves clarity. Be like a knowledgeable tutor — explain reasoning, give examples, and break down complex ideas. You are NOT limited to any textbook — answer any academic or general knowledge question confidently.`,
+          messages: homeHistory.slice(-12)
+        })
+      });
+      homeRemoveThinking();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        homeAppendError(err.error?.message || `Error ${res.status}`);
+        homeHistory.pop();
+      } else {
+        const data = await res.json();
+        const answer = data.content?.map(b => b.text || '').join('') || 'No response.';
+        homeAppendAI(answer, null);
+        homeHistory.push({ role: 'assistant', content: answer });
+      }
     } else {
-      const data = await res.json();
-      const answer = data.answer || 'No response received.';
-      homeAppendAI(answer, data.sources);
-      homeHistory.push({ role: 'assistant', content: answer });
+      // ── Book mode — use backend /ask endpoint ───────────
+      const payload = {
+        question,
+        bookId: 'atkins',
+        mode: 'study',
+        complexity: 5,
+        history: homeHistory.slice(-10),
+        web_search: false
+      };
+      const res = await fetch(`${BACKEND}/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      homeRemoveThinking();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        homeAppendError(err.error || `Server error ${res.status}`);
+        homeHistory.pop();
+      } else {
+        const data = await res.json();
+        const answer = data.answer || 'No response received.';
+        homeAppendAI(answer, data.sources);
+        homeHistory.push({ role: 'assistant', content: answer });
+      }
     }
   } catch (e) {
     homeRemoveThinking();
