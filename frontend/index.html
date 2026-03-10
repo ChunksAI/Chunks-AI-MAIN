@@ -2619,11 +2619,13 @@ body {
   // Detect refresh vs fresh open:
   // sessionStorage is empty on fresh open but survives a refresh within the same tab.
   (function restoreScreen() {
-    const isRefresh = sessionStorage.getItem('chunks_session_started') === '1';
-    sessionStorage.setItem('chunks_session_started', '1');
+    // Detect refresh vs fresh open using performance.navigation (most reliable)
+    const navType = (performance.getEntriesByType?.('navigation')[0]?.type)
+                 || (performance.navigation?.type === 1 ? 'reload' : 'navigate');
+    const isRefresh = navType === 'reload';
 
     if (isRefresh) {
-      // Refresh — restore last screen and modal
+      // Refresh — restore last screen
       const last = sessionStorage.getItem('chunks_active_screen');
       if (last && document.getElementById('screen-' + last)) {
         showScreen(last);
@@ -2632,31 +2634,12 @@ body {
       if (sessionStorage.getItem('chunks_library_open') === '1') {
         document.getElementById('library-modal')?.classList.add('active');
       }
-      // Restore home chat session if it was active
-      const savedId = localStorage.getItem('chunks_active_home_session');
-      if (savedId && (!last || last === 'home')) {
-        let session;
-        try { session = JSON.parse(localStorage.getItem('chunks_session_' + savedId)); } catch(e) {}
-        if (session && session.html) {
-          const landing    = document.getElementById('home-landing');
-          const hero       = document.querySelector('.home-hero');
-          const bar        = document.getElementById('home-input-bar');
-          const scrollArea = document.getElementById('home-scroll-area');
-          const chatHist   = document.getElementById('home-chat-history');
-          if (landing)    landing.style.display = 'none';
-          if (hero)       hero.style.display = 'none';
-          if (bar)        bar.style.display = 'flex';
-          if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
-          if (chatHist)   chatHist.innerHTML = session.html;
-          homeHistory    = session.history || [];
-          _homeSessionId = savedId;
-          _setActiveRecent(savedId);
-          setTimeout(() => homeScrollBottom(), 80);
-        }
-      }
+      // Flag for home session restore (runs later after variables are declared)
+      sessionStorage.setItem('chunks_is_refresh', '1');
     } else {
-      // Fresh open — always show home landing
+      // Fresh open — always show home landing, clear active chat
       showScreen('home');
+      sessionStorage.removeItem('chunks_is_refresh');
       localStorage.removeItem('chunks_active_home_session');
     }
   })();
@@ -5019,6 +5002,32 @@ function _renderAllRecent() {
 }
 
 _renderAllRecent();
+
+// ── Restore home chat session on refresh (runs after all vars declared) ──────
+if (sessionStorage.getItem('chunks_is_refresh') === '1') {
+  const savedId = localStorage.getItem('chunks_active_home_session');
+  const activeScreen = sessionStorage.getItem('chunks_active_screen');
+  if (savedId && (!activeScreen || activeScreen === 'home')) {
+    let session;
+    try { session = JSON.parse(localStorage.getItem('chunks_session_' + savedId)); } catch(e) {}
+    if (session && session.html) {
+      const landing    = document.getElementById('home-landing');
+      const hero       = document.querySelector('.home-hero');
+      const bar        = document.getElementById('home-input-bar');
+      const scrollArea = document.getElementById('home-scroll-area');
+      const chatHist   = document.getElementById('home-chat-history');
+      if (landing)    landing.style.display = 'none';
+      if (hero)       hero.style.display = 'none';
+      if (bar)        bar.style.display = 'flex';
+      if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
+      if (chatHist)   chatHist.innerHTML = session.html;
+      homeHistory    = session.history || [];
+      _homeSessionId = savedId;
+      _setActiveRecent(savedId);
+      setTimeout(() => homeScrollBottom(), 80);
+    }
+  }
+}
 
 // ── Hook wsChatSend to add to recents on every send ──────
 // We hook at the DOM level so it works regardless of script order
