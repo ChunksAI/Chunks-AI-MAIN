@@ -2226,21 +2226,24 @@ body {
         <!-- Center: Layer editor -->
         <div class="research-main">
           <div class="research-tabs">
-            <div class="research-tab active">
+            <div class="research-tab active" onclick="switchResearchTab('write', this)">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               Write Layer
             </div>
-            <div class="research-tab">
+            <div class="research-tab" onclick="switchResearchTab('search', this)">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               Search Papers
             </div>
-            <div class="research-tab">
+            <div class="research-tab" onclick="switchResearchTab('paper', this)">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               Full Paper
             </div>
           </div>
 
           <div class="research-content">
+
+            <!-- TAB: Write Layer -->
+            <div id="tab-write" class="research-tab-panel" style="display:flex;flex:1;overflow:hidden;">
             <div class="layer-editor" style="overflow-y:auto;">
 
               <div class="layer-header">
@@ -2334,6 +2337,119 @@ body {
 
               </div><!-- /steps -->
             </div><!-- /layer-editor -->
+            </div><!-- /tab-write -->
+
+            <!-- TAB: Search Papers -->
+            <div id="tab-search" class="research-tab-panel" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+              <div style="padding:20px 24px 12px;border-bottom:1px solid var(--border-xs);flex-shrink:0;">
+                <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);margin-bottom:4px;">Search Academic Papers</div>
+                <div style="font-size:12px;color:var(--text-3);">Find and attach sources to any layer of your research paper.</div>
+                <div style="display:flex;gap:8px;margin-top:12px;">
+                  <div style="flex:1;display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:8px 12px;transition:border-color var(--t-fast);" onmouseenter="this.style.borderColor='var(--gold-border)'" onmouseleave="this.style.borderColor='var(--border-xs)'">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input id="paper-search-input" type="text" placeholder="Search by title, author, keyword…" style="flex:1;background:transparent;border:none;outline:none;font-family:var(--font-body);font-size:13px;color:var(--text-1);" onkeydown="if(event.key==='Enter')_runPaperSearch()">
+                  </div>
+                  <button onclick="_runPaperSearch()" style="padding:8px 18px;border-radius:var(--r-sm);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap;transition:background var(--t-fast);" onmouseenter="this.style.background='var(--gold-bright)'" onmouseleave="this.style.background='var(--gold)'">Search</button>
+                </div>
+                <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+                  <span style="font-size:11px;color:var(--text-4);">Try:</span>
+                  <span class="prompt-chip" style="font-size:11px;padding:3px 10px;" onclick="document.getElementById('paper-search-input').value=this.textContent;_runPaperSearch()">social media academic performance</span>
+                  <span class="prompt-chip" style="font-size:11px;padding:3px 10px;" onclick="document.getElementById('paper-search-input').value=this.textContent;_runPaperSearch()">digital distraction students</span>
+                  <span class="prompt-chip" style="font-size:11px;padding:3px 10px;" onclick="document.getElementById('paper-search-input').value=this.textContent;_runPaperSearch()">screen time GPA correlation</span>
+                </div>
+              </div>
+              <div id="paper-search-results" style="flex:1;overflow-y:auto;padding:16px 24px;display:flex;flex-direction:column;gap:8px;">
+                <!-- Default state -->
+                <div id="paper-search-empty" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  <div style="font-size:12px;">Enter a search query to find academic papers</div>
+                </div>
+              </div>
+            </div><!-- /tab-search -->
+
+            <!-- TAB: Full Paper -->
+            <div id="tab-paper" class="research-tab-panel" style="display:none;flex:1;flex-direction:column;overflow:hidden;">
+              <div style="padding:16px 24px 12px;border-bottom:1px solid var(--border-xs);flex-shrink:0;display:flex;align-items:center;gap:10px;">
+                <div style="flex:1;">
+                  <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);">Full Paper Preview</div>
+                  <div style="font-size:12px;color:var(--text-3);margin-top:2px;">All accepted layers compiled — <span style="color:var(--gold);">17% complete</span></div>
+                </div>
+                <button style="padding:6px 14px;border-radius:var(--r-pill);background:transparent;border:1px solid var(--border-md);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);display:flex;align-items:center;gap:6px;transition:all var(--t-fast);" onmouseenter="this.style.borderColor='var(--border-lg)';this.style.color='var(--text-1)'" onmouseleave="this.style.borderColor='var(--border-md)';this.style.color='var(--text-2)'">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Export PDF
+                </button>
+              </div>
+              <div style="flex:1;overflow-y:auto;padding:32px 48px;max-width:800px;margin:0 auto;width:100%;">
+
+                <!-- Paper title block -->
+                <div style="text-align:center;margin-bottom:36px;padding-bottom:28px;border-bottom:1px solid var(--border-xs);">
+                  <div style="font-family:var(--font-head);font-size:20px;font-weight:800;color:var(--text-1);line-height:1.35;margin-bottom:10px;">The Impact of Social Media on Academic Performance Among College Students</div>
+                  <div style="font-size:12px;color:var(--text-3);">Alex Cruz &nbsp;·&nbsp; <span style="color:var(--text-4);">College of Education, 2024</span></div>
+                </div>
+
+                <!-- Section I: Introduction -->
+                <div style="margin-bottom:28px;">
+                  <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-4);margin-bottom:6px;">Section I</div>
+                  <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);margin-bottom:16px;">Introduction</div>
+
+                  <!-- Layer: Background (done) -->
+                  <div style="margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                      <div style="width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0;"></div>
+                      <span style="font-size:10px;font-family:var(--font-mono);color:var(--teal);letter-spacing:0.06em;text-transform:uppercase;">Background of the Study</span>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-2);line-height:1.85;">The proliferation of social media platforms has fundamentally transformed how individuals communicate, consume information, and allocate their time. With over 4.9 billion active users globally as of 2023, platforms such as Facebook, Instagram, TikTok, and X (formerly Twitter) have become deeply embedded in daily routines — particularly among young adults aged 18–24 <span style="display:inline-block;font-size:10px;background:var(--violet-muted);color:var(--violet);border:1px solid var(--violet-border);border-radius:3px;padding:0 4px;font-family:var(--font-mono);margin:0 1px;cursor:pointer;">[Huang et al., 2020]</span>. For college students, this constant connectivity presents a dual-edged challenge: while social media offers opportunities for peer learning and academic networking, its compulsive use patterns raise significant concerns about cognitive focus and scholastic achievement.</p>
+                  </div>
+
+                  <!-- Layer: Global Problem (done) -->
+                  <div style="margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                      <div style="width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0;"></div>
+                      <span style="font-size:10px;font-family:var(--font-mono);color:var(--teal);letter-spacing:0.06em;text-transform:uppercase;">Global Problem</span>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-2);line-height:1.85;">Globally, researchers have documented a troubling correlation between excessive social media engagement and declining academic metrics. A comprehensive meta-analysis spanning 42 countries found that students who exceeded three hours of daily social media use exhibited a measurable decrease in GPA compared to moderate users <span style="display:inline-block;font-size:10px;background:var(--violet-muted);color:var(--violet);border:1px solid var(--violet-border);border-radius:3px;padding:0 4px;font-family:var(--font-mono);margin:0 1px;cursor:pointer;">[Chen & Wang, 2019]</span>. This pattern transcends geographic and socioeconomic boundaries, suggesting a systemic challenge rooted in the psychological mechanisms of social media engagement — including variable reward loops, social comparison, and notification-driven interruption cycles.</p>
+                  </div>
+
+                  <!-- Layer: Local Problem (active) -->
+                  <div style="margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                      <div style="width:6px;height:6px;border-radius:50%;background:var(--gold);box-shadow:0 0 6px rgba(232,172,46,0.5);flex-shrink:0;"></div>
+                      <span style="font-size:10px;font-family:var(--font-mono);color:var(--gold);letter-spacing:0.06em;text-transform:uppercase;">Local Problem</span>
+                      <span style="font-size:9px;font-family:var(--font-mono);color:var(--gold);background:var(--gold-muted);border:1px solid var(--gold-border);padding:1px 6px;border-radius:var(--r-pill);">Current Layer</span>
+                    </div>
+                    <p style="font-size:13px;color:var(--text-1);line-height:1.85;">In the Philippine context, the pervasive use of social media platforms among college students has emerged as a significant concern for academic institutions. Studies conducted in Metro Manila universities reveal that students spend an average of 6.3 hours daily on social media, with a statistically significant negative correlation to GPA outcomes <span style="display:inline-block;font-size:10px;background:var(--violet-muted);color:var(--violet);border:1px solid var(--violet-border);border-radius:3px;padding:0 4px;font-family:var(--font-mono);margin:0 1px;cursor:pointer;">[Santos et al., 2022]</span>. This pattern of digital distraction is particularly pronounced during examination periods, where excessive screen time has been linked to decreased retention and cognitive fatigue <span style="display:inline-block;font-size:10px;background:var(--violet-muted);color:var(--violet);border:1px solid var(--violet-border);border-radius:3px;padding:0 4px;font-family:var(--font-mono);margin:0 1px;cursor:pointer;">[Villanueva &amp; Torres, 2023]</span>. Furthermore, local research confirms that the lack of institutional digital literacy programs has exacerbated this issue in Philippine higher education <span style="display:inline-block;font-size:10px;background:var(--violet-muted);color:var(--violet);border:1px solid var(--violet-border);border-radius:3px;padding:0 4px;font-family:var(--font-mono);margin:0 1px;cursor:pointer;">[Mendoza &amp; Garcia, 2021]</span>.</p>
+                  </div>
+
+                  <!-- Remaining layers: pending -->
+                  <div style="padding:14px 16px;background:var(--surface-1);border:1px dashed var(--border-xs);border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span style="font-size:12px;color:var(--text-4);">2 more layers pending in this section — <span style="color:var(--gold);cursor:pointer;" onclick="switchResearchTab('write', document.querySelectorAll('.research-tab')[0])">continue writing →</span></span>
+                  </div>
+                </div>
+
+                <!-- Remaining sections placeholder -->
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                  <div style="padding:14px 16px;background:var(--surface-1);border:1px dashed var(--border-xs);border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;opacity:0.5;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                    <span style="font-size:12px;color:var(--text-4);">Section II — Review of Related Literature <span style="font-family:var(--font-mono);font-size:10px;">(0 / 3 layers)</span></span>
+                  </div>
+                  <div style="padding:14px 16px;background:var(--surface-1);border:1px dashed var(--border-xs);border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;opacity:0.5;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                    <span style="font-size:12px;color:var(--text-4);">Section III — Methodology <span style="font-family:var(--font-mono);font-size:10px;">(0 / 4 layers)</span></span>
+                  </div>
+                  <div style="padding:14px 16px;background:var(--surface-1);border:1px dashed var(--border-xs);border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;opacity:0.5;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                    <span style="font-size:12px;color:var(--text-4);">Section IV — Results &amp; Discussion <span style="font-family:var(--font-mono);font-size:10px;">(0 / 3 layers)</span></span>
+                  </div>
+                  <div style="padding:14px 16px;background:var(--surface-1);border:1px dashed var(--border-xs);border-radius:var(--r-sm);display:flex;align-items:center;gap:10px;opacity:0.5;">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                    <span style="font-size:12px;color:var(--text-4);">Section V — Conclusion <span style="font-family:var(--font-mono);font-size:10px;">(0 / 2 layers)</span></span>
+                  </div>
+                </div>
+
+              </div>
+            </div><!-- /tab-paper -->
+
           </div><!-- /research-content -->
         </div><!-- /research-main -->
 
@@ -2464,7 +2580,91 @@ function _researchSelectLayer(el, name, section) {
   document.querySelector('.layer-title').textContent = name;
 }
 
-/* ── Recent items (localStorage-backed) ── */
+/* ── Tab switching ── */
+function switchResearchTab(name, clickedTab) {
+  // Update tab active state
+  document.querySelectorAll('.research-tab').forEach(t => t.classList.remove('active'));
+  clickedTab.classList.add('active');
+
+  // Show/hide panels
+  document.querySelectorAll('.research-tab-panel').forEach(p => {
+    p.style.display = 'none';
+  });
+  const target = document.getElementById('tab-' + name);
+  if (target) {
+    target.style.display = (name === 'write') ? 'flex' : 'flex';
+    target.style.flex = '1';
+    target.style.flexDirection = 'column';
+    target.style.overflow = 'hidden';
+  }
+
+  // Focus search input when switching to search tab
+  if (name === 'search') {
+    setTimeout(() => document.getElementById('paper-search-input')?.focus(), 80);
+  }
+}
+
+/* ── Paper search (mock results) ── */
+const _mockPapers = [
+  { title: 'Social Media Use and Academic Performance: A Systematic Review', authors: 'Appel, G., Grewal, L., Hadi, R.', journal: 'Journal of Marketing Research', year: 2020 },
+  { title: 'Screen Time and Educational Outcomes in Adolescents and Young Adults', authors: 'Twenge, J. M., & Campbell, W. K.', journal: 'Psychological Science', year: 2019 },
+  { title: 'The Effects of Facebook on College Students\' GPA', authors: 'Kirschner, P. A., & Karpinski, A. C.', journal: 'Computers in Human Behavior', year: 2021 },
+  { title: 'Digital Distraction in the Classroom: Student Classroom Use of Digital Devices', authors: 'McCoy, B. R.', journal: 'Journal of Media Education', year: 2022 },
+  { title: 'Social Networking Sites and Academic Performance: A Review', authors: 'Stollak, M. J., Vandenberg, A., Burklund, A.', journal: 'Academy of Educational Leadership Journal', year: 2020 },
+  { title: 'Mobile Technology, Learning, and Academic Performance', authors: 'Lepp, A., Barkley, J. E., & Karpinski, A. C.', journal: 'Computers in Human Behavior', year: 2019 },
+  { title: 'Instagram Use and Academic Outcomes Among University Students', authors: 'Lup, K., Trub, L., & Rosenthal, L.', journal: 'Cyberpsychology, Behavior, and Social Networking', year: 2023 },
+  { title: 'TikTok and Study Habits: Implications for Higher Education', authors: 'Omar, B., & Dequan, W.', journal: 'Asian Journal of Communication', year: 2022 },
+];
+
+function _runPaperSearch() {
+  const query = document.getElementById('paper-search-input')?.value?.trim().toLowerCase();
+  const container = document.getElementById('paper-search-results');
+  const emptyState = document.getElementById('paper-search-empty');
+  if (!query) return;
+
+  // Hide empty state
+  if (emptyState) emptyState.style.display = 'none';
+
+  // Remove old results
+  container.querySelectorAll('.paper-card').forEach(c => c.remove());
+
+  // Filter mock papers
+  const results = _mockPapers.filter(p =>
+    p.title.toLowerCase().includes(query) ||
+    p.authors.toLowerCase().includes(query) ||
+    p.journal.toLowerCase().includes(query)
+  );
+
+  if (!results.length) {
+    // Show no-results message
+    const msg = document.createElement('div');
+    msg.id = 'paper-no-results';
+    msg.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:32px;';
+    msg.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><div style="font-size:12px;">No papers found for "<strong style="color:var(--text-3);">${query}</strong>"</div><div style="font-size:11px;color:var(--text-4);">Try different keywords</div>`;
+    container.appendChild(msg);
+    return;
+  }
+
+  results.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'paper-card';
+    card.innerHTML = `
+      <div class="paper-check"></div>
+      <div class="paper-meta">
+        <div class="paper-title">${p.title}</div>
+        <div class="paper-authors">${p.authors}</div>
+        <div class="paper-journal">${p.journal} <span class="paper-year">${p.year}</span></div>
+      </div>`;
+    card.addEventListener('click', () => {
+      card.classList.toggle('selected');
+      const check = card.querySelector('.paper-check');
+      check.innerHTML = card.classList.contains('selected')
+        ? `<svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#090900" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`
+        : '';
+    });
+    container.appendChild(card);
+  });
+}
 const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
 let _recentItems = JSON.parse(sessionStorage.getItem('chunks_recent') || 'null') || [
