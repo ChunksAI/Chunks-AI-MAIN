@@ -3825,18 +3825,23 @@ async function homeSendMessage() {
   if (sendBtn) sendBtn.disabled = true;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
+        'HTTP-Referer': 'https://chunksai.app',
+        'X-Title': 'Chunks AI'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'arcee-ai/trinity-large-preview:free',
         max_tokens: 1000,
-        system: `You are Chunks AI, an intelligent and helpful study assistant. Answer questions clearly and thoroughly. Use markdown formatting (## headers, **bold**, bullet lists, numbered lists, code blocks) to structure your responses. Think step by step. Cover reasoning, examples, and key concepts. Be like a knowledgeable tutor.`,
-        messages: homeHistory.slice(-12)
+        messages: [
+          {
+            role: 'system',
+            content: `You are Chunks AI, an intelligent and helpful study assistant. Answer questions clearly and thoroughly. Use markdown formatting (## headers, **bold**, bullet lists, numbered lists, code blocks) to structure your responses. Think step by step. Cover reasoning, examples, and key concepts. Be like a knowledgeable tutor.`
+          },
+          ...homeHistory.slice(-12)
+        ]
       })
     });
 
@@ -3848,10 +3853,7 @@ async function homeSendMessage() {
       homeHistory.pop();
     } else {
       const data = await res.json();
-      const answer = (data.content || [])
-        .filter(b => b.type === 'text')
-        .map(b => b.text)
-        .join('') || 'No response.';
+      const answer = data.choices?.[0]?.message?.content || 'No response.';
       homeAppendAI(answer, null);
       homeHistory.push({ role: 'assistant', content: answer });
     }
