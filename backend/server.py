@@ -75,6 +75,10 @@ _default_origins = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://localhost:5000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
 ]
 if FRONTEND_URL and FRONTEND_URL not in _default_origins:
     _default_origins.append(FRONTEND_URL)
