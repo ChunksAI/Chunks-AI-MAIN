@@ -2265,58 +2265,127 @@ def openrouter_credits():
         logger.exception('openrouter_credits error')
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# ── PAEV — Prerequisite-Aware Epistemic Verification ─────────────────────────
 # ============================================
-# /api/paper-search — Semantic Scholar proxy
-# Browsers can't call S2 directly (no CORS).
-# This route proxies the request server-side.
+# /api/stream-layer — streaming paragraph writer
+# Uses SSE (text/event-stream) so the frontend
+# can render tokens as they arrive.
 # ============================================
 
-S2_API_BASE   = 'https://api.semanticscholar.org/graph/v1/paper/search'
-S2_FIELDS     = 'title,authors,year,journal,externalIds,abstract,citationCount,openAccessPdf'
-S2_HEADERS    = {'User-Agent': 'ChunksAI/1.0 (https://chunks-ai.vercel.app)'}
-
-@app.route('/api/paper-search', methods=['GET', 'OPTIONS'])
-@limiter.limit('30 per minute; 200 per hour', exempt_when=lambda: request.method == 'OPTIONS')
-def paper_search():
+@app.route('/api/stream-layer', methods=['POST', 'OPTIONS'])
+@limiter.limit('20 per minute; 100 per hour', exempt_when=lambda: request.method == 'OPTIONS')
+def stream_layer():
     if request.method == 'OPTIONS':
         return jsonify({}), 200
 
-    query = request.args.get('query', '').strip()
-    if not query:
-        return jsonify({'success': False, 'error': 'query parameter required'}), 400
-    if len(query) > 300:
-        return jsonify({'success': False, 'error': 'query too long'}), 400
+    data = request.json or {}
+    title       = sanitize_text(data.get('title', ''), 200)
+    problem     = sanitize_text(data.get('problem', ''), 400)
+    field       = sanitize_text(data.get('field', ''), 100)
+    paper_type  = sanitize_text(data.get('type', 'Quantitative Research'), 60)
+    section     = sanitize_text(data.get('section', ''), 100)
+    layer_name  = sanitize_text(data.get('layerName', ''), 100)
+    sources     = data.get('sources', [])          # list of {title, authors, journal, year}
+    prev_layers = data.get('prevLayers', [])        # list of {name, paragraph}
 
-    limit  = min(int(request.args.get('limit', 12)), 25)
-    offset = max(0, int(request.args.get('offset', 0)))
+    if not layer_name:
+        return jsonify({'success': False, 'error': 'layerName required'}), 400
 
-    try:
-        resp = _session.get(
-            S2_API_BASE,
-            params={'query': query, 'limit': limit, 'offset': offset, 'fields': S2_FIELDS},
-            headers=S2_HEADERS,
-            timeout=15
-        )
+    # Build source list
+    source_block = ''
+    if sources:
+        lines = [f"[{i+1}] {s.get('title','')} — {s.get('authors','')} ({s.get('year','')}), {s.get('journal','')}"
+                 for i, s in enumerate(sources[:10])]
+        source_block = "Use ONLY these sources. Cite inline as (Author, Year):\n" + "\n".join(lines)
+    else:
+        source_block = "No sources attached — write from general academic knowledge for this topic."
 
-        if resp.status_code == 200:
-            data = resp.json()
-            return jsonify({'success': True, 'data': data.get('data', []), 'total': data.get('total', 0)})
+    # Previous accepted paragraphs for continuity
+    prev_block = ''
+    if prev_layers:
+        snippets = [f"[{p['name']}]:\n{p['paragraph'][:400]}" for p in prev_layers[-3:] if p.get('paragraph')]
+        if snippets:
+            prev_block = "\n\nPrevious accepted paragraphs (DO NOT repeat — maintain continuity):\n" + "\n\n".join(snippets)
 
-        # S2 returns 429 when rate-limited
-        if resp.status_code == 429:
-            return jsonify({'success': False, 'error': 'Paper search rate limit reached — try again in a moment'}), 429
+    system_prompt = (
+        f"You are an expert academic writer. Write exactly ONE well-developed paragraph "
+        f"for a {paper_type} paper. Use formal academic register. "
+        f"Do NOT write a heading, title, or any label — output the paragraph text only."
+    )
 
-        logger.warning(f'S2 paper search error {resp.status_code}: {resp.text[:200]}')
-        return jsonify({'success': False, 'error': f'Search service error ({resp.status_code})'}), 502
+    user_prompt = (
+        f'Research title: "{title}"\n'
+        f'{f"Research problem: {problem}" if problem else ""}\n'
+        f'{f"Field: {field}" if field else ""}\n'
+        f"\nWrite the \"{layer_name}\" sub-section for Section: {section}\n"
+        f"\n{source_block}"
+        f"{prev_block}"
+        f"\n\nInstructions:\n"
+        f"- 150–250 words, one paragraph\n"
+        f"- Formal academic tone appropriate for {paper_type}\n"
+        f"{'- Cite every source at least once as (Author, Year)' if sources else ''}\n"
+        f"- Begin writing immediately — no preamble"
+    )
 
-    except requests.Timeout:
-        return jsonify({'success': False, 'error': 'Paper search timed out — try again'}), 504
-    except Exception as e:
-        logger.exception('paper_search error')
-        return jsonify({'success': False, 'error': str(e)}), 500
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type":  "application/json",
+        "HTTP-Referer":  "https://chunks-ai.vercel.app",
+        "X-Title":       "Chunks Research"
+    }
+    payload = {
+        "model":       MODEL,
+        "messages":    [
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_prompt}
+        ],
+        "temperature": 0.4,
+        "max_tokens":  600,
+        "stream":      True
+    }
+
+    def generate():
+        try:
+            with _session.post(OPENROUTER_URL, headers=headers, json=payload,
+                               stream=True, timeout=60) as resp:
+                if resp.status_code != 200:
+                    err = resp.text[:200]
+                    yield f"event: error\ndata: {json.dumps({'error': err})}\n\n"
+                    return
+
+                for raw_line in resp.iter_lines():
+                    if not raw_line:
+                        continue
+                    line = raw_line.decode('utf-8') if isinstance(raw_line, bytes) else raw_line
+                    if not line.startswith('data: '):
+                        continue
+                    chunk = line[6:]
+                    if chunk.strip() == '[DONE]':
+                        yield f"event: done\ndata: {{}}\n\n"
+                        return
+                    try:
+                        obj   = json.loads(chunk)
+                        delta = obj.get('choices', [{}])[0].get('delta', {})
+                        token = delta.get('content', '')
+                        if token:
+                            yield f"data: {json.dumps({'token': token})}\n\n"
+                    except Exception:
+                        continue
+
+        except Exception as e:
+            logger.exception("stream_layer error")
+            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control':  'no-cache',
+            'X-Accel-Buffering': 'no',   # disables nginx buffering on Railway
+        }
+    )
 
 
+# ── PAEV — Prerequisite-Aware Epistemic Verification ─────────────────────────
 from paev_routes import register_paev
 register_paev(app)
 
