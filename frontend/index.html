@@ -3622,6 +3622,7 @@ document.getElementById('library-modal').addEventListener('click', function(e) {
 const BACKEND = 'https://chunksai.up.railway.app';
 let homeMode = 'general';  // always general AI
 let homeHistory = [];       // [{role, content}, ...]
+let _homeSessionId = null;  // current general AI session id
 let homeIsTyping = false;
 
 /* ── Mode toggle ── */
@@ -3861,6 +3862,7 @@ async function homeSendMessage() {
       const answer = data.answer || 'No response.';
       homeAppendAI(answer, null);
       homeHistory.push({ role: 'assistant', content: answer });
+      if (_homeSessionId) _saveSession(_homeSessionId, homeHistory);
     }
   } catch (e) {
     homeRemoveThinking();
@@ -4759,6 +4761,20 @@ function _saveRecent() {
   sessionStorage.setItem('chunks_recent', JSON.stringify(_recentItems));
 }
 
+// ── Chat session save/restore ────────────────────────────
+function _saveSession(id, historyArr) {
+  // Save the rendered HTML + history array for a chat session
+  const html = document.getElementById('home-chat-history')?.innerHTML || '';
+  sessionStorage.setItem('chunks_session_' + id, JSON.stringify({ html, history: historyArr }));
+}
+
+function _loadSession(id) {
+  try {
+    const raw = sessionStorage.getItem('chunks_session_' + id);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
+
 // ── New Chat ─────────────────────────────────────────────
 function newChat() {
   // Clear workspace messages + restore empty state
@@ -4772,6 +4788,20 @@ function newChat() {
   // Reset chat state
   _wsChatHistory = [];
   _activeRecentId = null;
+  homeHistory = [];
+  _homeSessionId = null;
+
+  // Reset home screen to landing state
+  const homeChatHistory = document.getElementById('home-chat-history');
+  if (homeChatHistory) homeChatHistory.innerHTML = '';
+  const homeLanding = document.getElementById('home-landing');
+  const homeHero = document.querySelector('.home-hero');
+  const homeBar = document.getElementById('home-input-bar');
+  const homeScrollArea = document.getElementById('home-scroll-area');
+  if (homeLanding) homeLanding.style.display = '';
+  if (homeHero) homeHero.style.display = '';
+  if (homeBar) homeBar.style.display = 'none';
+  if (homeScrollArea) homeScrollArea.style.justifyContent = 'center';
 
   // Clear input
   const inp = document.getElementById('ws-chat-input');
@@ -4801,6 +4831,7 @@ function recentAdd(question, bookId, source) {
   // Don't duplicate if same as most recent of same source
   if (_recentItems.length && _recentItems[0].question === question && _recentItems[0].source === source) {
     _setActiveRecent(_recentItems[0].id);
+    if (source === 'general') _homeSessionId = _recentItems[0].id;
     return;
   }
   const item = {
@@ -4815,6 +4846,7 @@ function recentAdd(question, bookId, source) {
   _saveRecent();
   _renderAllRecent();
   _setActiveRecent(item.id);
+  if (source === 'general') _homeSessionId = item.id;
 }
 
 function _setActiveRecent(id) {
@@ -4834,21 +4866,40 @@ function _deleteRecent(id, e) {
 function _clickRecent(item) {
   _setActiveRecent(item.id);
   if (item.source === 'general' || !item.bookId) {
-    // General AI question — open in home chat
+    // General AI — restore saved session
     showScreen('home');
-    // Restore landing hidden state and show bottom bar if history exists
+    const session = _loadSession(item.id);
     const landing = document.getElementById('home-landing');
     const hero = document.querySelector('.home-hero');
     const bar = document.getElementById('home-input-bar');
     const scrollArea = document.getElementById('home-scroll-area');
-    if (landing) landing.style.display = 'none';
-    if (hero) hero.style.display = 'none';
-    if (bar) bar.style.display = 'flex';
-    if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
-    setTimeout(() => {
-      const bi = document.getElementById('home-ask-input-bottom');
-      if (bi) { bi.value = item.question; bi.focus(); homeAutoResize(bi); }
-    }, 80);
+    const chatHistory = document.getElementById('home-chat-history');
+
+    if (session && session.html) {
+      // Restore full conversation
+      if (landing) landing.style.display = 'none';
+      if (hero) hero.style.display = 'none';
+      if (bar) bar.style.display = 'flex';
+      if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
+      if (chatHistory) chatHistory.innerHTML = session.html;
+      homeHistory = session.history || [];
+      _homeSessionId = item.id;
+      setTimeout(() => {
+        homeScrollBottom();
+        document.getElementById('home-ask-input-bottom')?.focus();
+      }, 60);
+    } else {
+      // No saved session — pre-fill input to let user send fresh
+      if (landing) landing.style.display = 'none';
+      if (hero) hero.style.display = 'none';
+      if (bar) bar.style.display = 'flex';
+      if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
+      _homeSessionId = item.id;
+      setTimeout(() => {
+        const bi = document.getElementById('home-ask-input-bottom');
+        if (bi) { bi.value = item.question; bi.focus(); homeAutoResize(bi); }
+      }, 80);
+    }
   } else {
     // Workspace / book question — open in workspace
     showScreen('workspace');
