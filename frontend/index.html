@@ -696,6 +696,7 @@ body::after {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   padding: 40px 24px 24px;
   scrollbar-width: thin;
 }
@@ -732,9 +733,11 @@ body::after {
 
 .home-hero {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 36px;
   position: relative;
   z-index: 1;
+  width: 100%;
+  max-width: 860px;
 }
 
 .eyebrow-pill {
@@ -767,12 +770,12 @@ body::after {
 
 .home-h1 {
   font-family: var(--font-head);
-  font-size: 40px;
+  font-size: 58px;
   font-weight: 800;
-  line-height: 1.08;
+  line-height: 1.06;
   letter-spacing: -0.035em;
   color: var(--text-1);
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .home-h1 em {
@@ -784,10 +787,10 @@ body::after {
 }
 
 .home-sub {
-  font-size: 15px;
+  font-size: 17px;
   color: var(--text-2);
   line-height: 1.65;
-  max-width: 390px;
+  max-width: 500px;
   margin: 0 auto;
   font-weight: 300;
 }
@@ -795,7 +798,7 @@ body::after {
 /* Ask box */
 .ask-box {
   width: 100%;
-  max-width: 760px;
+  max-width: 860px;
   background: var(--surface-1);
   border: 1px solid var(--border-sm);
   border-radius: 99px;
@@ -876,9 +879,9 @@ body::after {
 .quick-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 9px;
-  width: 100%; max-width: 640px;
-  margin-bottom: 28px;
+  gap: 12px;
+  width: 100%; max-width: 860px;
+  margin-bottom: 32px;
   position: relative; z-index: 1;
 }
 
@@ -886,24 +889,24 @@ body::after {
   background: var(--surface-1);
   border: 1px solid var(--border-xs);
   border-radius: var(--r-md);
-  padding: 13px 13px 11px;
+  padding: 18px 18px 16px;
   cursor: pointer;
-  display: flex; flex-direction: column; gap: 5px;
+  display: flex; flex-direction: column; gap: 7px;
   transition: border-color var(--t-fast), background var(--t-fast), transform var(--t-mid) var(--ease-spring);
 }
 .quick-card:hover { border-color: var(--border-sm); background: var(--surface-2); transform: translateY(-2px); }
 
 .qc-icon {
-  width: 26px; height: 26px;
-  border-radius: 7px;
+  width: 32px; height: 32px;
+  border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 13px; margin-bottom: 3px;
+  font-size: 16px; margin-bottom: 4px;
 }
 .qc-icon.gold   { background: var(--gold-muted); }
 .qc-icon.violet { background: var(--violet-muted); }
 .qc-icon.teal   { background: var(--teal-muted); }
-.qc-title { font-size: 12px; font-weight: 600; color: var(--text-1); }
-.qc-desc  { font-size: 11px; color: var(--text-3); line-height: 1.4; }
+.qc-title { font-size: 13.5px; font-weight: 600; color: var(--text-1); }
+.qc-desc  { font-size: 12px; color: var(--text-3); line-height: 1.45; }
 
 /* Prompts */
 .prompts-label {
@@ -912,23 +915,23 @@ body::after {
   color: var(--text-4);
   text-transform: uppercase;
   letter-spacing: 0.09em;
-  margin-bottom: 9px;
+  margin-bottom: 11px;
   position: relative; z-index: 1;
 }
 
 .prompts-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 8px;
   justify-content: center;
-  max-width: 640px; width: 100%;
+  max-width: 860px; width: 100%;
   position: relative; z-index: 1;
 }
 
 .prompt-chip {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-2);
-  padding: 5px 12px;
+  padding: 7px 16px;
   border: 1px solid var(--border-xs);
   border-radius: var(--r-pill);
   background: var(--surface-1);
@@ -1356,7 +1359,7 @@ body::after {
 
 /* ── HOME CHAT ─────────────────────────────────────────────── */
 .home-chat-history {
-  width: 100%; max-width: 760px;
+  width: 100%; max-width: 860px;
   display: flex; flex-direction: column; gap: 24px;
   margin-bottom: 16px;
   padding: 0 4px;
@@ -2191,7 +2194,7 @@ body {
 
     <!-- Sticky bottom input bar — shown only after first message -->
     <div class="home-input-bar" id="home-input-bar" style="display:none;">
-      <div class="ask-box" id="home-ask-box-bottom">
+      <div class="ask-box" id="home-ask-box-bottom" style="max-width:860px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-3);flex-shrink:0;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <textarea id="home-ask-input-bottom" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
         <button class="ask-send" id="home-send-btn-bottom" onclick="homeSendMessage()">
@@ -3604,7 +3607,7 @@ document.getElementById('library-modal').addEventListener('click', function(e) {
    Backend: https://chunksai.up.railway.app
 ═══════════════════════════════════════════════ */
 const BACKEND = 'https://chunksai.up.railway.app';
-let homeMode = 'book';      // 'book' | 'general'
+let homeMode = 'general';  // always general AI
 let homeHistory = [];       // [{role, content}, ...]
 let homeIsTyping = false;
 
@@ -3774,10 +3777,11 @@ function homeHideLanding() {
   const landing = document.getElementById('home-landing');
   const hero = document.querySelector('.home-hero');
   const bar = document.getElementById('home-input-bar');
+  const scrollArea = document.getElementById('home-scroll-area');
   if (landing) landing.style.display = 'none';
   if (hero) hero.style.display = 'none';
   if (bar) bar.style.display = 'flex';
-  // Focus bottom input going forward
+  if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
   setTimeout(() => {
     const bi = document.getElementById('home-ask-input-bottom');
     if (bi) bi.focus();
