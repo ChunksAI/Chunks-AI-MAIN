@@ -2612,13 +2612,13 @@ body {
     target.style.animation = 'none';
     requestAnimationFrame(() => { target.style.animation = ''; });
 
-    // Persist so refresh returns to this screen
-    localStorage.setItem('chunks_active_screen', name);
+    // Persist so refresh returns to this screen (session only)
+    sessionStorage.setItem('chunks_active_screen', name);
   }
 
   // Restore last screen on load
   (function restoreScreen() {
-    const last = localStorage.getItem('chunks_active_screen');
+    const last = sessionStorage.getItem('chunks_active_screen');
     if (last && last !== 'home' && document.getElementById('screen-' + last)) {
       showScreen(last);
     }
