@@ -68,22 +68,24 @@ app = Flask(__name__)
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 BACKEND_URL  = os.environ.get('BACKEND_URL',  'http://localhost:5000')
 
-_raw_origins = os.environ.get('ALLOWED_ORIGINS', '')
-_allowed_origins = [o.strip() for o in _raw_origins.split(',') if o.strip()] if _raw_origins else []
-_default_origins = [
-    "https://chunks-ai.vercel.app",
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://localhost:5000",
-]
-if FRONTEND_URL and FRONTEND_URL not in _default_origins:
-    _default_origins.append(FRONTEND_URL)
-CORS_ORIGINS = list(dict.fromkeys(_allowed_origins + _default_origins))
-
-# FIX: Also allow all *.vercel.app subdomains (covers preview deploys and admin.html)
-# flask-cors 4.x supports re.compile() objects mixed into the origins list
-import re as _re
-CORS_ORIGINS.append(_re.compile(r'^https://[a-zA-Z0-9-]+\.vercel\.app$'))
+# Allow all origins by default — supports local file://, Vercel, Claude.ai, etc.
+# To restrict, set ALLOWED_ORIGINS env var to a comma-separated list of domains.
+_raw_origins = os.environ.get('ALLOWED_ORIGINS', '*')
+CORS_ORIGINS = '*'
+if _raw_origins != '*':
+    import re as _re
+    _allowed_origins = [o.strip() for o in _raw_origins.split(',') if o.strip()]
+    _default_origins = [
+        "https://chunks-ai.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "http://localhost:5000",
+        "null",
+    ]
+    if FRONTEND_URL and FRONTEND_URL not in _default_origins:
+        _default_origins.append(FRONTEND_URL)
+    CORS_ORIGINS = list(dict.fromkeys(_allowed_origins + _default_origins))
+    CORS_ORIGINS.append(_re.compile(r'^https://[a-zA-Z0-9-]+\.vercel\.app$'))
 
 CORS(app,
      origins=CORS_ORIGINS,
