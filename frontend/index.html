@@ -1265,14 +1265,35 @@ body::after {
 .recent-item svg { opacity: 0.45; flex-shrink: 0; transition: opacity var(--t-fast); }
 .recent-item:hover svg, .recent-item.active svg { opacity: 0.85; }
 .recent-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-.recent-item .recent-delete {
-  opacity: 0; width: 16px; height: 16px; border-radius: 3px;
+.recent-item .recent-menu-btn {
+  opacity: 0; width: 18px; height: 18px; border-radius: 3px;
   display: flex; align-items: center; justify-content: center;
   color: var(--text-3); flex-shrink: 0; margin-left: auto;
   transition: opacity var(--t-fast), background var(--t-fast);
+  cursor: pointer;
 }
-.recent-item:hover .recent-delete { opacity: 1; }
-.recent-item .recent-delete:hover { background: var(--surface-3); color: var(--text-1); }
+.recent-item:hover .recent-menu-btn { opacity: 1; }
+.recent-item .recent-menu-btn:hover { background: var(--surface-3); color: var(--text-1); }
+
+/* Context menu dropdown */
+.recent-ctx-menu {
+  position: fixed; z-index: 9999;
+  background: #1e1e28; border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 5px; min-width: 180px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+  animation: ctxFadeIn 0.12s ease;
+}
+@keyframes ctxFadeIn { from { opacity:0; transform:scale(0.95); } to { opacity:1; transform:scale(1); } }
+.recent-ctx-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 6px; cursor: pointer;
+  font-size: 13px; color: var(--text-2);
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.recent-ctx-item:hover { background: var(--surface-2); color: var(--text-1); }
+.recent-ctx-item.danger { color: #f87171; }
+.recent-ctx-item.danger:hover { background: rgba(248,113,113,0.1); color: #f87171; }
+.recent-ctx-divider { height: 1px; background: rgba(255,255,255,0.07); margin: 4px 0; }
 .recent-empty {
   padding: 6px 14px; font-size: 11.5px; color: var(--text-4);
   font-style: italic;
@@ -4991,13 +5012,87 @@ function _buildRecentItem(item) {
   el.title = item.question;
   el.innerHTML = `
     ${CHAT_SVG}
-    <span>${item.label.replace(/</g,'&lt;')}</span>
-    <span class="recent-delete" title="Remove">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    <span>${(item.pinned ? '📌 ' : '') + item.label.replace(/</g,'&lt;')}</span>
+    <span class="recent-menu-btn" title="More options">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
     </span>`;
   el.addEventListener('click', () => _clickRecent(item));
-  el.querySelector('.recent-delete').addEventListener('click', e => _deleteRecent(item.id, e));
+  el.querySelector('.recent-menu-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    _showRecentCtxMenu(item, e);
+  });
   return el;
+}
+
+// ── Context menu ─────────────────────────────────────────
+let _ctxMenuEl = null;
+
+function _closeCtxMenu() {
+  if (_ctxMenuEl) { _ctxMenuEl.remove(); _ctxMenuEl = null; }
+}
+
+function _showRecentCtxMenu(item, e) {
+  _closeCtxMenu();
+
+  const menu = document.createElement('div');
+  menu.className = 'recent-ctx-menu';
+  _ctxMenuEl = menu;
+
+  const isPinned = item.pinned || false;
+
+  menu.innerHTML = `
+    <div class="recent-ctx-item" data-action="rename">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Rename
+    </div>
+    <div class="recent-ctx-item" data-action="pin">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      ${isPinned ? 'Unpin chat' : 'Pin chat'}
+    </div>
+    <div class="recent-ctx-divider"></div>
+    <div class="recent-ctx-item danger" data-action="delete">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      Delete
+    </div>`;
+
+  document.body.appendChild(menu);
+
+  // Position near the button
+  const rect = e.currentTarget.getBoundingClientRect();
+  let top = rect.bottom + 4;
+  let left = rect.left - menu.offsetWidth + rect.width;
+  if (left < 8) left = 8;
+  if (top + 160 > window.innerHeight) top = rect.top - 160;
+  menu.style.top = top + 'px';
+  menu.style.left = left + 'px';
+
+  menu.addEventListener('click', e => {
+    const action = e.target.closest('[data-action]')?.dataset.action;
+    if (!action) return;
+    _closeCtxMenu();
+
+    if (action === 'delete') {
+      _deleteRecent(item.id, e);
+
+    } else if (action === 'rename') {
+      const newName = prompt('Rename chat:', item.label.replace(/…$/, ''));
+      if (newName && newName.trim()) {
+        item.label = newName.trim().slice(0, 40);
+        _saveRecent();
+        _renderAllRecent();
+      }
+
+    } else if (action === 'pin') {
+      item.pinned = !item.pinned;
+      // Move pinned items to top
+      _recentItems.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+      _saveRecent();
+      _renderAllRecent();
+    }
+  });
+
+  // Close on outside click
+  setTimeout(() => document.addEventListener('click', _closeCtxMenu, { once: true }), 0);
 }
 
 function _renderAllRecent() {
