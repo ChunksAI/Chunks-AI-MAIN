@@ -2627,8 +2627,17 @@ body {
       if (last && document.getElementById('screen-' + last)) {
         showScreen(last);
       }
+      // Restore library modal after DOM is fully ready
       if (sessionStorage.getItem('chunks_library_open') === '1') {
-        document.getElementById('library-modal')?.classList.add('active');
+        const restoreModal = () => {
+          const modal = document.getElementById('library-modal');
+          if (modal) modal.classList.add('active');
+        };
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', restoreModal, { once: true });
+        } else {
+          restoreModal();
+        }
       }
       sessionStorage.setItem('chunks_is_refresh', '1');
     } else {
