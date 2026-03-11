@@ -2339,24 +2339,38 @@ body {
 }
 .exam-stat-label { font-size: 10px; color: var(--text-4); }
 
-.exam-review { padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; }
+.exam-review { padding: 18px 26px; display: flex; flex-direction: column; gap: 12px; }
 .exam-review-item {
-  padding: 14px 16px; border-radius: var(--r-sm);
-  border: 1px solid var(--border-xs);
+  padding: 16px 18px; border-radius: var(--r-sm);
+  border: 1px solid var(--border-sm);
   background: var(--surface-2);
+  transition: background 0.14s;
 }
+.exam-review-item:hover { background: var(--surface-3); }
 .exam-review-q {
-  font-size: 13px; font-weight: 600; color: var(--text-1);
-  margin-bottom: 8px; line-height: 1.4;
+  font-size: 14px; font-weight: 600; color: #ededf0;
+  margin-bottom: 10px; line-height: 1.5;
 }
 .exam-review-answer {
-  font-size: 11px; display: flex; gap: 6px; align-items: baseline;
-  flex-wrap: wrap;
+  font-size: 13px; display: flex; gap: 8px; align-items: baseline;
+  flex-wrap: wrap; margin-bottom: 6px;
 }
-.exam-review-label { color: var(--text-4); }
-.exam-review-val { color: var(--text-2); }
-.exam-review-val.c { color: var(--teal, #2dd4bf); }
-.exam-review-val.w { color: #f87171; }
+.exam-review-label {
+  color: #8888a0;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+.exam-review-val { color: #c0c0d8; font-weight: 500; }
+.exam-review-val.c { color: #5ae8d4; font-weight: 600; }
+.exam-review-val.w { color: #ff7070; font-weight: 600; }
+.exam-review-explanation {
+  font-size: 12.5px; color: #7878a0; line-height: 1.65; margin-top: 8px;
+  padding-top: 8px; border-top: 1px solid var(--border-xs);
+}
 
 .exam-actions { padding: 16px 24px 24px; display: flex; gap: 10px; }
 
@@ -4626,7 +4640,7 @@ function _examFinish() {
         '<span class="exam-review-label">Your answer:</span> <span class="exam-review-val '+(ok?'c':'w')+'">'+(skip?'Skipped':chosenDisplay)+'</span>'+
         (!ok?'<span class="exam-review-label" style="margin-left:8px;">Correct:</span> <span class="exam-review-val c">'+correctDisplay+'</span>':'')+
       '</div>'+
-      (q.explanation?'<div style="font-size:11px;color:var(--text-4);margin-top:6px;line-height:1.5;">'+q.explanation+'</div>':'')+
+      (q.explanation?'<div class="exam-review-explanation">'+q.explanation+'</div>':'')+
     '</div>';
   }).join('');
 
@@ -4718,7 +4732,7 @@ function _examShowResults() {
         '<span class="exam-review-label">Your answer:</span> <span class="exam-review-val '+(ok?'c':'w')+'">'+(skip?'Skipped':chosenDisplay)+'</span>'+
         (!ok?'<span class="exam-review-label" style="margin-left:8px;">Correct:</span> <span class="exam-review-val c">'+correctDisplay+'</span>':'')+
       '</div>'+
-      (q.explanation?'<div style="font-size:11px;color:var(--text-4);margin-top:6px;line-height:1.5;">'+q.explanation+'</div>':'')+
+      (q.explanation?'<div class="exam-review-explanation">'+q.explanation+'</div>':'')+
     '</div>';
   }).join('');
 
