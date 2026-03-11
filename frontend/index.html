@@ -2700,6 +2700,8 @@ body {
       showScreen('home');
       sessionStorage.removeItem('chunks_is_refresh');
       localStorage.removeItem('chunks_active_home_session');
+      localStorage.removeItem('chunks_active_ws_book');
+      localStorage.removeItem('chunks_active_recent_id');
     }
 
     // Set flag — will survive refresh but not a fresh open
@@ -4830,6 +4832,7 @@ async function _wsAsk(question) {
       const answer = data.answer || 'No response.';
       wsAppendAI(answer, data.sources || [], question);
       _wsChatHistory.push({ role: 'assistant', content: answer });
+      _saveWsSession(_wsBookId, _wsChatHistory);
     }
   } catch(e) {
     wsRemoveThinking();
@@ -4878,6 +4881,21 @@ function _loadSession(id) {
   } catch(e) { return null; }
 }
 
+// ── Workspace session save/restore ───────────────────────
+function _saveWsSession(bookId, historyArr) {
+  const html = document.getElementById('ws-messages')?.innerHTML || '';
+  localStorage.setItem('chunks_ws_session_' + bookId, JSON.stringify({ html, history: historyArr }));
+  // Track which book + recent item was last active
+  localStorage.setItem('chunks_active_ws_book', bookId);
+}
+
+function _loadWsSession(bookId) {
+  try {
+    const raw = localStorage.getItem('chunks_ws_session_' + bookId);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
+
 // ── New Chat ─────────────────────────────────────────────
 function newChat() {
   // Clear workspace messages + restore empty state
@@ -4895,6 +4913,8 @@ function newChat() {
   _homeSessionId = null;
   localStorage.removeItem('chunks_active_home_session');
   localStorage.removeItem('chunks_home_session');
+  localStorage.removeItem('chunks_active_ws_book');
+  localStorage.removeItem('chunks_active_recent_id');
 
   // Reset home screen to landing state
   const homeChatHistory = document.getElementById('home-chat-history');
@@ -4965,6 +4985,8 @@ function _setActiveRecent(id) {
   document.querySelectorAll('.recent-item').forEach(el => {
     el.classList.toggle('active', el.dataset.id === id);
   });
+  if (id) localStorage.setItem('chunks_active_recent_id', id);
+  else localStorage.removeItem('chunks_active_recent_id');
 }
 
 function _deleteRecent(id, e) {
@@ -5143,28 +5165,53 @@ function _renderAllRecent() {
 
 _renderAllRecent();
 
-// ── Restore home chat session on refresh (runs after all vars declared) ──────
+// ── Restore chat session on refresh (runs after all vars declared) ──────
 if (sessionStorage.getItem('chunks_is_refresh') === '1') {
-  const savedId = localStorage.getItem('chunks_active_home_session');
-  const activeScreen = sessionStorage.getItem('chunks_active_screen');
-  if (savedId && (!activeScreen || activeScreen === 'home')) {
-    let session;
-    try { session = JSON.parse(localStorage.getItem('chunks_session_' + savedId)); } catch(e) {}
-    if (session && session.html) {
-      const landing    = document.getElementById('home-landing');
-      const hero       = document.querySelector('.home-hero');
-      const bar        = document.getElementById('home-input-bar');
-      const scrollArea = document.getElementById('home-scroll-area');
-      const chatHist   = document.getElementById('home-chat-history');
-      if (landing)    landing.style.display = 'none';
-      if (hero)       hero.style.display = 'none';
-      if (bar)        bar.style.display = 'flex';
-      if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
-      if (chatHist)   chatHist.innerHTML = session.html;
-      homeHistory    = session.history || [];
-      _homeSessionId = savedId;
-      _setActiveRecent(savedId);
-      setTimeout(() => homeScrollBottom(), 80);
+  const activeScreen   = sessionStorage.getItem('chunks_active_screen');
+  const activeRecentId = localStorage.getItem('chunks_active_recent_id');
+
+  if (activeScreen === 'workspace' || (!activeScreen && localStorage.getItem('chunks_active_ws_book'))) {
+    // ── Restore workspace chat ──
+    const bookId = localStorage.getItem('chunks_active_ws_book');
+    if (bookId) {
+      const wsSession = _loadWsSession(bookId);
+      selectBook(bookId).then(() => {
+        if (wsSession && wsSession.html) {
+          setTimeout(() => {
+            const msgs = document.getElementById('ws-messages');
+            if (msgs) msgs.innerHTML = wsSession.html;
+            _wsChatHistory = wsSession.history || [];
+            if (activeRecentId) _setActiveRecent(activeRecentId);
+            setTimeout(() => {
+              const m = document.getElementById('ws-messages');
+              if (m) m.scrollTop = m.scrollHeight;
+            }, 80);
+          }, 600);
+        }
+      });
+    }
+  } else {
+    // ── Restore home chat ──
+    const savedId = localStorage.getItem('chunks_active_home_session');
+    if (savedId && (!activeScreen || activeScreen === 'home')) {
+      let session;
+      try { session = JSON.parse(localStorage.getItem('chunks_session_' + savedId)); } catch(e) {}
+      if (session && session.html) {
+        const landing    = document.getElementById('home-landing');
+        const hero       = document.querySelector('.home-hero');
+        const bar        = document.getElementById('home-input-bar');
+        const scrollArea = document.getElementById('home-scroll-area');
+        const chatHist   = document.getElementById('home-chat-history');
+        if (landing)    landing.style.display = 'none';
+        if (hero)       hero.style.display = 'none';
+        if (bar)        bar.style.display = 'flex';
+        if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
+        if (chatHist)   chatHist.innerHTML = session.html;
+        homeHistory    = session.history || [];
+        _homeSessionId = savedId;
+        _setActiveRecent(savedId);
+        setTimeout(() => homeScrollBottom(), 80);
+      }
     }
   }
 }
