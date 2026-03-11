@@ -2149,8 +2149,25 @@ body {
           <span class="eyebrow-dot"></span>
           AI Study Assistant
         </div>
-        <h1 class="home-h1">Study smarter,<br>not <em>harder</em></h1>
-        <p class="home-sub">Ask questions, explore your textbooks, and generate study tools — all in one place.</p>
+        <h1 class="home-h1" id="home-hero-heading">Study smarter,<br>not <em>harder</em></h1>
+        <p class="home-sub" id="home-hero-sub">Ask questions, explore your textbooks, and generate study tools — all in one place.</p>
+        <script>
+          (function() {
+            const phrases = [
+              { h: 'Study smarter,<br>not <em>harder</em>', s: 'Ask questions, explore your textbooks, and generate study tools — all in one place.' },
+              { h: 'Learn faster,<br>remember <em>longer</em>', s: 'Your AI-powered study companion that turns difficult concepts into clear understanding.' },
+              { h: 'Knowledge is<br>your <em>superpower</em>', s: 'Ask anything, study everything — Chunks AI has your back every step of the way.' },
+              { h: 'Stop cramming,<br>start <em>understanding</em>', s: 'Deep learning, not surface memorization. Let Chunks AI guide you to real mastery.' },
+              { h: 'Every expert<br>was once a <em>beginner</em>', s: 'Break down complex topics, one question at a time. Your journey starts here.' },
+              { h: 'Your grades,<br>your <em>future</em>', s: 'Study with purpose. Chunks AI helps you focus on what matters most.' },
+              { h: 'Turn confusion<br>into <em>clarity</em>', s: 'No question is too hard. Chunks AI breaks it down until it clicks.' },
+              { h: 'Ace your exams,<br>own your <em>success</em>', s: 'Flashcards, summaries, practice questions — everything you need, all in one place.' },
+            ];
+            const pick = phrases[Math.floor(Math.random() * phrases.length)];
+            document.getElementById('home-hero-heading').innerHTML = pick.h;
+            document.getElementById('home-hero-sub').textContent = pick.s;
+          })();
+        </script>
       </div>
 
       <!-- ── CHAT HISTORY (hidden until first message) ── -->
