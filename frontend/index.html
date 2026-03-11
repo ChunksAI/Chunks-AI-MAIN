@@ -63,7 +63,7 @@
 
   /* Layout */
   --sidebar-w:      244px;
-  --sidebar-icon-w: 50px;
+  --sidebar-icon-w: 52px;
 
   /* Transitions */
   --ease-snap:   cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -247,16 +247,57 @@ body::after {
 }
 .sidebar.compact .sidebar-item { justify-content: center !important; padding: 9px 0 !important; width: 100%; gap: 0; }
 .sidebar.compact .sidebar-section { display: flex; flex-direction: column; align-items: center; padding: 4px 0; }
+.sidebar.compact .recent-list,
+.sidebar.compact .recent-empty,
+.sidebar.compact .sidebar-divider { display: none; }
 .sidebar.compact .sidebar-item.active::before { display: none; }
 .sidebar.compact .sidebar-item.active { border-radius: var(--r-sm); margin: 0 6px; padding: 9px 0 !important; width: calc(100% - 12px); justify-content: center !important; }
 
 .sidebar-divider { transition: opacity 200ms ease; }
-.sidebar.compact .sidebar-divider { opacity: 0; pointer-events: none; }
 
-.sidebar.compact .profile-row { justify-content: center; padding: 7px 0; }
 .sidebar.compact .sidebar-collapse-btn { display: none; }
 .sidebar.compact .sidebar-footer { padding: 10px 0; display: flex; justify-content: center; align-items: center; }
-.sidebar.compact .sidebar-header { justify-content: center; padding: 14px 0; gap: 0; }
+.sidebar.compact .profile-row { justify-content: center; align-items: center; padding: 6px 0; width: 100%; background: transparent; }
+.sidebar.compact .sidebar-header { justify-content: center; padding: 12px 0 10px; gap: 0; }
+
+/* Compact: logo-link becomes a square toggle area */
+.sidebar.compact .logo-link {
+  flex: 0 0 auto;
+  position: relative;
+  width: 36px; height: 36px;
+  border-radius: var(--r-sm);
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--t-fast);
+}
+.sidebar.compact .logo-link:hover { background: var(--surface-3); }
+
+/* Logo fades out on hover */
+.sidebar.compact .logo-link .logo-mark {
+  transition: opacity var(--t-fast), transform var(--t-fast);
+  opacity: 1; transform: scale(1);
+}
+.sidebar.compact .logo-link .logo-text { display: none; }
+.sidebar.compact .logo-link:hover .logo-mark { opacity: 0; transform: scale(0.6); }
+
+/* Expand icon: hidden, fades in on logo hover */
+.sidebar.compact .sidebar-expand-btn {
+  display: flex;
+  position: absolute;
+  inset: 0;
+  align-items: center; justify-content: center;
+  opacity: 0; transform: scale(0.7);
+  pointer-events: none;
+  transition: opacity var(--t-fast), transform var(--t-fast);
+  background: transparent; border: none;
+  color: var(--text-1); width: auto; height: auto; margin: 0;
+}
+.sidebar.compact .logo-link:hover .sidebar-expand-btn {
+  opacity: 1; transform: scale(1);
+}
+
+/* Compact: clean icon strip */
+.sidebar.compact .sidebar-new-btn { display: none; }
+.sidebar.compact .sidebar-item { border-radius: var(--r-sm); margin: 0 6px; padding: 8px 0 !important; width: calc(100% - 12px); }
 
 /* Logo orbit animation */
 .logo-mark {
@@ -277,6 +318,17 @@ body::after {
   border-bottom: 1px solid var(--border-xs);
 }
 
+.logo-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+.logo-link:hover .logo-mark { filter: brightness(1.2); }
+.logo-link:hover .logo-text { color: var(--text-1); }
+
 .logo-mark { width: 26px; height: 26px; flex-shrink: 0; }
 
 .logo-text {
@@ -286,6 +338,42 @@ body::after {
   color: var(--text-1);
   letter-spacing: -0.02em;
 }
+
+/* Collapse toggle button — shown in expanded header, far right, borderless */
+.sidebar-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--t-fast), background var(--t-fast);
+  margin-left: auto;
+}
+.sidebar-collapse-btn:hover { background: var(--surface-3); color: var(--text-1); }
+
+/* Expand button — only visible when sidebar is compact */
+.sidebar-expand-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--t-fast), background var(--t-fast);
+  margin-top: 0;
+}
+.sidebar-expand-btn:hover { background: var(--surface-3); color: var(--text-1); }
 
 .sidebar-new-btn {
   display: flex;
@@ -343,8 +431,6 @@ body::after {
 .sidebar-item:hover svg, .sidebar-item.active svg { opacity: 1; }
 
 .sidebar-divider { height: 1px; background: var(--border-xs); margin: 4px 16px; }
-
-.sidebar-collapse-btn { display: none; }
 
 .sidebar-footer { margin-top: auto; border-top: 1px solid var(--border-xs); padding: 10px; }
 
@@ -761,9 +847,8 @@ body::after {
 }
 
 .eyebrow-dot {
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  background: var(--gold);
+  width: 14px; height: 14px;
+  flex-shrink: 0;
   animation: blink 2.4s ease-in-out infinite;
 }
 
@@ -2097,15 +2182,26 @@ body {
 
   <aside class="sidebar">
     <div class="sidebar-header">
-      <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" onclick="toggleSidebar(this)" title="Toggle sidebar">
-        <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
-        <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
-        <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
-        <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
-      </svg>
-      <span class="logo-text">Chunks</span>
+      <div class="logo-link" onclick="handleLogoClick(this)" title="Go to home / expand">
+        <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
+          <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+          <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+        </svg>
+        <span class="logo-text">Chunks</span>
+        <div class="sidebar-expand-btn" title="Expand sidebar">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1.5" y="1.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M7 1.5V18.5" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+        </div>
+      </div>
       <button class="sidebar-collapse-btn" onclick="toggleSidebar(this)" title="Collapse sidebar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1.5" y="1.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M7 1.5V18.5" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
       </button>
     </div>
 
@@ -2177,7 +2273,16 @@ body {
     <div class="home-scroll-area" id="home-scroll-area">
       <div class="home-hero">
         <div class="eyebrow-pill">
-          <span class="eyebrow-dot"></span>
+          <svg class="eyebrow-dot" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="eg-gv" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
+              <linearGradient id="eg-vg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient>
+            </defs>
+            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#eg-gv)" stroke-width="7" opacity="0.95"/>
+            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#eg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#eg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+            <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+          </svg>
           AI Study Assistant
         </div>
         <h1 class="home-h1" id="home-hero-heading">Study smarter,<br>not <em>harder</em></h1>
@@ -2268,15 +2373,26 @@ body {
 
   <aside class="sidebar">
     <div class="sidebar-header">
-      <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" onclick="toggleSidebar(this)" title="Toggle sidebar">
-        <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
-        <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
-        <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
-        <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
-      </svg>
-      <span class="logo-text">Chunks</span>
+      <div class="logo-link" onclick="handleLogoClick(this)" title="Go to home / expand">
+        <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
+          <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+          <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+        </svg>
+        <span class="logo-text">Chunks</span>
+        <div class="sidebar-expand-btn" title="Expand sidebar">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1.5" y="1.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M7 1.5V18.5" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+        </div>
+      </div>
       <button class="sidebar-collapse-btn" onclick="toggleSidebar(this)" title="Collapse sidebar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1.5" y="1.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M7 1.5V18.5" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
       </button>
     </div>
     <button class="sidebar-new-btn" onclick="newChat()">
@@ -2471,15 +2587,26 @@ body {
   <!-- Sidebar (same as homepage) -->
   <aside class="sidebar">
     <div class="sidebar-header">
-      <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" onclick="toggleSidebar(this)" title="Toggle sidebar">
-        <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
-        <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
-        <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
-        <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
-      </svg>
-      <span class="logo-text">Chunks</span>
+      <div class="logo-link" onclick="handleLogoClick(this)" title="Go to home / expand">
+        <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
+          <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+          <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+        </svg>
+        <span class="logo-text">Chunks</span>
+        <div class="sidebar-expand-btn" title="Expand sidebar">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1.5" y="1.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M7 1.5V18.5" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
+        </div>
+      </div>
       <button class="sidebar-collapse-btn" onclick="toggleSidebar(this)" title="Collapse sidebar">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1.5" y="1.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.6"/>
+          <path d="M7 1.5V18.5" stroke="currentColor" stroke-width="1.6"/>
+        </svg>
       </button>
     </div>
 
@@ -2630,9 +2757,11 @@ body {
 <script>
   /* ── Sidebar compact toggle ── */
   function animateOrbits(sidebar, toCompact) {
+    // Only animate when expanding — keep logo shape when collapsing
+    if (toCompact) return;
     const orbits = sidebar.querySelectorAll('.logo-mark .orbit');
-    const fromRx = toCompact ? 40 : 6,  toRx = toCompact ? 6  : 40;
-    const fromRy = toCompact ? 14 : 6,  toRy = toCompact ? 6  : 14;
+    const fromRx = 6, toRx = 40;
+    const fromRy = 6, toRy = 14;
     const dur = 420, start = performance.now();
     const ease = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
     function step(now) {
@@ -2651,6 +2780,20 @@ body {
     sidebar.classList.toggle('compact', toCompact);
     animateOrbits(sidebar, toCompact);
   }
+
+  // Logo click: expand sidebar if compact, go home if expanded
+  function handleLogoClick(el) {
+    const sidebar = el.closest('.sidebar');
+    if (sidebar.classList.contains('compact')) {
+      sidebar.classList.remove('compact');
+      animateOrbits(sidebar, false);
+    } else {
+      goHome();
+    }
+  }
+
+  // Legacy — kept for safety, logo now always calls goHome() directly
+  function expandSidebar(el) { goHome(); }
 
   /* ── Screen navigation ── */
   const SCREEN_MAP = { home: 0, workspace: null, flash: null };
