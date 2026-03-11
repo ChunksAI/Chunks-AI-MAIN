@@ -1254,8 +1254,8 @@ body::after {
 /* Recent sidebar items */
 .recent-list { display: flex; flex-direction: column; gap: 1px; }
 .recent-item {
-  display: flex; align-items: center; gap: 9px;
-  padding: 6px 14px; border-radius: var(--r-sm);
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 10px 6px 14px; border-radius: var(--r-sm);
   font-size: 12.5px; color: var(--text-2); cursor: pointer;
   transition: background var(--t-fast), color var(--t-fast);
   position: relative; overflow: hidden;
@@ -1266,9 +1266,9 @@ body::after {
 .recent-item:hover svg, .recent-item.active svg { opacity: 0.85; }
 .recent-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .recent-item .recent-menu-btn {
-  opacity: 0; width: 18px; height: 18px; border-radius: 3px;
+  opacity: 0; width: 16px; height: 16px; border-radius: 3px;
   display: flex; align-items: center; justify-content: center;
-  color: var(--text-3); flex-shrink: 0; margin-left: auto;
+  color: var(--text-3); flex-shrink: 0;
   transition: opacity var(--t-fast), background var(--t-fast);
   cursor: pointer;
 }
