@@ -3995,7 +3995,7 @@ Each question must: (1) open with a realistic scenario drawn from the source mat
 Base scenarios ONLY on content in the source. Include a 1-2 sentence explanation for the correct answer.
 Each question MUST include a "ref" field citing the [BLOCK X of Y] it came from (e.g. "ref": "Block 3").
 Output ONLY a raw JSON array with no markdown:
-[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]
+[{"q":"SCENARIO: ...\n\nQuestion: What should you do?","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
 
 SOURCE MATERIAL (labeled by block):
 ---
@@ -4031,7 +4031,7 @@ Generate exactly ${count} ${typeLabel} exam questions. Difficulty: ${_examDiff}.
 Base your questions ONLY on the content provided. Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
 Each question MUST include a "ref" field citing the [BLOCK X of Y] it came from (e.g. "ref": "Block 3").
 Output ONLY a raw JSON array with no markdown:
-[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
 
 SOURCE MATERIAL (labeled by block):
 ---
@@ -4044,7 +4044,7 @@ ${_labeledSrc.slice(0, 55000)}
 Each question must: (1) open with a realistic, specific real-world scenario (2-4 sentences describing a situation a practitioner, student, or professional would face), (2) ask what the BEST action or decision is, (3) have exactly 4 options labeled A-D where all options are plausible but only one is clearly best.
 Include a 1-2 sentence explanation for why the correct answer is best.
 Output ONLY a raw JSON array with no markdown:
-[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
+[{"q":"SCENARIO: ...\n\nQuestion: What should you do?","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
     } else if (typeLabel === 'case-based-learning') {
       prompt = `You are a rigorous medical educator writing Case-Based Learning (CBL) exam questions about: "${topic}".
 Generate exactly ${count} clinical vignette questions. Vary the focus: mix diagnosis, next best step, mechanism, and treatment questions.
@@ -4066,7 +4066,7 @@ Output ONLY a raw JSON array — no markdown, no extra fields:
       prompt = `Generate exactly ${count} ${typeLabel} exam questions about: "${topic}". Difficulty: ${_examDiff}.
 Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
 Output ONLY a raw JSON array with no markdown:
-[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
+[{"q":"SCENARIO: ...\n\nQuestion: What should you do?","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
     }
   }
   return await _examBatchedGenerate(prompt, count);
@@ -4089,7 +4089,7 @@ Each question must: (1) open with a 2-4 sentence realistic scenario, (2) ask wha
 Difficulty: ${_examDiff}. Include a 1-2 sentence explanation per question.
 Each question MUST include a "ref" field citing the block it came from (e.g. "ref": "Block 3").
 Output ONLY a raw JSON array with no markdown:
-[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
 
 SOURCE MATERIAL (labeled by block):
 ---
@@ -4104,7 +4104,7 @@ Difficulty: ${_examDiff}.
 Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
 Each question MUST include a "ref" field citing the block it came from (e.g. "ref": "Block 3").
 Output ONLY a raw JSON array with no markdown:
-[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
 
 SOURCE MATERIAL (labeled by block):
 ---
@@ -4117,7 +4117,7 @@ ${_labeledSrc.slice(0, 55000)}
 Difficulty: ${_examDiff}. Cover a broad range of real-world scenarios — vary the settings, roles, and complications.
 Each question must: (1) open with a 2-4 sentence realistic scenario, (2) ask what the BEST action is, (3) have 4 plausible options labeled A-D where only one is clearly best. Include a 1-2 sentence explanation per question.
 Output ONLY a raw JSON array with no markdown:
-[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
+[{"q":"SCENARIO: ...\n\nQuestion: What should you do?","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
     } else if (typeLabel === 'case-based-learning') {
       prompt = `You are a rigorous medical educator writing Case-Based Learning (CBL) questions about: "${topic}".
 Generate exactly ${count} clinical vignette questions distributed across diagnosis, next best step, mechanism, and treatment.
@@ -4140,7 +4140,7 @@ Output ONLY a raw JSON array — no markdown, no extra fields:
 Difficulty: ${_examDiff}. Cover a broad range of subtopics — do not focus only on the most obvious concepts.
 Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
 Output ONLY a raw JSON array with no markdown:
-[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
     }
   }
   return await _examBatchedGenerate(prompt, count);
@@ -4227,7 +4227,7 @@ For each concept, create a realistic 2-4 sentence scenario involving that concep
 Provide 4 plausible options labeled A-D where only one is clearly best. Difficulty: ${_examDiff}. Include a 1-2 sentence explanation per question.
 Each question MUST include the "ref" value from its concept entry (e.g. "ref": "Block 3 of 12").
 Output ONLY a raw JSON array with no markdown, in the same order as the concepts:
-[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
 
 CONCEPTS (number. [source block] concept):
 ${conceptList}`;
@@ -4238,7 +4238,7 @@ Each question must test the specific concept it corresponds to. Difficulty: ${_e
 Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
 Each question MUST include the "ref" value from its concept entry (e.g. "ref": "Block 3 of 12").
 Output ONLY a raw JSON array with no markdown, in the same order as the concepts:
-[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
 
 CONCEPTS (number. [source block] concept):
 ${conceptList}`;
