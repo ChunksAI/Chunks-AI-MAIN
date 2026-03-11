@@ -80,6 +80,10 @@ if _raw_origins != '*':
         "http://localhost:5173",
         "http://localhost:3000",
         "http://localhost:5000",
+        "http://localhost:5500",      # VS Code Live Server
+        "http://127.0.0.1:5500",     # VS Code Live Server (IP form)
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
         "null",
     ]
     if FRONTEND_URL and FRONTEND_URL not in _default_origins:
