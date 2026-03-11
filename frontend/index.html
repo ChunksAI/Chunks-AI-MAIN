@@ -5127,6 +5127,28 @@ function newChat() {
   if (homeBar) homeBar.style.display = 'none';
   if (homeScrollArea) homeScrollArea.style.justifyContent = 'center';
 
+  // Rotate hero heading to a new random phrase
+  (function() {
+    const phrases = [
+      { h: 'Study smarter,<br>not <em>harder</em>', s: 'Ask questions, explore your textbooks, and generate study tools — all in one place.' },
+      { h: 'Learn faster,<br>remember <em>longer</em>', s: 'Your AI-powered study companion that turns difficult concepts into clear understanding.' },
+      { h: 'Knowledge is<br>your <em>superpower</em>', s: 'Ask anything, study everything — Chunks AI has your back every step of the way.' },
+      { h: 'Stop cramming,<br>start <em>understanding</em>', s: 'Deep learning, not surface memorization. Let Chunks AI guide you to real mastery.' },
+      { h: 'Every expert<br>was once a <em>beginner</em>', s: 'Break down complex topics, one question at a time. Your journey starts here.' },
+      { h: 'Your grades,<br>your <em>future</em>', s: 'Study with purpose. Chunks AI helps you focus on what matters most.' },
+      { h: 'Turn confusion<br>into <em>clarity</em>', s: 'No question is too hard. Chunks AI breaks it down until it clicks.' },
+      { h: 'Ace your exams,<br>own your <em>success</em>', s: 'Flashcards, summaries, practice questions — everything you need, all in one place.' },
+    ];
+    const current = document.getElementById('home-hero-heading')?.innerHTML || '';
+    let pick;
+    do { pick = phrases[Math.floor(Math.random() * phrases.length)]; }
+    while (pick.h === current && phrases.length > 1);
+    const h = document.getElementById('home-hero-heading');
+    const s = document.getElementById('home-hero-sub');
+    if (h) h.innerHTML = pick.h;
+    if (s) s.textContent = pick.s;
+  })();
+
   // Clear input
   const inp = document.getElementById('ws-chat-input');
   if (inp) { inp.value = ''; wsAutoResize(inp); }
@@ -5599,14 +5621,12 @@ document.addEventListener('click', function(e) {
 
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
-    if (document.getElementById('confirm-modal')?.classList.contains('active')) { closeConfirmModal(); return; }
+    if (document.getElementById('confirm-modal')?.classList.contains('active')) return;
     if (_pdHelpOpen) { _closeHelp(); return; }
     if (_pdOpen) {
       _pdOpen = false;
       document.getElementById('profile-dropdown').classList.remove('open');
-      return;
     }
-    closeSettings();
   }
 });
 
@@ -5863,7 +5883,7 @@ function clearAllHistory() {
       if (homeScroll) homeScroll.style.justifyContent = 'center';
 
       closeSettings();
-      setTimeout(() => wsShowToast('🗑️', 'Chat history cleared', ''), 200);
+      setTimeout(() => showSimpleNotif('Chat history cleared'), 200);
     }
   });
 }
@@ -5881,7 +5901,7 @@ async function clearPdfCache() {
       await caches.delete('chunks-pdf-v1');
       _updateCacheSizeLabel();
       closeSettings();
-      setTimeout(() => wsShowToast('🗑️', 'PDF cache cleared', ''), 200);
+      setTimeout(() => showSimpleNotif('PDF cache cleared'), 200);
     }
   });
 }
@@ -5981,8 +6001,6 @@ document.addEventListener('DOMContentLoaded', () => {
   border-radius: 18px;
   width: 100%;
   max-width: 420px;
-  max-height: 90vh;
-  overflow-y: auto;
   box-shadow: 0 24px 80px rgba(0,0,0,0.7);
 }
 
@@ -5990,7 +6008,7 @@ document.addEventListener('DOMContentLoaded', () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px 16px;
+  padding: 16px 24px 12px;
   border-bottom: 1px solid var(--border-xs);
 }
 .shortcuts-title {
@@ -6011,7 +6029,7 @@ document.addEventListener('DOMContentLoaded', () => {
 }
 .shortcuts-close:hover { background: var(--surface-3); color: var(--text-1); }
 
-.shortcuts-body { padding: 8px 0 16px; }
+.shortcuts-body { padding: 4px 0 12px; }
 
 .shortcuts-group-label {
   font-family: var(--font-mono);
@@ -6020,14 +6038,14 @@ document.addEventListener('DOMContentLoaded', () => {
   color: var(--text-4);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 12px 24px 4px;
+  padding: 8px 24px 3px;
 }
 
 .shortcuts-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 24px;
+  padding: 6px 24px;
   transition: background var(--t-fast);
 }
 .shortcuts-row:hover { background: var(--surface-2); }
@@ -6070,53 +6088,52 @@ kbd {
     </div>
     <div class="shortcuts-body">
 
-      <!-- General -->
       <div class="shortcuts-group-label">General</div>
       <div class="shortcuts-row">
-        <span class="shortcuts-row-label">Search chats</span>
+        <span class="shortcuts-row-label">New chat</span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>⇧</kbd><span class="kbd-sep">+</span><kbd>O</kbd></span>
+      </div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">Quick chat or search</span>
         <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>K</kbd></span>
       </div>
       <div class="shortcuts-row">
-        <span class="shortcuts-row-label">New chat</span>
-        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>Shift</kbd><span class="kbd-sep">+</span><kbd>O</kbd></span>
+        <span class="shortcuts-row-label">Incognito chat</span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>⇧</kbd><span class="kbd-sep">+</span><kbd>I</kbd></span>
       </div>
       <div class="shortcuts-row">
         <span class="shortcuts-row-label">Toggle sidebar</span>
-        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>Shift</kbd><span class="kbd-sep">+</span><kbd>S</kbd></span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>.</kbd></span>
+      </div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">Keyboard shortcuts</span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>/</kbd></span>
+      </div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">Settings</span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>,</kbd></span>
       </div>
 
-      <!-- Chat -->
-      <div class="shortcuts-group-label">Chat</div>
-      <div class="shortcuts-row">
-        <span class="shortcuts-row-label">Focus chat input</span>
-        <span class="kbd-combo"><kbd>Shift</kbd><span class="kbd-sep">+</span><kbd>Esc</kbd></span>
-      </div>
+      <div class="shortcuts-group-label">In chats</div>
       <div class="shortcuts-row">
         <span class="shortcuts-row-label">Send message</span>
         <span class="kbd-combo"><kbd>Enter</kbd></span>
       </div>
       <div class="shortcuts-row">
         <span class="shortcuts-row-label">New line in message</span>
-        <span class="kbd-combo"><kbd>Shift</kbd><span class="kbd-sep">+</span><kbd>Enter</kbd></span>
+        <span class="kbd-combo"><kbd>⇧</kbd><span class="kbd-sep">+</span><kbd>Enter</kbd></span>
       </div>
       <div class="shortcuts-row">
-        <span class="shortcuts-row-label">Go to home</span>
-        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>Shift</kbd><span class="kbd-sep">+</span><kbd>H</kbd></span>
+        <span class="shortcuts-row-label">Upload file</span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>U</kbd></span>
+      </div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">Stop response</span>
+        <span class="kbd-combo"><kbd>Esc</kbd></span>
       </div>
       <div class="shortcuts-row">
         <span class="shortcuts-row-label">Delete current chat</span>
-        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>Shift</kbd><span class="kbd-sep">+</span><kbd>Backspace</kbd></span>
-      </div>
-
-      <!-- Settings -->
-      <div class="shortcuts-group-label">Settings</div>
-      <div class="shortcuts-row">
-        <span class="shortcuts-row-label">Show shortcuts</span>
-        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>/</kbd></span>
-      </div>
-      <div class="shortcuts-row">
-        <span class="shortcuts-row-label">Open settings</span>
-        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>,</kbd></span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>⇧</kbd><span class="kbd-sep">+</span><kbd>⌫</kbd></span>
       </div>
 
     </div>
@@ -6142,46 +6159,56 @@ document.addEventListener('keydown', function(e) {
   const tag = document.activeElement?.tagName?.toLowerCase();
   const isTyping = tag === 'textarea' || tag === 'input' || document.activeElement?.isContentEditable;
 
-  // Ctrl+/ — show shortcuts (works even while typing)
-  if (e.ctrlKey && e.key === '/') {
+  const shortcutsOpen = document.getElementById('shortcuts-modal')?.classList.contains('active');
+  const settingsOpen  = document.getElementById('settings-modal')?.classList.contains('active');
+  const helpOpen      = document.getElementById('help-modal')?.classList.contains('active');
+  const confirmOpen   = document.getElementById('confirm-modal')?.classList.contains('active');
+
+  // ── Ctrl+/ — toggle shortcuts (always works) ─────────────
+  if (e.ctrlKey && !e.shiftKey && e.key === '/') {
     e.preventDefault();
-    openShortcuts();
+    if (shortcutsOpen) closeShortcuts(); else { closeSettings(); closeHelpCenter(); openShortcuts(); }
     return;
   }
 
-  // Escape — close shortcuts or settings
-  if (e.key === 'Escape') {
-    if (document.getElementById('shortcuts-modal').classList.contains('active')) {
-      closeShortcuts(); return;
-    }
-  }
-
-  // Skip other shortcuts if user is typing
-  if (isTyping) return;
-
-  // Ctrl+Shift+O — new chat
-  if (e.ctrlKey && e.shiftKey && e.key === 'O') {
+  // ── Ctrl+, — toggle settings (always works) ──────────────
+  if (e.ctrlKey && !e.shiftKey && e.key === ',') {
     e.preventDefault();
-    newChat();
+    if (settingsOpen) closeSettings(); else { closeShortcuts(); closeHelpCenter(); openSettings('general'); }
     return;
   }
 
-  // Ctrl+Shift+S — toggle sidebar
-  if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+  // ── Ctrl+K — focus/blur chat input (always works) ────────
+  if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    const input = document.getElementById('home-ask-input-bottom') ||
+                  document.getElementById('ws-chat-input') ||
+                  document.getElementById('home-ask-input');
+    if (document.activeElement === input) input?.blur();
+    else input?.focus();
+    return;
+  }
+
+  // ── Escape — layered close ────────────────────────────────
+  if (e.key === 'Escape' && !e.ctrlKey && !e.shiftKey) {
+    if (confirmOpen)   { closeConfirmModal(); return; }
+    if (shortcutsOpen) { closeShortcuts();    return; }
+    if (helpOpen)      { closeHelpCenter();   return; }
+    if (settingsOpen)  { closeSettings();     return; }
+    if (typeof wsStopStream === 'function') { wsStopStream(); }
+    return;
+  }
+
+  // ── Ctrl+. — toggle sidebar (always works) ───────────────
+  if (e.ctrlKey && !e.shiftKey && e.key === '.') {
     e.preventDefault();
     const sidebar = document.querySelector('.screen.active .sidebar');
     if (sidebar) toggleSidebar(sidebar.querySelector('.sidebar-collapse-btn, .sidebar-expand-btn') || sidebar);
     return;
   }
 
-  // Ctrl+Shift+H — go home
-  if (e.ctrlKey && e.shiftKey && e.key === 'H') {
-    e.preventDefault();
-    goHome();
-    return;
-  }
-
-  // Ctrl+Shift+Backspace — delete current chat
+  // ── Ctrl+Shift+Backspace — delete current chat ────────────
+  // (before isTyping guard so it works regardless of focus)
   if (e.ctrlKey && e.shiftKey && e.key === 'Backspace') {
     e.preventDefault();
     if (_activeRecentId) {
@@ -6201,29 +6228,29 @@ document.addEventListener('keydown', function(e) {
     return;
   }
 
-  // Ctrl+, — open settings
-  if (e.ctrlKey && e.key === ',') {
+  // Skip remaining shortcuts while typing
+  if (isTyping) return;
+
+  // ── Ctrl+Shift+O — new chat ───────────────────────────────
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'o') {
     e.preventDefault();
-    openSettings('general');
+    newChat();
+    return;
+  }
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') {
+    e.preventDefault();
+    localStorage.setItem('chunks_incognito_session', '1');
+    newChat();
+    wsShowToast('🕵️', 'Incognito chat — history won\'t be saved', '');
     return;
   }
 
-  // Ctrl+K — focus search / chat input
-  if (e.ctrlKey && e.key === 'k') {
+  // ── Ctrl+U — upload file ──────────────────────────────────
+  if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'u') {
     e.preventDefault();
-    const input = document.getElementById('home-ask-input-bottom') ||
-                  document.getElementById('ws-chat-input') ||
-                  document.getElementById('home-ask-input');
-    input?.focus();
-    return;
-  }
-
-  // Shift+Esc — focus chat input
-  if (e.shiftKey && e.key === 'Escape') {
-    e.preventDefault();
-    const input = document.getElementById('home-ask-input-bottom') ||
-                  document.getElementById('ws-chat-input');
-    input?.focus();
+    const fileInput = document.querySelector('input[type="file"]');
+    if (fileInput) fileInput.click();
+    else wsShowToast('📎', 'File upload not available here', '');
     return;
   }
 });
@@ -6610,6 +6637,27 @@ function filterFAQs(query) {
 </script>
 <!-- ── Confirm Sub-Modal ── -->
 <style>
+#simple-notif {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  opacity: 0;
+  pointer-events: none;
+  background: var(--surface-3);
+  border: 1px solid var(--border-sm);
+  color: var(--text-1);
+  font-size: 12px;
+  font-family: var(--font-body);
+  padding: 8px 18px;
+  border-radius: var(--r-pill);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  z-index: 10030;
+  white-space: nowrap;
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+#simple-notif.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
 .confirm-modal {
   display: none;
   position: fixed;
@@ -6683,10 +6731,11 @@ function filterFAQs(query) {
   cursor: pointer;
   transition: opacity var(--t-fast), transform var(--t-fast);
 }
-
 .confirm-ok:hover { opacity: 0.88; transform: translateY(-1px); }
 .confirm-ok:active { transform: translateY(0); }
 </style>
+
+<div id="simple-notif"></div>
 
 <div class="confirm-modal" id="confirm-modal">
   <div class="confirm-box" onclick="event.stopPropagation()">
@@ -6705,6 +6754,14 @@ function filterFAQs(query) {
 <script>
 /* ── Confirm Modal ── */
 let _confirmCallback = null;
+
+function showSimpleNotif(text) {
+  const el = document.getElementById('simple-notif');
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.remove('show'), 3000);
+}
 
 function showConfirmModal({ title, desc, confirmLabel, onConfirm }) {
   document.getElementById('confirm-title').textContent = title;
