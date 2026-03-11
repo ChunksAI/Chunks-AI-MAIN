@@ -3858,7 +3858,10 @@ async function homeSendMessage() {
   const question = inp.value.trim();
   if (!question) return;
 
-  recentAdd(question, null, 'general');
+  // Only create a new history entry on the FIRST message of a session
+  if (!_homeSessionId) {
+    recentAdd(question, null, 'general');
+  }
   homeHideLanding();
   homeAppendUser(question);
   inp.value = '';
