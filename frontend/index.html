@@ -598,7 +598,7 @@ body::after {
 }
 .settings-close {
   position: absolute;
-  top: 14px; right: 12px;
+  top: 14px; left: 12px;
   width: 26px; height: 26px;
   display: flex; align-items: center; justify-content: center;
   border: none; background: transparent;
@@ -1402,7 +1402,7 @@ body::after {
   box-shadow: 0 8px 24px rgba(0,0,0,0.45);
   opacity: 0; pointer-events: none;
   transition: opacity 200ms ease, transform 200ms ease;
-  z-index: 9999; white-space: nowrap; display: flex; align-items: center; gap: 7px;
+  z-index: 10030; white-space: nowrap; display: flex; align-items: center; gap: 7px;
 }
 #ws-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
@@ -2778,7 +2778,7 @@ body {
   }
 
   function toggleSidebar(el) {
-    const sidebar = el.closest('.sidebar');
+    const sidebar = el.classList.contains('sidebar') ? el : el.closest('.sidebar');
     const toCompact = !sidebar.classList.contains('compact');
     // Apply to ALL sidebars so state is consistent across screens
     document.querySelectorAll('.sidebar').forEach(s => s.classList.toggle('compact', toCompact));
@@ -3412,7 +3412,7 @@ async function _wsRenderPage(pageNum, container) {
 }
 
 // ── Chat state (declared here, used by selectBook + chat script) ──
-let _wsBookId      = 'atkins';
+let _wsBookId      = localStorage.getItem('chunks_default_book') || 'atkins';
 let _wsChatHistory = [];
 let _wsTyping      = false;
 
@@ -4349,12 +4349,13 @@ document.getElementById('home-ask-input').addEventListener('input', function() {
               <span>Atkins Chemistry</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
             </div>
-            <div class="settings-select-menu">
-              <div class="settings-select-option selected" onclick="settingsSelect(this)">Atkins Chemistry</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Zumdahl General Chemistry</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Klein Organic Chemistry</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Harris Analytical</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Netter Anatomy</div>
+            <div class="settings-select-menu" id="default-book-menu">
+              <div class="settings-select-option selected" data-book-id="atkins" onclick="settingsSelectDefaultBook(this)">Atkins Chemistry</div>
+              <div class="settings-select-option" data-book-id="zumdahl" onclick="settingsSelectDefaultBook(this)">Zumdahl General Chemistry</div>
+              <div class="settings-select-option" data-book-id="klein" onclick="settingsSelectDefaultBook(this)">Klein Organic Chemistry</div>
+              <div class="settings-select-option" data-book-id="harris" onclick="settingsSelectDefaultBook(this)">Harris Analytical</div>
+              <div class="settings-select-option" data-book-id="anaphy2e" onclick="settingsSelectDefaultBook(this)">Anatomy &amp; Physiology</div>
+              <div class="settings-select-option" data-book-id="netter" onclick="settingsSelectDefaultBook(this)">Netter Anatomy</div>
             </div>
           </div>
         </div>
@@ -4365,20 +4366,20 @@ document.getElementById('home-ask-input').addEventListener('input', function() {
               <span>Balanced</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
             </div>
-            <div class="settings-select-menu">
-              <div class="settings-select-option" onclick="settingsSelect(this)">Concise</div>
-              <div class="settings-select-option selected" onclick="settingsSelect(this)">Balanced</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Detailed</div>
+            <div class="settings-select-menu" id="study-mode-menu">
+              <div class="settings-select-option" data-mode="concise" onclick="settingsSelectStudyMode(this)">Concise</div>
+              <div class="settings-select-option selected" data-mode="balanced" onclick="settingsSelectStudyMode(this)">Balanced</div>
+              <div class="settings-select-option" data-mode="detailed" onclick="settingsSelectStudyMode(this)">Detailed</div>
             </div>
           </div>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Show follow-up questions</div><div class="settings-row-desc">Display suggested follow-ups after AI responses.</div></div>
-          <label class="settings-toggle"><input type="checkbox" checked onchange="settingsToggleChanged(this,'followups')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-followups" checked onchange="settingsToggleChanged(this,'followups')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Auto-generate flashcards</div><div class="settings-row-desc">Suggest flashcard creation after key answers.</div></div>
-          <label class="settings-toggle"><input type="checkbox" onchange="settingsToggleChanged(this,'auto-flash')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-auto-flash" onchange="settingsToggleChanged(this,'auto-flash')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
       </div>
 
@@ -4399,19 +4400,19 @@ document.getElementById('home-ask-input').addEventListener('input', function() {
         <div class="settings-page-title">Data controls</div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Save chat history</div><div class="settings-row-desc">Store your conversations for future reference.</div></div>
-          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-save-history" checked onchange="dataToggleSaveHistory(this)"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Use data to improve Chunks AI</div><div class="settings-row-desc">Help improve the product by sharing anonymised usage data.</div></div>
-          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-improve-data" checked onchange="dataToggleImprove(this)"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Delete all chat history</div><div class="settings-row-desc">Permanently remove all saved conversations.</div></div>
-          <button onclick="clearAllHistory()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;">Delete all</button>
+          <button id="delete-all-btn" onclick="clearAllHistory()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Delete all</button>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Cached textbooks</div><div class="settings-row-desc" id="cache-size-label">Textbooks are cached locally so they load instantly after the first download.</div></div>
-          <button onclick="clearPdfCache()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;">Clear cache</button>
+          <button id="clear-cache-btn" onclick="clearPdfCache()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Clear cache</button>
         </div>
       </div>
 
@@ -4495,7 +4496,7 @@ document.getElementById('home-ask-input').addEventListener('input', function() {
       Settings
     </div>
     <div class="pd-divider"></div>
-    <div class="pd-item" id="pd-help-item" onclick="pdToggleHelp(event)">
+    <div class="pd-item" id="pd-help-item" onmouseenter="pdOpenHelp(event)" onmouseleave="pdHelpMouseLeave(event)">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
       Help
       <svg class="pd-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
@@ -4879,18 +4880,26 @@ function wsAppendAI(answer, sources, question) {
   }
 
   // ── Follow-up suggestions ──
-  const followups = _wsFollowups(answer, question);
-  const followupHtml = `
+  const followups = _isFollowupsEnabled() ? _wsFollowups(answer, question) : [];
+  const followupHtml = followups.length ? `
     <div class="followups" style="margin-top:10px;">
       <div class="followup-head">Follow-up questions</div>
       <div class="followup-list">
         ${followups.map(q => `
-          <div class="followup-item" onclick="wsSetInput('${q.replace(/'/g,"\\'")}')">
+          <div class="followup-item" onclick="wsSetInput('${q.replace(/'/g,"\'")}')">
             ${q.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
           </div>`).join('')}
       </div>
-    </div>`;
+    </div>` : '';
+
+  // ── Auto-generate flashcard prompt ──
+  const autoFlashHtml = _isAutoFlashEnabled() ? `
+    <div style="margin-top:8px;padding:8px 10px;background:var(--violet-muted);border:1px solid var(--violet-border);border-radius:var(--r-md);display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <span style="font-size:11px;color:var(--text-2);">💡 Save this as a flashcard?</span>
+      <button onclick="wsMakeFlashcard(this,'${msgId}',\`${(question||'').replace(/\`/g,"'").replace(/
+/g,' ').slice(0,120)}\`)" style="font-size:11px;padding:4px 10px;border-radius:var(--r-pill);background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);cursor:pointer;font-family:var(--font-body);">Save flashcard</button>
+    </div>` : '';
 
   const d = document.createElement('div');
   d.className = 'msg msg-ai'; d.id = msgId;
@@ -4912,6 +4921,7 @@ function wsAppendAI(answer, sources, question) {
           </button>
         </div>
         ${followupHtml}
+        ${autoFlashHtml}
       </div>
     </div>`;
   msgs.appendChild(d); wsScrollBottom();
@@ -4973,8 +4983,8 @@ async function _wsAsk(question) {
       body: JSON.stringify({
         question,
         bookId: _wsBookId || 'atkins',
-        mode: 'study',
-        complexity: 5,
+        mode: _getStudyMode(),
+        complexity: _getStudyMode() === 'concise' ? 3 : _getStudyMode() === 'detailed' ? 8 : 5,
         history: _wsChatHistory.slice(-10),
       })
     });
@@ -5019,12 +5029,18 @@ const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" st
 let _recentItems = JSON.parse(localStorage.getItem('chunks_recent') || 'null') || [];
 let _activeRecentId = null;
 
+function _historySavingEnabled() {
+  return localStorage.getItem('chunks_save_history') !== '0';
+}
+
 function _saveRecent() {
+  if (!_historySavingEnabled()) return;
   localStorage.setItem('chunks_recent', JSON.stringify(_recentItems));
 }
 
 // ── Chat session save/restore ────────────────────────────
 function _saveSession(id, historyArr) {
+  if (!_historySavingEnabled()) return;
   // Save the rendered HTML + history array for a chat session
   const html = document.getElementById('home-chat-history')?.innerHTML || '';
   localStorage.setItem('chunks_session_' + id, JSON.stringify({ html, history: historyArr }));
@@ -5335,7 +5351,15 @@ function _showRecentCtxMenu(item, e) {
     _closeCtxMenu();
 
     if (action === 'delete') {
-      _deleteRecent(item.id, e);
+      showConfirmModal({
+        title: 'Delete this chat?',
+        desc: `"${item.label.replace(/…$/, '')}" will be permanently removed.`,
+        confirmLabel: 'Delete chat',
+        onConfirm: () => {
+          _deleteRecent(item.id, { stopPropagation: () => {} });
+          wsShowToast('🗑️', 'Chat deleted', '');
+        }
+      });
 
     } else if (action === 'rename') {
       const newName = prompt('Rename chat:', item.label.replace(/…$/, ''));
@@ -5520,24 +5544,42 @@ function _closeHelp() {
   document.getElementById('pd-help-item')?.classList.remove('active');
 }
 
-function pdToggleHelp(e) {
-  e && e.stopPropagation();
-  _pdHelpOpen = !_pdHelpOpen;
+function _openHelpSubmenu() {
+  _pdHelpOpen = true;
   const sub  = document.getElementById('pd-help-submenu');
   const item = document.getElementById('pd-help-item');
-  sub.classList.toggle('open', _pdHelpOpen);
-  item?.classList.toggle('active', _pdHelpOpen);
+  sub.classList.add('open');
+  item?.classList.add('active');
 
-  if (_pdHelpOpen) {
-    const ddRect   = document.getElementById('profile-dropdown').getBoundingClientRect();
-    const itemRect = item.getBoundingClientRect();
+  const ddRect   = document.getElementById('profile-dropdown').getBoundingClientRect();
+  const itemRect = item.getBoundingClientRect();
+  sub.style.position = 'fixed';
+  sub.style.left     = (ddRect.right + 6) + 'px';
+  sub.style.bottom   = (window.innerHeight - itemRect.bottom) + 'px';
+  sub.style.top      = 'auto';
+  sub.style.right    = 'auto';
 
-    sub.style.position = 'fixed';
-    sub.style.left     = (ddRect.right + 6) + 'px';
-    sub.style.top      = itemRect.top + 'px';
-    sub.style.bottom   = 'auto';
-    sub.style.right    = 'auto';
-  }
+  // Keep submenu open while hovering over it
+  sub.onmouseenter = () => clearTimeout(_helpCloseTimer);
+  sub.onmouseleave = () => { _helpCloseTimer = setTimeout(_closeHelp, 80); };
+}
+
+let _helpCloseTimer = null;
+
+function pdOpenHelp(e) {
+  e && e.stopPropagation();
+  clearTimeout(_helpCloseTimer);
+  _openHelpSubmenu();
+}
+
+function pdHelpMouseLeave(e) {
+  // Small delay so cursor can move to submenu without it closing
+  _helpCloseTimer = setTimeout(_closeHelp, 80);
+}
+
+function pdToggleHelp(e) {
+  e && e.stopPropagation();
+  if (_pdHelpOpen) _closeHelp(); else _openHelpSubmenu();
 }
 
 // Close when clicking outside
@@ -5557,6 +5599,7 @@ document.addEventListener('click', function(e) {
 
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Escape') {
+    if (document.getElementById('confirm-modal')?.classList.contains('active')) { closeConfirmModal(); return; }
     if (_pdHelpOpen) { _closeHelp(); return; }
     if (_pdOpen) {
       _pdOpen = false;
@@ -5583,7 +5626,8 @@ function pdAction(action) {
       openSettings('general');
       break;
     case 'help-center':
-      wsShowToast && wsShowToast('❓', 'Help center — coming soon!', '');
+      openHelpCenter();
+      break;
       break;
     case 'terms':
       wsShowToast && wsShowToast('📄', 'Terms & policies — coming soon!', '');
@@ -5592,7 +5636,7 @@ function pdAction(action) {
       wsShowToast && wsShowToast('🐛', 'Report a bug — coming soon!', '');
       break;
     case 'shortcuts':
-      wsShowToast && wsShowToast('⌨️', 'Keyboard shortcuts — coming soon!', '');
+      openShortcuts();
       break;
     case 'logout':
       if (confirm('Log out of Chunks AI?')) {
@@ -5635,7 +5679,7 @@ function settingsNav(page, el) {
 
 // Click outside settings modal to close
 document.getElementById('settings-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeSettings();
+  if (e.target === this && !document.getElementById('confirm-modal')?.classList.contains('active')) closeSettings();
 });
 
 /* ── Custom dropdown logic ── */
@@ -5719,37 +5763,127 @@ document.addEventListener('click', function(e) {
 
 function settingsToggleChanged(checkbox, key) {
   const val = checkbox.checked;
-  // Persist to sessionStorage so other parts of the app can read it
-  sessionStorage.setItem('chunks_setting_' + key, val ? '1' : '0');
-  // Apply live effects
+  localStorage.setItem('chunks_setting_' + key, val ? '1' : '0');
   if (key === 'followups') {
-    // Show/hide follow-up blocks in existing messages
     document.querySelectorAll('.followups').forEach(el => {
       el.style.display = val ? '' : 'none';
     });
   }
+  if (key === 'auto-flash') {
+    // Auto-flash toggle stored; checked on next AI response
+  }
   wsShowToast && wsShowToast(val ? '✓' : '✕', `${key.replace(/-/g,' ')} ${val ? 'enabled' : 'disabled'}`, val ? '' : '');
 }
 
-function clearAllHistory() {
-  if (confirm('Delete all chat history? This cannot be undone.')) {
+function settingsSelectDefaultBook(optionEl) {
+  settingsSelect(optionEl);
+  const bookId = optionEl.dataset.bookId;
+  if (bookId) {
+    localStorage.setItem('chunks_default_book', bookId);
+    wsShowToast && wsShowToast('📚', `Default book set to ${optionEl.textContent.trim()}`, '');
+  }
+}
+
+function settingsSelectStudyMode(optionEl) {
+  settingsSelect(optionEl);
+  const mode = optionEl.dataset.mode;
+  if (mode) {
+    localStorage.setItem('chunks_study_mode', mode);
+    wsShowToast && wsShowToast('✓', `Study mode: ${optionEl.textContent.trim()}`, '');
+  }
+}
+
+function _getStudyMode() {
+  return localStorage.getItem('chunks_study_mode') || 'balanced';
+}
+
+function _isFollowupsEnabled() {
+  return localStorage.getItem('chunks_setting_followups') !== '0';
+}
+
+function _isAutoFlashEnabled() {
+  return localStorage.getItem('chunks_setting_auto-flash') === '1';
+}
+
+function dataToggleSaveHistory(checkbox) {
+  const enabled = checkbox.checked;
+  localStorage.setItem('chunks_save_history', enabled ? '1' : '0');
+  if (!enabled) {
+    // Clear existing history immediately
     localStorage.removeItem('chunks_recent');
     _recentItems = [];
     _renderAllRecent();
-    wsShowToast && wsShowToast('🗑️', 'Chat history cleared', '');
+    // Clear all session data
+    Object.keys(localStorage).filter(k => k.startsWith('chunks_session_') || k.startsWith('chunks_ws_session_')).forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem('chunks_active_home_session');
+    localStorage.removeItem('chunks_active_ws_book');
+    localStorage.removeItem('chunks_active_recent_id');
   }
+  wsShowToast && wsShowToast(enabled ? '✓' : '✕', `Chat history ${enabled ? 'will be saved' : 'disabled — history cleared'}`, '');
+}
+
+function dataToggleImprove(checkbox) {
+  const enabled = checkbox.checked;
+  localStorage.setItem('chunks_improve_data', enabled ? '1' : '0');
+  wsShowToast && wsShowToast(enabled ? '✓' : '✕', `Usage data sharing ${enabled ? 'enabled' : 'disabled'}`, '');
+}
+
+function clearAllHistory() {
+  showConfirmModal({
+    title: 'Clear your chat history — are you sure?',
+    desc: 'This will permanently delete all saved conversations and cannot be undone.',
+    confirmLabel: 'Confirm deletion',
+    onConfirm: () => {
+      Object.keys(localStorage).filter(k =>
+        k.startsWith('chunks_session_') ||
+        k.startsWith('chunks_ws_session_') ||
+        k === 'chunks_recent' ||
+        k === 'chunks_active_home_session' ||
+        k === 'chunks_active_ws_book' ||
+        k === 'chunks_active_recent_id' ||
+        k === 'chunks_home_session'
+      ).forEach(k => localStorage.removeItem(k));
+
+      _recentItems = [];
+      _activeRecentId = null;
+      homeHistory = [];
+      _homeSessionId = null;
+      _wsChatHistory = [];
+      _renderAllRecent();
+
+      const chatHist = document.getElementById('home-chat-history');
+      const homeLanding = document.getElementById('home-landing');
+      const homeHero = document.querySelector('.home-hero');
+      const homeBar = document.getElementById('home-input-bar');
+      const homeScroll = document.getElementById('home-scroll-area');
+      if (chatHist) chatHist.innerHTML = '';
+      if (homeLanding) homeLanding.style.display = '';
+      if (homeHero) homeHero.style.display = '';
+      if (homeBar) homeBar.style.display = 'none';
+      if (homeScroll) homeScroll.style.justifyContent = 'center';
+
+      closeSettings();
+      setTimeout(() => wsShowToast('🗑️', 'Chat history cleared', ''), 200);
+    }
+  });
 }
 
 async function clearPdfCache() {
   if (!('caches' in window)) {
-    wsShowToast && wsShowToast('⚠', 'Cache not supported in this browser', '');
+    wsShowToast && wsShowToast('⚠', 'Cache API not supported in this browser', '');
     return;
   }
-  if (confirm('Clear all cached textbooks? They will re-download next time.')) {
-    await caches.delete('chunks-pdf-v1');
-    wsShowToast && wsShowToast('🗑️', 'PDF cache cleared', '');
-    _updateCacheSizeLabel();
-  }
+  showConfirmModal({
+    title: 'Clear cached textbooks — are you sure?',
+    desc: 'Textbooks will be re-downloaded the next time you open them in Workspace.',
+    confirmLabel: 'Confirm deletion',
+    onConfirm: async () => {
+      await caches.delete('chunks-pdf-v1');
+      _updateCacheSizeLabel();
+      closeSettings();
+      setTimeout(() => wsShowToast('🗑️', 'PDF cache cleared', ''), 200);
+    }
+  });
 }
 
 async function _updateCacheSizeLabel() {
@@ -5779,6 +5913,822 @@ async function _updateCacheSizeLabel() {
 // Update cache size when Data controls page is opened
 document.addEventListener('DOMContentLoaded', () => {
   _updateCacheSizeLabel();
+  // Restore data control toggle states
+  if (localStorage.getItem('chunks_save_history') === '0') {
+    const el = document.getElementById('toggle-save-history');
+    if (el) el.checked = false;
+  }
+  if (localStorage.getItem('chunks_improve_data') === '0') {
+    const el = document.getElementById('toggle-improve-data');
+    if (el) el.checked = false;
+  }
+  // Restore personalization toggles
+  if (localStorage.getItem('chunks_setting_followups') === '0') {
+    const el = document.getElementById('toggle-followups');
+    if (el) el.checked = false;
+  }
+  if (localStorage.getItem('chunks_setting_auto-flash') === '1') {
+    const el = document.getElementById('toggle-auto-flash');
+    if (el) el.checked = true;
+  }
+  // Restore default book dropdown label
+  const savedBook = localStorage.getItem('chunks_default_book');
+  if (savedBook) {
+    const opt = document.querySelector(`#default-book-menu [data-book-id="${savedBook}"]`);
+    if (opt) {
+      const menu = document.getElementById('default-book-menu');
+      const btn = menu?.previousElementSibling;
+      menu?.querySelectorAll('.settings-select-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      if (btn) btn.querySelector('span').textContent = opt.textContent.trim();
+    }
+  }
+  // Restore study mode dropdown label
+  const savedMode = localStorage.getItem('chunks_study_mode');
+  if (savedMode) {
+    const opt = document.querySelector(`#study-mode-menu [data-mode="${savedMode}"]`);
+    if (opt) {
+      const menu = document.getElementById('study-mode-menu');
+      const btn = menu?.previousElementSibling;
+      menu?.querySelectorAll('.settings-select-option').forEach(o => o.classList.remove('selected'));
+      opt.classList.add('selected');
+      if (btn) btn.querySelector('span').textContent = opt.textContent.trim();
+    }
+  }
+});
+</script>
+
+<!-- ── Keyboard Shortcuts Modal ── -->
+<style>
+.shortcuts-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10003;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: modal-fade-in 0.18s ease;
+}
+.shortcuts-modal.active { display: flex; }
+
+.shortcuts-content {
+  background: var(--surface-1);
+  border: 1px solid var(--border-md);
+  border-radius: 18px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+}
+
+.shortcuts-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border-xs);
+}
+.shortcuts-title {
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.shortcuts-close {
+  width: 28px; height: 28px;
+  border-radius: var(--r-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.shortcuts-close:hover { background: var(--surface-3); color: var(--text-1); }
+
+.shortcuts-body { padding: 8px 0 16px; }
+
+.shortcuts-group-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-4);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 12px 24px 4px;
+}
+
+.shortcuts-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 24px;
+  transition: background var(--t-fast);
+}
+.shortcuts-row:hover { background: var(--surface-2); }
+.shortcuts-row-label {
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.kbd-combo {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-2);
+  background: var(--surface-3);
+  border: 1px solid var(--border-md);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+.kbd-sep {
+  font-size: 10px;
+  color: var(--text-4);
+  margin: 0 1px;
+}
+</style>
+
+<div class="shortcuts-modal" id="shortcuts-modal">
+  <div class="shortcuts-content">
+    <div class="shortcuts-header">
+      <span class="shortcuts-title">Keyboard shortcuts</span>
+      <button class="shortcuts-close" onclick="closeShortcuts()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="shortcuts-body">
+
+      <!-- General -->
+      <div class="shortcuts-group-label">General</div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">Search chats</span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>K</kbd></span>
+      </div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">New chat</span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>Shift</kbd><span class="kbd-sep">+</span><kbd>O</kbd></span>
+      </div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">Toggle sidebar</span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>Shift</kbd><span class="kbd-sep">+</span><kbd>S</kbd></span>
+      </div>
+
+      <!-- Chat -->
+      <div class="shortcuts-group-label">Chat</div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">Focus chat input</span>
+        <span class="kbd-combo"><kbd>Shift</kbd><span class="kbd-sep">+</span><kbd>Esc</kbd></span>
+      </div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">Send message</span>
+        <span class="kbd-combo"><kbd>Enter</kbd></span>
+      </div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">New line in message</span>
+        <span class="kbd-combo"><kbd>Shift</kbd><span class="kbd-sep">+</span><kbd>Enter</kbd></span>
+      </div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">Go to home</span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>Shift</kbd><span class="kbd-sep">+</span><kbd>H</kbd></span>
+      </div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">Delete current chat</span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>Shift</kbd><span class="kbd-sep">+</span><kbd>Backspace</kbd></span>
+      </div>
+
+      <!-- Settings -->
+      <div class="shortcuts-group-label">Settings</div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">Show shortcuts</span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>/</kbd></span>
+      </div>
+      <div class="shortcuts-row">
+        <span class="shortcuts-row-label">Open settings</span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>,</kbd></span>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Shortcuts Modal ── */
+function openShortcuts() {
+  document.getElementById('shortcuts-modal').classList.add('active');
+}
+function closeShortcuts() {
+  document.getElementById('shortcuts-modal').classList.remove('active');
+}
+
+// Close on backdrop click
+document.getElementById('shortcuts-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeShortcuts();
+});
+
+/* ── Global keyboard shortcuts ── */
+document.addEventListener('keydown', function(e) {
+  const tag = document.activeElement?.tagName?.toLowerCase();
+  const isTyping = tag === 'textarea' || tag === 'input' || document.activeElement?.isContentEditable;
+
+  // Ctrl+/ — show shortcuts (works even while typing)
+  if (e.ctrlKey && e.key === '/') {
+    e.preventDefault();
+    openShortcuts();
+    return;
+  }
+
+  // Escape — close shortcuts or settings
+  if (e.key === 'Escape') {
+    if (document.getElementById('shortcuts-modal').classList.contains('active')) {
+      closeShortcuts(); return;
+    }
+  }
+
+  // Skip other shortcuts if user is typing
+  if (isTyping) return;
+
+  // Ctrl+Shift+O — new chat
+  if (e.ctrlKey && e.shiftKey && e.key === 'O') {
+    e.preventDefault();
+    newChat();
+    return;
+  }
+
+  // Ctrl+Shift+S — toggle sidebar
+  if (e.ctrlKey && e.shiftKey && e.key === 'S') {
+    e.preventDefault();
+    const sidebar = document.querySelector('.screen.active .sidebar');
+    if (sidebar) toggleSidebar(sidebar.querySelector('.sidebar-collapse-btn, .sidebar-expand-btn') || sidebar);
+    return;
+  }
+
+  // Ctrl+Shift+H — go home
+  if (e.ctrlKey && e.shiftKey && e.key === 'H') {
+    e.preventDefault();
+    goHome();
+    return;
+  }
+
+  // Ctrl+Shift+Backspace — delete current chat
+  if (e.ctrlKey && e.shiftKey && e.key === 'Backspace') {
+    e.preventDefault();
+    if (_activeRecentId) {
+      const item = _recentItems.find(r => r.id === _activeRecentId);
+      showConfirmModal({
+        title: 'Delete this chat?',
+        desc: item ? `"${item.label.replace(/…$/, '')}" will be permanently removed.` : 'This chat will be permanently removed.',
+        confirmLabel: 'Delete chat',
+        onConfirm: () => {
+          _deleteRecent(_activeRecentId, { stopPropagation: () => {} });
+          wsShowToast('🗑️', 'Chat deleted', '');
+        }
+      });
+    } else {
+      wsShowToast('⚠', 'No active chat to delete', '');
+    }
+    return;
+  }
+
+  // Ctrl+, — open settings
+  if (e.ctrlKey && e.key === ',') {
+    e.preventDefault();
+    openSettings('general');
+    return;
+  }
+
+  // Ctrl+K — focus search / chat input
+  if (e.ctrlKey && e.key === 'k') {
+    e.preventDefault();
+    const input = document.getElementById('home-ask-input-bottom') ||
+                  document.getElementById('ws-chat-input') ||
+                  document.getElementById('home-ask-input');
+    input?.focus();
+    return;
+  }
+
+  // Shift+Esc — focus chat input
+  if (e.shiftKey && e.key === 'Escape') {
+    e.preventDefault();
+    const input = document.getElementById('home-ask-input-bottom') ||
+                  document.getElementById('ws-chat-input');
+    input?.focus();
+    return;
+  }
+});
+</script>
+<!-- ── Help Center Modal ── -->
+<style>
+.help-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 10003;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: modal-fade-in 0.18s ease;
+}
+.help-modal.active { display: flex; }
+
+.help-content {
+  background: var(--surface-1);
+  border: 1px solid var(--border-md);
+  border-radius: 18px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+  overflow: hidden;
+}
+
+.help-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px 18px;
+  border-bottom: 1px solid var(--border-xs);
+  flex-shrink: 0;
+}
+.help-header-icon {
+  width: 34px; height: 34px;
+  border-radius: var(--r-md);
+  background: var(--gold-muted);
+  border: 1px solid var(--gold-border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.help-header-text { flex: 1; }
+.help-header-title {
+  font-family: var(--font-head);
+  font-size: 15px; font-weight: 700;
+  color: var(--text-1);
+}
+.help-header-sub {
+  font-size: 11px; color: var(--text-3);
+  margin-top: 1px;
+}
+.help-close {
+  width: 28px; height: 28px;
+  border-radius: var(--r-sm);
+  border: none; background: transparent;
+  color: var(--text-3); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.help-close:hover { background: var(--surface-3); color: var(--text-1); }
+
+.help-search-wrap {
+  padding: 14px 24px 10px;
+  flex-shrink: 0;
+}
+.help-search {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-md);
+  padding: 9px 14px 9px 36px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--text-1);
+  outline: none;
+  transition: border-color var(--t-fast);
+  box-sizing: border-box;
+}
+.help-search::placeholder { color: var(--text-4); }
+.help-search:focus { border-color: var(--gold-border); }
+.help-search-icon {
+  position: absolute;
+  left: 36px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-4);
+  pointer-events: none;
+}
+.help-search-wrap { position: relative; }
+
+.help-body {
+  overflow-y: auto;
+  padding: 4px 0 20px;
+  flex: 1;
+  scrollbar-width: thin;
+}
+
+.help-section-label {
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 600;
+  color: var(--text-4);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 14px 24px 6px;
+}
+
+.faq-item {
+  border-bottom: 1px solid var(--border-xs);
+  margin: 0 24px;
+}
+.faq-item:last-of-type { border-bottom: none; }
+
+.faq-q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 0;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-1);
+  user-select: none;
+  transition: color var(--t-fast);
+}
+.faq-q:hover { color: var(--gold); }
+.faq-chevron {
+  flex-shrink: 0;
+  color: var(--text-4);
+  transition: transform var(--t-mid) var(--ease-snap), color var(--t-fast);
+}
+.faq-item.open .faq-chevron { transform: rotate(90deg); color: var(--gold); }
+.faq-item.open .faq-q { color: var(--gold); }
+
+.faq-a {
+  display: none;
+  font-size: 13px;
+  color: var(--text-3);
+  line-height: 1.65;
+  padding: 0 0 14px 0;
+}
+.faq-item.open .faq-a { display: block; }
+.faq-a a { color: var(--gold); text-decoration: none; }
+.faq-a a:hover { text-decoration: underline; }
+.faq-a ul { padding-left: 18px; margin: 6px 0; }
+.faq-a li { margin-bottom: 4px; }
+
+.help-footer {
+  padding: 14px 24px;
+  border-top: 1px solid var(--border-xs);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.help-footer-text { font-size: 12px; color: var(--text-3); }
+.help-contact-btn {
+  font-size: 12px; font-weight: 500;
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  background: var(--gold-muted);
+  border: 1px solid var(--gold-border);
+  color: var(--gold);
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+.help-contact-btn:hover { background: var(--gold-glow); }
+
+.faq-no-results {
+  text-align: center;
+  padding: 40px 24px;
+  color: var(--text-4);
+  font-size: 13px;
+  display: none;
+}
+</style>
+
+<div class="help-modal" id="help-modal">
+  <div class="help-content">
+    <div class="help-header">
+      <div class="help-header-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      </div>
+      <div class="help-header-text">
+        <div class="help-header-title">Help Center</div>
+        <div class="help-header-sub">Frequently asked questions about Chunks AI</div>
+      </div>
+      <button class="help-close" onclick="closeHelpCenter()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="help-search-wrap">
+      <svg class="help-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="help-search" id="help-search-input" type="text" placeholder="Search questions…" oninput="filterFAQs(this.value)">
+    </div>
+
+    <div class="help-body" id="help-body">
+
+      <div class="help-section-label">Getting Started</div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFAQ(this)">
+          What is Chunks AI?
+          <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="faq-a">Chunks AI is an AI-powered study assistant that helps you learn faster and retain more. You can chat with your textbooks, generate flashcards, create study plans, take practice exams, and conduct deep research — all in one place.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFAQ(this)">
+          How do I start a new chat?
+          <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="faq-a">Click the <strong>New Chat</strong> button in the sidebar, or use the keyboard shortcut <kbd>Ctrl + Shift + O</kbd>. You can ask the General AI anything, or load a textbook in the Workspace to chat with your course material directly.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFAQ(this)">
+          How do I load a textbook?
+          <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="faq-a">Go to <strong>Workspace</strong> in the sidebar and click <strong>Browse Library</strong>, or click the Library icon directly. Browse available textbooks by subject and click one to load it. On first load, the PDF is downloaded and cached locally for fast access next time.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFAQ(this)">
+          What subjects and textbooks are available?
+          <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="faq-a">Chunks AI currently includes textbooks across:
+          <ul>
+            <li><strong>Chemistry</strong> — Zumdahl, Atkins, Klein, Harris</li>
+            <li><strong>Biology / Medicine</strong> — Anatomy & Physiology 2e, Netter's Atlas</li>
+            <li>More subjects are added regularly. Check the Library for the latest collection.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="help-section-label">Workspace & Chat</div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFAQ(this)">
+          How does the AI answer questions about my textbook?
+          <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="faq-a">Chunks AI uses a hierarchical indexing system that breaks your textbook into chapters, sections, and concepts. When you ask a question, it retrieves the most relevant passages and uses them as context for its answer — so responses are grounded in your actual course material, not just general knowledge.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFAQ(this)">
+          Can I see where the AI's answers come from?
+          <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="faq-a">Yes. In the Workspace, AI responses include source citations showing which chapter and section the information came from. This lets you quickly verify answers and jump back to the original text for deeper reading.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFAQ(this)">
+          Are my chat conversations saved?
+          <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="faq-a">Yes. Your recent chat sessions are automatically saved to your browser's local storage and appear in the sidebar history. You can click any past chat to restore the full conversation. To clear history, go to <strong>Settings → Data controls → Clear chat history</strong>.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFAQ(this)">
+          How do I delete a chat from my history?
+          <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="faq-a">Hover over any chat in the sidebar history and click the three-dot menu (⋯) that appears. Select <strong>Delete</strong> to permanently remove it. You can also pin or rename chats from the same menu.</div>
+      </div>
+
+      <div class="help-section-label">Flashcards & Exams</div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFAQ(this)">
+          How do I generate flashcards?
+          <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="faq-a">Go to <strong>Flashcards</strong> in the sidebar. Enter a topic or chapter name, select your textbook, and Chunks AI will generate a set of study cards automatically. You can rate each card as Easy, Got it, or Hard — the system prioritises cards you find difficult.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFAQ(this)">
+          How does the Exam mode work?
+          <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="faq-a">In <strong>Exam</strong> mode, Chunks AI generates a timed practice exam based on your selected textbook and topic. Questions are multiple choice and free response. After submitting, you receive a score breakdown and explanations for each answer so you can learn from mistakes.</div>
+      </div>
+
+      <div class="help-section-label">Account & Privacy</div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFAQ(this)">
+          Is my data private?
+          <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="faq-a">Your chat history and textbook cache are stored locally in your browser — they never leave your device unless you explicitly share them. You can opt out of anonymous usage data sharing in <strong>Settings → Data controls</strong>.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFAQ(this)">
+          How do I upgrade my plan?
+          <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="faq-a">Click your profile avatar in the bottom-left corner of the sidebar and select <strong>Upgrade plan</strong>. Pro gives you unlimited chats, access to all textbooks, priority response speed, and advanced study tools.</div>
+      </div>
+
+      <div class="faq-item">
+        <div class="faq-q" onclick="toggleFAQ(this)">
+          How do I clear my cached textbooks?
+          <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div class="faq-a">Go to <strong>Settings → Data controls</strong> and click <strong>Clear PDF cache</strong>. This removes locally cached textbooks. They will be re-downloaded the next time you load them in Workspace.</div>
+      </div>
+
+      <div class="faq-no-results" id="faq-no-results">No results found. Try a different search term.</div>
+    </div>
+
+    <div class="help-footer">
+      <span class="help-footer-text">Still need help?</span>
+      <button class="help-contact-btn" onclick="wsShowToast && wsShowToast('📬', 'Support email: help@chunksai.com', '')">Contact support</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openHelpCenter() {
+  document.getElementById('help-modal').classList.add('active');
+  document.getElementById('help-search-input').value = '';
+  filterFAQs('');
+}
+function closeHelpCenter() {
+  document.getElementById('help-modal').classList.remove('active');
+}
+
+document.getElementById('help-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeHelpCenter();
+});
+
+function toggleFAQ(qEl) {
+  const item = qEl.closest('.faq-item');
+  const wasOpen = item.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+  if (!wasOpen) item.classList.add('open');
+}
+
+function filterFAQs(query) {
+  const q = query.toLowerCase().trim();
+  const items = document.querySelectorAll('.faq-item');
+  const labels = document.querySelectorAll('#help-body .help-section-label');
+  let anyVisible = false;
+
+  items.forEach(item => {
+    const text = item.textContent.toLowerCase();
+    const match = !q || text.includes(q);
+    item.style.display = match ? '' : 'none';
+    if (match) anyVisible = true;
+  });
+
+  // Hide section labels if all items in that section are hidden
+  labels.forEach(label => {
+    let next = label.nextElementSibling;
+    let hasVisible = false;
+    while (next && !next.classList.contains('help-section-label') && !next.classList.contains('faq-no-results')) {
+      if (next.style.display !== 'none') hasVisible = true;
+      next = next.nextElementSibling;
+    }
+    label.style.display = hasVisible ? '' : 'none';
+  });
+
+  document.getElementById('faq-no-results').style.display = anyVisible ? 'none' : 'block';
+}
+</script>
+<!-- ── Confirm Sub-Modal ── -->
+<style>
+.confirm-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10010;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(4px);
+  animation: modal-fade-in 0.15s ease;
+}
+.confirm-modal.active { display: flex; }
+.confirm-box {
+  background: var(--surface-2);
+  border: 1px solid var(--border-md);
+  border-radius: 16px;
+  padding: 28px 28px 22px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+  animation: modal-fade-in 0.15s ease;
+}
+.confirm-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: rgba(248,113,113,0.12);
+  border: 1px solid rgba(248,113,113,0.25);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 14px;
+}
+.confirm-title {
+  font-family: var(--font-head);
+  font-size: 15px; font-weight: 700;
+  color: var(--text-1);
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+.confirm-desc {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.6;
+  margin-bottom: 22px;
+}
+.confirm-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.confirm-cancel {
+  padding: 8px 18px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-md);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px; font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.confirm-cancel:hover { background: var(--surface-3); color: var(--text-1); }
+.confirm-ok {
+  padding: 8px 20px;
+  border-radius: var(--r-pill);
+  border: none;
+  background: var(--red);
+  color: #fff;
+  font-size: 13px; font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: opacity var(--t-fast), transform var(--t-fast);
+}
+
+.confirm-ok:hover { opacity: 0.88; transform: translateY(-1px); }
+.confirm-ok:active { transform: translateY(0); }
+</style>
+
+<div class="confirm-modal" id="confirm-modal">
+  <div class="confirm-box" onclick="event.stopPropagation()">
+    <div class="confirm-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+    </div>
+    <div class="confirm-title" id="confirm-title">Are you sure?</div>
+    <div class="confirm-desc" id="confirm-desc"></div>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" onclick="closeConfirmModal()">Cancel</button>
+      <button class="confirm-ok" id="confirm-ok-btn">Confirm deletion</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── Confirm Modal ── */
+let _confirmCallback = null;
+
+function showConfirmModal({ title, desc, confirmLabel, onConfirm }) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-desc').textContent = desc;
+  document.getElementById('confirm-ok-btn').textContent = confirmLabel || 'Confirm';
+  _confirmCallback = onConfirm;
+  document.getElementById('confirm-modal').classList.add('active');
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirm-modal').classList.remove('active');
+  _confirmCallback = null;
+}
+
+document.getElementById('confirm-ok-btn').addEventListener('click', async (e) => {
+  e.stopPropagation();
+  const cb = _confirmCallback;
+  closeConfirmModal();
+  if (cb) await cb();
+});
+
+document.getElementById('confirm-modal').addEventListener('click', function(e) {
+  e.stopPropagation();
+  if (e.target === this) closeConfirmModal();
 });
 </script>
 </body>
