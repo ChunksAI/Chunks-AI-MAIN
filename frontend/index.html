@@ -1260,17 +1260,19 @@ body::after {
   transition: background var(--t-fast), color var(--t-fast);
   position: relative; overflow: hidden;
 }
+.recent-item span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .recent-item:hover { background: var(--surface-2); color: var(--text-1); }
 .recent-item.active { background: var(--surface-2); color: var(--text-1); }
 .recent-item svg { opacity: 0.45; flex-shrink: 0; transition: opacity var(--t-fast); }
 .recent-item:hover svg, .recent-item.active svg { opacity: 0.85; }
-.recent-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.recent-item > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .recent-item .recent-menu-btn {
-  opacity: 0; width: 16px; height: 16px; border-radius: 3px;
-  display: flex; align-items: center; justify-content: center;
+  opacity: 0; border-radius: 3px;
   color: var(--text-3); flex-shrink: 0;
+  padding: 2px 4px; margin-left: auto;
   transition: opacity var(--t-fast), background var(--t-fast);
-  cursor: pointer;
+  cursor: pointer; font-size: 12px; letter-spacing: 2px;
+  line-height: 1;
 }
 .recent-item:hover .recent-menu-btn { opacity: 1; }
 .recent-item .recent-menu-btn:hover { background: var(--surface-3); color: var(--text-1); }
@@ -5013,9 +5015,7 @@ function _buildRecentItem(item) {
   el.innerHTML = `
     ${CHAT_SVG}
     <span>${(item.pinned ? '📌 ' : '') + item.label.replace(/</g,'&lt;')}</span>
-    <span class="recent-menu-btn" title="More options">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
-    </span>`;
+    <span class="recent-menu-btn" title="More options">···</span>`;
   el.addEventListener('click', () => _clickRecent(item));
   el.querySelector('.recent-menu-btn').addEventListener('click', e => {
     e.stopPropagation();
@@ -5059,10 +5059,11 @@ function _showRecentCtxMenu(item, e) {
 
   // Position near the button
   const rect = e.currentTarget.getBoundingClientRect();
-  let top = rect.bottom + 4;
-  let left = rect.left - menu.offsetWidth + rect.width;
-  if (left < 8) left = 8;
-  if (top + 160 > window.innerHeight) top = rect.top - 160;
+  let top = rect.top;
+  let left = rect.right + 8;
+  // If it goes off screen right, flip to left side
+  if (left + 180 > window.innerWidth) left = rect.left - 188;
+  if (top + 160 > window.innerHeight) top = window.innerHeight - 170;
   menu.style.top = top + 'px';
   menu.style.left = left + 'px';
 
