@@ -120,7 +120,7 @@ def after_request(response):
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
-    default_limits=["200 per hour", "30 per minute"],
+    default_limits=["500 per hour", "120 per minute"],
     storage_uri="memory://",
     strategy="fixed-window"
 )
@@ -139,7 +139,7 @@ if OPENROUTER_API_KEY == 'your-key-here':
 PORT               = int(os.environ.get('PORT', 5000))
 PRODUCTION         = os.environ.get('PRODUCTION', 'false').lower() == 'true'
 OPENROUTER_URL     = "https://openrouter.ai/api/v1/chat/completions"
-MODEL              = os.environ.get('MODEL', 'openai/gpt-oss-20b:nitro')
+MODEL              = os.environ.get('MODEL', 'arcee-ai/trinity-large-preview:free')
 
 # Supabase config for server-side JWT verification and daily message counters
 SUPABASE_URL         = os.environ.get('SUPABASE_URL', '')
@@ -909,7 +909,7 @@ def ping():
 
 # FIX: was missing @app.route decorator — /health was a 404
 @app.route('/api/config', methods=['GET', 'OPTIONS'])
-@limiter.limit('30 per minute; 200 per hour')  # FIX: add rate limit to prevent key enumeration
+@limiter.limit('120 per minute; 500 per hour')  # FIX: add rate limit to prevent key enumeration
 def get_client_config():
     """Return public config values the frontend needs (no secrets here)."""
     return jsonify({
@@ -1361,6 +1361,16 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 'sources': all_sources,
                 'complexity_used': complexity
             })
+
+        # ── MODE: GENERATE ─────────────────────────────────────────────
+        # Direct pass-through for exam JSON generation — no tutor wrapping.
+        elif mode == 'generate':
+            answer = call_ai(
+                question,
+                system_prompt='You are a JSON generator. Output ONLY valid raw JSON — no markdown, no explanation.',
+                model=selected_model
+            )
+            return jsonify({'success': True, 'mode': 'generate', 'answer': answer})
 
         # ── MODE: STUDY (default) ─────────────────────────────────────────
 
