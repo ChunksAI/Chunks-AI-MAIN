@@ -232,11 +232,15 @@ body::after {
 .sidebar.compact .sidebar-new-btn span,
 .sidebar.compact .profile-text,
 .sidebar.compact .profile-dots {
-  opacity: 0;
-  max-width: 0;
-  margin: 0;
+  display: none;
 }
-
+.sidebar.compact .profile-row {
+  justify-content: center;
+  padding: 6px 0;
+  width: 100%;
+  border-radius: 0;
+  gap: 0;
+}
 .sidebar-new-btn {
   transition: background var(--t-fast), transform var(--t-fast) var(--ease-spring), padding 280ms ease, margin 280ms ease, width 280ms ease;
 }
@@ -257,7 +261,6 @@ body::after {
 
 .sidebar.compact .sidebar-collapse-btn { display: none; }
 .sidebar.compact .sidebar-footer { padding: 10px 0; display: flex; justify-content: center; align-items: center; }
-.sidebar.compact .profile-row { justify-content: center; align-items: center; padding: 6px 0; width: 100%; background: transparent; }
 .sidebar.compact .sidebar-header { justify-content: center; padding: 12px 0 10px; gap: 0; }
 
 /* Compact: logo-link becomes a square toggle area */
@@ -2777,7 +2780,8 @@ body {
   function toggleSidebar(el) {
     const sidebar = el.closest('.sidebar');
     const toCompact = !sidebar.classList.contains('compact');
-    sidebar.classList.toggle('compact', toCompact);
+    // Apply to ALL sidebars so state is consistent across screens
+    document.querySelectorAll('.sidebar').forEach(s => s.classList.toggle('compact', toCompact));
     animateOrbits(sidebar, toCompact);
   }
 
@@ -2785,7 +2789,7 @@ body {
   function handleLogoClick(el) {
     const sidebar = el.closest('.sidebar');
     if (sidebar.classList.contains('compact')) {
-      sidebar.classList.remove('compact');
+      document.querySelectorAll('.sidebar').forEach(s => s.classList.remove('compact'));
       animateOrbits(sidebar, false);
     } else {
       goHome();
@@ -2802,6 +2806,9 @@ body {
     const screens = document.querySelectorAll('.screen');
     const btns    = document.querySelectorAll('.meta-btn');
 
+    // Check if any sidebar is currently compact before switching
+    const wasCompact = !!document.querySelector('.sidebar.compact');
+
     screens.forEach(s => s.classList.remove('active'));
     btns.forEach((b, i) => b.classList.toggle('active', i === SCREEN_MAP[name]));
 
@@ -2810,6 +2817,12 @@ body {
     // Reset animation
     target.style.animation = 'none';
     requestAnimationFrame(() => { target.style.animation = ''; });
+
+    // Persist compact state to the newly active sidebar
+    if (wasCompact) {
+      const newSidebar = target.querySelector('.sidebar');
+      if (newSidebar) newSidebar.classList.add('compact');
+    }
 
     // Persist so refresh returns to this screen (session only)
     sessionStorage.setItem('chunks_active_screen', name);
