@@ -2116,7 +2116,7 @@ body {
 
     <div class="sidebar-section">
       <div class="sidebar-section-label">Study</div>
-      <div class="sidebar-item active" id="sidebar-home-btn" onclick="showScreen('home')" style="cursor:pointer;">
+      <div class="sidebar-item active" id="sidebar-home-btn" onclick="goHome()" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
       </div>
@@ -2285,7 +2285,7 @@ body {
     </button>
     <div class="sidebar-section">
       <div class="sidebar-section-label">Study</div>
-      <div class="sidebar-item" onclick="showScreen('home')" style="cursor:pointer;">
+      <div class="sidebar-item" onclick="goHome()" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
       </div>
@@ -2490,7 +2490,7 @@ body {
 
     <div class="sidebar-section">
       <div class="sidebar-section-label">Study</div>
-      <div class="sidebar-item" onclick="showScreen('home')" style="cursor:pointer;">
+      <div class="sidebar-item" onclick="goHome()" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
       </div>
@@ -4897,6 +4897,33 @@ function _loadWsSession(bookId) {
 }
 
 // ── New Chat ─────────────────────────────────────────────
+function goHome() {
+  // Always return to the homepage landing — clear any active chat state
+  _activeRecentId = null;
+  homeHistory = [];
+  _homeSessionId = null;
+  localStorage.removeItem('chunks_active_home_session');
+  localStorage.removeItem('chunks_active_ws_book');
+  localStorage.removeItem('chunks_active_recent_id');
+
+  // Reset home to landing
+  const chatHist    = document.getElementById('home-chat-history');
+  const homeLanding = document.getElementById('home-landing');
+  const homeHero    = document.querySelector('.home-hero');
+  const homeBar     = document.getElementById('home-input-bar');
+  const homeScroll  = document.getElementById('home-scroll-area');
+  if (chatHist)    chatHist.innerHTML = '';
+  if (homeLanding) homeLanding.style.display = '';
+  if (homeHero)    homeHero.style.display = '';
+  if (homeBar)     homeBar.style.display = 'none';
+  if (homeScroll)  homeScroll.style.justifyContent = 'center';
+
+  // Clear sidebar active state
+  document.querySelectorAll('.recent-item').forEach(el => el.classList.remove('active'));
+
+  showScreen('home');
+}
+
 function newChat() {
   // Clear workspace messages + restore empty state
   const msgs = document.getElementById('ws-messages');
@@ -4991,8 +5018,49 @@ function _setActiveRecent(id) {
 
 function _deleteRecent(id, e) {
   e.stopPropagation();
+
+  // Find the item before removing it
+  const item = _recentItems.find(r => r.id === id);
+
+  // Remove from list and persist
   _recentItems = _recentItems.filter(r => r.id !== id);
   _saveRecent();
+
+  // Remove saved session data from localStorage
+  localStorage.removeItem('chunks_session_' + id);
+  if (item && item.bookId) {
+    localStorage.removeItem('chunks_ws_session_' + item.bookId);
+  }
+
+  // If this was the active chat, reset the UI back to landing
+  if (_activeRecentId === id) {
+    _activeRecentId = null;
+    localStorage.removeItem('chunks_active_recent_id');
+    localStorage.removeItem('chunks_active_home_session');
+    localStorage.removeItem('chunks_active_ws_book');
+
+    // Reset home landing
+    homeHistory = [];
+    _homeSessionId = null;
+    const chatHist   = document.getElementById('home-chat-history');
+    const homeLanding = document.getElementById('home-landing');
+    const homeHero   = document.querySelector('.home-hero');
+    const homeBar    = document.getElementById('home-input-bar');
+    const homeScroll = document.getElementById('home-scroll-area');
+    if (chatHist)   chatHist.innerHTML = '';
+    if (homeLanding) homeLanding.style.display = '';
+    if (homeHero)   homeHero.style.display = '';
+    if (homeBar)    homeBar.style.display = 'none';
+    if (homeScroll) homeScroll.style.justifyContent = 'center';
+
+    // Reset workspace messages
+    const msgs = document.getElementById('ws-messages');
+    if (msgs) msgs.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div></div>`;
+    _wsChatHistory = [];
+
+    showScreen('home');
+  }
+
   _renderAllRecent();
 }
 
