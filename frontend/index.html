@@ -5740,12 +5740,7 @@ async function pdAction(action) {
         title: 'Are you sure you want to log out?',
         desc: _userEmail ? `Log out of Chunks AI as ${_userEmail}?` : 'Log out of Chunks AI?',
         confirmLabel: 'Log out',
-        onConfirm: () => {
-          const btn = document.getElementById('confirm-ok-btn');
-          if (btn) { btn.textContent = 'Logging out…'; btn.disabled = true; }
-          if (window._authSignOut) window._authSignOut();
-          else wsShowToast && wsShowToast('👋', 'Logged out', '');
-        }
+        onConfirm: () => window._authSignOut && window._authSignOut()
       });
       break;
     }
@@ -6743,102 +6738,12 @@ function filterFAQs(query) {
   transition: opacity 200ms ease, transform 200ms ease;
 }
 #simple-notif.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-.confirm-modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 10010;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  background: rgba(0,0,0,0.72);
-  backdrop-filter: blur(8px);
-  animation: modal-fade-in 0.18s ease;
-}
-.confirm-modal.active { display: flex; }
-.confirm-box {
-  background: #2a2a2a;
-  border: none;
-  border-radius: 24px;
-  padding: 40px 32px 28px;
-  width: 100%;
-  max-width: 400px;
-  box-shadow: 0 40px 100px rgba(0,0,0,0.85);
-  animation: modal-fade-in 0.18s ease;
-  text-align: center;
-}
-.confirm-icon { display: none; }
-.confirm-title {
-  font-family: var(--font-head);
-  font-size: 22px; font-weight: 800;
-  color: #ffffff;
-  margin-bottom: 12px;
-  line-height: 1.25;
-  letter-spacing: -0.3px;
-}
-.confirm-desc {
-  font-size: 14px;
-  color: #999999;
-  line-height: 1.6;
-  margin-bottom: 32px;
-}
-.confirm-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.confirm-ok {
-  order: 1;
-  width: 100%;
-  padding: 16px 20px;
-  border-radius: 999px;
-  border: none;
-  background: #f4f4f4;
-  color: #0d0d0d;
-  font-size: 15px; font-weight: 600;
-  font-family: var(--font-body);
-  cursor: pointer;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
-}
-.confirm-ok:hover { background: #ffffff; transform: translateY(-1px); box-shadow: 0 4px 18px rgba(0,0,0,0.35); }
-.confirm-ok:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
-.confirm-cancel {
-  order: 2;
-  width: 100%;
-  padding: 16px 20px;
-  border-radius: 999px;
-  border: none;
-  background: #3a3a3a;
-  color: #eeeeee;
-  font-size: 15px; font-weight: 500;
-  font-family: var(--font-body);
-  cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
-}
-.confirm-cancel:hover { background: #454545; transform: translateY(-1px); }
-.confirm-cancel:active { transform: translateY(0); }
 </style>
 
 <div id="simple-notif"></div>
 
-<div class="confirm-modal" id="confirm-modal">
-  <div class="confirm-box" onclick="event.stopPropagation()">
-    <div class="confirm-icon">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-    </div>
-    <div class="confirm-title" id="confirm-title">Are you sure?</div>
-    <div class="confirm-desc" id="confirm-desc"></div>
-    <div class="confirm-actions">
-      <button class="confirm-cancel" onclick="closeConfirmModal()">Cancel</button>
-      <button class="confirm-ok" id="confirm-ok-btn">Confirm deletion</button>
-    </div>
-  </div>
-</div>
-
 <script>
-/* ── Confirm Modal — bridge to shared.js ── */
+/* ── Confirm Modal — fully handled by shared.js ── */
 function showSimpleNotif(text) {
   const el = document.getElementById('simple-notif');
   el.textContent = text;
@@ -6846,21 +6751,8 @@ function showSimpleNotif(text) {
   clearTimeout(el._timer);
   el._timer = setTimeout(() => el.classList.remove('show'), 3000);
 }
-
-function showConfirmModal(opts) {
-  if (window._showSharedConfirm) { window._showSharedConfirm(opts); return; }
-  // fallback until shared.js loads
-  document.getElementById('confirm-title').textContent = opts.title || '';
-  document.getElementById('confirm-desc').textContent  = opts.desc  || '';
-  document.getElementById('confirm-ok-btn').textContent = opts.confirmLabel || 'Confirm';
-  window._confirmCallback = opts.onConfirm;
-  document.getElementById('confirm-modal').classList.add('active');
-}
-
-function closeConfirmModal() {
-  if (window._closeSharedConfirm) { window._closeSharedConfirm(); return; }
-  document.getElementById('confirm-modal').classList.remove('active');
-}
+function showConfirmModal(opts)  { window._showSharedConfirm  && window._showSharedConfirm(opts); }
+function closeConfirmModal()     { window._closeSharedConfirm && window._closeSharedConfirm(); }
 </script>
 <!-- ── Supabase Auth (handled by shared.js) ── -->
 <script src="shared.js"></script>
