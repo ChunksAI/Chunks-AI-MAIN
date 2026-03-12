@@ -7,6 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 
 <style>
 /* ═══════════════════════════════════════════════════════════
@@ -66,7 +68,7 @@
   --sidebar-w:      244px;
   --sidebar-icon-w: 52px;
 
-  /* Chat font size (user-adjustable: 11px / 13px / 15px) */
+  /* Chat font size (user-adjustable) */
   --chat-font-size: 13px;
 
   /* Transitions */
@@ -772,34 +774,10 @@ body::after {
 .settings-toggle input:checked ~ .settings-toggle-thumb { transform: translateX(18px); }
 
 /* ── Font size segmented control ── */
-.font-size-picker {
-  display: flex;
-  gap: 3px;
-  background: var(--surface-2);
-  border: 1px solid var(--border-sm);
-  border-radius: var(--r-md);
-  padding: 3px;
-}
-.font-size-btn {
-  padding: 5px 14px;
-  border-radius: var(--r-sm);
-  border: none;
-  background: transparent;
-  color: var(--text-3);
-  font-size: 12px;
-  font-weight: 500;
-  font-family: var(--font-body);
-  cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast);
-  white-space: nowrap;
-  letter-spacing: 0.02em;
-}
-.font-size-btn:hover { color: var(--text-1); }
-.font-size-btn.active {
-  background: var(--surface-4);
-  color: var(--text-1);
-  font-weight: 600;
-}
+.font-size-picker { display:flex; gap:3px; background:var(--surface-2); border:1px solid var(--border-sm); border-radius:var(--r-md); padding:3px; }
+.font-size-btn { padding:5px 14px; border-radius:var(--r-sm); border:none; background:transparent; color:var(--text-3); font-size:12px; font-weight:500; font-family:var(--font-body); cursor:pointer; transition:background var(--t-fast),color var(--t-fast); }
+.font-size-btn:hover { color:var(--text-1); }
+.font-size-btn.active { background:var(--surface-4); color:var(--text-1); font-weight:600; }
 
 /* Play button for Voice */
 .settings-play-btn {
@@ -1343,6 +1321,20 @@ body::after {
   font-family: var(--font-mono); font-size: 13px;
   color: var(--gold); text-align: center; margin: 6px 0 10px;
 }
+
+/* ── KaTeX overrides ── */
+.katex-display {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-sm);
+  padding: 10px 18px;
+  margin: 8px 0;
+  overflow-x: auto;
+  text-align: center;
+}
+.katex-display > .katex { display: inline-block; }
+.katex { color: var(--text-1); font-size: 1.05em; }
+.katex-inline { color: var(--gold); }
 
 /* Sources */
 .sources-head {
@@ -5801,7 +5793,7 @@ function _wsShowWelcome(meta) {
     <div style="display:flex;flex-direction:column;gap:14px;padding:20px 16px 8px;">
       <div class="hc-ai" style="align-items:flex-start;">
         <div class="hc-ai-avatar" style="background:var(--gold-muted);border:1px solid var(--gold-border);color:var(--gold);font-size:13px;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">✦</div>
-        <div style="background:var(--surface-1);border:1px solid var(--border-sm);border-radius:4px 14px 14px 14px;padding:13px 15px;font-size:var(--chat-font-size);color:var(--text-1);line-height:1.65;flex:1;">
+        <div style="background:var(--surface-1);border:1px solid var(--border-sm);border-radius:4px 14px 14px 14px;padding:13px 15px;font-size:13px;color:var(--text-1);line-height:1.65;flex:1;">
           <p style="margin:0 0 8px;"><strong>${meta.name}</strong> is ready! I've indexed the full textbook — ask me anything about it.</p>
           <p style="margin:0;color:var(--text-2);">Here are a few things you could ask:</p>
           <div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;">
@@ -6068,16 +6060,45 @@ function homeAutoResize(el) {
   el.style.height = Math.min(el.scrollHeight, 160) + 'px';
 }
 
-/* ── Render simple markdown → HTML ── */
+/* ── Math renderer (uses KaTeX when available) ── */
+function _renderMath(tex, display) {
+  if (window.katex) {
+    try {
+      return window.katex.renderToString(tex, {
+        displayMode: display,
+        throwOnError: false,
+        trust: false
+      });
+    } catch(e) {}
+  }
+  // Fallback — readable plain text
+  const clean = tex.trim()
+    .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/($2)')
+    .replace(/\\sqrt\{([^}]+)\}/g, '√($1)')
+    .replace(/\\pm/g, '±').replace(/\\cdot/g, '·')
+    .replace(/\{([^}]+)\}/g, '$1')
+    .replace(/\\([a-zA-Z]+)/g, '$1');
+  return display
+    ? `<div class="ai-eq">${clean}</div>`
+    : `<code style="color:var(--gold);background:var(--gold-muted);border:1px solid var(--gold-border);padding:1px 5px;border-radius:4px;font-size:0.92em;">${clean}</code>`;
+}
+
+/* ── Render simple markdown → HTML (home chat) ── */
 function homeMarkdown(text) {
-  // Escape HTML first
-  let t = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const math = [];
+  let t = text;
 
-  // Code blocks ```lang\n...\n```
-  t = t.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, code) =>
-    `<pre><code>${code.trim()}</code></pre>`);
+  // Extract math BEFORE HTML escaping so backslashes survive
+  t = t.replace(/\\\[([\s\S]+?)\\\]/g,      (_, m) => { math.push({type:'display',content:m}); return `\x00M${math.length-1}\x00`; });
+  t = t.replace(/\\\(([^]*?)\\\)/g,         (_, m) => { math.push({type:'inline', content:m}); return `\x00M${math.length-1}\x00`; });
+  t = t.replace(/\$\$([\s\S]+?)\$\$/g,      (_, m) => { math.push({type:'display',content:m}); return `\x00M${math.length-1}\x00`; });
+  t = t.replace(/(?<!\w)\$([^$\n]+?)\$(?!\w)/g,(_, m)=>{ math.push({type:'inline', content:m}); return `\x00M${math.length-1}\x00`; });
 
-  // Inline code
+  // HTML escape
+  t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Code blocks
+  t = t.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, c) => `<pre><code>${c.trim()}</code></pre>`);
   t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
 
   // Headers
@@ -6085,52 +6106,57 @@ function homeMarkdown(text) {
   t = t.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
   t = t.replace(/^# (.+)$/gm,   '<h2>$1</h2>');
 
-  // Bold + italic
+  // Bold / italic
   t = t.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
   t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
 
-  // Horizontal rule
   t = t.replace(/^---$/gm, '<hr>');
-
-  // Blockquote
   t = t.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
 
-  // Lists — numbered
+  // Collapse blank lines between list items so the list stays as one <ol>/<ul>
+  t = t.replace(/(^(\d+)\. .+$)((\n\n+|\n)(^\d+\. .+$))+/gm, block =>
+    block.replace(/\n{2,}/g, '\n'));
+  t = t.replace(/(^[-*] .+$)((\n\n+|\n)(^[-*] .+$))+/gm, block =>
+    block.replace(/\n{2,}/g, '\n'));
+
+  // Numbered lists — strip source numbers so <ol> counts properly
   t = t.replace(/((?:^\d+\. .+\n?)+)/gm, block => {
-    const items = block.trim().split('\n').map(l => `<li>${l.replace(/^\d+\. /,'')}</li>`).join('');
+    const items = block.trim().split('\n').map(l => `<li>${l.replace(/^\d+\.\s+/,'')}</li>`).join('');
     return `<ol>${items}</ol>`;
   });
-
-  // Lists — bullets
+  // Bullet lists
   t = t.replace(/((?:^[-*] .+\n?)+)/gm, block => {
     const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[-*] /,'')}</li>`).join('');
     return `<ul>${items}</ul>`;
   });
 
   // Tables
-  t = t.replace(/((?:^\|.+\|[ \t]*\n)+)/gm, tableBlock => {
-    const rows = tableBlock.trim().split('\n').filter(r => r.trim());
-    let out = '<table>';
-    let isHeader = true;
+  t = t.replace(/((?:^\|.+\|[ \t]*\n)+)/gm, tb => {
+    const rows = tb.trim().split('\n').filter(r=>r.trim());
+    let out = '<table>'; let hdr = true;
     for (const row of rows) {
-      if (/^\|[-:\s|]+\|$/.test(row.trim())) { isHeader = false; continue; }
-      const cells = row.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
-      const tag = isHeader ? 'th' : 'td';
-      out += '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
-      if (isHeader) isHeader = false;
+      if (/^\|[-:\s|]+\|$/.test(row.trim())) { hdr = false; continue; }
+      const cells = row.trim().replace(/^\|/,'').replace(/\|$/,'').split('|');
+      const tag = hdr ? 'th' : 'td';
+      out += '<tr>' + cells.map(c=>`<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+      if (hdr) hdr = false;
     }
-    out += '</table>';
-    return out;
+    return out + '</table>';
   });
 
-  // Paragraphs — double newlines, skip block elements
+  // Paragraphs
   t = t.split(/\n{2,}/).map(block => {
-    block = block.trim();
-    if (!block) return '';
+    block = block.trim(); if (!block) return '';
     if (/^<(h[123]|ul|ol|pre|blockquote|hr|table)/.test(block)) return block;
-    return `<p>${block.replace(/\n/g, '<br>')}</p>`;
+    return `<p>${block.replace(/\n/g,'<br>')}</p>`;
   }).join('');
+
+  // Restore math
+  t = t.replace(/\x00M(\d+)\x00/g, (_, i) => {
+    const m = math[+i];
+    return _renderMath(m.content, m.type === 'display');
+  });
 
   return t;
 }
@@ -6591,123 +6617,100 @@ function wsScrollBottom() {
   if (msgs) msgs.scrollTop = msgs.scrollHeight;
 }
 
-// ── Render: LaTeX + Markdown → HTML ──────────────────────
-// Handles: $$display$$, $inline$, **bold**, *italic*, `code`,
-//          📖 Page N, bullet lists, numbered lists, blank-line paragraphs
+// ── Render: LaTeX + Markdown → HTML (workspace chat) ──────
 function wsRender(raw) {
-  // 1. Escape HTML first
-  let s = raw
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;');
-
-  // 2. Protect LaTeX blocks from further processing
   const math = [];
-  // Display math $$...$$
-  s = s.replace(/\$\$([\s\S]+?)\$\$/g, (_, m) => {
-    math.push({ type:'display', content: m });
-    return `\x00MATH${math.length-1}\x00`;
-  });
-  // Inline math $...$
-  s = s.replace(/\$([^$\n]+?)\$/g, (_, m) => {
-    math.push({ type:'inline', content: m });
-    return `\x00MATH${math.length-1}\x00`;
-  });
+  let s = raw;
+
+  // 1. Extract math BEFORE HTML escaping
+  s = s.replace(/\\\[([\s\S]+?)\\\]/g,       (_, m) => { math.push({type:'display',content:m}); return `\x00M${math.length-1}\x00`; });
+  s = s.replace(/\\\(([^]*?)\\\)/g,          (_, m) => { math.push({type:'inline', content:m}); return `\x00M${math.length-1}\x00`; });
+  s = s.replace(/\$\$([\s\S]+?)\$\$/g,       (_, m) => { math.push({type:'display',content:m}); return `\x00M${math.length-1}\x00`; });
+  s = s.replace(/(?<!\w)\$([^$\n]+?)\$(?!\w)/g,(_, m)=>{ math.push({type:'inline', content:m}); return `\x00M${math.length-1}\x00`; });
+
+  // 2. HTML escape
+  s = s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
   // 3. Inline markdown
   s = s
+    .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // 📖 Page N → gold badge
     .replace(/📖 Page (\d+)/g,
       '<span onclick="wsGoToPage($1)" style="cursor:pointer;color:var(--gold);font-family:var(--font-mono);font-size:11px;background:var(--gold-muted);border:1px solid var(--gold-border);padding:1px 6px;border-radius:4px;">📖 p.$1</span>');
 
-  // 3b. Tables — detect | col | col | pattern before line-by-line
-  s = s.replace(/((?:^\|.+\|[ \t]*\n)+)/gm, tableBlock => {
-    const rows = tableBlock.trim().split('\n').filter(r => r.trim());
-    let out = '<table>';
-    let isHeader = true;
+  // 3b. Tables
+  s = s.replace(/((?:^\|.+\|[ \t]*\n)+)/gm, tb => {
+    const rows = tb.trim().split('\n').filter(r=>r.trim());
+    let out = '<table>'; let hdr = true;
     for (const row of rows) {
-      // Skip separator rows like |---|---|
-      if (/^\|[-:\s|]+\|$/.test(row.trim())) { isHeader = false; continue; }
-      const cells = row.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
-      const tag = isHeader ? 'th' : 'td';
-      out += '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
-      if (isHeader) isHeader = false;
+      if (/^\|[-:\s|]+\|$/.test(row.trim())) { hdr = false; continue; }
+      const cells = row.trim().replace(/^\|/,'').replace(/\|$/,'').split('|');
+      const tag = hdr ? 'th' : 'td';
+      out += '<tr>' + cells.map(c=>`<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+      if (hdr) hdr = false;
     }
-    out += '</table>';
-    return out;
+    return out + '</table>';
   });
 
-  // 4. Block-level: split into lines and group
-  const lines = s.split('\n');
-  let html = '';
-  let inUl = false, inOl = false;
+  // 4. Block-level processing
+  // Collapse blank lines between consecutive list items
+  const rawLines = s.split('\n');
+  const lines = [];
+  for (let i = 0; i < rawLines.length; i++) {
+    const cur = rawLines[i].trim();
+    if (!cur) {
+      const next = (rawLines[i+1] || '').trim();
+      if (/^\d+\. /.test(next) || /^[-*•] /.test(next)) continue;
+    }
+    lines.push(rawLines[i]);
+  }
 
+  let html = '', inUl = false, inOl = false;
   const closeList = () => {
     if (inUl) { html += '</ul>'; inUl = false; }
     if (inOl) { html += '</ol>'; inOl = false; }
   };
 
-  for (let line of lines) {
-    const trimmed = line.trim();
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) { closeList(); continue; }
 
-    if (!trimmed) { closeList(); continue; }
-
-    // Heading
-    if (/^#{1,3} /.test(trimmed)) {
+    if (/^#{1,3} /.test(t)) {
       closeList();
-      html += `<p><strong>${trimmed.replace(/^#+\s/,'')}</strong></p>`;
+      const lvl = t.match(/^(#+)/)[1].length;
+      const txt = t.replace(/^#+\s/,'');
+      html += lvl===1 ? `<p><strong style="font-size:1.1em">${txt}</strong></p>`
+            : lvl===2 ? `<p><strong>${txt}</strong></p>`
+            :           `<p><em><strong>${txt}</strong></em></p>`;
       continue;
     }
-    // Unordered list
-    if (/^[-*•] /.test(trimmed)) {
+    if (/^[-*•] /.test(t)) {
       if (inOl) { html += '</ol>'; inOl = false; }
       if (!inUl) { html += '<ul>'; inUl = true; }
-      html += `<li>${trimmed.replace(/^[-*•] /,'')}</li>`;
-      continue;
+      html += `<li>${t.replace(/^[-*•] /,'')}</li>`; continue;
     }
-    // Numbered list
-    if (/^\d+\. /.test(trimmed)) {
+    if (/^\d+\. /.test(t)) {
       if (inUl) { html += '</ul>'; inUl = false; }
       if (!inOl) { html += '<ol>'; inOl = true; }
-      html += `<li>${trimmed.replace(/^\d+\. /,'')}</li>`;
-      continue;
+      html += `<li>${t.replace(/^\d+\.\s+/,'')}</li>`; continue;
     }
-
-    // Skip lines that are already table HTML
-    if (trimmed.startsWith('<table') || trimmed.startsWith('</table') || trimmed.startsWith('<tr') || trimmed.startsWith('<th') || trimmed.startsWith('<td')) {
-      closeList(); html += trimmed; continue;
+    if (/^<(table|\/table|tr|th|td)/.test(t)) {
+      closeList(); html += t; continue;
     }
     closeList();
-    html += `<p>${trimmed}</p>`;
+    html += `<p>${t}</p>`;
   }
   closeList();
 
-  // 5. Restore math tokens
-  html = html.replace(/\x00MATH(\d+)\x00/g, (_, i) => {
-    const m = math[parseInt(i)];
-    if (m.type === 'display') {
-      // Render as styled equation block
-      return `</p><div class="ai-eq">${m.content.trim()
-        .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g,'($1)/($2)')
-        .replace(/\\_/g,'_').replace(/\\^/g,'^')
-        .replace(/\{([^}]+)\}/g,'$1')
-        .replace(/\\([a-zA-Z]+)/g,'$1')
-      }</div><p>`;
-    } else {
-      return `<code style="font-size:12px;color:var(--gold);background:var(--gold-muted);border:1px solid var(--gold-border);padding:1px 5px;border-radius:4px;">${
-        m.content.trim()
-          .replace(/\\_/g,'_').replace(/\\^/g,'^')
-          .replace(/\{([^}]+)\}/g,'$1')
-          .replace(/\\([a-zA-Z]+)/g,'$1')
-      }</code>`;
-    }
+  // 5. Restore math using KaTeX
+  html = html.replace(/\x00M(\d+)\x00/g, (_, i) => {
+    const m = math[+i];
+    return _renderMath(m.content, m.type === 'display');
   });
 
-  // Clean up empty <p></p> artifacts
-  html = html.replace(/<p>\s*<\/p>/g,'').replace(/<p><\/div>/g,'</div>').replace(/<div[^>]*><\/p>/g,'');
+  html = html.replace(/<p>\s*<\/p>/g,'');
   return html;
 }
 
@@ -7670,31 +7673,26 @@ function closeSettings() {
   document.getElementById('settings-modal').classList.remove('active');
 }
 
-/* ── Chat font size ── */
 function settingsFontSize(size, btn) {
-  const map = { small: '11px', medium: '13px', large: '15px' };
-  const val = map[size];
-  if (!val) return;
-  document.documentElement.style.setProperty('--chat-font-size', val);
+  const map = { small:'11px', medium:'13px', large:'15px' };
+  if (!map[size]) return;
+  document.documentElement.style.setProperty('--chat-font-size', map[size]);
   document.querySelectorAll('.font-size-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   try { localStorage.setItem('chunks-chat-font-size', size); } catch(e) {}
 }
-// Restore saved preference on page load
-(function restoreFontSize() {
+(function() {
   try {
-    const saved = localStorage.getItem('chunks-chat-font-size');
-    const map = { small: '11px', medium: '13px', large: '15px' };
-    if (saved && map[saved]) {
-      document.documentElement.style.setProperty('--chat-font-size', map[saved]);
-      // Sync button state once DOM is ready
-      function syncBtn() {
+    const s = localStorage.getItem('chunks-chat-font-size');
+    const map = { small:'11px', medium:'13px', large:'15px' };
+    if (s && map[s]) {
+      document.documentElement.style.setProperty('--chat-font-size', map[s]);
+      const sync = () => {
         document.querySelectorAll('.font-size-btn').forEach(b => b.classList.remove('active'));
-        const target = document.querySelector(`.font-size-btn[onclick*="'${saved}'"]`);
-        if (target) target.classList.add('active');
-      }
-      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncBtn);
-      else syncBtn();
+        const t = document.querySelector(`.font-size-btn[onclick*="'${s}'"]`);
+        if (t) t.classList.add('active');
+      };
+      document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', sync) : sync();
     }
   } catch(e) {}
 })();
