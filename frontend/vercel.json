@@ -1,3 +1,5 @@
 {
-  "rewrites": [{ "source": "/((?!public/).*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/((?!public/).*)", "destination": "/index.html" }
+  ]
 }
