@@ -3489,7 +3489,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
       </div>
-      <div class="sidebar-item active">
+      <div class="sidebar-item active" onclick="showScreen('workspace')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         <span>Workspace</span>
       </div>
@@ -3713,7 +3713,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
         <span>Library</span>
       </div>
-      <div class="sidebar-item active">
+      <div class="sidebar-item active" onclick="showScreen('flash')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
@@ -3807,15 +3807,15 @@ body {
   <p class="flash-hint" id="flipHint">Click the card or press Space to reveal the answer</p>
 
   <div class="flash-controls">
-    <button class="flash-btn hard">
+    <button class="flash-btn hard" onclick="_fcNext('hard')">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
       Hard
     </button>
-    <button class="flash-btn ok">
+    <button class="flash-btn ok" onclick="_fcNext('ok')">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
       Got it
     </button>
-    <button class="flash-btn easy">
+    <button class="flash-btn easy" onclick="_fcNext('easy')">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
       Easy
     </button>
@@ -3827,10 +3827,10 @@ body {
   </div>
 
   <div class="flash-stats">
-    <div class="stat"><div class="stat-num" style="color:var(--green)">8</div><div class="stat-label">Easy</div></div>
-    <div class="stat"><div class="stat-num" style="color:var(--gold)">6</div><div class="stat-label">Got it</div></div>
-    <div class="stat"><div class="stat-num" style="color:var(--red)">3</div><div class="stat-label">Hard</div></div>
-    <div class="stat"><div class="stat-num" style="color:var(--text-3)">1</div><div class="stat-label">Skipped</div></div>
+    <div class="stat"><div class="stat-num" id="stat-easy" style="color:var(--green)">0</div><div class="stat-label">Easy</div></div>
+    <div class="stat"><div class="stat-num" id="stat-ok" style="color:var(--gold)">0</div><div class="stat-label">Got it</div></div>
+    <div class="stat"><div class="stat-num" id="stat-hard" style="color:var(--red)">0</div><div class="stat-label">Hard</div></div>
+    <div class="stat"><div class="stat-num" id="stat-skipped" style="color:var(--text-3)">0</div><div class="stat-label">Skipped</div></div>
   </div>
 
   </div><!-- /.flash-main -->
@@ -3863,7 +3863,7 @@ body {
     </button>
     <div class="sidebar-section">
       <div class="sidebar-section-label">Study</div>
-      <div class="sidebar-item" onclick="showScreen('home')" style="cursor:pointer;">
+      <div class="sidebar-item" onclick="goHome()" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
       </div>
@@ -3871,7 +3871,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         <span>Workspace</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('home')" style="cursor:pointer;">
+      <div class="sidebar-item" onclick="openLibraryModal()" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
         <span>Library</span>
       </div>
@@ -3883,22 +3883,26 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
-      <div class="sidebar-item active">
+      <div class="sidebar-item active" onclick="showScreen('research')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
         <span>Research</span>
       </div>
       <div class="sidebar-item" onclick="showScreen('exam')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 12 2 2 4-4"/></svg>
-        <span>Exam Mode</span>
+        <span>Exam</span>
       </div>
     </div>
     <div class="sidebar-divider"></div>
     <div class="sidebar-section">
-      <div class="sidebar-section-label">Recent</div>
-      <div id="recent-list-research" class="recent-list"></div>
+      <div class="sidebar-section-label">General AI</div>
+      <div id="recent-list-general-research" class="recent-list"></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Workspace</div>
+      <div id="recent-list-ws-research" class="recent-list"></div>
     </div>
     <div class="sidebar-footer">
-      <div class="profile-row">
+      <div class="profile-row" onclick="toggleProfileDropdown(event)">
         <div class="avatar">A</div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
@@ -4284,11 +4288,11 @@ body {
 
     <div class="sidebar-section">
       <div class="sidebar-section-label">Study</div>
-      <div class="sidebar-item" onclick="showScreen('home')" style="cursor:pointer;">
+      <div class="sidebar-item" onclick="goHome()" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
       </div>
-      <div class="sidebar-item" onclick="goToScreen('workspace')" style="cursor:pointer;">
+      <div class="sidebar-item" onclick="showScreen('workspace')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         <span>Workspace</span>
       </div>
@@ -4296,7 +4300,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
         <span>Library</span>
       </div>
-      <div class="sidebar-item" onclick="goToScreen('flash')" style="cursor:pointer;">
+      <div class="sidebar-item" onclick="showScreen('flash')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
@@ -4308,7 +4312,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
         <span>Research</span>
       </div>
-      <div class="sidebar-item active" style="cursor:pointer;">
+      <div class="sidebar-item active" onclick="showScreen('exam')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Exam</span>
       </div>
@@ -4316,10 +4320,13 @@ body {
 
     <div class="sidebar-divider"></div>
     <div class="sidebar-section">
-      <div class="sidebar-section-label">Recent Exams</div>
-      <div id="exam-recent-list" style="padding:4px 0;font-size:11px;color:var(--text-4);text-align:center;"></div>
+      <div class="sidebar-section-label">General AI</div>
+      <div id="recent-list-general-exam" class="recent-list"></div>
     </div>
-
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Workspace</div>
+      <div id="recent-list-ws-exam" class="recent-list"></div>
+    </div>
     <div class="sidebar-footer">
       <div class="profile-row" onclick="toggleProfileDropdown(event)">
         <div class="avatar">A</div>
@@ -4711,60 +4718,63 @@ body {
   const SCREEN_MAP = { home: 0, workspace: null, flash: null, research: null, exam: null };
 
   function showScreen(name) {
-    const screens = document.querySelectorAll('.screen');
-    const btns    = document.querySelectorAll('.meta-btn');
-
-    // Check if any sidebar is currently compact before switching
+    const screens  = document.querySelectorAll('.screen');
+    const btns     = document.querySelectorAll('.meta-btn');
     const wasCompact = !!document.querySelector('.sidebar.compact');
 
+    // Hide all screens, show target
     screens.forEach(s => s.classList.remove('active'));
     btns.forEach((b, i) => b.classList.toggle('active', i === SCREEN_MAP[name]));
 
     const target = document.getElementById('screen-' + name);
+    if (!target) return;
     target.classList.add('active');
-    // Reset animation
     target.style.animation = 'none';
     requestAnimationFrame(() => { target.style.animation = ''; });
 
-    // Persist compact state to the newly active sidebar
+    // Persist compact sidebar state across screens
     if (wasCompact) {
       const newSidebar = target.querySelector('.sidebar');
       if (newSidebar) newSidebar.classList.add('compact');
     }
 
-    // Persist so refresh returns to this screen (session only)
-    sessionStorage.setItem('chunks_active_screen', name);
-    // Update sidebar active state for research screen
+    // ── Unified sidebar active highlight ──
+    // Map each screen name to the onclick value that should be "active"
+    const activeOnclick = {
+      home:      "goHome()",
+      workspace: "showScreen('workspace')",
+      flash:     "showScreen('flash')",
+      research:  "showScreen('research')",
+      exam:      "showScreen('exam')"
+    }[name];
+
+    // Update ALL sidebars in the document (keeps state consistent)
     document.querySelectorAll('.sidebar-item').forEach(item => {
-      if (item.getAttribute('onclick') === "showScreen('research')") {
-        item.classList.toggle('active', name === 'research');
-        if (name === 'research') {
-          item.style.background = 'var(--gold-muted)';
-          item.style.color = 'var(--gold)';
-        } else {
-          item.style.background = '';
-          item.style.color = '';
-        }
-      }
+      const oc = (item.getAttribute('onclick') || '').trim();
+      const isActive = oc === activeOnclick ||
+        (name === 'home' && (oc === "goHome()" || oc === "handleLogoClick(this)"));
+      item.classList.toggle('active', isActive);
+      item.style.background = isActive ? 'var(--gold-muted)' : '';
+      item.style.color      = isActive ? 'var(--gold)'       : '';
     });
-    // When switching to research, init it if needed
+
+    // Persist for refresh
+    sessionStorage.setItem('chunks_active_screen', name);
+
+    // ── Screen-specific init ──
+    if (name === 'flash') {
+      // Init saved decks list whenever flash screen is opened
+    }
+
     if (name === 'research') {
-      if (typeof _load === 'function' && typeof _renderRecentList === 'function') {
+      if (typeof _load === 'function') {
         _load();
-        _renderRecentList();
+        if (typeof _renderRecentList === 'function') _renderRecentList();
         if (RS.started) _showResearchView();
       }
     }
-    // When switching to exam, highlight correct sidebar item
     if (name === 'exam') {
-      document.querySelectorAll('.sidebar-item').forEach(item => {
-        const oc = item.getAttribute('onclick') || '';
-        if (oc.includes("showScreen('exam')")) {
-          item.classList.add('active');
-        } else {
-          // don't remove active from others here — showScreen handles it
-        }
-      });
+      if (typeof initExamSidebar === 'function') initExamSidebar();
     }
   }
 
@@ -4824,6 +4834,10 @@ body {
   document.addEventListener('keydown', e => {
     const flashScreen = document.getElementById('screen-flash');
     if (!flashScreen.classList.contains('active')) return;
+
+    // Never intercept keys while the user is typing in an input/textarea
+    const tag = document.activeElement?.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) return;
 
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
@@ -5265,7 +5279,7 @@ const wsBookMeta = {
 
 // ── PDF state ──────────────────────────────────────────────
 let _wsPdfDoc        = null;
-let _wsScale         = 1.4;
+let _wsScale         = 1.0; // overridden by fit-to-width on each PDF load
 let _wsCurrentPage   = 1;
 let _wsTotalPages    = 0;
 let _wsPageContainers = [];
@@ -5490,6 +5504,16 @@ async function selectBook(bookId) {
 
     const wrap = document.getElementById('ws-pdf-canvas-wrap');
     wrap.innerHTML = '';
+
+    // Auto fit-to-width: scale so the page fills the viewer panel
+    try {
+      const _fitPage  = await _wsPdfDoc.getPage(1);
+      const _naturalW = _fitPage.getViewport({ scale: 1 }).width;
+      const _availW   = wrap.clientWidth - 40; // 20px padding each side
+      if (_naturalW > 0 && _availW > 100) {
+        _wsScale = Math.min(Math.max(_availW / _naturalW, ZOOM_MIN), ZOOM_MAX);
+      }
+    } catch (_fitErr) { /* keep default scale if panel not yet sized */ }
 
     // Build page container placeholders
     for (let i = 1; i <= _wsTotalPages; i++) {
@@ -5805,7 +5829,7 @@ function filterLibSection(section, btn) {
   });
 }
 // Close on backdrop click
-document.getElementById('library-modal').addEventListener('click', function(e) {
+document.getElementById('library-modal')?.addEventListener('click', function(e) {
   if (e.target === this) closeLibraryModal();
 });
 </script>
@@ -6076,13 +6100,13 @@ async function homeSendMessage() {
 }
 
 /* ── Keyboard: Enter to send, Shift+Enter for newline ── */
-document.getElementById('home-ask-input').addEventListener('keydown', function(e) {
+document.getElementById('home-ask-input')?.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     homeSendMessage();
   }
 });
-document.getElementById('home-ask-input').addEventListener('input', function() {
+document.getElementById('home-ask-input')?.addEventListener('input', function() {
   homeAutoResize(this);
 });
 </script>
@@ -6125,342 +6149,8 @@ document.getElementById('home-ask-input').addEventListener('input', function() {
   </div>
 </div>
 
-<!-- ── Settings Modal ── -->
-<div class="settings-modal" id="settings-modal">
-  <div class="settings-content">
+<!-- /settings-modal -->
 
-    <!-- Left Nav -->
-    <div class="settings-nav">
-      <button class="settings-close" onclick="closeSettings()">✕</button>
-      <div style="height:38px;"></div>
-
-      <div class="settings-nav-item active" onclick="settingsNav('general', this)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-        General
-      </div>
-      <div class="settings-nav-item" onclick="settingsNav('notifications', this)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-        Notifications
-      </div>
-      <div class="settings-nav-item" onclick="settingsNav('personalization', this)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-        Personalization
-      </div>
-      <div class="settings-nav-item" onclick="settingsNav('apps', this)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="9" height="9" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="13" width="9" height="9" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>
-        Apps
-      </div>
-      <div class="settings-nav-item" onclick="settingsNav('data', this)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
-        Data controls
-      </div>
-      <div class="settings-nav-item" onclick="settingsNav('security', this)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        Security
-      </div>
-      <div class="settings-nav-item" onclick="settingsNav('parental', this)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Parental controls
-      </div>
-      <div class="settings-nav-item" onclick="settingsNav('account', this)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-        Account
-      </div>
-    </div>
-
-    <!-- Right Panel -->
-    <div class="settings-panel">
-
-      <!-- General -->
-      <div class="settings-page active" id="settings-page-general">
-        <div class="settings-page-title">General</div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Appearance</div></div>
-          <div class="settings-select-wrap">
-            <div class="settings-select-btn" onclick="settingsDropdown(this)">
-              <span>System</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-            </div>
-            <div class="settings-select-menu">
-              <div class="settings-select-option selected" onclick="settingsSelect(this)">System</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Dark</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Light</div>
-            </div>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Accent color</div></div>
-          <div class="settings-select-wrap">
-            <div class="settings-select-btn" onclick="settingsDropdown(this)">
-              <span style="display:flex;align-items:center;gap:7px;"><span id="accent-dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--text-3);flex-shrink:0;"></span>Default</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-            </div>
-            <div class="settings-select-menu">
-              <div class="settings-select-option selected" onclick="settingsSelectAccent(this,'#888','Default')">Default</div>
-              <div class="settings-select-option" onclick="settingsSelectAccent(this,'#e8ac2e','Gold')">Gold</div>
-              <div class="settings-select-option" onclick="settingsSelectAccent(this,'#8b7cf8','Violet')">Violet</div>
-              <div class="settings-select-option" onclick="settingsSelectAccent(this,'#2dd4bf','Teal')">Teal</div>
-            </div>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Language</div></div>
-          <div class="settings-select-wrap">
-            <div class="settings-select-btn" onclick="settingsDropdown(this)">
-              <span>Auto-detect</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-            </div>
-            <div class="settings-select-menu">
-              <div class="settings-select-option selected" onclick="settingsSelect(this)">Auto-detect</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">English</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Filipino</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Spanish</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">French</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Japanese</div>
-            </div>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left">
-            <div class="settings-row-label">Spoken language</div>
-            <div class="settings-row-desc">For best results, select the language you mainly speak. If it's not listed, it may still be supported via auto-detection.</div>
-          </div>
-          <div class="settings-select-wrap">
-            <div class="settings-select-btn" onclick="settingsDropdown(this)">
-              <span>Auto-detect</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-            </div>
-            <div class="settings-select-menu">
-              <div class="settings-select-option selected" onclick="settingsSelect(this)">Auto-detect</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">English</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Filipino</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Spanish</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">French</div>
-            </div>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Voice</div></div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <button class="settings-play-btn" id="voice-play-btn" onclick="settingsPlayVoice()">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play
-            </button>
-            <div class="settings-select-wrap">
-              <div class="settings-select-btn" onclick="settingsDropdown(this)" style="min-width:90px;">
-                <span id="voice-label">Maple</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-              </div>
-              <div class="settings-select-menu">
-                <div class="settings-select-option selected" onclick="settingsSelectVoice(this)">Maple</div>
-                <div class="settings-select-option" onclick="settingsSelectVoice(this)">Echo</div>
-                <div class="settings-select-option" onclick="settingsSelectVoice(this)">Nova</div>
-                <div class="settings-select-option" onclick="settingsSelectVoice(this)">Shimmer</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left">
-            <div class="settings-row-label">Separate Voice</div>
-            <div class="settings-row-desc">Keep Chunks AI Voice in a separate full screen, without real time transcripts and visuals.</div>
-          </div>
-          <label class="settings-toggle">
-            <input type="checkbox" checked onchange="settingsToggleChanged(this,'separate-voice')">
-            <div class="settings-toggle-track"></div>
-            <div class="settings-toggle-thumb"></div>
-          </label>
-        </div>
-      </div>
-
-      <!-- Notifications -->
-      <div class="settings-page" id="settings-page-notifications">
-        <div class="settings-page-title">Notifications</div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Study reminders</div><div class="settings-row-desc">Get reminded to study at your scheduled times.</div></div>
-          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Flashcard review alerts</div><div class="settings-row-desc">Be notified when cards are due for review.</div></div>
-          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">New library books</div><div class="settings-row-desc">Get notified when new textbooks are added.</div></div>
-          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Product updates</div><div class="settings-row-desc">Feature announcements and improvements.</div></div>
-          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
-        </div>
-      </div>
-
-      <!-- Personalization -->
-      <div class="settings-page" id="settings-page-personalization">
-        <div class="settings-page-title">Personalization</div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Default book</div><div class="settings-row-desc">The textbook that opens by default in Workspace.</div></div>
-          <div class="settings-select-wrap">
-            <div class="settings-select-btn" onclick="settingsDropdown(this)">
-              <span>Atkins Chemistry</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-            </div>
-            <div class="settings-select-menu" id="default-book-menu">
-              <div class="settings-select-option selected" data-book-id="atkins" onclick="settingsSelectDefaultBook(this)">Atkins Chemistry</div>
-              <div class="settings-select-option" data-book-id="zumdahl" onclick="settingsSelectDefaultBook(this)">Zumdahl General Chemistry</div>
-              <div class="settings-select-option" data-book-id="klein" onclick="settingsSelectDefaultBook(this)">Klein Organic Chemistry</div>
-              <div class="settings-select-option" data-book-id="harris" onclick="settingsSelectDefaultBook(this)">Harris Analytical</div>
-              <div class="settings-select-option" data-book-id="anaphy2e" onclick="settingsSelectDefaultBook(this)">Anatomy &amp; Physiology</div>
-              <div class="settings-select-option" data-book-id="netter" onclick="settingsSelectDefaultBook(this)">Netter Anatomy</div>
-            </div>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Study mode</div><div class="settings-row-desc">Adjust AI response depth and detail level.</div></div>
-          <div class="settings-select-wrap">
-            <div class="settings-select-btn" onclick="settingsDropdown(this)">
-              <span>Balanced</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-            </div>
-            <div class="settings-select-menu" id="study-mode-menu">
-              <div class="settings-select-option" data-mode="concise" onclick="settingsSelectStudyMode(this)">Concise</div>
-              <div class="settings-select-option selected" data-mode="balanced" onclick="settingsSelectStudyMode(this)">Balanced</div>
-              <div class="settings-select-option" data-mode="detailed" onclick="settingsSelectStudyMode(this)">Detailed</div>
-            </div>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Show follow-up questions</div><div class="settings-row-desc">Display suggested follow-ups after AI responses.</div></div>
-          <label class="settings-toggle"><input type="checkbox" id="toggle-followups" checked onchange="settingsToggleChanged(this,'followups')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Auto-generate flashcards</div><div class="settings-row-desc">Suggest flashcard creation after key answers.</div></div>
-          <label class="settings-toggle"><input type="checkbox" id="toggle-auto-flash" onchange="settingsToggleChanged(this,'auto-flash')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
-        </div>
-      </div>
-
-      <!-- Apps -->
-      <div class="settings-page" id="settings-page-apps">
-        <div class="settings-page-title">Apps</div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Connected apps</div><div class="settings-row-desc">No apps connected yet.</div></div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">API access</div><div class="settings-row-desc">Manage your API keys and integrations.</div></div>
-          <div class="settings-select" style="color:var(--text-3);cursor:default;">Coming soon</div>
-        </div>
-      </div>
-
-      <!-- Data controls -->
-      <div class="settings-page" id="settings-page-data">
-        <div class="settings-page-title">Data controls</div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Save chat history</div><div class="settings-row-desc">Store your conversations for future reference.</div></div>
-          <label class="settings-toggle"><input type="checkbox" id="toggle-save-history" checked onchange="dataToggleSaveHistory(this)"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Use data to improve Chunks AI</div><div class="settings-row-desc">Help improve the product by sharing anonymised usage data.</div></div>
-          <label class="settings-toggle"><input type="checkbox" id="toggle-improve-data" checked onchange="dataToggleImprove(this)"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Delete all chat history</div><div class="settings-row-desc">Permanently remove all saved conversations.</div></div>
-          <button id="delete-all-btn" onclick="clearAllHistory()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Delete all</button>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Cached textbooks</div><div class="settings-row-desc" id="cache-size-label">Textbooks are cached locally so they load instantly after the first download.</div></div>
-          <button id="clear-cache-btn" onclick="clearPdfCache()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Clear cache</button>
-        </div>
-      </div>
-
-      <!-- Security -->
-      <div class="settings-page" id="settings-page-security">
-        <div class="settings-page-title">Security</div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Two-factor authentication</div><div class="settings-row-desc">Add an extra layer of security to your account.</div></div>
-          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Active sessions</div><div class="settings-row-desc">View and manage devices logged into your account.</div></div>
-          <div class="settings-select" style="color:var(--text-3);cursor:default;">1 device</div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Change password</div></div>
-          <button style="padding:6px 14px;border-radius:var(--r-sm);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-family:var(--font-body);cursor:pointer;">Update</button>
-        </div>
-      </div>
-
-      <!-- Parental controls -->
-      <div class="settings-page" id="settings-page-parental">
-        <div class="settings-page-title">Parental controls</div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Safe content mode</div><div class="settings-row-desc">Restrict content to age-appropriate study material.</div></div>
-          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Set a PIN</div><div class="settings-row-desc">Protect settings with a PIN code.</div></div>
-          <button style="padding:6px 14px;border-radius:var(--r-sm);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-family:var(--font-body);cursor:pointer;">Set PIN</button>
-        </div>
-      </div>
-
-      <!-- Account -->
-      <div class="settings-page" id="settings-page-account">
-        <div class="settings-page-title">Account</div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Name</div></div>
-          <div style="font-size:13px;color:var(--text-2);">Charles Daryll Contridas</div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Username</div></div>
-          <div style="font-size:13px;color:var(--text-2);font-family:var(--font-mono);">@contridascharles91</div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Plan</div><div class="settings-row-desc">Upgrade to unlock more features.</div></div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:12px;color:var(--text-3);">Free</span>
-            <button onclick="closeSettings();pdAction('upgrade')" style="padding:5px 12px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Upgrade</button>
-          </div>
-        </div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label" style="color:var(--red);">Delete account</div><div class="settings-row-desc">Permanently delete your account and all data.</div></div>
-          <button style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;">Delete</button>
-        </div>
-      </div>
-
-    </div><!-- /settings-panel -->
-  </div><!-- /settings-content -->
-</div><!-- /settings-modal -->
-<div class="profile-dropdown" id="profile-dropdown">
-  <div class="pd-header">
-    <div class="pd-avatar">CD</div>
-    <div>
-      <div class="pd-name">Charles Daryll Contridas</div>
-      <div class="pd-handle">@contridascharles91</div>
-    </div>
-  </div>
-  <div class="pd-menu">
-    <div class="pd-item upgrade" onclick="pdAction('upgrade')" onmouseenter="_closeHelp();_closeTerms();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-      Upgrade plan
-    </div>
-    <div class="pd-divider"></div>
-    <div class="pd-item" onclick="pdAction('personalization')" onmouseenter="_closeHelp();_closeTerms();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-      Personalization
-    </div>
-    <div class="pd-item" onclick="pdAction('settings')" onmouseenter="_closeHelp();_closeTerms();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-      Settings
-    </div>
-    <div class="pd-divider"></div>
-    <div class="pd-item" id="pd-help-item" onmouseenter="pdOpenHelp(event)" onmouseleave="pdHelpMouseLeave(event)">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
-      Help
-      <svg class="pd-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
-    </div>
-    <div class="pd-item danger" onclick="pdAction('logout')" onmouseenter="_closeHelp();_closeTerms();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      Log out
-    </div>
-  </div>
-</div>
 
 <script>
 /* ═══════════════════════════════════════════
@@ -6573,26 +6263,75 @@ function _fcRenderCard() {
 }
 
 function _fcUpdateStats() {
-  const statNums = document.querySelectorAll('.stat-num');
-  if (statNums.length >= 4) {
-    statNums[0].textContent = _fcStats.easy;
-    statNums[1].textContent = _fcStats.ok;
-    statNums[2].textContent = _fcStats.hard;
-    statNums[3].textContent = _fcDeck.length - _fcIndex;
-  }
+  const easy    = document.getElementById('stat-easy');
+  const ok      = document.getElementById('stat-ok');
+  const hard    = document.getElementById('stat-hard');
+  const skipped = document.getElementById('stat-skipped');
+  if (easy)    easy.textContent    = _fcStats.easy  || 0;
+  if (ok)      ok.textContent      = _fcStats.ok    || 0;
+  if (hard)    hard.textContent    = _fcStats.hard  || 0;
+  if (skipped) skipped.textContent = Math.max(0, _fcDeck.length - _fcIndex - 1);
 }
 
 function _fcNext(rating) {
   if (!_fcDeck.length) return;
   if (rating) _fcStats[rating] = (_fcStats[rating] || 0) + 1;
-  _fcIndex = (_fcIndex + 1) % _fcDeck.length;
+  _fcIndex++;
 
-  // If we've gone through all cards, show completion
-  if (_fcIndex === 0 && rating) {
-    wsShowToast('✅', 'Deck complete! Starting over…', 'var(--green)');
+  // Deck finished — show completion modal instead of looping
+  if (_fcIndex >= _fcDeck.length) {
+    _fcShowCompleteModal();
+    return;
   }
   _fcRenderCard();
 }
+
+function _fcShowCompleteModal() {
+  const total = _fcDeck.length;
+  const easy  = _fcStats.easy  || 0;
+  const ok    = _fcStats.ok    || 0;
+  const hard  = _fcStats.hard  || 0;
+
+  document.getElementById('fc-modal-easy').textContent  = easy;
+  document.getElementById('fc-modal-ok').textContent    = ok;
+  document.getElementById('fc-modal-hard').textContent  = hard;
+  document.getElementById('fc-complete-subtitle').textContent =
+    `You reviewed all ${total} card${total !== 1 ? 's' : ''} in "${_fcDeckTopic || 'this deck'}".`;
+
+
+  const modal = document.getElementById('fc-complete-modal');
+  modal.style.display = 'flex';
+}
+
+function _fcRestartDeck() {
+  document.getElementById('fc-complete-modal').style.display = 'none';
+  _fcIndex = 0;
+  _fcStats = { easy: 0, ok: 0, hard: 0 };
+  _fcUpdateStats();
+  _fcRenderCard();
+}
+
+function _fcCreateNew() {
+  document.getElementById('fc-complete-modal').style.display = 'none';
+  // Focus the generate bar
+  const input = document.getElementById('fc-gen-input');
+  if (input) {
+    input.value = '';
+    input.focus();
+    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+
+
+
+
+
+
+
+
+
+// Initialize saved decks on load
 
 // Wire Hard / Got It / Easy / Reveal buttons on flashcard screen
 document.addEventListener('DOMContentLoaded', () => {
@@ -6603,34 +6342,36 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btn.classList.contains('easy'))    btn.onclick = () => _fcNext('easy');
     if (btn.classList.contains('primary')) btn.onclick = () => { flipCard(); };
   });
-  // Gen bar button
-  const genBtn = document.querySelector('.gen-btn');
-  if (genBtn) genBtn.onclick = _fcGenerateFromBar;
 });
 
 async function _fcGenerateFromBar() {
-  const input = document.querySelector('.gen-input');
+  const input = document.getElementById('fc-gen-input') || document.querySelector('.gen-input');
   const topic = input?.value?.trim();
   if (!topic) return;
-  const btn = document.querySelector('.gen-btn');
-  btn.textContent = 'Generating…'; btn.disabled = true;
+  const btn = document.getElementById('gen-btn') || document.querySelector('.gen-btn');
+  if (btn) { btn.textContent = 'Generating…'; btn.disabled = true; }
   try {
     const res = await fetch(`${WS_BACKEND}/generate-flashcards`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topic, bookId: _wsBookId || 'atkins', count: 10 })
+      body: JSON.stringify({ topic, bookId: _wsBookId || null, count: 10 })
     });
+    if (!res.ok) throw new Error(`Server error ${res.status}`);
     const data = await res.json();
-    if (!data.success || !data.flashcards?.length) throw new Error(data.error);
-    _fcDeck  = data.flashcards;
+    if (!data.success || !data.flashcards?.length) throw new Error(data.error || 'No cards returned');
+    _fcDeck      = data.flashcards;
     _fcDeckTopic = topic;
-    _fcIndex = 0; _fcStats = { easy: 0, ok: 0, hard: 0 };
+    _fcIndex     = 0;
+    _fcStats     = { easy: 0, ok: 0, hard: 0 };
+    _fcUpdateStats();
     _fcRenderCard();
-    wsShowToast('🃏', `${data.flashcards.length} new cards loaded!`, 'var(--gold-border)');
+    if (input) input.value = '';
+    wsShowToast && wsShowToast('🃏', `${data.flashcards.length} cards generated!`, 'var(--gold-border)');
   } catch(e) {
-    wsShowToast('⚠', 'Generation failed', '#f87171');
+    console.error('Flashcard generation error:', e);
+    wsShowToast && wsShowToast('⚠', `Generation failed: ${e.message}`, '#f87171');
   } finally {
-    btn.textContent = 'Generate with AI'; btn.disabled = false;
+    if (btn) { btn.textContent = 'Generate with AI'; btn.disabled = false; }
   }
 }
 function wsSetInput(text) {
@@ -6964,10 +6705,10 @@ async function _wsAsk(question) {
 }
 
 // ── Keyboard ──────────────────────────────────────────────
-document.getElementById('ws-chat-input').addEventListener('keydown', e => {
+document.getElementById('ws-chat-input')?.addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); wsChatSend(); }
 });
-document.getElementById('ws-chat-input').addEventListener('input', function() {
+document.getElementById('ws-chat-input')?.addEventListener('input', function() {
   wsAutoResize(this);
 });
 </script>
@@ -7050,7 +6791,11 @@ function goHome() {
 }
 
 function newChat() {
-  // Clear workspace messages + restore empty state
+  // Always navigate to home screen first
+  const _activeNow = document.querySelector('.screen.active');
+  if (!_activeNow || _activeNow.id !== 'screen-home') showScreen('home');
+
+    // Clear workspace messages + restore empty state
   const msgs = document.getElementById('ws-messages');
   if (msgs) msgs.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;">
@@ -7362,7 +7107,7 @@ function _renderAllRecent() {
   const workspaceItems = _recentItems.filter(r => r.source === 'workspace' && r.bookId);
 
   // Render general AI history into all sidebars
-  ['recent-list-general','recent-list-general-ws','recent-list-general-flash'].forEach(id => {
+  ['recent-list-general','recent-list-general-ws','recent-list-general-flash','recent-list-general-research','recent-list-general-exam'].forEach(id => {
     const container = document.getElementById(id);
     if (!container) return;
     container.innerHTML = '';
@@ -7374,7 +7119,7 @@ function _renderAllRecent() {
   });
 
   // Render workspace/book history into all sidebars
-  ['recent-list-home','recent-list-workspace','recent-list-flash'].forEach(id => {
+  ['recent-list-home','recent-list-workspace','recent-list-flash','recent-list-ws-research','recent-list-ws-exam'].forEach(id => {
     const container = document.getElementById(id);
     if (!container) return;
     container.innerHTML = '';
@@ -7441,12 +7186,12 @@ if (sessionStorage.getItem('chunks_is_refresh') === '1') {
 
 // ── Hook wsChatSend to add to recents on every send ──────
 // We hook at the DOM level so it works regardless of script order
-document.getElementById('ws-chat-send').addEventListener('click', () => {
+document.getElementById('ws-chat-send')?.addEventListener('click', () => {
   const q = document.getElementById('ws-chat-input')?.value?.trim();
   if (q) recentAdd(q, _wsBookId, 'workspace');
 }, true); // capture phase — fires before wsChatSend clears the input
 
-document.getElementById('ws-chat-input').addEventListener('keydown', function(e) {
+document.getElementById('ws-chat-input')?.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     const q = this.value.trim();
     if (q) recentAdd(q, _wsBookId);
@@ -7710,7 +7455,7 @@ function settingsNav(page, el) {
 }
 
 // Click outside settings modal to close
-document.getElementById('settings-modal').addEventListener('click', function(e) {
+document.getElementById('settings-modal')?.addEventListener('click', function(e) {
   if (e.target === this && !document.getElementById('confirm-modal')?.classList.contains('active')) closeSettings();
 });
 
@@ -8162,7 +7907,7 @@ function closeShortcuts() {
 }
 
 // Close on backdrop click
-document.getElementById('shortcuts-modal').addEventListener('click', function(e) {
+document.getElementById('shortcuts-modal')?.addEventListener('click', function(e) {
   if (e.target === this) closeShortcuts();
 });
 
@@ -8608,7 +8353,7 @@ function closeHelpCenter() {
   document.getElementById('help-modal').classList.remove('active');
 }
 
-document.getElementById('help-modal').addEventListener('click', function(e) {
+document.getElementById('help-modal')?.addEventListener('click', function(e) {
   if (e.target === this) closeHelpCenter();
 });
 
@@ -8807,8 +8552,6 @@ function _flashAutosave() {
    SIDEBAR & NAVIGATION
 ══════════════════════════════════════════════════════════════ */
 // animateOrbits — provided by index.html
-  requestAnimationFrame(step);
-}
 // toggleSidebar — provided by index.html
 // newChat — provided by index.html
 // openLibraryModal — provided by index.html
@@ -12211,5 +11954,402 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
 
 </script>
+
+
+<!-- ── Settings Modal (shared across all screens) ── -->
+<!-- ── Settings Modal ── -->
+<div class="settings-modal" id="settings-modal">
+  <div class="settings-content">
+
+    <!-- Left Nav -->
+    <div class="settings-nav">
+      <button class="settings-close" onclick="closeSettings()">✕</button>
+      <div style="height:38px;"></div>
+
+      <div class="settings-nav-item active" onclick="settingsNav('general', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+        General
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('notifications', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        Notifications
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('personalization', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Personalization
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('apps', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="9" height="9" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="13" width="9" height="9" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>
+        Apps
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('data', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
+        Data controls
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('security', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Security
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('parental', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Parental controls
+      </div>
+      <div class="settings-nav-item" onclick="settingsNav('account', this)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        Account
+      </div>
+    </div>
+
+    <!-- Right Panel -->
+    <div class="settings-panel">
+
+      <!-- General -->
+      <div class="settings-page active" id="settings-page-general">
+        <div class="settings-page-title">General</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Appearance</div></div>
+          <div class="settings-select-wrap">
+            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+              <span>System</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="settings-select-menu">
+              <div class="settings-select-option selected" onclick="settingsSelect(this)">System</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Dark</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Light</div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Accent color</div></div>
+          <div class="settings-select-wrap">
+            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+              <span style="display:flex;align-items:center;gap:7px;"><span id="accent-dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--text-3);flex-shrink:0;"></span>Default</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="settings-select-menu">
+              <div class="settings-select-option selected" onclick="settingsSelectAccent(this,'#888','Default')">Default</div>
+              <div class="settings-select-option" onclick="settingsSelectAccent(this,'#e8ac2e','Gold')">Gold</div>
+              <div class="settings-select-option" onclick="settingsSelectAccent(this,'#8b7cf8','Violet')">Violet</div>
+              <div class="settings-select-option" onclick="settingsSelectAccent(this,'#2dd4bf','Teal')">Teal</div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Language</div></div>
+          <div class="settings-select-wrap">
+            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+              <span>Auto-detect</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="settings-select-menu">
+              <div class="settings-select-option selected" onclick="settingsSelect(this)">Auto-detect</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">English</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Filipino</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Spanish</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">French</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Japanese</div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <div class="settings-row-label">Spoken language</div>
+            <div class="settings-row-desc">For best results, select the language you mainly speak. If it's not listed, it may still be supported via auto-detection.</div>
+          </div>
+          <div class="settings-select-wrap">
+            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+              <span>Auto-detect</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="settings-select-menu">
+              <div class="settings-select-option selected" onclick="settingsSelect(this)">Auto-detect</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">English</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Filipino</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">Spanish</div>
+              <div class="settings-select-option" onclick="settingsSelect(this)">French</div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Voice</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <button class="settings-play-btn" id="voice-play-btn" onclick="settingsPlayVoice()">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play
+            </button>
+            <div class="settings-select-wrap">
+              <div class="settings-select-btn" onclick="settingsDropdown(this)" style="min-width:90px;">
+                <span id="voice-label">Maple</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+              </div>
+              <div class="settings-select-menu">
+                <div class="settings-select-option selected" onclick="settingsSelectVoice(this)">Maple</div>
+                <div class="settings-select-option" onclick="settingsSelectVoice(this)">Echo</div>
+                <div class="settings-select-option" onclick="settingsSelectVoice(this)">Nova</div>
+                <div class="settings-select-option" onclick="settingsSelectVoice(this)">Shimmer</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <div class="settings-row-label">Separate Voice</div>
+            <div class="settings-row-desc">Keep Chunks AI Voice in a separate full screen, without real time transcripts and visuals.</div>
+          </div>
+          <label class="settings-toggle">
+            <input type="checkbox" checked onchange="settingsToggleChanged(this,'separate-voice')">
+            <div class="settings-toggle-track"></div>
+            <div class="settings-toggle-thumb"></div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Notifications -->
+      <div class="settings-page" id="settings-page-notifications">
+        <div class="settings-page-title">Notifications</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Study reminders</div><div class="settings-row-desc">Get reminded to study at your scheduled times.</div></div>
+          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Flashcard review alerts</div><div class="settings-row-desc">Be notified when cards are due for review.</div></div>
+          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">New library books</div><div class="settings-row-desc">Get notified when new textbooks are added.</div></div>
+          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Product updates</div><div class="settings-row-desc">Feature announcements and improvements.</div></div>
+          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+      </div>
+
+      <!-- Personalization -->
+      <div class="settings-page" id="settings-page-personalization">
+        <div class="settings-page-title">Personalization</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Default book</div><div class="settings-row-desc">The textbook that opens by default in Workspace.</div></div>
+          <div class="settings-select-wrap">
+            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+              <span>Atkins Chemistry</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="settings-select-menu" id="default-book-menu">
+              <div class="settings-select-option selected" data-book-id="atkins" onclick="settingsSelectDefaultBook(this)">Atkins Chemistry</div>
+              <div class="settings-select-option" data-book-id="zumdahl" onclick="settingsSelectDefaultBook(this)">Zumdahl General Chemistry</div>
+              <div class="settings-select-option" data-book-id="klein" onclick="settingsSelectDefaultBook(this)">Klein Organic Chemistry</div>
+              <div class="settings-select-option" data-book-id="harris" onclick="settingsSelectDefaultBook(this)">Harris Analytical</div>
+              <div class="settings-select-option" data-book-id="anaphy2e" onclick="settingsSelectDefaultBook(this)">Anatomy &amp; Physiology</div>
+              <div class="settings-select-option" data-book-id="netter" onclick="settingsSelectDefaultBook(this)">Netter Anatomy</div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Study mode</div><div class="settings-row-desc">Adjust AI response depth and detail level.</div></div>
+          <div class="settings-select-wrap">
+            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+              <span>Balanced</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
+            </div>
+            <div class="settings-select-menu" id="study-mode-menu">
+              <div class="settings-select-option" data-mode="concise" onclick="settingsSelectStudyMode(this)">Concise</div>
+              <div class="settings-select-option selected" data-mode="balanced" onclick="settingsSelectStudyMode(this)">Balanced</div>
+              <div class="settings-select-option" data-mode="detailed" onclick="settingsSelectStudyMode(this)">Detailed</div>
+            </div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Show follow-up questions</div><div class="settings-row-desc">Display suggested follow-ups after AI responses.</div></div>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-followups" checked onchange="settingsToggleChanged(this,'followups')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Auto-generate flashcards</div><div class="settings-row-desc">Suggest flashcard creation after key answers.</div></div>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-auto-flash" onchange="settingsToggleChanged(this,'auto-flash')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+      </div>
+
+      <!-- Apps -->
+      <div class="settings-page" id="settings-page-apps">
+        <div class="settings-page-title">Apps</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Connected apps</div><div class="settings-row-desc">No apps connected yet.</div></div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">API access</div><div class="settings-row-desc">Manage your API keys and integrations.</div></div>
+          <div class="settings-select" style="color:var(--text-3);cursor:default;">Coming soon</div>
+        </div>
+      </div>
+
+      <!-- Data controls -->
+      <div class="settings-page" id="settings-page-data">
+        <div class="settings-page-title">Data controls</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Save chat history</div><div class="settings-row-desc">Store your conversations for future reference.</div></div>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-save-history" checked onchange="dataToggleSaveHistory(this)"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Use data to improve Chunks AI</div><div class="settings-row-desc">Help improve the product by sharing anonymised usage data.</div></div>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-improve-data" checked onchange="dataToggleImprove(this)"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Delete all chat history</div><div class="settings-row-desc">Permanently remove all saved conversations.</div></div>
+          <button id="delete-all-btn" onclick="clearAllHistory()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Delete all</button>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Cached textbooks</div><div class="settings-row-desc" id="cache-size-label">Textbooks are cached locally so they load instantly after the first download.</div></div>
+          <button id="clear-cache-btn" onclick="clearPdfCache()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Clear cache</button>
+        </div>
+      </div>
+
+      <!-- Security -->
+      <div class="settings-page" id="settings-page-security">
+        <div class="settings-page-title">Security</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Two-factor authentication</div><div class="settings-row-desc">Add an extra layer of security to your account.</div></div>
+          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Active sessions</div><div class="settings-row-desc">View and manage devices logged into your account.</div></div>
+          <div class="settings-select" style="color:var(--text-3);cursor:default;">1 device</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Change password</div></div>
+          <button style="padding:6px 14px;border-radius:var(--r-sm);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-family:var(--font-body);cursor:pointer;">Update</button>
+        </div>
+      </div>
+
+      <!-- Parental controls -->
+      <div class="settings-page" id="settings-page-parental">
+        <div class="settings-page-title">Parental controls</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Safe content mode</div><div class="settings-row-desc">Restrict content to age-appropriate study material.</div></div>
+          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Set a PIN</div><div class="settings-row-desc">Protect settings with a PIN code.</div></div>
+          <button style="padding:6px 14px;border-radius:var(--r-sm);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-family:var(--font-body);cursor:pointer;">Set PIN</button>
+        </div>
+      </div>
+
+      <!-- Account -->
+      <div class="settings-page" id="settings-page-account">
+        <div class="settings-page-title">Account</div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Name</div></div>
+          <div style="font-size:13px;color:var(--text-2);">Charles Daryll Contridas</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Username</div></div>
+          <div style="font-size:13px;color:var(--text-2);font-family:var(--font-mono);">@contridascharles91</div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label">Plan</div><div class="settings-row-desc">Upgrade to unlock more features.</div></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:12px;color:var(--text-3);">Free</span>
+            <button onclick="closeSettings();pdAction('upgrade')" style="padding:5px 12px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Upgrade</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left"><div class="settings-row-label" style="color:var(--red);">Delete account</div><div class="settings-row-desc">Permanently delete your account and all data.</div></div>
+          <button style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;">Delete</button>
+        </div>
+      </div>
+
+    </div><!-- /settings-panel -->
+  </div><!-- /settings-content -->
+</div>
+
+<!-- Profile Dropdown (shared across all screens) -->
+<div class="profile-dropdown" id="profile-dropdown">
+  <div class="pd-header">
+    <div class="pd-avatar">CD</div>
+    <div>
+      <div class="pd-name">Charles Daryll Contridas</div>
+      <div class="pd-handle">@contridascharles91</div>
+    </div>
+  </div>
+  <div class="pd-menu">
+    <div class="pd-item upgrade" onclick="pdAction('upgrade')" onmouseenter="_closeHelp();_closeTerms();">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      Upgrade plan
+    </div>
+    <div class="pd-divider"></div>
+    <div class="pd-item" onclick="pdAction('personalization')" onmouseenter="_closeHelp();_closeTerms();">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      Personalization
+    </div>
+    <div class="pd-item" onclick="pdAction('settings')" onmouseenter="_closeHelp();_closeTerms();">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+      Settings
+    </div>
+    <div class="pd-divider"></div>
+    <div class="pd-item" id="pd-help-item" onmouseenter="pdOpenHelp(event)" onmouseleave="pdHelpMouseLeave(event)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      Help
+      <svg class="pd-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+    </div>
+    <div class="pd-item danger" onclick="pdAction('logout')" onmouseenter="_closeHelp();_closeTerms();">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Log out
+    </div>
+  </div>
+</div>
+
+
+<!-- ── Flashcard Completion Modal ── -->
+<div id="fc-complete-modal" style="
+  display:none;position:fixed;inset:0;z-index:9000;
+  background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);
+  align-items:center;justify-content:center;
+">
+  <div style="
+    background:var(--surface-1);border:1px solid var(--border-md);
+    border-radius:18px;padding:36px 40px;max-width:420px;width:90%;
+    box-shadow:0 24px 80px rgba(0,0,0,0.7);text-align:center;
+    animation:fadeUp 0.3s var(--ease-spring);
+  ">
+    <div style="font-size:40px;margin-bottom:12px;">🎉</div>
+    <div style="font-size:20px;font-weight:700;color:var(--text-1);margin-bottom:6px;">Deck Complete!</div>
+    <div style="font-size:13px;color:var(--text-2);margin-bottom:24px;" id="fc-complete-subtitle">You've gone through all cards.</div>
+
+    <!-- Stats summary -->
+    <div style="display:flex;justify-content:center;gap:24px;margin-bottom:28px;padding:16px;background:var(--surface-2);border-radius:12px;border:1px solid var(--border-xs);">
+      <div style="text-align:center;">
+        <div style="font-size:22px;font-weight:700;color:var(--green);" id="fc-modal-easy">0</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:2px;">Easy</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:22px;font-weight:700;color:var(--gold);" id="fc-modal-ok">0</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:2px;">Got it</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="font-size:22px;font-weight:700;color:var(--red);" id="fc-modal-hard">0</div>
+        <div style="font-size:11px;color:var(--text-3);margin-top:2px;">Hard</div>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="_fcRestartDeck()" style="
+        width:100%;padding:12px;border-radius:10px;border:none;
+        background:var(--gold);color:#000;font-weight:700;font-size:14px;
+        cursor:pointer;font-family:inherit;
+      ">↺  Restart This Deck</button>
+      <button onclick="_fcCreateNew()" style="
+        width:100%;padding:12px;border-radius:10px;
+        border:1px solid var(--border-md);background:var(--surface-2);
+        color:var(--text-1);font-weight:600;font-size:14px;
+        cursor:pointer;font-family:inherit;
+      ">+ Generate New Deck</button>
+      <button onclick="document.getElementById('fc-complete-modal').style.display='none';" style="
+        width:100%;padding:10px;border-radius:10px;border:none;
+        background:transparent;color:var(--text-3);font-size:13px;
+        cursor:pointer;font-family:inherit;
+      ">Close</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
