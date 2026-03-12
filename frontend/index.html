@@ -1542,7 +1542,6 @@ body::after {
   font-family: var(--font-mono);
   display: flex; align-items: center; gap: 5px;
 }
-}
 .hc-error {
   background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);
   border-radius: 10px; padding: 10px 14px;
@@ -1984,7 +1983,7 @@ body {
 .library-modal-body::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 2px; }
 
 /* ── SECTION ────────────────────────────────────────────────── */
-.lib-section {}
+/* .lib-section */
 
 .lib-section-header {
   display: flex;
@@ -3237,6 +3236,126 @@ body {
   margin-bottom: 6px;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   STUDY PLAN SCREEN — sp-* styles
+═══════════════════════════════════════════════════════════ */
+#screen-studyplan { flex-direction: row; overflow: hidden; }
+.sp-main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; position:relative; }
+.sp-topbar { display:flex; align-items:center; gap:12px; padding:14px 24px; border-bottom:1px solid var(--border-xs); background:rgba(13,14,20,0.6); backdrop-filter:blur(12px); flex-shrink:0; }
+.sp-topbar-title { font-family:var(--font-head); font-size:15px; font-weight:700; color:var(--text-1); letter-spacing:-0.01em; }
+.sp-topbar-badge { font-family:var(--font-mono); font-size:10px; color:var(--gold); background:var(--gold-muted); border:1px solid var(--gold-border); padding:3px 9px; border-radius:var(--r-pill); letter-spacing:0.04em; }
+.sp-topbar-actions { margin-left:auto; display:flex; align-items:center; gap:8px; }
+.sp-topbar-btn { display:flex; align-items:center; gap:6px; padding:6px 13px; border-radius:var(--r-pill); border:1px solid var(--border-sm); background:transparent; color:var(--text-3); font-family:var(--font-body); font-size:12px; font-weight:500; cursor:pointer; transition:color var(--t-fast),border-color var(--t-fast),background var(--t-fast); }
+.sp-topbar-btn:hover { color:var(--text-1); border-color:var(--border-md); background:var(--surface-2); }
+.sp-body { flex:1; display:flex; overflow:hidden; }
+.sp-roadmap-col { flex:1; overflow-y:auto; padding:28px 28px 40px; min-width:0; }
+.sp-detail-col { width:300px; flex-shrink:0; border-left:1px solid var(--border-xs); overflow-y:auto; padding:24px 20px; display:flex; flex-direction:column; gap:20px; }
+.sp-setup { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100%; padding:40px; gap:32px; }
+.sp-setup-hero { text-align:center; max-width:500px; }
+.sp-setup-icon { width:56px; height:56px; border-radius:18px; background:var(--gold-muted); border:1px solid var(--gold-border); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; }
+.sp-setup-title { font-family:var(--font-head); font-size:22px; font-weight:800; color:var(--text-1); letter-spacing:-0.02em; margin-bottom:8px; }
+.sp-setup-subtitle { font-size:13px; color:var(--text-3); line-height:1.65; }
+.sp-setup-card { width:100%; max-width:560px; background:var(--surface-1); border:1px solid var(--border-sm); border-radius:var(--r-xl); overflow:hidden; }
+.sp-setup-card-header { padding:18px 22px 14px; border-bottom:1px solid var(--border-xs); }
+.sp-setup-card-header h2 { font-family:var(--font-head); font-size:14px; font-weight:700; color:var(--text-1); margin-bottom:3px; }
+.sp-setup-card-header p { font-size:12px; color:var(--text-3); }
+.sp-setup-card-body { padding:20px 22px; display:flex; flex-direction:column; gap:16px; }
+.sp-src-tabs { display:flex; gap:4px; background:var(--surface-2); padding:3px; border-radius:var(--r-sm); border:1px solid var(--border-xs); }
+.sp-src-tab { flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:6px 10px; border-radius:6px; border:none; background:transparent; color:var(--text-3); font-family:var(--font-body); font-size:12px; font-weight:500; cursor:pointer; transition:all var(--t-fast); }
+.sp-src-tab.active { background:var(--surface-3); color:var(--text-1); border:1px solid var(--border-sm); }
+.sp-field label { display:block; font-size:12px; font-weight:600; color:var(--text-2); margin-bottom:7px; letter-spacing:0.01em; }
+.sp-input { width:100%; background:var(--surface-2); border:1px solid var(--border-sm); border-radius:var(--r-md); padding:10px 13px; font-family:var(--font-body); font-size:13px; color:var(--text-1); outline:none; transition:border-color var(--t-fast); }
+.sp-input::placeholder { color:var(--text-4); }
+.sp-input:focus { border-color:var(--gold-border); }
+.sp-upload-zone { border:1.5px dashed var(--border-md); border-radius:var(--r-md); padding:24px 16px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:border-color var(--t-fast),background var(--t-fast); text-align:center; gap:0; }
+.sp-upload-zone:hover { border-color:var(--gold-border); background:var(--gold-muted); }
+.sp-upload-zone-label { font-size:12px; font-weight:600; color:var(--text-2); margin:8px 0 3px; }
+.sp-upload-zone-sub { font-size:11px; color:var(--text-4); }
+.sp-generate-btn { width:100%; padding:12px; border-radius:var(--r-md); border:none; background:var(--gold); color:#090900; font-family:var(--font-body); font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:background var(--t-fast),transform var(--t-fast) var(--ease-spring); }
+.sp-generate-btn:hover { background:var(--gold-bright); transform:translateY(-1px); }
+.sp-generate-btn:disabled { cursor:not-allowed; }
+.sp-plan-header { background:var(--surface-1); border:1px solid var(--border-sm); border-radius:var(--r-xl); padding:20px 22px; margin-bottom:24px; display:flex; align-items:center; gap:20px; }
+.sp-plan-header-info { flex:1; min-width:0; }
+.sp-plan-header-eyebrow { font-family:var(--font-mono); font-size:10px; color:var(--gold); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:5px; }
+.sp-plan-header-title { font-family:var(--font-head); font-size:18px; font-weight:800; color:var(--text-1); letter-spacing:-0.02em; margin-bottom:4px; }
+.sp-plan-header-sub { font-size:12px; color:var(--text-3); }
+.sp-overall-ring { flex-shrink:0; display:flex; flex-direction:column; align-items:center; gap:4px; }
+.sp-overall-ring-label { font-size:10px; color:var(--text-3); font-family:var(--font-mono); letter-spacing:0.05em; }
+.sp-stats-row { display:flex; gap:10px; margin-bottom:28px; flex-wrap:wrap; }
+.sp-stat-chip { display:flex; align-items:center; gap:7px; padding:8px 13px; background:var(--surface-1); border:1px solid var(--border-xs); border-radius:var(--r-md); font-size:12px; color:var(--text-2); }
+.sp-stat-dot { width:7px; height:7px; border-radius:50%; }
+.sp-roadmap-label { font-family:var(--font-mono); font-size:10px; color:var(--text-4); letter-spacing:0.09em; text-transform:uppercase; margin-bottom:16px; }
+.sp-path { display:flex; flex-direction:column; gap:0; position:relative; }
+.sp-path::before { content:''; position:absolute; left:23px; top:48px; bottom:48px; width:1px; background:linear-gradient(to bottom,var(--gold-border) 0%,rgba(139,124,248,0.3) 50%,var(--border-xs) 100%); z-index:0; }
+.sp-node { display:flex; align-items:flex-start; gap:16px; position:relative; z-index:1; margin-bottom:12px; animation:sp-nodeIn 0.35s var(--ease-snap) both; }
+.sp-node:nth-child(1){animation-delay:.05s}.sp-node:nth-child(2){animation-delay:.10s}.sp-node:nth-child(3){animation-delay:.15s}.sp-node:nth-child(4){animation-delay:.20s}.sp-node:nth-child(5){animation-delay:.25s}.sp-node:nth-child(6){animation-delay:.30s}
+@keyframes sp-nodeIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+.sp-node-bullet { flex-shrink:0; width:46px; height:46px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; font-family:var(--font-mono); position:relative; cursor:pointer; transition:transform var(--t-fast) var(--ease-spring); }
+.sp-node-bullet:hover { transform:scale(1.08); }
+.sp-node-bullet.mastered { background:rgba(52,211,153,0.15); border:2px solid rgba(52,211,153,0.4); color:var(--green); }
+.sp-node-bullet.in-progress { background:var(--gold-muted); border:2px solid var(--gold-border); color:var(--gold); box-shadow:0 0 16px var(--gold-glow); animation:sp-pulse 2.4s ease-in-out infinite; }
+.sp-node-bullet.ready { background:var(--violet-muted); border:2px solid var(--violet-border); color:var(--violet); }
+.sp-node-bullet.locked { background:var(--surface-2); border:2px solid var(--border-xs); color:var(--text-4); }
+@keyframes sp-pulse { 0%{box-shadow:0 0 0 0 var(--gold-glow)} 70%{box-shadow:0 0 0 8px transparent} 100%{box-shadow:0 0 0 0 transparent} }
+.sp-node-card { flex:1; background:var(--surface-1); border:1px solid var(--border-xs); border-radius:var(--r-lg); padding:14px 16px; cursor:pointer; transition:border-color var(--t-fast),background var(--t-fast),transform var(--t-fast); min-width:0; }
+.sp-node-card:hover { border-color:var(--border-md); background:var(--surface-2); transform:translateX(2px); }
+.sp-node-card.active-card { border-color:var(--gold-border); background:var(--surface-2); box-shadow:0 0 0 1px var(--gold-border) inset; }
+.sp-node-card-top { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:8px; }
+.sp-node-card-title { font-family:var(--font-head); font-size:14px; font-weight:700; color:var(--text-1); letter-spacing:-0.01em; line-height:1.3; }
+.sp-node-status-badge { flex-shrink:0; font-family:var(--font-mono); font-size:9px; font-weight:500; padding:3px 8px; border-radius:var(--r-pill); letter-spacing:0.06em; text-transform:uppercase; white-space:nowrap; }
+.sp-node-status-badge.mastered { background:rgba(52,211,153,0.1); color:var(--green); border:1px solid rgba(52,211,153,0.2); }
+.sp-node-status-badge.in-progress { background:var(--gold-muted); color:var(--gold); border:1px solid var(--gold-border); }
+.sp-node-status-badge.ready { background:var(--violet-muted); color:var(--violet); border:1px solid var(--violet-border); }
+.sp-node-status-badge.locked { background:var(--surface-3); color:var(--text-4); border:1px solid var(--border-xs); }
+.sp-node-card-desc { font-size:12px; color:var(--text-3); line-height:1.6; margin-bottom:12px; }
+.sp-activities { display:flex; flex-wrap:wrap; gap:6px; }
+.sp-activity-chip { display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:var(--r-pill); border:1px solid var(--border-sm); background:var(--surface-2); font-size:11px; font-weight:500; color:var(--text-2); cursor:pointer; transition:all var(--t-fast); white-space:nowrap; }
+.sp-activity-chip:hover { border-color:var(--border-md); color:var(--text-1); background:var(--surface-3); }
+.sp-activity-chip.done { color:var(--green); border-color:rgba(52,211,153,0.2); background:rgba(52,211,153,0.05); }
+.sp-activity-chip.active-chip { color:var(--gold); border-color:var(--gold-border); background:var(--gold-muted); }
+.sp-activity-chip.locked-chip { color:var(--text-4); border-color:var(--border-xs); cursor:default; opacity:0.5; }
+.sp-activity-chip.available { color:var(--gold); border-color:var(--gold-border); background:var(--gold-muted); }
+.sp-mastery-bar-wrap { display:flex; align-items:center; gap:10px; margin-top:10px; }
+.sp-mastery-bar-track { flex:1; height:4px; background:var(--surface-3); border-radius:var(--r-pill); overflow:hidden; }
+.sp-mastery-bar-fill { height:100%; border-radius:var(--r-pill); transition:width 600ms var(--ease-snap); }
+.sp-mastery-pct { font-family:var(--font-mono); font-size:10px; color:var(--text-3); flex-shrink:0; width:30px; text-align:right; }
+.sp-detail-section-title { font-family:var(--font-mono); font-size:10px; letter-spacing:0.09em; text-transform:uppercase; color:var(--text-4); margin-bottom:12px; }
+.sp-donut-wrap { display:flex; flex-direction:column; align-items:center; gap:12px; padding:18px 16px; background:var(--surface-1); border:1px solid var(--border-xs); border-radius:var(--r-lg); }
+.sp-legend { display:flex; flex-direction:column; gap:8px; width:100%; }
+.sp-legend-row { display:flex; align-items:center; gap:9px; font-size:12px; color:var(--text-2); }
+.sp-legend-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.sp-legend-count { margin-left:auto; font-family:var(--font-mono); font-size:11px; color:var(--text-3); }
+.sp-upcoming { display:flex; flex-direction:column; gap:8px; }
+.sp-upcoming-item { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--surface-1); border:1px solid var(--border-xs); border-radius:var(--r-md); cursor:pointer; transition:border-color var(--t-fast),background var(--t-fast); }
+.sp-upcoming-item:hover { border-color:var(--border-md); background:var(--surface-2); }
+.sp-upcoming-icon { width:30px; height:30px; border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.sp-upcoming-info { flex:1; min-width:0; }
+.sp-upcoming-title { font-size:12px; font-weight:600; color:var(--text-1); margin-bottom:2px; }
+.sp-upcoming-sub { font-size:11px; color:var(--text-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sp-readiness { padding:16px; background:var(--surface-1); border:1px solid var(--border-xs); border-radius:var(--r-lg); }
+.sp-readiness-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.sp-readiness-title { font-size:13px; font-weight:600; color:var(--text-1); }
+.sp-readiness-score { font-family:var(--font-head); font-size:20px; font-weight:800; color:var(--gold); }
+.sp-readiness-bar-track { height:6px; background:var(--surface-3); border-radius:var(--r-pill); overflow:hidden; margin-bottom:8px; }
+.sp-readiness-bar-fill { height:100%; background:linear-gradient(90deg,var(--gold) 0%,var(--gold-bright) 100%); border-radius:var(--r-pill); transition:width 800ms var(--ease-snap); }
+.sp-readiness-note { font-size:11px; color:var(--text-3); line-height:1.5; }
+#sp-empty-state  { display:flex; }
+#sp-active-state { display:none; }
+.sp-spinner { width:13px; height:13px; border:2px solid var(--surface-4); border-top-color:var(--gold); border-radius:50%; flex-shrink:0; animation:sp-spin 0.7s linear infinite; }
+.sp-spinner-lg { width:32px; height:32px; border:3px solid var(--surface-4); border-top-color:var(--gold); border-radius:50%; animation:sp-spin 0.75s linear infinite; }
+@keyframes sp-spin { to { transform:rotate(360deg); } }
+#sp-generating-overlay { display:none; position:absolute; inset:0; background:rgba(8,8,16,0.88); backdrop-filter:blur(8px); z-index:100; flex-direction:column; align-items:center; justify-content:center; gap:20px; }
+.sp-gen-card { background:var(--surface-1); border:1px solid var(--border-md); border-radius:var(--r-xl); padding:36px 44px; text-align:center; max-width:360px; width:90%; display:flex; flex-direction:column; align-items:center; gap:16px; box-shadow:0 24px 80px rgba(0,0,0,0.6); animation:sp-fadeUp 0.3s var(--ease-spring); }
+@keyframes sp-fadeUp { from{opacity:0;transform:translateY(12px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+.sp-gen-steps { display:flex; flex-direction:column; gap:8px; width:100%; margin-top:4px; }
+.sp-gen-step { display:flex; align-items:center; gap:10px; font-size:12px; color:var(--text-4); transition:color 0.3s ease; }
+.sp-gen-step.active { color:var(--text-1); }
+.sp-gen-step.done   { color:var(--green); }
+.sp-gen-step-dot { width:7px; height:7px; border-radius:50%; background:var(--surface-4); flex-shrink:0; transition:background 0.3s ease; }
+.sp-gen-step.active .sp-gen-step-dot { background:var(--gold); box-shadow:0 0 6px var(--gold-glow); }
+.sp-gen-step.done   .sp-gen-step-dot { background:var(--green); }
+@keyframes sp-shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-5px)} 40%,80%{transform:translateX(5px)} }
+.sp-shake { animation:sp-shake 0.35s ease; }
 
 </style>
 
@@ -3312,7 +3431,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item">
+      <div class="sidebar-item" onclick="showScreen('studyplan')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
@@ -3501,7 +3620,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item" style="cursor:pointer;">
+      <div class="sidebar-item" onclick="showScreen('studyplan')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
@@ -3717,7 +3836,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item">
+      <div class="sidebar-item" onclick="showScreen('studyplan')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
@@ -3879,7 +3998,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item">
+      <div class="sidebar-item" onclick="showScreen('studyplan')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
@@ -4304,7 +4423,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item" style="cursor:pointer;">
+      <div class="sidebar-item" onclick="showScreen('studyplan')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
@@ -4715,7 +4834,7 @@ body {
   function expandSidebar(el) { goHome(); }
 
   /* ── Screen navigation ── */
-  const SCREEN_MAP = { home: 0, workspace: null, flash: null, research: null, exam: null };
+  const SCREEN_MAP = { home: 0, workspace: null, flash: null, research: null, exam: null, studyplan: null };
 
   function showScreen(name) {
     const screens  = document.querySelectorAll('.screen');
@@ -4745,7 +4864,8 @@ body {
       workspace: "showScreen('workspace')",
       flash:     "showScreen('flash')",
       research:  "showScreen('research')",
-      exam:      "showScreen('exam')"
+      exam:      "showScreen('exam')",
+      studyplan: "showScreen('studyplan')"
     }[name];
 
     // Update ALL sidebars in the document (keeps state consistent)
@@ -4775,6 +4895,9 @@ body {
     }
     if (name === 'exam') {
       if (typeof initExamSidebar === 'function') initExamSidebar();
+    }
+    if (name === 'studyplan') {
+      if (typeof spInitScreen === 'function') spInitScreen();
     }
   }
 
@@ -6160,15 +6283,15 @@ document.getElementById('home-ask-input')?.addEventListener('input', function() 
 ═══════════════════════════════════════════ */
 
 // ── Toast ─────────────────────────────────────────────────
-let _toastTimer = null;
+let _wsToastTimer = null;
 function wsShowToast(icon, text, color) {
   const t = document.getElementById('ws-toast');
   t.innerHTML = `<span style="font-size:14px;">${icon}</span><span>${text}</span>`;
   if (color) t.style.borderColor = color;
   else t.style.borderColor = '';
   t.classList.add('show');
-  clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+  clearTimeout(_wsToastTimer);
+  _wsToastTimer = setTimeout(() => t.classList.remove('show'), 2400);
 }
 
 // ── Copy ──────────────────────────────────────────────────
@@ -8431,7 +8554,7 @@ function showConfirmModal(opts)  { window._showSharedConfirm  && window._showSha
 function closeConfirmModal()     { window._closeSharedConfirm && window._closeSharedConfirm(); }
 </script>
 <!-- ── Supabase Auth (handled by shared.js) ── -->
-<script src="shared.js"></script>
+<!-- shared.js optional auth removed -->
 
 
 <script>
@@ -10723,8 +10846,8 @@ function _showToast(icon, text, color) {
 /* ══════════════════════════════════════════════════════════════
    RECENT SIDEBAR LIST
 ══════════════════════════════════════════════════════════════ */
-const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
-let _recentItems = JSON.parse(sessionStorage.getItem('chunks_recent') || 'null') || [
+// CHAT_SVG already declared above
+_recentItems = JSON.parse(sessionStorage.getItem('chunks_recent') || 'null') || [
   { id: 'r1', label: 'Thermodynamics Ch.4',  question: 'Thermodynamics chapter 4 key concepts' },
   { id: 'r2', label: 'Equilibrium Constants', question: 'Explain equilibrium constants' },
 ];
@@ -10929,9 +11052,10 @@ function examClearNotes() {
    EXAM MODE ENGINE
 ═══════════════════════════════════════════════════════════════ */
 const _IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-const EXAM_BACKEND = _IS_LOCAL
-  ? 'https://corsproxy.io/?https://chunks-ai-main-production.up.railway.app'
-  : 'https://chunks-ai-main-production.up.railway.app';
+const EXAM_BACKEND = 'https://chunks-ai-main-production.up.railway.app';
+
+// Study Plan uses the same backend + same CORS proxy pattern as Exam screen
+const SP_BACKEND = 'https://chunks-ai-main-production.up.railway.app';
 
 let _examQuestions   = [];
 let _examIdx         = 0;
@@ -12350,6 +12474,2617 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     </div>
   </div>
 </div>
+
+
+
+<!-- ═══════════════════════════════════════════════════════════
+     SCREEN: STUDY PLAN
+═══════════════════════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════════════════
+     STUDY PLAN SCREEN
+══════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-studyplan">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <!-- Chunks logo mark (SVG defs inline) -->
+      <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lg-gv" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/>
+          </linearGradient>
+          <linearGradient id="lg-vg" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/>
+          </linearGradient>
+        </defs>
+        <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
+        <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+        <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+        <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+      </svg>
+      <span class="logo-text">Chunks</span>
+      <button class="sidebar-collapse-btn" title="Collapse sidebar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+    </div>
+
+    <button class="sidebar-new-btn">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span>New Chat</span>
+    </button>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Study</div>
+      <div class="sidebar-item" onclick="goHome()" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Home</span>
+      </div>
+      <div class="sidebar-item" onclick="showScreen('workspace')" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        <span>Workspace</span>
+      </div>
+      <div class="sidebar-item" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        <span>Library</span>
+      </div>
+      <div class="sidebar-item" onclick="showScreen('flash')" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+        <span>Flashcards</span>
+      </div>
+      <div class="sidebar-item active" onclick="showScreen('studyplan')" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <span>Study Plan</span>
+      </div>
+      <div class="sidebar-item" onclick="showScreen('research')" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
+        <span>Research</span>
+      </div>
+      <div class="sidebar-item" onclick="showScreen('exam')" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Exam</span>
+      </div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Recent Plans</div>
+      <div class="sidebar-item" style="cursor:pointer; font-size:12px; padding: 6px 16px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Organic Chemistry</span>
+      </div>
+      <div class="sidebar-item" style="cursor:pointer; font-size:12px; padding: 6px 16px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Cell Biology — Midterm</span>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="profile-row">
+        <div class="avatar">CD</div>
+        <div class="profile-text">
+          <div class="profile-name">Charles Daryll</div>
+          <div class="profile-plan">Free Plan</div>
+        </div>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-3);margin-left:auto;flex-shrink:0;"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="sp-main" style="position:relative;">
+
+    <!-- TOP BAR -->
+    <div class="sp-topbar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gold);flex-shrink:0;"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      <span class="sp-topbar-title">Study Plan</span>
+      <span class="sp-topbar-badge">CRITICAL PATH</span>
+      <div class="sp-topbar-actions">
+        <button class="sp-topbar-btn" id="btn-new-plan" onclick="spShowEmpty()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Plan
+        </button>
+        <button class="sp-topbar-btn" id="btn-active-plan" onclick="spShowPlan()" style="display:none;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
+          View Plan
+        </button>
+      </div>
+    </div>
+
+    <!-- BODY -->
+    <div class="sp-body">
+
+      <!-- ══ EMPTY / SETUP STATE ══ -->
+      <div id="sp-empty-state" style="flex:1;overflow-y:auto;">
+        <div class="sp-setup">
+          <div class="sp-setup-hero">
+            <div class="sp-setup-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e8ac2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <div class="sp-setup-title">Build Your Critical Path</div>
+            <div class="sp-setup-subtitle">Upload your lecture slides or enter a topic — the AI will break it into essential concepts and guide you step-by-step to full mastery.</div>
+          </div>
+
+          <!-- Setup Card -->
+          <div class="sp-setup-card">
+            <div class="sp-setup-card-header">
+              <h2>Create a Study Plan</h2>
+              <p>Choose a topic or upload your material — we handle the rest.</p>
+            </div>
+            <div class="sp-setup-card-body">
+
+              <!-- Source tabs -->
+              <div class="sp-field">
+                <label>Source Material</label>
+                <div class="sp-src-tabs">
+                  <button class="sp-src-tab active" id="sp-tab-upload" onclick="spSwitchTab('upload')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Upload Slides
+                  </button>
+                  <button class="sp-src-tab" id="sp-tab-topic" onclick="spSwitchTab('topic')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
+                    Enter Topic
+                  </button>
+                  <button class="sp-src-tab" id="sp-tab-notes" onclick="spSwitchTab('notes')">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Paste Notes
+                  </button>
+                </div>
+              </div>
+
+              <!-- Upload zone (default) -->
+              <div id="sp-src-upload">
+                <input type="file" id="sp-file-input" accept="application/pdf" style="display:none;" onchange="spHandleFileSelect(this.files[0])">
+
+                <!-- Idle state -->
+                <div class="sp-upload-zone" id="sp-upload-idle"
+                  onclick="document.getElementById('sp-file-input').click()"
+                  ondragover="spDragOver(event)"
+                  ondragleave="spDragLeave(event)"
+                  ondrop="spDrop(event)">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-4);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <div class="sp-upload-zone-label">Drop a PDF here or click to browse</div>
+                  <div class="sp-upload-zone-sub">AI will extract every concept from your slides</div>
+                </div>
+
+                <!-- Attached state -->
+                <div id="sp-upload-attached" style="display:none;">
+                  <div style="display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--surface-2);border:1px solid var(--gold-border);border-radius:var(--r-md);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span id="sp-file-name" style="font-size:12px;font-weight:600;color:var(--text-1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+                    <span id="sp-file-pages" style="font-size:11px;color:var(--text-3);font-family:var(--font-mono);flex-shrink:0;"></span>
+                    <button onclick="spClearUpload()" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:2px;display:flex;align-items:center;transition:color 120ms;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-3)'">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </div>
+                  <!-- Extraction progress -->
+                  <div id="sp-extract-status" style="display:none;align-items:center;gap:7px;margin-top:8px;font-size:11px;color:var(--text-3);">
+                    <div class="sp-spinner"></div>
+                    <span id="sp-extract-msg">Extracting text from PDF…</span>
+                  </div>
+                  <!-- Extraction done -->
+                  <div id="sp-extract-done" style="display:none;align-items:center;gap:6px;margin-top:8px;font-size:11px;color:var(--green);">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span id="sp-extract-chars"></span> characters extracted — ready to generate
+                  </div>
+                </div>
+              </div>
+
+              <!-- Topic input -->
+              <div id="sp-src-topic" style="display:none;">
+                <div class="sp-field">
+                  <label>Topic or Subject</label>
+                  <input class="sp-input" type="text" placeholder="e.g. Nucleophilic Substitution, The French Revolution, Mitosis…" id="sp-topic-input">
+                </div>
+                <div class="sp-field" style="margin-top:12px;">
+                  <label>Depth <span style="color:var(--text-4);font-weight:400;">(optional)</span></label>
+                  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <button class="sp-activity-chip active-chip" id="sp-depth-intro" onclick="spSetDepth('intro')">Introductory</button>
+                    <button class="sp-activity-chip" id="sp-depth-mid" onclick="spSetDepth('mid')">Intermediate</button>
+                    <button class="sp-activity-chip" id="sp-depth-adv" onclick="spSetDepth('adv')">Advanced</button>
+                    <button class="sp-activity-chip" id="sp-depth-exam" onclick="spSetDepth('exam')">Exam Prep</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Notes textarea -->
+              <div id="sp-src-notes" style="display:none;">
+                <textarea class="sp-input" id="sp-notes-input" rows="5"
+                  style="resize:none;line-height:1.6;"
+                  placeholder="Paste your notes, lecture text, or any content to build the plan from…"
+                  oninput="spUpdateNotesCount()"></textarea>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
+                  <span id="sp-notes-count" style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);">0 chars</span>
+                  <button onclick="document.getElementById('sp-notes-input').value='';updateNotesCount();" style="font-size:10px;color:var(--text-4);background:none;border:none;cursor:pointer;font-family:var(--font-body);" onmouseover="this.style.color='var(--text-2)'" onmouseout="this.style.color='var(--text-4)'">Clear</button>
+                </div>
+              </div>
+
+              <!-- Validation error -->
+              <div id="sp-validation-error" style="display:none;align-items:center;gap:7px;padding:10px 13px;background:rgba(248,113,113,0.07);border:1px solid rgba(248,113,113,0.2);border-radius:var(--r-md);font-size:12px;color:var(--red);">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span id="sp-validation-msg">Please provide a topic or upload a file.</span>
+              </div>
+
+              <button class="sp-generate-btn" id="sp-generate-btn" onclick="spHandleGenerate()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                Generate Critical Path
+              </button>
+
+            </div>
+          </div>
+
+          <!-- Feature chips -->
+          <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:500px;">
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r-pill);border:1px solid var(--border-xs);background:var(--surface-1);font-size:11px;color:var(--text-3);">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+              Step-by-step pacing
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r-pill);border:1px solid var(--border-xs);background:var(--surface-1);font-size:11px;color:var(--text-3);">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Mastery tracking
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r-pill);border:1px solid var(--border-xs);background:var(--surface-1);font-size:11px;color:var(--text-3);">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+              AI flashcards
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r-pill);border:1px solid var(--border-xs);background:var(--surface-1);font-size:11px;color:var(--text-3);">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/></svg>
+              Exam simulation
+            </span>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ══ ACTIVE / POPULATED STATE ══ -->
+      <div id="sp-active-state" style="display:none;flex:1;overflow:hidden;">
+        <div class="sp-body" style="height:100%;">
+
+          <!-- Roadmap column -->
+          <div class="sp-roadmap-col">
+
+            <!-- Plan header -->
+            <div class="sp-plan-header">
+              <div class="sp-plan-header-info">
+                <div class="sp-plan-header-eyebrow">Study Plan · Organic Chemistry</div>
+                <div class="sp-plan-header-title">Nucleophilic Substitution Reactions</div>
+                <div class="sp-plan-header-sub">6 core concepts · ~4 hrs to mastery · Based on Klein, Ch. 7</div>
+              </div>
+              <!-- Circular progress -->
+              <div class="sp-overall-ring">
+                <svg width="60" height="60" viewBox="0 0 60 60">
+                  <circle cx="30" cy="30" r="24" fill="none" stroke="var(--surface-3)" stroke-width="5"/>
+                  <circle id="sp-ring-arc" cx="30" cy="30" r="24" fill="none" stroke="var(--gold)" stroke-width="5"
+                    stroke-dasharray="150.8"
+                    stroke-dashoffset="150.8"
+                    stroke-linecap="round"
+                    transform="rotate(-90 30 30)"/>
+                  <text id="sp-ring-pct" x="30" y="34" text-anchor="middle" font-family="'Syne',sans-serif" font-size="12" font-weight="800" fill="#ededf0">0%</text>
+                </svg>
+                <div class="sp-overall-ring-label">Overall</div>
+              </div>
+            </div>
+
+            <!-- Stats row -->
+            <div class="sp-stats-row" id="sp-stats-row-chips"></div>
+
+            <!-- Roadmap label -->
+            <div class="sp-roadmap-label">Critical Path to Mastery</div>
+
+            <!-- THE PATH -->
+            <div class="sp-path">
+
+              <!-- ① MASTERED -->
+              <div class="sp-node">
+                <div class="sp-node-bullet mastered">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="sp-node-card">
+                  <div class="sp-node-card-top">
+                    <div class="sp-node-card-title">1. Nucleophiles & Electrophiles</div>
+                    <span class="sp-node-status-badge mastered">Mastered</span>
+                  </div>
+                  <div class="sp-node-card-desc">Understand what makes a molecule a nucleophile or electrophile, and how electron density drives reactivity.</div>
+                  <div class="sp-mastery-bar-wrap">
+                    <div class="sp-mastery-bar-track"><div class="sp-mastery-bar-fill" style="width:100%;background:var(--green);"></div></div>
+                    <div class="sp-mastery-pct" style="color:var(--green);">100%</div>
+                  </div>
+                  <div class="sp-activities" style="margin-top:10px;">
+                    <span class="sp-activity-chip done"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> AI Explain</span>
+                    <span class="sp-activity-chip done"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Flashcards</span>
+                    <span class="sp-activity-chip done"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Practice Q's</span>
+                    <span class="sp-activity-chip done"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Mini Exam</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ② MASTERED -->
+              <div class="sp-node">
+                <div class="sp-node-bullet mastered">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="sp-node-card">
+                  <div class="sp-node-card-top">
+                    <div class="sp-node-card-title">2. Leaving Groups & Substrate Structure</div>
+                    <span class="sp-node-status-badge mastered">Mastered</span>
+                  </div>
+                  <div class="sp-node-card-desc">Identify good vs. poor leaving groups, and understand how primary, secondary, and tertiary substrates behave differently.</div>
+                  <div class="sp-mastery-bar-wrap">
+                    <div class="sp-mastery-bar-track"><div class="sp-mastery-bar-fill" style="width:100%;background:var(--green);"></div></div>
+                    <div class="sp-mastery-pct" style="color:var(--green);">100%</div>
+                  </div>
+                  <div class="sp-activities" style="margin-top:10px;">
+                    <span class="sp-activity-chip done"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> AI Explain</span>
+                    <span class="sp-activity-chip done"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Flashcards</span>
+                    <span class="sp-activity-chip done"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Practice Q's</span>
+                    <span class="sp-activity-chip done"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Mini Exam</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ③ IN PROGRESS (active) -->
+              <div class="sp-node">
+                <div class="sp-node-bullet in-progress">
+                  <span style="font-size:13px;">3</span>
+                </div>
+                <div class="sp-node-card active-card">
+                  <div class="sp-node-card-top">
+                    <div class="sp-node-card-title">3. The SN2 Mechanism</div>
+                    <span class="sp-node-status-badge in-progress">In Progress</span>
+                  </div>
+                  <div class="sp-node-card-desc">Master the concerted backside-attack mechanism: transition state geometry, stereochemical inversion (Walden inversion), and rate law.</div>
+                  <div class="sp-mastery-bar-wrap">
+                    <div class="sp-mastery-bar-track"><div class="sp-mastery-bar-fill" style="width:65%;background:var(--gold);"></div></div>
+                    <div class="sp-mastery-pct" style="color:var(--gold);">65%</div>
+                  </div>
+                  <div class="sp-activities" style="margin-top:10px;">
+                    <span class="sp-activity-chip done"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> AI Explain</span>
+                    <span class="sp-activity-chip done"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Flashcards</span>
+                    <span class="sp-activity-chip active-chip">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      Practice Q's
+                    </span>
+                    <span class="sp-activity-chip locked-chip">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Mini Exam
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ④ READY -->
+              <div class="sp-node">
+                <div class="sp-node-bullet ready">
+                  <span style="font-size:13px;">4</span>
+                </div>
+                <div class="sp-node-card">
+                  <div class="sp-node-card-top">
+                    <div class="sp-node-card-title">4. The SN1 Mechanism</div>
+                    <span class="sp-node-status-badge ready">Ready</span>
+                  </div>
+                  <div class="sp-node-card-desc">Understand carbocation formation, racemization, solvent effects, and why SN1 favors tertiary substrates in polar protic solvents.</div>
+                  <div class="sp-mastery-bar-wrap">
+                    <div class="sp-mastery-bar-track"><div class="sp-mastery-bar-fill" style="width:0%;background:var(--violet);"></div></div>
+                    <div class="sp-mastery-pct">0%</div>
+                  </div>
+                  <div class="sp-activities" style="margin-top:10px;">
+                    <span class="sp-activity-chip">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+                      AI Explain
+                    </span>
+                    <span class="sp-activity-chip locked-chip">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Flashcards
+                    </span>
+                    <span class="sp-activity-chip locked-chip">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Practice Q's
+                    </span>
+                    <span class="sp-activity-chip locked-chip">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      Mini Exam
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ⑤ LOCKED -->
+              <div class="sp-node">
+                <div class="sp-node-bullet locked">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <div class="sp-node-card">
+                  <div class="sp-node-card-top">
+                    <div class="sp-node-card-title">5. SN1 vs SN2 — Predicting the Pathway</div>
+                    <span class="sp-node-status-badge locked">Locked</span>
+                  </div>
+                  <div class="sp-node-card-desc">Apply decision-making frameworks to predict which mechanism dominates based on substrate, nucleophile, solvent, and temperature.</div>
+                  <div class="sp-mastery-bar-wrap">
+                    <div class="sp-mastery-bar-track"><div class="sp-mastery-bar-fill" style="width:0%;background:var(--text-4);"></div></div>
+                    <div class="sp-mastery-pct">—</div>
+                  </div>
+                  <div class="sp-activities" style="margin-top:10px;">
+                    <span class="sp-activity-chip locked-chip">AI Explain</span>
+                    <span class="sp-activity-chip locked-chip">Flashcards</span>
+                    <span class="sp-activity-chip locked-chip">Practice Q's</span>
+                    <span class="sp-activity-chip locked-chip">Mini Exam</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ⑥ LOCKED -->
+              <div class="sp-node">
+                <div class="sp-node-bullet locked">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </div>
+                <div class="sp-node-card">
+                  <div class="sp-node-card-top">
+                    <div class="sp-node-card-title">6. Exam Simulation — Full Topic</div>
+                    <span class="sp-node-status-badge locked">Locked</span>
+                  </div>
+                  <div class="sp-node-card-desc">A timed, graded exam across all six concepts. Unlocks when all prior concepts reach 80%+ mastery.</div>
+                  <div class="sp-mastery-bar-wrap">
+                    <div class="sp-mastery-bar-track"><div class="sp-mastery-bar-fill" style="width:0%;"></div></div>
+                    <div class="sp-mastery-pct">—</div>
+                  </div>
+                  <div style="margin-top:10px;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-4);">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Unlock by completing all previous concepts
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /.sp-path -->
+          </div><!-- /.sp-roadmap-col -->
+
+          <!-- Right detail panel -->
+          <div class="sp-detail-col" id="sp-detail-col">
+
+            <!-- Overall progress donut -->
+            <div>
+              <div class="sp-detail-section-title">Overall Progress</div>
+              <div class="sp-donut-wrap">
+                <svg id="sp-donut-svg" width="120" height="120" viewBox="0 0 120 120">
+                  <circle cx="60" cy="60" r="48" fill="none" stroke="var(--surface-3)" stroke-width="10"/>
+                  <circle id="sp-donut-mastered" cx="60" cy="60" r="48" fill="none" stroke="var(--green)" stroke-width="10"
+                    stroke-dasharray="301.6" stroke-dashoffset="301.6"
+                    stroke-linecap="round" transform="rotate(-90 60 60)"/>
+                  <circle id="sp-donut-inprogress" cx="60" cy="60" r="48" fill="none" stroke="var(--gold)" stroke-width="10"
+                    stroke-dasharray="301.6" stroke-dashoffset="301.6"
+                    stroke-linecap="round" transform="rotate(-90 60 60)"/>
+                  <text id="sp-donut-pct" x="60" y="55" text-anchor="middle" font-family="'Syne',sans-serif" font-size="22" font-weight="800" fill="#ededf0">0%</text>
+                  <text x="60" y="72" text-anchor="middle" font-family="'DM Sans',sans-serif" font-size="10" fill="#55556a">mastery</text>
+                </svg>
+                <div class="sp-legend">
+                  <div class="sp-legend-row"><div class="sp-legend-dot" style="background:var(--green);"></div>Mastered<div class="sp-legend-count" id="sp-leg-mastered">0 / 0</div></div>
+                  <div class="sp-legend-row"><div class="sp-legend-dot" style="background:var(--gold);"></div>In Progress<div class="sp-legend-count" id="sp-leg-inprog">0 / 0</div></div>
+                  <div class="sp-legend-row"><div class="sp-legend-dot" style="background:var(--violet);"></div>Ready<div class="sp-legend-count" id="sp-leg-ready">0 / 0</div></div>
+                  <div class="sp-legend-row"><div class="sp-legend-dot" style="background:var(--text-4);"></div>Locked<div class="sp-legend-count" id="sp-leg-locked">0 / 0</div></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Exam Readiness -->
+            <div>
+              <div class="sp-detail-section-title">Exam Readiness</div>
+              <div class="sp-readiness">
+                <div class="sp-readiness-header">
+                  <div class="sp-readiness-title">Score Forecast</div>
+                  <div class="sp-readiness-score" id="sp-readiness-score">0%</div>
+                </div>
+                <div class="sp-readiness-bar-track">
+                  <div class="sp-readiness-bar-fill" id="sp-readiness-bar"></div>
+                </div>
+                <div class="sp-readiness-note" id="sp-readiness-note">Generate a study plan to see your forecast.</div>
+              </div>
+            </div>
+
+            <!-- Up Next -->
+            <div>
+              <div class="sp-detail-section-title">Up Next</div>
+              <div class="sp-upcoming" id="sp-upcoming-list">
+                <div style="font-size:12px;color:var(--text-4);padding:8px 0;">Generate a plan to see suggestions.</div>
+              </div>
+            </div>
+
+            <!-- Time estimate -->
+            <div style="padding:14px 16px;background:var(--surface-1);border:1px solid var(--border-xs);border-radius:var(--r-lg);display:flex;align-items:center;gap:12px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <div>
+                <div id="sp-time-remaining" style="font-size:12px;font-weight:600;color:var(--text-1);margin-bottom:2px;">—</div>
+                <div id="sp-time-sub" style="font-size:11px;color:var(--text-3);">Complete activities to track your pace.</div>
+              </div>
+            </div>
+
+          </div><!-- /.sp-detail-col -->
+
+        </div><!-- inner sp-body -->
+      </div><!-- /#sp-active-state -->
+
+    </div><!-- /.sp-body -->
+  </div><!-- /.sp-main -->
+
+<!-- ══ Generation Overlay ══ -->
+<div id="sp-generating-overlay">
+  <div class="sp-gen-card">
+    <div class="sp-spinner-lg"></div>
+    <div>
+      <div style="font-family:var(--font-head);font-size:16px;font-weight:800;color:var(--text-1);margin-bottom:4px;">Building Your Critical Path</div>
+      <div style="font-size:12px;color:var(--text-3);">Analyzing material and mapping concepts…</div>
+    </div>
+    <div class="sp-gen-steps">
+      <div class="sp-gen-step" id="gen-step-1">
+        <div class="sp-gen-step-dot"></div>Reading source material
+      </div>
+      <div class="sp-gen-step" id="gen-step-2">
+        <div class="sp-gen-step-dot"></div>Identifying core concepts
+      </div>
+      <div class="sp-gen-step" id="gen-step-3">
+        <div class="sp-gen-step-dot"></div>Building prerequisite map
+      </div>
+      <div class="sp-gen-step" id="gen-step-4">
+        <div class="sp-gen-step-dot"></div>Estimating time to mastery
+      </div>
+      <div class="sp-gen-step" id="gen-step-5">
+        <div class="sp-gen-step-dot"></div>Finalizing critical path
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /#screen-studyplan -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   PHASE 1 — SETUP & INPUT
+   1. Tab switching + form validation
+   2. PDF upload & text extraction (PDF.js)
+   3. Generate Critical Path → Claude API → render roadmap
+═══════════════════════════════════════════════════════════ */
+
+// ── PDF.js worker ─────────────────────────────────────────
+// ── State ──────────────────────────────────────────────────
+let _spActiveTab   = 'upload';   // 'upload' | 'topic' | 'notes'
+let _spActiveDepth = 'intro';    // depth selection (topic tab)
+let _spPdfText     = '';         // extracted PDF text
+let _spPdfFileName = '';
+let _spPdfPageCount = 0;
+let _spCurrentPlan = null;       // last generated plan JSON
+
+// ══════════════════════════════════════════════════════════
+//  MASTERY STATE  { conceptIdx: { explain, flash, pq, exam } }
+//  Weights: explain=10, flash=20, pq=35, exam=35
+// ══════════════════════════════════════════════════════════
+let _spMastery = {};
+const SP_WEIGHTS = { explain: 10, flash: 20, pq: 35, exam: 35 };
+
+function spMasteryGet(idx) {
+  if (!_spMastery[idx]) _spMastery[idx] = { explain: 0, flash: 0, pq: 0, exam: 0 };
+  return _spMastery[idx];
+}
+
+function spMasteryScore(idx) {
+  if (idx === undefined || idx === null || idx < 0) return 0;
+  const m = spMasteryGet(idx);
+  return Math.min(100, Math.round(
+    (m.explain / 100) * SP_WEIGHTS.explain +
+    (m.flash   / 100) * SP_WEIGHTS.flash   +
+    (m.pq      / 100) * SP_WEIGHTS.pq      +
+    (m.exam    / 100) * SP_WEIGHTS.exam
+  ));
+}
+
+function spMasteryRecord(activityKey, score) {
+  // activityKey: 'explain'|'flash'|'pq'|'exam', score: 0-100
+  if (!_spDrawerConcept || !_spCurrentPlan) return;
+  const idx = _spCurrentPlan.concepts.indexOf(_spDrawerConcept);
+  if (idx < 0) return;
+
+  const m = spMasteryGet(idx);
+  // Only update if new score is higher
+  m[activityKey] = Math.max(m[activityKey], score);
+
+  const total = spMasteryScore(idx);
+  spMasteryUpdateNode(idx, total);
+
+  // Check unlock
+  if (total >= 80) spMasteryUnlockNext(idx);
+
+  // Refresh live panel
+  spUpdatePanel();
+}
+
+function spMasteryUpdateNode(idx, masteryPct) {
+  const node = document.querySelector(`.sp-node[data-concept-id="${idx + 1}"]`);
+  if (!node) return;
+
+  const bar    = node.querySelector('.sp-mastery-bar-fill');
+  const pctEl  = node.querySelector('.sp-mastery-pct');
+  const bullet = node.querySelector('.sp-node-bullet');
+  const badge  = node.querySelector('.sp-node-status-badge');
+  const card   = node.querySelector('.sp-node-card');
+
+  if (!bar) return;
+
+  // Determine status
+  let status, barColor;
+  if (masteryPct >= 100) {
+    status = 'mastered'; barColor = 'var(--green)';
+  } else if (masteryPct >= 80) {
+    status = 'mastered'; barColor = 'var(--green)';
+  } else if (masteryPct > 0) {
+    status = 'in-progress'; barColor = 'var(--gold)';
+  } else {
+    status = 'ready'; barColor = 'var(--violet)';
+  }
+
+  // Animate bar with a brief flash
+  bar.style.width      = masteryPct + '%';
+  bar.style.background = barColor;
+  bar.style.boxShadow  = `0 0 8px ${barColor}`;
+  setTimeout(() => { bar.style.boxShadow = ''; }, 800);
+
+  // Update pct text
+  if (pctEl) {
+    pctEl.textContent   = masteryPct > 0 ? masteryPct + '%' : '—';
+    pctEl.style.color   = masteryPct > 0 ? barColor : '';
+  }
+
+  // Update bullet
+  if (bullet) {
+    bullet.className = 'sp-node-bullet ' + status;
+    if (status === 'mastered') {
+      bullet.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    } else {
+      bullet.innerHTML = `<span style="font-size:13px;">${idx + 1}</span>`;
+    }
+  }
+
+  // Update badge
+  if (badge) {
+    const labels = { mastered:'Mastered', 'in-progress':'In Progress', ready:'Ready' };
+    badge.className   = 'sp-node-status-badge ' + status;
+    badge.textContent = labels[status];
+  }
+
+  // Update card active style
+  if (card) {
+    card.classList.toggle('active-card', status === 'ready' || status === 'in-progress');
+  }
+
+  // Update activity chips — mark explain as done if mastered
+  if (status === 'mastered') {
+    spMasteryMarkChipsDone(node);
+  }
+}
+
+function spMasteryMarkChipsDone(node) {
+  node.querySelectorAll('.sp-activity-chip.available').forEach(chip => {
+    chip.className = 'sp-activity-chip done';
+    chip.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> ${chip.textContent.trim()}`;
+  });
+}
+
+function spMasteryUnlockNext(idx) {
+  if (!_spCurrentPlan) return;
+  const nextIdx = idx + 1;
+  if (nextIdx >= _spCurrentPlan.concepts.length) return;
+
+  // Check if already unlocked
+  const nextNode = document.querySelector(`.sp-node[data-concept-id="${nextIdx + 1}"]`);
+  if (!nextNode) return;
+  const bullet = nextNode.querySelector('.sp-node-bullet');
+  if (!bullet || !bullet.classList.contains('locked')) return;
+
+  // Unlock: change to ready
+  bullet.className = 'sp-node-bullet ready';
+  bullet.innerHTML = `<span style="font-size:13px;">${nextIdx + 1}</span>`;
+
+  const badge = nextNode.querySelector('.sp-node-status-badge');
+  if (badge) { badge.className = 'sp-node-status-badge ready'; badge.textContent = 'Ready'; }
+
+  const card = nextNode.querySelector('.sp-node-card');
+  if (card) card.classList.add('active-card');
+
+  const bar = nextNode.querySelector('.sp-mastery-bar-fill');
+  if (bar) { bar.style.background = 'var(--violet)'; }
+
+  // Unlock the activity chips
+  nextNode.querySelectorAll('.sp-activity-chip.locked-chip').forEach(chip => {
+    const txt = chip.textContent.trim();
+    const actIcons = {
+      'AI Explain':   `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>`,
+      'Flashcards':   `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>`,
+      "Practice Q's": `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+      'Mini Exam':    `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
+    };
+    chip.className = 'sp-activity-chip available';
+    chip.innerHTML = (actIcons[txt] || '') + ' ' + txt;
+  });
+
+  // Remove locked note if present
+  const lockedNote = nextNode.querySelector('[style*="text-4"]');
+
+  // Toast
+  const concept = _spCurrentPlan.concepts[nextIdx];
+  wsShowToast && wsShowToast('🔓', `"${concept?.title}" unlocked!`, 'var(--gold-border)');
+}
+
+// ── Tab Switching ──────────────────────────────────────────
+function spSwitchTab(tab) {
+  _spActiveTab = tab;
+  ['upload','topic','notes'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('active', t === tab);
+    document.getElementById('src-'+t).style.display = t === tab ? '' : 'none';
+  });
+  spHideValidationError();
+}
+
+// ── Depth selector (Topic tab) ─────────────────────────────
+function spSetDepth(d) {
+  _spActiveDepth = d;
+  ['intro','mid','adv','exam'].forEach(v => {
+    const btn = document.getElementById('depth-'+v);
+    btn.classList.toggle('active-chip', v === d);
+  });
+}
+
+// ── Notes char counter ─────────────────────────────────────
+function spUpdateNotesCount() {
+  const len = (document.getElementById('sp-notes-input').value || '').length;
+  document.getElementById('sp-notes-count').textContent = len.toLocaleString() + ' chars';
+}
+
+// ── Validation helpers ─────────────────────────────────────
+function spShowValidationError(msg) {
+  const el = document.getElementById('sp-validation-error');
+  document.getElementById('sp-validation-msg').textContent = msg;
+  el.style.display = 'flex';
+  el.classList.remove('sp-shake');
+  void el.offsetWidth; // reflow to re-trigger
+  el.classList.add('sp-shake');
+}
+function spHideValidationError() {
+  document.getElementById('sp-validation-error').style.display = 'none';
+}
+
+// ── Validate inputs before generation ─────────────────────
+function spValidateInputs() {
+  if (_spActiveTab === 'upload') {
+    if (!_spPdfText) {
+      spShowValidationError('Please upload a PDF file first.');
+      return false;
+    }
+  } else if (_spActiveTab === 'topic') {
+    const val = (document.getElementById('sp-topic-input').value || '').trim();
+    if (!val) {
+      spShowValidationError('Please enter a topic or subject.');
+      document.getElementById('sp-topic-input').focus();
+      return false;
+    }
+  } else if (_spActiveTab === 'notes') {
+    const val = (document.getElementById('sp-notes-input').value || '').trim();
+    if (val.length < 50) {
+      spShowValidationError('Please paste at least 50 characters of notes.');
+      document.getElementById('sp-notes-input').focus();
+      return false;
+    }
+  }
+  spHideValidationError();
+  return true;
+}
+
+// ══════════════════════════════════════════════════════════
+//  PDF UPLOAD & EXTRACTION
+// ══════════════════════════════════════════════════════════
+
+function spDragOver(e) {
+  e.preventDefault();
+  document.getElementById('sp-upload-idle').style.borderColor = 'var(--gold)';
+  document.getElementById('sp-upload-idle').style.background  = 'var(--gold-muted)';
+}
+function spDragLeave(e) {
+  document.getElementById('sp-upload-idle').style.borderColor = '';
+  document.getElementById('sp-upload-idle').style.background  = '';
+}
+function spDrop(e) {
+  e.preventDefault();
+  spDragLeave(e);
+  const file = e.dataTransfer.files[0];
+  if (file) spHandleFileSelect(file);
+}
+
+function spClearUpload() {
+  _spPdfText = ''; _spPdfFileName = ''; _spPdfPageCount = 0;
+  document.getElementById('sp-file-input').value = '';
+  document.getElementById('sp-upload-idle').style.display    = '';
+  document.getElementById('sp-upload-attached').style.display = 'none';
+  document.getElementById('sp-extract-status').style.display  = 'none';
+  document.getElementById('sp-extract-done').style.display    = 'none';
+  spHideValidationError();
+}
+
+async function spHandleFileSelect(file) {
+  if (!file) return;
+  if (file.type !== 'application/pdf') {
+    spShowValidationError('Only PDF files are supported right now.');
+    return;
+  }
+  if (file.size > 30 * 1024 * 1024) {
+    spShowValidationError('File is too large. Please use a PDF under 30 MB.');
+    return;
+  }
+
+  _spPdfFileName = file.name;
+  _spPdfText = '';
+
+  // Switch to attached state
+  document.getElementById('sp-upload-idle').style.display     = 'none';
+  document.getElementById('sp-upload-attached').style.display = '';
+  document.getElementById('sp-file-name').textContent         = file.name;
+  document.getElementById('sp-file-pages').textContent        = '';
+  document.getElementById('sp-extract-done').style.display    = 'none';
+  document.getElementById('sp-extract-status').style.display  = 'flex';
+  document.getElementById('sp-extract-msg').textContent       = 'Reading PDF…';
+  spHideValidationError();
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const _pdfjs = await _loadPdfJs();
+    const pdf = await _pdfjs.getDocument({ data: arrayBuffer }).promise;
+    _spPdfPageCount = pdf.numPages;
+    document.getElementById('sp-file-pages').textContent = `${_spPdfPageCount} pages`;
+    document.getElementById('sp-extract-msg').textContent = `Extracting text (0 / ${_spPdfPageCount} pages)…`;
+
+    const pageTexts = [];
+    for (let i = 1; i <= _spPdfPageCount; i++) {
+      const page    = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      pageTexts.push(content.items.map(item => item.str).join(' '));
+      document.getElementById('sp-extract-msg').textContent =
+        `Extracting text (${i} / ${_spPdfPageCount} pages)…`;
+    }
+
+    _spPdfText = pageTexts.join('\n\n').replace(/\s{3,}/g, ' ').trim();
+
+    // Cap at ~40 000 chars to avoid token overflow in API call
+    if (_spPdfText.length > 40000) _spPdfText = _spPdfText.slice(0, 40000) + '…';
+
+    document.getElementById('sp-extract-status').style.display = 'none';
+    document.getElementById('sp-extract-done').style.display   = 'flex';
+    document.getElementById('sp-extract-chars').textContent    =
+      _spPdfText.length.toLocaleString();
+
+  } catch (err) {
+    console.error('PDF extraction error:', err);
+    document.getElementById('sp-extract-status').style.display = 'none';
+    spShowValidationError('Could not read this PDF. Try a different file.');
+    spClearUpload();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  GENERATION OVERLAY HELPERS
+// ══════════════════════════════════════════════════════════
+
+let _spGenTimer = null;
+
+function spShowOverlay() {
+  const overlay = document.getElementById('sp-generating-overlay');
+  overlay.style.display = 'flex';
+
+  // Reset all steps
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById('gen-step-'+i);
+    el.className = 'sp-gen-step';
+  }
+
+  // Animate steps with realistic timing
+  const delays = [200, 900, 2200, 3800, 5400];
+  delays.forEach((delay, idx) => {
+    setTimeout(() => {
+      // Mark previous as done
+      if (idx > 0) {
+        const prev = document.getElementById('gen-step-'+idx);
+        prev.className = 'sp-gen-step done';
+        prev.querySelector('.sp-gen-step-dot').innerHTML = '';
+      }
+      const curr = document.getElementById('gen-step-'+(idx+1));
+      curr.className = 'sp-gen-step active';
+    }, delay);
+  });
+}
+
+function spHideOverlay() {
+  // Mark all steps done
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById('gen-step-'+i);
+    el.className = 'sp-gen-step done';
+  }
+  setTimeout(() => {
+    document.getElementById('sp-generating-overlay').style.display = 'none';
+  }, 400);
+}
+
+// ══════════════════════════════════════════════════════════
+//  GENERATE → CLAUDE API CALL
+// ══════════════════════════════════════════════════════════
+
+async function spHandleGenerate() {
+  if (!spValidateInputs()) return;
+
+  // Build the source content string
+  let sourceContent = '';
+  let sourceName    = '';
+  let sourceType    = _spActiveTab;
+
+  if (_spActiveTab === 'upload') {
+    sourceContent = _spPdfText;
+    sourceName    = _spPdfFileName.replace(/\.pdf$/i, '');
+  } else if (_spActiveTab === 'topic') {
+    const topic = document.getElementById('sp-topic-input').value.trim();
+    const depthLabels = { intro:'Introductory', mid:'Intermediate', adv:'Advanced', exam:'Exam Prep' };
+    sourceContent = `Topic: ${topic}\nDepth level: ${depthLabels[_spActiveDepth]}`;
+    sourceName    = topic;
+  } else {
+    sourceContent = document.getElementById('sp-notes-input').value.trim();
+    sourceName    = 'Study Notes';
+  }
+
+  // Show overlay, disable button
+  spShowOverlay();
+  const btn = document.getElementById('sp-generate-btn');
+  btn.disabled = true;
+  btn.style.opacity = '0.6';
+
+  // ── Build the prompt ────────────────────────────────────
+  const systemPrompt = `You are an expert curriculum designer and learning scientist.
+Your job is to analyze educational material and produce a structured "critical path to mastery" — a sequence of essential concepts a student must learn in order, from foundations to full understanding.
+
+CRITICAL: Respond with ONLY a valid JSON object. No markdown fences, no prose, no explanation — just the raw JSON.
+
+JSON schema:
+{
+  "topic": "Short title of the overall topic (max 6 words)",
+  "subject": "Parent subject / course name",
+  "estimatedHours": <number, total hours to master>,
+  "sourceType": "pdf" | "topic" | "notes",
+  "concepts": [
+    {
+      "id": <1-based integer>,
+      "title": "Concept title (max 8 words)",
+      "description": "2–3 sentence explanation of what this concept covers and why it matters.",
+      "estimatedMinutes": <integer, realistic study time>,
+      "keyTerms": ["term1", "term2", "term3"]
+    }
+  ]
+}
+
+Rules:
+- Produce between 4 and 8 concepts (6 is ideal).
+- Order them as a true prerequisite chain — earlier concepts must be mastered before later ones.
+- The last concept should always be a synthesis / exam simulation node titled "Final Exam Simulation".
+- Keep titles sharp and student-friendly.
+- estimatedHours should be the sum of all estimatedMinutes / 60, rounded to 1 decimal.`;
+
+  const userPrompt = sourceType === 'topic'
+    ? `Build a critical path for: ${sourceContent}`
+    : `Analyze the following material and build a critical path to mastery:\n\n${sourceContent.slice(0, 12000)}`;
+
+  // ── Backend call — same /ask proxy used by exam & research screens ──
+  // Embed the system prompt inline so the backend treats it as one question
+  const fullPrompt = systemPrompt + '\n\n' + userPrompt;
+
+  let _spAttempt = 0;
+  const _spMaxAttempts = 3;
+
+  const _spTryGenerate = async () => {
+    const response = await fetch(SP_BACKEND + '/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question:   fullPrompt,
+        mode:       'generate',
+        complexity: 7,
+        bookId:     'none',
+        history:    []
+      })
+    });
+
+    if (response.status === 429) throw Object.assign(new Error('Server is busy — please wait a moment and try again.'), { noRetry: true });
+    if (response.status >= 500) throw new Error('Server error ' + response.status + ' — please retry.');
+    if (!response.ok)           throw Object.assign(new Error('Server error ' + response.status), { noRetry: true });
+
+    const data    = await response.json();
+    const rawText = (data.answer || data.response || data.text || data.content || '').trim();
+    if (!rawText) throw new Error('Empty response from server.');
+
+    const plan = JSON.parse(rawText.replace(/```(?:json)?/g, '').trim());
+    _spCurrentPlan = plan;
+    _spMastery = {};  // reset mastery for new plan
+    spHideOverlay();
+    spRenderPlan(plan, sourceName);
+    spSavePlanToSidebar(plan.topic);
+  };
+
+  const _spRetry = async () => {
+    try {
+      await _spTryGenerate();
+    } catch (err) {
+      if (!err.noRetry && _spAttempt < _spMaxAttempts) {
+        _spAttempt++;
+        await new Promise(r => setTimeout(r, 1500 * _spAttempt));
+        return _spRetry();
+      }
+      console.error('SP generation error:', err);
+      spHideOverlay();
+      btn.disabled = false;
+      btn.style.opacity = '';
+      spShowValidationError('Generation failed: ' + err.message + ' Check your connection and try again.');
+    }
+  };
+
+  _spRetry();
+}
+
+// ══════════════════════════════════════════════════════════
+//  RENDER PLAN → DYNAMIC ROADMAP
+// ══════════════════════════════════════════════════════════
+
+function spRenderPlan(plan, sourceName) {
+  const n = plan.concepts.length;
+
+  // ── Update plan header ──────────────────────────────────
+  document.querySelector('.sp-plan-header-eyebrow').textContent =
+    `Study Plan · ${plan.subject || sourceName}`;
+  document.querySelector('.sp-plan-header-title').textContent = plan.topic;
+  document.querySelector('.sp-plan-header-sub').textContent =
+    `${n} core concepts · ~${plan.estimatedHours} hrs to mastery`;
+
+  // ── Render nodes ────────────────────────────────────────
+  const pathEl = document.querySelector('.sp-path');
+  pathEl.innerHTML = '';
+
+  plan.concepts.forEach((concept, idx) => {
+    // First concept is "ready", rest are "locked"
+    const status = idx === 0 ? 'ready' : 'locked';
+    pathEl.appendChild(spBuildNode(concept, idx + 1, status, n));
+  });
+
+  // ── Update stats row ────────────────────────────────────
+  spUpdateStats(plan.concepts, []);
+  spUpdatePanel();
+
+  // ── Update right panel legend ───────────────────────────
+  spUpdateDetailPanel(plan.concepts, []);
+
+  // ── Switch to active view ───────────────────────────────
+  spShowPlan();
+
+  // ── Animate mastery bars ────────────────────────────────
+  setTimeout(animateBars, 150);
+}
+
+// Build one node element
+function spBuildNode(concept, num, status, total) {
+  const isLast = num === total;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'sp-node';
+  wrapper.dataset.conceptId = num;
+
+  // Bullet icon
+  const bulletIcon = {
+    mastered:    `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    'in-progress': `<span style="font-size:13px;">${num}</span>`,
+    ready:       `<span style="font-size:13px;">${num}</span>`,
+    locked:      `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
+  }[status];
+
+  const statusLabel = { mastered:'Mastered', 'in-progress':'In Progress', ready:'Ready', locked:'Locked' }[status];
+  // Seed from live mastery state if available
+  const _savedMastery = spMasteryScore(num - 1);
+  const mastery = status === 'mastered' ? Math.max(100, _savedMastery) : (status === 'locked' ? 0 : _savedMastery);
+  const barColor = mastery >= 80 ? 'var(--green)' : mastery > 0 ? 'var(--gold)' : (status === 'ready' ? 'var(--violet)' : 'var(--text-4)');
+  const effectiveStatus = mastery >= 80 ? 'mastered' : (mastery > 0 ? 'in-progress' : status);
+
+  // Activity chips — all locked except AI Explain on ready nodes
+  const activities = ['AI Explain', 'Flashcards', 'Practice Q\'s', 'Mini Exam'];
+  const activitiesHTML = activities.map(act => {
+    const isAvailable = status === 'ready';
+    const isDone = status === 'mastered';
+    const chipClass = isDone ? 'done' : isAvailable ? 'available' : 'locked-chip';
+    const lockIcon = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
+    const checkIcon = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    const actIcons = {
+      'AI Explain':   `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>`,
+      'Flashcards':   `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>`,
+      "Practice Q's": `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+      'Mini Exam':    `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
+    };
+    const icon = isDone ? checkIcon : isAvailable ? (actIcons[act] || '') : lockIcon;
+    return `<span class="sp-activity-chip ${chipClass}">${icon} ${act}</span>`;
+  }).join('');
+
+  // Last node gets special treatment
+  const descText = isLast
+    ? `A timed, graded exam across all ${total - 1} concepts. Unlocks when all prior concepts reach 80%+ mastery.`
+    : concept.description;
+
+  const keyTermsHTML = (!isLast && concept.keyTerms && status !== 'locked')
+    ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">
+        ${concept.keyTerms.map(t => `<span style="font-size:10px;font-family:var(--font-mono);padding:2px 7px;border-radius:var(--r-pill);background:var(--surface-3);color:var(--text-3);border:1px solid var(--border-xs);">${t}</span>`).join('')}
+       </div>`
+    : '';
+
+  const lockedNote = (isLast && status === 'locked')
+    ? `<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-4);margin-top:10px;">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Unlock by completing all previous concepts
+       </div>`
+    : '';
+
+  wrapper.innerHTML = `
+    <div class="sp-node-bullet ${effectiveStatus}">${effectiveStatus === 'mastered' ? bulletIcon.replace(status,'mastered') : bulletIcon}</div>
+    <div class="sp-node-card ${(effectiveStatus === 'ready' || effectiveStatus === 'in-progress') ? 'active-card' : ''}">
+      <div class="sp-node-card-top">
+        <div class="sp-node-card-title">${num}. ${concept.title}</div>
+        <span class="sp-node-status-badge ${effectiveStatus}">${statusLabel}</span>
+      </div>
+      <div class="sp-node-card-desc">${descText}</div>
+      ${keyTermsHTML}
+      <div class="sp-mastery-bar-wrap">
+        <div class="sp-mastery-bar-track">
+          <div class="sp-mastery-bar-fill" style="width:${mastery}%;background:${barColor};"></div>
+        </div>
+        <div class="sp-mastery-pct" style="${mastery > 0 ? 'color:'+barColor : ''}">${mastery > 0 ? mastery+'%' : (status === 'locked' ? '—' : '0%')}</div>
+      </div>
+      ${isLast ? lockedNote : `<div class="sp-activities" style="margin-top:10px;">${activitiesHTML}</div>`}
+      ${concept.estimatedMinutes ? `<div style="margin-top:8px;font-size:10px;color:var(--text-4);font-family:var(--font-mono);">~${concept.estimatedMinutes} min</div>` : ''}
+    </div>`;
+
+  return wrapper;
+}
+
+// Update stats row chips
+function spUpdateStats(concepts, masteredIds) {
+  const counts = { mastered: 0, 'in-progress': 0, ready: 0, locked: 0 };
+  concepts.forEach((c, i) => {
+    if (masteredIds.includes(i)) counts.mastered++;
+    else if (i === 0) counts.ready++;
+    else counts.locked++;
+  });
+  const row = document.querySelector('.sp-stats-row');
+  row.innerHTML = Object.entries(counts).map(([status, count]) => {
+    if (count === 0) return '';
+    const colors = { mastered:'var(--green)', 'in-progress':'var(--gold)', ready:'var(--violet)', locked:'var(--text-4)' };
+    const labels = { mastered:'Mastered', 'in-progress':'In Progress', ready:'Ready', locked:'Locked' };
+    return `<div class="sp-stat-chip"><div class="sp-stat-dot" style="background:${colors[status]};"></div>${count} ${labels[status]}</div>`;
+  }).join('');
+}
+
+// Update detail panel donut + legend
+function spUpdateDetailPanel(concepts, masteredIds) {
+  const n = concepts.length;
+  const nMastered = masteredIds.length;
+  const pct = Math.round((nMastered / n) * 100);
+
+  // Update donut text
+  document.querySelectorAll('.sp-donut-center-pct').forEach(el => el.textContent = pct + '%');
+
+  // Update legend counts
+  const locked = n - nMastered - 1;
+  const legendCounts = document.querySelectorAll('.sp-legend-count');
+  if (legendCounts.length >= 4) {
+    legendCounts[0].textContent = `${nMastered} / ${n}`;
+    legendCounts[1].textContent = `0 / ${n}`;
+    legendCounts[2].textContent = `1 / ${n}`;
+    legendCounts[3].textContent = `${locked} / ${n}`;
+  }
+
+  // Update "Up Next" first item
+  if (concepts.length > 0) {
+    document.querySelector('.sp-upcoming-title') &&
+      (document.querySelector('.sp-upcoming-title').textContent = concepts[0].title);
+  }
+
+  // Update time estimate
+  const totalMin = concepts.reduce((s, c) => s + (c.estimatedMinutes || 30), 0);
+  const timeEl = document.querySelector('[style*="teal"]')?.parentElement?.querySelector('div');
+  if (timeEl) {
+    const hrs = (totalMin / 60).toFixed(1);
+    timeEl.innerHTML = `<div style="font-size:12px;font-weight:600;color:var(--text-1);margin-bottom:2px;">~${hrs} hrs total</div><div style="font-size:11px;color:var(--text-3);">Start concept 1 to begin your path to mastery.</div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  VIEW HELPERS
+// ══════════════════════════════════════════════════════════
+
+function spShowEmpty() {
+  document.getElementById('sp-empty-state').style.display  = 'flex';
+  document.getElementById('sp-active-state').style.display = 'none';
+  document.getElementById('toggle-empty').classList.add('active-view');
+  document.getElementById('toggle-plan').classList.remove('active-view');
+  // Re-enable button
+  const btn = document.getElementById('sp-generate-btn');
+  btn.disabled = false;
+  btn.style.opacity = '';
+}
+
+function spShowPlan() {
+  document.getElementById('sp-empty-state').style.display  = 'none';
+  document.getElementById('sp-active-state').style.display = 'flex';
+  document.getElementById('toggle-plan').classList.add('active-view');
+  document.getElementById('toggle-empty').classList.remove('active-view');
+}
+
+function spAnimateBars() {
+  document.querySelectorAll('.sp-mastery-bar-fill').forEach(bar => {
+    const target = bar.style.width;
+    bar.style.width = '0%';
+    requestAnimationFrame(() => {
+      setTimeout(() => { bar.style.width = target; }, 80);
+    });
+  });
+}
+
+(function() {
+  const _tp = document.getElementById('toggle-plan');
+  if (_tp) _tp.addEventListener('click', () => {
+    if (!_spCurrentPlan) return;
+    setTimeout(animateBars, 100);
+  });
+})();
+
+// ══════════════════════════════════════════════════════════
+//  STEP 7 — AI EXPLAIN DRAWER
+// ══════════════════════════════════════════════════════════
+
+let _explainAbortCtrl = null;
+
+function spOpenExplainDrawer(concept, startTab) {
+  const drawer   = document.getElementById('sp-explain-drawer');
+  const overlay  = document.getElementById('sp-explain-overlay');
+  const titleEl  = document.getElementById('sp-explain-title');
+  const bodyEl   = document.getElementById('sp-explain-body');
+  const chipWrap = document.getElementById('sp-explain-chips');
+
+  // Store concept + reset all activity state for this concept
+  _spDrawerConcept = concept;
+  _spFcDeck  = []; _spFcIndex = 0; _spFcStats = { easy: 0, ok: 0, hard: 0 };
+  _spPqQuestions = []; _spPqIndex = 0; _spPqScore = 0;
+  _spExamQuestions = []; _spExamIndex = 0; _spExamAnswers = [];
+  clearInterval(_spExamTimerHandle);
+
+  // Switch to requested tab (default: explain)
+  spDrawerTab(startTab || 'explain');
+
+  // Reset explain content
+  titleEl.textContent  = concept.title;
+  bodyEl.innerHTML     = '<div class="sp-explain-spinner"></div>';
+  chipWrap.innerHTML   = '';
+
+  // Key terms as chips
+  if (concept.keyTerms && concept.keyTerms.length) {
+    concept.keyTerms.forEach(t => {
+      const c = document.createElement('span');
+      c.className = 'sp-explain-term-chip';
+      c.textContent = t;
+      chipWrap.appendChild(c);
+    });
+  }
+
+  // Open
+  drawer.classList.add('open');
+  overlay.classList.add('open');
+
+  // Only stream explanation if opening on explain tab
+  if (!startTab || startTab === 'explain') {
+    _spStreamExplain(concept, bodyEl);
+  }
+}
+
+function spCloseExplainDrawer() {
+  document.getElementById('sp-explain-drawer').classList.remove('open');
+  document.getElementById('sp-explain-overlay').classList.remove('open');
+  if (_explainAbortCtrl) { _explainAbortCtrl.abort(); _explainAbortCtrl = null; }
+}
+
+async function _spStreamExplain(concept, bodyEl) {
+  if (_explainAbortCtrl) _explainAbortCtrl.abort();
+  _explainAbortCtrl = new AbortController();
+
+  const keyTermsList = concept.keyTerms?.length
+    ? `Key terms to cover: ${concept.keyTerms.join(', ')}.`
+    : '';
+
+  const prompt = `You are an expert study tutor. Give a thorough, engaging deep-dive explanation of the concept: "${concept.title}".
+
+${concept.description ? `Context: ${concept.description}` : ''}
+${keyTermsList}
+
+Your explanation should:
+- Start with a clear, simple definition (1-2 sentences)
+- Explain the core idea with an analogy or intuitive framing
+- Break down the mechanism / how it works step-by-step
+- Give 1-2 concrete real-world examples
+- Highlight common misconceptions or tricky edge cases
+- End with a 2-3 sentence summary that reinforces the key takeaway
+
+Use **bold** for key terms. Use clear paragraph breaks. Keep the tone conversational but precise — like a brilliant tutor talking directly to the student. Aim for about 400-600 words.`;
+
+  try {
+    const resp = await fetch('https://chunks-ai-main-production.up.railway.app/ask', {
+      method: 'POST',
+      signal: _explainAbortCtrl.signal,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: prompt,
+        mode: 'study',
+        complexity: 7,
+        bookId: 'none',
+        history: []
+      })
+    });
+
+    if (!resp.ok) throw new Error('API error ' + resp.status);
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Backend error');
+
+    const fullText = data.answer || data.response || data.text || '';
+    bodyEl.innerHTML = _spExplainMarkdown(fullText);
+    spMasteryRecord('explain', 100); // viewed = full credit
+
+  } catch(err) {
+    if (err.name === 'AbortError') return;
+    bodyEl.innerHTML = `<div style="color:var(--red);font-size:13px;padding:16px 0;">Failed to load explanation. Please try again.</div>`;
+    console.error('AI Explain error:', err);
+  }
+}
+
+function _spExplainMarkdown(text) {
+  let t = text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Bold
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Inline code
+  t = t.replace(/`([^`]+)`/g, '<code style="font-family:var(--font-mono);font-size:12px;background:var(--surface-3);padding:1px 5px;border-radius:4px;color:var(--teal);">$1</code>');
+
+  // Split into paragraphs by double newline
+  const blocks = t.split(/\n\n+/);
+  return blocks.map(block => {
+    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) return '';
+    // Bulleted list
+    if (lines.every(l => /^[-•*] /.test(l))) {
+      return '<ul>' + lines.map(l => `<li>${l.replace(/^[-•*] /,'')}</li>`).join('') + '</ul>';
+    }
+    // Numbered list
+    if (lines.every(l => /^\d+\. /.test(l))) {
+      return '<ol>' + lines.map(l => `<li>${l.replace(/^\d+\. /,'')}</li>`).join('') + '</ol>';
+    }
+    // Heading
+    if (lines.length === 1 && /^#{1,3} /.test(lines[0])) {
+      return `<h4 style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);margin:18px 0 6px;">${lines[0].replace(/^#+\s/,'')}</h4>`;
+    }
+    return `<p>${lines.join(' ')}</p>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════════════════════
+//  DRAWER TAB SWITCHING
+// ══════════════════════════════════════════════════════════
+let _spDrawerConcept = null;
+let _spFcDeck = [];
+let _spFcIndex = 0;
+let _spFcFlipped = false;
+let _spFcStats = { easy: 0, ok: 0, hard: 0 };
+
+function spDrawerTab(tab) {
+  // Update tab buttons — unlock pq and exam now
+  document.querySelectorAll('.sp-drawer-tab').forEach(t => {
+    t.classList.remove('active');
+    t.classList.remove('sp-drawer-tab-locked');
+  });
+  const activeTab = document.getElementById('sp-tab-' + tab);
+  if (activeTab) activeTab.classList.add('active');
+
+  // Toggle views
+  ['explain','flash','pq','exam'].forEach(v => {
+    const el = document.getElementById('sp-view-' + v);
+    if (el) el.style.display = v === tab ? 'flex' : 'none';
+  });
+
+  // Key terms only on explain
+  document.getElementById('sp-explain-chips').style.display = tab === 'explain' ? '' : 'none';
+
+  // Update eyebrow + icon
+  const eyebrow = document.getElementById('sp-drawer-eyebrow');
+  const icon    = document.getElementById('sp-drawer-icon');
+  const tabMeta = {
+    explain: { label:'AI Explain',    color:'#e8ac2e', bg:'var(--gold-muted)',   border:'var(--gold-border)',   svg:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e8ac2e" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>` },
+    flash:   { label:'Flashcards',    color:'#8b7cf8', bg:'var(--violet-muted)', border:'var(--violet-border)', svg:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8b7cf8" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>` },
+    pq:      { label:"Practice Q's", color:'#2dd4bf', bg:'var(--teal-muted)',   border:'rgba(45,212,191,0.25)', svg:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>` },
+    exam:    { label:'Mini Exam',     color:'#f87171', bg:'rgba(248,113,113,0.08)', border:'rgba(248,113,113,0.25)', svg:`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>` },
+  };
+  const m = tabMeta[tab] || tabMeta.explain;
+  eyebrow.textContent   = m.label;
+  icon.innerHTML        = m.svg;
+  icon.style.background = m.bg;
+  icon.style.borderColor= m.border;
+
+  // Trigger logic per tab
+  if (tab === 'flash') {
+    if (_spFcDeck.length === 0) spFcGenerate(); else spFcShowDeck();
+  } else if (tab === 'pq') {
+    if (_spPqQuestions.length === 0) spPqGenerate(); else spPqShowCurrent();
+  } else if (tab === 'exam') {
+    if (_spExamQuestions.length === 0) spExamGenerate(); else spExamShowCurrent();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  MINI FLASHCARD ENGINE (inside drawer)
+// ══════════════════════════════════════════════════════════
+
+async function spFcGenerate() {
+  // Show loading
+  document.getElementById('sp-fc-loading').style.display = 'flex';
+  document.getElementById('sp-fc-deck').style.display    = 'none';
+  document.getElementById('sp-fc-complete').style.display = 'none';
+
+  try {
+    const concept = _spDrawerConcept;
+    const res = await fetch('https://chunks-ai-main-production.up.railway.app/generate-flashcards', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topic: concept.title + (concept.description ? ': ' + concept.description : ''),
+        bookId: null,
+        count: 8
+      })
+    });
+    if (!res.ok) throw new Error('Server error ' + res.status);
+    const data = await res.json();
+    if (!data.success || !data.flashcards?.length) throw new Error(data.error || 'No cards');
+
+    _spFcDeck  = data.flashcards;
+    _spFcIndex = 0;
+    _spFcStats = { easy: 0, ok: 0, hard: 0 };
+    _spFcFlipped = false;
+    spFcShowDeck();
+
+  } catch(err) {
+    document.getElementById('sp-fc-loading').innerHTML =
+      `<div style="color:var(--red);font-size:12px;text-align:center;padding:20px;">Failed to generate cards.<br><button onclick="spFcGenerate()" style="margin-top:10px;padding:6px 14px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);">Try again</button></div>`;
+    console.error('FC generate error:', err);
+  }
+}
+
+function spFcShowDeck() {
+  document.getElementById('sp-fc-loading').style.display  = 'none';
+  document.getElementById('sp-fc-complete').style.display = 'none';
+  document.getElementById('sp-fc-deck').style.display     = 'flex';
+  spFcRenderCard();
+}
+
+function spFcRenderCard() {
+  const card = _spFcDeck[_spFcIndex];
+  if (!card) return;
+
+  // Reset flip
+  _spFcFlipped = false;
+  document.getElementById('sp-fc-card').classList.remove('flipped');
+  document.getElementById('sp-fc-ratings').style.display = 'none';
+  document.getElementById('sp-fc-ratings').style.flexDirection = '';
+
+  // Set text
+  document.getElementById('sp-fc-front-text').textContent = card.front || card.question || card.term || '';
+  document.getElementById('sp-fc-back-text').textContent  = card.back  || card.answer   || card.definition || '';
+
+  // Progress
+  const pct = (_spFcIndex / _spFcDeck.length) * 100;
+  document.getElementById('sp-fc-progress-bar').style.width = pct + '%';
+  document.getElementById('sp-fc-counter').textContent = (_spFcIndex + 1) + ' / ' + _spFcDeck.length;
+}
+
+function spFcFlip() {
+  if (_spFcFlipped) return;
+  _spFcFlipped = true;
+  document.getElementById('sp-fc-card').classList.add('flipped');
+  // Show rating buttons
+  const ratings = document.getElementById('sp-fc-ratings');
+  ratings.style.display = 'flex';
+}
+
+function spFcRate(rating) {
+  _spFcStats[rating] = (_spFcStats[rating] || 0) + 1;
+  _spFcIndex++;
+  if (_spFcIndex >= _spFcDeck.length) {
+    spFcShowComplete();
+  } else {
+    spFcRenderCard();
+  }
+}
+
+function spFcShowComplete() {
+  document.getElementById('sp-fc-deck').style.display     = 'none';
+  document.getElementById('sp-fc-complete').style.display = 'flex';
+  const total = _spFcDeck.length;
+  document.getElementById('sp-fc-result-text').innerHTML =
+    `You reviewed all <strong style="color:var(--text-1);">${total}</strong> cards.<br>` +
+    `<span style="color:var(--green);">Easy: ${_spFcStats.easy}</span> &nbsp;·&nbsp; ` +
+    `<span style="color:var(--gold);">OK: ${_spFcStats.ok}</span> &nbsp;·&nbsp; ` +
+    `<span style="color:var(--red);">Hard: ${_spFcStats.hard}</span>`;
+  // Mastery: easy=100, ok=70, hard=40, weighted average
+  const fcScore = total > 0
+    ? Math.round(((_spFcStats.easy * 100) + (_spFcStats.ok * 70) + (_spFcStats.hard * 40)) / total)
+    : 0;
+  spMasteryRecord('flash', fcScore);
+}
+
+function spFcRestart() {
+  _spFcIndex = 0;
+  _spFcStats = { easy: 0, ok: 0, hard: 0 };
+  _spFcFlipped = false;
+  spFcShowDeck();
+}
+
+// ══════════════════════════════════════════════════════════
+//  STEP 13 — LIVE PANEL: DONUT + FORECAST + UP NEXT + TIME
+// ══════════════════════════════════════════════════════════
+function spUpdatePanel() {
+  if (!_spCurrentPlan) return;
+  const concepts = _spCurrentPlan.concepts;
+  const total    = concepts.length;
+  const CIRC     = 301.6; // 2*PI*r where r=48
+
+  // ── Tally statuses ──
+  let nMastered = 0, nInProg = 0, nReady = 0, nLocked = 0;
+  let totalMastery = 0;
+
+  concepts.forEach((c, i) => {
+    const score = spMasteryScore(i);
+    totalMastery += score;
+    if (score >= 80)      nMastered++;
+    else if (score > 0)   nInProg++;
+    else {
+      // Check DOM for status
+      const node = document.querySelector(`.sp-node[data-concept-id="${i + 1}"]`);
+      const bullet = node?.querySelector('.sp-node-bullet');
+      if (bullet?.classList.contains('locked')) nLocked++;
+      else nReady++;
+    }
+  });
+
+  const avgMastery = total > 0 ? Math.round(totalMastery / total) : 0;
+
+  // ── Mini ring (header) ──
+  const RING_CIRC = 150.8; // 2*PI*24
+  const ringArc = document.getElementById('sp-ring-arc');
+  const ringPct = document.getElementById('sp-ring-pct');
+  if (ringArc) {
+    ringArc.setAttribute('stroke-dashoffset', RING_CIRC - (avgMastery / 100) * RING_CIRC);
+    ringArc.setAttribute('stroke', avgMastery >= 80 ? 'var(--green)' : avgMastery > 0 ? 'var(--gold)' : 'var(--text-4)');
+  }
+  if (ringPct) ringPct.textContent = avgMastery + '%';
+
+  // ── Stats row chips ──
+  const statsRow = document.getElementById('sp-stats-row-chips');
+  if (statsRow) {
+    const chipData = [
+      { color: 'var(--green)',  label: 'Mastered',     n: nMastered },
+      { color: 'var(--gold)',   label: 'In Progress',  n: nInProg   },
+      { color: 'var(--violet)', label: 'Ready',        n: nReady    },
+      { color: 'var(--text-4)', label: 'Locked',       n: nLocked   },
+    ].filter(c => c.n > 0);
+    statsRow.innerHTML = chipData.map(c =>
+      `<div class="sp-stat-chip"><div class="sp-stat-dot" style="background:${c.color};"></div>${c.n} ${c.label}</div>`
+    ).join('');
+  }
+
+  // ── Donut ──
+  const masteredArc  = (nMastered / total) * CIRC;
+  const inProgArc    = (nInProg   / total) * CIRC;
+  const masteredRotDeg = -90;
+  const inProgRotDeg   = masteredRotDeg + (nMastered / total) * 360;
+
+  const dMastered  = document.getElementById('sp-donut-mastered');
+  const dInProg    = document.getElementById('sp-donut-inprogress');
+  const dPct       = document.getElementById('sp-donut-pct');
+  if (dMastered)  { dMastered.setAttribute('stroke-dashoffset', CIRC - masteredArc); dMastered.setAttribute('transform', `rotate(${masteredRotDeg} 60 60)`); }
+  if (dInProg)    { dInProg.setAttribute('stroke-dashoffset', CIRC - inProgArc);   dInProg.setAttribute('transform', `rotate(${inProgRotDeg} 60 60)`); }
+  if (dPct)       dPct.textContent = avgMastery + '%';
+
+  // ── Legend counts ──
+  const leg = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n + ' / ' + total; };
+  leg('sp-leg-mastered', nMastered);
+  leg('sp-leg-inprog',   nInProg);
+  leg('sp-leg-ready',    nReady);
+  leg('sp-leg-locked',   nLocked);
+
+  // ── Score Forecast ──
+  // Weighted: mastered nodes = 100, in-progress = their actual score, locked = 0
+  const examWeight = 0.5; // exams count more toward readiness
+  let forecast = 0;
+  concepts.forEach((c, i) => {
+    const score = spMasteryScore(i);
+    const m = spMasteryGet(i);
+    // Readiness is driven mainly by PQ + exam scores
+    const readiness = score >= 80 ? 100 : Math.round(((m.pq || 0) * 0.4) + ((m.exam || 0) * 0.6));
+    forecast += readiness;
+  });
+  forecast = total > 0 ? Math.round(forecast / total) : 0;
+
+  const scoreEl = document.getElementById('sp-readiness-score');
+  const barEl   = document.getElementById('sp-readiness-bar');
+  const noteEl  = document.getElementById('sp-readiness-note');
+  if (scoreEl) { scoreEl.textContent = forecast + '%'; scoreEl.style.color = forecast >= 80 ? 'var(--green)' : forecast >= 60 ? 'var(--gold)' : 'var(--red)'; }
+  if (barEl)   { barEl.style.width = forecast + '%'; barEl.style.background = forecast >= 80 ? 'var(--green)' : forecast >= 60 ? 'var(--gold)' : 'var(--red)'; }
+  if (noteEl) {
+    if (forecast >= 80) {
+      noteEl.textContent = "You're on track for a great exam result. Keep it up!";
+    } else {
+      // Find lowest-scoring incomplete concept
+      let worstIdx = -1, worstScore = 999;
+      concepts.forEach((c, i) => {
+        const s = spMasteryScore(i);
+        if (s < 80 && s < worstScore) { worstScore = s; worstIdx = i; }
+      });
+      const worstName = worstIdx >= 0 ? concepts[worstIdx].title : 'remaining concepts';
+      noteEl.textContent = `Focus on "${worstName}" to push your forecast above 80%.`;
+    }
+  }
+
+  // ── Up Next (Step 14) ──
+  const upNextEl = document.getElementById('sp-upcoming-list');
+  if (upNextEl) {
+    const items = spGetUpNextItems(concepts);
+    if (items.length === 0) {
+      upNextEl.innerHTML = '<div style="font-size:12px;color:var(--text-4);padding:8px 0;">All concepts mastered! 🎉</div>';
+    } else {
+      upNextEl.innerHTML = items.map(item => {
+        const iconSvg = {
+          explain:  `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e8ac2e" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>`,
+          flash:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8b7cf8" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>`,
+          pq:       `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+          exam:     `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
+        }[item.tab] || '';
+        const iconBg = { explain:'background:var(--gold-muted);border:1px solid var(--gold-border)', flash:'background:var(--violet-muted);border:1px solid var(--violet-border)', pq:'background:var(--teal-muted);border:1px solid rgba(45,212,191,0.25)', exam:'background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25)' }[item.tab] || '';
+        return `<div class="sp-upcoming-item" onclick="spOpenExplainDrawer(_spCurrentPlan.concepts[${item.conceptIdx}], '${item.tab}')" style="cursor:pointer;">
+          <div class="sp-upcoming-icon" style="${iconBg}">${iconSvg}</div>
+          <div class="sp-upcoming-info">
+            <div class="sp-upcoming-title">${item.title}</div>
+            <div class="sp-upcoming-sub">${item.sub}</div>
+          </div>
+          <svg class="sp-upcoming-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // ── Time estimate ──
+  const timeEl = document.getElementById('sp-time-remaining');
+  const timeSub = document.getElementById('sp-time-sub');
+  if (timeEl && _spCurrentPlan) {
+    const remainingMins = concepts.reduce((sum, c, i) => {
+      return sum + (spMasteryScore(i) < 80 ? (c.estimatedMinutes || 30) : 0);
+    }, 0);
+    if (remainingMins === 0) {
+      timeEl.textContent = 'All done! 🎉';
+      if (timeSub) timeSub.textContent = "You've mastered all concepts.";
+    } else {
+      const hrs = (remainingMins / 60).toFixed(1);
+      timeEl.textContent = `~${hrs} hrs remaining`;
+      if (timeSub) timeSub.textContent = remainingMins < 60
+        ? `About ${remainingMins} minutes of study left.`
+        : `At a steady pace, you'll finish in ${hrs} hours.`;
+    }
+  }
+}
+
+function spGetUpNextItems(concepts) {
+  const items = [];
+  const ACTS  = ['explain','flash','pq','exam'];
+  const LABELS = { explain:'AI Explain', flash:'Flashcards', pq:"Practice Q's", exam:'Mini Exam' };
+  const SUBS   = {
+    explain: (c) => 'Start · AI Explanation',
+    flash:   (c) => 'Reinforce with flashcards',
+    pq:      (c) => 'Practice Questions',
+    exam:    (c) => 'Take Mini Exam',
+  };
+
+  for (let i = 0; i < concepts.length && items.length < 3; i++) {
+    const score = spMasteryScore(i);
+    if (score >= 80) continue; // already mastered
+
+    // Check if this node is accessible (not fully locked — first node always accessible)
+    const node   = document.querySelector(`.sp-node[data-concept-id="${i + 1}"]`);
+    const bullet = node?.querySelector('.sp-node-bullet');
+    if (bullet?.classList.contains('locked') && i > 0) continue;
+
+    const m = spMasteryGet(i);
+    // Find the best next activity: first incomplete one, ordered by impact
+    const order = ['exam','pq','flash','explain'];
+    for (const act of order) {
+      if ((m[act] || 0) < 80 && items.length < 3) {
+        items.push({
+          conceptIdx: i,
+          title: concepts[i].title,
+          sub: SUBS[act](concepts[i]),
+          tab: act,
+        });
+        break;
+      }
+    }
+  }
+  return items;
+}
+
+// ══════════════════════════════════════════════════════════
+//  STEP 9 — PRACTICE Q's ENGINE
+// ══════════════════════════════════════════════════════════
+let _spPqQuestions = [];
+let _spPqIndex     = 0;
+let _spPqScore     = 0;
+let _spPqGrading   = false;
+
+async function spPqGenerate() {
+  _spPqQuestions = [];
+  _spPqIndex = 0;
+  _spPqScore = 0;
+
+  document.getElementById('sp-pq-loading').style.display        = 'flex';
+  document.getElementById('sp-pq-question-view').style.display  = 'none';
+  document.getElementById('sp-pq-complete').style.display       = 'none';
+
+  const concept = _spDrawerConcept;
+  const prompt  = `Generate exactly 5 short-answer practice questions about: "${concept.title}".
+${concept.description ? 'Context: ' + concept.description : ''}
+${concept.keyTerms?.length ? 'Key terms: ' + concept.keyTerms.join(', ') : ''}
+
+Rules:
+- Questions should test understanding, not just recall
+- Each should be answerable in 1-3 sentences
+- Vary difficulty: 2 easy, 2 medium, 1 hard
+- Output ONLY a raw JSON array, no markdown:
+[{"question":"...","ideal_answer":"...","key_points":["point1","point2"]}]`;
+
+  try {
+    const res  = await fetch('https://chunks-ai-main-production.up.railway.app/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: prompt, mode: 'study', complexity: 6, bookId: 'none', history: [] })
+    });
+    if (!res.ok) throw new Error('Server error ' + res.status);
+    const data = await res.json();
+    const raw  = (data.answer || data.response || data.text || '').trim();
+    _spPqQuestions = JSON.parse(raw.replace(/```(?:json)?/g,'').trim());
+    spPqShowCurrent();
+  } catch(err) {
+    document.getElementById('sp-pq-loading').innerHTML =
+      `<div style="color:var(--red);font-size:12px;text-align:center;padding:20px;">Failed to generate questions.<br>
+       <button onclick="spPqGenerate()" style="margin-top:10px;padding:6px 14px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);">Try again</button></div>`;
+    console.error('PQ generate error:', err);
+  }
+}
+
+function spPqShowCurrent() {
+  document.getElementById('sp-pq-loading').style.display       = 'none';
+  document.getElementById('sp-pq-complete').style.display      = 'none';
+  document.getElementById('sp-pq-question-view').style.display = 'flex';
+
+  const q = _spPqQuestions[_spPqIndex];
+  if (!q) return;
+
+  // Progress
+  const pct = (_spPqIndex / _spPqQuestions.length) * 100;
+  document.getElementById('sp-pq-progress-bar').style.width = pct + '%';
+  document.getElementById('sp-pq-counter').textContent = (_spPqIndex + 1) + ' / ' + _spPqQuestions.length;
+
+  // Question
+  document.getElementById('sp-pq-question-text').textContent = q.question;
+
+  // Reset answer area
+  document.getElementById('sp-pq-answer-input').value = '';
+  document.getElementById('sp-pq-input-wrap').style.display  = 'flex';
+  document.getElementById('sp-pq-result').style.display      = 'none';
+  document.getElementById('sp-pq-answer-input').disabled     = false;
+  document.getElementById('sp-pq-submit-btn').disabled       = false;
+  document.getElementById('sp-pq-submit-btn').textContent    = 'Submit Answer';
+  document.getElementById('sp-pq-answer-input').focus();
+}
+
+async function spPqSubmit() {
+  if (_spPqGrading) return;
+  const answer = document.getElementById('sp-pq-answer-input').value.trim();
+  if (!answer) return;
+
+  _spPqGrading = true;
+  const btn = document.getElementById('sp-pq-submit-btn');
+  btn.textContent = 'Grading…';
+  btn.disabled    = true;
+  document.getElementById('sp-pq-answer-input').disabled = true;
+
+  const q = _spPqQuestions[_spPqIndex];
+  const prompt = `You are a tutor grading a student's short-answer response.
+
+Question: ${q.question}
+Ideal answer covers: ${q.ideal_answer}
+Key points to check: ${(q.key_points || []).join('; ')}
+
+Student's answer: "${answer}"
+
+Grade the answer and respond ONLY as raw JSON (no markdown):
+{"correct": true/false, "score": 0-100, "feedback": "1-2 sentence explanation of what was right/wrong and the correct answer"}`;
+
+  try {
+    const res  = await fetch('https://chunks-ai-main-production.up.railway.app/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: prompt, mode: 'study', complexity: 5, bookId: 'none', history: [] })
+    });
+    const data   = await res.json();
+    const raw    = (data.answer || data.response || data.text || '').trim();
+    const result = JSON.parse(raw.replace(/```(?:json)?/g,'').trim());
+
+    if (result.correct || result.score >= 60) _spPqScore++;
+
+    // Show verdict
+    const verdictEl = document.getElementById('sp-pq-verdict');
+    const passed    = result.correct || result.score >= 60;
+    verdictEl.style.background   = passed ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)';
+    verdictEl.style.borderLeft   = `3px solid ${passed ? 'var(--green)' : 'var(--red)'}`;
+    verdictEl.style.color        = passed ? 'var(--green)' : 'var(--red)';
+    verdictEl.innerHTML = (passed ? '✓ Correct' : '✗ Incorrect') +
+      `<span style="margin-left:auto;font-size:11px;font-family:var(--font-mono);opacity:0.8;">${result.score ?? (passed?100:0)}%</span>`;
+
+    document.getElementById('sp-pq-explanation').textContent = result.feedback || '';
+
+    // Is this the last question?
+    const isLast = _spPqIndex >= _spPqQuestions.length - 1;
+    const nextBtn = document.getElementById('sp-pq-next-btn');
+    nextBtn.textContent = isLast ? 'See Results' : 'Next Question →';
+
+    document.getElementById('sp-pq-input-wrap').style.display = 'none';
+    document.getElementById('sp-pq-result').style.display     = 'flex';
+
+  } catch(err) {
+    document.getElementById('sp-pq-explanation').textContent = 'Grading failed. Please try again.';
+    document.getElementById('sp-pq-result').style.display    = 'flex';
+    document.getElementById('sp-pq-input-wrap').style.display = 'none';
+    console.error('PQ grade error:', err);
+  } finally {
+    _spPqGrading = false;
+  }
+}
+
+function spPqNext() {
+  _spPqIndex++;
+  if (_spPqIndex >= _spPqQuestions.length) {
+    spPqShowComplete();
+  } else {
+    spPqShowCurrent();
+  }
+}
+
+function spPqShowComplete() {
+  document.getElementById('sp-pq-question-view').style.display = 'none';
+  document.getElementById('sp-pq-complete').style.display      = 'flex';
+  const total = _spPqQuestions.length;
+  const pct   = Math.round((_spPqScore / total) * 100);
+  const emoji = pct >= 80 ? '🎯' : pct >= 60 ? '📚' : '💪';
+  document.getElementById('sp-pq-complete-emoji').textContent = emoji;
+  document.getElementById('sp-pq-complete-text').innerHTML =
+    `You got <strong style="color:var(--text-1);">${_spPqScore} / ${total}</strong> correct (${pct}%).<br>` +
+    (pct >= 80 ? 'Great work! Ready to take the Mini Exam.' : 'Keep practicing to strengthen your understanding.');
+  spMasteryRecord('pq', pct);
+}
+
+function spPqRestart() {
+  _spPqIndex = 0;
+  _spPqScore = 0;
+  spPqShowCurrent();
+}
+
+// ══════════════════════════════════════════════════════════
+//  STEP 10 — MINI EXAM ENGINE
+// ══════════════════════════════════════════════════════════
+let _spExamQuestions = [];
+let _spExamIndex     = 0;
+let _spExamAnswers   = [];
+let _spExamTimerSec  = 300; // 5 minutes
+let _spExamTimerHandle = null;
+let _spExamStarted   = false;
+
+async function spExamGenerate() {
+  _spExamQuestions = [];
+  _spExamIndex     = 0;
+  _spExamAnswers   = [];
+  _spExamStarted   = false;
+  clearInterval(_spExamTimerHandle);
+
+  document.getElementById('sp-exam-loading').style.display        = 'flex';
+  document.getElementById('sp-exam-intro').style.display          = 'none';
+  document.getElementById('sp-exam-question-view').style.display  = 'none';
+  document.getElementById('sp-exam-results').style.display        = 'none';
+
+  const concept = _spDrawerConcept;
+  const prompt  = `Generate exactly 10 multiple-choice exam questions about: "${concept.title}".
+${concept.description ? 'Context: ' + concept.description : ''}
+${concept.keyTerms?.length ? 'Key terms: ' + concept.keyTerms.join(', ') : ''}
+
+Rules:
+- 4 options labeled A-D, one correct answer
+- Mix of easy, medium, and hard questions
+- Test understanding and application, not just definitions
+- Output ONLY a raw JSON array, no markdown:
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"1 sentence why this is correct"}]`;
+
+  try {
+    const res  = await fetch('https://chunks-ai-main-production.up.railway.app/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: prompt, mode: 'study', complexity: 7, bookId: 'none', history: [] })
+    });
+    if (!res.ok) throw new Error('Server error ' + res.status);
+    const data = await res.json();
+    const raw  = (data.answer || data.response || data.text || '').trim();
+    _spExamQuestions = JSON.parse(raw.replace(/```(?:json)?/g,'').trim());
+
+    // Show intro screen
+    document.getElementById('sp-exam-loading').style.display = 'none';
+    document.getElementById('sp-exam-intro').style.display   = 'flex';
+    _spExamUpdateTimerDisplay(300);
+
+  } catch(err) {
+    document.getElementById('sp-exam-loading').innerHTML =
+      `<div style="color:var(--red);font-size:12px;text-align:center;padding:20px;">Failed to generate exam.<br>
+       <button onclick="spExamGenerate()" style="margin-top:10px;padding:6px 14px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);">Try again</button></div>`;
+    console.error('Exam generate error:', err);
+  }
+}
+
+function spExamStart() {
+  _spExamIndex   = 0;
+  _spExamAnswers = [];
+  _spExamStarted = true;
+  _spExamTimerSec = 300;
+
+  document.getElementById('sp-exam-intro').style.display         = 'none';
+  document.getElementById('sp-exam-question-view').style.display = 'flex';
+
+  // Start timer
+  clearInterval(_spExamTimerHandle);
+  _spExamTimerHandle = setInterval(() => {
+    _spExamTimerSec--;
+    _spExamUpdateTimerDisplay(_spExamTimerSec);
+    if (_spExamTimerSec <= 0) {
+      clearInterval(_spExamTimerHandle);
+      spExamFinish();
+    }
+  }, 1000);
+
+  spExamShowCurrent();
+}
+
+function _spExamUpdateTimerDisplay(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  const str = m + ':' + String(s).padStart(2,'0');
+  ['sp-exam-timer','sp-exam-timer-display'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.textContent = str;
+      el.style.color = sec <= 60 ? 'var(--red)' : sec <= 120 ? 'var(--gold)' : 'var(--red)';
+    }
+  });
+}
+
+function spExamShowCurrent() {
+  const q = _spExamQuestions[_spExamIndex];
+  if (!q) return;
+
+  const pct = (_spExamIndex / _spExamQuestions.length) * 100;
+  document.getElementById('sp-exam-progress-bar').style.width = pct + '%';
+  document.getElementById('sp-exam-counter').textContent = (_spExamIndex + 1) + '/' + _spExamQuestions.length;
+  document.getElementById('sp-exam-q-text').textContent = q.q;
+
+  const opts = document.getElementById('sp-exam-options');
+  opts.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const letter = ['A','B','C','D'][i];
+    const btn = document.createElement('button');
+    btn.className = 'sp-exam-opt-btn';
+    btn.textContent = opt;
+    btn.onclick = () => spExamAnswer(letter, btn);
+    opts.appendChild(btn);
+  });
+}
+
+function spExamAnswer(letter, btnEl) {
+  // Disable all options
+  document.querySelectorAll('.sp-exam-opt-btn').forEach(b => b.disabled = true);
+
+  const q = _spExamQuestions[_spExamIndex];
+  _spExamAnswers.push({ chosen: letter, correct: q.answer });
+
+  const correct = letter === q.answer;
+
+  // Highlight chosen
+  btnEl.style.background   = correct ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)';
+  btnEl.style.borderColor  = correct ? 'var(--green)' : 'var(--red)';
+  btnEl.style.color        = correct ? 'var(--green)' : 'var(--red)';
+
+  // Highlight correct if wrong
+  if (!correct) {
+    document.querySelectorAll('.sp-exam-opt-btn').forEach(b => {
+      const ltr = b.textContent.charAt(0);
+      if (ltr === q.answer) {
+        b.style.background  = 'rgba(52,211,153,0.1)';
+        b.style.borderColor = 'var(--green)';
+        b.style.color       = 'var(--green)';
+      }
+    });
+  }
+
+  // Show explanation briefly then advance
+  const expEl = document.createElement('div');
+  expEl.style.cssText = 'font-size:11px;color:var(--text-3);padding:8px 12px;background:var(--surface-2);border-radius:var(--r-sm);border:1px solid var(--border-xs);margin-top:4px;line-height:1.5;flex-shrink:0;';
+  expEl.textContent = q.explanation || '';
+  document.getElementById('sp-exam-options').appendChild(expEl);
+
+  setTimeout(() => {
+    _spExamIndex++;
+    if (_spExamIndex >= _spExamQuestions.length) {
+      spExamFinish();
+    } else {
+      spExamShowCurrent();
+    }
+  }, 1800);
+}
+
+function spExamFinish() {
+  clearInterval(_spExamTimerHandle);
+  document.getElementById('sp-exam-question-view').style.display = 'none';
+  document.getElementById('sp-exam-results').style.display       = 'flex';
+
+  const total   = _spExamQuestions.length;
+  const correct = _spExamAnswers.filter(a => a.chosen === a.correct).length;
+  const pct     = Math.round((correct / total) * 100);
+  const passed  = pct >= 70;
+
+  document.getElementById('sp-exam-result-emoji').textContent = passed ? '🏆' : '📖';
+  document.getElementById('sp-exam-result-title').textContent = passed ? 'Exam Passed!' : 'Not Quite Yet';
+  document.getElementById('sp-exam-result-score').textContent = pct + '%';
+  document.getElementById('sp-exam-result-score').style.color = passed ? 'var(--green)' : 'var(--red)';
+  document.getElementById('sp-exam-result-sub').textContent   =
+    passed
+      ? `You got ${correct}/${total} correct. The next concept is now unlocked!`
+      : `You got ${correct}/${total} correct. You need 70% to pass. Review the concept and try again.`;
+  spMasteryRecord('exam', pct);
+}
+
+function spExamRestart() {
+  spExamGenerate();
+}
+
+// ── Wire up AI Explain chip clicks via event delegation ──
+document.addEventListener('click', function(e) {
+  const chip = e.target.closest('.sp-activity-chip:not(.locked-chip):not(.done)');
+  if (!chip) return;
+  const node = chip.closest('.sp-node');
+  if (!node) return;
+  const conceptId = parseInt(node.dataset.conceptId, 10);
+  if (!conceptId || !_spCurrentPlan) return;
+  const concept = _spCurrentPlan.concepts[conceptId - 1];
+  if (!concept) return;
+  const chipText = chip.textContent.trim();
+  if (chipText === 'AI Explain') {
+    spOpenExplainDrawer(concept);
+  } else if (chipText === 'Flashcards') {
+    spOpenExplainDrawer(concept, 'flash');
+  } else if (chipText === "Practice Q's") {
+    spOpenExplainDrawer(concept, 'pq');
+  } else if (chipText === 'Mini Exam') {
+    spOpenExplainDrawer(concept, 'exam');
+  }
+});
+
+</script>
+
+<!-- ══════════════════════════════════════════════════
+     AI EXPLAIN DRAWER
+══════════════════════════════════════════════════ -->
+<style>
+/* Overlay */
+#sp-explain-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0);
+  z-index: 10050;
+  pointer-events: none;
+  transition: background var(--t-mid);
+}
+#sp-explain-overlay.open {
+  background: rgba(0,0,0,0.45);
+  pointer-events: all;
+}
+
+/* Drawer */
+#sp-explain-drawer {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: 480px;
+  max-width: 96vw;
+  background: var(--surface-1);
+  border-left: 1px solid var(--border-md);
+  z-index: 10051;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform var(--t-slow) var(--ease-snap);
+  box-shadow: -24px 0 72px rgba(0,0,0,0.55);
+}
+#sp-explain-drawer.open {
+  transform: translateX(0);
+}
+
+/* Header */
+.sp-explain-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border-xs);
+  flex-shrink: 0;
+}
+.sp-explain-header-icon {
+  width: 36px; height: 36px;
+  border-radius: var(--r-md);
+  background: var(--gold-muted);
+  border: 1px solid var(--gold-border);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.sp-explain-header-text { flex: 1; min-width: 0; }
+.sp-explain-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+#sp-explain-title {
+  font-family: var(--font-head);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-1);
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+/* Key term chips */
+#sp-explain-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 12px 20px 10px;
+  border-bottom: 1px solid var(--border-xs);
+  flex-shrink: 0;
+}
+.sp-explain-term-chip {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  color: var(--text-3);
+  border: 1px solid var(--border-xs);
+}
+
+/* Scrollable body */
+#sp-explain-body {
+  scrollbar-width: thin;
+}
+#sp-explain-body p { margin: 0 0 14px; }
+#sp-explain-body p:last-child { margin-bottom: 0; }
+#sp-explain-body strong { color: var(--text-1); font-weight: 600; }
+#sp-explain-body em { color: var(--gold); font-style: normal; }
+#sp-explain-body ul, #sp-explain-body ol {
+  margin: 0 0 14px 18px;
+  display: flex; flex-direction: column; gap: 5px;
+}
+#sp-explain-body li { color: var(--text-2); line-height: 1.7; }
+#sp-explain-body h4 { color: var(--text-1); }
+
+/* Spinner */
+.sp-explain-spinner {
+  width: 24px; height: 24px;
+  border: 2px solid var(--surface-4);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: sp-spin 0.7s linear infinite;
+  margin: 32px auto;
+}
+@keyframes sp-spin { to { transform: rotate(360deg); } }
+
+/* Footer actions */
+.sp-explain-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-xs);
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.sp-explain-action-btn {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.sp-explain-action-btn:hover { background: var(--surface-3); color: var(--text-1); border-color: var(--border-md); }
+.sp-explain-action-btn.locked-future {
+  opacity: 0.45; cursor: default;
+}
+.sp-explain-action-btn.locked-future:hover { background: var(--surface-2); color: var(--text-2); border-color: var(--border-sm); }
+</style>
+
+<!-- Overlay -->
+<div id="sp-explain-overlay" onclick="spCloseExplainDrawer()"></div>
+
+<!-- Drawer -->
+<div id="sp-explain-drawer">
+
+  <!-- ── Header ── -->
+  <div class="sp-explain-header">
+    <div class="sp-explain-header-icon" id="sp-drawer-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#e8ac2e" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+    </div>
+    <div class="sp-explain-header-text">
+      <div class="sp-explain-eyebrow" id="sp-drawer-eyebrow">AI Explain</div>
+      <div id="sp-explain-title">Concept Title</div>
+    </div>
+    <button onclick="spCloseExplainDrawer()" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:4px;display:flex;align-items:center;border-radius:var(--r-sm);transition:color var(--t-fast),background var(--t-fast);" onmouseover="this.style.background='var(--surface-3)';this.style.color='var(--text-1)'" onmouseout="this.style.background='';this.style.color='var(--text-3)'">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <!-- ── Tab bar ── -->
+  <div class="sp-drawer-tabs">
+    <button class="sp-drawer-tab active" id="sp-tab-explain" onclick="spDrawerTab('explain')">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+      AI Explain
+    </button>
+    <button class="sp-drawer-tab" id="sp-tab-flash" onclick="spDrawerTab('flash')">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+      Flashcards
+    </button>
+    <button class="sp-drawer-tab" id="sp-tab-pq" onclick="spDrawerTab('pq')">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Practice Q's
+    </button>
+    <button class="sp-drawer-tab" id="sp-tab-exam" onclick="spDrawerTab('exam')">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      Mini Exam
+    </button>
+  </div>
+
+  <!-- ── Key terms (explain view only) ── -->
+  <div id="sp-explain-chips"></div>
+
+  <!-- ── EXPLAIN VIEW ── -->
+  <div id="sp-view-explain" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;">
+    <div id="sp-explain-body" style="flex:1;overflow-y:auto;padding:20px 22px 32px;font-size:13.5px;line-height:1.85;color:var(--text-2);">
+      <div class="sp-explain-spinner"></div>
+    </div>
+  </div>
+
+  <!-- ── FLASHCARD VIEW ── -->
+  <div id="sp-view-flash" style="flex:1;display:none;flex-direction:column;overflow:hidden;">
+
+    <!-- Loading state -->
+    <div id="sp-fc-loading" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text-3);">
+      <div class="sp-explain-spinner"></div>
+      <div style="font-size:12px;">Generating flashcards…</div>
+    </div>
+
+    <!-- Card view -->
+    <div id="sp-fc-deck" style="flex:1;display:none;flex-direction:column;padding:16px 20px;gap:12px;overflow:hidden;">
+
+      <!-- Progress bar -->
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;height:3px;background:var(--surface-3);border-radius:2px;overflow:hidden;">
+          <div id="sp-fc-progress-bar" style="height:100%;background:var(--gold);border-radius:2px;transition:width 0.3s;width:0%;"></div>
+        </div>
+        <span id="sp-fc-counter" style="font-size:11px;font-family:var(--font-mono);color:var(--text-4);flex-shrink:0;">1 / 10</span>
+      </div>
+
+      <!-- Flip card -->
+      <div class="sp-fc-scene" onclick="spFcFlip()">
+        <div class="sp-fc-card" id="sp-fc-card">
+          <div class="sp-fc-front">
+            <div class="sp-fc-side-label">Question</div>
+            <div id="sp-fc-front-text" class="sp-fc-text"></div>
+            <div class="sp-fc-tap-hint">Tap to reveal answer</div>
+          </div>
+          <div class="sp-fc-back">
+            <div class="sp-fc-side-label" style="color:var(--teal);">Answer</div>
+            <div id="sp-fc-back-text" class="sp-fc-text"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rating buttons (shown after flip) -->
+      <div id="sp-fc-ratings" style="display:none;gap:8px;">
+        <button class="sp-fc-rate-btn hard" onclick="spFcRate('hard')">😓 Hard</button>
+        <button class="sp-fc-rate-btn ok"   onclick="spFcRate('ok')">🤔 OK</button>
+        <button class="sp-fc-rate-btn easy" onclick="spFcRate('easy')">😄 Easy</button>
+      </div>
+    </div>
+
+    <!-- Completion state -->
+    <div id="sp-fc-complete" style="flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;">
+      <div style="font-size:32px;">🎉</div>
+      <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);">Deck Complete!</div>
+      <div id="sp-fc-result-text" style="font-size:12px;color:var(--text-3);line-height:1.6;"></div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button onclick="spFcRestart()" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Restart</button>
+        <button onclick="spDrawerTab('explain')" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Back to Explain</button>
+      </div>
+    </div>
+
+  </div><!-- /#sp-view-flash -->
+
+  <!-- ══ PRACTICE Q's VIEW ══ -->
+  <div id="sp-view-pq" style="flex:1;display:none;flex-direction:column;overflow:hidden;">
+
+    <div id="sp-pq-loading" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text-3);">
+      <div class="sp-explain-spinner"></div>
+      <div style="font-size:12px;">Generating questions…</div>
+    </div>
+
+    <div id="sp-pq-question-view" style="flex:1;display:none;flex-direction:column;padding:16px 20px;gap:12px;overflow:hidden;">
+      <!-- Progress -->
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="flex:1;height:3px;background:var(--surface-3);border-radius:2px;overflow:hidden;">
+          <div id="sp-pq-progress-bar" style="height:100%;background:var(--teal);border-radius:2px;transition:width 0.3s;width:0%;"></div>
+        </div>
+        <span id="sp-pq-counter" style="font-size:11px;font-family:var(--font-mono);color:var(--text-4);flex-shrink:0;">1 / 5</span>
+      </div>
+
+      <!-- Question -->
+      <div style="background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-lg);padding:16px 18px;">
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--teal);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;">Question</div>
+        <div id="sp-pq-question-text" style="font-size:14px;font-weight:600;color:var(--text-1);line-height:1.5;"></div>
+      </div>
+
+      <!-- Answer input -->
+      <div id="sp-pq-input-wrap" style="display:flex;flex-direction:column;gap:8px;">
+        <textarea id="sp-pq-answer-input" placeholder="Type your answer here…" rows="3"
+          style="width:100%;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-md);padding:12px 14px;font-family:var(--font-body);font-size:13px;color:var(--text-1);resize:none;outline:none;transition:border-color var(--t-fast);line-height:1.5;"
+          onfocus="this.style.borderColor='rgba(45,212,191,0.4)'" onblur="this.style.borderColor=''"
+          onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey))spPqSubmit()"></textarea>
+        <button onclick="spPqSubmit()" id="sp-pq-submit-btn"
+          style="align-self:flex-end;padding:8px 20px;border-radius:var(--r-pill);background:var(--teal);border:none;color:#051a18;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-body);transition:opacity var(--t-fast);">
+          Submit Answer
+        </button>
+      </div>
+
+      <!-- Grading result -->
+      <div id="sp-pq-result" style="display:none;flex-direction:column;gap:10px;overflow-y:auto;">
+        <div id="sp-pq-verdict" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--r-md);font-size:13px;font-weight:600;"></div>
+        <div id="sp-pq-explanation" style="font-size:12.5px;color:var(--text-2);line-height:1.7;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-md);"></div>
+        <button onclick="spPqNext()" id="sp-pq-next-btn"
+          style="align-self:flex-end;padding:8px 20px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">
+          Next Question →
+        </button>
+      </div>
+    </div>
+
+    <!-- Completion -->
+    <div id="sp-pq-complete" style="flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;">
+      <div id="sp-pq-complete-emoji" style="font-size:36px;">🎯</div>
+      <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);">Practice Complete!</div>
+      <div id="sp-pq-complete-text" style="font-size:12px;color:var(--text-3);line-height:1.6;"></div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button onclick="spPqRestart()" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Retry</button>
+        <button onclick="spDrawerTab('exam')" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--teal);border:none;color:#051a18;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Take Mini Exam →</button>
+      </div>
+    </div>
+  </div><!-- /#sp-view-pq -->
+
+  <!-- ══ MINI EXAM VIEW ══ -->
+  <div id="sp-view-exam" style="flex:1;display:none;flex-direction:column;overflow:hidden;">
+
+    <div id="sp-exam-loading" style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--text-3);">
+      <div class="sp-explain-spinner" style="border-top-color:var(--red);"></div>
+      <div style="font-size:12px;">Generating exam…</div>
+    </div>
+
+    <!-- Intro screen -->
+    <div id="sp-exam-intro" style="flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;">
+      <div style="width:52px;height:52px;border-radius:var(--r-lg);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.25);display:flex;align-items:center;justify-content:center;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      </div>
+      <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);">Mini Exam Ready</div>
+      <div style="font-size:12px;color:var(--text-3);line-height:1.6;">10 questions · Timed · Pass at 70% to unlock next concept</div>
+      <div id="sp-exam-timer-display" style="font-family:var(--font-mono);font-size:28px;font-weight:700;color:var(--red);">5:00</div>
+      <button onclick="spExamStart()" style="padding:10px 28px;border-radius:var(--r-pill);background:var(--red);border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);">Start Exam</button>
+    </div>
+
+    <!-- Question view -->
+    <div id="sp-exam-question-view" style="flex:1;display:none;flex-direction:column;padding:14px 18px;gap:10px;overflow:hidden;">
+      <!-- Timer + progress -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <div style="display:flex;align-items:center;gap:8px;flex:1;">
+          <div style="flex:1;height:3px;background:var(--surface-3);border-radius:2px;overflow:hidden;">
+            <div id="sp-exam-progress-bar" style="height:100%;background:var(--red);border-radius:2px;transition:width 0.3s;width:0%;"></div>
+          </div>
+          <span id="sp-exam-counter" style="font-size:11px;font-family:var(--font-mono);color:var(--text-4);flex-shrink:0;">1/10</span>
+        </div>
+        <div id="sp-exam-timer" style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--red);margin-left:12px;flex-shrink:0;">5:00</div>
+      </div>
+
+      <!-- Question -->
+      <div style="background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-md);padding:14px 16px;flex-shrink:0;">
+        <div id="sp-exam-q-text" style="font-size:13px;font-weight:600;color:var(--text-1);line-height:1.5;"></div>
+      </div>
+
+      <!-- Options -->
+      <div id="sp-exam-options" style="display:flex;flex-direction:column;gap:7px;overflow-y:auto;flex:1;"></div>
+    </div>
+
+    <!-- Results -->
+    <div id="sp-exam-results" style="flex:1;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;overflow-y:auto;">
+      <div id="sp-exam-result-emoji" style="font-size:40px;"></div>
+      <div id="sp-exam-result-title" style="font-family:var(--font-head);font-size:18px;font-weight:800;color:var(--text-1);"></div>
+      <div id="sp-exam-result-score" style="font-family:var(--font-mono);font-size:32px;font-weight:700;"></div>
+      <div id="sp-exam-result-sub" style="font-size:12px;color:var(--text-3);line-height:1.6;max-width:300px;"></div>
+      <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;justify-content:center;">
+        <button onclick="spExamRestart()" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Retry Exam</button>
+        <button onclick="spDrawerTab('explain')" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Back to Explain</button>
+      </div>
+    </div>
+  </div><!-- /#sp-view-exam -->
+
+</div><!-- /#sp-explain-drawer -->
+
+<style>
+/* ── Exam option buttons ── */
+.sp-exam-opt-btn {
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  line-height: 1.4;
+}
+.sp-exam-opt-btn:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--border-md);
+  color: var(--text-1);
+}
+.sp-exam-opt-btn:disabled { cursor: default; }
+
+/* ── Drawer tab bar ── */
+.sp-drawer-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border-xs);
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+.sp-drawer-tab {
+  display: flex; align-items: center; gap: 5px;
+  padding: 0 12px; height: 36px;
+  font-size: 12px; font-weight: 500; font-family: var(--font-body);
+  color: var(--text-3);
+  background: none; border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color var(--t-fast);
+  white-space: nowrap;
+}
+.sp-drawer-tab:hover { color: var(--text-1); }
+.sp-drawer-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.sp-drawer-tab svg { opacity: 0.6; }
+.sp-drawer-tab.active svg { opacity: 1; }
+.sp-drawer-tab-locked { opacity: 0.35; cursor: default; }
+.sp-drawer-tab-locked:hover { color: var(--text-3); }
+
+/* ── Mini flip card ── */
+.sp-fc-scene {
+  flex: 1;
+  perspective: 900px;
+  cursor: pointer;
+  min-height: 0;
+}
+.sp-fc-card {
+  width: 100%; height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: var(--r-lg);
+}
+.sp-fc-card.flipped { transform: rotateY(180deg); }
+.sp-fc-front, .sp-fc-back {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: var(--r-lg);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 20px;
+  gap: 10px;
+  text-align: center;
+}
+.sp-fc-front {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+}
+.sp-fc-back {
+  background: var(--surface-2);
+  border: 1px solid rgba(45,212,191,0.25);
+  transform: rotateY(180deg);
+}
+.sp-fc-side-label {
+  font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-4);
+  position: absolute; top: 14px; left: 0; right: 0;
+  text-align: center;
+}
+.sp-fc-text {
+  font-size: 14px; font-weight: 600;
+  color: var(--text-1); line-height: 1.5;
+  max-height: 100%; overflow-y: auto;
+}
+.sp-fc-tap-hint {
+  position: absolute; bottom: 12px;
+  font-size: 10px; color: var(--text-4);
+  font-family: var(--font-mono);
+}
+
+/* ── Rating buttons ── */
+#sp-fc-ratings {
+  display: flex;
+  gap: 8px;
+}
+.sp-fc-rate-btn {
+  flex: 1; padding: 9px 0;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-sm);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: 12px; font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.sp-fc-rate-btn.hard:hover { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.3); color: var(--red); }
+.sp-fc-rate-btn.ok:hover   { background: var(--gold-muted); border-color: var(--gold-border); color: var(--gold); }
+.sp-fc-rate-btn.easy:hover { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.3); color: var(--green); }
+</style>
 
 </body>
 </html>
