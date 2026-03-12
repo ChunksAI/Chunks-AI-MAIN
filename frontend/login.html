@@ -416,44 +416,29 @@
 </div>
 
 <script>
-  // ── Supabase init ──────────────────────────────────────────
-  // These values are fetched from the backend /config endpoint so they're
-  // never hardcoded in source. Fallback to env-style placeholders for local dev.
-  const BACKEND = 'https://chunks-ai-main-production.up.railway.app';
+  // ── Supabase config (anon key is safe to expose in frontend) ──
+  const SUPABASE_URL  = 'https://wiwbfspsrgayvquzfryl.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I';
 
-  let _supabase = null;
+  const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
-  async function initSupabase() {
-    try {
-      const res = await fetch(`${BACKEND}/config`);
-      const cfg = await res.json();
-      const url = cfg.supabaseUrl || '';
-      const key = cfg.supabaseAnonKey || '';
-      if (!url || !key) throw new Error('Missing Supabase config');
-      _supabase = window.supabase.createClient(url, key);
-      return true;
-    } catch(e) {
-      showError('Could not connect to authentication service. Please try again.');
-      return false;
-    }
+  // ── Redirect target after login ──
+  // Works for Vercel, Netlify, local file server, etc.
+  function _getRedirectUrl() {
+    const loc = window.location;
+    return loc.origin + loc.pathname.replace('login.html', 'index.html');
   }
 
+  // ── Google Sign In ────────────────────────────────────────
   async function signInWithGoogle() {
     const btn = document.getElementById('btn-google');
     btn.classList.add('loading');
     btn.disabled = true;
     hideError();
 
-    if (!_supabase) {
-      const ok = await initSupabase();
-      if (!ok) { btn.classList.remove('loading'); btn.disabled = false; return; }
-    }
-
     const { error } = await _supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: window.location.origin + '/index.html'
-      }
+      options: { redirectTo: _getRedirectUrl() }
     });
 
     if (error) {
@@ -461,14 +446,16 @@
       btn.classList.remove('loading');
       btn.disabled = false;
     }
-    // On success browser redirects — button stays in loading state
+    // On success the browser navigates away — loading stays
   }
 
+  // ── Guest ─────────────────────────────────────────────────
   function continueAsGuest() {
     sessionStorage.setItem('chunks_guest_mode', '1');
     window.location.href = 'index.html';
   }
 
+  // ── Helpers ───────────────────────────────────────────────
   function showError(msg) {
     const el = document.getElementById('auth-error');
     el.textContent = msg;
@@ -478,16 +465,11 @@
     document.getElementById('auth-error').classList.remove('show');
   }
 
-  // ── On load: init Supabase and check if already logged in ──
+  // ── On load: skip login if already authenticated ──────────
   (async () => {
-    const ok = await initSupabase();
-    if (!ok) return;
-
-    // Handle OAuth callback hash (#access_token=...)
     const { data: { session } } = await _supabase.auth.getSession();
     if (session) {
-      // Already authenticated — go straight to app
-      window.location.href = 'index.html';
+      window.location.replace('index.html');
     }
   })();
 </script>

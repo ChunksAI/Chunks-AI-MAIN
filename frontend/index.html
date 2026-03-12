@@ -6792,36 +6792,18 @@ document.getElementById('confirm-modal').addEventListener('click', function(e) {
 <!-- ── Supabase Auth ── -->
 <script>
 (async function() {
-  const BACKEND = 'https://chunks-ai-main-production.up.railway.app';
-  let _supabase = null;
-  let _authToken = null;
+  // ── Supabase config (anon key is safe in frontend) ────────
+  const SUPABASE_URL  = 'https://wiwbfspsrgayvquzfryl.supabase.co';
+  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I';
 
-  // ── Init Supabase (silent fail) ───────────────────────────
-  async function _initSupabase() {
-    if (_supabase) return _supabase;
-    try {
-      const res = await fetch(`${BACKEND}/config`);
-      const cfg = await res.json();
-      if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) return null;
-      _supabase = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
-      return _supabase;
-    } catch(e) { return null; }
-  }
+  const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  let _authToken = null;
 
   // ── Session check ─────────────────────────────────────────
   async function _checkSession() {
-    // Guest bypasses auth entirely
     if (sessionStorage.getItem('chunks_guest_mode')) return;
 
-    let sb;
-    try { sb = await _initSupabase(); } catch(e) { return; }
-    if (!sb) return; // Supabase unavailable — allow through
-
-    let session;
-    try {
-      const { data } = await sb.auth.getSession();
-      session = data?.session;
-    } catch(e) { return; } // Auth check failed — allow through
+    const { data: { session } } = await _supabase.auth.getSession();
 
     if (!session) {
       window.location.replace('login.html');
@@ -6831,11 +6813,12 @@ document.getElementById('confirm-modal').addEventListener('click', function(e) {
     _authToken = session.access_token;
     _applyUserToUI(session.user);
 
-    sb.auth.onAuthStateChange((event, newSession) => {
+    _supabase.auth.onAuthStateChange((event, newSession) => {
       if (event === 'SIGNED_OUT') {
         window.location.replace('login.html');
       } else if (newSession?.access_token) {
         _authToken = newSession.access_token;
+        _applyUserToUI(newSession.user);
       }
     });
   }
@@ -6863,26 +6846,22 @@ document.getElementById('confirm-modal').addEventListener('click', function(e) {
     if (pdAvatar) pdAvatar.innerHTML   = avatarHTML;
   }
 
-  // ── Inject auth token into API calls (non-breaking) ───────
+  // ── Inject auth token into API calls ─────────────────────
   const _origFetch = window.fetch.bind(window);
   window.fetch = function(input, opts) {
     try {
       const url = typeof input === 'string' ? input : input?.url || '';
       if (_authToken && url.includes('chunks-ai-main-production')) {
         opts = opts ? { ...opts } : {};
-        const existing = opts.headers || {};
-        opts.headers = { ...existing, 'Authorization': `Bearer ${_authToken}` };
+        opts.headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${_authToken}` };
       }
-    } catch(e) { /* never break fetch */ }
+    } catch(e) {}
     return _origFetch(input, opts);
   };
 
   // ── Sign out ──────────────────────────────────────────────
   window._authSignOut = async function() {
-    try {
-      const sb = await _initSupabase();
-      if (sb) await sb.auth.signOut();
-    } catch(e) {}
+    try { await _supabase.auth.signOut(); } catch(e) {}
     sessionStorage.removeItem('chunks_guest_mode');
     window.location.replace('login.html');
   };
@@ -6894,8 +6873,8 @@ document.getElementById('confirm-modal').addEventListener('click', function(e) {
     _origPdAction?.(action);
   };
 
-  // ── Run (errors never crash the app) ─────────────────────
-  try { await _checkSession(); } catch(e) { console.warn('Auth check failed silently:', e); }
+  // ── Run ───────────────────────────────────────────────────
+  try { await _checkSession(); } catch(e) { console.warn('Auth error:', e); }
 })();
 </script>
 </body>
