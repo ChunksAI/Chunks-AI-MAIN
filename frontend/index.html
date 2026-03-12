@@ -5738,7 +5738,7 @@ function pdAction(action) {
     case 'logout':
       showConfirmModal({
         title: 'Log out?',
-        desc: 'You'll be redirected to the login page.',
+        desc: 'You\'ll be redirected to the login page.',
         confirmLabel: 'Log out',
         onConfirm: () => window._authSignOut ? window._authSignOut() : (wsShowToast && wsShowToast('👋', 'Logged out', ''))
       });
@@ -6945,10 +6945,9 @@ document.getElementById('confirm-modal').addEventListener('click', function(e) {
     window.location.replace('login.html');
   };
 
-  // ── Patch pdAction for logout ─────────────────────────────
+  // ── Patch pdAction for terms/privacy (logout handled by main pdAction) ──
   const _origPdAction = window.pdAction;
   window.pdAction = function(action) {
-    if (action === 'logout') { window._authSignOut(); return; }
     _origPdAction?.(action);
   };
 
