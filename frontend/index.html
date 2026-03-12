@@ -2568,6 +2568,678 @@ body {
 .setup-btn:hover { background: var(--gold-bright); transform: translateY(-1px); }
 
 </style>
+<style>
+#screen-exam {
+  flex-direction: row;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.exam-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+  position: relative;
+  scrollbar-width: thin;
+}
+
+.exam-main::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 15%, rgba(232,172,46,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 85%, rgba(139,124,248,0.05) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.exam-wrap {
+  width: 100%; max-width: 680px;
+  padding: 32px 24px 80px;
+  position: relative; z-index: 1;
+}
+
+/* Setup card */
+.exam-setup-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-md);
+  overflow: hidden;
+}
+.exam-setup-header {
+  padding: 22px 24px 18px;
+  border-bottom: 1px solid var(--border-xs);
+}
+.exam-setup-header h2 {
+  font-family: var(--font-head);
+  font-size: 18px; font-weight: 700;
+  color: var(--text-1); margin-bottom: 4px;
+}
+.exam-setup-header p { font-size: 12px; color: var(--text-4); }
+
+.exam-setup-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 18px; }
+
+.exam-field label {
+  display: block; font-size: 10px; font-weight: 600;
+  color: var(--text-4); letter-spacing: 0.07em;
+  text-transform: uppercase; margin-bottom: 6px;
+  font-family: var(--font-mono);
+}
+.exam-input {
+  width: 100%; background: var(--surface-2);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-sm); padding: 9px 12px;
+  font-family: var(--font-body); font-size: 13px;
+  color: var(--text-1); outline: none;
+  transition: border-color var(--t-fast);
+}
+.exam-input:focus { border-color: var(--gold-border); }
+.exam-input option { background: var(--surface-3); }
+
+.exam-row { display: flex; gap: 12px; }
+.exam-row .exam-field { flex: 1; }
+
+.exam-type-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+}
+.exam-type-btn {
+  padding: 10px 8px; border-radius: var(--r-sm);
+  background: var(--surface-2); border: 1px solid var(--border-xs);
+  color: var(--text-3); font-size: 11px; font-weight: 600;
+  cursor: pointer; text-align: center;
+  font-family: var(--font-body); transition: all var(--t-fast);
+}
+.exam-type-btn:hover { border-color: var(--border-md); color: var(--text-1); }
+.exam-type-btn.active {
+  background: var(--gold-muted); border-color: var(--gold-border);
+  color: var(--gold);
+}
+.exam-type-btn .etb-icon { font-size: 16px; display: block; margin-bottom: 4px; }
+
+.exam-start-btn {
+  width: 100%; padding: 12px;
+  background: var(--gold); border: none; border-radius: var(--r-sm);
+  font-family: var(--font-head); font-size: 14px; font-weight: 700;
+  color: #090900; cursor: pointer;
+  transition: background var(--t-fast), transform var(--t-fast);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.exam-start-btn:hover { background: var(--gold-bright); transform: translateY(-1px); }
+.exam-start-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* Question card */
+.exam-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.exam-progress-wrap { flex: 1; margin: 0 16px; }
+.exam-progress-label {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--text-4); margin-bottom: 5px;
+  display: flex; justify-content: space-between;
+}
+.exam-progress-track {
+  height: 3px; background: var(--surface-4);
+  border-radius: 2px; overflow: hidden;
+}
+.exam-progress-fill {
+  height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, var(--gold), var(--violet));
+  transition: width 0.4s var(--ease-snap);
+}
+
+.exam-timer {
+  display: flex; align-items: center; gap: 5px;
+  font-family: var(--font-mono); font-size: 13px;
+  color: var(--text-2); flex-shrink: 0;
+}
+.exam-timer.warn { color: var(--red, #f87171); }
+.exam-timer svg { opacity: 0.6; }
+
+.exam-q-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-md); overflow: hidden;
+  margin-bottom: 16px;
+  animation: fadeUp 0.25s ease;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.exam-q-header {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border-xs);
+}
+.exam-q-num {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--text-4); margin-bottom: 8px; letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.exam-q-text {
+  font-size: 15px; font-weight: 600;
+  color: var(--text-1); line-height: 1.6;
+  font-family: var(--font-head);
+}
+
+.exam-options { padding: 14px 22px 20px; display: flex; flex-direction: column; gap: 8px; }
+
+.exam-option {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px; border-radius: var(--r-sm);
+  border: 1px solid var(--border-xs);
+  background: var(--surface-2);
+  cursor: pointer; transition: all var(--t-fast);
+  text-align: left; width: 100%; font-family: var(--font-body);
+}
+.exam-option:hover:not(:disabled) {
+  border-color: var(--border-md);
+  background: var(--surface-3);
+}
+.exam-option .opt-letter {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--surface-3); border: 1px solid var(--border-xs);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  color: var(--text-3); flex-shrink: 0; margin-top: 1px;
+  transition: all var(--t-fast);
+}
+.exam-option .opt-text { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+
+.exam-option.selected {
+  border-color: var(--gold-border);
+  background: var(--gold-muted);
+}
+.exam-option.selected .opt-letter {
+  background: var(--gold); border-color: var(--gold);
+  color: #090900;
+}
+.exam-option.correct {
+  border-color: rgba(45,212,191,0.4);
+  background: rgba(45,212,191,0.07);
+}
+.exam-option.correct .opt-letter {
+  background: var(--teal, #2dd4bf); border-color: var(--teal, #2dd4bf);
+  color: #090900;
+}
+.exam-option.wrong {
+  border-color: rgba(248,113,113,0.3);
+  background: rgba(248,113,113,0.05);
+}
+.exam-option.wrong .opt-letter {
+  background: rgba(248,113,113,0.3); border-color: transparent;
+  color: #f87171;
+}
+
+.exam-feedback {
+  margin: 0 22px 16px;
+  padding: 12px 14px;
+  border-radius: var(--r-sm);
+  font-size: 12px; line-height: 1.6;
+  display: none;
+}
+.exam-feedback.show { display: block; }
+.exam-feedback.correct-fb {
+  background: rgba(45,212,191,0.08);
+  border: 1px solid rgba(45,212,191,0.2);
+  color: var(--teal, #2dd4bf);
+}
+.exam-feedback.wrong-fb {
+  background: rgba(248,113,113,0.07);
+  border: 1px solid rgba(248,113,113,0.2);
+  color: #f87171;
+}
+
+.exam-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+}
+.exam-nav-btn {
+  padding: 10px 22px; border-radius: var(--r-sm);
+  font-family: var(--font-body); font-size: 13px; font-weight: 600;
+  border: none; cursor: pointer; transition: all var(--t-fast);
+}
+.exam-nav-btn.primary {
+  background: var(--gold); color: #090900;
+}
+.exam-nav-btn.primary:hover { background: var(--gold-bright); }
+.exam-nav-btn.secondary {
+  background: var(--surface-2); border: 1px solid var(--border-xs);
+  color: var(--text-2);
+}
+.exam-nav-btn.secondary:hover { border-color: var(--border-md); color: var(--text-1); }
+.exam-nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Results */
+.exam-results-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-md); overflow: hidden;
+}
+.exam-results-header {
+  padding: 28px 24px 20px; text-align: center;
+  border-bottom: 1px solid var(--border-xs);
+}
+.exam-score-ring {
+  width: 80px; height: 80px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+  font-family: var(--font-mono); font-size: 22px; font-weight: 700;
+}
+.exam-score-ring.pass {
+  background: rgba(45,212,191,0.12);
+  border: 3px solid rgba(45,212,191,0.4);
+  color: var(--teal, #2dd4bf);
+}
+.exam-score-ring.fail {
+  background: var(--gold-muted);
+  border: 3px solid var(--gold-border);
+  color: var(--gold);
+}
+.exam-results-header h3 {
+  font-family: var(--font-head); font-size: 17px;
+  font-weight: 700; color: var(--text-1); margin-bottom: 4px;
+}
+.exam-results-header p { font-size: 12px; color: var(--text-4); }
+
+.exam-stats-row {
+  display: flex; border-bottom: 1px solid var(--border-xs);
+}
+.exam-stat {
+  flex: 1; padding: 16px 12px; text-align: center;
+  border-right: 1px solid var(--border-xs);
+}
+.exam-stat:last-child { border-right: none; }
+.exam-stat-num {
+  font-family: var(--font-mono); font-size: 18px;
+  font-weight: 700; color: var(--gold); margin-bottom: 3px;
+}
+.exam-stat-label { font-size: 10px; color: var(--text-4); }
+
+.exam-review { padding: 18px 26px; display: flex; flex-direction: column; gap: 12px; }
+.exam-review-item {
+  padding: 16px 18px; border-radius: var(--r-sm);
+  border: 1px solid var(--border-sm);
+  background: var(--surface-2);
+  transition: background 0.14s;
+}
+.exam-review-item:hover { background: var(--surface-3); }
+.exam-review-q {
+  font-size: 14px; font-weight: 600; color: #ededf0;
+  margin-bottom: 10px; line-height: 1.5;
+}
+.exam-review-answer {
+  font-size: 13px; display: flex; gap: 8px; align-items: baseline;
+  flex-wrap: wrap; margin-bottom: 6px;
+}
+.exam-review-label {
+  color: #8888a0;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+.exam-review-val { color: #c0c0d8; font-weight: 500; }
+.exam-review-val.c { color: #5ae8d4; font-weight: 600; }
+.exam-review-val.w { color: #ff7070; font-weight: 600; }
+.exam-review-explanation {
+  font-size: 12.5px; color: #7878a0; line-height: 1.65; margin-top: 8px;
+  padding-top: 8px; border-top: 1px solid var(--border-xs);
+}
+
+.exam-actions { padding: 16px 24px 24px; display: flex; gap: 10px; }
+
+
+/* ── Source Material Upload ──────────────────────────────── */
+.exam-src-tabs {
+  display: flex;
+  gap: 2px;
+  background: var(--surface-3);
+  border-radius: var(--r-sm);
+  padding: 2px;
+}
+.exam-src-tab {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11px; font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.exam-src-tab:hover { color: var(--text-1); }
+.exam-src-tab.active {
+  background: var(--surface-1);
+  color: var(--text-1);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.exam-upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 22px 16px;
+  border: 1.5px dashed var(--border-sm);
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color var(--t-fast), background var(--t-fast);
+  text-align: center;
+  min-height: 96px;
+}
+.exam-upload-zone:hover,
+.exam-upload-zone.drag-over {
+  border-color: var(--gold-border);
+  background: var(--gold-muted);
+}
+.exam-upload-zone.has-file {
+  cursor: default;
+  border-style: solid;
+  border-color: var(--border-md);
+  align-items: flex-start;
+  padding: 14px 16px;
+}
+
+.exam-file-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  color: var(--gold);
+  font-size: 12px;
+  font-weight: 600;
+}
+.exam-file-badge svg { flex-shrink: 0; color: var(--gold); }
+.exam-file-badge span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.exam-file-clear {
+  display: flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface-4);
+  color: var(--text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.exam-file-clear:hover { background: rgba(248,113,113,0.15); color: var(--red); }
+
+.exam-notes-area {
+  resize: vertical;
+  min-height: 100px;
+  max-height: 200px;
+  line-height: 1.6;
+  font-size: 12px;
+}
+
+/* Extract spinner */
+.exam-extract-spinner {
+  width: 10px; height: 10px;
+  border: 1.5px solid var(--border-md);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+
+/* ── Scan Mode Cards ─────────────────────────────────────── */
+.exam-scan-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.exam-scan-card {
+  padding: 12px 12px 14px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-xs);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: all var(--t-fast);
+  text-align: left;
+}
+.exam-scan-card:hover {
+  border-color: var(--border-md);
+  background: var(--surface-3);
+}
+.exam-scan-card.active {
+  border-color: var(--gold-border);
+  background: var(--gold-muted);
+}
+
+.exam-scan-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.exam-scan-icon { font-size: 18px; line-height: 1; }
+.exam-scan-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+}
+.exam-scan-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin-bottom: 4px;
+  font-family: var(--font-head);
+}
+.exam-scan-card.active .exam-scan-name { color: var(--gold); }
+.exam-scan-desc {
+  font-size: 11px;
+  color: var(--text-4);
+  line-height: 1.5;
+}
+.exam-scan-card.active .exam-scan-desc { color: var(--text-3); }
+
+/* ── Deep Scan Progress Stages ───────────────────────────── */
+.exam-deep-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.exam-deep-stage-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--surface-4);
+  border: 1.5px solid var(--border-sm);
+  transition: all 0.3s ease;
+}
+.exam-deep-stage.done .exam-deep-stage-dot {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.exam-deep-stage.active .exam-deep-stage-dot {
+  background: transparent;
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-muted);
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 3px var(--gold-muted); }
+  50%       { box-shadow: 0 0 0 6px var(--gold-muted); }
+}
+.exam-deep-stage-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-4);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.exam-deep-stage.done .exam-deep-stage-label,
+.exam-deep-stage.active .exam-deep-stage-label { color: var(--gold); }
+
+.exam-deep-stage-line {
+  flex: 1;
+  height: 1.5px;
+  background: var(--border-xs);
+  margin-top: -14px; /* align with dots vertically */
+  border-radius: 1px;
+}
+
+
+/* ── 4-column type grid for situational ─────────────────── */
+.exam-type-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Situational question — wider scenario text */
+.exam-q-scenario {
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.65;
+  padding: 10px 14px;
+  background: var(--violet-muted);
+  border: 1px solid var(--violet-border);
+  border-radius: var(--r-sm);
+  margin-bottom: 10px;
+  font-style: italic;
+}
+.exam-q-scenario strong {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--violet);
+  font-style: normal;
+  margin-bottom: 5px;
+}
+
+
+/* ── Source Reference Badge ─────────────────────────────────── */
+.exam-q-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--violet);
+  background: var(--violet-muted);
+  border: 1px solid var(--violet-border);
+  border-radius: var(--r-pill);
+  padding: 2px 8px 2px 6px;
+  margin-bottom: 8px;
+  width: fit-content;
+}
+.exam-q-ref svg { flex-shrink: 0; opacity: 0.7; }
+
+
+/* ── 5-column type grid ─────────────────────────────────────── */
+.exam-type-grid-5 {
+  grid-template-columns: repeat(5, 1fr);
+}
+
+/* ── CBL Clinical Vignette Card ─────────────────────────────── */
+.exam-cbl-card {
+  background: rgba(220, 38, 38, 0.04);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+  border-radius: var(--r-sm);
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+.exam-cbl-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: rgba(220, 38, 38, 0.08);
+  border-bottom: 1px solid rgba(220, 38, 38, 0.15);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #f87171;
+}
+.exam-cbl-tag {
+  margin-left: auto;
+  padding: 1px 7px;
+  background: rgba(220,38,38,0.12);
+  border: 1px solid rgba(220,38,38,0.2);
+  border-radius: var(--r-pill);
+  font-size: 9px;
+  color: #f87171;
+}
+.exam-cbl-vitals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(220,38,38,0.1);
+}
+.exam-cbl-vital-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-sm);
+  padding: 4px 9px;
+  min-width: 60px;
+}
+.exam-cbl-vital-label {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.exam-cbl-vital-value {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-1);
+  line-height: 1.2;
+}
+.exam-cbl-vital-value.abnormal { color: #f87171; }
+.exam-cbl-body {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.65;
+}
+.exam-cbl-body strong {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.exam-cbl-q-type {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #f87171;
+  background: rgba(220,38,38,0.08);
+  border: 1px solid rgba(220,38,38,0.18);
+  border-radius: var(--r-pill);
+  padding: 2px 8px;
+  margin-bottom: 6px;
+}
+
+
+</style>
+
 
 </head>
 <body>
@@ -2648,7 +3320,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
         <span>Research</span>
       </div>
-      <div class="sidebar-item" onclick="location.href='exam.html'" style="cursor:pointer;">
+      <div class="sidebar-item" onclick="showScreen('exam')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Exam</span>
       </div>
@@ -2837,7 +3509,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
         <span>Research</span>
       </div>
-      <div class="sidebar-item" onclick="location.href='exam.html'" style="cursor:pointer;">
+      <div class="sidebar-item" onclick="showScreen('exam')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Exam</span>
       </div>
@@ -3053,7 +3725,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
         <span>Research</span>
       </div>
-      <div class="sidebar-item" onclick="location.href='exam.html'" style="cursor:pointer;">
+      <div class="sidebar-item" onclick="showScreen('exam')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Exam</span>
       </div>
@@ -3215,7 +3887,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
         <span>Research</span>
       </div>
-      <div class="sidebar-item" onclick="location.href='exam.html'" style="cursor:pointer;">
+      <div class="sidebar-item" onclick="showScreen('exam')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 12 2 2 4-4"/></svg>
         <span>Exam Mode</span>
       </div>
@@ -3586,6 +4258,411 @@ body {
 </div><!-- /screen-research -->
 
 
+<!-- ══════════════════════════════
+     SCREEN 5: EXAM MODE
+══════════════════════════════ -->
+<div class="screen" id="screen-exam" style="flex-direction:row;overflow:hidden;">
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" onclick="toggleSidebar(this)" title="Toggle sidebar">
+        <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
+        <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+        <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+        <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+      </svg>
+      <span class="logo-text">Chunks</span>
+      <button class="sidebar-collapse-btn" onclick="toggleSidebar(this)" title="Collapse sidebar">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+    </div>
+
+    <button class="sidebar-new-btn" onclick="newChat()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span>New Chat</span>
+    </button>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Study</div>
+      <div class="sidebar-item" onclick="showScreen('home')" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span>Home</span>
+      </div>
+      <div class="sidebar-item" onclick="goToScreen('workspace')" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        <span>Workspace</span>
+      </div>
+      <div class="sidebar-item" onclick="openLibraryModal()" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        <span>Library</span>
+      </div>
+      <div class="sidebar-item" onclick="goToScreen('flash')" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+        <span>Flashcards</span>
+      </div>
+      <div class="sidebar-item" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <span>Study Plan</span>
+      </div>
+      <div class="sidebar-item" onclick="showScreen('research')" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
+        <span>Research</span>
+      </div>
+      <div class="sidebar-item active" style="cursor:pointer;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Exam</span>
+      </div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Recent Exams</div>
+      <div id="exam-recent-list" style="padding:4px 0;font-size:11px;color:var(--text-4);text-align:center;"></div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="profile-row" onclick="toggleProfileDropdown(event)">
+        <div class="avatar">A</div>
+        <div class="profile-text">
+          <div class="profile-name">Alex Cruz</div>
+          <div class="profile-plan">Free Plan</div>
+        </div>
+        <svg class="profile-dots" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-3);margin-left:auto;flex-shrink:0;"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main exam area -->
+  <main class="exam-main">
+    <div class="exam-wrap">
+
+      <!-- SETUP VIEW -->
+      <div id="exam-setup">
+        <div style="margin-bottom:24px;">
+          <div style="font-family:var(--font-mono);font-size:10px;color:var(--gold);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Exam Mode</div>
+          <h1 style="font-family:var(--font-head);font-size:24px;font-weight:800;color:var(--text-1);margin-bottom:6px;">Test Your Knowledge</h1>
+          <p style="font-size:13px;color:var(--text-4);line-height:1.6;">Generate a timed exam from any topic or textbook chapter. The AI will create questions, grade your answers, and explain what you got wrong.</p>
+        </div>
+
+        <div class="exam-setup-card">
+          <div class="exam-setup-header">
+            <h2>Configure Your Exam</h2>
+            <p>Choose your topic, format, and difficulty — the AI does the rest.</p>
+          </div>
+          <div class="exam-setup-body">
+
+            <div class="exam-field">
+              <label>Topic or Chapter</label>
+              <input class="exam-input" id="exam-topic-input" type="text" placeholder="e.g. Mitosis and Meiosis, World War II, Newton's Laws…" />
+            </div>
+
+            <!-- ── Source Material ── -->
+            <div class="exam-field">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <label style="margin-bottom:0;">Source Material <span style="color:var(--text-4);font-weight:400;letter-spacing:0;">(optional)</span></label>
+                <div class="exam-src-tabs" id="exam-src-tabs">
+                  <button class="exam-src-tab active" data-tab="pdf" onclick="examSrcTab(this)">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    PDF
+                  </button>
+                  <button class="exam-src-tab" data-tab="notes" onclick="examSrcTab(this)">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+                    Notes
+                  </button>
+                </div>
+              </div>
+
+              <!-- PDF tab -->
+              <div id="exam-src-pdf">
+                <input type="file" id="exam-pdf-file" accept="application/pdf" style="display:none;" onchange="examHandlePdfFile(this)">
+                <div class="exam-upload-zone" id="exam-upload-zone"
+                     onclick="document.getElementById('exam-pdf-file').click()"
+                     ondragover="examDragOver(event)" ondragleave="examDragLeave(event)" ondrop="examDrop(event)">
+                  <div id="exam-upload-idle">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-4);margin-bottom:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    <div style="font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:3px;">Drop a PDF here or click to browse</div>
+                    <div style="font-size:11px;color:var(--text-4);">Questions will be generated from your document’s content</div>
+                  </div>
+                  <div id="exam-upload-attached" style="display:none;width:100%;">
+                    <div class="exam-file-badge">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      <span id="exam-file-name">document.pdf</span>
+                      <span id="exam-file-pages" style="color:var(--text-4);margin-left:auto;flex-shrink:0;"></span>
+                      <button class="exam-file-clear" onclick="examClearSource(event)" title="Remove">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </div>
+                    <div id="exam-extract-status" style="font-size:11px;color:var(--text-4);margin-top:6px;display:flex;align-items:center;gap:5px;"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Notes tab -->
+              <div id="exam-src-notes" style="display:none;">
+                <textarea id="exam-notes-input" class="exam-input exam-notes-area"
+                  placeholder="Paste your study notes, lecture slides text, or any content you want the exam based on…"></textarea>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
+                  <span id="exam-notes-count" style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);">0 chars</span>
+                  <button onclick="examClearNotes()" style="font-size:10px;color:var(--text-4);background:none;border:none;cursor:pointer;font-family:var(--font-body);" onmouseenter="this.style.color='var(--text-2)'" onmouseleave="this.style.color='var(--text-4)'">Clear</button>
+                </div>
+              </div>
+            </div>
+            <!-- /Source Material -->
+
+            <!-- ── Scan Mode (shown when source material is attached) ── -->
+            <div class="exam-field" id="exam-scan-mode-field" style="display:none;">
+              <label>Generation Mode</label>
+              <div class="exam-scan-grid">
+
+                <div class="exam-scan-card active" data-mode="quick" onclick="examSelectScanMode(this)">
+                  <div class="exam-scan-top">
+                    <span class="exam-scan-icon">⚡</span>
+                    <span class="exam-scan-badge" style="background:rgba(45,212,191,0.12);color:var(--teal);">~4s</span>
+                  </div>
+                  <div class="exam-scan-name">Quick</div>
+                  <div class="exam-scan-desc">Fixed question count from your material. Fast, great for a quick quiz.</div>
+                </div>
+
+                <div class="exam-scan-card" data-mode="smart" onclick="examSelectScanMode(this)">
+                  <div class="exam-scan-top">
+                    <span class="exam-scan-icon">🧠</span>
+                    <span class="exam-scan-badge" style="background:rgba(139,124,248,0.12);color:var(--violet);">~6s</span>
+                  </div>
+                  <div class="exam-scan-name">Smart</div>
+                  <div class="exam-scan-desc">AI reads the full document first, then generates questions covering every section.</div>
+                </div>
+
+                <div class="exam-scan-card" data-mode="deep" onclick="examSelectScanMode(this)">
+                  <div class="exam-scan-top">
+                    <span class="exam-scan-icon">🔬</span>
+                    <span class="exam-scan-badge" style="background:rgba(232,172,46,0.12);color:var(--gold);">~20s</span>
+                  </div>
+                  <div class="exam-scan-name">Deep Scan</div>
+                  <div class="exam-scan-desc">Chunks your document, extracts every concept, and generates one question per concept.</div>
+                </div>
+
+              </div>
+              <!-- Deep scan note -->
+              <div id="exam-deep-note" style="display:none;margin-top:8px;font-size:11px;color:var(--text-4);padding:8px 12px;background:var(--gold-muted);border:1px solid var(--gold-border);border-radius:var(--r-sm);line-height:1.5;">
+                🔬 Deep Scan generates <strong style="color:var(--gold);">one question per concept</strong> found across your entire document — ignoring the question count unless you set it above 10 to cap large results.
+              </div>
+            </div>
+            <!-- /Scan Mode -->
+
+            <div class="exam-row">
+              <div class="exam-field">
+                <label id="exam-count-label">Number of Questions</label>
+                <select class="exam-input" id="exam-count-input">
+                  <option value="5">5 questions</option>
+                  <option value="10" selected>10 questions</option>
+                  <option value="15">15 questions</option>
+                  <option value="20">20 questions</option>
+                  <option value="30">30 questions</option>
+                </select>
+              </div>
+              <div class="exam-field">
+                <label>Time Limit</label>
+                <select class="exam-input" id="exam-time-input">
+                  <option value="0">No limit</option>
+                  <option value="300">5 minutes</option>
+                  <option value="600" selected>10 minutes</option>
+                  <option value="900">15 minutes</option>
+                  <option value="1800">30 minutes</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="exam-field">
+              <label>Question Type</label>
+              <div class="exam-type-grid exam-type-grid-5" id="exam-type-grid">
+                <button class="exam-type-btn active" data-type="mcq" onclick="examSelectType(this)">
+                  <span class="etb-icon">🔘</span>Multiple Choice
+                </button>
+                <button class="exam-type-btn" data-type="truefalse" onclick="examSelectType(this)">
+                  <span class="etb-icon">✅</span>True / False
+                </button>
+                <button class="exam-type-btn" data-type="situational" onclick="examSelectType(this)">
+                  <span class="etb-icon">⚡</span>Situational
+                </button>
+                <button class="exam-type-btn" data-type="cbl" onclick="examSelectType(this)">
+                  <span class="etb-icon">🩺</span>Case-Based
+                </button>
+                <button class="exam-type-btn" data-type="mixed" onclick="examSelectType(this)">
+                  <span class="etb-icon">🎲</span>Mixed
+                </button>
+              </div>
+              <!-- CBL hint -->
+              <div id="exam-cbl-hint" style="display:none;margin-top:8px;font-size:12px;color:#e0c4c4;padding:10px 14px;background:rgba(220,38,38,0.13);border:1px solid rgba(220,38,38,0.35);border-radius:var(--r-sm);line-height:1.6;">
+                🩺 Case-Based Learning presents a full clinical vignette — patient age, sex, chief complaint, history, vitals, and labs — then asks for the <strong style="color:#ff8a8a;font-weight:700;">diagnosis, next best step, or treatment</strong>. Designed for medical students.
+              </div>
+              <!-- Situational hint -->
+              <div id="exam-situational-hint" style="display:none;margin-top:8px;font-size:12px;color:#c8c0e0;padding:10px 14px;background:rgba(139,92,246,0.13);border:1px solid rgba(139,92,246,0.35);border-radius:var(--r-sm);line-height:1.6;">
+                📋 Situational questions present a real-world scenario (patient case, workplace event, academic problem) and ask what the <strong style="color:#b899ff;font-weight:700;">best course of action</strong> is. Great for clinical, professional, or applied exams.
+              </div>
+            </div>
+
+            <div class="exam-field">
+              <label>Difficulty</label>
+              <div style="display:flex;gap:8px;">
+                <button class="exam-type-btn" data-diff="easy" onclick="examSelectDiff(this)" style="flex:1;">Easy</button>
+                <button class="exam-type-btn active" data-diff="medium" onclick="examSelectDiff(this)" style="flex:1;">Medium</button>
+                <button class="exam-type-btn" data-diff="hard" onclick="examSelectDiff(this)" style="flex:1;">Hard</button>
+              </div>
+            </div>
+
+            <div id="exam-error" style="display:none;font-size:12px;color:#f87171;padding:10px 14px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:var(--r-sm);"></div>
+
+            <button class="exam-start-btn" id="exam-start-btn" onclick="examStart()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Generate Exam
+            </button>
+          </div>
+        </div>
+      </div><!-- /exam-setup -->
+
+      <!-- LOADING -->
+      <div id="exam-loading" style="display:none;text-align:center;padding:60px 24px;">
+        <div style="display:flex;justify-content:center;gap:5px;margin-bottom:16px;">
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--gold);animation:blink 1s ease-in-out infinite;display:inline-block;"></span>
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--gold);animation:blink 1s ease-in-out 0.2s infinite;display:inline-block;"></span>
+          <span style="width:6px;height:6px;border-radius:50%;background:var(--gold);animation:blink 1s ease-in-out 0.4s infinite;display:inline-block;"></span>
+        </div>
+        <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);margin-bottom:6px;" id="exam-loading-text">Generating your exam…</div>
+        <div style="font-size:12px;color:var(--text-4);">Writing questions on <span id="exam-loading-topic" style="color:var(--gold);"></span></div>
+
+        <!-- Deep scan progress (hidden for quick/smart) -->
+        <div id="exam-deep-progress" style="display:none;margin-top:28px;max-width:400px;margin-left:auto;margin-right:auto;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span id="exam-deep-step-text" style="font-size:11px;color:var(--text-3);font-family:var(--font-mono);text-align:left;"></span>
+            <span id="exam-deep-pct" style="font-size:11px;color:var(--gold);font-family:var(--font-mono);">0%</span>
+          </div>
+          <div style="height:3px;background:var(--surface-4);border-radius:2px;overflow:hidden;">
+            <div id="exam-deep-bar" style="height:100%;width:0%;background:linear-gradient(90deg,var(--gold),var(--violet));border-radius:2px;transition:width 0.4s ease;"></div>
+          </div>
+          <div id="exam-deep-stages" style="display:flex;justify-content:space-between;margin-top:12px;gap:6px;">
+            <div class="exam-deep-stage" id="stage-chunk">
+              <div class="exam-deep-stage-dot"></div>
+              <div class="exam-deep-stage-label">Split</div>
+            </div>
+            <div class="exam-deep-stage-line"></div>
+            <div class="exam-deep-stage" id="stage-extract">
+              <div class="exam-deep-stage-dot"></div>
+              <div class="exam-deep-stage-label">Extract</div>
+            </div>
+            <div class="exam-deep-stage-line"></div>
+            <div class="exam-deep-stage" id="stage-generate">
+              <div class="exam-deep-stage-dot"></div>
+              <div class="exam-deep-stage-label">Generate</div>
+            </div>
+          </div>
+        </div>
+      </div><!-- /exam-loading -->
+
+      <!-- QUIZ VIEW -->
+      <div id="exam-quiz" style="display:none;">
+        <div class="exam-topbar">
+          <button onclick="examAbort()" style="background:transparent;border:none;color:var(--text-4);cursor:pointer;font-size:12px;font-family:var(--font-body);display:flex;align-items:center;gap:4px;padding:0;" onmouseenter="this.style.color='var(--text-2)'" onmouseleave="this.style.color='var(--text-4)'">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+            Exit
+          </button>
+          <div class="exam-progress-wrap">
+            <div class="exam-progress-label">
+              <span id="exam-q-label">Question 1 of 10</span>
+              <span id="exam-score-live">0 correct</span>
+            </div>
+            <div class="exam-progress-track">
+              <div class="exam-progress-fill" id="exam-progress-fill" style="width:0%"></div>
+            </div>
+          </div>
+          <div class="exam-timer" id="exam-timer-display">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span id="exam-timer-text">--:--</span>
+          </div>
+        </div>
+
+        <div id="exam-q-card" class="exam-q-card">
+          <div class="exam-q-header">
+            <div id="exam-q-ref" style="display:none;" class="exam-q-ref">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span id="exam-q-ref-text"></span>
+            </div>
+            <div class="exam-q-num" id="exam-q-num">QUESTION 1</div>
+            <!-- CBL Clinical Vignette Card -->
+            <div id="exam-cbl-card" style="display:none;" class="exam-cbl-card">
+              <div class="exam-cbl-header">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                <span>Clinical Vignette</span>
+                <span id="exam-cbl-tag" class="exam-cbl-tag"></span>
+              </div>
+              <div id="exam-cbl-vitals" class="exam-cbl-vitals"></div>
+              <div id="exam-cbl-body" class="exam-cbl-body"></div>
+            </div>
+            <div class="exam-q-text" id="exam-q-text">Loading…</div>
+          </div>
+          <div class="exam-options" id="exam-options"></div>
+          <div class="exam-feedback" id="exam-feedback"></div>
+        </div>
+
+        <div class="exam-nav">
+          <div style="font-size:11px;color:var(--text-4);" id="exam-answered-hint"></div>
+          <div style="display:flex;gap:8px;">
+            <button class="exam-nav-btn secondary" id="exam-skip-btn" onclick="examSkip()">Skip</button>
+            <button class="exam-nav-btn primary" id="exam-next-btn" onclick="examNext()" disabled>Next →</button>
+          </div>
+        </div>
+      </div><!-- /exam-quiz -->
+
+      <!-- RESULTS VIEW -->
+      <div id="exam-results" style="display:none;">
+        <div style="margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-4);letter-spacing:0.06em;margin-bottom:4px;">EXAM COMPLETE</div>
+            <div style="font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text-1);" id="results-topic-title"></div>
+          </div>
+        </div>
+        <div class="exam-results-card">
+          <div class="exam-results-header">
+            <div class="exam-score-ring" id="score-ring">0%</div>
+            <h3 id="results-headline">Good effort!</h3>
+            <p id="results-subline">Review the questions below to see where you went wrong.</p>
+          </div>
+          <div class="exam-stats-row">
+            <div class="exam-stat">
+              <div class="exam-stat-num" id="stat-correct">0</div>
+              <div class="exam-stat-label">Correct</div>
+            </div>
+            <div class="exam-stat">
+              <div class="exam-stat-num" id="stat-wrong" style="color:var(--text-3);">0</div>
+              <div class="exam-stat-label">Wrong / Skipped</div>
+            </div>
+            <div class="exam-stat">
+              <div class="exam-stat-num" id="stat-time-taken">—</div>
+              <div class="exam-stat-label">Time Taken</div>
+            </div>
+            <div class="exam-stat">
+              <div class="exam-stat-num" id="stat-streak">0</div>
+              <div class="exam-stat-label">Best Streak</div>
+            </div>
+          </div>
+          <div class="exam-review" id="exam-review-list"></div>
+          <div class="exam-actions">
+            <button class="exam-nav-btn primary" onclick="examRetry()" style="flex:1;">
+              Retake Exam
+            </button>
+            <button class="exam-nav-btn secondary" onclick="examNewTopic()" style="flex:1;">
+              New Topic
+            </button>
+          </div>
+        </div>
+      </div><!-- /exam-results -->
+
+    </div><!-- /exam-wrap -->
+  </main>
+</div><!-- /#screen-exam -->
+
+
+
+
 
 
 <script>
@@ -3631,7 +4708,7 @@ body {
   function expandSidebar(el) { goHome(); }
 
   /* ── Screen navigation ── */
-  const SCREEN_MAP = { home: 0, workspace: null, flash: null, research: null };
+  const SCREEN_MAP = { home: 0, workspace: null, flash: null, research: null, exam: null };
 
   function showScreen(name) {
     const screens = document.querySelectorAll('.screen');
@@ -3677,6 +4754,17 @@ body {
         _renderRecentList();
         if (RS.started) _showResearchView();
       }
+    }
+    // When switching to exam, highlight correct sidebar item
+    if (name === 'exam') {
+      document.querySelectorAll('.sidebar-item').forEach(item => {
+        const oc = item.getAttribute('onclick') || '';
+        if (oc.includes("showScreen('exam')")) {
+          item.classList.add('active');
+        } else {
+          // don't remove active from others here — showScreen handles it
+        }
+      });
     }
   }
 
@@ -7722,7 +8810,7 @@ function _flashAutosave() {
   requestAnimationFrame(step);
 }
 // toggleSidebar — provided by index.html
-function newChat() { showScreen('home'); }
+// newChat — provided by index.html
 // openLibraryModal — provided by index.html
 
 /* ══════════════════════════════════════════════════════════════
@@ -9937,5 +11025,1191 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
+
+<script>
+
+
+
+/* ═══════════════════════════════════════════════════════════════
+   EXAM SOURCE MATERIAL — PDF upload + notes
+═══════════════════════════════════════════════════════════════ */
+
+let _examSourceText  = '';   // extracted PDF text or pasted notes
+let _examSourceLabel = '';   // short label for loading screen
+let _examSourceTab   = 'pdf';
+let _pdfjsLibExam    = null;
+
+/* ── Tab toggle ─────────────────────────────────────────── */
+function examSrcTab(btn) {
+  document.querySelectorAll('.exam-src-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _examSourceTab = btn.dataset.tab;
+  document.getElementById('exam-src-pdf').style.display   = _examSourceTab === 'pdf'   ? '' : 'none';
+  document.getElementById('exam-src-notes').style.display = _examSourceTab === 'notes' ? '' : 'none';
+  // Clear the other source when switching
+  if (_examSourceTab === 'pdf')   { examClearNotes(); }
+  if (_examSourceTab === 'notes') { examClearSource(null, true); }
+}
+
+/* ── PDF.js lazy loader ──────────────────────────────────── */
+function _loadPdfJsExam() {
+  return new Promise((resolve, reject) => {
+    if (_pdfjsLibExam) return resolve(_pdfjsLibExam);
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    script.onload = () => {
+      _pdfjsLibExam = window.pdfjsLib;
+      _pdfjsLibExam.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      resolve(_pdfjsLibExam);
+    };
+    script.onerror = () => reject(new Error('Failed to load PDF.js'));
+    document.head.appendChild(script);
+  });
+}
+
+/* ── Drag & drop handlers ────────────────────────────────── */
+function examDragOver(e) {
+  e.preventDefault();
+  document.getElementById('exam-upload-zone').classList.add('drag-over');
+}
+function examDragLeave(e) {
+  document.getElementById('exam-upload-zone').classList.remove('drag-over');
+}
+function examDrop(e) {
+  e.preventDefault();
+  document.getElementById('exam-upload-zone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') {
+    _examProcessPdf(file);
+  }
+}
+
+/* ── File input handler ──────────────────────────────────── */
+function examHandlePdfFile(input) {
+  const file = input.files[0];
+  if (file) _examProcessPdf(file);
+  input.value = ''; // allow re-selecting same file
+}
+
+/* ── Core PDF extraction ─────────────────────────────────── */
+async function _examProcessPdf(file) {
+  const zone       = document.getElementById('exam-upload-zone');
+  const idle       = document.getElementById('exam-upload-idle');
+  const attached   = document.getElementById('exam-upload-attached');
+  const statusEl   = document.getElementById('exam-extract-status');
+  const nameEl     = document.getElementById('exam-file-name');
+  const pagesEl    = document.getElementById('exam-file-pages');
+
+  // Show attached state immediately
+  nameEl.textContent = file.name.length > 38 ? file.name.slice(0, 36) + '…' : file.name;
+  pagesEl.textContent = '';
+  statusEl.innerHTML = '<div class="exam-extract-spinner"></div><span>Extracting text…</span>';
+  idle.style.display     = 'none';
+  attached.style.display = '';
+  zone.classList.add('has-file');
+
+  try {
+    const lib       = await _loadPdfJsExam();
+    const arrayBuf  = await file.arrayBuffer();
+    const pdfDoc    = await lib.getDocument({ data: arrayBuf }).promise;
+    const numPages  = pdfDoc.numPages;
+    pagesEl.textContent = numPages + ' page' + (numPages !== 1 ? 's' : '');
+
+    // Extract text from every page (cap at 40 pages to stay within token budget)
+    const maxPages = Math.min(numPages, 40);
+    let fullText = '';
+    for (let p = 1; p <= maxPages; p++) {
+      const page    = await pdfDoc.getPage(p);
+      const content = await page.getTextContent();
+      fullText += content.items.map(i => i.str).join(' ') + '\n';
+    }
+    fullText = fullText.trim();
+
+    if (!fullText) throw new Error('No text found — the PDF may be scanned/image-based.');
+
+    _examSourceText  = fullText.slice(0, 60000); // ~15k tokens — covers large PDFs
+    _examSourceLabel = file.name.replace(/\.pdf$/i, '');
+    _examToggleScanMode(true);
+
+    const charCount  = _examSourceText.length.toLocaleString();
+    const truncated  = fullText.length > 28000;
+    statusEl.innerHTML =
+      '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>' +
+      '<span style="color:var(--green);">Ready — ' + charCount + ' chars extracted' + (truncated ? ' (first 40 pages)' : '') + '</span>';
+
+  } catch (err) {
+    _examSourceText  = '';
+    _examSourceLabel = '';
+    statusEl.innerHTML =
+      '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
+      '<span style="color:var(--red);">' + err.message + '</span>';
+  }
+}
+
+/* ── Clear PDF source ────────────────────────────────────── */
+function examClearSource(e, silent) {
+  if (e) e.stopPropagation();
+  _examSourceText  = '';
+  _examSourceLabel = '';
+  document.getElementById('exam-upload-idle').style.display     = '';
+  document.getElementById('exam-upload-attached').style.display = 'none';
+  document.getElementById('exam-upload-zone').classList.remove('has-file');
+  document.getElementById('exam-pdf-file').value = '';
+  _examToggleScanMode(false);
+}
+
+/* ── Notes handlers ──────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  const notesEl = document.getElementById('exam-notes-input');
+  if (!notesEl) return;
+  notesEl.addEventListener('input', () => {
+    const len = notesEl.value.length;
+    document.getElementById('exam-notes-count').textContent = len.toLocaleString() + ' chars';
+    _examSourceText  = notesEl.value.slice(0, 60000);
+    _examSourceLabel = 'your notes';
+    _examToggleScanMode(len > 0);
+  });
+});
+
+function examClearNotes() {
+  const notesEl = document.getElementById('exam-notes-input');
+  if (notesEl) notesEl.value = '';
+  document.getElementById('exam-notes-count').textContent = '0 chars';
+  _examSourceText  = '';
+  _examSourceLabel = '';
+  _examToggleScanMode(false);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   EXAM MODE ENGINE
+═══════════════════════════════════════════════════════════════ */
+const _IS_LOCAL = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+const EXAM_BACKEND = _IS_LOCAL
+  ? 'https://corsproxy.io/?https://chunks-ai-main-production.up.railway.app'
+  : 'https://chunks-ai-main-production.up.railway.app';
+
+let _examQuestions   = [];
+let _examIdx         = 0;
+let _examAnswers     = [];
+let _examTimerSec    = 0;
+let _examTimerHandle = null;
+let _examStartTime   = 0;
+let _examTopic       = '';
+let _examType        = 'mcq';
+let _examDiff        = 'medium';
+let _examStreakBest  = 0;
+let _examStreakCur   = 0;
+
+function examSelectType(btn) {
+  document.querySelectorAll('#exam-type-grid .exam-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _examType = btn.dataset.type;
+  const sitHint = document.getElementById('exam-situational-hint');
+  if (sitHint) sitHint.style.display = _examType === 'situational' ? '' : 'none';
+  const cblHint = document.getElementById('exam-cbl-hint');
+  if (cblHint) cblHint.style.display = _examType === 'cbl' ? '' : 'none';
+}
+
+function examSelectDiff(btn) {
+  btn.closest('div').querySelectorAll('.exam-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _examDiff = btn.dataset.diff;
+}
+
+function _examShow(view) {
+  ['exam-setup','exam-loading','exam-quiz','exam-results'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = id === view ? 'block' : 'none';
+  });
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SCAN MODE STATE
+───────────────────────────────────────────────────────────── */
+let _examScanMode = 'quick';
+
+function examSelectScanMode(card) {
+  document.querySelectorAll('.exam-scan-card').forEach(c => c.classList.remove('active'));
+  card.classList.add('active');
+  _examScanMode = card.dataset.mode;
+
+  const countLabel = document.getElementById('exam-count-label');
+  const deepNote   = document.getElementById('exam-deep-note');
+  if (_examScanMode === 'deep') {
+    if (countLabel) countLabel.textContent = 'Max Questions (cap)';
+    if (deepNote)   deepNote.style.display = '';
+  } else {
+    if (countLabel) countLabel.textContent = 'Number of Questions';
+    if (deepNote)   deepNote.style.display = 'none';
+  }
+}
+
+/* Show/hide scan mode picker when source material changes */
+function _examToggleScanMode(hasSource) {
+  const field = document.getElementById('exam-scan-mode-field');
+  if (field) field.style.display = hasSource ? '' : 'none';
+  if (!hasSource) {
+    // Reset to quick when source removed
+    document.querySelectorAll('.exam-scan-card').forEach(c => c.classList.remove('active'));
+    const first = document.querySelector('.exam-scan-card[data-mode="quick"]');
+    if (first) first.classList.add('active');
+    _examScanMode = 'quick';
+    const countLabel = document.getElementById('exam-count-label');
+    if (countLabel) countLabel.textContent = 'Number of Questions';
+    const deepNote = document.getElementById('exam-deep-note');
+    if (deepNote) deepNote.style.display = 'none';
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   SHARED API CALL HELPER
+───────────────────────────────────────────────────────────── */
+async function _examCallAPI(prompt, retries = 3) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const resp = await fetch(EXAM_BACKEND + '/ask', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ question: prompt, mode: 'generate', complexity: 6, bookId: 'none', history: [] })
+      });
+      if (resp.status === 429) {
+        // Rate limited — wait 2s per attempt before retrying
+        const wait = 2000 * (attempt + 1);
+        if (attempt < retries) { await new Promise(r => setTimeout(r, wait)); continue; }
+        throw new Error('Server is busy — please wait a moment and try again.');
+      }
+      if (resp.status === 504 || resp.status === 502 || resp.status === 503) {
+        if (attempt < retries) { await new Promise(r => setTimeout(r, 1500 * (attempt + 1))); continue; }
+        throw new Error('Server timeout (504) — Railway may be cold-starting, please try again.');
+      }
+      if (!resp.ok) throw new Error('Server error ' + resp.status);
+      const data = await resp.json();
+      // Log full response for debugging
+      console.log('[API] status:', resp.status, '| keys:', Object.keys(data), '| answer len:', (data.answer||data.response||data.text||data.content||'').length);
+      // Try all common field names the server might use
+      const answer = data.answer || data.response || data.text || data.content || data.result || '';
+      if (!answer && attempt < retries) {
+        console.warn('[API] Empty answer, retrying... data:', JSON.stringify(data).slice(0, 200));
+        await new Promise(r => setTimeout(r, 1000));
+        continue;
+      }
+      return answer.trim();
+    } catch(err) {
+      if (attempt < retries && (err.message.includes('fetch') || err.message.includes('network'))) {
+        await new Promise(r => setTimeout(r, 1500 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PARSE QUESTIONS — shared JSON extraction
+───────────────────────────────────────────────────────────── */
+function _examParseQuestions(raw) {
+  // Step 1: strip markdown code fences
+  let cleaned = raw
+    .replace(/```json\s*/gi, '')
+    .replace(/```\s*/g, '')
+    .trim();
+
+  // Step 2: find outermost JSON array
+  const s = cleaned.indexOf('[');
+  const e = cleaned.lastIndexOf(']');
+  if (s < 0 || e < 0) {
+    // Log first 300 chars for debugging
+    console.warn('CBL raw response:', raw.slice(0, 300));
+    throw new Error('No question array found — the AI returned an unexpected format. Please try again.');
+  }
+
+  let jsonStr = cleaned.slice(s, e + 1);
+
+  // Step 3: common JSON fixes
+  jsonStr = jsonStr
+    .replace(/,\s*([}\]])/g, '$1')          // trailing commas
+    .replace(/([{,]\s*)(\w+)\s*:/g, '$1"$2":') // unquoted keys
+    .replace(/:\s*'([^']*)'/g, ': "$1"');    // single-quoted values
+
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch(e1) {
+    // Step 4: try extracting individual objects if full array fails
+    const objects = [];
+    const objRegex = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+    let m;
+    while ((m = objRegex.exec(jsonStr)) !== null) {
+      try { objects.push(JSON.parse(m[0])); } catch {}
+    }
+    if (objects.length) { parsed = objects; }
+    else {
+      console.warn('Parse failed. Raw:', raw.slice(0, 500));
+      throw new Error('Could not parse questions — please try again.');
+    }
+  }
+
+  if (!Array.isArray(parsed) || !parsed.length) throw new Error('No questions returned.');
+  return parsed;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DEEP SCAN PROGRESS UI
+───────────────────────────────────────────────────────────── */
+function _deepSetStage(stage) {
+  // stage: 'chunk' | 'extract' | 'generate'
+  const order = ['chunk', 'extract', 'generate'];
+  const idx   = order.indexOf(stage);
+  order.forEach((s, i) => {
+    const el = document.getElementById('stage-' + s);
+    if (!el) return;
+    el.classList.remove('active', 'done');
+    if (i < idx)  el.classList.add('done');
+    if (i === idx) el.classList.add('active');
+  });
+}
+
+function _deepSetProgress(pct, stepText) {
+  const bar  = document.getElementById('exam-deep-bar');
+  const pctEl = document.getElementById('exam-deep-pct');
+  const textEl = document.getElementById('exam-deep-step-text');
+  if (bar)   bar.style.width  = pct + '%';
+  if (pctEl)  pctEl.textContent = Math.round(pct) + '%';
+  if (textEl) textEl.textContent = stepText;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   TEXT CHUNKER
+───────────────────────────────────────────────────────────── */
+function _examChunkText(text, wordsPerChunk = 250) {
+  const words  = text.split(/\s+/).filter(Boolean);
+  const chunks = [];
+  for (let i = 0; i < words.length; i += wordsPerChunk) {
+    const idx = chunks.length + 1;
+    chunks.push({
+      idx,
+      text: words.slice(i, i + wordsPerChunk).join(' ')
+    });
+  }
+  return chunks;
+}
+
+/* Build a labeled source string for Smart/Quick prompts */
+function _examLabeledSource(text, wordsPerChunk = 250) {
+  const chunks = _examChunkText(text, wordsPerChunk);
+  const total  = chunks.length;
+  return chunks.map(c => `[BLOCK ${c.idx} of ${total}]\n${c.text}`).join('\n\n');
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PIPELINE A — QUICK (1 call, fixed count)
+───────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────────
+   BATCH HELPER — splits large requests into ≤10-question calls
+───────────────────────────────────────────────────────────── */
+async function _examBatchedGenerate(prompt, totalCount) {
+  const BATCH = 10;
+  if (totalCount <= BATCH) {
+    // Small enough — single call
+    const raw = await _examCallAPI(prompt);
+    return _examParseQuestions(raw);
+  }
+  // Replace the count in the prompt for each batch
+  let all = [];
+  const numBatches = Math.ceil(totalCount / BATCH);
+  for (let bi = 0; bi < numBatches; bi++) {
+    const batchCount = Math.min(BATCH, totalCount - all.length);
+    const batchPrompt = prompt.replace(
+      /Generate exactly \d+ /,
+      `Generate exactly ${batchCount} `
+    );
+    const raw = await _examCallAPI(batchPrompt);
+    const qs  = _examParseQuestions(raw);
+    all = all.concat(qs);
+    if (bi < numBatches - 1) await new Promise(r => setTimeout(r, 700));
+  }
+  return all;
+}
+
+async function _examRunQuick(topic, sourceText, count, typeLabel) {
+  let prompt;
+  if (sourceText) {
+    const topicClause = topic ? ` Focus specifically on: "${topic}".` : '';
+    const _labeledSrc = _examLabeledSource(sourceText);
+    if (typeLabel === 'situational') {
+      prompt = `You are creating a situational exam from the following source material.${topicClause}
+Generate exactly ${count} situational exam questions. Difficulty: ${_examDiff}.
+Each question must: (1) open with a realistic scenario drawn from the source material (2-4 sentences), (2) ask what the BEST action or decision is, (3) have exactly 4 plausible options labeled A-D where only one is clearly best.
+Base scenarios ONLY on content in the source. Include a 1-2 sentence explanation for the correct answer.
+Each question MUST include a "ref" field citing the [BLOCK X of Y] it came from (e.g. "ref": "Block 3").
+Output ONLY a raw JSON array with no markdown:
+[{"q":"SCENARIO: ...\n\nQuestion: What should you do?","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
+
+SOURCE MATERIAL (labeled by block):
+---
+${_labeledSrc.slice(0, 55000)}
+---`;
+    } else if (typeLabel === 'case-based-learning') {
+      prompt = `You are a rigorous medical educator. Create Case-Based Learning (CBL) questions from the following source material.${topicClause}
+Generate exactly ${count} clinical vignette questions. Base each case ONLY on content from the source.
+Vary the question focus: diagnosis, next best step, mechanism, and treatment.
+
+DIFFICULTY RULES — apply strictly based on: ${_examDiff}
+- easy:   Common textbook presentations. Classic symptoms, obvious vitals, straightforward distractors that are clearly wrong to any student.
+- medium: Slightly atypical presentations. One or two misleading findings. Distractors are plausible but distinguishable with solid knowledge.
+- hard:   USMLE Step 2 CK / clinical board level. Use these tactics:
+    • Present ZEBRA diagnoses alongside HORSES — rare conditions that mimic common ones
+    • Include red herrings: a finding that strongly suggests the wrong answer (e.g. fever + neck stiffness but NOT meningitis)
+    • Vitals and labs should have subtle abnormalities, not obvious ones (e.g. HR 102, not 160)
+    • Distractors must be clinically plausible and commonly confused — no throwaway wrong answers
+    • Ask "next best step" rather than diagnosis whenever possible — management decisions are harder
+    • Use age/sex/timing to steer toward a non-obvious answer (e.g. MI in a 32-year-old woman)
+    • Explanation must cite the KEY distinguishing feature that rules out the distractors
+Each question MUST include a "ref" field citing the block it came from.
+Output ONLY a raw JSON array — no markdown:
+[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]
+
+SOURCE MATERIAL (labeled by block):
+---
+${_labeledSrc.slice(0, 55000)}
+---`;
+    } else {
+      prompt = `You are creating an exam from the following source material.${topicClause}
+Generate exactly ${count} ${typeLabel} exam questions. Difficulty: ${_examDiff}.
+Base your questions ONLY on the content provided. Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
+Each question MUST include a "ref" field citing the [BLOCK X of Y] it came from (e.g. "ref": "Block 3").
+Output ONLY a raw JSON array with no markdown:
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
+
+SOURCE MATERIAL (labeled by block):
+---
+${_labeledSrc.slice(0, 55000)}
+---`;
+    }
+  } else {
+    if (typeLabel === 'situational') {
+      prompt = `Generate exactly ${count} situational exam questions about: "${topic}". Difficulty: ${_examDiff}.
+Each question must: (1) open with a realistic, specific real-world scenario (2-4 sentences describing a situation a practitioner, student, or professional would face), (2) ask what the BEST action or decision is, (3) have exactly 4 options labeled A-D where all options are plausible but only one is clearly best.
+Include a 1-2 sentence explanation for why the correct answer is best.
+Output ONLY a raw JSON array with no markdown:
+[{"q":"SCENARIO: ...\n\nQuestion: What should you do?","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
+    } else if (typeLabel === 'case-based-learning') {
+      prompt = `You are a rigorous medical educator writing Case-Based Learning (CBL) exam questions about: "${topic}".
+Generate exactly ${count} clinical vignette questions. Vary the focus: mix diagnosis, next best step, mechanism, and treatment questions.
+
+DIFFICULTY RULES — apply strictly based on: ${_examDiff}
+- easy:   Common textbook presentations. Classic symptoms, obvious vitals, straightforward distractors that are clearly wrong to any student.
+- medium: Slightly atypical presentations. One or two misleading findings. Distractors are plausible but distinguishable with solid knowledge.
+- hard:   USMLE Step 2 CK / clinical board level. Use these tactics:
+    • Present ZEBRA diagnoses alongside HORSES — rare conditions that mimic common ones
+    • Include red herrings: a finding that strongly suggests the wrong answer (e.g. fever + neck stiffness but NOT meningitis)
+    • Vitals and labs should have subtle abnormalities, not obvious ones (e.g. HR 102, not 160)
+    • Distractors must be clinically plausible and commonly confused — no throwaway wrong answers
+    • Ask "next best step" rather than diagnosis whenever possible — management decisions are harder
+    • Use age/sex/timing to steer toward a non-obvious answer (e.g. MI in a 32-year-old woman)
+    • Explanation must cite the KEY distinguishing feature that rules out the distractors
+Output ONLY a raw JSON array — no markdown, no extra fields:
+[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
+    } else {
+      prompt = `Generate exactly ${count} ${typeLabel} exam questions about: "${topic}". Difficulty: ${_examDiff}.
+Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
+Output ONLY a raw JSON array with no markdown:
+[{"q":"SCENARIO: ...\n\nQuestion: What should you do?","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
+    }
+  }
+  return await _examBatchedGenerate(prompt, count);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PIPELINE B — SMART (1 call, full-coverage prompt)
+───────────────────────────────────────────────────────────── */
+async function _examRunSmart(topic, sourceText, count, typeLabel) {
+  let prompt;
+  if (sourceText) {
+    const topicClause = topic ? ` Topic focus: "${topic}".` : '';
+    const _labeledSrc = _examLabeledSource(sourceText);
+    if (typeLabel === 'situational') {
+      prompt = `You are a thorough situational exam writer.${topicClause}
+Read the ENTIRE source material below (labeled by block) from start to finish.
+Identify real-world scenarios, cases, decisions, and practical applications across ALL blocks.
+Generate up to ${count} situational exam questions distributed evenly across blocks.
+Each question must: (1) open with a 2-4 sentence realistic scenario, (2) ask what the BEST action is, (3) have 4 plausible options labeled A-D where only one is clearly best.
+Difficulty: ${_examDiff}. Include a 1-2 sentence explanation per question.
+Each question MUST include a "ref" field citing the block it came from (e.g. "ref": "Block 3").
+Output ONLY a raw JSON array with no markdown:
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
+
+SOURCE MATERIAL (labeled by block):
+---
+${_labeledSrc.slice(0, 55000)}
+---`;
+    } else {
+      prompt = `You are a thorough exam writer.${topicClause}
+Read the ENTIRE source material below (labeled by block) from start to finish.
+Identify EVERY distinct concept across ALL blocks — do not skip any block.
+Generate up to ${count} ${typeLabel} exam questions covering the FULL document evenly across all blocks.
+Difficulty: ${_examDiff}.
+Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
+Each question MUST include a "ref" field citing the block it came from (e.g. "ref": "Block 3").
+Output ONLY a raw JSON array with no markdown:
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
+
+SOURCE MATERIAL (labeled by block):
+---
+${_labeledSrc.slice(0, 55000)}
+---`;
+    }
+  } else {
+    if (typeLabel === 'situational') {
+      prompt = `You are a thorough situational exam writer. Generate exactly ${count} situational exam questions about: "${topic}".
+Difficulty: ${_examDiff}. Cover a broad range of real-world scenarios — vary the settings, roles, and complications.
+Each question must: (1) open with a 2-4 sentence realistic scenario, (2) ask what the BEST action is, (3) have 4 plausible options labeled A-D where only one is clearly best. Include a 1-2 sentence explanation per question.
+Output ONLY a raw JSON array with no markdown:
+[{"q":"SCENARIO: ...\n\nQuestion: What should you do?","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
+    } else if (typeLabel === 'case-based-learning') {
+      prompt = `You are a rigorous medical educator writing Case-Based Learning (CBL) questions about: "${topic}".
+Generate exactly ${count} clinical vignette questions distributed across diagnosis, next best step, mechanism, and treatment.
+
+DIFFICULTY RULES — apply strictly based on: ${_examDiff}
+- easy:   Common textbook presentations. Classic symptoms, obvious vitals, straightforward distractors that are clearly wrong to any student.
+- medium: Slightly atypical presentations. One or two misleading findings. Distractors are plausible but distinguishable with solid knowledge.
+- hard:   USMLE Step 2 CK / clinical board level. Use these tactics:
+    • Present ZEBRA diagnoses alongside HORSES — rare conditions that mimic common ones
+    • Include red herrings: a finding that strongly suggests the wrong answer (e.g. fever + neck stiffness but NOT meningitis)
+    • Vitals and labs should have subtle abnormalities, not obvious ones (e.g. HR 102, not 160)
+    • Distractors must be clinically plausible and commonly confused — no throwaway wrong answers
+    • Ask "next best step" rather than diagnosis whenever possible — management decisions are harder
+    • Use age/sex/timing to steer toward a non-obvious answer (e.g. MI in a 32-year-old woman)
+    • Explanation must cite the KEY distinguishing feature that rules out the distractors
+Output ONLY a raw JSON array — no markdown, no extra fields:
+[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
+    } else {
+      prompt = `You are a thorough exam writer. Generate exactly ${count} ${typeLabel} exam questions about: "${topic}".
+Difficulty: ${_examDiff}. Cover a broad range of subtopics — do not focus only on the most obvious concepts.
+Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
+Output ONLY a raw JSON array with no markdown:
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
+    }
+  }
+  return await _examBatchedGenerate(prompt, count);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   PIPELINE C — DEEP SCAN (multi-call: chunk → concepts → questions)
+───────────────────────────────────────────────────────────── */
+async function _examRunDeepScan(topic, sourceText, maxCount, typeLabel) {
+  const deepProg = document.getElementById('exam-deep-progress');
+  if (deepProg) deepProg.style.display = '';
+
+  // ── STAGE 1: Chunk ────────────────────────────────────────
+  _deepSetStage('chunk');
+  _deepSetProgress(5, 'Splitting document into sections…');
+  await new Promise(r => setTimeout(r, 120)); // micro-delay for UI paint
+
+  const chunks = _examChunkText(sourceText, 500); // 500 words/chunk keeps calls under rate limit
+  _deepSetProgress(10, `Split into ${chunks.length} sections`);
+
+  // ── STAGE 2: Extract concepts sequentially with block refs ────
+  _deepSetStage('extract');
+  const topicClause = topic ? ` The overall subject is: "${topic}".` : '';
+  const allConcepts = [];
+  let _lastExtractErr = '';
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunk = chunks[i]; // {idx, text}
+    const blockLabel = `Block ${chunk.idx} of ${chunks.length}`;
+    const prompt = `Extract the 4-6 most important, distinct, testable concepts from this passage.${topicClause}
+Return ONLY a JSON array of objects, no markdown:
+[{"concept":"short concept string max 12 words","ref":"${blockLabel}"}]
+
+PASSAGE (${blockLabel}):
+---
+${chunk.text}
+---`;
+    try {
+      const raw = await _examCallAPI(prompt);
+      const s = raw.indexOf('['), e = raw.lastIndexOf(']');
+      if (s >= 0 && e >= 0) {
+        const arr = JSON.parse(raw.slice(s, e + 1));
+        if (Array.isArray(arr)) {
+          arr.forEach(item => {
+            if (typeof item === 'string') allConcepts.push({concept: item.trim(), ref: blockLabel});
+            else if (item && typeof item.concept === 'string') allConcepts.push({concept: item.concept.trim(), ref: item.ref || blockLabel});
+          });
+        }
+      }
+    } catch(err) { _lastExtractErr = err.message; }
+
+    const pct = 10 + ((i + 1) / chunks.length) * 55;
+    _deepSetProgress(pct, `Scanned ${i + 1} of ${chunks.length} sections — ${allConcepts.length} concepts found`);
+    // Throttle: 700ms between extraction calls (~85 req/min, under 120/min limit)
+    if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 700));
+  }
+
+  if (!allConcepts.length) throw new Error('Could not extract concepts from the document. Try Smart or Quick mode.');
+
+  // Deduplicate by concept text
+  const seen    = new Set();
+  const unique  = allConcepts.filter(c => {
+    const key = c.concept.toLowerCase().replace(/\s+/g, ' ').trim();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const hardCap = maxCount <= 10 ? 80 : maxCount;
+  const capped  = unique.slice(0, hardCap);
+
+  _deepSetProgress(68, `${capped.length} unique concepts identified — generating questions…`);
+
+  // ── STAGE 3: Generate one question per concept ────────────
+  _deepSetStage('generate');
+
+  const conceptList = capped.map((c, i) => `${i + 1}. [${c.ref}] ${c.concept}`).join('\n');
+  const topicLine   = topic ? `The subject is: "${topic}".` : '';
+  let prompt;
+  if (typeLabel === 'situational') {
+    prompt = `You are a precise situational exam writer. ${topicLine}
+Generate exactly ${capped.length} situational exam questions — one per concept listed below.
+For each concept, create a realistic 2-4 sentence scenario involving that concept, then ask what the BEST action is.
+Provide 4 plausible options labeled A-D where only one is clearly best. Difficulty: ${_examDiff}. Include a 1-2 sentence explanation per question.
+Each question MUST include the "ref" value from its concept entry (e.g. "ref": "Block 3 of 12").
+Output ONLY a raw JSON array with no markdown, in the same order as the concepts:
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
+
+CONCEPTS (number. [source block] concept):
+${conceptList}`;
+  } else {
+    prompt = `You are a precise exam writer. ${topicLine}
+Generate exactly ${capped.length} ${typeLabel} exam questions — one per concept listed below.
+Each question must test the specific concept it corresponds to. Difficulty: ${_examDiff}.
+Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
+Each question MUST include the "ref" value from its concept entry (e.g. "ref": "Block 3 of 12").
+Output ONLY a raw JSON array with no markdown, in the same order as the concepts:
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
+
+CONCEPTS (number. [source block] concept):
+${conceptList}`;
+  }
+
+  // ── Batch generation: max 10 questions per call to avoid token limits ──
+  const BATCH_SIZE = 10;
+  const batches = [];
+  for (let b = 0; b < capped.length; b += BATCH_SIZE) {
+    batches.push(capped.slice(b, b + BATCH_SIZE));
+  }
+
+  let allQuestions = [];
+  for (let bi = 0; bi < batches.length; bi++) {
+    const batch     = batches[bi];
+    const batchList = batch.map((c, i) => `${allQuestions.length + i + 1}. [${c.ref}] ${c.concept}`).join('\n');
+    const batchPct  = 65 + Math.round(((bi + 1) / batches.length) * 30);
+    _deepSetProgress(batchPct, `Generating questions ${allQuestions.length + 1}–${allQuestions.length + batch.length} of ${capped.length}…`);
+
+    let batchPrompt;
+    if (typeLabel === 'situational') {
+      batchPrompt = `You are a precise situational exam writer. ${topicLine}
+Generate exactly ${batch.length} situational exam questions — one per concept listed below.
+For each concept, create a realistic 2-4 sentence scenario, then ask what the BEST action is.
+Provide 4 plausible options labeled A-D. Difficulty: ${_examDiff}. Include a 1-2 sentence explanation per question.
+Each question MUST include the "ref" value from its concept entry.
+Output ONLY a raw JSON array with no markdown:
+[{"q":"SCENARIO: ...\n\nQuestion: What should you do?","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
+
+CONCEPTS:
+${batchList}`;
+    } else if (typeLabel === 'case-based-learning') {
+      batchPrompt = `You are a rigorous medical educator. ${topicLine}
+Generate exactly ${batch.length} Case-Based Learning questions — one per concept below. Difficulty: ${_examDiff}.
+For each concept create a clinical vignette then ask ONE focused question (diagnosis, next best step, mechanism, or treatment).
+Each question MUST include the "ref" value from its concept entry.
+Output ONLY a raw JSON array — no markdown:
+[{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
+
+CONCEPTS:
+${batchList}`;
+    } else {
+      batchPrompt = `You are a precise exam writer. ${topicLine}
+Generate exactly ${batch.length} ${typeLabel} exam questions — one per concept listed below. Difficulty: ${_examDiff}.
+Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer. Include a 1-2 sentence explanation.
+Each question MUST include the "ref" value from its concept entry.
+Output ONLY a raw JSON array with no markdown:
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
+
+CONCEPTS:
+${batchList}`;
+    }
+
+    const batchRaw = await _examCallAPI(batchPrompt);
+    const batchQs  = _examParseQuestions(batchRaw);
+    allQuestions   = allQuestions.concat(batchQs);
+
+    // Throttle between generation batches
+    if (bi < batches.length - 1) await new Promise(r => setTimeout(r, 700));
+  }
+
+  _deepSetProgress(98, 'Finalizing exam…');
+  await new Promise(r => setTimeout(r, 200));
+  _deepSetProgress(100, 'Done!');
+  document.getElementById('stage-generate')?.classList.replace('active', 'done');
+
+  return allQuestions;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MAIN ENTRY POINT
+───────────────────────────────────────────────────────────── */
+async function examStart() {
+  const topic = document.getElementById('exam-topic-input').value.trim();
+  const errEl = document.getElementById('exam-error');
+  errEl.style.display = 'none';
+
+  // Resolve notes source
+  const notesVal = (document.getElementById('exam-notes-input')?.value || '').trim();
+  if (_examSourceTab === 'notes' && notesVal) {
+    _examSourceText  = notesVal.slice(0, 60000);
+    _examSourceLabel = 'your notes';
+  }
+
+  if (!topic && !_examSourceText) {
+    errEl.textContent = 'Please enter a topic or upload source material.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  const count   = parseInt(document.getElementById('exam-count-input').value) || 10;
+  const timeSec = parseInt(document.getElementById('exam-time-input').value) || 0;
+  _examTopic    = topic || _examSourceLabel || 'Uploaded document';
+  _examTimerSec = timeSec;
+
+  document.getElementById('exam-start-btn').disabled = true;
+  document.getElementById('exam-loading-topic').textContent = _examTopic;
+  document.getElementById('exam-loading-text').textContent  =
+    _examScanMode === 'deep' ? 'Deep scanning your document…' :
+    _examScanMode === 'smart' ? 'Analyzing full content…' :
+    'Generating your exam…';
+
+  // Show/hide deep progress panel
+  const deepProg = document.getElementById('exam-deep-progress');
+  if (deepProg) deepProg.style.display = 'none';
+  // Reset stages
+  ['chunk','extract','generate'].forEach(s => {
+    const el = document.getElementById('stage-' + s);
+    if (el) el.classList.remove('active','done');
+  });
+
+  _examShow('exam-loading');
+
+  const typeLabel = {mcq:'multiple-choice',truefalse:'true/false',situational:'situational',cbl:'case-based-learning',mixed:'mixed (include a variety: multiple-choice, true/false, and situational)'}[_examType];
+
+  try {
+    let questions;
+
+    if (_examScanMode === 'deep' && _examSourceText) {
+      questions = await _examRunDeepScan(topic, _examSourceText, count, typeLabel);
+    } else if (_examScanMode === 'smart') {
+      questions = await _examRunSmart(topic, _examSourceText, count, typeLabel);
+    } else {
+      questions = await _examRunQuick(topic, _examSourceText, count, typeLabel);
+    }
+
+    _examQuestions  = questions;
+    _examIdx        = 0;
+    _examAnswers    = new Array(questions.length).fill(null);
+    _examStreakBest = 0;
+    _examStreakCur  = 0;
+    _examStartTime  = Date.now();
+    _examShow('exam-quiz');
+    _examRenderQuestion();
+    if (_examTimerSec > 0) _examStartTimer();
+    else document.getElementById('exam-timer-display').style.display = 'none';
+
+  } catch(err) {
+    _examShow('exam-setup');
+    errEl.textContent = err.message;
+    errEl.style.display = 'block';
+  } finally {
+    document.getElementById('exam-start-btn').disabled = false;
+  }
+}
+
+
+
+function _examRenderQuestion() {
+  const q = _examQuestions[_examIdx], total = _examQuestions.length;
+  document.getElementById('exam-q-label').textContent = `Question ${_examIdx+1} of ${total}`;
+  document.getElementById('exam-q-num').textContent   = `QUESTION ${_examIdx+1}`;
+
+  // Show/hide source reference badge
+  const refEl     = document.getElementById('exam-q-ref');
+  const refTextEl = document.getElementById('exam-q-ref-text');
+  if (refEl && refTextEl) {
+    if (q.ref) {
+      refTextEl.textContent = q.ref;
+      refEl.style.display = '';
+    } else {
+      refEl.style.display = 'none';
+    }
+  }
+
+  // Remove old scenario if present
+  let existingScenario = document.getElementById('exam-q-scenario');
+  if (existingScenario) existingScenario.remove();
+
+  const rawQ   = q.q || '';
+  const cblCard = document.getElementById('exam-cbl-card');
+  const cblVitals = document.getElementById('exam-cbl-vitals');
+  const cblBody   = document.getElementById('exam-cbl-body');
+  const cblTag    = document.getElementById('exam-cbl-tag');
+  const qTextEl   = document.getElementById('exam-q-text');
+
+  if (q.case && typeof q.case === 'object') {
+    // ── CBL: render clinical vignette card ──────────────────
+    const c = q.case;
+    if (cblTag) cblTag.textContent = c.tag || 'Clinical Case';
+
+    // Vitals row
+    if (cblVitals) {
+      const vitals = c.vitals || {};
+      const VITAL_LABELS = {BP:'BP',HR:'HR',RR:'RR',Temp:'Temp',SpO2:'SpO₂'};
+      const NORMAL = {BP:'120/80',HR:'60-100',RR:'12-20',Temp:'36.5-37.5',SpO2:'≥95%'};
+      cblVitals.innerHTML = Object.entries(vitals).map(([k,v]) => {
+        const isAbn = (k==='HR' && (parseInt(v)<60||parseInt(v)>100)) ||
+                      (k==='RR' && (parseInt(v)<12||parseInt(v)>20)) ||
+                      (k==='SpO2' && parseInt(v)<95) ||
+                      (k==='Temp' && (parseFloat(v)<36.5||parseFloat(v)>37.5));
+        return '<div class="exam-cbl-vital-item"><span class="exam-cbl-vital-label">'+(VITAL_LABELS[k]||k)+'</span><span class="exam-cbl-vital-value'+(isAbn?' abnormal':'')+'">'+(v||'—')+'</span></div>';
+      }).join('');
+    }
+
+    // Case body
+    if (cblBody) {
+      const patientLine = c.patient ? '<strong>'+c.patient+'</strong> — ' : '';
+      const cc = c.chief_complaint ? '<strong>CC:</strong> '+c.chief_complaint+'<br>' : '';
+      const hx = c.history ? c.history + '<br>' : '';
+      const pe = c.findings ? '<strong>Findings:</strong> '+c.findings : '';
+      cblBody.innerHTML = patientLine + cc + hx + pe;
+    }
+
+    if (cblCard) cblCard.style.display = '';
+    // Add CBL q-type badge before question text
+    const existingBadge = document.getElementById('exam-cbl-qtype');
+    if (existingBadge) existingBadge.remove();
+    const badge = document.createElement('div');
+    badge.id = 'exam-cbl-qtype';
+    badge.className = 'exam-cbl-q-type';
+    badge.textContent = '🩺 ' + (q.case.tag || 'Clinical Question');
+    qTextEl.parentNode.insertBefore(badge, qTextEl);
+    qTextEl.textContent = rawQ;
+
+  } else {
+    // Hide CBL card
+    if (cblCard) cblCard.style.display = 'none';
+    const existingBadge = document.getElementById('exam-cbl-qtype');
+    if (existingBadge) existingBadge.remove();
+
+    // Situational: split SCENARIO block from question stem
+    const qHeader = document.querySelector('.exam-q-header');
+    const scenarioMatch = rawQ.match(/^SCENARIO:\s*([\s\S]+?)\n\n(?:Question:\s*)?([\s\S]+)$/i);
+    if (scenarioMatch) {
+      const scenarioEl = document.createElement('div');
+      scenarioEl.id = 'exam-q-scenario';
+      scenarioEl.className = 'exam-q-scenario';
+      scenarioEl.innerHTML = '<strong>📋 Scenario</strong>' + scenarioMatch[1].trim();
+      qHeader.insertBefore(scenarioEl, qTextEl);
+      qTextEl.textContent = scenarioMatch[2].trim();
+    } else {
+      qTextEl.textContent = rawQ;
+    }
+  }
+  document.getElementById('exam-progress-fill').style.width = (_examIdx/total*100)+'%';
+  document.getElementById('exam-score-live').textContent  = _examAnswers.filter(a=>a&&a.correct).length+' correct';
+
+  const optEl = document.getElementById('exam-options');
+  optEl.innerHTML = '';
+  const letters = ['A','B','C','D','E'];
+  q.options.forEach((opt, i) => {
+    const letter = q.options.length === 2 ? (i===0?'T':'F') : letters[i];
+    const btn = document.createElement('button');
+    btn.className = 'exam-option';
+    btn.innerHTML = '<span class="opt-letter">'+letter+'</span><span class="opt-text">'+opt.replace(/^[A-DF]\.\s*/,'')+'</span>';
+    btn.addEventListener('click', () => _examSelect(i, btn));
+    const prev = _examAnswers[_examIdx];
+    if (prev !== null) {
+      btn.disabled = true;
+      const correctText = q.answer.replace(/^[A-DF]\.\s*/,'').trim().toLowerCase();
+      const optText = opt.replace(/^[A-DF]\.\s*/,'').trim().toLowerCase();
+      if (i === prev.selected) btn.classList.add(prev.correct ? 'correct' : 'wrong');
+      if (!prev.correct && optText === correctText) btn.classList.add('correct');
+    }
+    optEl.appendChild(btn);
+  });
+
+  const fb = document.getElementById('exam-feedback');
+  fb.className = 'exam-feedback'; fb.innerHTML = '';
+  const prev = _examAnswers[_examIdx];
+  if (prev !== null) _examShowFeedback(prev.correct, q.explanation);
+
+  const nextBtn = document.getElementById('exam-next-btn');
+  const skipBtn = document.getElementById('exam-skip-btn');
+  nextBtn.disabled = prev === null;
+  nextBtn.textContent = _examIdx === total-1 ? 'Finish' : 'Next';
+  skipBtn.style.display = prev === null ? 'inline-block' : 'none';
+  document.getElementById('exam-answered-hint').textContent =
+    prev ? '' : `${_examAnswers.filter(a=>a!==null).length} of ${total} answered`;
+}
+
+function _examSelect(idx, btn) {
+  if (_examAnswers[_examIdx] !== null) return;
+  const q = _examQuestions[_examIdx];
+  const chosen = q.options[idx].replace(/^[A-DF]\.\s*/,'').trim().toLowerCase();
+  const ansLetter = q.answer.replace(/^([A-D])[\.\s].*/,'$1').trim();
+  const letters = ['A','B','C','D','E'];
+  let isCorrect = letters[idx] === ansLetter;
+  if (!isCorrect) isCorrect = chosen === q.answer.replace(/^[A-DF]\.\s*/,'').trim().toLowerCase();
+  if (q.options.length === 2) {
+    isCorrect = (idx===0 && /^(true|t)$/i.test(q.answer)) || (idx===1 && /^(false|f)$/i.test(q.answer)) || isCorrect;
+  }
+  _examAnswers[_examIdx] = {selected:idx, correct:isCorrect, skipped:false};
+  if (isCorrect) { _examStreakCur++; _examStreakBest = Math.max(_examStreakBest,_examStreakCur); }
+  else _examStreakCur = 0;
+
+  document.querySelectorAll('#exam-options .exam-option').forEach((o,i) => {
+    o.disabled = true;
+    if (i===idx) o.classList.add(isCorrect?'correct':'wrong');
+    const oText = q.options[i].replace(/^[A-DF]\.\s*/,'').trim().toLowerCase();
+    if (!isCorrect && oText === q.answer.replace(/^[A-DF]\.\s*/,'').trim().toLowerCase()) o.classList.add('correct');
+  });
+  _examShowFeedback(isCorrect, q.explanation);
+  document.getElementById('exam-next-btn').disabled = false;
+  document.getElementById('exam-skip-btn').style.display = 'none';
+  document.getElementById('exam-score-live').textContent = _examAnswers.filter(a=>a&&a.correct).length+' correct';
+}
+
+function _examShowFeedback(ok, explanation) {
+  const fb = document.getElementById('exam-feedback');
+  fb.className = 'exam-feedback show '+(ok?'correct-fb':'wrong-fb');
+  fb.innerHTML = '<strong>'+(ok?'✓ Correct!':'✗ Incorrect')+'</strong>'+(explanation?' — '+explanation:'');
+}
+
+function examSkip() {
+  _examAnswers[_examIdx] = {selected:-1, correct:false, skipped:true};
+  _examStreakCur = 0;
+  examNext();
+}
+
+function examNext() {
+  if (_examAnswers[_examIdx]===null) return;
+  if (_examIdx < _examQuestions.length-1) {
+    _examIdx++;
+    const card = document.getElementById('exam-q-card');
+    card.style.animation='none'; requestAnimationFrame(()=>{card.style.animation='';});
+    _examRenderQuestion();
+  } else { _examFinish(); }
+}
+
+function _examStartTimer() {
+  document.getElementById('exam-timer-display').style.display = 'flex';
+  _examTimerHandle = setInterval(()=>{
+    _examTimerSec--;
+    const m = String(Math.floor(_examTimerSec/60)).padStart(2,'0');
+    const s = String(_examTimerSec%60).padStart(2,'0');
+    const el = document.getElementById('exam-timer-text');
+    if (el) el.textContent = m+':'+s;
+    if (_examTimerSec<=60) document.getElementById('exam-timer-display')?.classList.add('warn');
+    if (_examTimerSec<=0) { clearInterval(_examTimerHandle); _examFinish(); }
+  },1000);
+}
+
+function _examFinish() {
+  clearInterval(_examTimerHandle);
+  const elapsed = Math.round((Date.now()-_examStartTime)/1000);
+  const correct = _examAnswers.filter(a=>a&&a.correct).length;
+  const total   = _examQuestions.length;
+  const pct     = Math.round(correct/total*100);
+  const mm = String(Math.floor(elapsed/60)).padStart(2,'0');
+  const ss = String(elapsed%60).padStart(2,'0');
+
+  const ring = document.getElementById('score-ring');
+  ring.textContent = pct+'%';
+  ring.className   = 'exam-score-ring '+(pct>=60?'pass':'fail');
+  document.getElementById('results-topic-title').textContent = _examTopic;
+  document.getElementById('results-headline').textContent =
+    pct===100?'🏆 Perfect Score!':pct>=80?'🎉 Excellent work!':pct>=60?'✓ Passing grade!':'📚 Keep studying!';
+  document.getElementById('results-subline').textContent =
+    pct>=60?'Review the answers below to reinforce what you learned.':'Study the explanations and try again — you\'ve got this.';
+  document.getElementById('stat-correct').textContent    = correct;
+  document.getElementById('stat-wrong').textContent      = total-correct;
+  document.getElementById('stat-time-taken').textContent = mm+':'+ss;
+  document.getElementById('stat-streak').textContent     = _examStreakBest;
+
+  const reviewEl = document.getElementById('exam-review-list');
+  reviewEl.innerHTML = _examQuestions.map((q,i)=>{
+    const ans = _examAnswers[i];
+    const ok  = ans&&ans.correct;
+    const skip = ans&&ans.skipped;
+    const _letters = ['A','B','C','D','E'];
+    const isTF = q.options && q.options.length === 2;
+    // Your answer: letter + full text
+    let chosenDisplay = 'Skipped';
+    if (!skip && ans && ans.selected >= 0) {
+      const _letter = isTF ? (ans.selected===0?'T':'F') : _letters[ans.selected];
+      const _text   = q.options[ans.selected].replace(/^[A-DF]\.\s*/,'');
+      chosenDisplay = _letter + '. ' + _text;
+    }
+    // Correct: find matching option and show letter + full text
+    const correctLetter  = (q.answer||'').replace(/^([A-DF])\..*/, '$1').trim();
+    const correctOpt     = q.options ? q.options.find(o => o.trim().toUpperCase().startsWith(correctLetter+'.') || o.trim().toUpperCase().startsWith(correctLetter+' ')) : null;
+    const correctText    = correctOpt ? correctOpt.replace(/^[A-DF]\.\s*/,'') : q.answer;
+    const correctDisplay = correctLetter + '. ' + correctText;
+
+    const border = ok?'border-color:rgba(45,212,191,0.3)':'border-color:rgba(248,113,113,0.2)';
+    return '<div class="exam-review-item" style="'+border+'">'+
+      '<div class="exam-review-q">'+(i+1)+'. '+q.q+'</div>'+
+      '<div class="exam-review-answer">'+
+        '<span class="exam-review-label">Your answer:</span> <span class="exam-review-val '+(ok?'c':'w')+'">'+(skip?'Skipped':chosenDisplay)+'</span>'+
+        (!ok?'<span class="exam-review-label" style="margin-left:8px;">Correct:</span> <span class="exam-review-val c">'+correctDisplay+'</span>':'')+
+      '</div>'+
+      (q.explanation?'<div class="exam-review-explanation">'+q.explanation+'</div>':'')+
+    '</div>';
+  }).join('');
+
+  const _snapId = Date.now();
+  const recent = JSON.parse(localStorage.getItem('exam_recent')||'[]');
+  recent.unshift({
+    id: _snapId,
+    topic: _examTopic,
+    score: pct,
+    date: new Date().toLocaleDateString(),
+    count: total,
+    correct: correct,
+    type: _examType,
+    diff: _examDiff,
+    timeTaken: mm+':'+ss
+  });
+  const trimmed = recent.slice(0, 5);
+  localStorage.setItem('exam_recent', JSON.stringify(trimmed));
+  // Save full snapshot (questions + answers) separately
+  localStorage.setItem('exam_snap_' + _snapId, JSON.stringify({
+    questions: _examQuestions,
+    answers: _examAnswers,
+    topic: _examTopic,
+    type: _examType,
+    diff: _examDiff
+  }));
+  // Clean up old snapshots beyond 5
+  trimmed.forEach((r,i) => { if (i >= 5 && r.id) localStorage.removeItem('exam_snap_' + r.id); });
+  _examLoadRecent();
+  _examShow('exam-results');
+}
+
+function _examLoadRecent() {
+  const list = document.getElementById('exam-recent-list');
+  if (!list) return;
+  const recent = JSON.parse(localStorage.getItem('exam_recent')||'[]');
+  if (!recent.length) { list.innerHTML='<div style="padding:8px 12px;font-size:11px;color:var(--text-4);">No exams yet</div>'; return; }
+  list.innerHTML = recent.slice(0,5).map(r=>{
+    const scoreColor = r.score>=60?'var(--teal)':'#f87171';
+    const countLabel = r.count ? '('+String(r.count).padStart(2,'0')+') ' : '';
+    return '<div style="padding:5px 12px;font-size:11px;color:var(--text-3);display:flex;justify-content:space-between;gap:8px;cursor:pointer;border-radius:var(--r-sm);" '+
+    'onmouseenter="this.style.background=\'var(--surface-2)\'" onmouseleave="this.style.background=\'transparent\'" '+
+    'onclick="_examLoadSnap(\''+r.id+'\')" >'+
+    '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;"><span style="color:var(--text-4);">'+countLabel+'</span>'+r.topic+'</span>'+
+    '<span style="flex-shrink:0;color:'+scoreColor+';">'+r.score+'%</span>'+
+    '</div>';
+  }).join('');
+}
+
+function _examShowResults() {
+  const correct = _examAnswers.filter(a=>a&&a.correct).length;
+  const total   = _examQuestions.length;
+  const pct     = Math.round(correct/total*100);
+
+  const ring = document.getElementById('score-ring');
+  if (ring) { ring.textContent = pct+'%'; ring.className = 'exam-score-ring '+(pct>=60?'pass':'fail'); }
+  const topicTitleEl = document.getElementById('results-topic-title');
+  if (topicTitleEl) topicTitleEl.textContent = _examTopic;
+  const headEl = document.getElementById('results-headline');
+  if (headEl) headEl.textContent = pct===100?'🏆 Perfect Score!':pct>=80?'🎉 Excellent work!':pct>=60?'✓ Passing grade!':'📚 Keep studying!';
+  const subEl = document.getElementById('results-subline');
+  if (subEl) subEl.textContent = pct>=60?'Review the answers below to reinforce what you learned.':'Study the explanations and try again \u2014 you\'ve got this.';
+  const statC = document.getElementById('stat-correct');   if (statC) statC.textContent = correct;
+  const statW = document.getElementById('stat-wrong');     if (statW) statW.textContent = total-correct;
+  const statT = document.getElementById('stat-time-taken');if (statT) statT.textContent = '--:--';
+  const statS = document.getElementById('stat-streak');    if (statS) statS.textContent = _examStreakBest;
+
+  const reviewEl = document.getElementById('exam-review-list');
+  if (reviewEl) reviewEl.innerHTML = _examQuestions.map((q,i)=>{
+    const ans = _examAnswers[i];
+    const ok  = ans&&ans.correct;
+    const skip = ans&&ans.skipped;
+    const _letters = ['A','B','C','D','E'];
+    const isTF = q.options && q.options.length === 2;
+    let chosenDisplay = 'Skipped';
+    if (!skip && ans && ans.selected >= 0) {
+      const _letter = isTF ? (ans.selected===0?'T':'F') : _letters[ans.selected];
+      const _text   = q.options[ans.selected].replace(/^[A-DF]\.\s*/,'');
+      chosenDisplay = _letter + '. ' + _text;
+    }
+    const correctLetter  = (q.answer||'').replace(/^([A-DF])\..*/, '$1').trim();
+    const correctOpt     = q.options ? q.options.find(o => o.trim().toUpperCase().startsWith(correctLetter+'.') || o.trim().toUpperCase().startsWith(correctLetter+' ')) : null;
+    const correctText    = correctOpt ? correctOpt.replace(/^[A-DF]\.\s*/,'') : q.answer;
+    const correctDisplay = correctLetter + '. ' + correctText;
+    const border = ok?'border-color:rgba(45,212,191,0.3)':'border-color:rgba(248,113,113,0.2)';
+    return '<div class="exam-review-item" style="'+border+'">'+
+      '<div class="exam-review-q">'+(i+1)+'. '+q.q+'</div>'+
+      '<div class="exam-review-answer">'+
+        '<span class="exam-review-label">Your answer:</span> <span class="exam-review-val '+(ok?'c':'w')+'">'+(skip?'Skipped':chosenDisplay)+'</span>'+
+        (!ok?'<span class="exam-review-label" style="margin-left:8px;">Correct:</span> <span class="exam-review-val c">'+correctDisplay+'</span>':'')+
+      '</div>'+
+      (q.explanation?'<div class="exam-review-explanation">'+q.explanation+'</div>':'')+
+    '</div>';
+  }).join('');
+
+  _examShow('exam-results');
+}
+
+function _examLoadSnap(id) {
+  if (!id) return;
+  const raw = localStorage.getItem('exam_snap_' + id);
+  if (!raw) {
+    const recent = JSON.parse(localStorage.getItem('exam_recent')||'[]');
+    const entry  = recent.find(r => String(r.id) === String(id));
+    if (entry) document.getElementById('exam-topic-input').value = entry.topic;
+    _examShow('exam-setup');
+    return;
+  }
+  try {
+    const snap      = JSON.parse(raw);
+    _examQuestions  = snap.questions;
+    _examAnswers    = snap.answers;
+    _examTopic      = snap.topic;
+    _examType       = snap.type || 'mcq';
+    _examDiff       = snap.diff || 'medium';
+    _examStreakBest = 0;
+    _examStreakCur  = 0;
+    _examShowResults();
+  } catch(e) { _examShow('exam-setup'); }
+}
+
+function examRetry() {
+  const topicEl = document.getElementById('exam-topic-input');
+  if (topicEl) topicEl.value = _examTopic;
+  document.querySelectorAll('#exam-type-grid .exam-type-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.type === _examType);
+  });
+  document.querySelectorAll('[data-diff]').forEach(b => {
+    b.classList.toggle('active', b.dataset.diff === _examDiff);
+  });
+  examStart();
+}
+function examNewTopic() { document.getElementById('exam-topic-input').value = ''; _examShow('exam-setup'); }
+function examAbort() { clearInterval(_examTimerHandle); _examShow('exam-setup'); }
+
+document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
+
+
+</script>
 </body>
 </html>
