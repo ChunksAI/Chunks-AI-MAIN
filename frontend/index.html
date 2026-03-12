@@ -3707,6 +3707,13 @@ body {
 
     <div class="pdf-body">
       <nav class="pdf-outline-panel" id="ws-outline-panel">
+        <!-- Book cover thumbnail -->
+        <div id="ws-outline-cover" style="display:none;padding:12px 12px 0;">
+          <img id="ws-outline-cover-img"
+            style="width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px;display:block;border:1px solid var(--border-xs);"
+            src="" alt=""
+            onerror="this.parentElement.style.display='none'">
+        </div>
         <div class="outline-head">Contents</div>
         <div id="ws-outline-items">
           <div style="padding:20px 16px;font-size:11px;color:var(--text-4);font-style:italic;line-height:1.6;">Open a book to see contents</div>
@@ -5536,6 +5543,13 @@ async function selectBook(bookId) {
 
   document.getElementById('ws-book-name').textContent   = meta.name;
   document.getElementById('ws-book-author').textContent = meta.author;
+  // Show book cover in outline panel
+  const coverWrap = document.getElementById('ws-outline-cover');
+  const coverImg  = document.getElementById('ws-outline-cover-img');
+  if (coverWrap && coverImg) {
+    coverImg.src = '/public/covers/' + bookId + '.jpg';
+    coverWrap.style.display = 'block';
+  }
 
   document.getElementById('ws-default-content').style.display = 'none';
   document.getElementById('ws-pdf-canvas-wrap').style.display = 'none';
