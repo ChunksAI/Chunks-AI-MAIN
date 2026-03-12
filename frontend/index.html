@@ -1537,6 +1537,21 @@ body::after {
   color: var(--text-2); margin: 10px 0; font-style: italic;
 }
 .hc-ai-body hr { border: none; border-top: 1px solid var(--border-xs); margin: 14px 0; }
+.hc-ai-body table, .ai-text table {
+  width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12.5px;
+}
+.hc-ai-body th, .ai-text th {
+  background: var(--surface-3); color: var(--text-1); font-weight: 600;
+  padding: 7px 12px; text-align: left; border: 1px solid var(--border-sm);
+  font-family: var(--font-body);
+}
+.hc-ai-body td, .ai-text td {
+  padding: 6px 12px; border: 1px solid var(--border-xs); color: var(--text-2);
+  line-height: 1.5;
+}
+.hc-ai-body tr:nth-child(even) td, .ai-text tr:nth-child(even) td {
+  background: rgba(255,255,255,0.015);
+}
 .hc-source-badge {
   margin-top: 10px; padding-top: 8px;
   border-top: 1px solid var(--border-xs);
@@ -6060,11 +6075,27 @@ function homeMarkdown(text) {
     return `<ul>${items}</ul>`;
   });
 
+  // Tables
+  t = t.replace(/((?:^\|.+\|[ \t]*\n)+)/gm, tableBlock => {
+    const rows = tableBlock.trim().split('\n').filter(r => r.trim());
+    let out = '<table>';
+    let isHeader = true;
+    for (const row of rows) {
+      if (/^\|[-:\s|]+\|$/.test(row.trim())) { isHeader = false; continue; }
+      const cells = row.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
+      const tag = isHeader ? 'th' : 'td';
+      out += '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+      if (isHeader) isHeader = false;
+    }
+    out += '</table>';
+    return out;
+  });
+
   // Paragraphs — double newlines, skip block elements
   t = t.split(/\n{2,}/).map(block => {
     block = block.trim();
     if (!block) return '';
-    if (/^<(h[123]|ul|ol|pre|blockquote|hr)/.test(block)) return block;
+    if (/^<(h[123]|ul|ol|pre|blockquote|hr|table)/.test(block)) return block;
     return `<p>${block.replace(/\n/g, '<br>')}</p>`;
   }).join('');
 
@@ -6559,6 +6590,23 @@ function wsRender(raw) {
     .replace(/📖 Page (\d+)/g,
       '<span onclick="wsGoToPage($1)" style="cursor:pointer;color:var(--gold);font-family:var(--font-mono);font-size:11px;background:var(--gold-muted);border:1px solid var(--gold-border);padding:1px 6px;border-radius:4px;">📖 p.$1</span>');
 
+  // 3b. Tables — detect | col | col | pattern before line-by-line
+  s = s.replace(/((?:^\|.+\|[ \t]*\n)+)/gm, tableBlock => {
+    const rows = tableBlock.trim().split('\n').filter(r => r.trim());
+    let out = '<table>';
+    let isHeader = true;
+    for (const row of rows) {
+      // Skip separator rows like |---|---|
+      if (/^\|[-:\s|]+\|$/.test(row.trim())) { isHeader = false; continue; }
+      const cells = row.trim().replace(/^\|/, '').replace(/\|$/, '').split('|');
+      const tag = isHeader ? 'th' : 'td';
+      out += '<tr>' + cells.map(c => `<${tag}>${c.trim()}</${tag}>`).join('') + '</tr>';
+      if (isHeader) isHeader = false;
+    }
+    out += '</table>';
+    return out;
+  });
+
   // 4. Block-level: split into lines and group
   const lines = s.split('\n');
   let html = '';
@@ -6595,6 +6643,10 @@ function wsRender(raw) {
       continue;
     }
 
+    // Skip lines that are already table HTML
+    if (trimmed.startsWith('<table') || trimmed.startsWith('</table') || trimmed.startsWith('<tr') || trimmed.startsWith('<th') || trimmed.startsWith('<td')) {
+      closeList(); html += trimmed; continue;
+    }
     closeList();
     html += `<p>${trimmed}</p>`;
   }
