@@ -3401,6 +3401,908 @@ body {
 
 </style>
 
+<!-- ═══════════════════════════════════════════════════════════
+     STEP 1 — MOBILE FOUNDATION
+     Breakpoint: 768px | Bottom nav | Sidebar hide | Hero scale
+════════════════════════════════════════════════════════════ -->
+<style>
+
+/* ── Token ───────────────────────────────────────────────── */
+:root {
+  --mobile-nav-h: 82px;
+}
+
+/* ── Bottom nav: hidden on desktop, flex on mobile ───────── */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: var(--mobile-nav-h);
+  background: rgba(13,14,20,0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border-xs);
+  z-index: 9000;
+  align-items: flex-start;
+  padding-top: 10px;
+}
+.mobile-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding-top: 2px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-nav-icon {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--t-fast);
+}
+.mobile-nav-item.active .mobile-nav-icon { background: var(--gold-muted); }
+.mobile-nav-item.active .mobile-nav-icon svg { color: var(--gold); }
+.mobile-nav-item:not(.active) .mobile-nav-icon svg { color: var(--text-3); }
+.mobile-nav-label {
+  font-size: 10px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  color: var(--text-3);
+  transition: color var(--t-fast);
+}
+.mobile-nav-item.active .mobile-nav-label { color: var(--gold); font-weight: 600; }
+.mobile-home-indicator {
+  position: absolute;
+  bottom: 8px; left: 50%;
+  transform: translateX(-50%);
+  width: 130px; height: 5px;
+  background: rgba(255,255,255,0.2);
+  border-radius: var(--r-pill);
+  pointer-events: none;
+}
+
+/* ── @media (max-width: 768px) ───────────────────────────── */
+@media (max-width: 768px) {
+
+  /* Unlock body scroll (desktop locks it with overflow:hidden) */
+  body { overflow-y: auto !important; overflow-x: hidden !important; }
+
+  /* Kill desktop chrome */
+  .meta-nav { display: none !important; }
+  .sidebar  { display: none !important; }
+
+  /* Screens fill viewport and reserve space for bottom nav */
+  .screen {
+    height: 100dvh !important;
+    min-height: 100dvh !important;
+    padding-bottom: var(--mobile-nav-h) !important;
+  }
+
+  /* Override inline style="overflow:hidden" on flash/research/exam screens */
+  #screen-flash,
+  #screen-research,
+  #screen-exam {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  /* exam-wrap: full-width, extra bottom padding so Generate Exam button clears the nav */
+  .exam-wrap {
+    max-width: 100% !important;
+    padding: 24px 16px calc(var(--mobile-nav-h) + 32px) !important;
+  }
+  .exam-setup-body { padding: 16px 16px !important; }
+  .exam-setup-header { padding: 16px 16px 14px !important; }
+
+  /* Stack all screens vertically */
+  #screen-home,
+  #screen-workspace,
+  #screen-flash,
+  #screen-research { flex-direction: column !important; }
+
+  /* Hero text scaling */
+  .home-h1 {
+    font-size: 32px !important;
+    letter-spacing: -0.025em !important;
+    margin-bottom: 10px !important;
+  }
+  .home-sub {
+    font-size: 14px !important;
+    line-height: 1.55 !important;
+  }
+  .home-scroll-area {
+    padding: 20px 16px 16px !important;
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
+  }
+  .home-hero { text-align: left !important; margin-bottom: 20px !important; }
+  .home-glow { display: none; }
+
+  /* Show bottom nav */
+  .mobile-bottom-nav { display: flex !important; }
+
+  /* ── Drawer overlay ──────────────────────────────────── */
+  .mobile-drawer-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 9100;
+    opacity: 0;
+    transition: opacity var(--t-mid) var(--ease-snap);
+  }
+  .mobile-drawer-overlay.open {
+    display: block;
+    opacity: 1;
+  }
+
+  /* ── Drawer panel ────────────────────────────────────── */
+  .mobile-drawer {
+    position: fixed;
+    top: 0; bottom: 0; left: 0;
+    width: 280px;
+    background: var(--surface-0);
+    border-right: 1px solid var(--border-sm);
+    z-index: 9200;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform var(--t-mid) var(--ease-snap);
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .mobile-drawer.open {
+    transform: translateX(0);
+  }
+
+  /* Header */
+  .md-header {
+    padding: 56px 18px 16px;
+    border-bottom: 1px solid var(--border-xs);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .md-logo-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  .md-logo-text {
+    font-family: var(--font-head);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  .md-close {
+    width: 30px; height: 30px;
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    border: none;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-3);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background var(--t-fast), color var(--t-fast);
+  }
+  .md-close:hover { background: var(--surface-3); color: var(--text-1); }
+
+  /* Sections */
+  .md-section { padding: 12px 12px 4px; }
+  .md-section-label {
+    font-size: 9px;
+    font-family: var(--font-mono);
+    color: var(--text-4);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 0 6px;
+    margin-bottom: 4px;
+  }
+  .md-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 10px;
+    border-radius: var(--r-md);
+    color: var(--text-2);
+    font-size: 13px;
+    font-family: var(--font-body);
+    margin-bottom: 2px;
+    cursor: pointer;
+    transition: background var(--t-fast), color var(--t-fast);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .md-item:hover, .md-item:active { background: var(--surface-2); color: var(--text-1); }
+  .md-item.active { background: var(--gold-muted); color: var(--gold); }
+  .md-item svg { flex-shrink: 0; opacity: 0.7; }
+  .md-item.active svg { opacity: 1; }
+
+  .md-divider { height: 1px; background: var(--border-xs); margin: 6px 16px; }
+
+  /* Recent chats in drawer */
+  .md-recent-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: var(--r-md);
+    color: var(--text-3);
+    font-size: 12px;
+    font-family: var(--font-body);
+    cursor: pointer;
+    transition: background var(--t-fast), color var(--t-fast);
+    overflow: hidden;
+  }
+  .md-recent-item span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .md-recent-item:hover { background: var(--surface-2); color: var(--text-2); }
+
+  /* Footer */
+  .md-footer {
+    margin-top: auto;
+    padding: 14px;
+    border-top: 1px solid var(--border-xs);
+    flex-shrink: 0;
+  }
+  .md-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    cursor: pointer;
+  }
+  .md-avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b7cf8, #e8ac2e);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #fff;
+    flex-shrink: 0;
+  }
+  .md-profile-name { font-size: 13px; font-weight: 500; color: var(--text-1); }
+  .md-profile-plan { font-size: 11px; color: var(--text-3); }
+  .md-upgrade {
+    margin-left: auto;
+    padding: 4px 9px;
+    background: var(--gold-muted);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--r-pill);
+    font-size: 10px;
+    color: var(--gold);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+  }
+
+  /* ────────────────────────────────────────────────────────
+     STEP 3 — HOMEPAGE HERO
+  ──────────────────────────────────────────────────────── */
+
+  /* Mobile topbar: hidden on desktop, shown here */
+  .mobile-home-topbar {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px 8px;
+    flex-shrink: 0;
+    width: 100%;
+    align-self: stretch;
+    box-sizing: border-box;
+  }
+  .mht-logo-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mht-logo-text {
+    font-family: var(--font-head);
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  .mht-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mht-search-btn {
+    width: 34px; height: 34px;
+    border-radius: var(--r-md);
+    background: var(--surface-2);
+    border: 1px solid var(--border-xs);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-2);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mht-avatar {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b7cf8, #e8ac2e);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; color: #fff;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* home-main: switch to stretch so topbar + scroll area fill full width */
+  .home-main {
+    align-items: stretch !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Scroll area: remove centered hero layout, use normal top flow */
+  .home-scroll-area {
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+    padding: 4px 16px 20px !important;
+  }
+
+  /* Hero block */
+  .home-hero {
+    text-align: left !important;
+    margin-bottom: 16px !important;
+    max-width: 100% !important;
+  }
+  .eyebrow-pill { margin-bottom: 12px !important; }
+
+  /* h1 already scaled in Step 1; just tighten sub-text */
+  .home-sub {
+    max-width: 100% !important;
+    margin: 0 0 0 0 !important;
+  }
+
+  /* Ask box: full-width, softer radius for mobile */
+  .ask-box {
+    max-width: 100% !important;
+    border-radius: var(--r-lg) !important;
+    height: 48px !important;
+  }
+
+  /* Quick-cards: 2 columns */
+  .quick-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important;
+    margin-bottom: 20px !important;
+  }
+  .quick-card {
+    padding: 14px 12px !important;
+  }
+  .qc-title { font-size: 12.5px !important; }
+  .qc-desc  { font-size: 11px !important; }
+
+  /* Prompt chips: left-aligned */
+  .prompts-chips { justify-content: flex-start !important; }
+  .prompt-chip   { font-size: 12px !important; padding: 6px 13px !important; }
+
+  /* Bottom sticky input bar: account for bottom nav height */
+  .home-input-bar {
+    padding: 10px 16px 12px !important;
+  }
+  .home-input-bar .ask-box {
+    max-width: 100% !important;
+    border-radius: var(--r-lg) !important;
+  }
+  .home-disclaimer { font-size: 11px !important; }
+
+  /* Chat history bubbles: tighter on mobile */
+  .hc-user { max-width: 88% !important; }
+
+  /* ────────────────────────────────────────────────────────
+     STEP 4 — WORKSPACE SCREEN
+  ──────────────────────────────────────────────────────── */
+
+  /* Screen: column layout, full height (overflow fixed in Step 3 bug fix) */
+  #screen-workspace {
+    flex-direction: column !important; /* override desktop flex-direction:row */
+    overflow: hidden !important;
+  }
+
+  /* Hide desktop-only panels */
+  #screen-workspace > .sidebar,        /* direct child — beats any specificity issue */
+  #screen-workspace .sidebar,
+  #screen-workspace .pdf-panel,
+  #screen-workspace .ws-resizer,
+  #screen-workspace .sidebar-icons,
+  #screen-workspace .chat-bar,       /* desktop context-tag bar */
+  #screen-workspace .input-hints {   /* hint tags clutter mobile */
+    display: none !important;
+  }
+
+  /* Mobile workspace topbar */
+  .mobile-ws-topbar {
+    display: flex !important;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px 8px;
+    border-bottom: 1px solid var(--border-xs);
+    background: var(--surface-0);
+    flex-shrink: 0;
+  }
+  .mwt-back {
+    width: 32px; height: 32px;
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    border: 1px solid var(--border-xs);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-2);
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mwt-title-block { flex: 1; min-width: 0; }
+  .mwt-title {
+    font-size: 14px; font-weight: 600;
+    font-family: var(--font-head);
+    color: var(--text-1);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mwt-subtitle {
+    font-size: 11px; color: var(--text-3);
+    font-family: var(--font-mono);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mwt-badge {
+    display: flex;
+    align-items: center; gap: 5px;
+    padding: 4px 9px;
+    background: var(--gold-muted);
+    border: 1px solid var(--gold-border);
+    border-radius: var(--r-pill);
+    font-size: 10px; font-weight: 600;
+    color: var(--gold);
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+  .mwt-library {
+    width: 32px; height: 32px;
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    border: 1px solid var(--border-xs);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-2);
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* ── Chat / PDF toggle pill ── */
+  .mwt-view-toggle {
+    display: flex;
+    align-items: center;
+    background: var(--surface-3);
+    border: 1px solid var(--border-sm);
+    border-radius: var(--r-pill);
+    padding: 3px;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .mwt-vtab {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    border-radius: var(--r-pill);
+    border: none;
+    background: transparent;
+    color: var(--text-3);
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background var(--t-fast), color var(--t-fast);
+    -webkit-tap-highlight-color: transparent;
+    white-space: nowrap;
+  }
+  .mwt-vtab svg { flex-shrink: 0; opacity: 0.7; transition: opacity var(--t-fast); }
+  .mwt-vtab.active {
+    background: var(--gold);
+    color: #090900;
+    font-weight: 600;
+  }
+  .mwt-vtab.active svg { opacity: 1; }
+
+  /* Mobile PDF panel — shown when in pdf view */
+  #screen-workspace .pdf-panel.mobile-visible {
+    display: flex !important;
+    flex: 1 1 0 !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+  /* Hide desktop pdf-bar on mobile, show mobile page nav instead */
+  #screen-workspace .pdf-panel.mobile-visible .pdf-bar {
+    display: none !important;
+  }
+  #screen-workspace .pdf-panel.mobile-visible .pdf-body {
+    flex: 1 1 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  /* Hide outline panel on mobile */
+  #screen-workspace .pdf-panel.mobile-visible .pdf-outline-panel {
+    display: none !important;
+  }
+  #screen-workspace .pdf-panel.mobile-visible .pdf-view {
+    flex: 1 !important;
+    width: 100% !important;
+    min-height: 0 !important;
+  }
+  /* Mobile page nav strip at bottom of PDF view */
+  .mobile-pdf-nav {
+    display: none;
+  }
+  #screen-workspace .pdf-panel.mobile-visible .mobile-pdf-nav {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: var(--surface-1);
+    border-top: 1px solid var(--border-xs);
+    flex-shrink: 0;
+  }
+  .mpn-btn {
+    width: 34px; height: 34px;
+    border-radius: var(--r-sm);
+    background: var(--surface-3);
+    border: 1px solid var(--border-xs);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-2);
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mpn-btn:active { background: var(--surface-4); }
+  .mpn-page {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text-2);
+    min-width: 60px;
+    text-align: center;
+  }
+
+  /* Chat panel: fill remaining space, column layout */
+  #screen-workspace .chat-panel {
+    flex: 1 1 0 !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    min-height: 0 !important;
+  }
+
+  /* PDF mode: hide chat entirely, pdf takes all space */
+  #screen-workspace.ws-pdf-mode .chat-panel {
+    display: none !important;
+  }
+  #screen-workspace.ws-pdf-mode .pdf-panel {
+    display: flex !important;
+    flex: 1 1 0 !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* Messages: scrollable flex area */
+  #screen-workspace .messages {
+    flex: 1 1 0 !important;
+    overflow-y: auto !important;
+    padding: 16px 14px !important;
+    min-height: 0 !important;
+  }
+
+  /* Bubbles */
+  .bubble-user { max-width: 84% !important; }
+  .ai-text     { font-size: 13px !important; }
+
+  /* Input bar: pinned to bottom of chat-panel */
+  #screen-workspace .chat-input-wrap {
+    flex-shrink: 0 !important;
+    padding: 10px 14px 14px !important;
+    border-top: 1px solid var(--border-xs) !important;
+    background: var(--surface-1) !important;
+  }
+  #screen-workspace .chat-input-inner {
+    border-radius: var(--r-lg) !important;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     STEP 5 — SHARED MOBILE SCREEN TOPBAR
+  ════════════════════════════════════════════════════════ */
+
+  .mobile-screen-topbar {
+    display: flex !important;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px 9px;
+    border-bottom: 1px solid var(--border-xs);
+    background: var(--surface-0);
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .mst-back {
+    width: 32px; height: 32px;
+    border-radius: var(--r-sm);
+    background: var(--surface-2);
+    border: 1px solid var(--border-xs);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-2); cursor: pointer; flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mst-title {
+    flex: 1;
+    font-family: var(--font-head);
+    font-size: 15px; font-weight: 700;
+    color: var(--text-1);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .mst-badge {
+    padding: 3px 10px;
+    border-radius: var(--r-pill);
+    font-family: var(--font-mono);
+    font-size: 10px; font-weight: 600;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .mst-badge.violet {
+    background: var(--violet-muted);
+    border: 1px solid var(--violet-border);
+    color: var(--violet);
+  }
+  .mst-badge.gold {
+    background: var(--gold-muted);
+    border: 1px solid var(--gold-border);
+    color: var(--gold);
+  }
+
+  /* ════════════════════════════════════════════════════════
+     STEP 5 — FLASHCARDS
+  ════════════════════════════════════════════════════════ */
+
+  /* Hide desktop sidebar; main fills full width */
+  #screen-flash .sidebar { display: none !important; }
+  #screen-flash .flash-header { display: none !important; } /* replaced by mobile topbar */
+
+  .flash-main {
+    align-items: stretch !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-bottom: var(--mobile-nav-h) !important;
+  }
+
+  /* Generate bar: full width */
+  .gen-bar {
+    max-width: 100% !important;
+    margin: 12px 16px 0 !important;
+    box-sizing: border-box;
+  }
+
+  /* Flashcard: responsive width, taller on small screens looks bad, keep ratio */
+  .flash-scene {
+    width: 100% !important;
+    padding: 0 16px !important;
+    box-sizing: border-box !important;
+    margin: 16px 0 6px !important;
+  }
+  .flash-card-wrap {
+    width: 100% !important;
+    height: 240px !important;
+  }
+  .flash-face { padding: 24px 22px !important; }
+  .flash-q { font-size: 16px !important; }
+  .flash-a { font-size: 13px !important; }
+
+  /* Hint text */
+  .flash-hint { font-size: 10px !important; padding: 0 16px !important; text-align: center; }
+
+  /* Controls: wrap so Hard/Got it/Easy don't overflow */
+  .flash-controls {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    padding: 0 16px !important;
+  }
+  .flash-btn { padding: 8px 16px !important; font-size: 12px !important; }
+
+  /* Stats row */
+  .flash-stats {
+    gap: 16px !important;
+    justify-content: center;
+    padding: 0 16px 24px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     STEP 5 — RESEARCH
+  ════════════════════════════════════════════════════════ */
+
+  #screen-research .sidebar    { display: none !important; }
+
+  /* research-layout fills the screen, is a flex column */
+  .research-layout {
+    width: 100% !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  /* Desktop topbar (has title + status) - compact on mobile */
+  .research-topbar {
+    padding: 0 14px !important;
+    gap: 8px !important;
+    flex-wrap: wrap !important;
+    height: auto !important;
+    min-height: 44px !important;
+    font-size: 12px !important;
+  }
+  .research-topbar-title { font-size: 13px !important; }
+  .research-status       { font-size: 10px !important; }
+  /* hide verbose word count on mobile */
+  .research-topbar > div:last-of-type[style*="font-mono"] { display: none !important; }
+
+  /* Main body: single column — hide the outline tree */
+  .research-body {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  .research-outline { display: none !important; }
+
+  /* Center editor takes full width */
+  .research-main {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+  }
+  .research-content {
+    overflow: visible !important;
+    flex-direction: column !important;
+  }
+  .research-tab-panel { overflow: visible !important; }
+  .layer-editor { overflow: visible !important; }
+
+  /* Setup form: full width, comfortable padding */
+  .research-setup {
+    padding: 20px 16px 80px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .setup-form { max-width: 100% !important; }
+  .setup-row  { flex-direction: column !important; gap: 12px !important; }
+  .setup-input { font-size: 14px !important; }
+  .setup-btn { width: 100% !important; justify-content: center !important; }
+
+  /* ════════════════════════════════════════════════════════
+     STEP 5 — STUDY PLAN
+  ════════════════════════════════════════════════════════ */
+
+  #screen-studyplan .sidebar { display: none !important; }
+
+  /* sp-main: full screen */
+  .sp-main {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  /* Topbar: back btn visible, compact, no badge */
+  .sp-topbar {
+    padding: 10px 14px 10px 10px !important;
+    gap: 8px !important;
+    flex-shrink: 0 !important;
+  }
+  .sp-back-btn   { display: flex !important; }
+  .sp-topbar-title { font-size: 14px !important; }
+  .sp-topbar-badge { display: none !important; }
+  .sp-topbar-actions { gap: 6px !important; }
+  .sp-topbar-btn { padding: 5px 12px !important; font-size: 11px !important; }
+
+  /* sp-body: scrollable full height */
+  .sp-body {
+    flex: 1 1 0 !important;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    min-height: 0 !important;
+  }
+
+  /* Empty/setup state: no centering, just top-flow */
+  #sp-empty-state {
+    flex: none !important;
+    overflow-y: visible !important;
+    padding-bottom: calc(var(--mobile-nav-h) + 16px) !important;
+  }
+
+  .sp-setup {
+    padding: 20px 16px 16px !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    min-height: unset !important;
+    gap: 20px !important;
+  }
+
+  /* Hero: horizontal compact row instead of centered block */
+  .sp-setup-hero {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    text-align: left !important;
+    max-width: 100% !important;
+  }
+  .sp-setup-icon {
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 14px !important;
+    flex-shrink: 0 !important;
+    margin: 0 !important;
+  }
+  .sp-setup-title {
+    font-size: 17px !important;
+    margin-bottom: 4px !important;
+  }
+  .sp-setup-subtitle {
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+  }
+
+  /* Setup card: full width, no max-width constraint */
+  .sp-setup-card {
+    max-width: 100% !important;
+    border-radius: var(--r-lg) !important;
+  }
+  .sp-setup-card-body {
+    padding: 16px !important;
+  }
+  .sp-src-tabs { flex-wrap: nowrap !important; }
+  .sp-generate-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  /* Roadmap/detail columns: full width stacked */
+  .sp-roadmap-col {
+    width: 100% !important;
+    padding: 16px 16px calc(var(--mobile-nav-h) + 16px) !important;
+    overflow-y: visible !important;
+    min-width: 0 !important;
+  }
+  .sp-detail-col {
+    width: 100% !important;
+    border-left: none !important;
+    border-top: 1px solid var(--border-xs) !important;
+    padding: 16px !important;
+    min-width: 0 !important;
+  }
+
+  .sp-node-card { min-width: 0 !important; }
+  .sp-activities { flex-wrap: wrap !important; gap: 6px !important; }
+
+}
+</style>
+
 
 </head>
 <body>
@@ -3512,6 +4414,29 @@ body {
   </aside>
 
   <main class="home-main">
+
+    <!-- Mobile topbar: logo + avatar (hidden on desktop via CSS) -->
+    <div class="mobile-home-topbar" style="display:none;">
+      <div class="mht-logo-row">
+        <svg width="26" height="26" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="mht-lg1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
+          </defs>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#mht-lg1)" stroke-width="7" opacity="0.95"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#mht-lg1)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#mht-lg1)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+          <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+        </svg>
+        <span class="mht-logo-text">Chunks</span>
+      </div>
+      <div class="mht-right">
+        <div class="mht-search-btn" title="Search">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        <div class="mht-avatar" onclick="toggleProfileDropdown(event)" title="Profile">A</div>
+      </div>
+    </div>
+
     <div class="home-glow"></div>
 
     <!-- Scrollable content -->
@@ -3616,6 +4541,30 @@ body {
 ══════════════════════════════ -->
 <div class="screen" id="screen-workspace">
 
+  <!-- Mobile workspace topbar (hidden on desktop) -->
+  <div class="mobile-ws-topbar" style="display:none;">
+    <button type="button" class="mwt-back" onclick="goHome()" aria-label="Back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <div class="mwt-title-block">
+      <div class="mwt-title" id="mwt-book-name">Study Workspace</div>
+      <div class="mwt-subtitle" id="mwt-book-sub">Select a book to begin</div>
+    </div>
+    <!-- Chat / PDF toggle pill -->
+    <div class="mwt-view-toggle">
+      <button type="button" class="mwt-vtab active" id="mwt-tab-chat" onclick="wsMobileView('chat')" aria-label="Chat view">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>Chat</span>
+      </button>
+      <button type="button" class="mwt-vtab" id="mwt-tab-pdf" onclick="wsMobileView('pdf')" aria-label="PDF view">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        <span>PDF</span>
+      </button>
+    </div>
+    <button type="button" class="mwt-library" onclick="openLibraryModal()" aria-label="Open library">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+    </button>
+  </div>
   <aside class="sidebar">
     <div class="sidebar-header">
       <div class="logo-link" onclick="handleLogoClick(this)" title="Go to home / expand">
@@ -3786,10 +4735,20 @@ body {
         </div>
 
       </div>
+
+      <!-- Mobile page nav (only visible when pdf panel is mobile-visible) -->
+      <div class="mobile-pdf-nav">
+        <button type="button" class="mpn-btn" onclick="wsPrevPage()" aria-label="Previous page">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <span class="mpn-page" id="mpn-page-label">1 / 1</span>
+        <button type="button" class="mpn-btn" onclick="wsNextPage()" aria-label="Next page">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </div>
+
     </div>
   </section>
-
-  <!-- Drag resizer -->
   <div class="ws-resizer" id="ws-resizer"></div>
 
   <!-- Chat Panel -->
@@ -3835,6 +4794,15 @@ body {
      SCREEN 3: FLASHCARDS
 ══════════════════════════════ -->
 <div class="screen" id="screen-flash" style="flex-direction:row;overflow:hidden;">
+
+  <!-- Mobile topbar (hidden on desktop) -->
+  <div class="mobile-screen-topbar" style="display:none;">
+    <button type="button" class="mst-back" onclick="goHome()" aria-label="Back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <span class="mst-title">Flashcards</span>
+    <span class="mst-badge violet" id="flash-mobile-count">0 / 0</span>
+  </div>
 
   <!-- Sidebar (same as homepage) -->
   <aside class="sidebar">
@@ -4010,6 +4978,15 @@ body {
      SCREEN 4: RESEARCH
 ══════════════════════════════ -->
 <div class="screen" id="screen-research" style="flex-direction:row;overflow:hidden;">
+
+  <!-- Mobile topbar (hidden on desktop) -->
+  <div class="mobile-screen-topbar" style="display:none;">
+    <button type="button" class="mst-back" onclick="goHome()" aria-label="Back">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <span class="mst-title">Research</span>
+    <div class="mst-badge gold" id="research-mobile-badge" style="display:none;">In Progress</div>
+  </div>
 
   <!-- Sidebar -->
   <aside class="sidebar">
@@ -5460,6 +6437,8 @@ const ZOOM_STEP = 0.2, ZOOM_MIN = 0.6, ZOOM_MAX = 3.0;
 function _wsUpdateBadge(page) {
   const b = document.getElementById('ws-page-badge');
   if (b) b.textContent = `${page} / ${_wsTotalPages}`;
+  const m = document.getElementById('mpn-page-label');
+  if (m) m.textContent = `${page} / ${_wsTotalPages}`;
 }
 
 // ── Toolbar: prev / next ───────────────────────────────────
@@ -5583,6 +6562,19 @@ async function selectBook(bookId) {
 
   document.getElementById('ws-book-name').textContent   = meta.name;
   document.getElementById('ws-book-author').textContent = meta.author;
+
+  // Sync mobile workspace topbar
+  const mwtTitle = document.getElementById('mwt-book-name');
+  const mwtSub   = document.getElementById('mwt-book-sub');
+  const mwtBadge = document.getElementById('mwt-badge');
+  const mwtBadgeTxt = document.getElementById('mwt-badge-text');
+  if (mwtTitle) mwtTitle.textContent = meta.name;
+  if (mwtSub)   mwtSub.textContent   = meta.author || '';
+  if (mwtBadge && mwtBadgeTxt) {
+    const chapterMatch = (meta.author || '').match(/Ch\.?\s*\d+/i);
+    mwtBadgeTxt.textContent = chapterMatch ? chapterMatch[0] : 'Open';
+    mwtBadge.style.display = 'flex';
+  }
   // Show book cover in outline panel
   const coverWrap = document.getElementById('ws-outline-cover');
   const coverImg  = document.getElementById('ws-outline-cover-img');
@@ -6476,8 +7468,12 @@ function _fcRenderCard() {
     .replace(/\$([^$]+)\$/g, '<code style="font-family:var(--font-mono);font-size:12px;background:var(--surface-3);border:1px solid var(--border-xs);padding:1px 5px;border-radius:4px;color:var(--teal);">$1</code>');
 
   // Update progress
-  document.getElementById('flash-count-label').textContent = `${_fcIndex + 1} / ${total}`;
+  const countText = `${_fcIndex + 1} / ${total}`;
+  document.getElementById('flash-count-label').textContent = countText;
   document.getElementById('flash-progress-fill').style.width = `${((_fcIndex + 1) / total) * 100}%`;
+  // Sync mobile topbar badge
+  const mobileCount = document.getElementById('flash-mobile-count');
+  if (mobileCount) mobileCount.textContent = countText;
 
   // Update breadcrumb with deck topic
   const titleEl = document.getElementById('flash-deck-title');
@@ -9039,6 +10035,9 @@ function _showResearchView() {
   document.getElementById('research-view-main').style.overflow   = 'hidden';
   document.getElementById('research-topbar').style.display       = 'flex';
   document.getElementById('research-paper-title').textContent    = RS.title || 'Untitled Research';
+  // Show mobile badge
+  const rmb = document.getElementById('research-mobile-badge');
+  if (rmb) rmb.style.display = 'flex';
 
   _renderOutline();
   _initDragDrop();
@@ -12716,6 +13715,9 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
     <!-- TOP BAR -->
     <div class="sp-topbar">
+      <button type="button" class="mst-back sp-back-btn" onclick="goHome()" aria-label="Back" style="display:none;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gold);flex-shrink:0;"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
       <span class="sp-topbar-title">Study Plan</span>
       <span class="sp-topbar-badge">CRITICAL PATH</span>
@@ -13951,7 +14953,7 @@ Your explanation should:
 - Highlight common misconceptions or tricky edge cases
 - End with a 2-3 sentence summary that reinforces the key takeaway
 
-Use **bold** for key terms. Use clear paragraph breaks. Keep the tone conversational but precise — like a brilliant tutor talking directly to the student. Aim for about 400-600 words.`;
+Use **bold** for key terms. Use ### headings to separate sections. Use bullet lists where appropriate. Do NOT use --- dividers. Keep the tone conversational but precise — like a brilliant tutor talking directly to the student. Aim for about 400-600 words.`;
 
   try {
     const resp = await fetch('https://chunks-ai-main-production.up.railway.app/ask', {
@@ -13983,34 +14985,89 @@ Use **bold** for key terms. Use clear paragraph breaks. Keep the tone conversati
 }
 
 function _spExplainMarkdown(text) {
+  // Escape HTML
   let t = text
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-  // Bold
-  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-  // Italic
-  t = t.replace(/\*(.+?)\*/g, '<em>$1</em>');
-  // Inline code
-  t = t.replace(/`([^`]+)`/g, '<code style="font-family:var(--font-mono);font-size:12px;background:var(--surface-3);padding:1px 5px;border-radius:4px;color:var(--teal);">$1</code>');
+  // Inline: bold, italic, inline code
+  function inlineFormat(s) {
+    return s
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`([^`]+)`/g, '<code style="font-family:var(--font-mono);font-size:12px;background:var(--surface-3);padding:1px 5px;border-radius:4px;color:var(--teal);">$1</code>');
+  }
 
-  // Split into paragraphs by double newline
-  const blocks = t.split(/\n\n+/);
-  return blocks.map(block => {
-    const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-    if (!lines.length) return '';
-    // Bulleted list
-    if (lines.every(l => /^[-•*] /.test(l))) {
-      return '<ul>' + lines.map(l => `<li>${l.replace(/^[-•*] /,'')}</li>`).join('') + '</ul>';
+  // Split into lines, process line by line into typed tokens
+  const lines = t.split('\n');
+  const tokens = [];
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i].trim();
+
+    // Skip dividers (--- or ***)
+    if (/^[-*]{3,}$/.test(line)) { i++; continue; }
+
+    // Headings: # ## ###
+    if (/^#{1,3} /.test(line)) {
+      const level = line.match(/^(#+)/)[1].length;
+      const content = line.replace(/^#+\s+/, '');
+      tokens.push({ type: 'heading', level, content });
+      i++; continue;
     }
-    // Numbered list
-    if (lines.every(l => /^\d+\. /.test(l))) {
-      return '<ol>' + lines.map(l => `<li>${l.replace(/^\d+\. /,'')}</li>`).join('') + '</ol>';
+
+    // Unordered list item
+    if (/^[-•*] /.test(line)) {
+      const items = [];
+      while (i < lines.length && /^[-•*] /.test(lines[i].trim())) {
+        items.push(lines[i].trim().replace(/^[-•*] /, ''));
+        i++;
+      }
+      tokens.push({ type: 'ul', items });
+      continue;
     }
-    // Heading
-    if (lines.length === 1 && /^#{1,3} /.test(lines[0])) {
-      return `<h4 style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);margin:18px 0 6px;">${lines[0].replace(/^#+\s/,'')}</h4>`;
+
+    // Ordered list item
+    if (/^\d+\. /.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\d+\. /.test(lines[i].trim())) {
+        items.push(lines[i].trim().replace(/^\d+\. /, ''));
+        i++;
+      }
+      tokens.push({ type: 'ol', items });
+      continue;
     }
-    return `<p>${lines.join(' ')}</p>`;
+
+    // Empty line — paragraph break (skip)
+    if (!line) { i++; continue; }
+
+    // Paragraph: collect consecutive non-special lines
+    const paraLines = [];
+    while (i < lines.length) {
+      const l = lines[i].trim();
+      if (!l || /^#{1,3} /.test(l) || /^[-•*] /.test(l) || /^\d+\. /.test(l) || /^[-*]{3,}$/.test(l)) break;
+      paraLines.push(l);
+      i++;
+    }
+    if (paraLines.length) tokens.push({ type: 'p', content: paraLines.join(' ') });
+  }
+
+  // Render tokens to HTML
+  return tokens.map(tok => {
+    if (tok.type === 'heading') {
+      const sizes = { 1: '16px', 2: '15px', 3: '14px' };
+      const sz = sizes[tok.level] || '14px';
+      return `<h4 style="font-family:var(--font-head);font-size:${sz};font-weight:700;color:var(--text-1);margin:20px 0 6px;letter-spacing:-0.01em;">${inlineFormat(tok.content)}</h4>`;
+    }
+    if (tok.type === 'ul') {
+      return '<ul>' + tok.items.map(l => `<li>${inlineFormat(l)}</li>`).join('') + '</ul>';
+    }
+    if (tok.type === 'ol') {
+      return '<ol>' + tok.items.map(l => `<li>${inlineFormat(l)}</li>`).join('') + '</ol>';
+    }
+    if (tok.type === 'p') {
+      return `<p>${inlineFormat(tok.content)}</p>`;
+    }
+    return '';
   }).join('');
 }
 
@@ -14772,6 +15829,14 @@ document.addEventListener('click', function(e) {
   transform: translateX(0);
 }
 
+@media (max-width: 768px) {
+  #sp-explain-drawer {
+    width: 100vw;
+    max-width: 100vw;
+    border-left: none;
+  }
+}
+
 /* Header */
 .sp-explain-header {
   display: flex;
@@ -14831,16 +15896,19 @@ document.addEventListener('click', function(e) {
 #sp-explain-body {
   scrollbar-width: thin;
 }
-#sp-explain-body p { margin: 0 0 14px; }
+#sp-explain-body p { margin: 0 0 12px; }
 #sp-explain-body p:last-child { margin-bottom: 0; }
 #sp-explain-body strong { color: var(--text-1); font-weight: 600; }
 #sp-explain-body em { color: var(--gold); font-style: normal; }
+#sp-explain-body h4 { color: var(--text-1); }
+#sp-explain-body h4:first-child { margin-top: 0; }
 #sp-explain-body ul, #sp-explain-body ol {
-  margin: 0 0 14px 18px;
-  display: flex; flex-direction: column; gap: 5px;
+  margin: 0 0 14px 20px;
+  display: flex; flex-direction: column; gap: 6px;
 }
 #sp-explain-body li { color: var(--text-2); line-height: 1.7; }
-#sp-explain-body h4 { color: var(--text-1); }
+#sp-explain-body ul li { list-style: disc; }
+#sp-explain-body ol li { list-style: decimal; }
 
 /* Spinner */
 .sp-explain-spinner {
@@ -15131,10 +16199,15 @@ document.addEventListener('click', function(e) {
   border-bottom: 1px solid var(--border-xs);
   flex-shrink: 0;
   padding: 0 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.sp-drawer-tabs::-webkit-scrollbar { display: none; }
 .sp-drawer-tab {
   display: flex; align-items: center; gap: 5px;
-  padding: 0 12px; height: 36px;
+  padding: 0 14px; height: 38px;
   font-size: 12px; font-weight: 500; font-family: var(--font-body);
   color: var(--text-3);
   background: none; border: none;
@@ -15142,6 +16215,7 @@ document.addEventListener('click', function(e) {
   cursor: pointer;
   transition: color var(--t-fast);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .sp-drawer-tab:hover { color: var(--text-1); }
 .sp-drawer-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
@@ -15224,6 +16298,310 @@ document.addEventListener('click', function(e) {
 .sp-fc-rate-btn.ok:hover   { background: var(--gold-muted); border-color: var(--gold-border); color: var(--gold); }
 .sp-fc-rate-btn.easy:hover { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.3); color: var(--green); }
 </style>
+
+
+<!-- ══════════════════════════════════════════════
+     MOBILE DRAWER  (Step 2)
+     Fixed, slide-in from left. Opened by "More" tab.
+══════════════════════════════════════════════ -->
+<div class="mobile-drawer-overlay" id="mobile-drawer-overlay" onclick="closeMobileDrawer()"></div>
+
+<div class="mobile-drawer" id="mobile-drawer" role="dialog" aria-modal="true" aria-label="Navigation menu">
+
+  <!-- Header -->
+  <div class="md-header">
+    <div class="md-logo-row">
+      <svg width="26" height="26" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="md-lg1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
+        </defs>
+        <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#md-lg1)" stroke-width="7" opacity="0.95"/>
+        <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#md-lg1)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+        <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#md-lg1)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+        <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+      </svg>
+      <span class="md-logo-text">Chunks</span>
+    </div>
+    <button type="button" class="md-close" onclick="closeMobileDrawer()" aria-label="Close menu">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Study nav -->
+  <div class="md-section">
+    <div class="md-section-label">Study</div>
+    <div class="md-item active" id="md-item-home" onclick="drawerNav('home')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Home
+    </div>
+    <div class="md-item" id="md-item-workspace" onclick="drawerNav('workspace')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      Workspace
+    </div>
+    <div class="md-item" id="md-item-library" onclick="drawerNav('library')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+      Library
+    </div>
+    <div class="md-item" id="md-item-flash" onclick="drawerNav('flash')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+      Flashcards
+    </div>
+    <div class="md-item" id="md-item-exam" onclick="drawerNav('exam')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Exam
+    </div>
+    <div class="md-item" id="md-item-studyplan" onclick="drawerNav('studyplan')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      Study Plan
+    </div>
+    <div class="md-item" id="md-item-research" onclick="drawerNav('research')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
+      Research
+    </div>
+  </div>
+
+  <div class="md-divider"></div>
+
+  <!-- Recent chats (populated by JS) -->
+  <div class="md-section">
+    <div class="md-section-label">Recent Chats</div>
+    <div id="md-recent-list">
+      <div class="md-recent-item" style="color:var(--text-4);font-style:italic;font-size:12px;padding:8px 10px;">No recent chats</div>
+    </div>
+  </div>
+
+  <!-- Footer / profile -->
+  <div class="md-footer">
+    <div class="md-profile">
+      <div class="md-avatar">A</div>
+      <div>
+        <div class="md-profile-name">Alex Cruz</div>
+        <div class="md-profile-plan">Free Plan</div>
+      </div>
+      <div class="md-upgrade">Upgrade</div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════════
+     MOBILE BOTTOM NAV  (Step 1 — always in DOM,
+     hidden via CSS on desktop)
+══════════════════════════════════════════════ -->
+<nav class="mobile-bottom-nav" id="mobile-bottom-nav" role="navigation" aria-label="Main navigation">
+
+  <button type="button" class="mobile-nav-item active" id="mnav-home" onclick="mobileNav('home', this)">
+    <div class="mobile-nav-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+    </div>
+    <span class="mobile-nav-label">Home</span>
+  </button>
+
+  <button type="button" class="mobile-nav-item" id="mnav-workspace" onclick="mobileNav('workspace', this)">
+    <div class="mobile-nav-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M3 9h18M9 21V9"/>
+      </svg>
+    </div>
+    <span class="mobile-nav-label">Workspace</span>
+  </button>
+
+  <button type="button" class="mobile-nav-item" id="mnav-flash" onclick="mobileNav('flash', this)">
+    <div class="mobile-nav-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2"/>
+        <path d="M8 21h8m-4-4v4"/>
+      </svg>
+    </div>
+    <span class="mobile-nav-label">Cards</span>
+  </button>
+
+  <button type="button" class="mobile-nav-item" id="mnav-exam" onclick="mobileNav('exam', this)">
+    <div class="mobile-nav-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 11l3 3L22 4"/>
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+      </svg>
+    </div>
+    <span class="mobile-nav-label">Exam</span>
+  </button>
+
+  <button type="button" class="mobile-nav-item" id="mnav-more" onclick="mobileNav('more', this)">
+    <div class="mobile-nav-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </div>
+    <span class="mobile-nav-label">More</span>
+  </button>
+
+  <div class="mobile-home-indicator"></div>
+</nav>
+
+<script>
+/* ── Workspace mobile view toggle (Chat / PDF) ─────────── */
+function wsMobileView(view) {
+  var ws        = document.getElementById('screen-workspace');
+  var pdfPanel  = document.querySelector('#screen-workspace .pdf-panel');
+  var tabChat   = document.getElementById('mwt-tab-chat');
+  var tabPdf    = document.getElementById('mwt-tab-pdf');
+  if (!ws || !pdfPanel) return;
+
+  if (view === 'pdf') {
+    ws.classList.add('ws-pdf-mode');
+    pdfPanel.classList.add('mobile-visible');
+    if (tabChat) tabChat.classList.remove('active');
+    if (tabPdf)  tabPdf.classList.add('active');
+  } else {
+    ws.classList.remove('ws-pdf-mode');
+    pdfPanel.classList.remove('mobile-visible');
+    if (tabChat) tabChat.classList.add('active');
+    if (tabPdf)  tabPdf.classList.remove('active');
+  }
+}
+
+/* Reset to chat view whenever workspace screen is shown on mobile */
+(function patchShowScreenForWsMobile() {
+  const _orig = window.showScreen;
+  if (typeof _orig !== 'function') return;
+  window.showScreen = function(id) {
+    _orig(id);
+    if (id === 'workspace' && window.innerWidth <= 768) {
+      wsMobileView('chat');
+    }
+  };
+})();
+
+
+
+/* Maps nav tab IDs to screen IDs used by showScreen().
+   'more' tab wired to drawer in Step 2.
+-------------------------------------------------------- */
+const MOBILE_NAV_MAP = {
+  home:      'home',
+  workspace: 'workspace',
+  flash:     'flash',
+  exam:      'exam',
+  more:      null       // drawer — wired in Step 2
+};
+
+function mobileNav(tab, btn) {
+  // Update active pill
+  document.querySelectorAll('.mobile-nav-item')
+          .forEach(el => el.classList.remove('active'));
+  btn.classList.add('active');
+
+  // Sync desktop sidebar active state
+  document.querySelectorAll('.sidebar-item')
+          .forEach(el => el.classList.remove('active'));
+
+  const screenId = MOBILE_NAV_MAP[tab];
+  if (screenId && typeof showScreen === 'function') {
+    showScreen(screenId);
+  }
+  // 'more' opens the drawer
+  if (tab === 'more') openMobileDrawer();
+}
+
+/* Keep mobile nav in sync when desktop showScreen() is called */
+(function patchShowScreen() {
+  const _orig = window.showScreen;
+  if (typeof _orig !== 'function') return;
+  window.showScreen = function(id) {
+    _orig(id);
+    // Mirror active state on bottom nav
+    const map = { home:'mnav-home', workspace:'mnav-workspace',
+                  flash:'mnav-flash', exam:'mnav-exam', research:'mnav-more' };
+    if (map[id]) {
+      document.querySelectorAll('.mobile-nav-item')
+              .forEach(el => el.classList.remove('active'));
+      const el = document.getElementById(map[id]);
+      if (el) el.classList.add('active');
+    }
+  };
+})();
+
+/* ── Drawer open / close ─────────────────────────────────── */
+function openMobileDrawer() {
+  const overlay = document.getElementById('mobile-drawer-overlay');
+  const drawer  = document.getElementById('mobile-drawer');
+  if (!overlay || !drawer) return;
+  syncDrawerRecentChats();
+  overlay.classList.add('open');
+  drawer.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeMobileDrawer() {
+  const overlay = document.getElementById('mobile-drawer-overlay');
+  const drawer  = document.getElementById('mobile-drawer');
+  if (!overlay || !drawer) return;
+  overlay.classList.remove('open');
+  drawer.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeMobileDrawer();
+});
+
+/* ── Drawer nav: navigate then close ────────────────────── */
+function drawerNav(screen) {
+  closeMobileDrawer();
+
+  document.querySelectorAll('.md-item').forEach(el => el.classList.remove('active'));
+  const target = document.getElementById('md-item-' + screen);
+  if (target) target.classList.add('active');
+
+  const navMap = {
+    home:'mnav-home', workspace:'mnav-workspace',
+    flash:'mnav-flash', exam:'mnav-exam',
+    studyplan:'mnav-more', research:'mnav-more', library:'mnav-more'
+  };
+  document.querySelectorAll('.mobile-nav-item').forEach(el => el.classList.remove('active'));
+  const navEl = document.getElementById(navMap[screen] || 'mnav-more');
+  if (navEl) navEl.classList.add('active');
+
+  if (screen === 'library') {
+    if (typeof openLibraryModal === 'function') openLibraryModal();
+  } else if (typeof showScreen === 'function') {
+    showScreen(screen);
+  }
+}
+
+/* ── Sync recent chats into drawer ──────────────────────── */
+function syncDrawerRecentChats() {
+  const target = document.getElementById('md-recent-list');
+  if (!target) return;
+  const items = [];
+  ['recent-list-general','recent-list-home'].forEach(function(id) {
+    const src = document.getElementById(id);
+    if (!src) return;
+    src.querySelectorAll('.recent-item').forEach(function(el) {
+      const span = el.querySelector('span');
+      const text = span ? span.textContent.trim() : '';
+      const onclickAttr = el.getAttribute('onclick') || '';
+      if (text) items.push({ text: text, onclick: onclickAttr });
+    });
+  });
+  if (items.length === 0) return;
+  target.innerHTML = items.map(function(item) {
+    return '<div class="md-recent-item" onclick="closeMobileDrawer();' + item.onclick + '">'
+      + '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
+      + '<span>' + item.text + '</span>'
+      + '</div>';
+  }).join('');
+}
+</script>
 
 </body>
 </html>
