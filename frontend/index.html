@@ -6747,35 +6747,36 @@ function filterFAQs(query) {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(0,0,0,0.65);
-  backdrop-filter: blur(6px);
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(8px);
   animation: modal-fade-in 0.18s ease;
 }
 .confirm-modal.active { display: flex; }
 .confirm-box {
-  background: #2f2f2f;
+  background: #2a2a2a;
   border: none;
-  border-radius: 20px;
-  padding: 32px 28px 24px;
+  border-radius: 24px;
+  padding: 40px 32px 28px;
   width: 100%;
-  max-width: 360px;
-  box-shadow: 0 32px 80px rgba(0,0,0,0.8);
+  max-width: 400px;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.85);
   animation: modal-fade-in 0.18s ease;
   text-align: center;
 }
 .confirm-icon { display: none; }
 .confirm-title {
   font-family: var(--font-head);
-  font-size: 20px; font-weight: 700;
+  font-size: 22px; font-weight: 800;
   color: #ffffff;
-  margin-bottom: 10px;
-  line-height: 1.3;
+  margin-bottom: 12px;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
 }
 .confirm-desc {
   font-size: 14px;
-  color: #b0b0b0;
-  line-height: 1.55;
-  margin-bottom: 28px;
+  color: #999999;
+  line-height: 1.6;
+  margin-bottom: 32px;
 }
 .confirm-actions {
   display: flex;
@@ -6785,32 +6786,33 @@ function filterFAQs(query) {
 .confirm-ok {
   order: 1;
   width: 100%;
-  padding: 14px 20px;
+  padding: 16px 20px;
   border-radius: 999px;
   border: none;
-  background: #ffffff;
-  color: #111111;
+  background: #f4f4f4;
+  color: #0d0d0d;
   font-size: 15px; font-weight: 600;
   font-family: var(--font-body);
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
 }
-.confirm-ok:hover { background: #e8e8e8; transform: translateY(-1px); }
-.confirm-ok:active { transform: translateY(0); }
+.confirm-ok:hover { background: #ffffff; transform: translateY(-1px); box-shadow: 0 4px 18px rgba(0,0,0,0.35); }
+.confirm-ok:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
 .confirm-cancel {
   order: 2;
   width: 100%;
-  padding: 14px 20px;
+  padding: 16px 20px;
   border-radius: 999px;
   border: none;
-  background: #3f3f3f;
-  color: #ffffff;
+  background: #3a3a3a;
+  color: #eeeeee;
   font-size: 15px; font-weight: 500;
   font-family: var(--font-body);
   cursor: pointer;
   transition: background 0.15s, transform 0.1s;
 }
-.confirm-cancel:hover { background: #4a4a4a; transform: translateY(-1px); }
+.confirm-cancel:hover { background: #454545; transform: translateY(-1px); }
 .confirm-cancel:active { transform: translateY(0); }
 </style>
 
