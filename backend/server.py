@@ -139,7 +139,7 @@ if OPENROUTER_API_KEY == 'your-key-here':
 PORT               = int(os.environ.get('PORT', 5000))
 PRODUCTION         = os.environ.get('PRODUCTION', 'false').lower() == 'true'
 OPENROUTER_URL     = "https://openrouter.ai/api/v1/chat/completions"
-MODEL              = os.environ.get('MODEL', 'openai/gpt-oss-20b:nitro')
+MODEL              = os.environ.get('MODEL', 'arcee-ai/trinity-large-preview:free')
 
 # Supabase config for server-side JWT verification and daily message counters
 SUPABASE_URL         = os.environ.get('SUPABASE_URL', '')
