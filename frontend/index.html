@@ -1181,10 +1181,11 @@ body::after {
   border-radius: 0;
   position: relative;
 }
-.outline-item:hover { color: var(--text-1); background: var(--surface-1); }
+.outline-item:hover { color: var(--text-1); background: none; }
 .outline-item.active {
   color: var(--gold);
-  background: var(--gold-muted);
+  background: none;
+  font-weight: 600;
 }
 .outline-item.active::before {
   content: '';
@@ -1212,7 +1213,8 @@ body::after {
 .outline-item.sub:hover { color: var(--text-2); }
 .outline-item.sub.active {
   color: var(--gold);
-  background: var(--gold-muted);
+  background: none;
+  font-weight: 500;
 }
 
 /* Page number badge on hover/active */
