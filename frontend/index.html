@@ -5740,7 +5740,12 @@ async function pdAction(action) {
         title: 'Are you sure you want to log out?',
         desc: _userEmail ? `Log out of Chunks AI as ${_userEmail}?` : 'Log out of Chunks AI?',
         confirmLabel: 'Log out',
-        onConfirm: () => window._authSignOut ? window._authSignOut() : (wsShowToast && wsShowToast('👋', 'Logged out', ''))
+        onConfirm: () => {
+          const btn = document.getElementById('confirm-ok-btn');
+          if (btn) { btn.textContent = 'Logging out…'; btn.disabled = true; }
+          if (window._authSignOut) window._authSignOut();
+          else wsShowToast && wsShowToast('👋', 'Logged out', '');
+        }
       });
       break;
     }
@@ -6833,9 +6838,7 @@ function filterFAQs(query) {
 </div>
 
 <script>
-/* ── Confirm Modal ── */
-let _confirmCallback = null;
-
+/* ── Confirm Modal — bridge to shared.js ── */
 function showSimpleNotif(text) {
   const el = document.getElementById('simple-notif');
   el.textContent = text;
@@ -6844,117 +6847,22 @@ function showSimpleNotif(text) {
   el._timer = setTimeout(() => el.classList.remove('show'), 3000);
 }
 
-function showConfirmModal({ title, desc, confirmLabel, onConfirm }) {
-  document.getElementById('confirm-title').textContent = title;
-  document.getElementById('confirm-desc').textContent = desc;
-  document.getElementById('confirm-ok-btn').textContent = confirmLabel || 'Confirm';
-  _confirmCallback = onConfirm;
+function showConfirmModal(opts) {
+  if (window._showSharedConfirm) { window._showSharedConfirm(opts); return; }
+  // fallback until shared.js loads
+  document.getElementById('confirm-title').textContent = opts.title || '';
+  document.getElementById('confirm-desc').textContent  = opts.desc  || '';
+  document.getElementById('confirm-ok-btn').textContent = opts.confirmLabel || 'Confirm';
+  window._confirmCallback = opts.onConfirm;
   document.getElementById('confirm-modal').classList.add('active');
 }
 
 function closeConfirmModal() {
+  if (window._closeSharedConfirm) { window._closeSharedConfirm(); return; }
   document.getElementById('confirm-modal').classList.remove('active');
-  _confirmCallback = null;
 }
-
-document.getElementById('confirm-ok-btn').addEventListener('click', async (e) => {
-  e.stopPropagation();
-  const cb = _confirmCallback;
-  closeConfirmModal();
-  if (cb) await cb();
-});
-
-document.getElementById('confirm-modal').addEventListener('click', function(e) {
-  e.stopPropagation();
-  if (e.target === this) closeConfirmModal();
-});
 </script>
-<!-- ── Supabase Auth ── -->
-<script>
-(async function() {
-  // ── Supabase config (anon key is safe in frontend) ────────
-  const SUPABASE_URL  = 'https://wiwbfspsrgayvquzfryl.supabase.co';
-  const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I';
-
-  const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
-  let _authToken = null;
-
-  // ── Session check ─────────────────────────────────────────
-  async function _checkSession() {
-    if (sessionStorage.getItem('chunks_guest_mode')) return;
-
-    const { data: { session } } = await _supabase.auth.getSession();
-
-    if (!session) {
-      window.location.replace('login.html');
-      return;
-    }
-
-    _authToken = session.access_token;
-    _applyUserToUI(session.user);
-
-    _supabase.auth.onAuthStateChange((event, newSession) => {
-      if (event === 'SIGNED_OUT') {
-        window.location.replace('login.html');
-      } else if (newSession?.access_token) {
-        _authToken = newSession.access_token;
-        _applyUserToUI(newSession.user);
-      }
-    });
-  }
-
-  // ── Apply user info to UI ─────────────────────────────────
-  function _applyUserToUI(user) {
-    if (!user) return;
-    const name     = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
-    const email    = user.email || '';
-    const avatar   = user.user_metadata?.avatar_url || '';
-    const initials = name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
-
-    const avatarHTML = avatar
-      ? `<img src="${avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.parentElement.textContent='${initials}'">`
-      : initials;
-
-    document.querySelectorAll('.profile-name').forEach(el => el.textContent = name);
-    document.querySelectorAll('.avatar').forEach(el => el.innerHTML = avatarHTML);
-
-    const pdName   = document.querySelector('.pd-name');
-    const pdHandle = document.querySelector('.pd-handle');
-    const pdAvatar = document.querySelector('.pd-avatar');
-    if (pdName)   pdName.textContent   = name;
-    if (pdHandle) pdHandle.textContent = email;
-    if (pdAvatar) pdAvatar.innerHTML   = avatarHTML;
-  }
-
-  // ── Inject auth token into API calls ─────────────────────
-  const _origFetch = window.fetch.bind(window);
-  window.fetch = function(input, opts) {
-    try {
-      const url = typeof input === 'string' ? input : input?.url || '';
-      if (_authToken && url.includes('chunks-ai-main-production')) {
-        opts = opts ? { ...opts } : {};
-        opts.headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${_authToken}` };
-      }
-    } catch(e) {}
-    return _origFetch(input, opts);
-  };
-
-  // ── Sign out ──────────────────────────────────────────────
-  window._authSignOut = function() {
-    sessionStorage.removeItem('chunks_guest_mode');
-    _supabase.auth.signOut().catch(() => {});
-    window.location.replace('login.html');
-  };
-
-  // ── Patch pdAction for terms/privacy (logout handled by main pdAction) ──
-  const _origPdAction = window.pdAction;
-  window.pdAction = function(action) {
-    _origPdAction?.(action);
-  };
-
-  // ── Run ───────────────────────────────────────────────────
-  try { await _checkSession(); } catch(e) { console.warn('Auth error:', e); }
-})();
-</script>
+<!-- ── Supabase Auth (handled by shared.js) ── -->
+<script src="shared.js"></script>
 </body>
 </html>
