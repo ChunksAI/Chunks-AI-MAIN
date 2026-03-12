@@ -66,6 +66,9 @@
   --sidebar-w:      244px;
   --sidebar-icon-w: 52px;
 
+  /* Chat font size (user-adjustable: 11px / 13px / 15px) */
+  --chat-font-size: 13px;
+
   /* Transitions */
   --ease-snap:   cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -768,6 +771,36 @@ body::after {
 }
 .settings-toggle input:checked ~ .settings-toggle-thumb { transform: translateX(18px); }
 
+/* ── Font size segmented control ── */
+.font-size-picker {
+  display: flex;
+  gap: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-md);
+  padding: 3px;
+}
+.font-size-btn {
+  padding: 5px 14px;
+  border-radius: var(--r-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+.font-size-btn:hover { color: var(--text-1); }
+.font-size-btn.active {
+  background: var(--surface-4);
+  color: var(--text-1);
+  font-weight: 600;
+}
+
 /* Play button for Voice */
 .settings-play-btn {
   display: inline-flex; align-items: center; gap: 5px;
@@ -1277,7 +1310,7 @@ body::after {
   max-width: 76%;
   background: var(--surface-2); border: 1px solid var(--border-xs);
   border-radius: 15px 15px 3px 15px;
-  padding: 9px 13px; font-size: 13px; color: var(--text-1); line-height: 1.55;
+  padding: 9px 13px; font-size: var(--chat-font-size); color: var(--text-1); line-height: 1.55;
 }
 
 .msg-ai { align-items: flex-start; }
@@ -1293,7 +1326,7 @@ body::after {
 .ai-body { flex: 1; min-width: 0; }
 
 .ai-text {
-  font-size: 13px; color: var(--text-1);
+  font-size: var(--chat-font-size); color: var(--text-1);
   line-height: 1.68; margin-bottom: 10px;
 }
 .ai-text strong { font-weight: 600; }
@@ -1495,7 +1528,7 @@ body::after {
   align-self: flex-end;
   background: var(--surface-2); border: 1px solid var(--border-sm);
   border-radius: 18px 18px 4px 18px;
-  padding: 11px 16px; font-size: 14px; color: var(--text-1);
+  padding: 11px 16px; font-size: var(--chat-font-size); color: var(--text-1);
   max-width: 72%; line-height: 1.55; white-space: pre-wrap;
 }
 .hc-ai { align-self: stretch; display: flex; gap: 14px; max-width: 100%; }
@@ -1506,7 +1539,7 @@ body::after {
   flex-shrink: 0; margin-top: 3px; color: var(--gold); font-size: 13px;
 }
 .hc-ai-body {
-  flex: 1; font-size: 14px; color: var(--text-1);
+  flex: 1; font-size: var(--chat-font-size); color: var(--text-1);
   line-height: 1.75; padding: 2px 0;
   border: none; background: none;
 }
@@ -5768,7 +5801,7 @@ function _wsShowWelcome(meta) {
     <div style="display:flex;flex-direction:column;gap:14px;padding:20px 16px 8px;">
       <div class="hc-ai" style="align-items:flex-start;">
         <div class="hc-ai-avatar" style="background:var(--gold-muted);border:1px solid var(--gold-border);color:var(--gold);font-size:13px;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">✦</div>
-        <div style="background:var(--surface-1);border:1px solid var(--border-sm);border-radius:4px 14px 14px 14px;padding:13px 15px;font-size:13px;color:var(--text-1);line-height:1.65;flex:1;">
+        <div style="background:var(--surface-1);border:1px solid var(--border-sm);border-radius:4px 14px 14px 14px;padding:13px 15px;font-size:var(--chat-font-size);color:var(--text-1);line-height:1.65;flex:1;">
           <p style="margin:0 0 8px;"><strong>${meta.name}</strong> is ready! I've indexed the full textbook — ask me anything about it.</p>
           <p style="margin:0;color:var(--text-2);">Here are a few things you could ask:</p>
           <div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;">
@@ -7636,6 +7669,35 @@ function openSettings(page) {
 function closeSettings() {
   document.getElementById('settings-modal').classList.remove('active');
 }
+
+/* ── Chat font size ── */
+function settingsFontSize(size, btn) {
+  const map = { small: '11px', medium: '13px', large: '15px' };
+  const val = map[size];
+  if (!val) return;
+  document.documentElement.style.setProperty('--chat-font-size', val);
+  document.querySelectorAll('.font-size-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  try { localStorage.setItem('chunks-chat-font-size', size); } catch(e) {}
+}
+// Restore saved preference on page load
+(function restoreFontSize() {
+  try {
+    const saved = localStorage.getItem('chunks-chat-font-size');
+    const map = { small: '11px', medium: '13px', large: '15px' };
+    if (saved && map[saved]) {
+      document.documentElement.style.setProperty('--chat-font-size', map[saved]);
+      // Sync button state once DOM is ready
+      function syncBtn() {
+        document.querySelectorAll('.font-size-btn').forEach(b => b.classList.remove('active'));
+        const target = document.querySelector(`.font-size-btn[onclick*="'${saved}'"]`);
+        if (target) target.classList.add('active');
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', syncBtn);
+      else syncBtn();
+    }
+  } catch(e) {}
+})();
 
 function settingsNav(page, el) {
   document.querySelectorAll('.settings-nav-item').forEach(n => n.classList.remove('active'));
@@ -12210,6 +12272,17 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
               <div class="settings-select-option" onclick="settingsSelect(this)">Dark</div>
               <div class="settings-select-option" onclick="settingsSelect(this)">Light</div>
             </div>
+          </div>
+        </div>
+        <div class="settings-row">
+          <div class="settings-row-left">
+            <div class="settings-row-label">Chat font size</div>
+            <div class="settings-row-desc">Adjust text size for chat messages.</div>
+          </div>
+          <div class="font-size-picker" id="font-size-picker">
+            <button class="font-size-btn" onclick="settingsFontSize('small',this)">S</button>
+            <button class="font-size-btn active" onclick="settingsFontSize('medium',this)">M</button>
+            <button class="font-size-btn" onclick="settingsFontSize('large',this)">L</button>
           </div>
         </div>
         <div class="settings-row">
