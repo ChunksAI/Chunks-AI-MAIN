@@ -6940,9 +6940,9 @@ document.getElementById('confirm-modal').addEventListener('click', function(e) {
   };
 
   // ── Sign out ──────────────────────────────────────────────
-  window._authSignOut = async function() {
-    try { await _supabase.auth.signOut(); } catch(e) {}
+  window._authSignOut = function() {
     sessionStorage.removeItem('chunks_guest_mode');
+    _supabase.auth.signOut().catch(() => {});
     window.location.replace('login.html');
   };
 
