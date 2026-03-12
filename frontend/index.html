@@ -5735,10 +5735,10 @@ async function pdAction(action) {
       openShortcuts();
       break;
     case 'logout': {
-      const _userEmail = window._supabase ? (await window._supabase.auth.getUser().catch(()=>({data:{user:null}})))?.data?.user?.email : null;
+      const _userEmail = document.querySelector('.pd-handle')?.textContent?.trim() || '';
       showConfirmModal({
         title: 'Are you sure you want to log out?',
-        desc: _userEmail ? `Log out of Chunks AI as ${_userEmail}?` : 'Are you sure you want to log out?',
+        desc: _userEmail ? `Log out of Chunks AI as ${_userEmail}?` : 'Log out of Chunks AI?',
         confirmLabel: 'Log out',
         onConfirm: () => window._authSignOut ? window._authSignOut() : (wsShowToast && wsShowToast('👋', 'Logged out', ''))
       });
