@@ -4,6 +4,8 @@
    Depends on: tokens.css
 ═══════════════════════════════════════════════════════════ */
 
+#screen-home { flex-direction: row; overflow: hidden; }
+
 /* Home main */
 .home-main {
   flex: 1;
