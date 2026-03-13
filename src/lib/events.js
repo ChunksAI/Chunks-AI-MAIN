@@ -70,6 +70,11 @@ document.addEventListener('click', function (e) {
   if (action === 'switchCitTab')               { fn(el.dataset.tab || ''); return; }
   if (action === 'handleLogoClick')            { fn(el); return; }
   if (action === 'toggleSidebar')              { fn(el); return; }
+  if (action === 'toggleProfileDropdown') {
+    // toggleProfileDropdown expects a real event with currentTarget
+    const syntheticE = { stopPropagation: () => e.stopPropagation(), currentTarget: el };
+    fn(syntheticE); return;
+  }
   if (action === 'toggleFAQ')                  { fn(el); return; }
   if (action === 'roToggleSection')            { fn(el); return; }
   if (action === 'filterLibSection')           { fn(el); return; }
