@@ -251,13 +251,8 @@ async function _examCallAPI(prompt, retries = 3) {
       }
       if (!resp.ok) throw new Error('Server error ' + resp.status);
       const data = await resp.json();
-      let rawAnswer = data.answer || data.response || data.text || data.result || '';
-      if (!rawAnswer && data.content != null) {
-        rawAnswer = Array.isArray(data.content)
-          ? data.content.filter(b => b && b.type === 'text').map(b => b.text || '').join('')
-          : data.content;
-      }
-      const answer = typeof rawAnswer === 'string' ? rawAnswer : String(rawAnswer ?? '');
+      const rawAnswer = data.answer || data.response || data.text || data.content || data.result || '';
+      const answer    = typeof rawAnswer === 'string' ? rawAnswer : String(rawAnswer ?? '');
       if (!answer && attempt < retries) {
         console.warn('[API] Empty answer, retrying...', JSON.stringify(data).slice(0, 200));
         await new Promise(r => setTimeout(r, 1000));
