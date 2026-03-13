@@ -18,6 +18,7 @@ import math
 import logging
 from datetime import datetime
 from collections import Counter
+import threading
 import PyPDF2
 import docx
 from pptx import Presentation
@@ -60,6 +61,34 @@ def sanitize_text(text, max_len=2000):
     text = str(text).replace('\x00', '').strip()
     return text[:max_len]
 
+
+_INJECTION_PATTERNS = re.compile(
+    r'ignore\s+(all\s+)?(previous|prior|above|earlier)\s+instructions?'
+    r'|you\s+are\s+now\s+(a|an|the|dan|jailbreak)'
+    r'|forget\s+(everything|all|your|the)\s+(you|previous|prior|above|instructions?|rules?|context|system)'
+    r'|disregard\s+(all\s+)?(previous|prior|above|your)\s+(instructions?|rules?|context|system|prompt)'
+    r'|act\s+as\s+(if\s+you\s+are\s+)?(a\s+)?(dan|jailbreak|unrestricted|unfiltered|evil)'
+    r'|system\s*:\s*|<\s*/?system\s*>'
+    r'|<\s*/?(?:instruction|prompt|context)\s*>'
+    r'|\[\s*(?:SYSTEM|INST|INSTRUCTION)\s*\]'
+    r'|###\s*(?:system|instruction|new prompt)'
+    r'|role\s*:\s*(system|assistant)',
+    re.IGNORECASE,
+)
+
+
+def sanitize_user_memory(text, max_len=500):
+    if not text:
+        return ''
+    cleaned = str(text).replace('\x00', '').strip()[:max_len]
+    if _INJECTION_PATTERNS.search(cleaned):
+        logger.warning(
+            "Prompt injection attempt in user_memory — field cleared. "
+            "Preview: %r", cleaned[:120]
+        )
+        return ''
+    return cleaned
+
 app = Flask(__name__)
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
@@ -101,10 +130,10 @@ CORS(app,
 
 @app.after_request
 def after_request(response):
-    # Force CORS headers on every response (including preflight)
-    response.headers['Access-Control-Allow-Origin']  = '*'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    # NOTE: CORS headers (Access-Control-Allow-Origin / Headers / Methods) are
+    # intentionally NOT set here. Flask-CORS (initialised above) manages them
+    # using the CORS_ORIGINS whitelist. Setting them here with a wildcard would
+    # override that whitelist on every response and render it useless.
     # Security headers
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
@@ -117,11 +146,26 @@ def after_request(response):
 
 
 # ── Rate Limiting ─────────────────────────────────────────────────────────────
+# Use Redis when REDIS_URL is set (production) — survives restarts and is shared
+# across all Gunicorn workers/dynos so limits are enforced globally.
+# Falls back to in-memory when REDIS_URL is absent (local dev) with a warning.
+_REDIS_URL = os.environ.get('REDIS_URL', '')
+if _REDIS_URL:
+    _limiter_storage = _REDIS_URL          # e.g. redis://localhost:6379/0
+    logger.info("Rate limiter: Redis backend (%s)", _REDIS_URL.split("@")[-1])
+else:
+    _limiter_storage = "memory://"
+    logger.warning(
+        "⚠️  REDIS_URL not set — rate limiter using in-memory storage. "
+        "Limits reset on restart and are NOT shared across workers. "
+        "Add a Redis instance and set REDIS_URL for production."
+    )
+
 limiter = Limiter(
     key_func=get_remote_address,
     app=app,
     default_limits=["500 per hour", "120 per minute"],
-    storage_uri="memory://",
+    storage_uri=_limiter_storage,
     strategy="fixed-window"
 )
 
@@ -608,25 +652,46 @@ def _cache_set(key: str, value) -> None:
     _material_cache[key] = (value, _time.time())
 
 # Per-book index cache — each book_id maps to its own TextbookSearch instance.
-# Eliminates multi-worker race conditions where two users on different books
-# would overwrite the single global index.
 _book_cache: dict[str, TextbookSearch] = {}
+# Lock protecting _book_cache writes. Prevents duplicate R2 downloads when
+# two requests for the same uncached book arrive at the same time under
+# Gunicorn threaded workers. The fast path (book already cached) never
+# acquires the lock, so there is zero contention in steady state.
+_book_cache_lock = threading.Lock()
 
 def get_book_index(book_id: str) -> TextbookSearch:
-    """Return a cached (or freshly loaded) TextbookSearch for book_id."""
+    """Return a cached (or freshly loaded) TextbookSearch for book_id.
+
+    Uses double-checked locking:
+      1. Fast check without lock — returns immediately for already-cached books.
+      2. Acquire lock — only one thread loads a given book at a time.
+      3. Check again inside lock — a concurrent thread may have finished
+         loading while we waited; if so, use its result instead of downloading
+         the book a second time.
+    """
+    # ── Fast path: book already in cache (no lock needed) ────────────────
     if book_id in _book_cache:
         return _book_cache[book_id]
 
     if book_id not in BOOK_LIBRARY:
         return TextbookSearch()  # empty — is_relevant will be False
 
-    searcher = TextbookSearch()
-    ok = searcher.load_chunks_from_url(BOOK_LIBRARY[book_id]['chunks_url'], book_id=book_id)
-    if ok:
-        _book_cache[book_id] = searcher
-        mode = "hybrid (embeddings + TF-IDF)" if searcher.has_embeddings else "TF-IDF only"
-        logger.info(f"✅ Cached [{mode}] index for: {book_id}")
-    return searcher
+    # ── Slow path: acquire lock, then re-check before downloading ─────────
+    with _book_cache_lock:
+        # Second check inside the lock — another thread may have loaded the
+        # book while we were waiting to acquire _book_cache_lock.
+        if book_id in _book_cache:
+            logger.debug(f"Book '{book_id}' loaded by concurrent thread — reusing cache.")
+            return _book_cache[book_id]
+
+        logger.info(f"Loading book index for '{book_id}' (no concurrent load in progress)")
+        searcher = TextbookSearch()
+        ok = searcher.load_chunks_from_url(BOOK_LIBRARY[book_id]['chunks_url'], book_id=book_id)
+        if ok:
+            _book_cache[book_id] = searcher
+            mode = "hybrid (embeddings + TF-IDF)" if searcher.has_embeddings else "TF-IDF only"
+            logger.info(f"✅ Cached [{mode}] index for: {book_id}")
+        return searcher
 
 
 # ============================================
@@ -1022,7 +1087,7 @@ def ask():
         thinking_mode = data.get('thinking', None)
         web_search    = data.get('web_search', False)
         history       = data.get('history', [])
-        user_memory   = data.get('user_memory', '')
+        user_memory   = sanitize_user_memory(data.get('user_memory', ''))
 
         # ── Server-side tier verification (fixes Blocker 2) ──────────────────
         # NEVER trust the client-sent user_tier — always verify via Supabase JWT.
@@ -1124,10 +1189,10 @@ def ask():
 
         ctx_block = f"TEXTBOOK CONTEXT (from {BOOK_LIBRARY.get(book_id, {}).get('name', 'textbook')}):\n{context}\n\n" if is_relevant else ""
 
-        # Build user memory block
+        # Build user memory block (already sanitized + injection-checked at read time)
         memory_block = ""
-        if user_memory and user_memory.strip():
-            memory_block = f"\n\nUSER PROFILE (remember this about the student):\n{user_memory.strip()}"
+        if user_memory:
+            memory_block = f"\n\nUSER PROFILE (remember this about the student):\n{user_memory}"
 
         # Book-aware system prompt — works for chemistry, nursing, biology, physics, etc.
         book_info   = BOOK_LIBRARY.get(book_id, {})
