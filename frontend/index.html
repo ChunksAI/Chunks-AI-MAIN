@@ -11844,7 +11844,45 @@ async function _fcLoadDeckIntoStudy(deck) {
 
 const FC_SESSIONS_LS_KEY = 'chunks_fc_sessions_v1';
 
-/* ── Save a completed study session ── */
+/*
+ * Rating → SRS (SM-2 simplified) factor mapping
+ *   easy  → ease goes up,   interval doubles
+ *   ok    → ease unchanged, interval × 1.5
+ *   hard  → ease goes down, interval resets to 1
+ *   skip  → no change to fc_progress
+ */
+function _fcRatingToSRS(rating, prev = {}) {
+  const ease  = prev.ease_factor   ?? 2.5;
+  const reps  = prev.repetitions   ?? 0;
+  const inter = prev.interval_days ?? 1;
+  if (rating === 'easy') return {
+    ease_factor:   Math.min(ease + 0.15, 3.0),
+    interval_days: Math.max(Math.round(inter * 2), 2),
+    repetitions:   reps + 1,
+    last_reviewed: new Date().toISOString(),
+    next_review:   new Date(Date.now() + Math.max(Math.round(inter * 2), 2) * 86400000).toISOString(),
+  };
+  if (rating === 'ok') return {
+    ease_factor:   ease,
+    interval_days: Math.max(Math.round(inter * 1.5), 1),
+    repetitions:   reps + 1,
+    last_reviewed: new Date().toISOString(),
+    next_review:   new Date(Date.now() + Math.max(Math.round(inter * 1.5), 1) * 86400000).toISOString(),
+  };
+  // hard
+  return {
+    ease_factor:   Math.max(ease - 0.2, 1.3),
+    interval_days: 1,
+    repetitions:   reps + 1,
+    last_reviewed: new Date().toISOString(),
+    next_review:   new Date(Date.now() + 86400000).toISOString(),
+  };
+}
+
+/* ── Save a completed study session ──
+   - Upserts per-card SRS progress into fc_progress (the table that exists)
+   - Saves session aggregate to localStorage for sidebar score pill
+*/
 async function _fcSaveSession() {
   const total   = _fcDeck.length;
   const easy    = _fcStats.easy    || 0;
@@ -11857,69 +11895,79 @@ async function _fcSaveSession() {
     deck_id:      _fcCurrentDeckId || null,
     deck_name:    _fcDeckTopic || 'Untitled',
     easy, ok, hard, skipped, total,
-    card_ratings: _fcCardRatings.slice(),
     studied_at:   new Date().toISOString(),
   };
 
+  // Always save aggregate to localStorage — this is what the sidebar pill reads
+  _fcSaveSessionLocal(session);
+
+  // Upsert per-card SRS data into fc_progress (only for cards with a Supabase id)
   if (ChunksDB.isLoggedIn() && _fcCurrentDeckId) {
-    try {
-      const { data: sessionRow, error: sessionErr } = await ChunksDB.insert('fc_sessions', {
-        deck_id:    session.deck_id,
-        deck_name:  session.deck_name,
-        easy:       session.easy,
-        ok:         session.ok,
-        hard:       session.hard,
-        skipped:    session.skipped,
-        total:      session.total,
-        studied_at: session.studied_at,
-      });
-      if (!sessionErr && sessionRow) {
-        const ratingRows = session.card_ratings.map(r => ({
-          session_id: sessionRow.id,
-          card_id:    r.card_id || null,
-          card_front: r.front,
-          rating:     r.rating,
-          rated_at:   session.studied_at,
+    const ratableCards = _fcCardRatings.filter(r => r.card_id && r.rating !== 'skipped');
+    if (ratableCards.length) {
+      try {
+        await Promise.all(ratableCards.map(r => {
+          const srs = _fcRatingToSRS(r.rating);
+          return ChunksDB.upsert('fc_progress', {
+            card_id:      r.card_id,
+            deck_id:      _fcCurrentDeckId,
+            ...srs,
+          }, 'user_id,card_id');
         }));
-        await Promise.all(ratingRows.map(r => ChunksDB.insert('fc_card_ratings', r)));
-        console.log('[FC] Session saved to Supabase:', sessionRow.id);
-      } else {
-        console.warn('[FC] Session insert failed, falling back', sessionErr);
-        _fcSaveSessionLocal(session);
+        console.log(`[FC] Progress upserted for ${ratableCards.length} cards`);
+      } catch(e) {
+        console.warn('[FC] Progress upsert error:', e.message);
       }
-    } catch(e) {
-      console.warn('[FC] Session save error:', e.message);
-      _fcSaveSessionLocal(session);
     }
-  } else {
-    _fcSaveSessionLocal(session);
   }
 
-  // Refresh sidebar to show updated last-session stats
+  // Refresh sidebar to show updated score pill
   _fcRenderDeckList().catch(() => {});
 }
 
 /* ── localStorage session fallback ── */
 function _fcSaveSessionLocal(session) {
   const sessions = ChunksDB.lsGet(FC_SESSIONS_LS_KEY, []);
-  sessions.unshift(session);
-  ChunksDB.lsSet(FC_SESSIONS_LS_KEY, sessions.slice(0, 100));
+  // Replace any existing entry for this deck so the sidebar always shows the latest
+  const filtered = sessions.filter(s => s.deck_id !== session.deck_id && s.deck_name !== session.deck_name);
+  filtered.unshift(session);
+  ChunksDB.lsSet(FC_SESSIONS_LS_KEY, filtered.slice(0, 100));
 }
 
-/* ── Get the most recent session for a deck (for sidebar display) ── */
+/* ── Get the most recent session for a deck (sidebar score pill) ──
+   Reads from localStorage aggregate — no fc_sessions table needed.
+   For cross-device: derives a score from fc_progress if available.
+*/
 async function _fcGetLastSession(deckId, deckName) {
+  // 1. Check localStorage first (fastest, works offline)
+  const sessions = ChunksDB.lsGet(FC_SESSIONS_LS_KEY, []);
+  const local = sessions.find(s => s.deck_id === deckId || s.deck_name === deckName);
+  if (local) return local;
+
+  // 2. Cross-device fallback: derive a score from fc_progress rows
   if (ChunksDB.isLoggedIn() && deckId) {
     try {
-      const { data, error } = await ChunksDB.get('fc_sessions', {
+      const { data, error } = await ChunksDB.get('fc_progress', {
         eq:    { deck_id: deckId },
-        order: { col: 'studied_at', asc: false },
-        limit: 1,
+        limit: 100,
       });
-      if (!error && data?.length) return data[0];
-    } catch(e) {}
+      if (!error && data?.length) {
+        // Treat repetitions>0 cards as reviewed; ease>=2.5 as "easy/ok"
+        const total  = data.length;
+        const easy   = data.filter(c => c.ease_factor >= 2.5 && c.repetitions > 0).length;
+        const hard   = data.filter(c => c.ease_factor <  2.5 && c.repetitions > 0).length;
+        const latest = data.reduce((a, b) =>
+          (a.last_reviewed || '') > (b.last_reviewed || '') ? a : b, data[0]);
+        return {
+          deck_id:    deckId,
+          deck_name:  deckName,
+          easy, ok: 0, hard, skipped: 0, total,
+          studied_at: latest.last_reviewed || null,
+        };
+      }
+    } catch(e) { /* silent */ }
   }
-  const sessions = ChunksDB.lsGet(FC_SESSIONS_LS_KEY, []);
-  return sessions.find(s => s.deck_id === deckId || s.deck_name === deckName) || null;
+  return null;
 }
 
 /* ── Init on screen open ── */
