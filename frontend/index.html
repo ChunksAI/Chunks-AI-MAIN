@@ -5,20 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline';
-  style-src 'self' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-inline';
+  script-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com 'unsafe-inline';
+  style-src 'self' https://fonts.googleapis.com https://cdn.jsdelivr.net 'unsafe-inline';
   font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:;
   img-src 'self' data: blob: https:;
   connect-src 'self' https://chunks-ai-main-production.up.railway.app https://*.supabase.co wss://*.supabase.co;
-  worker-src blob:;
   frame-src 'none';
   object-src 'none';
   base-uri 'self';
-  upgrade-insecure-requests;
 ">
-<!-- NOTE: 'unsafe-inline' will be removed once inline <script> blocks and
-     inline event handlers (onclick=, etc.) are migrated to external .js files.
-     Track progress: inline handlers reduced from 331 → 206. Target: 0. -->
 <title>Chunks AI — Study Smarter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin="anonymous">
@@ -194,7 +189,6 @@ select:focus-visible {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-will-change: transform;
 /* ── backdrop-filter: GPU compositing hint + @supports fallback ── */
 /* Hint the GPU to composite these layers independently for smoother blur */
 .upgrade-modal, .library-modal, .shortcuts-modal, .settings-modal,
@@ -619,7 +613,6 @@ will-change: transform;
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.75);
-  will-change: transform;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   z-index: 10003;
@@ -725,7 +718,6 @@ will-change: transform;
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.72);
-  will-change: transform;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 10002;
@@ -1993,7 +1985,6 @@ body {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.72);
-  will-change: transform;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 9000;
@@ -3444,7 +3435,6 @@ body {
 ═══════════════════════════════════════════════════════════ */
 #screen-studyplan { flex-direction: row; overflow: hidden; }
 .sp-main { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; position:relative; }
-will-change: transform;
 .sp-topbar { display:flex; align-items:center; gap:12px; padding:14px 24px; border-bottom:1px solid var(--border-xs); background:rgba(13,14,20,0.6); backdrop-filter:blur(12px); flex-shrink:0; }
 .sp-topbar-title { font-family:var(--font-head); font-size:15px; font-weight:700; color:var(--text-1); letter-spacing:-0.01em; }
 .sp-topbar-badge { font-family:var(--font-mono); font-size:10px; color:var(--gold); background:var(--gold-muted); border:1px solid var(--gold-border); padding:3px 9px; border-radius:var(--r-pill); letter-spacing:0.04em; }
@@ -3548,7 +3538,6 @@ will-change: transform;
 .sp-spinner { width:13px; height:13px; border:2px solid var(--surface-4); border-top-color:var(--gold); border-radius:50%; flex-shrink:0; animation:sp-spin 0.7s linear infinite; }
 .sp-spinner-lg { width:32px; height:32px; border:3px solid var(--surface-4); border-top-color:var(--gold); border-radius:50%; animation:sp-spin 0.75s linear infinite; }
 @keyframes sp-spin { to { transform:rotate(360deg); } }
-will-change: transform;
 #sp-generating-overlay { display:none; position:absolute; inset:0; background:rgba(8,8,16,0.88); backdrop-filter:blur(8px); z-index:100; flex-direction:column; align-items:center; justify-content:center; gap:20px; }
 .sp-gen-card { background:var(--surface-1); border:1px solid var(--border-md); border-radius:var(--r-xl); padding:36px 44px; text-align:center; max-width:360px; width:90%; display:flex; flex-direction:column; align-items:center; gap:16px; box-shadow:0 24px 80px rgba(0,0,0,0.6); animation:sp-fadeUp 0.3s var(--ease-spring); }
 @keyframes sp-fadeUp { from{opacity:0;transform:translateY(12px) scale(0.97)} to{opacity:1;transform:translateY(0) scale(1)} }
@@ -3582,7 +3571,6 @@ will-change: transform;
   bottom: 0; left: 0; right: 0;
   height: var(--mobile-nav-h);
   background: rgba(13,14,20,0.96);
-  will-change: transform;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border-xs);
@@ -3696,7 +3684,6 @@ will-change: transform;
     position: fixed;
     inset: 0;
     background: rgba(0,0,0,0.6);
-    will-change: transform;
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     z-index: 9100;
@@ -4528,31 +4515,31 @@ will-change: transform;
     <nav aria-label="Main navigation">
     <div class="sidebar-section">
       <div class="sidebar-section-label">Study</div>
-      <div class="sidebar-item active" id="sidebar-home-btn" role="button" tabindex="0" aria-label="Home" aria-current="page" data-action="goHome" style="cursor:pointer;">
+      <div class="sidebar-item active" id="sidebar-home-btn" role="button" tabindex="0" aria-label="Home" aria-current="page" data-action="goHome" onkeydown="if(event.key==='Enter'||event.key===' ')goHome()" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Workspace" data-action="showScreen" data-screen="workspace" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Workspace" data-action="showScreen" data-screen="workspace" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('workspace')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         <span>Workspace</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Library" data-action="openLibraryModal" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Library" data-action="openLibraryModal" onkeydown="if(event.key==='Enter'||event.key===' ')openLibraryModal()" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
         <span>Library</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Flashcards" data-action="showScreen" data-screen="flash" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Flashcards" data-action="showScreen" data-screen="flash" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('flash')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('studyplan')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Research" data-action="showScreen" data-screen="research" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Research" data-action="showScreen" data-screen="research" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('research')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
         <span>Research</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Exam" data-action="showScreen" data-screen="exam" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Exam" data-action="showScreen" data-screen="exam" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('exam')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Exam</span>
       </div>
@@ -4572,7 +4559,7 @@ will-change: transform;
     </nav>
 
     <div class="sidebar-footer">
-      <div class="profile-row" role="button" tabindex="0" aria-label="Open profile menu" aria-haspopup="true" onkeydown="if(event.key==='Enter'||event.key===' ')toggleProfileDropdown(event)">
+      <div class="profile-row" role="button" tabindex="0" aria-label="Open profile menu" aria-haspopup="true" onclick="toggleProfileDropdown(event)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleProfileDropdown(event)">
         <div class="avatar" aria-hidden="true">A</div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
@@ -4603,7 +4590,7 @@ will-change: transform;
         <div class="mht-search-btn" title="Search">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </div>
-        <div class="mht-avatar" title="Profile">A</div>
+        <div class="mht-avatar" onclick="toggleProfileDropdown(event)" title="Profile">A</div>
       </div>
     </div>
 
@@ -4671,13 +4658,13 @@ will-change: transform;
           <div class="qc-title">Flashcards</div>
           <div class="qc-desc">Generate and review study cards from any chapter</div>
         </div>
-        <div class="quick-card" data-action="triggerHomePdfUpload">
+        <div class="quick-card" onclick="document.getElementById('home-pdf-upload').click()">
           <div class="qc-icon teal">⬆️</div>
           <div class="qc-title">Upload PDF</div>
           <div class="qc-desc">Add your own notes or textbooks to chat with</div>
         </div>
       </div>
-      <input type="file" id="home-pdf-upload" accept="application/pdf" style="display:none;" data-action="homeHandlePdfUpload-self">
+      <input type="file" id="home-pdf-upload" accept="application/pdf" style="display:none;" onchange="homeHandlePdfUpload(this)">
       <p class="prompts-label">Try asking</p>
       <div class="prompts-chips">
         <button class="prompt-chip" data-action="homeSetInput-text">Photosynthesis</button>
@@ -4702,7 +4689,7 @@ will-change: transform;
       <div id="incognito-badge" style="display:none;align-items:center;gap:6px;font-size:11px;color:var(--text-3);font-family:var(--font-mono);margin-bottom:4px;">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Incognito — this chat won't be saved
-        <button data-action="dismissIncognito" style="background:none;border:none;color:var(--text-4);cursor:pointer;font-size:11px;padding:0 2px;" aria-label="Exit incognito mode">✕</button>
+        <button onclick="localStorage.removeItem('chunks_incognito_session');document.getElementById('incognito-badge').style.display='none';" style="background:none;border:none;color:var(--text-4);cursor:pointer;font-size:11px;padding:0 2px;" aria-label="Exit incognito mode">✕</button>
       </div>
       <div class="home-disclaimer">Chunks AI can make mistakes. Verify important information.</div>
     </div>
@@ -4809,7 +4796,7 @@ will-change: transform;
       <div id="recent-list-workspace" class="recent-list"></div>
     </div>
     <div class="sidebar-footer">
-      <div class="profile-row">
+      <div class="profile-row" onclick="toggleProfileDropdown(event)">
         <div class="avatar">A</div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
@@ -4985,9 +4972,9 @@ will-change: transform;
         <button class="chat-send" id="ws-chat-send" data-action="wsChatSend"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
       </div>
       <div class="input-hints">
-        <button class="hint-tag" data-action="wsSetInput" data-text="Summarize the current page">Summarize page</button>
-        <button class="hint-tag" data-action="wsSetInput" data-text="Generate flashcards on this topic">Generate flashcards</button>
-        <button class="hint-tag" data-action="wsSetInput" data-text="Explain this equation in detail">Explain this equation</button>
+        <button class="hint-tag" onclick="wsSetInput('Summarize the current page')">Summarize page</button>
+        <button class="hint-tag" onclick="wsSetInput('Generate flashcards on this topic')">Generate flashcards</button>
+        <button class="hint-tag" onclick="wsSetInput('Explain this equation in detail')">Explain this equation</button>
       </div>
     </div>
   </section>
@@ -5083,7 +5070,7 @@ will-change: transform;
     </div>
 
     <div class="sidebar-footer">
-      <div class="profile-row">
+      <div class="profile-row" onclick="toggleProfileDropdown(event)">
         <div class="avatar">A</div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
@@ -5147,15 +5134,15 @@ will-change: transform;
   <p class="flash-hint" id="flipHint">Click the card or press Space to reveal the answer</p>
 
   <div class="flash-controls">
-    <button class="flash-btn hard" data-action="_fcNext" data-rating="hard">
+    <button class="flash-btn hard" onclick="_fcNext('hard')">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
       Hard
     </button>
-    <button class="flash-btn ok" data-action="_fcNext" data-rating="ok">
+    <button class="flash-btn ok" onclick="_fcNext('ok')">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
       Got it
     </button>
-    <button class="flash-btn easy" data-action="_fcNext" data-rating="easy">
+    <button class="flash-btn easy" onclick="_fcNext('easy')">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
       Easy
     </button>
@@ -5251,7 +5238,7 @@ will-change: transform;
       <div id="recent-list-ws-research" class="recent-list"></div>
     </div>
     <div class="sidebar-footer">
-      <div class="profile-row">
+      <div class="profile-row" onclick="toggleProfileDropdown(event)">
         <div class="avatar">A</div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
@@ -5354,7 +5341,7 @@ will-change: transform;
 
             <!-- Section I -->
             <div class="ro-section open">
-              <div class="ro-section-header active" data-action="toggleParentOpen">
+              <div class="ro-section-header active" onclick="this.parentElement.classList.toggle('open')">
                 <span class="ro-section-num">I</span>
                 <span>Introduction</span>
                 <div class="ro-progress">
@@ -5367,17 +5354,17 @@ will-change: transform;
                 <svg class="ro-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
               </div>
               <div class="ro-layers">
-                <div class="ro-layer done" data-action="_researchSelectLayer-self" data-layer="Background of the Study" data-section="Introduction">Background of the Study</div>
-                <div class="ro-layer done" data-action="_researchSelectLayer-self" data-layer="Global Problem" data-section="Introduction">Global Problem</div>
-                <div class="ro-layer active" data-action="_researchSelectLayer-self" data-layer="Local Problem" data-section="Introduction">Local Problem</div>
-                <div class="ro-layer" data-action="_researchSelectLayer-self" data-layer="Research Gap" data-section="Introduction">Research Gap</div>
-                <div class="ro-layer" data-action="_researchSelectLayer-self" data-layer="Purpose of the Study" data-section="Introduction">Purpose of the Study</div>
+                <div class="ro-layer done" onclick="_researchSelectLayer(this,'Background of the Study','Introduction')">Background of the Study</div>
+                <div class="ro-layer done" onclick="_researchSelectLayer(this,'Global Problem','Introduction')">Global Problem</div>
+                <div class="ro-layer active" onclick="_researchSelectLayer(this,'Local Problem','Introduction')">Local Problem</div>
+                <div class="ro-layer" onclick="_researchSelectLayer(this,'Research Gap','Introduction')">Research Gap</div>
+                <div class="ro-layer" onclick="_researchSelectLayer(this,'Purpose of the Study','Introduction')">Purpose of the Study</div>
               </div>
             </div>
 
             <!-- Section II -->
             <div class="ro-section">
-              <div class="ro-section-header" data-action="toggleParentOpen">
+              <div class="ro-section-header" onclick="this.parentElement.classList.toggle('open')">
                 <span class="ro-section-num">II</span>
                 <span>Review of Related Literature</span>
                 <div class="ro-progress">
@@ -5388,15 +5375,15 @@ will-change: transform;
                 <svg class="ro-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
               </div>
               <div class="ro-layers">
-                <div class="ro-layer" data-action="_researchSelectLayer-self" data-layer="Theoretical Framework" data-section="Review of Related Literature">Theoretical Framework</div>
-                <div class="ro-layer" data-action="_researchSelectLayer-self" data-layer="Related Studies (Global)" data-section="Review of Related Literature">Related Studies (Global)</div>
-                <div class="ro-layer" data-action="_researchSelectLayer-self" data-layer="Related Studies (Local)" data-section="Review of Related Literature">Related Studies (Local)</div>
+                <div class="ro-layer" onclick="_researchSelectLayer(this,'Theoretical Framework','Review of Related Literature')">Theoretical Framework</div>
+                <div class="ro-layer" onclick="_researchSelectLayer(this,'Related Studies (Global)','Review of Related Literature')">Related Studies (Global)</div>
+                <div class="ro-layer" onclick="_researchSelectLayer(this,'Related Studies (Local)','Review of Related Literature')">Related Studies (Local)</div>
               </div>
             </div>
 
             <!-- Section III -->
             <div class="ro-section">
-              <div class="ro-section-header" data-action="toggleParentOpen">
+              <div class="ro-section-header" onclick="this.parentElement.classList.toggle('open')">
                 <span class="ro-section-num">III</span>
                 <span>Methodology</span>
                 <div class="ro-progress">
@@ -5408,16 +5395,16 @@ will-change: transform;
                 <svg class="ro-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
               </div>
               <div class="ro-layers">
-                <div class="ro-layer" data-action="_researchSelectLayer-self" data-layer="Research Design" data-section="Methodology">Research Design</div>
-                <div class="ro-layer" data-action="_researchSelectLayer-self" data-layer="Participants &amp; Sampling" data-section="Methodology">Participants & Sampling</div>
-                <div class="ro-layer" data-action="_researchSelectLayer-self" data-layer="Data Collection" data-section="Methodology">Data Collection</div>
-                <div class="ro-layer" data-action="_researchSelectLayer-self" data-layer="Data Analysis" data-section="Methodology">Data Analysis</div>
+                <div class="ro-layer" onclick="_researchSelectLayer(this,'Research Design','Methodology')">Research Design</div>
+                <div class="ro-layer" onclick="_researchSelectLayer(this,'Participants & Sampling','Methodology')">Participants & Sampling</div>
+                <div class="ro-layer" onclick="_researchSelectLayer(this,'Data Collection','Methodology')">Data Collection</div>
+                <div class="ro-layer" onclick="_researchSelectLayer(this,'Data Analysis','Methodology')">Data Analysis</div>
               </div>
             </div>
 
             <!-- Section IV -->
             <div class="ro-section">
-              <div class="ro-section-header" data-action="toggleParentOpen">
+              <div class="ro-section-header" onclick="this.parentElement.classList.toggle('open')">
                 <span class="ro-section-num">IV</span>
                 <span>Results & Discussion</span>
                 <div class="ro-progress">
@@ -5436,7 +5423,7 @@ will-change: transform;
 
             <!-- Section V -->
             <div class="ro-section">
-              <div class="ro-section-header" data-action="toggleParentOpen">
+              <div class="ro-section-header" onclick="this.parentElement.classList.toggle('open')">
                 <span class="ro-section-num">V</span>
                 <span>Conclusion</span>
                 <div class="ro-progress">
@@ -5457,15 +5444,15 @@ will-change: transform;
         <!-- Center: Layer editor -->
         <div class="research-main">
           <div class="research-tabs">
-            <div class="research-tab active" data-action="switchResearchTab" data-tab="write">
+            <div class="research-tab active" onclick="switchResearchTab('write', this)">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
               Write Layer
             </div>
-            <div class="research-tab" data-action="switchResearchTab" data-tab="search">
+            <div class="research-tab" onclick="switchResearchTab('search', this)">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
               Search Papers
             </div>
-            <div class="research-tab" data-action="switchResearchTab" data-tab="paper">
+            <div class="research-tab" onclick="switchResearchTab('paper', this)">
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
               Full Paper
             </div>
@@ -5518,9 +5505,9 @@ will-change: transform;
                 </div>
                 <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
                   <span style="font-size:11px;color:var(--text-4);">Try:</span>
-                  <span id="search-chip-1" class="prompt-chip" style="font-size:11px;padding:3px 10px;" data-action="paperSearchChip"">social media academic performance</span>
-                  <span id="search-chip-2" class="prompt-chip" style="font-size:11px;padding:3px 10px;" data-action="paperSearchChip"">digital distraction students</span>
-                  <span id="search-chip-3" class="prompt-chip" style="font-size:11px;padding:3px 10px;" data-action="paperSearchChip"">screen time GPA correlation</span>
+                  <span id="search-chip-1" class="prompt-chip" style="font-size:11px;padding:3px 10px;" onclick="document.getElementById('paper-search-input').value=this.textContent;_runPaperSearch()">social media academic performance</span>
+                  <span id="search-chip-2" class="prompt-chip" style="font-size:11px;padding:3px 10px;" onclick="document.getElementById('paper-search-input').value=this.textContent;_runPaperSearch()">digital distraction students</span>
+                  <span id="search-chip-3" class="prompt-chip" style="font-size:11px;padding:3px 10px;" onclick="document.getElementById('paper-search-input').value=this.textContent;_runPaperSearch()">screen time GPA correlation</span>
                 </div>
               </div>
               <!-- Ready-to-write banner — shown when sources are attached -->
@@ -5530,7 +5517,7 @@ will-change: transform;
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
                     <span id="sources-ready-label" style="font-size:12px;color:var(--gold);font-weight:600;">1 source attached to this layer</span>
                   </div>
-                  <button data-action="switchResearchTab" data-tab="write" style="padding:5px 14px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap;">
+                  <button onclick="switchResearchTab('write', document.querySelectorAll('.research-tab')[0])" style="padding:5px 14px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap;">
                     Write Layer →
                   </button>
                 </div>
@@ -5569,8 +5556,8 @@ will-change: transform;
         <div class="research-side">
           <!-- Citation Manager tabs -->
           <div style="display:flex;border-bottom:1px solid var(--border-xs);">
-            <button id="cit-tab-sources" data-action="switchCitTab" data-tab="sources" style="flex:1;padding:10px 0;background:transparent;border:none;border-bottom:2px solid var(--gold);color:var(--text-1);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body);transition:all 0.15s;">Sources</button>
-            <button id="cit-tab-refs" data-action="switchCitTab" data-tab="refs" style="flex:1;padding:10px 0;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text-3);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-body);transition:all 0.15s;">References</button>
+            <button id="cit-tab-sources" onclick="_switchCitTab('sources')" style="flex:1;padding:10px 0;background:transparent;border:none;border-bottom:2px solid var(--gold);color:var(--text-1);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font-body);transition:all 0.15s;">Sources</button>
+            <button id="cit-tab-refs" onclick="_switchCitTab('refs')" style="flex:1;padding:10px 0;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text-3);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-body);transition:all 0.15s;">References</button>
             <span id="sources-count-badge" style="display:flex;align-items:center;padding:0 10px;font-size:10px;color:var(--gold);font-family:var(--font-mono);">0</span>
           </div>
 
@@ -5677,7 +5664,7 @@ will-change: transform;
       <div id="recent-list-ws-exam" class="recent-list"></div>
     </div>
     <div class="sidebar-footer">
-      <div class="profile-row">
+      <div class="profile-row" onclick="toggleProfileDropdown(event)">
         <div class="avatar">A</div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
@@ -5717,11 +5704,11 @@ will-change: transform;
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                 <label style="margin-bottom:0;">Source Material <span style="color:var(--text-4);font-weight:400;letter-spacing:0;">(optional)</span></label>
                 <div class="exam-src-tabs" id="exam-src-tabs">
-                  <button class="exam-src-tab active" data-tab="pdf" data-action="examSrcTab-self">
+                  <button class="exam-src-tab active" data-tab="pdf" onclick="examSrcTab(this)">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                     PDF
                   </button>
-                  <button class="exam-src-tab" data-tab="notes" data-action="examSrcTab-self">
+                  <button class="exam-src-tab" data-tab="notes" onclick="examSrcTab(this)">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
                     Notes
                   </button>
@@ -5730,9 +5717,9 @@ will-change: transform;
 
               <!-- PDF tab -->
               <div id="exam-src-pdf">
-                <input type="file" id="exam-pdf-file" accept="application/pdf" style="display:none;" data-action="examHandlePdfFile-self">
+                <input type="file" id="exam-pdf-file" accept="application/pdf" style="display:none;" onchange="examHandlePdfFile(this)">
                 <div class="exam-upload-zone" id="exam-upload-zone"
-                     data-action="triggerExamPdfUpload"
+                     onclick="document.getElementById('exam-pdf-file').click()"
                      ondragover="examDragOver(event)" ondragleave="examDragLeave(event)" ondrop="examDrop(event)">
                   <div id="exam-upload-idle">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-4);margin-bottom:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -5744,7 +5731,7 @@ will-change: transform;
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                       <span id="exam-file-name">document.pdf</span>
                       <span id="exam-file-pages" style="color:var(--text-4);margin-left:auto;flex-shrink:0;"></span>
-                      <button class="exam-file-clear" data-action="examClearSource" title="Remove">
+                      <button class="exam-file-clear" onclick="examClearSource(event)" title="Remove">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                       </button>
                     </div>
@@ -6022,15 +6009,6 @@ will-change: transform;
 
 
 <script>
-  /* ── Debug logger — silent in production ── */
-  const _log = (function() {
-    try {
-      const isDev = location.hostname === 'localhost' || location.hostname === '127.0.0.1'
-        || location.search.includes('debug=1');
-      return isDev ? console.log.bind(console, '[Chunks]') : function() {};
-    } catch(e) { return function() {}; }
-  })();
-
   /* ── Sidebar compact toggle ── */
   function animateOrbits(sidebar, toCompact) {
     // Only animate when expanding — keep logo shape when collapsing
@@ -6074,18 +6052,9 @@ will-change: transform;
 
   /* ── Screen navigation ── */
 
-  // ── Per-screen AbortController — cancelled on every screen change ──
-  window._screenAbort = new AbortController();
-  window._screenSignal = window._screenAbort.signal;
-
   function showScreen(name) {
     const screens  = document.querySelectorAll('.screen');
     const wasCompact = !!document.querySelector('.sidebar.compact');
-
-    // Cancel all in-flight API requests from the previous screen
-    window._screenAbort.abort();
-    window._screenAbort = new AbortController();
-    window._screenSignal = window._screenAbort.signal;
 
     // Cancel research outline generation timer if navigating away
     if (name !== 'research' && typeof _stageTimerHandle !== 'undefined' && _stageTimerHandle) {
@@ -6257,34 +6226,34 @@ will-change: transform;
           </svg>
           <input class="lib-search-input" type="text"
                  placeholder="Search textbooks, authors…"
-                 data-action="filterLibrary-self">
+                 oninput="filterLibrary(this.value)">
         </div>
       </div>
 
       <!-- Category pills -->
       <div class="lib-pills">
-        <button class="lib-pill active" data-action="filterLibSection-self" data-section="all">
+        <button class="lib-pill active" onclick="filterLibSection('all',this)">
           <span class="lib-pill-dot" style="background:#8b7cf8"></span>All Courses
         </button>
-        <button class="lib-pill" data-action="filterLibSection-self" data-section="chemistry">
+        <button class="lib-pill" onclick="filterLibSection('chemistry',this)">
           <span class="lib-pill-dot" style="background:#22d3ee"></span>Chemistry
         </button>
-        <button class="lib-pill" data-action="filterLibSection-self" data-section="nursing">
+        <button class="lib-pill" onclick="filterLibSection('nursing',this)">
           <span class="lib-pill-dot" style="background:#f472b6"></span>Nursing
         </button>
-        <button class="lib-pill" data-action="filterLibSection-self" data-section="biology">
+        <button class="lib-pill" onclick="filterLibSection('biology',this)">
           <span class="lib-pill-dot" style="background:#4ade80"></span>Biology
         </button>
-        <button class="lib-pill" data-action="filterLibSection-self" data-section="physics">
+        <button class="lib-pill" onclick="filterLibSection('physics',this)">
           <span class="lib-pill-dot" style="background:#fb923c"></span>Physics
         </button>
-        <button class="lib-pill" data-action="filterLibSection-self" data-section="pharmacology">
+        <button class="lib-pill" onclick="filterLibSection('pharmacology',this)">
           <span class="lib-pill-dot" style="background:#a78bfa"></span>Pharmacology
         </button>
-        <button class="lib-pill" data-action="filterLibSection-self" data-section="anatomy">
+        <button class="lib-pill" onclick="filterLibSection('anatomy',this)">
           <span class="lib-pill-dot" style="background:#f87171"></span>Anatomy
         </button>
-        <button class="lib-pill" data-action="filterLibSection-self" data-section="math">
+        <button class="lib-pill" onclick="filterLibSection('math',this)">
           <span class="lib-pill-dot" style="background:#facc15"></span>Math
         </button>
       </div>
@@ -6310,7 +6279,7 @@ will-change: transform;
         </div>
         <div class="library-grid">
 
-          <div class="library-book-card" data-action="selectBook" data-book="zumdahl">
+          <div class="library-book-card" onclick="selectBook('zumdahl')">
             <div class="library-book-icon">
               <img src="/public/covers/zumdahl.jpg" alt="General Chemistry by Zumdahl &amp; Zumdahl — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='📗'">
             </div>
@@ -6325,7 +6294,7 @@ will-change: transform;
             </div>
           </div>
 
-          <div class="library-book-card" data-action="selectBook" data-book="atkins">
+          <div class="library-book-card" onclick="selectBook('atkins')">
             <div class="library-book-icon">
               <img src="/public/covers/atkins.jpg" alt="Physical Chemistry by Atkins &amp; de Paula — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='📘'">
             </div>
@@ -6340,7 +6309,7 @@ will-change: transform;
             </div>
           </div>
 
-          <div class="library-book-card" data-action="selectBook" data-book="klein">
+          <div class="library-book-card" onclick="selectBook('klein')">
             <div class="library-book-icon">
               <img src="/public/covers/klein.jpg" alt="Organic Chemistry by David Klein — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='📙'">
             </div>
@@ -6355,7 +6324,7 @@ will-change: transform;
             </div>
           </div>
 
-          <div class="library-book-card" data-action="selectBook" data-book="harris">
+          <div class="library-book-card" onclick="selectBook('harris')">
             <div class="library-book-icon">
               <img src="/public/covers/harris.jpg" alt="Quantitative Chemical Analysis by Daniel C. Harris — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='📒'">
             </div>
@@ -6526,7 +6495,7 @@ will-change: transform;
           <div class="lib-section-line"></div>
         </div>
         <div class="library-grid">
-          <div class="library-book-card" data-action="selectBook" data-book="anaphy2e">
+          <div class="library-book-card" onclick="selectBook('anaphy2e')">
             <div class="library-book-icon" style="background:rgba(248,113,113,0.06);">
               <img src="/public/covers/anaphy2e.jpg" alt="Anatomy &amp; Physiology by Patton &amp; Thibodeau — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='🫁'">
             </div>
@@ -6540,7 +6509,7 @@ will-change: transform;
               </div>
             </div>
           </div>
-          <div class="library-book-card" data-action="selectBook" data-book="netter">
+          <div class="library-book-card" onclick="selectBook('netter')">
             <div class="library-book-icon" style="background:rgba(248,113,113,0.06);">
               <img src="/public/covers/netter.jpg" alt="Atlas of Human Anatomy by Frank H. Netter — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='🫀'">
             </div>
@@ -6897,7 +6866,6 @@ async function selectBook(bookId) {
   const coverImg  = document.getElementById('ws-outline-cover-img');
   if (coverWrap && coverImg) {
     coverImg.src = '/public/covers/' + bookId + '.jpg';
-    coverImg.alt = meta.name + ' — textbook cover';
     coverWrap.style.display = 'block';
   }
 
@@ -8147,15 +8115,15 @@ document.getElementById('home-ask-input')?.addEventListener('input', function() 
 <!-- ── Help Submenu ── -->
 <div class="pd-submenu" id="pd-help-submenu">
   <div class="pd-menu">
-    <div class="pd-item" data-action="pdAction" data-pd-action="help-center">
+    <div class="pd-item" onclick="pdAction('help-center')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
       Help center
     </div>
-    <div class="pd-item" data-action="pdAction" data-pd-action="bug">
+    <div class="pd-item" onclick="pdAction('bug')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 4-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17 17c2.3.1 4 1.9 4 4"/></svg>
       Report a bug
     </div>
-    <div class="pd-item" data-action="pdAction" data-pd-action="shortcuts">
+    <div class="pd-item" onclick="pdAction('shortcuts')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
       Keyboard shortcuts
     </div>
@@ -8169,11 +8137,11 @@ document.getElementById('home-ask-input')?.addEventListener('input', function() 
 
 <div class="pd-submenu" id="pd-terms-submenu">
   <div class="pd-menu">
-    <div class="pd-item" data-action="pdAction" data-pd-action="terms">
+    <div class="pd-item" onclick="pdAction('terms')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
       Terms of Service
     </div>
-    <div class="pd-item" data-action="pdAction" data-pd-action="privacy">
+    <div class="pd-item" onclick="pdAction('privacy')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Privacy Policy
     </div>
@@ -8185,7 +8153,7 @@ document.getElementById('home-ask-input')?.addEventListener('input', function() 
 <!-- ══════════════════════════════════════════
      UPGRADE / PRICING MODAL
 ══════════════════════════════════════════ -->
-<div class="upgrade-modal" id="upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="upgrade-modal-title" data-action="closeUpgradeModalBackdrop">
+<div class="upgrade-modal" id="upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="upgrade-modal-title" onclick="if(event.target===this)closeUpgradeModal()">
   <div class="upgrade-content">
 
     <div class="upgrade-header">
@@ -8265,7 +8233,7 @@ document.getElementById('home-ask-input')?.addEventListener('input', function() 
             Advanced study tools
           </div>
         </div>
-        <button class="up-plan-btn primary" data-action="handleUpgrade" data-plan="pro">Get Pro →</button>
+        <button class="up-plan-btn primary" onclick="handleUpgradeClick('pro')">Get Pro →</button>
       </div>
 
       <!-- Ultra -->
@@ -8296,7 +8264,7 @@ document.getElementById('home-ask-input')?.addEventListener('input', function() 
             Early access to new features
           </div>
         </div>
-        <button class="up-plan-btn ultra" style="border-color:rgba(139,124,248,0.3);color:var(--violet);" data-action="handleUpgrade" data-plan="ultra">Get Ultra →</button>
+        <button class="up-plan-btn ultra" style="border-color:rgba(139,124,248,0.3);color:var(--violet);" onclick="handleUpgradeClick('ultra')">Get Ultra →</button>
       </div>
 
     </div>
@@ -9479,7 +9447,7 @@ async function _getChunksSb() {
   _chunksSb = lib.createClient(url, anon, {
     auth: { persistSession: true, autoRefreshToken: true, storage: localStorage }
   });
-  _log('[Chunks] Supabase ready');
+  console.log('[Chunks] Supabase ready:', url);
   return _chunksSb;
 }
 
@@ -9559,10 +9527,10 @@ async function _startPresence() {
 
     _presenceChan = sb.channel('app-presence');
     _presenceChan.subscribe(async (status) => {
-      _log('[Chunks] Presence:', status);
+      console.log('[Chunks] Presence:', status);
       if (status === 'SUBSCRIBED') {
         const r = await _presenceChan.track(payload);
-        _log('[Chunks] Tracked');
+        console.log('[Chunks] Tracked:', JSON.stringify(payload), r);
       }
     });
 
@@ -9619,7 +9587,7 @@ async function _ensureUserInDb(session) {
   }, { onConflict: 'email', ignoreDuplicates: true });
 
   if (error) console.warn('[Auth] User upsert error:', error.message);
-  else _log('[Auth] User registered/verified');
+  else console.log('[Auth] User registered/verified:', email);
 }
 
 /* Update profile UI with real user data */
@@ -9678,7 +9646,7 @@ async function _initAuth() {
 
   // Listen for auth changes (sign-in / sign-out / token refresh)
   sb.auth.onAuthStateChange(async (event, session) => {
-    _log('[Auth] Event:', event);
+    console.log('[Auth] Event:', event);
     if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
       await _ensureUserInDb(session);
       _applyUserProfile(session);
@@ -10116,7 +10084,6 @@ document.addEventListener('DOMContentLoaded', () => {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.72);
-  will-change: transform;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 10003;
@@ -10405,7 +10372,6 @@ document.addEventListener('keydown', function(e) {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.72);
-  will-change: transform;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 10003;
@@ -10597,7 +10563,7 @@ document.addEventListener('keydown', function(e) {
 
     <div class="help-search-wrap">
       <svg class="help-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input class="help-search" id="help-search-input" type="text" placeholder="Search questions…" data-action="filterFAQs-self">
+      <input class="help-search" id="help-search-input" type="text" placeholder="Search questions…" oninput="filterFAQs(this.value)">
     </div>
 
     <div class="help-body" id="help-body">
@@ -10725,7 +10691,7 @@ document.addEventListener('keydown', function(e) {
 
     <div class="help-footer">
       <span class="help-footer-text">Still need help?</span>
-      <button class="help-contact-btn" data-action="showSupportEmail">Contact support</button>
+      <button class="help-contact-btn" onclick="wsShowToast && wsShowToast('📬', 'Support email: help@chunksai.com', '')">Contact support</button>
     </div>
   </div>
 </div>
@@ -10789,7 +10755,6 @@ function filterFAQs(query) {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.72);
-  will-change: transform;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 9500;
@@ -10904,7 +10869,7 @@ function filterFAQs(query) {
         <div class="bug-modal-title" id="bug-modal-title">Report a Bug</div>
         <div class="bug-modal-sub">Help us improve Chunks AI</div>
       </div>
-      <button class="bug-modal-close" data-action="closeBugReport" aria-label="Close bug report">
+      <button class="bug-modal-close" onclick="closeBugReport()" aria-label="Close bug report">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -10925,8 +10890,8 @@ function filterFAQs(query) {
       </div>
     </div>
     <div class="bug-modal-footer">
-      <button class="bug-cancel-btn" data-action="closeBugReport">Cancel</button>
-      <button class="bug-submit-btn" id="bug-submit-btn" data-action="submitBugReport">
+      <button class="bug-cancel-btn" onclick="closeBugReport()">Cancel</button>
+      <button class="bug-submit-btn" id="bug-submit-btn" onclick="submitBugReport()">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         Send Report
       </button>
@@ -11045,14 +11010,6 @@ function filterFAQs(query) {
   transition: opacity 200ms ease, transform 200ms ease;
 }
 #simple-notif.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-
-/* ── Hover utility classes (replaces inline onmouseenter/onmouseleave) ── */
-.hover-violet { color: var(--text-4); transition: color 0.15s; }
-.hover-violet:hover { color: var(--violet); }
-.hover-red    { color: var(--text-4); transition: color 0.15s; }
-.hover-red:hover    { color: var(--red); }
-.hover-surface { background: transparent; transition: background 0.15s; }
-.hover-surface:hover { background: var(--surface-2); }
 </style>
 
 <div id="simple-notif"></div>
@@ -11303,7 +11260,6 @@ Rules:
     const response = await fetch(API_BASE + '/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: window._screenSignal,
       body: JSON.stringify({
         question:   prompt,
         mode:       'study',
@@ -11641,7 +11597,7 @@ function _renderLayerEditor(layerId) {
   // Re-render steps based on layer status
   const stepsEl = document.getElementById('layer-steps-container') || document.querySelector('.layer-steps');
   if (!stepsEl) return;
-  stepsEl.innerHTML = sanitize(_buildLayerSteps(layerId, layerObj, ls));
+  stepsEl.innerHTML = _buildLayerSteps(layerId, layerObj, ls);
   _bindLayerStepActions(layerId);
 }
 
@@ -11739,9 +11695,9 @@ function _buildLayerSteps(layerId, layerObj, ls) {
         <span style="font-size:9px;color:${editorColor};font-family:var(--font-mono);letter-spacing:0.04em;flex:1;">${editorLabel}</span>
         <span id="word-count-${layerId}" style="font-size:9px;color:var(--text-4);font-family:var(--font-mono);">${hasPara ? _wordCount(ls.paragraph) : 0} words</span>
         <span id="autosave-dot-${layerId}" style="font-size:9px;color:var(--text-4);font-family:var(--font-mono);opacity:0;transition:opacity 0.3s;margin-left:4px;">✓ saved</span>
-        ${hasPara ? `<button onclick="_showHistory('${layerId}')" title="Version history" style="background:transparent;border:none;color:var(--text-4);cursor:pointer;padding:2px 5px;font-size:10px;font-family:var(--font-mono);border-radius:3px;transition:color 0.15s;" class="hover-violet">⧖</button>` : ''}
+        ${hasPara ? `<button onclick="_showHistory('${layerId}')" title="Version history" style="background:transparent;border:none;color:var(--text-4);cursor:pointer;padding:2px 5px;font-size:10px;font-family:var(--font-mono);border-radius:3px;transition:color 0.15s;" onmouseenter="this.style.color='var(--violet)'" onmouseleave="this.style.color='var(--text-4)'">⧖</button>` : ''}
         ${!isDone ? `
-        <button onclick="_clearParagraph('${layerId}')" title="Clear" style="background:transparent;border:none;color:var(--text-4);cursor:pointer;padding:2px 4px;font-size:11px;line-height:1;border-radius:3px;" class="hover-red">✕</button>
+        <button onclick="_clearParagraph('${layerId}')" title="Clear" style="background:transparent;border:none;color:var(--text-4);cursor:pointer;padding:2px 4px;font-size:11px;line-height:1;border-radius:3px;" onmouseenter="this.style.color='var(--red)'" onmouseleave="this.style.color='var(--text-4)'">✕</button>
         ` : ''}
       </div>
       <!-- Editor body -->
@@ -11788,7 +11744,7 @@ function _buildLayerSteps(layerId, layerObj, ls) {
       <div class="step-body">
         <div class="paper-list" id="attached-sources-${layerId}">${sourcesHtml}</div>
         <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap;">
-          <button class="btn-sec-research" style="font-size:11px;" data-action="switchResearchTab" data-tab="search">
+          <button class="btn-sec-research" style="font-size:11px;" onclick="switchResearchTab('search', document.querySelectorAll('.research-tab')[1])">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-right:4px;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             ${ls.sources.length ? 'Add More Sources' : 'Search for Sources'}
           </button>
@@ -12057,7 +12013,6 @@ function _generateParagraph(layerId) {
   fetch(API_BASE + '/api/stream-layer', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    signal:  window._screenSignal,
     body:    JSON.stringify(payload)
   })
   .then(resp => {
@@ -12163,7 +12118,6 @@ Output the paragraph text only. No heading, no label, no preamble.`;
     const resp = await fetch(API_BASE + '/ask', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal:  window._screenSignal,
       body: JSON.stringify({ question: prompt, mode: 'study', complexity: 7, bookId: 'none', history: [] })
     });
     const data = await resp.json();
@@ -12277,7 +12231,6 @@ function _showMilestone(icon, title, message) {
     el.id = 'milestone-overlay';
     el.style.cssText = `
       position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-      will-change: transform;
       background:rgba(9,9,0,0.75);backdrop-filter:blur(6px);will-change:transform;z-index:9999;
       opacity:0;transition:opacity 0.3s ease;cursor:pointer;`;
     el.innerHTML = `
@@ -12468,7 +12421,7 @@ function _renderSourcesPanel() {
   if (totalUnique > 0) {
     const footer = document.createElement('div');
     footer.style.cssText = 'margin-top:14px;padding-top:10px;border-top:1px solid var(--border-xs);text-align:center;';
-    footer.innerHTML = `<button data-action="switchCitTab" data-tab="refs" style="background:transparent;border:none;color:var(--text-4);font-size:11px;cursor:pointer;font-family:var(--font-body);">View full reference list →</button>`;
+    footer.innerHTML = `<button onclick="_switchCitTab('refs')" style="background:transparent;border:none;color:var(--text-4);font-size:11px;cursor:pointer;font-family:var(--font-body);">View full reference list →</button>`;
     panel.appendChild(footer);
   }
 }
@@ -12549,7 +12502,7 @@ function _renderReferences() {
   let html = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
       <div style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);letter-spacing:0.06em;text-transform:uppercase;">${sources.length} source${sources.length !== 1 ? 's' : ''}</div>
-      <button data-action="_copyAllRefs" style="font-size:10px;padding:3px 10px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-xs);color:var(--text-3);cursor:pointer;font-family:var(--font-body);">Copy All</button>
+      <button onclick="_copyAllRefs()" style="font-size:10px;padding:3px 10px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-xs);color:var(--text-3);cursor:pointer;font-family:var(--font-body);">Copy All</button>
     </div>`;
 
   sources.forEach((s, i) => {
@@ -12619,12 +12572,11 @@ function _showHistory(layerId) {
     modal.id = 'history-modal';
     modal.style.cssText = `position:fixed;inset:0;z-index:9997;display:flex;align-items:center;justify-content:center;`;
     modal.innerHTML = `
-      will-change: transform;
-      <div data-action="_closeHistoryBackdrop" style="position:absolute;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);will-change:transform;"></div>
+      <div onclick="if(event.target===this)_closeHistory()" style="position:absolute;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);will-change:transform;"></div>
       <div style="position:relative;z-index:1;width:min(560px,90vw);max-height:75vh;background:var(--surface-2);border:1px solid var(--border-md);border-radius:var(--r-md);display:flex;flex-direction:column;overflow:hidden;">
         <div style="padding:16px 20px;border-bottom:1px solid var(--border-xs);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
           <div style="font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text-1);">Version History</div>
-          <button data-action="_closeHistory" style="background:transparent;border:none;color:var(--text-4);cursor:pointer;font-size:16px;line-height:1;">✕</button>
+          <button onclick="_closeHistory()" style="background:transparent;border:none;color:var(--text-4);cursor:pointer;font-size:16px;line-height:1;">✕</button>
         </div>
         <div id="history-list" style="flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:10px;"></div>
       </div>`;
@@ -12955,7 +12907,6 @@ function _confirmNewPaper() {
 
   // Show confirmation modal
   const overlay = document.createElement('div');
-  will-change: transform;
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);will-change:transform;';
   overlay.innerHTML = `
     <div style="background:var(--surface-2);border:1px solid var(--border-md);border-radius:var(--r-lg);padding:28px 32px;max-width:380px;width:90%;text-align:center;">
@@ -13105,7 +13056,7 @@ function _renderFullPaper() {
             ${hasPara
               ? `<p style="font-size:13px;color:var(--text-1);line-height:1.9;margin:0;">${_esc(ls.paragraph.replace(/<[^>]*>/g,' ').trim())}</p>`
               : `<div style="padding:14px 16px;background:var(--surface-1);border:1px dashed var(--gold-border);border-radius:var(--r-sm);font-size:12px;color:var(--text-4);">
-                  Not written yet — <span style="color:var(--gold);cursor:pointer;" data-action="switchResearchTab" data-tab="write">write this layer →</span>
+                  Not written yet — <span style="color:var(--gold);cursor:pointer;" onclick="switchResearchTab('write',document.querySelectorAll('.research-tab')[0])">write this layer →</span>
                 </div>`
             }
           </div>`;
@@ -13114,7 +13065,7 @@ function _renderFullPaper() {
         html += `
           <div style="padding:10px 14px;background:var(--surface-1);border:1px dashed var(--border-xs);border-radius:var(--r-sm);display:flex;align-items:center;gap:8px;margin-bottom:8px;opacity:0.55;">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            <span style="font-size:12px;color:var(--text-4);">${_esc(layer.name)} — <span style="color:var(--gold);cursor:pointer;" data-action="switchResearchTab" data-tab="write">write →</span></span>
+            <span style="font-size:12px;color:var(--text-4);">${_esc(layer.name)} — <span style="color:var(--gold);cursor:pointer;" onclick="switchResearchTab('write',document.querySelectorAll('.research-tab')[0])">write →</span></span>
           </div>`;
       }
     });
@@ -13148,7 +13099,7 @@ function _renderFullPaper() {
       </div>`;
   }
 
-  body.innerHTML = sanitize(html);
+  body.innerHTML = html;
 
   // ── Edit button delegation ──
   body.addEventListener('click', (e) => {
@@ -13659,7 +13610,6 @@ async function _examCallAPI(prompt, retries = 3) {
     try {
       const resp = await fetch(API_BASE + '/ask', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        signal: window._screenSignal,
         body: JSON.stringify({ question: prompt, mode: 'generate', complexity: 6, bookId: 'none', history: [] })
       });
       if (resp.status === 429) {
@@ -14321,7 +14271,7 @@ function _examRenderQuestion() {
     const letter = q.options.length === 2 ? (i===0?'T':'F') : letters[i];
     const btn = document.createElement('button');
     btn.className = 'exam-option';
-    btn.innerHTML = sanitize('<span class="opt-letter">'+letter+'</span><span class="opt-text">'+opt.replace(/^[A-DF]\.\s*/,'')+'</span>');
+    btn.innerHTML = '<span class="opt-letter">'+letter+'</span><span class="opt-text">'+opt.replace(/^[A-DF]\.\s*/,'')+'</span>';
     btn.addEventListener('click', () => _examSelect(i, btn));
     const prev = _examAnswers[_examIdx];
     if (prev !== null) {
@@ -14433,7 +14383,7 @@ function _examFinish() {
   document.getElementById('stat-streak').textContent     = _examStreakBest;
 
   const reviewEl = document.getElementById('exam-review-list');
-  reviewEl.innerHTML = sanitize(_examQuestions.map((q,i)=>{
+  reviewEl.innerHTML = _examQuestions.map((q,i)=>{
     const ans = _examAnswers[i];
     const ok  = ans&&ans.correct;
     const skip = ans&&ans.skipped;
@@ -14461,7 +14411,7 @@ function _examFinish() {
       '</div>'+
       (q.explanation?'<div class="exam-review-explanation">'+q.explanation+'</div>':'')+
     '</div>';
-  }).join(''));
+  }).join('');
 
   const _snapId = Date.now();
   const recent = JSON.parse(localStorage.getItem('exam_recent')||'[]');
@@ -14501,7 +14451,7 @@ function _examLoadRecent() {
     const scoreColor = r.score>=60?'var(--teal)':'#f87171';
     const countLabel = r.count ? '('+String(r.count).padStart(2,'0')+') ' : '';
     return '<div style="padding:5px 12px;font-size:11px;color:var(--text-3);display:flex;justify-content:space-between;gap:8px;cursor:pointer;border-radius:var(--r-sm);" '+
-    'class="hover-surface" '+
+    'onmouseenter="this.style.background=\'var(--surface-2)\'" onmouseleave="this.style.background=\'transparent\'" '+
     'onclick="_examLoadSnap(\''+r.id+'\')" >'+
     '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;"><span style="color:var(--text-4);">'+countLabel+'</span>'+r.topic+'</span>'+
     '<span style="flex-shrink:0;color:'+scoreColor+';">'+r.score+'%</span>'+
@@ -14608,40 +14558,40 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
     <!-- Left Nav -->
     <div class="settings-nav">
-      <button class="settings-close" data-action="closeSettings" aria-label="Close settings">✕</button>
+      <button class="settings-close" onclick="closeSettings()" aria-label="Close settings">✕</button>
       <span id="settings-modal-title" class="sr-only">Settings</span>
       <div style="height:38px;"></div>
 
       <nav aria-label="Settings sections">
-      <div class="settings-nav-item active" role="button" tabindex="0" aria-current="page" data-action="settingsNav-self" data-section="general">
+      <div class="settings-nav-item active" role="button" tabindex="0" aria-current="page" onclick="settingsNav('general', this)" onkeydown="if(event.key==='Enter'||event.key===' ')settingsNav('general',this)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
         General
       </div>
-      <div class="settings-nav-item" role="button" tabindex="0" data-action="settingsNav-self" data-section="notifications">
+      <div class="settings-nav-item" role="button" tabindex="0" onclick="settingsNav('notifications', this)" onkeydown="if(event.key==='Enter'||event.key===' ')settingsNav('notifications',this)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
         Notifications
       </div>
-      <div class="settings-nav-item" role="button" tabindex="0" data-action="settingsNav-self" data-section="personalization">
+      <div class="settings-nav-item" role="button" tabindex="0" onclick="settingsNav('personalization', this)" onkeydown="if(event.key==='Enter'||event.key===' ')settingsNav('personalization',this)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
         Personalization
       </div>
-      <div class="settings-nav-item" role="button" tabindex="0" data-action="settingsNav-self" data-section="apps">
+      <div class="settings-nav-item" role="button" tabindex="0" onclick="settingsNav('apps', this)" onkeydown="if(event.key==='Enter'||event.key===' ')settingsNav('apps',this)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="9" height="9" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="13" width="9" height="9" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>
         Apps
       </div>
-      <div class="settings-nav-item" role="button" tabindex="0" data-action="settingsNav-self" data-section="data">
+      <div class="settings-nav-item" role="button" tabindex="0" onclick="settingsNav('data', this)" onkeydown="if(event.key==='Enter'||event.key===' ')settingsNav('data',this)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/><path d="M3 12a9 3 0 0 0 18 0"/></svg>
         Data controls
       </div>
-      <div class="settings-nav-item" role="button" tabindex="0" data-action="settingsNav-self" data-section="security">
+      <div class="settings-nav-item" role="button" tabindex="0" onclick="settingsNav('security', this)" onkeydown="if(event.key==='Enter'||event.key===' ')settingsNav('security',this)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         Security
       </div>
-      <div class="settings-nav-item" role="button" tabindex="0" data-action="settingsNav-self" data-section="parental">
+      <div class="settings-nav-item" role="button" tabindex="0" onclick="settingsNav('parental', this)" onkeydown="if(event.key==='Enter'||event.key===' ')settingsNav('parental',this)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         Parental controls
       </div>
-      <div class="settings-nav-item" role="button" tabindex="0" data-action="settingsNav-self" data-section="account">
+      <div class="settings-nav-item" role="button" tabindex="0" onclick="settingsNav('account', this)" onkeydown="if(event.key==='Enter'||event.key===' ')settingsNav('account',this)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
         Account
       </div>
@@ -14657,7 +14607,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Appearance</div></div>
           <div class="settings-select-wrap">
-            <div class="settings-select-btn" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="Appearance" tabindex="0" data-action="settingsDropdown-self">
+            <div class="settings-select-btn" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="Appearance" tabindex="0" data-action="settingsDropdown-self" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();settingsDropdown(this)}">
               <span>System</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
             </div>
@@ -14684,10 +14634,10 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
             </div>
             <div class="settings-select-menu" data-setting-key="accent">
-              <div class="settings-select-option selected" data-action="settingsAccent-self" data-color="#888" data-name="Default">Default</div>
-              <div class="settings-select-option" data-action="settingsAccent-self" data-color="#e8ac2e" data-name="Gold">Gold</div>
-              <div class="settings-select-option" data-action="settingsAccent-self" data-color="#8b7cf8" data-name="Violet">Violet</div>
-              <div class="settings-select-option" data-action="settingsAccent-self" data-color="#2dd4bf" data-name="Teal">Teal</div>
+              <div class="settings-select-option selected" onclick="settingsSelectAccent(this,'#888','Default')">Default</div>
+              <div class="settings-select-option" onclick="settingsSelectAccent(this,'#e8ac2e','Gold')">Gold</div>
+              <div class="settings-select-option" onclick="settingsSelectAccent(this,'#8b7cf8','Violet')">Violet</div>
+              <div class="settings-select-option" onclick="settingsSelectAccent(this,'#2dd4bf','Teal')">Teal</div>
             </div>
           </div>
         </div>
@@ -14752,7 +14702,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
             <div class="settings-row-desc">Keep Chunks AI Voice in a separate full screen, without real time transcripts and visuals.</div>
           </div>
           <label class="settings-toggle">
-            <input type="checkbox" checked data-action="settingsToggle" data-key="separate-voice">
+            <input type="checkbox" checked onchange="settingsToggleChanged(this,'separate-voice')">
             <div class="settings-toggle-track"></div>
             <div class="settings-toggle-thumb"></div>
           </label>
@@ -14816,11 +14766,11 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Show follow-up questions</div><div class="settings-row-desc">Display suggested follow-ups after AI responses.</div></div>
-          <label class="settings-toggle"><input type="checkbox" id="toggle-followups" checked data-action="settingsToggle" data-key="followups"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-followups" checked onchange="settingsToggleChanged(this,'followups')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Auto-generate flashcards</div><div class="settings-row-desc">Suggest flashcard creation after key answers.</div></div>
-          <label class="settings-toggle"><input type="checkbox" id="toggle-auto-flash" data-action="settingsToggle" data-key="auto-flash"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-auto-flash" onchange="settingsToggleChanged(this,'auto-flash')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
       </div>
 
@@ -14841,11 +14791,11 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
         <div class="settings-page-title">Data controls</div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Save chat history</div><div class="settings-row-desc">Store your conversations for future reference.</div></div>
-          <label class="settings-toggle"><input type="checkbox" id="toggle-save-history" checked data-action="dataToggleSaveHistory-self"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-save-history" checked onchange="dataToggleSaveHistory(this)"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Use data to improve Chunks AI</div><div class="settings-row-desc">Help improve the product by sharing anonymised usage data.</div></div>
-          <label class="settings-toggle"><input type="checkbox" id="toggle-improve-data" checked data-action="dataToggleImprove-self"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-improve-data" checked onchange="dataToggleImprove(this)"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Delete all chat history</div><div class="settings-row-desc">Permanently remove all saved conversations.</div></div>
@@ -14902,7 +14852,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
           <div class="settings-row-left"><div class="settings-row-label">Plan</div><div class="settings-row-desc">Upgrade to unlock more features.</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:12px;color:var(--text-3);">Free</span>
-            <button data-action="closeSettings-openUpgrade" style="padding:5px 12px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Upgrade</button>
+            <button onclick="closeSettings();openUpgradeModal()" style="padding:5px 12px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Upgrade</button>
           </div>
         </div>
         <div class="settings-row">
@@ -14925,7 +14875,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     </div>
   </div>
   <div class="pd-menu">
-    <div class="pd-item upgrade" role="menuitem" tabindex="0" data-action="pdAction" data-pd-action="upgrade">
+    <div class="pd-item upgrade" role="menuitem" tabindex="0" onclick="pdAction('upgrade')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('upgrade')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
       Upgrade plan
     </div>
@@ -14934,21 +14884,21 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
       Admin Panel
     </div>
     <div class="pd-divider" role="separator"></div>
-    <div class="pd-item" role="menuitem" tabindex="0" data-action="pdAction" data-pd-action="personalization">
+    <div class="pd-item" role="menuitem" tabindex="0" onclick="pdAction('personalization')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('personalization')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
       Personalization
     </div>
-    <div class="pd-item" role="menuitem" tabindex="0" data-action="pdAction" data-pd-action="settings">
+    <div class="pd-item" role="menuitem" tabindex="0" onclick="pdAction('settings')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('settings')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
       Settings
     </div>
     <div class="pd-divider" role="separator"></div>
-    <div class="pd-item" id="pd-help-item" role="menuitem" tabindex="0" aria-haspopup="true">
+    <div class="pd-item" id="pd-help-item" role="menuitem" tabindex="0" aria-haspopup="true" onkeydown="if(event.key==='Enter'||event.key===' ')pdOpenHelp(event)">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
       Help
       <svg class="pd-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
     </div>
-    <div class="pd-item danger" role="menuitem" tabindex="0" data-action="pdAction" data-pd-action="logout">
+    <div class="pd-item danger" role="menuitem" tabindex="0" onclick="pdAction('logout')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('logout')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Log out
     </div>
@@ -14959,7 +14909,6 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 <!-- ── Flashcard Completion Modal ── -->
 <div id="fc-complete-modal" style="
   display:none;position:fixed;inset:0;z-index:9000;
-  will-change: transform;
   background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);will-change:transform;
   align-items:center;justify-content:center;
 ">
@@ -15002,7 +14951,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
         color:var(--text-1);font-weight:600;font-size:14px;
         cursor:pointer;font-family:inherit;
       ">+ Generate New Deck</button>
-      <button data-action="closeFcCompleteModal" style="
+      <button onclick="document.getElementById('fc-complete-modal').style.display='none';" style="
         width:100%;padding:10px;border-radius:10px;border:none;
         background:transparent;color:var(--text-3);font-size:13px;
         cursor:pointer;font-family:inherit;
@@ -15153,15 +15102,15 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
               <div class="sp-field">
                 <label>Source Material</label>
                 <div class="sp-src-tabs">
-                  <button class="sp-src-tab active" id="sp-tab-upload" data-action="spSwitchTab" data-tab="upload">
+                  <button class="sp-src-tab active" id="sp-tab-upload" onclick="spSwitchTab('upload')">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     Upload Slides
                   </button>
-                  <button class="sp-src-tab" id="sp-tab-topic" data-action="spSwitchTab" data-tab="topic">
+                  <button class="sp-src-tab" id="sp-tab-topic" onclick="spSwitchTab('topic')">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
                     Enter Topic
                   </button>
-                  <button class="sp-src-tab" id="sp-tab-notes" data-action="spSwitchTab" data-tab="notes">
+                  <button class="sp-src-tab" id="sp-tab-notes" onclick="spSwitchTab('notes')">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     Paste Notes
                   </button>
@@ -15170,11 +15119,11 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
               <!-- Upload zone (default) -->
               <div id="sp-src-upload">
-                <input type="file" id="sp-file-input" accept="application/pdf" style="display:none;" data-action="spHandleFileSelect-self">
+                <input type="file" id="sp-file-input" accept="application/pdf" style="display:none;" onchange="spHandleFileSelect(this.files[0])">
 
                 <!-- Idle state -->
                 <div class="sp-upload-zone" id="sp-upload-idle"
-                  data-action="triggerSpFileInput"
+                  onclick="document.getElementById('sp-file-input').click()"
                   ondragover="spDragOver(event)"
                   ondragleave="spDragLeave(event)"
                   ondrop="spDrop(event)">
@@ -15215,10 +15164,10 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
                 <div class="sp-field" style="margin-top:12px;">
                   <label>Depth <span style="color:var(--text-4);font-weight:400;">(optional)</span></label>
                   <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                    <button class="sp-activity-chip active-chip" id="sp-depth-intro" data-action="spSetDepth" data-depth="intro">Introductory</button>
-                    <button class="sp-activity-chip" id="sp-depth-mid" data-action="spSetDepth" data-depth="mid">Intermediate</button>
-                    <button class="sp-activity-chip" id="sp-depth-adv" data-action="spSetDepth" data-depth="adv">Advanced</button>
-                    <button class="sp-activity-chip" id="sp-depth-exam" data-action="spSetDepth" data-depth="exam">Exam Prep</button>
+                    <button class="sp-activity-chip active-chip" id="sp-depth-intro" onclick="spSetDepth('intro')">Introductory</button>
+                    <button class="sp-activity-chip" id="sp-depth-mid" onclick="spSetDepth('mid')">Intermediate</button>
+                    <button class="sp-activity-chip" id="sp-depth-adv" onclick="spSetDepth('adv')">Advanced</button>
+                    <button class="sp-activity-chip" id="sp-depth-exam" onclick="spSetDepth('exam')">Exam Prep</button>
                   </div>
                 </div>
               </div>
@@ -15228,10 +15177,10 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
                 <textarea class="sp-input" id="sp-notes-input" rows="5"
                   style="resize:none;line-height:1.6;"
                   placeholder="Paste your notes, lecture text, or any content to build the plan from…"
-                  data-action="spUpdateNotesCount"></textarea>
+                  oninput="spUpdateNotesCount()"></textarea>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
                   <span id="sp-notes-count" style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);">0 chars</span>
-                  <button data-action="clearSpNotes" class="hover-clear-btn" style="font-size:10px;color:var(--text-4);background:none;border:none;cursor:pointer;font-family:var(--font-body);">Clear</button>
+                  <button onclick="document.getElementById('sp-notes-input').value='';updateNotesCount();" class="hover-clear-btn" style="font-size:10px;color:var(--text-4);background:none;border:none;cursor:pointer;font-family:var(--font-body);">Clear</button>
                 </div>
               </div>
 
@@ -16018,7 +15967,6 @@ Rules:
     const response = await fetch(API_BASE + '/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: window._screenSignal,
       body: JSON.stringify({
         question:   fullPrompt,
         mode:       'generate',
@@ -16555,7 +16503,7 @@ async function spFcGenerate() {
 
   } catch(err) {
     document.getElementById('sp-fc-loading').innerHTML =
-      `<div style="color:var(--red);font-size:12px;text-align:center;padding:20px;">Failed to generate cards.<br><button data-action="spFcGenerate" style="margin-top:10px;padding:6px 14px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);">Try again</button></div>`;
+      `<div style="color:var(--red);font-size:12px;text-align:center;padding:20px;">Failed to generate cards.<br><button onclick="spFcGenerate()" style="margin-top:10px;padding:6px 14px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);">Try again</button></div>`;
     console.error('FC generate error:', err);
   }
 }
@@ -16853,7 +16801,6 @@ Rules:
     const res  = await fetch(API_BASE + '/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: window._screenSignal,
       body: JSON.stringify({ question: prompt, mode: 'study', complexity: 6, bookId: 'none', history: [] })
     });
     if (!res.ok) throw new Error('Server error ' + res.status);
@@ -16864,7 +16811,7 @@ Rules:
   } catch(err) {
     document.getElementById('sp-pq-loading').innerHTML =
       `<div style="color:var(--red);font-size:12px;text-align:center;padding:20px;">Failed to generate questions.<br>
-       <button data-action="spPqGenerate" style="margin-top:10px;padding:6px 14px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);">Try again</button></div>`;
+       <button onclick="spPqGenerate()" style="margin-top:10px;padding:6px 14px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);">Try again</button></div>`;
     console.error('PQ generate error:', err);
   }
 }
@@ -16922,7 +16869,6 @@ Grade the answer and respond ONLY as raw JSON (no markdown):
     const res  = await fetch(API_BASE + '/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: window._screenSignal,
       body: JSON.stringify({ question: prompt, mode: 'study', complexity: 5, bookId: 'none', history: [] })
     });
     const data   = await res.json();
@@ -17026,7 +16972,6 @@ Rules:
     const res  = await fetch(API_BASE + '/ask', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      signal: window._screenSignal,
       body: JSON.stringify({ question: prompt, mode: 'study', complexity: 7, bookId: 'none', history: [] })
     });
     if (!res.ok) throw new Error('Server error ' + res.status);
@@ -17042,7 +16987,7 @@ Rules:
   } catch(err) {
     document.getElementById('sp-exam-loading').innerHTML =
       `<div style="color:var(--red);font-size:12px;text-align:center;padding:20px;">Failed to generate exam.<br>
-       <button data-action="spExamGenerate" style="margin-top:10px;padding:6px 14px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);">Try again</button></div>`;
+       <button onclick="spExamGenerate()" style="margin-top:10px;padding:6px 14px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);">Try again</button></div>`;
     console.error('Exam generate error:', err);
   }
 }
@@ -17439,9 +17384,9 @@ document.addEventListener('click', function(e) {
 
       <!-- Rating buttons (shown after flip) -->
       <div id="sp-fc-ratings" style="display:none;gap:8px;">
-        <button class="sp-fc-rate-btn hard" data-action="spFcRate" data-rate="hard">😓 Hard</button>
-        <button class="sp-fc-rate-btn ok"   data-action="spFcRate" data-rate="ok">🤔 OK</button>
-        <button class="sp-fc-rate-btn easy" data-action="spFcRate" data-rate="easy">😄 Easy</button>
+        <button class="sp-fc-rate-btn hard" onclick="spFcRate('hard')">😓 Hard</button>
+        <button class="sp-fc-rate-btn ok"   onclick="spFcRate('ok')">🤔 OK</button>
+        <button class="sp-fc-rate-btn easy" onclick="spFcRate('easy')">😄 Easy</button>
       </div>
     </div>
 
@@ -17722,7 +17667,7 @@ document.addEventListener('click', function(e) {
      MOBILE DRAWER  (Step 2)
      Fixed, slide-in from left. Opened by "More" tab.
 ══════════════════════════════════════════════ -->
-<div class="mobile-drawer-overlay" id="mobile-drawer-overlay" data-action="closeMobileDrawer"></div>
+<div class="mobile-drawer-overlay" id="mobile-drawer-overlay" onclick="closeMobileDrawer()"></div>
 
 <div class="mobile-drawer" id="mobile-drawer" role="dialog" aria-modal="true" aria-label="Navigation menu">
 
@@ -17740,7 +17685,7 @@ document.addEventListener('click', function(e) {
       </svg>
       <span class="md-logo-text">Chunks</span>
     </div>
-    <button type="button" class="md-close" data-action="closeMobileDrawer" aria-label="Close menu">
+    <button type="button" class="md-close" onclick="closeMobileDrawer()" aria-label="Close menu">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
         <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
       </svg>
@@ -17750,7 +17695,7 @@ document.addEventListener('click', function(e) {
   <!-- Study nav -->
   <div class="md-section">
     <div class="md-section-label">Study</div>
-    <div class="md-item active" id="md-item-home" data-action="drawerNav" data-screen="home">
+    <div class="md-item active" id="md-item-home" onclick="drawerNav('home')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
       Home
     </div>
@@ -17762,19 +17707,19 @@ document.addEventListener('click', function(e) {
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
       Library
     </div>
-    <div class="md-item" id="md-item-flash" data-action="drawerNav" data-screen="flash">
+    <div class="md-item" id="md-item-flash" onclick="drawerNav('flash')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
       Flashcards
     </div>
-    <div class="md-item" id="md-item-exam" data-action="drawerNav" data-screen="exam">
+    <div class="md-item" id="md-item-exam" onclick="drawerNav('exam')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
       Exam
     </div>
-    <div class="md-item" id="md-item-studyplan" data-action="drawerNav" data-screen="studyplan">
+    <div class="md-item" id="md-item-studyplan" onclick="drawerNav('studyplan')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
       Study Plan
     </div>
-    <div class="md-item" id="md-item-research" data-action="drawerNav" data-screen="research">
+    <div class="md-item" id="md-item-research" onclick="drawerNav('research')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
       Research
     </div>
@@ -17798,7 +17743,7 @@ document.addEventListener('click', function(e) {
         <div class="md-profile-name">Alex Cruz</div>
         <div class="md-profile-plan">Free Plan</div>
       </div>
-      <div class="md-upgrade" data-action="closeMobileDrawer-openUpgrade" style="cursor:pointer;">Upgrade</div>
+      <div class="md-upgrade" onclick="closeMobileDrawer();openUpgradeModal()" style="cursor:pointer;">Upgrade</div>
     </div>
   </div>
 
@@ -18136,111 +18081,6 @@ function syncDrawerRecentChats() {
     /* ── History / misc ─────────────────────────────────── */
     'clearAllHistory':        ()      => clearAllHistory(),
     'clearPdfCache':          ()      => clearPdfCache(),
-
-    /* ── Profile dropdown actions ────────────────────────── */
-    'pdAction':               (el)    => pdAction(el.dataset.pdAction),
-
-    /* ── Study Plan ─────────────────────────────────────── */
-    'spSwitchTab':            (el)    => spSwitchTab(el.dataset.tab),
-    'spSetDepth':             (el)    => spSetDepth(el.dataset.depth),
-    'spFcRate':               (el)    => spFcRate(el.dataset.rate),
-
-    /* ── Research tabs ───────────────────────────────────── */
-    'switchResearchTab':      (el)    => switchResearchTab(el.dataset.tab, el),
-
-    /* ── Bug report ──────────────────────────────────────── */
-    'closeBugReport':         ()      => closeBugReport(),
-    'submitBugReport':        ()      => submitBugReport(),
-
-    /* ── Mobile drawer ───────────────────────────────────── */
-    'closeMobileDrawer':      ()      => closeMobileDrawer(),
-
-    /* ── Exam ────────────────────────────────────────────── */
-    'examSrcTab-self':        (el)    => examSrcTab(el),
-
-    /* ── Citations ───────────────────────────────────────── */
-    'switchCitTab':           (el)    => _switchCitTab(el.dataset.tab),
-
-    /* ── Paper search chip ───────────────────────────────── */
-    'paperSearchChip':        (el)    => { document.getElementById('paper-search-input').value = el.textContent; _runPaperSearch(); },
-
-    /* ── Toggle parent open ──────────────────────────────── */
-    'toggleParentOpen':       (el)    => el.parentElement.classList.toggle('open'),
-
-    /* ── Flashcard next ──────────────────────────────────── */
-    '_fcNext':                (el)    => _fcNext(el.dataset.rating),
-
-    /* ── Research layer selector ─────────────────────────── */
-    '_researchSelectLayer-self': (el) => _researchSelectLayer(el, el.dataset.layer, el.dataset.section),
-
-    /* ── History modal ───────────────────────────────────── */
-    '_closeHistory':          ()      => _closeHistory(),
-    '_closeHistoryBackdrop':  (el,ev) => { if (ev.target === el) _closeHistory(); },
-
-    /* ── Upgrade modal backdrop ──────────────────────────── */
-    'closeUpgradeModalBackdrop': (el,ev) => { if (ev.target === el) closeUpgradeModal(); },
-
-    /* ── Combined actions ────────────────────────────────── */
-    'closeMobileDrawer-openUpgrade': () => { closeMobileDrawer(); openUpgradeModal(); },
-    'closeSettings-openUpgrade':     () => { closeSettings(); openUpgradeModal(); },
-
-    /* ── Home PDF upload trigger ─────────────────────────── */
-    'triggerHomePdfUpload':   ()      => document.getElementById('home-pdf-upload').click(),
-
-    /* ── Incognito dismiss ───────────────────────────────── */
-    'dismissIncognito':       ()      => {
-        localStorage.removeItem('chunks_incognito_session');
-        const badge = document.getElementById('incognito-badge');
-        if (badge) badge.style.display = 'none';
-    },
-
-    /* ── Settings nav ────────────────────────────────────── */
-    'settingsNav-self':       (el)    => settingsNav(el.dataset.section, el),
-
-    /* ── Settings accent color ───────────────────────────── */
-    'settingsAccent-self':    (el)    => settingsSelectAccent(el, el.dataset.color, el.dataset.name),
-
-    /* ── Mobile drawer nav ───────────────────────────────── */
-    'drawerNav':              (el)    => drawerNav(el.dataset.screen),
-
-    /* ── Exam PDF upload ─────────────────────────────────── */
-    'triggerExamPdfUpload':   ()      => document.getElementById('exam-pdf-file').click(),
-
-    /* ── Study plan file input ───────────────────────────── */
-    'triggerSpFileInput':     ()      => document.getElementById('sp-file-input').click(),
-
-    /* ── Flashcard complete modal close ──────────────────── */
-    'closeFcCompleteModal':   ()      => { const m = document.getElementById('fc-complete-modal'); if (m) m.style.display = 'none'; },
-
-    /* ── Study plan notes clear ──────────────────────────── */
-    'clearSpNotes':           ()      => { const i = document.getElementById('sp-notes-input'); if (i) i.value = ''; if (typeof updateNotesCount === 'function') updateNotesCount(); },
-
-    /* ── Support email toast ─────────────────────────────── */
-    'showSupportEmail':       ()      => wsShowToast && wsShowToast('📬', 'Support email: help@chunksai.com', ''),
-
-    /* ── Library filter + book selection ─────────────────── */
-    'filterLibSection-self':  (el)    => filterLibSection(el.dataset.section, el),
-    'selectBook':             (el)    => selectBook(el.dataset.book),
-
-    /* ── Upgrade modal ───────────────────────────────────── */
-    'handleUpgrade':          (el)    => handleUpgradeClick(el.dataset.plan),
-
-    /* ── examClearSource (passes event) ──────────────────── */
-    'examClearSource':        (el,ev) => examClearSource(ev),
-
-    /* ── Workspace set input ─────────────────────────────── */
-    'wsSetInput':             (el)    => wsSetInput(el.dataset.text),
-
-    /* ── Input / change delegated ────────────────────────── */
-    'filterLibrary-self':     (el)    => filterLibrary(el.value),
-    'filterFAQs-self':        (el)    => filterFAQs(el.value),
-    'spUpdateNotesCount':     ()      => spUpdateNotesCount(),
-    'settingsToggle':         (el)    => settingsToggleChanged(el, el.dataset.key),
-    'dataToggleSaveHistory-self': (el) => dataToggleSaveHistory(el),
-    'dataToggleImprove-self':     (el) => dataToggleImprove(el),
-    'homeHandlePdfUpload-self':   (el) => homeHandlePdfUpload(el),
-    'examHandlePdfFile-self':     (el) => examHandlePdfFile(el),
-    'spHandleFileSelect-self':    (el) => spHandleFileSelect(el.files[0]),
   };
 
   /* Single delegated listener on the document */
@@ -18253,22 +18093,6 @@ function syncDrawerRecentChats() {
       e.stopPropagation();
       handler(el, e);
     }
-  }, false);
-
-  /* Delegated change listener for inputs/selects/checkboxes */
-  document.addEventListener('change', function (e) {
-    const el = e.target.closest('[data-action]');
-    if (!el) return;
-    const handler = ACTION_MAP[el.dataset.action];
-    if (typeof handler === 'function') handler(el, e);
-  }, false);
-
-  /* Delegated input listener for text inputs */
-  document.addEventListener('input', function (e) {
-    const el = e.target.closest('[data-action]');
-    if (!el) return;
-    const handler = ACTION_MAP[el.dataset.action];
-    if (typeof handler === 'function') handler(el, e);
   }, false);
 
   /* Submenus open on hover and stay open until user hovers another item or clicks outside. */
