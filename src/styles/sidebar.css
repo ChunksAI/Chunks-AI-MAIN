@@ -286,7 +286,7 @@
 /* ── Profile dropdown menu ────────────────────────────────── */
 .profile-dropdown {
   position: fixed;
-  bottom: 60px;
+  bottom: 70px;
   left: 10px;
   width: 230px;
   background: var(--surface-2);
@@ -299,6 +299,10 @@
   transform: translateY(8px) scale(0.97);
   pointer-events: none;
   transition: opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring);
+}
+.sidebar.compact .profile-dropdown {
+  bottom: 60px;
+  left: 4px;
 }
 .profile-dropdown.open {
   opacity: 1;
