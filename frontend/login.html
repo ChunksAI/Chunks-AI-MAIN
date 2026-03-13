@@ -423,10 +423,12 @@
   const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
   // ── Redirect target after login ──
-  // Works for Vercel, Netlify, local file server, etc.
+  // Point back to login.html so the Supabase client HERE handles
+  // the OAuth callback (code exchange / hash parsing). The existing
+  // session check at the bottom of this page then forwards to index.html.
   function _getRedirectUrl() {
     const loc = window.location;
-    return loc.origin + loc.pathname.replace('login.html', 'index.html');
+    return loc.origin + loc.pathname; // stays on login.html
   }
 
   // ── Google Sign In ────────────────────────────────────────
