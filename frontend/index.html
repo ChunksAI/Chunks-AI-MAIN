@@ -4833,12 +4833,7 @@ body {
         <span class="pdf-chapter" id="ws-book-author">Ch. 3 — Second &amp; Third Laws</span>
       </div>
 
-      <!-- Page nav group -->
-      <div class="page-nav">
-        <button class="icon-btn" id="btn-prev-page" data-action="wsPrevPage" title="Previous page"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button>
-        <span class="page-badge" id="ws-page-badge" title="Click to jump to page" data-action="wsJumpToPage" style="cursor:pointer;">1 / 1</span>
-        <button class="icon-btn" id="btn-next-page" data-action="wsNextPage" title="Next page"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button>
-      </div>
+      <!-- Page nav removed -->
 
       <div class="bar-sep"></div>
 
@@ -6158,8 +6153,8 @@ body {
     } else {
       showScreen('home');
       sessionStorage.removeItem('chunks_is_refresh');
-      localStorage.removeItem('chunks_active_home_session');
-      localStorage.removeItem('chunks_active_ws_book');
+      // On fresh open, clear only the active-session pointers (not the chat history list)
+      // so the sidebar still shows all past chats but none is pre-highlighted
       localStorage.removeItem('chunks_active_recent_id');
     }
 
@@ -13373,22 +13368,7 @@ function _showToast(icon, text, color) {
    RECENT SIDEBAR LIST
 ══════════════════════════════════════════════════════════════ */
 // CHAT_SVG already declared above
-_recentItems = JSON.parse(sessionStorage.getItem('chunks_recent') || 'null') || [];
-function _renderRecentList() {
-  const container = document.getElementById('recent-list-research');
-  if (!container) return;
-  container.innerHTML = '';
-  if (!_recentItems.length) { container.innerHTML = '<div class="recent-empty">No recent chats yet</div>'; return; }
-  _recentItems.forEach(item => {
-    const el = document.createElement('div');
-    el.className = 'recent-item';
-    el.title = item.question;
-    el.innerHTML = `${CHAT_SVG}<span>${item.label.replace(/</g,'&lt;')}</span>`;
-    el.addEventListener('click', () => { location.href = 'index.html'; });
-    container.appendChild(el);
-  });
-}
-
+// NOTE: _recentItems is already loaded from localStorage at boot — do NOT overwrite here
 /* ══════════════════════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════════════════════ */
