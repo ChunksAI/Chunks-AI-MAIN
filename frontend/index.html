@@ -11752,11 +11752,18 @@ async function _fcLoadDecks() {
         limit: 30,
       });
       if (!error && data?.length) {
-        // Merge: Supabase is source of truth; fill in any local-only decks
-        // (e.g. created offline) that aren't in Supabase yet
+        // Merge: Supabase is source of truth; append any local-only decks
+        // (created offline or before login) that aren't in Supabase yet
         const sbNames = new Set(data.map(d => d.name));
         const localOnly = localDecks.filter(d => !sbNames.has(d.name));
-        return [...data, ...localOnly];
+        const merged = [...data, ...localOnly];
+
+        // Write-back cache: every successful Supabase fetch overwrites localStorage
+        // so the next refresh/new-tab renders instantly without waiting for auth.
+        // This is the key fix for "blank on refresh".
+        ChunksDB.lsSet(FC_LS_KEY, merged.slice(0, 30));
+
+        return merged;
       }
     } catch(e) {
       console.warn('[FC] Supabase deck load error:', e.message);
@@ -11774,7 +11781,14 @@ async function _fcLoadCards(deck) {
   if (ChunksDB.isLoggedIn()) {
     const deckId = deck.id;
     const { data, error } = await ChunksDB.get('fc_cards', { eq: { deck_id: deckId } });
-    if (!error && data?.length) return data;
+    if (!error && data?.length) {
+      // Write-back: cache the cards onto the deck in localStorage so they
+      // survive refresh without another Supabase round-trip.
+      const decks = ChunksDB.lsGet(FC_LS_KEY, []);
+      const patched = decks.map(d => d.id === deckId ? { ...d, cards: data } : d);
+      ChunksDB.lsSet(FC_LS_KEY, patched);
+      return data;
+    }
   }
   return deck.cards || [];
 }
