@@ -169,7 +169,7 @@ if _raw_origins != '*':
     if FRONTEND_URL and FRONTEND_URL not in _default_origins:
         _default_origins.append(FRONTEND_URL)
     CORS_ORIGINS = list(dict.fromkeys(_allowed_origins + _default_origins))
-    CORS_ORIGINS.append(_re.compile(r'^https://[a-zA-Z0-9-]+\.vercel\.app$'))
+    CORS_ORIGINS.append(re.compile(r'^https://[a-zA-Z0-9-]+\.vercel\.app$'))
 
 CORS(app,
      origins=CORS_ORIGINS,
