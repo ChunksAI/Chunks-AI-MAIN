@@ -594,9 +594,9 @@ select:focus-visible {
 .pd-submenu::before {
   content: '';
   position: absolute;
-  top: 0; bottom: 0;
-  left: -12px;
-  width: 12px;
+  top: -8px; bottom: -8px;
+  left: -20px;
+  width: 20px;
 }
 .pd-submenu.open {
   opacity: 1;
@@ -9050,7 +9050,7 @@ function _openHelpSubmenu() {
   const ddRect   = document.getElementById('profile-dropdown').getBoundingClientRect();
   const itemRect = item.getBoundingClientRect();
   sub.style.position    = 'fixed';
-  sub.style.left        = (ddRect.right + 4) + 'px';
+  sub.style.left        = (ddRect.right + 2) + 'px';
   sub.style.paddingLeft = '';
   sub.style.bottom      = (window.innerHeight - itemRect.bottom) + 'px';
   sub.style.top         = 'auto';
@@ -9087,7 +9087,7 @@ function _openTermsSubmenu() {
   const rect = item.getBoundingClientRect();
   sub.style.bottom      = (window.innerHeight - rect.bottom) + 'px';
   sub.style.top         = 'auto';
-  sub.style.left        = (rect.right + 4) + 'px';
+  sub.style.left        = (rect.right + 2) + 'px';
   sub.style.paddingLeft = '';
   sub.classList.add('open');
   item.classList.add('active');
@@ -9110,17 +9110,7 @@ function pdTermsMouseLeave(e) {
   // stays open — closes only when clicking outside
 }
 
-// Add mouseleave to submenus — close when leaving the submenu itself
-document.addEventListener('DOMContentLoaded', function() {
-  const termsSub = document.getElementById('pd-terms-submenu');
-  if (termsSub) {
-    termsSub.addEventListener('mouseenter', () => clearTimeout(_termsCloseTimer));
-  }
-  const helpSub = document.getElementById('pd-help-submenu');
-  if (helpSub) {
-    helpSub.addEventListener('mouseenter', () => clearTimeout(_helpCloseTimer));
-  }
-});
+// Submenu hover bridges are handled by the delegated listeners below.
 
 // Close when clicking outside
 document.addEventListener('click', function(e) {
@@ -18105,31 +18095,33 @@ function syncDrawerRecentChats() {
     }
   }, false);
 
-  /* Mouseenter delegation for pd-item submenu triggers.
-     Replaces onmouseenter="pdOpenHelp(event)" etc. removed from HTML. */
+  /* Submenus open on hover and stay open until user hovers another item or clicks outside. */
+  document.addEventListener('DOMContentLoaded', function () {
+    const helpItem  = document.getElementById('pd-help-item');
+    const termsItem = document.getElementById('pd-terms-item');
+
+    if (helpItem) {
+      helpItem.addEventListener('mouseenter', function (e) {
+        if (typeof pdOpenHelp === 'function') pdOpenHelp(e);
+      });
+    }
+
+    if (termsItem) {
+      termsItem.addEventListener('mouseenter', function (e) {
+        if (typeof pdOpenTerms === 'function') pdOpenTerms(e);
+      });
+    }
+  });
+
+  // Hovering another pd-item in the MAIN menu (not inside a submenu) closes both submenus
   document.addEventListener('mouseover', function (e) {
     const item = e.target.closest('.pd-item');
     if (!item) return;
-
-    if (item.id === 'pd-help-item') {
-      if (typeof pdOpenHelp === 'function') pdOpenHelp(e);
-    } else if (item.id === 'pd-terms-item') {
-      if (typeof pdOpenTerms === 'function') pdOpenTerms(e);
-    } else if (item.closest('.pd-menu')) {
-      // Any other pd-item in a pd-menu: close terms submenu only
-      // Help submenu intentionally stays open until an outside click
+    // Ignore items inside the submenus themselves
+    if (item.closest('#pd-help-submenu') || item.closest('#pd-terms-submenu')) return;
+    if (item.closest('.pd-menu') && item.id !== 'pd-help-item' && item.id !== 'pd-terms-item') {
+      if (typeof _closeHelp  === 'function') _closeHelp();
       if (typeof _closeTerms === 'function') _closeTerms();
-    }
-  }, false);
-
-  document.addEventListener('mouseout', function (e) {
-    const item = e.target.closest('.pd-item');
-    if (!item) return;
-
-    if (item.id === 'pd-help-item') {
-      if (typeof pdHelpMouseLeave  === 'function') pdHelpMouseLeave(e);
-    } else if (item.id === 'pd-terms-item') {
-      if (typeof pdTermsMouseLeave === 'function') pdTermsMouseLeave(e);
     }
   }, false);
 
