@@ -52,7 +52,7 @@ document.addEventListener('click', function (e) {
   if (action === 'settingsFontSize')           { fn(el.dataset.size || '', el); return; }
   if (action === 'settingsDropdown')           { fn(el); return; }
   if (action === 'settingsSelect')             { fn(el); return; }
-  if (action === 'settingsSelectAccent')       { fn(el); return; }
+  if (action === 'settingsSelectAccent')       { fn(el, el.dataset.color || '', el.dataset.label || el.textContent.trim()); return; }
   if (action === 'settingsSelectVoice')        { fn(el); return; }
   if (action === 'settingsSelectDefaultBook')  { fn(el); return; }
   if (action === 'settingsSelectStudyMode')    { fn(el); return; }
