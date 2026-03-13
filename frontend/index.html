@@ -52,8 +52,8 @@
   /* Text */
   --text-1:      #ededf0;
   --text-2:      #9898ae;
-  --text-3:      #55556a;
-  --text-4:      #3a3a4d;
+  --text-3:      #7c7c96;  /* was #55556a — raised to 4.61:1 on surface-1 (WCAG AA) */
+  --text-4:      #6a6a7e;  /* was #3a3a4d — raised to 3.54:1 on surface-1 (WCAG AA large) */
 
   /* Typography */
   --font-head:   'Syne', sans-serif;
@@ -160,6 +160,18 @@ select:focus-visible {
 ═══════════════════════════════════════════════════════════ */
 .screen { display: none; height: 100vh; }
 .screen.active { display: flex; flex-direction: column; animation: screenIn var(--t-mid) var(--ease-snap) both; }
+
+/* ── Skeleton / shimmer loading utilities ── */
+@keyframes shimmer {
+  0%   { opacity: 0.45; }
+  50%  { opacity: 0.9;  }
+  100% { opacity: 0.45; }
+}
+.skeleton-line {
+  background: var(--surface-3);
+  border-radius: 4px;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
 
 @keyframes screenIn {
   from { opacity: 0; transform: translateY(5px); }
@@ -1915,7 +1927,7 @@ select:focus-visible {
   --teal-dim:    rgba(45,212,191,0.10);
   --text-1:      #f0f0f0;
   --text-2:      #9a9ab0;
-  --text-3:      #5a5a72;
+  --text-3:      #7c7c96;  /* raised to pass WCAG AA */
   --radius:      12px;
   --radius-lg:   18px;
   --font-head:   'Syne', sans-serif;
@@ -4437,7 +4449,7 @@ body {
 
   <aside class="sidebar">
     <div class="sidebar-header">
-      <div class="logo-link" onclick="handleLogoClick(this)" title="Go to home / expand">
+      <div class="logo-link" data-action="handleLogoClick-self" title="Go to home / expand">
         <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
           <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
           <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
@@ -4452,7 +4464,7 @@ body {
         </svg>
         </div>
       </div>
-      <button class="sidebar-collapse-btn" onclick="toggleSidebar(this)" title="Collapse sidebar">
+      <button class="sidebar-collapse-btn" data-action="toggleSidebar-self" title="Collapse sidebar">
         <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="1.5" y="1.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.6"/>
           <path d="M7 1.5V18.5" stroke="currentColor" stroke-width="1.6"/>
@@ -4460,7 +4472,7 @@ body {
       </button>
     </div>
 
-    <button class="sidebar-new-btn" onclick="newChat()" aria-label="New Chat">
+    <button class="sidebar-new-btn" data-action="newChat" aria-label="New Chat">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       <span>New Chat</span>
     </button>
@@ -4468,31 +4480,31 @@ body {
     <nav aria-label="Main navigation">
     <div class="sidebar-section">
       <div class="sidebar-section-label">Study</div>
-      <div class="sidebar-item active" id="sidebar-home-btn" role="button" tabindex="0" aria-label="Home" aria-current="page" onclick="goHome()" onkeydown="if(event.key==='Enter'||event.key===' ')goHome()" style="cursor:pointer;">
+      <div class="sidebar-item active" id="sidebar-home-btn" role="button" tabindex="0" aria-label="Home" aria-current="page" data-action="goHome" onkeydown="if(event.key==='Enter'||event.key===' ')goHome()" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Workspace" onclick="showScreen('workspace')" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('workspace')" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Workspace" data-action="showScreen" data-screen="workspace" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('workspace')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         <span>Workspace</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Library" onclick="openLibraryModal()" onkeydown="if(event.key==='Enter'||event.key===' ')openLibraryModal()" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Library" data-action="openLibraryModal" onkeydown="if(event.key==='Enter'||event.key===' ')openLibraryModal()" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
         <span>Library</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Flashcards" onclick="showScreen('flash')" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('flash')" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Flashcards" data-action="showScreen" data-screen="flash" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('flash')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" onclick="showScreen('studyplan')" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('studyplan')" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('studyplan')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Research" onclick="showScreen('research')" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('research')" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Research" data-action="showScreen" data-screen="research" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('research')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
         <span>Research</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Exam" onclick="showScreen('exam')" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('exam')" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Exam" data-action="showScreen" data-screen="exam" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('exam')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Exam</span>
       </div>
@@ -4595,18 +4607,18 @@ body {
         <div class="ask-box" id="home-ask-box" style="margin-bottom:20px;">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-3);flex-shrink:0;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           <textarea id="home-ask-input" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
-          <button class="ask-send" id="home-send-btn" onclick="homeSendMessage()">
+          <button class="ask-send" id="home-send-btn" data-action="homeSendMessage">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
 
         <div class="quick-grid">
-        <div class="quick-card" onclick="openLibraryModal()">
+        <div class="quick-card" data-action="openLibraryModal">
           <div class="qc-icon gold">📚</div>
           <div class="qc-title">Open Textbook</div>
           <div class="qc-desc">Browse your library and study alongside AI</div>
         </div>
-        <div class="quick-card" onclick="showScreen('flash')">
+        <div class="quick-card" data-action="showScreen" data-screen="flash">
           <div class="qc-icon violet">🃏</div>
           <div class="qc-title">Flashcards</div>
           <div class="qc-desc">Generate and review study cards from any chapter</div>
@@ -4620,12 +4632,12 @@ body {
       <input type="file" id="home-pdf-upload" accept="application/pdf" style="display:none;" onchange="homeHandlePdfUpload(this)">
       <p class="prompts-label">Try asking</p>
       <div class="prompts-chips">
-        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Photosynthesis</button>
-        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Newton's Laws of Motion</button>
-        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Cell Division</button>
-        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">The French Revolution</button>
-        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Supply and Demand</button>
-        <button class="prompt-chip" onclick="homeSetInput(this.textContent)">Pythagorean Theorem</button>
+        <button class="prompt-chip" data-action="homeSetInput-text">Photosynthesis</button>
+        <button class="prompt-chip" data-action="homeSetInput-text">Newton's Laws of Motion</button>
+        <button class="prompt-chip" data-action="homeSetInput-text">Cell Division</button>
+        <button class="prompt-chip" data-action="homeSetInput-text">The French Revolution</button>
+        <button class="prompt-chip" data-action="homeSetInput-text">Supply and Demand</button>
+        <button class="prompt-chip" data-action="homeSetInput-text">Pythagorean Theorem</button>
       </div>
     </div> <!-- end home-landing -->
     </div> <!-- end home-scroll-area -->
@@ -4635,7 +4647,7 @@ body {
       <div class="ask-box" id="home-ask-box-bottom" style="max-width:860px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-3);flex-shrink:0;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         <textarea id="home-ask-input-bottom" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
-        <button class="ask-send" id="home-send-btn-bottom" onclick="homeSendMessage()">
+        <button class="ask-send" id="home-send-btn-bottom" data-action="homeSendMessage">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
@@ -4653,7 +4665,7 @@ body {
 
   <!-- Mobile workspace topbar (hidden on desktop) -->
   <div class="mobile-ws-topbar" style="display:none;">
-    <button type="button" class="mwt-back" onclick="goHome()" aria-label="Back">
+    <button type="button" class="mwt-back" data-action="goHome" aria-label="Back">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
     </button>
     <div class="mwt-title-block">
@@ -4662,22 +4674,22 @@ body {
     </div>
     <!-- Chat / PDF toggle pill -->
     <div class="mwt-view-toggle">
-      <button type="button" class="mwt-vtab active" id="mwt-tab-chat" onclick="wsMobileView('chat')" aria-label="Chat view">
+      <button type="button" class="mwt-vtab active" id="mwt-tab-chat" data-action="wsMobileView" data-view="chat" aria-label="Chat view">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span>Chat</span>
       </button>
-      <button type="button" class="mwt-vtab" id="mwt-tab-pdf" onclick="wsMobileView('pdf')" aria-label="PDF view">
+      <button type="button" class="mwt-vtab" id="mwt-tab-pdf" data-action="wsMobileView" data-view="pdf" aria-label="PDF view">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
         <span>PDF</span>
       </button>
     </div>
-    <button type="button" class="mwt-library" onclick="openLibraryModal()" aria-label="Open library">
+    <button type="button" class="mwt-library" data-action="openLibraryModal" aria-label="Open library">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
     </button>
   </div>
   <aside class="sidebar">
     <div class="sidebar-header">
-      <div class="logo-link" onclick="handleLogoClick(this)" title="Go to home / expand">
+      <div class="logo-link" data-action="handleLogoClick-self" title="Go to home / expand">
         <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
           <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
           <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
@@ -4692,44 +4704,44 @@ body {
         </svg>
         </div>
       </div>
-      <button class="sidebar-collapse-btn" onclick="toggleSidebar(this)" title="Collapse sidebar">
+      <button class="sidebar-collapse-btn" data-action="toggleSidebar-self" title="Collapse sidebar">
         <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="1.5" y="1.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.6"/>
           <path d="M7 1.5V18.5" stroke="currentColor" stroke-width="1.6"/>
         </svg>
       </button>
     </div>
-    <button class="sidebar-new-btn" onclick="newChat()">
+    <button class="sidebar-new-btn" data-action="newChat">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       <span>New Chat</span>
     </button>
     <div class="sidebar-section">
       <div class="sidebar-section-label">Study</div>
-      <div class="sidebar-item" onclick="goHome()" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="goHome" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
       </div>
-      <div class="sidebar-item active" onclick="showScreen('workspace')" style="cursor:pointer;">
+      <div class="sidebar-item active" data-action="showScreen" data-screen="workspace" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         <span>Workspace</span>
       </div>
-      <div class="sidebar-item" onclick="openLibraryModal()" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="openLibraryModal" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
         <span>Library</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('flash')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="flash" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('studyplan')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="studyplan" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('research')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="research" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
         <span>Research</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('exam')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="exam" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Exam</span>
       </div>
@@ -4759,7 +4771,7 @@ body {
   <section class="pdf-panel">
     <div class="pdf-bar">
       <!-- Left: hamburger -->
-      <button class="icon-btn" title="Toggle contents" onclick="togglePdfOutline()" style="margin-right:4px;">
+      <button class="icon-btn" title="Toggle contents" data-action="togglePdfOutline" style="margin-right:4px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
 
@@ -4772,17 +4784,17 @@ body {
 
       <!-- Page nav group -->
       <div class="page-nav">
-        <button class="icon-btn" id="btn-prev-page" onclick="wsPrevPage()" title="Previous page"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button>
-        <span class="page-badge" id="ws-page-badge" title="Click to jump to page" onclick="wsJumpToPage()" style="cursor:pointer;">1 / 1</span>
-        <button class="icon-btn" id="btn-next-page" onclick="wsNextPage()" title="Next page"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button>
+        <button class="icon-btn" id="btn-prev-page" data-action="wsPrevPage" title="Previous page"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button>
+        <span class="page-badge" id="ws-page-badge" title="Click to jump to page" data-action="wsJumpToPage" style="cursor:pointer;">1 / 1</span>
+        <button class="icon-btn" id="btn-next-page" data-action="wsNextPage" title="Next page"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button>
       </div>
 
       <div class="bar-sep"></div>
 
       <!-- Zoom group -->
       <div style="display:flex;align-items:center;gap:2px;">
-        <button class="icon-btn" id="btn-zoom-out" onclick="wsZoomOut()" title="Zoom out"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><line x1="8" x2="14" y1="11" y2="11"/></svg></button>
-        <button class="icon-btn" id="btn-zoom-in"  onclick="wsZoomIn()"  title="Zoom in"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></svg></button>
+        <button class="icon-btn" id="btn-zoom-out" data-action="wsZoomOut" title="Zoom out"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><line x1="8" x2="14" y1="11" y2="11"/></svg></button>
+        <button class="icon-btn" id="btn-zoom-in"  data-action="wsZoomIn"  title="Zoom in"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></svg></button>
       </div>
 
       <div class="bar-sep"></div>
@@ -4796,10 +4808,9 @@ body {
       <div class="bar-sep"></div>
 
       <!-- Library button -->
-      <button class="icon-btn" id="ws-open-lib-btn" onclick="openLibraryModal()" title="Library"
+      <button class="icon-btn" id="ws-open-lib-btn" data-action="openLibraryModal" title="Library"
         style="width:32px;height:32px;color:var(--text-3);background:transparent;border:1px solid transparent;border-radius:var(--r-sm);flex-shrink:0;transition:color var(--t-fast),background var(--t-fast),border-color var(--t-fast);"
-        onmouseover="this.style.color='var(--gold)';this.style.background='var(--gold-muted)';this.style.borderColor='var(--gold-border)';"
-        onmouseout="this.style.color='var(--text-3)';this.style.background='transparent';this.style.borderColor='transparent';">
+>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
       </button>
     </div>
@@ -4830,14 +4841,44 @@ body {
             <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);margin-bottom:6px;">No book loaded</div>
             <div style="font-size:13px;max-width:220px;line-height:1.65;color:var(--text-3);">Open the Library to pick a textbook and it'll appear here.</div>
           </div>
-          <button onclick="openLibraryModal()" style="padding:9px 22px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Browse Library</button>
+          <button data-action="openLibraryModal" style="padding:9px 22px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Browse Library</button>
         </div>
 
-        <!-- Loading state -->
-        <div id="ws-pdf-loading" style="display:none;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;color:var(--text-3);position:absolute;inset:0;background:#18181e;">
-          <div class="hc-thinking"><span></span><span></span><span></span><span></span><span></span></div>
-          <div style="font-size:12px;" id="ws-loading-text">Loading PDF…</div>
-          <div style="font-size:11px;color:var(--text-4);" id="ws-loading-progress"></div>
+        <!-- Loading state — skeleton while PDF fetches/renders -->
+        <div id="ws-pdf-loading" style="display:none;flex-direction:column;height:100%;position:absolute;inset:0;background:#18181e;overflow:hidden;">
+          <!-- Book cover + title skeleton strip -->
+          <div style="display:flex;align-items:center;gap:12px;padding:18px 20px 14px;border-bottom:1px solid var(--border);">
+            <div class="skeleton-line" style="width:36px;height:50px;border-radius:6px;flex-shrink:0;"></div>
+            <div style="display:flex;flex-direction:column;gap:7px;flex:1;">
+              <div class="skeleton-line" style="height:12px;width:55%;animation-delay:0.1s;"></div>
+              <div class="skeleton-line" style="height:10px;width:35%;animation-delay:0.2s;"></div>
+            </div>
+          </div>
+          <!-- Page skeleton rows -->
+          <div style="flex:1;padding:20px;display:flex;flex-direction:column;gap:10px;overflow:hidden;">
+            <div class="skeleton-line" style="height:14px;width:90%;animation-delay:0.05s;"></div>
+            <div class="skeleton-line" style="height:12px;width:100%;animation-delay:0.1s;"></div>
+            <div class="skeleton-line" style="height:12px;width:78%;animation-delay:0.15s;"></div>
+            <div class="skeleton-line" style="height:12px;width:95%;animation-delay:0.2s;"></div>
+            <div class="skeleton-line" style="height:12px;width:60%;animation-delay:0.25s;"></div>
+            <div style="height:16px;"></div>
+            <div class="skeleton-line" style="height:12px;width:88%;animation-delay:0.3s;"></div>
+            <div class="skeleton-line" style="height:12px;width:100%;animation-delay:0.35s;"></div>
+            <div class="skeleton-line" style="height:12px;width:72%;animation-delay:0.4s;"></div>
+            <div style="height:16px;"></div>
+            <div class="skeleton-line" style="height:12px;width:95%;animation-delay:0.45s;"></div>
+            <div class="skeleton-line" style="height:12px;width:83%;animation-delay:0.5s;"></div>
+            <div class="skeleton-line" style="height:12px;width:100%;animation-delay:0.55s;"></div>
+            <div class="skeleton-line" style="height:12px;width:50%;animation-delay:0.6s;"></div>
+          </div>
+          <!-- Progress label at bottom -->
+          <div style="padding:10px 20px;border-top:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+            <div class="sp-spinner" style="flex-shrink:0;"></div>
+            <div style="display:flex;flex-direction:column;gap:4px;flex:1;">
+              <div style="font-size:12px;color:var(--text-2);" id="ws-loading-text">Loading PDF…</div>
+              <div style="font-size:11px;color:var(--text-4);" id="ws-loading-progress"></div>
+            </div>
+          </div>
         </div>
 
         <!-- PDF.js canvas scroll container -->
@@ -4848,11 +4889,11 @@ body {
 
       <!-- Mobile page nav (only visible when pdf panel is mobile-visible) -->
       <div class="mobile-pdf-nav">
-        <button type="button" class="mpn-btn" onclick="wsPrevPage()" aria-label="Previous page">
+        <button type="button" class="mpn-btn" data-action="wsPrevPage" aria-label="Previous page">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
         </button>
         <span class="mpn-page" id="mpn-page-label">1 / 1</span>
-        <button type="button" class="mpn-btn" onclick="wsNextPage()" aria-label="Next page">
+        <button type="button" class="mpn-btn" data-action="wsNextPage" aria-label="Next page">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </button>
       </div>
@@ -4888,7 +4929,7 @@ body {
       <div class="chat-input-inner">
         <button class="chat-plus"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
         <textarea id="ws-chat-input" class="chat-input-field" placeholder="Ask a follow-up about Chapter 3…" rows="1" style="resize:none;max-height:120px;overflow-y:auto;font-family:var(--font-body);font-size:13px;color:var(--text-1);background:transparent;border:none;outline:none;flex:1;line-height:1.5;"></textarea>
-        <button class="chat-send" id="ws-chat-send" onclick="wsChatSend()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+        <button class="chat-send" id="ws-chat-send" data-action="wsChatSend"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
       </div>
       <div class="input-hints">
         <button class="hint-tag" onclick="wsSetInput('Summarize the current page')">Summarize page</button>
@@ -4907,7 +4948,7 @@ body {
 
   <!-- Mobile topbar (hidden on desktop) -->
   <div class="mobile-screen-topbar" style="display:none;">
-    <button type="button" class="mst-back" onclick="goHome()" aria-label="Back">
+    <button type="button" class="mst-back" data-action="goHome" aria-label="Back">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
     </button>
     <span class="mst-title">Flashcards</span>
@@ -4917,7 +4958,7 @@ body {
   <!-- Sidebar (same as homepage) -->
   <aside class="sidebar">
     <div class="sidebar-header">
-      <div class="logo-link" onclick="handleLogoClick(this)" title="Go to home / expand">
+      <div class="logo-link" data-action="handleLogoClick-self" title="Go to home / expand">
         <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
           <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
           <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
@@ -4932,7 +4973,7 @@ body {
         </svg>
         </div>
       </div>
-      <button class="sidebar-collapse-btn" onclick="toggleSidebar(this)" title="Collapse sidebar">
+      <button class="sidebar-collapse-btn" data-action="toggleSidebar-self" title="Collapse sidebar">
         <svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="1.5" y="1.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.6"/>
           <path d="M7 1.5V18.5" stroke="currentColor" stroke-width="1.6"/>
@@ -4940,38 +4981,38 @@ body {
       </button>
     </div>
 
-    <button class="sidebar-new-btn" onclick="newChat()">
+    <button class="sidebar-new-btn" data-action="newChat">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       <span>New Chat</span>
     </button>
 
     <div class="sidebar-section">
       <div class="sidebar-section-label">Study</div>
-      <div class="sidebar-item" onclick="goHome()" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="goHome" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('workspace')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="workspace" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         <span>Workspace</span>
       </div>
-      <div class="sidebar-item" onclick="openLibraryModal()" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="openLibraryModal" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
         <span>Library</span>
       </div>
-      <div class="sidebar-item active" onclick="showScreen('flash')" style="cursor:pointer;">
+      <div class="sidebar-item active" data-action="showScreen" data-screen="flash" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('studyplan')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="studyplan" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('research')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="research" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
         <span>Research</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('exam')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="exam" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Exam</span>
       </div>
@@ -5021,12 +5062,12 @@ body {
   <div class="gen-bar">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-3);flex-shrink:0;"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83"/></svg>
     <input class="gen-input" id="fc-gen-input" type="text" placeholder="Generate cards from a topic e.g. Entropy, Gibbs free energy…">
-    <button class="gen-btn" id="gen-btn" onclick="_fcGenerateFromBar()">Generate with AI</button>
+    <button class="gen-btn" id="gen-btn" data-action="_fcGenerateFromBar">Generate with AI</button>
   </div>
 
   <!-- Flashcard with 3D flip -->
   <div class="flash-scene">
-    <div class="flash-card-wrap" id="flashCard" onclick="flipCard()" tabindex="0" role="button" aria-label="Flashcard. Click to flip.">
+    <div class="flash-card-wrap" id="flashCard" data-action="flipCard" tabindex="0" role="button" aria-label="Flashcard. Click to flip.">
 
       <!-- Front: Question -->
       <div class="flash-face" id="flash-face-front">
@@ -5066,7 +5107,7 @@ body {
       Easy
     </button>
     <div style="width:1px;height:22px;background:var(--border-xs);"></div>
-    <button class="flash-btn primary" onclick="flipCard()">
+    <button class="flash-btn primary" data-action="flipCard">
       Reveal Answer
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
     </button>
@@ -5091,7 +5132,7 @@ body {
 
   <!-- Mobile topbar (hidden on desktop) -->
   <div class="mobile-screen-topbar" style="display:none;">
-    <button type="button" class="mst-back" onclick="goHome()" aria-label="Back">
+    <button type="button" class="mst-back" data-action="goHome" aria-label="Back">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
     </button>
     <span class="mst-title">Research</span>
@@ -5101,48 +5142,48 @@ body {
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-header">
-      <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" onclick="toggleSidebar(this)" title="Toggle sidebar">
+      <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" data-action="toggleSidebar-self" title="Toggle sidebar">
         <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
         <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
         <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
         <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
       </svg>
       <span class="logo-text">Chunks</span>
-      <button class="sidebar-collapse-btn" onclick="toggleSidebar(this)">
+      <button class="sidebar-collapse-btn" data-action="toggleSidebar-self">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
       </button>
     </div>
-    <button class="sidebar-new-btn" onclick="newChat()">
+    <button class="sidebar-new-btn" data-action="newChat">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       <span>New Chat</span>
     </button>
     <div class="sidebar-section">
       <div class="sidebar-section-label">Study</div>
-      <div class="sidebar-item" onclick="goHome()" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="goHome" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('workspace')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="workspace" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         <span>Workspace</span>
       </div>
-      <div class="sidebar-item" onclick="openLibraryModal()" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="openLibraryModal" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
         <span>Library</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('flash')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="flash" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('studyplan')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="studyplan" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
-      <div class="sidebar-item active" onclick="showScreen('research')" style="cursor:pointer;">
+      <div class="sidebar-item active" data-action="showScreen" data-screen="research" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
         <span>Research</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('exam')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="exam" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="m9 12 2 2 4-4"/></svg>
         <span>Exam</span>
       </div>
@@ -5173,7 +5214,7 @@ body {
 
     <!-- Top bar (hidden until project started) -->
     <div class="research-topbar" id="research-topbar" style="display:none;">
-      <button class="icon-btn" onclick="_researchBackToSetup()" style="margin-right:4px;" title="Back to setup">
+      <button class="icon-btn" data-action="_researchBackToSetup" style="margin-right:4px;" title="Back to setup">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
       </button>
       <div class="research-topbar-title" id="research-paper-title">Untitled Research</div>
@@ -5185,8 +5226,8 @@ body {
         <span id="topbar-words">0</span><span style="opacity:0.5;">/ ~3,000 words</span>
       </div>
       <span id="autosave-indicator" style="font-family:var(--font-mono);font-size:10px;color:var(--text-4);opacity:0;transition:opacity 0.4s;margin-left:4px;">✓ Saved</span>
-      <button class="btn-sec-research" onclick="_confirmNewPaper()" style="font-size:11px;padding:5px 14px;margin-left:4px;">New Paper</button>
-      <button class="btn-sec-research" style="font-size:11px;padding:5px 14px;" onclick="_exportPDF()">Export PDF</button>
+      <button class="btn-sec-research" data-action="_confirmNewPaper" style="font-size:11px;padding:5px 14px;margin-left:4px;">New Paper</button>
+      <button class="btn-sec-research" style="font-size:11px;padding:5px 14px;" data-action="_exportPDF">Export PDF</button>
     </div>
 
     <!-- SETUP VIEW -->
@@ -5221,7 +5262,7 @@ body {
             </select>
           </div>
         </div>
-        <button class="setup-btn" id="generate-outline-btn" onclick="_researchStart()">
+        <button class="setup-btn" id="generate-outline-btn" data-action="_researchStart">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           <span id="generate-outline-btn-text">Generate Research Outline</span>
         </button>
@@ -5395,10 +5436,10 @@ body {
                   <div id="layer-tip-checklist" style="padding:10px 14px 6px;display:flex;flex-direction:column;gap:5px;font-size:11px;color:var(--text-3);line-height:1.5;"></div>
                   <div style="padding:6px 14px 8px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid var(--border-xs);">
                     <span id="layer-tip-target" style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);"></span>
-                    <button onclick="_toggleTip()" style="font-size:10px;padding:4px 10px;background:var(--surface-3);border:1px solid var(--border-xs);border-radius:var(--r-pill);color:var(--text-3);cursor:pointer;font-family:var(--font-body);position:relative;z-index:1;">Dismiss</button>
+                    <button data-action="_toggleTip" style="font-size:10px;padding:4px 10px;background:var(--surface-3);border:1px solid var(--border-xs);border-radius:var(--r-pill);color:var(--text-3);cursor:pointer;font-family:var(--font-body);position:relative;z-index:1;">Dismiss</button>
                   </div>
                 </div>
-                <button id="layer-tip-toggle" onclick="_toggleTip()" style="margin-top:6px;font-size:10px;background:transparent;border:none;color:var(--text-4);cursor:pointer;font-family:var(--font-body);padding:0;display:flex;align-items:center;gap:4px;">
+                <button id="layer-tip-toggle" data-action="_toggleTip" style="margin-top:6px;font-size:10px;background:transparent;border:none;color:var(--text-4);cursor:pointer;font-family:var(--font-body);padding:0;display:flex;align-items:center;gap:4px;">
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                   Show tips
                 </button>
@@ -5416,11 +5457,11 @@ body {
                 <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);margin-bottom:4px;">Search Academic Papers</div>
                 <div style="font-size:12px;color:var(--text-3);">Find and attach sources to any layer of your research paper.</div>
                 <div style="display:flex;gap:8px;margin-top:12px;">
-                  <div style="flex:1;display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:8px 12px;transition:border-color var(--t-fast);" onmouseenter="this.style.borderColor='var(--gold-border)'" onmouseleave="this.style.borderColor='var(--border-xs)'">
+                  <div class="hover-search-wrap" style="flex:1;display:flex;align-items:center;gap:8px;background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:8px 12px;transition:border-color var(--t-fast);">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                     <input id="paper-search-input" type="text" placeholder="Search by title, author, keyword…" style="flex:1;background:transparent;border:none;outline:none;font-family:var(--font-body);font-size:13px;color:var(--text-1);" onkeydown="if(event.key==='Enter')_runPaperSearch()">
                   </div>
-                  <button onclick="_runPaperSearch()" style="padding:8px 18px;border-radius:var(--r-sm);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap;transition:background var(--t-fast);" onmouseenter="this.style.background='var(--gold-bright)'" onmouseleave="this.style.background='var(--gold)'">Search</button>
+                  <button data-action="_runPaperSearch" class="hover-search-btn" style="padding:8px 18px;border-radius:var(--r-sm);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-body);white-space:nowrap;transition:background var(--t-fast);">Search</button>
                 </div>
                 <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
                   <span style="font-size:11px;color:var(--text-4);">Try:</span>
@@ -5458,7 +5499,7 @@ body {
                   <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);">Full Paper Preview</div>
                   <div style="font-size:12px;color:var(--text-3);margin-top:2px;" id="full-paper-subtitle">All accepted layers compiled</div>
                 </div>
-                <button onclick="_exportPDF()" style="padding:6px 14px;border-radius:var(--r-pill);background:transparent;border:1px solid var(--border-md);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);display:flex;align-items:center;gap:6px;transition:all var(--t-fast);" onmouseenter="this.style.borderColor='var(--border-lg)';this.style.color='var(--text-1)'" onmouseleave="this.style.borderColor='var(--border-md)';this.style.color='var(--text-2)'">
+                <button data-action="_exportPDF" class="hover-export-btn" style="padding:6px 14px;border-radius:var(--r-pill);background:transparent;border:1px solid var(--border-md);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);display:flex;align-items:center;gap:6px;transition:all var(--t-fast);">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                   Export PDF
                 </button>
@@ -5524,50 +5565,50 @@ body {
 
   <aside class="sidebar">
     <div class="sidebar-header">
-      <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" onclick="toggleSidebar(this)" title="Toggle sidebar">
+      <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" data-action="toggleSidebar-self" title="Toggle sidebar">
         <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
         <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
         <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
         <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
       </svg>
       <span class="logo-text">Chunks</span>
-      <button class="sidebar-collapse-btn" onclick="toggleSidebar(this)" title="Collapse sidebar">
+      <button class="sidebar-collapse-btn" data-action="toggleSidebar-self" title="Collapse sidebar">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
       </button>
     </div>
 
-    <button class="sidebar-new-btn" onclick="newChat()">
+    <button class="sidebar-new-btn" data-action="newChat">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       <span>New Chat</span>
     </button>
 
     <div class="sidebar-section">
       <div class="sidebar-section-label">Study</div>
-      <div class="sidebar-item" onclick="goHome()" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="goHome" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('workspace')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="workspace" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         <span>Workspace</span>
       </div>
-      <div class="sidebar-item" onclick="openLibraryModal()" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="openLibraryModal" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
         <span>Library</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('flash')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="flash" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('studyplan')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="studyplan" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('research')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="research" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
         <span>Research</span>
       </div>
-      <div class="sidebar-item active" onclick="showScreen('exam')" style="cursor:pointer;">
+      <div class="sidebar-item active" data-action="showScreen" data-screen="exam" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Exam</span>
       </div>
@@ -5665,7 +5706,7 @@ body {
                   placeholder="Paste your study notes, lecture slides text, or any content you want the exam based on…"></textarea>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
                   <span id="exam-notes-count" style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);">0 chars</span>
-                  <button onclick="examClearNotes()" style="font-size:10px;color:var(--text-4);background:none;border:none;cursor:pointer;font-family:var(--font-body);" onmouseenter="this.style.color='var(--text-2)'" onmouseleave="this.style.color='var(--text-4)'">Clear</button>
+                  <button data-action="examClearNotes" class="hover-clear-btn" style="font-size:10px;color:var(--text-4);background:none;border:none;cursor:pointer;font-family:var(--font-body);">Clear</button>
                 </div>
               </div>
             </div>
@@ -5676,7 +5717,7 @@ body {
               <label>Generation Mode</label>
               <div class="exam-scan-grid">
 
-                <div class="exam-scan-card active" data-mode="quick" onclick="examSelectScanMode(this)">
+                <div class="exam-scan-card active" data-mode="quick" data-action="examSelectScanMode-self">
                   <div class="exam-scan-top">
                     <span class="exam-scan-icon">⚡</span>
                     <span class="exam-scan-badge" style="background:rgba(45,212,191,0.12);color:var(--teal);">~4s</span>
@@ -5685,7 +5726,7 @@ body {
                   <div class="exam-scan-desc">Fixed question count from your material. Fast, great for a quick quiz.</div>
                 </div>
 
-                <div class="exam-scan-card" data-mode="smart" onclick="examSelectScanMode(this)">
+                <div class="exam-scan-card" data-mode="smart" data-action="examSelectScanMode-self">
                   <div class="exam-scan-top">
                     <span class="exam-scan-icon">🧠</span>
                     <span class="exam-scan-badge" style="background:rgba(139,124,248,0.12);color:var(--violet);">~6s</span>
@@ -5694,7 +5735,7 @@ body {
                   <div class="exam-scan-desc">AI reads the full document first, then generates questions covering every section.</div>
                 </div>
 
-                <div class="exam-scan-card" data-mode="deep" onclick="examSelectScanMode(this)">
+                <div class="exam-scan-card" data-mode="deep" data-action="examSelectScanMode-self">
                   <div class="exam-scan-top">
                     <span class="exam-scan-icon">🔬</span>
                     <span class="exam-scan-badge" style="background:rgba(232,172,46,0.12);color:var(--gold);">~20s</span>
@@ -5737,19 +5778,19 @@ body {
             <div class="exam-field">
               <label>Question Type</label>
               <div class="exam-type-grid exam-type-grid-5" id="exam-type-grid">
-                <button class="exam-type-btn active" data-type="mcq" onclick="examSelectType(this)">
+                <button class="exam-type-btn active" data-type="mcq" data-action="examSelectType-self">
                   <span class="etb-icon">🔘</span>Multiple Choice
                 </button>
-                <button class="exam-type-btn" data-type="truefalse" onclick="examSelectType(this)">
+                <button class="exam-type-btn" data-type="truefalse" data-action="examSelectType-self">
                   <span class="etb-icon">✅</span>True / False
                 </button>
-                <button class="exam-type-btn" data-type="situational" onclick="examSelectType(this)">
+                <button class="exam-type-btn" data-type="situational" data-action="examSelectType-self">
                   <span class="etb-icon">⚡</span>Situational
                 </button>
-                <button class="exam-type-btn" data-type="cbl" onclick="examSelectType(this)">
+                <button class="exam-type-btn" data-type="cbl" data-action="examSelectType-self">
                   <span class="etb-icon">🩺</span>Case-Based
                 </button>
-                <button class="exam-type-btn" data-type="mixed" onclick="examSelectType(this)">
+                <button class="exam-type-btn" data-type="mixed" data-action="examSelectType-self">
                   <span class="etb-icon">🎲</span>Mixed
                 </button>
               </div>
@@ -5766,15 +5807,15 @@ body {
             <div class="exam-field">
               <label>Difficulty</label>
               <div style="display:flex;gap:8px;">
-                <button class="exam-type-btn" data-diff="easy" onclick="examSelectDiff(this)" style="flex:1;">Easy</button>
-                <button class="exam-type-btn active" data-diff="medium" onclick="examSelectDiff(this)" style="flex:1;">Medium</button>
-                <button class="exam-type-btn" data-diff="hard" onclick="examSelectDiff(this)" style="flex:1;">Hard</button>
+                <button class="exam-type-btn" data-diff="easy" data-action="examSelectDiff-self" style="flex:1;">Easy</button>
+                <button class="exam-type-btn active" data-diff="medium" data-action="examSelectDiff-self" style="flex:1;">Medium</button>
+                <button class="exam-type-btn" data-diff="hard" data-action="examSelectDiff-self" style="flex:1;">Hard</button>
               </div>
             </div>
 
             <div id="exam-error" style="display:none;font-size:12px;color:#f87171;padding:10px 14px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:var(--r-sm);"></div>
 
-            <button class="exam-start-btn" id="exam-start-btn" onclick="examStart()">
+            <button class="exam-start-btn" id="exam-start-btn" data-action="examStart">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               Generate Exam
             </button>
@@ -5823,7 +5864,7 @@ body {
       <!-- QUIZ VIEW -->
       <div id="exam-quiz" style="display:none;">
         <div class="exam-topbar">
-          <button onclick="examAbort()" style="background:transparent;border:none;color:var(--text-4);cursor:pointer;font-size:12px;font-family:var(--font-body);display:flex;align-items:center;gap:4px;padding:0;" onmouseenter="this.style.color='var(--text-2)'" onmouseleave="this.style.color='var(--text-4)'">
+          <button data-action="examAbort" class="hover-abort-btn" style="background:transparent;border:none;color:var(--text-4);cursor:pointer;font-size:12px;font-family:var(--font-body);display:flex;align-items:center;gap:4px;padding:0;">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
             Exit
           </button>
@@ -5868,8 +5909,8 @@ body {
         <div class="exam-nav">
           <div style="font-size:11px;color:var(--text-4);" id="exam-answered-hint"></div>
           <div style="display:flex;gap:8px;">
-            <button class="exam-nav-btn secondary" id="exam-skip-btn" onclick="examSkip()">Skip</button>
-            <button class="exam-nav-btn primary" id="exam-next-btn" onclick="examNext()" disabled>Next →</button>
+            <button class="exam-nav-btn secondary" id="exam-skip-btn" data-action="examSkip">Skip</button>
+            <button class="exam-nav-btn primary" id="exam-next-btn" data-action="examNext" disabled>Next →</button>
           </div>
         </div>
       </div><!-- /exam-quiz -->
@@ -5908,10 +5949,10 @@ body {
           </div>
           <div class="exam-review" id="exam-review-list"></div>
           <div class="exam-actions">
-            <button class="exam-nav-btn primary" onclick="examRetry()" style="flex:1;">
+            <button class="exam-nav-btn primary" data-action="examRetry" style="flex:1;">
               Retake Exam
             </button>
-            <button class="exam-nav-btn secondary" onclick="examNewTopic()" style="flex:1;">
+            <button class="exam-nav-btn secondary" data-action="examNewTopic" style="flex:1;">
               New Topic
             </button>
           </div>
@@ -5974,6 +6015,11 @@ body {
   function showScreen(name) {
     const screens  = document.querySelectorAll('.screen');
     const wasCompact = !!document.querySelector('.sidebar.compact');
+
+    // Cancel research outline generation timer if navigating away
+    if (name !== 'research' && typeof _stageTimerHandle !== 'undefined' && _stageTimerHandle) {
+      clearInterval(_stageTimerHandle); _stageTimerHandle = null;
+    }
 
     // Hide all screens, show target
     screens.forEach(s => s.classList.remove('active'));
@@ -6125,10 +6171,10 @@ body {
           </div>
           <div>
             <span class="lib-title-text" id="library-modal-title">Textbook Library</span>
-            <span class="lib-title-count">· 20 books</span>
+            <span class="lib-title-count" id="lib-total-count">· 20 books</span>
           </div>
         </div>
-        <button class="library-modal-close" onclick="closeLibraryModal()" aria-label="Close library">✕</button>
+        <button class="library-modal-close" data-action="closeLibraryModal" aria-label="Close library">✕</button>
       </div>
 
       <!-- Search -->
@@ -6580,6 +6626,22 @@ function openLibraryModal() {
   document.getElementById('library-modal').classList.add('active');
   sessionStorage.setItem('chunks_library_open', '1');
   _libraryFocusRelease = trapFocus(document.getElementById('library-modal'));
+
+  // ── Dynamically compute book counts ──────────────────────────────────
+  try {
+    // Total: all cards that are NOT coming-soon
+    const available = document.querySelectorAll('.library-book-card:not(.lib-coming-soon)').length;
+    const totalEl = document.getElementById('lib-total-count');
+    if (totalEl) totalEl.textContent = `· ${available} book${available !== 1 ? 's' : ''}`;
+
+    // Per-section: count available cards within each section
+    document.querySelectorAll('.lib-section').forEach(section => {
+      const countEl  = section.querySelector('.lib-section-count');
+      if (!countEl) return;
+      const n = section.querySelectorAll('.library-book-card:not(.lib-coming-soon)').length;
+      countEl.textContent = `${n} book${n !== 1 ? 's' : ''}`;
+    });
+  } catch (e) { /* non-critical — counts stay as fallback text */ }
 }
 function closeLibraryModal() {
   document.getElementById('library-modal').classList.remove('active');
@@ -6972,10 +7034,8 @@ function _wsShowWelcome(meta) {
           <p style="margin:0;color:var(--text-2);">Here are a few things you could ask:</p>
           <div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;">
             ${chips.map(q => `
-              <div onclick="wsSetInput('${q.replace(/'/g,"\\'")}');document.getElementById('ws-chat-input').focus();"
-                style="display:flex;align-items:center;justify-content:space-between;padding:7px 11px;border:1px solid var(--border-xs);border-radius:8px;background:var(--surface-2);cursor:pointer;font-size:12px;color:var(--text-2);transition:all 120ms;"
-                onmouseover="this.style.borderColor='var(--gold-border)';this.style.color='var(--gold)';"
-                onmouseout="this.style.borderColor='var(--border-xs)';this.style.color='var(--text-2)';">
+              <div class="ws-chip-item" onclick="wsSetInput('${q.replace(/'/g,"\\'")}');document.getElementById('ws-chat-input').focus();"
+                style="display:flex;align-items:center;justify-content:space-between;padding:7px 11px;border:1px solid var(--border-xs);border-radius:8px;background:var(--surface-2);cursor:pointer;font-size:12px;color:var(--text-2);transition:all 120ms;">
                 ${q}
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
               </div>`).join('')}
@@ -8005,19 +8065,19 @@ document.getElementById('home-ask-input')?.addEventListener('input', function() 
 <!-- ── Help Submenu ── -->
 <div class="pd-submenu" id="pd-help-submenu">
   <div class="pd-menu">
-    <div class="pd-item" onclick="pdAction('help-center')" onmouseenter="_closeTerms();">
+    <div class="pd-item" onclick="pdAction('help-center')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
       Help center
     </div>
-    <div class="pd-item" onclick="pdAction('bug')" onmouseenter="_closeTerms();">
+    <div class="pd-item" onclick="pdAction('bug')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 4-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17 17c2.3.1 4 1.9 4 4"/></svg>
       Report a bug
     </div>
-    <div class="pd-item" onclick="pdAction('shortcuts')" onmouseenter="_closeTerms();">
+    <div class="pd-item" onclick="pdAction('shortcuts')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8"/></svg>
       Keyboard shortcuts
     </div>
-    <div class="pd-item" id="pd-terms-item" onmouseenter="pdOpenTerms(event)" onmouseleave="pdTermsMouseLeave(event)">
+    <div class="pd-item" id="pd-terms-item">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
       Terms &amp; policies
       <svg class="pd-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="margin-left:auto;"><path d="m9 18 6-6-6-6"/></svg>
@@ -8055,7 +8115,7 @@ document.getElementById('home-ask-input')?.addEventListener('input', function() 
         <div class="upgrade-title" id="upgrade-modal-title">Study smarter, no limits.</div>
         <div class="upgrade-subtitle">Get unlimited chats, all textbooks, and advanced tools.</div>
       </div>
-      <button class="upgrade-close" onclick="closeUpgradeModal()" aria-label="Close">✕</button>
+      <button class="upgrade-close" data-action="closeUpgradeModal" aria-label="Close">✕</button>
     </div>
 
     <div class="upgrade-plans" style="grid-template-columns:1fr 1fr 1fr;">
@@ -8087,7 +8147,7 @@ document.getElementById('home-ask-input')?.addEventListener('input', function() 
             Community support
           </div>
         </div>
-        <button class="up-plan-btn" onclick="closeUpgradeModal()">Current plan</button>
+        <button class="up-plan-btn" data-action="closeUpgradeModal">Current plan</button>
       </div>
 
       <!-- Pro (featured) -->
@@ -8154,7 +8214,7 @@ document.getElementById('home-ask-input')?.addEventListener('input', function() 
             Early access to new features
           </div>
         </div>
-        <button class="up-plan-btn" style="border-color:rgba(139,124,248,0.3);color:var(--violet);" onmouseover="this.style.background='rgba(139,124,248,0.12)'" onmouseout="this.style.background=''" onclick="handleUpgradeClick('ultra')">Get Ultra →</button>
+        <button class="up-plan-btn ultra" style="border-color:rgba(139,124,248,0.3);color:var(--violet);" onclick="handleUpgradeClick('ultra')">Get Ultra →</button>
       </div>
 
     </div>
@@ -8364,12 +8424,53 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+function _fcShowSkeleton(topic) {
+  // Overlay a shimmer skeleton on both card faces while AI generates
+  const front = document.getElementById('flash-face-front');
+  const back  = document.getElementById('flash-face-back');
+  const card  = document.getElementById('flashCard');
+  const hint  = document.getElementById('flipHint');
+  if (front) front.innerHTML = `
+    <span class="flash-tag">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      Generating…
+    </span>
+    <div style="display:flex;flex-direction:column;gap:10px;width:100%;margin-top:12px;">
+      <div class="skeleton-line" style="height:13px;width:85%;animation-delay:0s;"></div>
+      <div class="skeleton-line" style="height:13px;width:65%;animation-delay:0.1s;"></div>
+      <div class="skeleton-line" style="height:13px;width:75%;animation-delay:0.2s;"></div>
+    </div>
+    <div style="margin-top:auto;font-size:11px;color:var(--text-4);">Building deck for "${topic}"…</div>`;
+  if (back) back.innerHTML = `
+    <span class="flash-tag" style="color:var(--gold);background:var(--gold-muted);border-color:var(--gold-border);">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+      Answer
+    </span>
+    <div style="display:flex;flex-direction:column;gap:10px;width:100%;margin-top:12px;">
+      <div class="skeleton-line" style="height:13px;width:90%;animation-delay:0.05s;"></div>
+      <div class="skeleton-line" style="height:13px;width:70%;animation-delay:0.15s;"></div>
+    </div>`;
+  if (card) { card.style.pointerEvents = 'none'; card.classList.remove('flipped'); }
+  if (hint) hint.style.opacity = '0';
+}
+
+function _fcClearSkeleton() {
+  const card = document.getElementById('flashCard');
+  if (card) card.style.pointerEvents = '';
+  const hint = document.getElementById('flipHint');
+  if (hint) hint.style.opacity = '1';
+}
+
 async function _fcGenerateFromBar() {
   const input = document.getElementById('fc-gen-input') || document.querySelector('.gen-input');
   const topic = input?.value?.trim();
   if (!topic) return;
   const btn = document.getElementById('gen-btn') || document.querySelector('.gen-btn');
   if (btn) { btn.textContent = 'Generating…'; btn.disabled = true; }
+
+  // Show card skeleton immediately
+  _fcShowSkeleton(topic);
+
   try {
     const res = await fetch(`${API_BASE}/generate-flashcards`, {
       method: 'POST',
@@ -8383,12 +8484,25 @@ async function _fcGenerateFromBar() {
     _fcDeckTopic = topic;
     _fcIndex     = 0;
     _fcStats     = { easy: 0, ok: 0, hard: 0 };
+    _fcClearSkeleton();
     _fcUpdateStats();
     _fcRenderCard();
     if (input) input.value = '';
     wsShowToast && wsShowToast('🃏', `${data.flashcards.length} cards generated!`, 'var(--gold-border)');
   } catch(e) {
     console.error('Flashcard generation error:', e);
+    _fcClearSkeleton();
+    // Restore card to idle state
+    const front = document.getElementById('flash-face-front');
+    if (front) {
+      front.innerHTML = `
+        <span class="flash-tag" id="flash-tag-front">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          <span id="flash-tag-text">Question</span>
+        </span>
+        <p class="flash-q" id="flash-question">Generation failed. Try again.</p>
+        <div class="flash-source" id="flash-source-front" style="opacity:0;"></div>`;
+    }
     wsShowToast && wsShowToast('⚠', `Generation failed: ${e.message}`, '#f87171');
   } finally {
     if (btn) { btn.textContent = 'Generate with AI'; btn.disabled = false; }
@@ -9005,7 +9119,7 @@ async function pdAction(action) {
       window.open('privacy.html', '_blank');
       break;
     case 'bug':
-      wsShowToast && wsShowToast('🐛', 'Report a bug — coming soon!', '');
+      openBugReport();
       break;
     case 'shortcuts':
       openShortcuts();
@@ -9020,6 +9134,9 @@ async function pdAction(action) {
       });
       break;
     }
+    default:
+      console.warn('[pdAction] Unknown action:', action);
+      break;
   }
 }
 
@@ -9123,6 +9240,48 @@ function settingsFontSize(size, btn) {
     applySelect('appearance',       localStorage.getItem('chunks_setting_appearance'));
     applySelect('language',         localStorage.getItem('chunks_setting_language'));
     applySelect('spoken-language',  localStorage.getItem('chunks_setting_spoken-language'));
+
+    // Default book — match by data-book-id attribute
+    const savedBook = localStorage.getItem('chunks_default_book');
+    if (savedBook) {
+      const bookMenu = document.getElementById('default-book-menu');
+      if (bookMenu) {
+        const match = bookMenu.querySelector(`[data-book-id="${savedBook}"]`);
+        if (match) {
+          bookMenu.querySelectorAll('.settings-select-option').forEach(o => o.classList.remove('selected'));
+          match.classList.add('selected');
+          const btn = bookMenu.previousElementSibling;
+          if (btn) btn.querySelector('span').textContent = match.textContent.trim();
+        }
+      }
+    }
+
+    // Study mode — match by data-mode attribute
+    const savedMode = localStorage.getItem('chunks_study_mode');
+    if (savedMode) {
+      const modeMenu = document.getElementById('study-mode-menu');
+      if (modeMenu) {
+        const match = modeMenu.querySelector(`[data-mode="${savedMode}"]`);
+        if (match) {
+          modeMenu.querySelectorAll('.settings-select-option').forEach(o => o.classList.remove('selected'));
+          match.classList.add('selected');
+          const btn = modeMenu.previousElementSibling;
+          if (btn) btn.querySelector('span').textContent = match.textContent.trim();
+        }
+      }
+    }
+
+    // Toggles — restore checkbox checked states
+    const followups = localStorage.getItem('chunks_setting_followups');
+    if (followups !== null) {
+      const el = document.getElementById('toggle-followups');
+      if (el) el.checked = followups !== '0';
+    }
+    const autoFlash = localStorage.getItem('chunks_setting_auto-flash');
+    if (autoFlash !== null) {
+      const el = document.getElementById('toggle-auto-flash');
+      if (el) el.checked = autoFlash === '1';
+    }
   }
 
   try {
@@ -9968,7 +10127,7 @@ kbd {
   <div class="shortcuts-content">
     <div class="shortcuts-header">
       <span class="shortcuts-title" id="shortcuts-modal-title">Keyboard shortcuts</span>
-      <button class="shortcuts-close" onclick="closeShortcuts()" aria-label="Close keyboard shortcuts">
+      <button class="shortcuts-close" data-action="closeShortcuts" aria-label="Close keyboard shortcuts">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -10339,7 +10498,7 @@ document.addEventListener('keydown', function(e) {
         <div class="help-header-title">Help Center</div>
         <div class="help-header-sub">Frequently asked questions about Chunks AI</div>
       </div>
-      <button class="help-close" onclick="closeHelpCenter()">
+      <button class="help-close" data-action="closeHelpCenter">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -10354,7 +10513,7 @@ document.addEventListener('keydown', function(e) {
       <div class="help-section-label">Getting Started</div>
 
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFAQ(this)">
+        <div class="faq-q" data-action="toggleFAQ-self">
           What is Chunks AI?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
@@ -10362,7 +10521,7 @@ document.addEventListener('keydown', function(e) {
       </div>
 
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFAQ(this)">
+        <div class="faq-q" data-action="toggleFAQ-self">
           How do I start a new chat?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
@@ -10370,7 +10529,7 @@ document.addEventListener('keydown', function(e) {
       </div>
 
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFAQ(this)">
+        <div class="faq-q" data-action="toggleFAQ-self">
           How do I load a textbook?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
@@ -10378,7 +10537,7 @@ document.addEventListener('keydown', function(e) {
       </div>
 
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFAQ(this)">
+        <div class="faq-q" data-action="toggleFAQ-self">
           What subjects and textbooks are available?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
@@ -10394,7 +10553,7 @@ document.addEventListener('keydown', function(e) {
       <div class="help-section-label">Workspace & Chat</div>
 
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFAQ(this)">
+        <div class="faq-q" data-action="toggleFAQ-self">
           How does the AI answer questions about my textbook?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
@@ -10402,7 +10561,7 @@ document.addEventListener('keydown', function(e) {
       </div>
 
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFAQ(this)">
+        <div class="faq-q" data-action="toggleFAQ-self">
           Can I see where the AI's answers come from?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
@@ -10410,7 +10569,7 @@ document.addEventListener('keydown', function(e) {
       </div>
 
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFAQ(this)">
+        <div class="faq-q" data-action="toggleFAQ-self">
           Are my chat conversations saved?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
@@ -10418,7 +10577,7 @@ document.addEventListener('keydown', function(e) {
       </div>
 
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFAQ(this)">
+        <div class="faq-q" data-action="toggleFAQ-self">
           How do I delete a chat from my history?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
@@ -10428,7 +10587,7 @@ document.addEventListener('keydown', function(e) {
       <div class="help-section-label">Flashcards & Exams</div>
 
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFAQ(this)">
+        <div class="faq-q" data-action="toggleFAQ-self">
           How do I generate flashcards?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
@@ -10436,7 +10595,7 @@ document.addEventListener('keydown', function(e) {
       </div>
 
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFAQ(this)">
+        <div class="faq-q" data-action="toggleFAQ-self">
           How does the Exam mode work?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
@@ -10446,7 +10605,7 @@ document.addEventListener('keydown', function(e) {
       <div class="help-section-label">Account & Privacy</div>
 
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFAQ(this)">
+        <div class="faq-q" data-action="toggleFAQ-self">
           Is my data private?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
@@ -10454,7 +10613,7 @@ document.addEventListener('keydown', function(e) {
       </div>
 
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFAQ(this)">
+        <div class="faq-q" data-action="toggleFAQ-self">
           How do I upgrade my plan?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
@@ -10462,7 +10621,7 @@ document.addEventListener('keydown', function(e) {
       </div>
 
       <div class="faq-item">
-        <div class="faq-q" onclick="toggleFAQ(this)">
+        <div class="faq-q" data-action="toggleFAQ-self">
           How do I clear my cached textbooks?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
@@ -10531,6 +10690,246 @@ function filterFAQs(query) {
   document.getElementById('faq-no-results').style.display = anyVisible ? 'none' : 'block';
 }
 </script>
+<!-- ── Bug Report Modal ── -->
+<style>
+.bug-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9500;
+  align-items: center;
+  justify-content: center;
+}
+.bug-modal-overlay.active { display: flex; }
+.bug-modal {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  width: 100%;
+  max-width: 420px;
+  margin: 16px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.55);
+  overflow: hidden;
+}
+.bug-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.bug-modal-icon {
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  background: rgba(248,113,113,0.10);
+  border: 1px solid rgba(248,113,113,0.20);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.bug-modal-title { font-size: 15px; font-weight: 700; color: var(--text-1); }
+.bug-modal-sub   { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+.bug-modal-close {
+  margin-left: auto;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-3); padding: 4px;
+  display: flex; align-items: center;
+  border-radius: var(--r-sm);
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.bug-modal-close:hover { color: var(--text-1); background: var(--surface-3); }
+.bug-modal-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; }
+.bug-field-label {
+  font-size: 11px; font-weight: 600; color: var(--text-2);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: 6px;
+}
+.bug-category-row { display: flex; gap: 7px; flex-wrap: wrap; }
+.bug-cat-btn {
+  padding: 5px 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-md);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 12px; font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all var(--t-fast);
+}
+.bug-cat-btn:hover  { border-color: var(--border-lg); color: var(--text-1); }
+.bug-cat-btn.active { border-color: rgba(248,113,113,0.5); background: rgba(248,113,113,0.08); color: #f87171; }
+.bug-textarea {
+  width: 100%; box-sizing: border-box;
+  background: var(--surface-2);
+  border: 1px solid var(--border-md);
+  border-radius: var(--r-md);
+  color: var(--text-1);
+  font-family: var(--font-body); font-size: 13px;
+  line-height: 1.6;
+  padding: 10px 12px;
+  resize: vertical; min-height: 88px;
+  transition: border-color var(--t-fast);
+  outline: none;
+}
+.bug-textarea:focus { border-color: rgba(248,113,113,0.45); }
+.bug-textarea::placeholder { color: var(--text-4); }
+.bug-modal-footer {
+  display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+  padding: 0 22px 20px;
+}
+.bug-cancel-btn {
+  padding: 8px 16px;
+  border-radius: var(--r-pill);
+  background: transparent; border: 1px solid var(--border-md);
+  color: var(--text-2); font-size: 13px; font-weight: 500;
+  font-family: var(--font-body); cursor: pointer;
+  transition: all var(--t-fast);
+}
+.bug-cancel-btn:hover { border-color: var(--border-lg); color: var(--text-1); }
+.bug-submit-btn {
+  padding: 8px 18px;
+  border-radius: var(--r-pill);
+  background: #f87171; border: none;
+  color: #0a0000; font-size: 13px; font-weight: 700;
+  font-family: var(--font-body); cursor: pointer;
+  transition: background var(--t-fast);
+  display: flex; align-items: center; gap: 7px;
+}
+.bug-submit-btn:hover:not(:disabled) { background: #fca5a5; }
+.bug-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+</style>
+
+<div class="bug-modal-overlay" id="bug-modal" role="dialog" aria-modal="true" aria-labelledby="bug-modal-title">
+  <div class="bug-modal">
+    <div class="bug-modal-header">
+      <div class="bug-modal-icon">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 2 1.88 1.88"/><path d="M14.12 3.88 16 2"/><path d="M9 7.13v-1a3.003 3.003 0 1 1 6 0v1"/><path d="M12 20c-3.3 0-6-2.7-6-6v-3a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v3c0 3.3-2.7 6-6 6"/><path d="M12 20v-9"/><path d="M6.53 9C4.6 8.8 3 7.1 3 5"/><path d="M6 13H2"/><path d="M3 21c0-2.1 1.7-3.9 4-4"/><path d="M20.97 5c0 2.1-1.6 3.8-3.5 4"/><path d="M22 13h-4"/><path d="M17 17c2.3.1 4 1.9 4 4"/></svg>
+      </div>
+      <div>
+        <div class="bug-modal-title" id="bug-modal-title">Report a Bug</div>
+        <div class="bug-modal-sub">Help us improve Chunks AI</div>
+      </div>
+      <button class="bug-modal-close" onclick="closeBugReport()" aria-label="Close bug report">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="bug-modal-body">
+      <div>
+        <div class="bug-field-label">Category</div>
+        <div class="bug-category-row" id="bug-cat-row">
+          <button class="bug-cat-btn active" data-cat="UI / Display">UI / Display</button>
+          <button class="bug-cat-btn" data-cat="AI Response">AI Response</button>
+          <button class="bug-cat-btn" data-cat="PDF / Workspace">PDF / Workspace</button>
+          <button class="bug-cat-btn" data-cat="Flashcards">Flashcards</button>
+          <button class="bug-cat-btn" data-cat="Other">Other</button>
+        </div>
+      </div>
+      <div>
+        <div class="bug-field-label">Description <span style="color:var(--text-4);font-weight:400;text-transform:none;letter-spacing:0;">(required)</span></div>
+        <textarea id="bug-description" class="bug-textarea" placeholder="Describe what happened and how to reproduce it…" maxlength="2000"></textarea>
+      </div>
+    </div>
+    <div class="bug-modal-footer">
+      <button class="bug-cancel-btn" onclick="closeBugReport()">Cancel</button>
+      <button class="bug-submit-btn" id="bug-submit-btn" onclick="submitBugReport()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        Send Report
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  let _bugFocusRelease = null;
+
+  function openBugReport() {
+    const overlay = document.getElementById('bug-modal');
+    if (!overlay) return;
+    // Reset form
+    document.getElementById('bug-description').value = '';
+    document.querySelectorAll('.bug-cat-btn').forEach((b, i) => {
+      b.classList.toggle('active', i === 0);
+    });
+    const submitBtn = document.getElementById('bug-submit-btn');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Send Report';
+
+    overlay.classList.add('active');
+    _bugFocusRelease = typeof trapFocus === 'function' ? trapFocus(overlay) : null;
+    setTimeout(() => document.getElementById('bug-description')?.focus(), 80);
+  }
+
+  function closeBugReport() {
+    document.getElementById('bug-modal')?.classList.remove('active');
+    if (_bugFocusRelease) { _bugFocusRelease(); _bugFocusRelease = null; }
+  }
+
+  async function submitBugReport() {
+    const desc = document.getElementById('bug-description').value.trim();
+    if (!desc) {
+      document.getElementById('bug-description').focus();
+      document.getElementById('bug-description').style.borderColor = 'rgba(248,113,113,0.7)';
+      setTimeout(() => { document.getElementById('bug-description').style.borderColor = ''; }, 1800);
+      return;
+    }
+    const cat = document.querySelector('.bug-cat-btn.active')?.dataset.cat || 'Other';
+    const user = document.querySelector('.pd-handle')?.textContent?.trim() || 'anonymous';
+    const submitBtn = document.getElementById('bug-submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Sending…';
+
+    try {
+      // Attempt to POST to backend; silently fall back to mailto if unavailable
+      const res = await fetch(`${typeof API_BASE !== 'undefined' ? API_BASE : ''}/api/bug-report`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: cat, description: desc, user }),
+        signal: AbortSignal.timeout(5000)
+      });
+      if (!res.ok) throw new Error('server error');
+    } catch (_) {
+      // Fallback: open mailto so the report still reaches the team
+      const subject = encodeURIComponent(`[Bug] ${cat} — Chunks AI`);
+      const body = encodeURIComponent(`User: ${user}\nCategory: ${cat}\n\n${desc}`);
+      window.open(`mailto:support@chunks.ai?subject=${subject}&body=${body}`, '_blank');
+    }
+
+    closeBugReport();
+    wsShowToast && wsShowToast('🐛', 'Bug report sent — thank you!', '');
+  }
+
+  // Close on overlay click
+  document.getElementById('bug-modal')?.addEventListener('click', function (e) {
+    if (e.target === this) closeBugReport();
+  });
+
+  // Category pill selection
+  document.getElementById('bug-cat-row')?.addEventListener('click', function (e) {
+    const btn = e.target.closest('.bug-cat-btn');
+    if (!btn) return;
+    this.querySelectorAll('.bug-cat-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+
+  // Close on Escape
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && document.getElementById('bug-modal')?.classList.contains('active')) {
+      closeBugReport();
+    }
+  });
+
+  // Expose globally so pdAction can call them
+  window.openBugReport  = openBugReport;
+  window.closeBugReport = closeBugReport;
+  window.submitBugReport = submitBugReport;
+})();
+</script>
+
 <!-- ── Confirm Sub-Modal ── -->
 <style>
 #simple-notif {
@@ -10642,6 +11041,7 @@ function _blankState() {
 
 /* ── RS: live state object ── */
 let RS = _blankState();
+let _stageTimerHandle = null; // cancellable reference for outline-generation progress timer
 
 /* ── Persist ── */
 function _save() {
@@ -10758,7 +11158,8 @@ async function _researchStart() {
     { pct: 90, text: 'Almost ready…' },
   ];
   let stageIdx = 0;
-  const stageTimer = setInterval(() => {
+  if (_stageTimerHandle) { clearInterval(_stageTimerHandle); _stageTimerHandle = null; }
+  _stageTimerHandle = setInterval(() => {
     if (stageIdx >= stages.length) return;
     const s = stages[stageIdx++];
     statusEl.textContent = s.text;
@@ -10841,7 +11242,7 @@ Rules:
     if (!Array.isArray(parsed) || parsed.length === 0) throw new Error('Invalid outline structure');
 
     // Finish progress bar
-    clearInterval(stageTimer);
+    clearInterval(_stageTimerHandle); _stageTimerHandle = null;
     barEl.style.width = '100%';
     statusEl.textContent = '✓ Outline generated!';
 
@@ -10882,7 +11283,7 @@ Rules:
   } catch (err) {
     console.error('Outline generation failed:', err);
     console.error('Backend URL was:', API_BASE + '/ask');
-    clearInterval(stageTimer);
+    clearInterval(_stageTimerHandle); _stageTimerHandle = null;
 
     // Show the REAL error so it's debuggable
     const errMsg = err?.message || String(err);
@@ -10910,6 +11311,8 @@ Rules:
 }
 
 function _researchBackToSetup() {
+  // Cancel any in-flight outline generation timer
+  if (_stageTimerHandle) { clearInterval(_stageTimerHandle); _stageTimerHandle = null; }
   document.getElementById('research-view-main').style.display = 'none';
   document.getElementById('research-setup-view').style.display = 'flex';
   document.getElementById('research-topbar').style.display = 'none';
@@ -14146,7 +14549,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Appearance</div></div>
           <div class="settings-select-wrap">
-            <div class="settings-select-btn" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="Appearance" tabindex="0" onclick="settingsDropdown(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();settingsDropdown(this)}">
+            <div class="settings-select-btn" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="Appearance" tabindex="0" data-action="settingsDropdown-self" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();settingsDropdown(this)}">
               <span>System</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
             </div>
@@ -14168,7 +14571,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Accent color</div></div>
           <div class="settings-select-wrap">
-            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+            <div class="settings-select-btn" data-action="settingsDropdown-self">
               <span style="display:flex;align-items:center;gap:7px;"><span id="accent-dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--text-3);flex-shrink:0;"></span>Default</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
             </div>
@@ -14183,17 +14586,17 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Language</div></div>
           <div class="settings-select-wrap">
-            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+            <div class="settings-select-btn" data-action="settingsDropdown-self">
               <span>Auto-detect</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
             </div>
             <div class="settings-select-menu" data-setting-key="language">
-              <div class="settings-select-option selected" onclick="settingsSelect(this)">Auto-detect</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">English</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Filipino</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Spanish</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">French</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Japanese</div>
+              <div class="settings-select-option selected" data-action="settingsSelect-self">Auto-detect</div>
+              <div class="settings-select-option" data-action="settingsSelect-self">English</div>
+              <div class="settings-select-option" data-action="settingsSelect-self">Filipino</div>
+              <div class="settings-select-option" data-action="settingsSelect-self">Spanish</div>
+              <div class="settings-select-option" data-action="settingsSelect-self">French</div>
+              <div class="settings-select-option" data-action="settingsSelect-self">Japanese</div>
             </div>
           </div>
         </div>
@@ -14203,34 +14606,34 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
             <div class="settings-row-desc">For best results, select the language you mainly speak. If it's not listed, it may still be supported via auto-detection.</div>
           </div>
           <div class="settings-select-wrap">
-            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+            <div class="settings-select-btn" data-action="settingsDropdown-self">
               <span>Auto-detect</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
             </div>
             <div class="settings-select-menu" data-setting-key="spoken-language">
-              <div class="settings-select-option selected" onclick="settingsSelect(this)">Auto-detect</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">English</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Filipino</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">Spanish</div>
-              <div class="settings-select-option" onclick="settingsSelect(this)">French</div>
+              <div class="settings-select-option selected" data-action="settingsSelect-self">Auto-detect</div>
+              <div class="settings-select-option" data-action="settingsSelect-self">English</div>
+              <div class="settings-select-option" data-action="settingsSelect-self">Filipino</div>
+              <div class="settings-select-option" data-action="settingsSelect-self">Spanish</div>
+              <div class="settings-select-option" data-action="settingsSelect-self">French</div>
             </div>
           </div>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Voice</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <button class="settings-play-btn" id="voice-play-btn" onclick="settingsPlayVoice()">
+            <button class="settings-play-btn" id="voice-play-btn" data-action="settingsPlayVoice">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play
             </button>
             <div class="settings-select-wrap">
-              <div class="settings-select-btn" onclick="settingsDropdown(this)" style="min-width:90px;">
+              <div class="settings-select-btn" data-action="settingsDropdown-self" style="min-width:90px;">
                 <span id="voice-label">Maple</span>
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
               </div>
               <div class="settings-select-menu" data-setting-key="voice">
-                <div class="settings-select-option" onclick="settingsSelectVoice(this)">Echo</div>
-                <div class="settings-select-option" onclick="settingsSelectVoice(this)">Nova</div>
-                <div class="settings-select-option" onclick="settingsSelectVoice(this)">Shimmer</div>
+                <div class="settings-select-option" data-action="settingsSelectVoice-self">Echo</div>
+                <div class="settings-select-option" data-action="settingsSelectVoice-self">Nova</div>
+                <div class="settings-select-option" data-action="settingsSelectVoice-self">Shimmer</div>
               </div>
             </div>
           </div>
@@ -14275,31 +14678,31 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Default book</div><div class="settings-row-desc">The textbook that opens by default in Workspace.</div></div>
           <div class="settings-select-wrap">
-            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+            <div class="settings-select-btn" data-action="settingsDropdown-self">
               <span>Atkins Chemistry</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
             </div>
             <div class="settings-select-menu" id="default-book-menu">
-              <div class="settings-select-option selected" data-book-id="atkins" onclick="settingsSelectDefaultBook(this)">Atkins Chemistry</div>
-              <div class="settings-select-option" data-book-id="zumdahl" onclick="settingsSelectDefaultBook(this)">Zumdahl General Chemistry</div>
-              <div class="settings-select-option" data-book-id="klein" onclick="settingsSelectDefaultBook(this)">Klein Organic Chemistry</div>
-              <div class="settings-select-option" data-book-id="harris" onclick="settingsSelectDefaultBook(this)">Harris Analytical</div>
-              <div class="settings-select-option" data-book-id="anaphy2e" onclick="settingsSelectDefaultBook(this)">Anatomy &amp; Physiology</div>
-              <div class="settings-select-option" data-book-id="netter" onclick="settingsSelectDefaultBook(this)">Netter Anatomy</div>
+              <div class="settings-select-option selected" data-book-id="atkins" data-action="settingsSelectDefaultBook-self">Atkins Chemistry</div>
+              <div class="settings-select-option" data-book-id="zumdahl" data-action="settingsSelectDefaultBook-self">Zumdahl General Chemistry</div>
+              <div class="settings-select-option" data-book-id="klein" data-action="settingsSelectDefaultBook-self">Klein Organic Chemistry</div>
+              <div class="settings-select-option" data-book-id="harris" data-action="settingsSelectDefaultBook-self">Harris Analytical</div>
+              <div class="settings-select-option" data-book-id="anaphy2e" data-action="settingsSelectDefaultBook-self">Anatomy &amp; Physiology</div>
+              <div class="settings-select-option" data-book-id="netter" data-action="settingsSelectDefaultBook-self">Netter Anatomy</div>
             </div>
           </div>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Study mode</div><div class="settings-row-desc">Adjust AI response depth and detail level.</div></div>
           <div class="settings-select-wrap">
-            <div class="settings-select-btn" onclick="settingsDropdown(this)">
+            <div class="settings-select-btn" data-action="settingsDropdown-self">
               <span>Balanced</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
             </div>
             <div class="settings-select-menu" id="study-mode-menu">
-              <div class="settings-select-option" data-mode="concise" onclick="settingsSelectStudyMode(this)">Concise</div>
-              <div class="settings-select-option selected" data-mode="balanced" onclick="settingsSelectStudyMode(this)">Balanced</div>
-              <div class="settings-select-option" data-mode="detailed" onclick="settingsSelectStudyMode(this)">Detailed</div>
+              <div class="settings-select-option" data-mode="concise" data-action="settingsSelectStudyMode-self">Concise</div>
+              <div class="settings-select-option selected" data-mode="balanced" data-action="settingsSelectStudyMode-self">Balanced</div>
+              <div class="settings-select-option" data-mode="detailed" data-action="settingsSelectStudyMode-self">Detailed</div>
             </div>
           </div>
         </div>
@@ -14338,11 +14741,11 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Delete all chat history</div><div class="settings-row-desc">Permanently remove all saved conversations.</div></div>
-          <button id="delete-all-btn" onclick="clearAllHistory()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Delete all</button>
+          <button id="delete-all-btn" data-action="clearAllHistory" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Delete all</button>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Cached textbooks</div><div class="settings-row-desc" id="cache-size-label">Textbooks are cached locally so they load instantly after the first download.</div></div>
-          <button id="clear-cache-btn" onclick="clearPdfCache()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Clear cache</button>
+          <button id="clear-cache-btn" data-action="clearPdfCache" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Clear cache</button>
         </div>
       </div>
 
@@ -14414,30 +14817,30 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     </div>
   </div>
   <div class="pd-menu">
-    <div class="pd-item upgrade" role="menuitem" tabindex="0" onclick="pdAction('upgrade')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('upgrade')" onmouseenter="_closeHelp();_closeTerms();">
+    <div class="pd-item upgrade" role="menuitem" tabindex="0" onclick="pdAction('upgrade')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('upgrade')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
       Upgrade plan
     </div>
-    <div class="pd-item" id="pd-admin-btn" role="menuitem" tabindex="0" onclick="pdAction('admin')" onmouseenter="_closeHelp();_closeTerms();" style="display:none;color:#ff6b6b;">
+    <div class="pd-item" id="pd-admin-btn" role="menuitem" tabindex="0" onclick="pdAction('admin')" style="display:none;color:#ff6b6b;">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
       Admin Panel
     </div>
     <div class="pd-divider" role="separator"></div>
-    <div class="pd-item" role="menuitem" tabindex="0" onclick="pdAction('personalization')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('personalization')" onmouseenter="_closeHelp();_closeTerms();">
+    <div class="pd-item" role="menuitem" tabindex="0" onclick="pdAction('personalization')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('personalization')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
       Personalization
     </div>
-    <div class="pd-item" role="menuitem" tabindex="0" onclick="pdAction('settings')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('settings')" onmouseenter="_closeHelp();_closeTerms();">
+    <div class="pd-item" role="menuitem" tabindex="0" onclick="pdAction('settings')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('settings')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
       Settings
     </div>
     <div class="pd-divider" role="separator"></div>
-    <div class="pd-item" id="pd-help-item" role="menuitem" tabindex="0" aria-haspopup="true" onmouseenter="pdOpenHelp(event)" onmouseleave="pdHelpMouseLeave(event)" onkeydown="if(event.key==='Enter'||event.key===' ')pdOpenHelp(event)">
+    <div class="pd-item" id="pd-help-item" role="menuitem" tabindex="0" aria-haspopup="true" onkeydown="if(event.key==='Enter'||event.key===' ')pdOpenHelp(event)">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
       Help
       <svg class="pd-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
     </div>
-    <div class="pd-item danger" role="menuitem" tabindex="0" onclick="pdAction('logout')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('logout')" onmouseenter="_closeHelp();_closeTerms();">
+    <div class="pd-item danger" role="menuitem" tabindex="0" onclick="pdAction('logout')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('logout')">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       Log out
     </div>
@@ -14479,12 +14882,12 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
     <!-- Action buttons -->
     <div style="display:flex;flex-direction:column;gap:10px;">
-      <button onclick="_fcRestartDeck()" style="
+      <button data-action="_fcRestartDeck" style="
         width:100%;padding:12px;border-radius:10px;border:none;
         background:var(--gold);color:#000;font-weight:700;font-size:14px;
         cursor:pointer;font-family:inherit;
       ">↺  Restart This Deck</button>
-      <button onclick="_fcCreateNew()" style="
+      <button data-action="_fcCreateNew" style="
         width:100%;padding:12px;border-radius:10px;
         border:1px solid var(--border-md);background:var(--surface-2);
         color:var(--text-1);font-weight:600;font-size:14px;
@@ -14540,11 +14943,11 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
     <div class="sidebar-section">
       <div class="sidebar-section-label">Study</div>
-      <div class="sidebar-item" onclick="goHome()" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="goHome" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         <span>Home</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('workspace')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="workspace" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
         <span>Workspace</span>
       </div>
@@ -14552,19 +14955,19 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
         <span>Library</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('flash')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="flash" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item active" onclick="showScreen('studyplan')" style="cursor:pointer;">
+      <div class="sidebar-item active" data-action="showScreen" data-screen="studyplan" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('research')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="research" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
         <span>Research</span>
       </div>
-      <div class="sidebar-item" onclick="showScreen('exam')" style="cursor:pointer;">
+      <div class="sidebar-item" data-action="showScreen" data-screen="exam" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         <span>Exam</span>
       </div>
@@ -14601,18 +15004,18 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
     <!-- TOP BAR -->
     <div class="sp-topbar">
-      <button type="button" class="mst-back sp-back-btn" onclick="goHome()" aria-label="Back" style="display:none;">
+      <button type="button" class="mst-back sp-back-btn" data-action="goHome" aria-label="Back" style="display:none;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
       </button>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gold);flex-shrink:0;"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
       <span class="sp-topbar-title">Study Plan</span>
       <span class="sp-topbar-badge">CRITICAL PATH</span>
       <div class="sp-topbar-actions">
-        <button class="sp-topbar-btn" id="btn-new-plan" onclick="spShowEmpty()">
+        <button class="sp-topbar-btn" id="btn-new-plan" data-action="spShowEmpty">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           New Plan
         </button>
-        <button class="sp-topbar-btn" id="btn-active-plan" onclick="spShowPlan()" style="display:none;">
+        <button class="sp-topbar-btn" id="btn-active-plan" data-action="spShowPlan" style="display:none;">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
           View Plan
         </button>
@@ -14681,7 +15084,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                     <span id="sp-file-name" style="font-size:12px;font-weight:600;color:var(--text-1);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
                     <span id="sp-file-pages" style="font-size:11px;color:var(--text-3);font-family:var(--font-mono);flex-shrink:0;"></span>
-                    <button onclick="spClearUpload()" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:2px;display:flex;align-items:center;transition:color 120ms;" onmouseover="this.style.color='var(--red)'" onmouseout="this.style.color='var(--text-3)'">
+                    <button data-action="spClearUpload" class="hover-del-btn" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:2px;display:flex;align-items:center;transition:color 120ms;">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                     </button>
                   </div>
@@ -14723,7 +15126,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
                   oninput="spUpdateNotesCount()"></textarea>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
                   <span id="sp-notes-count" style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);">0 chars</span>
-                  <button onclick="document.getElementById('sp-notes-input').value='';updateNotesCount();" style="font-size:10px;color:var(--text-4);background:none;border:none;cursor:pointer;font-family:var(--font-body);" onmouseover="this.style.color='var(--text-2)'" onmouseout="this.style.color='var(--text-4)'">Clear</button>
+                  <button onclick="document.getElementById('sp-notes-input').value='';updateNotesCount();" class="hover-clear-btn" style="font-size:10px;color:var(--text-4);background:none;border:none;cursor:pointer;font-family:var(--font-body);">Clear</button>
                 </div>
               </div>
 
@@ -14733,7 +15136,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
                 <span id="sp-validation-msg">Please provide a topic or upload a file.</span>
               </div>
 
-              <button class="sp-generate-btn" id="sp-generate-btn" onclick="spHandleGenerate()">
+              <button class="sp-generate-btn" id="sp-generate-btn" data-action="spHandleGenerate">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
                 Generate Critical Path
               </button>
@@ -16841,7 +17244,7 @@ document.addEventListener('click', function(e) {
 </style>
 
 <!-- Overlay -->
-<div id="sp-explain-overlay" onclick="spCloseExplainDrawer()"></div>
+<div id="sp-explain-overlay" data-action="spCloseExplainDrawer"></div>
 
 <!-- Drawer -->
 <div id="sp-explain-drawer" role="dialog" aria-modal="true" aria-labelledby="sp-explain-title">
@@ -16855,26 +17258,26 @@ document.addEventListener('click', function(e) {
       <div class="sp-explain-eyebrow" id="sp-drawer-eyebrow">AI Explain</div>
       <div id="sp-explain-title">Concept Title</div>
     </div>
-    <button onclick="spCloseExplainDrawer()" aria-label="Close AI Explain" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:4px;display:flex;align-items:center;border-radius:var(--r-sm);transition:color var(--t-fast),background var(--t-fast);" onmouseover="this.style.background='var(--surface-3)';this.style.color='var(--text-1)'" onmouseout="this.style.background='';this.style.color='var(--text-3)'">
+    <button data-action="spCloseExplainDrawer" class="hover-close-btn" aria-label="Close AI Explain" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:4px;display:flex;align-items:center;border-radius:var(--r-sm);transition:color var(--t-fast),background var(--t-fast);">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </div>
 
   <!-- ── Tab bar ── -->
   <div class="sp-drawer-tabs" role="tablist" aria-label="Content tabs">
-    <button class="sp-drawer-tab active" id="sp-tab-explain" role="tab" aria-selected="true" aria-controls="sp-panel-explain" onclick="spDrawerTab('explain')">
+    <button class="sp-drawer-tab active" id="sp-tab-explain" role="tab" aria-selected="true" aria-controls="sp-panel-explain" data-action="spDrawerTab" data-tab="explain">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
       AI Explain
     </button>
-    <button class="sp-drawer-tab" id="sp-tab-flash" role="tab" aria-selected="false" aria-controls="sp-panel-flash" onclick="spDrawerTab('flash')">
+    <button class="sp-drawer-tab" id="sp-tab-flash" role="tab" aria-selected="false" aria-controls="sp-panel-flash" data-action="spDrawerTab" data-tab="flash">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
       Flashcards
     </button>
-    <button class="sp-drawer-tab" id="sp-tab-pq" role="tab" aria-selected="false" aria-controls="sp-panel-pq" onclick="spDrawerTab('pq')">
+    <button class="sp-drawer-tab" id="sp-tab-pq" role="tab" aria-selected="false" aria-controls="sp-panel-pq" data-action="spDrawerTab" data-tab="pq">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
       Practice Q's
     </button>
-    <button class="sp-drawer-tab" id="sp-tab-exam" role="tab" aria-selected="false" aria-controls="sp-panel-exam" onclick="spDrawerTab('exam')">
+    <button class="sp-drawer-tab" id="sp-tab-exam" role="tab" aria-selected="false" aria-controls="sp-panel-exam" data-action="spDrawerTab" data-tab="exam">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
       Mini Exam
     </button>
@@ -16911,7 +17314,7 @@ document.addEventListener('click', function(e) {
       </div>
 
       <!-- Flip card -->
-      <div class="sp-fc-scene" onclick="spFcFlip()">
+      <div class="sp-fc-scene" data-action="spFcFlip">
         <div class="sp-fc-card" id="sp-fc-card">
           <div class="sp-fc-front">
             <div class="sp-fc-side-label">Question</div>
@@ -16939,8 +17342,8 @@ document.addEventListener('click', function(e) {
       <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);">Deck Complete!</div>
       <div id="sp-fc-result-text" style="font-size:12px;color:var(--text-3);line-height:1.6;"></div>
       <div style="display:flex;gap:8px;margin-top:4px;">
-        <button onclick="spFcRestart()" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Restart</button>
-        <button onclick="spDrawerTab('explain')" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Back to Explain</button>
+        <button data-action="spFcRestart" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Restart</button>
+        <button data-action="spDrawerTab" data-tab="explain" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Back to Explain</button>
       </div>
     </div>
 
@@ -16975,7 +17378,7 @@ document.addEventListener('click', function(e) {
           style="width:100%;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-md);padding:12px 14px;font-family:var(--font-body);font-size:13px;color:var(--text-1);resize:none;outline:none;transition:border-color var(--t-fast);line-height:1.5;"
           onfocus="this.style.borderColor='rgba(45,212,191,0.4)'" onblur="this.style.borderColor=''"
           onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey))spPqSubmit()"></textarea>
-        <button onclick="spPqSubmit()" id="sp-pq-submit-btn"
+        <button data-action="spPqSubmit" id="sp-pq-submit-btn"
           style="align-self:flex-end;padding:8px 20px;border-radius:var(--r-pill);background:var(--teal);border:none;color:#051a18;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-body);transition:opacity var(--t-fast);">
           Submit Answer
         </button>
@@ -16985,7 +17388,7 @@ document.addEventListener('click', function(e) {
       <div id="sp-pq-result" style="display:none;flex-direction:column;gap:10px;overflow-y:auto;">
         <div id="sp-pq-verdict" style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--r-md);font-size:13px;font-weight:600;"></div>
         <div id="sp-pq-explanation" style="font-size:12.5px;color:var(--text-2);line-height:1.7;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-md);"></div>
-        <button onclick="spPqNext()" id="sp-pq-next-btn"
+        <button data-action="spPqNext" id="sp-pq-next-btn"
           style="align-self:flex-end;padding:8px 20px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">
           Next Question →
         </button>
@@ -16998,8 +17401,8 @@ document.addEventListener('click', function(e) {
       <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);">Practice Complete!</div>
       <div id="sp-pq-complete-text" style="font-size:12px;color:var(--text-3);line-height:1.6;"></div>
       <div style="display:flex;gap:8px;margin-top:4px;">
-        <button onclick="spPqRestart()" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Retry</button>
-        <button onclick="spDrawerTab('exam')" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--teal);border:none;color:#051a18;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Take Mini Exam →</button>
+        <button data-action="spPqRestart" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Retry</button>
+        <button data-action="spDrawerTab" data-tab="exam" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--teal);border:none;color:#051a18;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Take Mini Exam →</button>
       </div>
     </div>
   </div><!-- /#sp-view-pq -->
@@ -17020,7 +17423,7 @@ document.addEventListener('click', function(e) {
       <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);">Mini Exam Ready</div>
       <div style="font-size:12px;color:var(--text-3);line-height:1.6;">10 questions · Timed · Pass at 70% to unlock next concept</div>
       <div id="sp-exam-timer-display" style="font-family:var(--font-mono);font-size:28px;font-weight:700;color:var(--red);">5:00</div>
-      <button onclick="spExamStart()" style="padding:10px 28px;border-radius:var(--r-pill);background:var(--red);border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);">Start Exam</button>
+      <button data-action="spExamStart" style="padding:10px 28px;border-radius:var(--r-pill);background:var(--red);border:none;color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);">Start Exam</button>
     </div>
 
     <!-- Question view -->
@@ -17052,8 +17455,8 @@ document.addEventListener('click', function(e) {
       <div id="sp-exam-result-score" style="font-family:var(--font-mono);font-size:32px;font-weight:700;"></div>
       <div id="sp-exam-result-sub" style="font-size:12px;color:var(--text-3);line-height:1.6;max-width:300px;"></div>
       <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;justify-content:center;">
-        <button onclick="spExamRestart()" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Retry Exam</button>
-        <button onclick="spDrawerTab('explain')" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Back to Explain</button>
+        <button data-action="spExamRestart" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Retry Exam</button>
+        <button data-action="spDrawerTab" data-tab="explain" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Back to Explain</button>
       </div>
     </div>
   </div><!-- /#sp-view-exam -->
@@ -17187,6 +17590,22 @@ document.addEventListener('click', function(e) {
 .sp-fc-rate-btn.hard:hover { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.3); color: var(--red); }
 .sp-fc-rate-btn.ok:hover   { background: var(--gold-muted); border-color: var(--gold-border); color: var(--gold); }
 .sp-fc-rate-btn.easy:hover { background: rgba(52,211,153,0.1); border-color: rgba(52,211,153,0.3); color: var(--green); }
+
+/* ── Fix #2: CSS :hover replacements for former inline onmouseover/mouseout handlers ── */
+#ws-open-lib-btn:hover {
+  color: var(--gold) !important;
+  background: var(--gold-muted) !important;
+  border-color: var(--gold-border) !important;
+}
+.hover-search-wrap:hover { border-color: var(--gold-border) !important; }
+.hover-search-btn:hover  { background: var(--gold-bright) !important; }
+.hover-export-btn:hover  { border-color: var(--border-lg) !important; color: var(--text-1) !important; }
+.hover-clear-btn:hover   { color: var(--text-2) !important; }
+.hover-abort-btn:hover   { color: var(--text-2) !important; }
+.up-plan-btn.ultra:hover { background: rgba(139,124,248,0.12) !important; }
+.hover-del-btn:hover     { color: var(--red) !important; }
+.hover-close-btn:hover   { background: var(--surface-3) !important; color: var(--text-1) !important; }
+.ws-chip-item:hover      { border-color: var(--gold-border) !important; color: var(--gold) !important; }
 </style>
 
 
@@ -17491,6 +17910,165 @@ function syncDrawerRecentChats() {
       + '</div>';
   }).join('');
 }
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     CENTRALIZED EVENT DELEGATION
+     Replaces inline onclick= attributes with data-action handlers.
+     This allows a strict Content-Security-Policy without unsafe-inline.
+══════════════════════════════════════════════════════════════ -->
+<script>
+(function () {
+  'use strict';
+
+  /* Registry: maps data-action values to handler functions.
+     Each handler receives (element, event) as arguments.         */
+  const ACTION_MAP = {
+    /* ── Navigation ─────────────────────────────────────── */
+    'goHome':                 ()      => goHome(),
+    'newChat':                ()      => newChat(),
+    'openLibraryModal':       ()      => openLibraryModal(),
+    'closeLibraryModal':      ()      => closeLibraryModal(),
+    'toggleProfileDropdown':  (el,ev) => toggleProfileDropdown(ev),
+    'closeUpgradeModal':      ()      => closeUpgradeModal(),
+    'closeShortcuts':         ()      => closeShortcuts(),
+    'closeHelpCenter':        ()      => closeHelpCenter(),
+
+    /* ── Sidebar / sidebar-self ─────────────────────────── */
+    'toggleSidebar-self':     (el)    => toggleSidebar(el),
+    'handleLogoClick-self':   (el)    => handleLogoClick(el),
+
+    /* ── showScreen ─────────────────────────────────────── */
+    'showScreen':             (el)    => showScreen(el.dataset.screen),
+
+    /* ── Workspace ──────────────────────────────────────── */
+    'togglePdfOutline':       ()      => togglePdfOutline(),
+    'wsJumpToPage':           ()      => wsJumpToPage(),
+    'wsZoomOut':              ()      => wsZoomOut(),
+    'wsZoomIn':               ()      => wsZoomIn(),
+    'wsPrevPage':             ()      => wsPrevPage(),
+    'wsNextPage':             ()      => wsNextPage(),
+    'wsChatSend':             ()      => wsChatSend(),
+    'wsMobileView':           (el)    => wsMobileView(el.dataset.view),
+    'wsMakeFlashcard-self':   (el)    => wsMakeFlashcard(el),
+    '_exportPDF':             ()      => _exportPDF(),
+    '_wsRegenerate':          ()      => _wsRegenerate(),
+    'wsShowToast':            ()      => wsShowToast(),
+
+    /* ── Home ───────────────────────────────────────────── */
+    'homeSendMessage':        ()      => homeSendMessage(),
+    'homeSetInput-text':      (el)    => homeSetInput(el.textContent),
+
+    /* ── Flashcards ─────────────────────────────────────── */
+    'flipCard':               ()      => flipCard(),
+    '_fcGenerateFromBar':     ()      => _fcGenerateFromBar(),
+    '_fcRestartDeck':         ()      => _fcRestartDeck(),
+    '_fcCreateNew':           ()      => _fcCreateNew(),
+    '_fcNext-self':           (el)    => _fcNext(el),
+
+    /* ── Research ───────────────────────────────────────── */
+    '_researchBackToSetup':   ()      => _researchBackToSetup(),
+    '_confirmNewPaper':       ()      => _confirmNewPaper(),
+    '_researchStart':         ()      => _researchStart(),
+    '_runPaperSearch':        ()      => _runPaperSearch(),
+    '_generateParagraph':     ()      => _generateParagraph(),
+    '_copyAllRefs':           ()      => _copyAllRefs(),
+    '_closeHistory':          ()      => _closeHistory(),
+    '_clearAndReset':         ()      => _clearAndReset(),
+    '_toggleTip':             ()      => _toggleTip(),
+    '_copyCiteKey':           ()      => _copyCiteKey(),
+    '_toggleSection-self':    (el)    => _toggleSection(el),
+
+    /* ── Exam ───────────────────────────────────────────── */
+    'examClearSource':        ()      => examClearSource(),
+    'examClearNotes':         ()      => examClearNotes(),
+    'examStart':              ()      => examStart(),
+    'examAbort':              ()      => examAbort(),
+    'examSkip':               ()      => examSkip(),
+    'examNext':               ()      => examNext(),
+    'examRetry':              ()      => examRetry(),
+    'examNewTopic':           ()      => examNewTopic(),
+    'examSelectType-self':    (el)    => examSelectType(el),
+    'examSelectScanMode-self':(el)    => examSelectScanMode(el),
+    'examSelectDiff-self':    (el)    => examSelectDiff(el),
+
+    /* ── Study Plan ─────────────────────────────────────── */
+    'spDrawerTab':            (el)    => spDrawerTab(el.dataset.tab),
+    'spCloseExplainDrawer':   ()      => spCloseExplainDrawer(),
+    'spHandleGenerate':       ()      => spHandleGenerate(),
+    'spFcGenerate':           ()      => spFcGenerate(),
+    'spFcFlip':               ()      => spFcFlip(),
+    'spFcRestart':            ()      => spFcRestart(),
+    'spPqSubmit':             ()      => spPqSubmit(),
+    'spPqNext':               ()      => spPqNext(),
+    'spPqRestart':            ()      => spPqRestart(),
+    'spExamStart':            ()      => spExamStart(),
+    'spExamRestart':          ()      => spExamRestart(),
+    'spShowEmpty':            ()      => spShowEmpty(),
+    'spShowPlan':             ()      => spShowPlan(),
+    'spClearUpload':          ()      => spClearUpload(),
+    'spOpenExplainDrawer':    ()      => spOpenExplainDrawer(),
+    'spExamGenerate':         ()      => spExamGenerate(),
+    'spPqGenerate':           ()      => spPqGenerate(),
+
+    /* ── Settings ───────────────────────────────────────── */
+    'settingsSelect-self':         (el) => settingsSelect(el),
+    'settingsDropdown-self':       (el) => settingsDropdown(el),
+    'settingsSelectDefaultBook-self': (el) => settingsSelectDefaultBook(el),
+    'settingsSelectVoice-self':    (el) => settingsSelectVoice(el),
+    'settingsSelectStudyMode-self':(el) => settingsSelectStudyMode(el),
+    'settingsPlayVoice':           ()   => settingsPlayVoice(),
+    'closeSettings':               ()   => closeSettings(),
+
+    /* ── FAQ / accordion ─────────────────────────────────── */
+    'toggleFAQ-self':         (el)    => toggleFAQ(el),
+
+    /* ── History / misc ─────────────────────────────────── */
+    'clearAllHistory':        ()      => clearAllHistory(),
+    'clearPdfCache':          ()      => clearPdfCache(),
+  };
+
+  /* Single delegated listener on the document */
+  document.addEventListener('click', function (e) {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    const action = el.dataset.action;
+    const handler = ACTION_MAP[action];
+    if (typeof handler === 'function') {
+      e.stopPropagation();
+      handler(el, e);
+    }
+  }, false);
+
+  /* Mouseenter delegation for pd-item submenu triggers.
+     Replaces onmouseenter="pdOpenHelp(event)" etc. removed from HTML. */
+  document.addEventListener('mouseover', function (e) {
+    const item = e.target.closest('.pd-item');
+    if (!item) return;
+
+    if (item.id === 'pd-help-item') {
+      if (typeof pdOpenHelp === 'function') pdOpenHelp(e);
+    } else if (item.id === 'pd-terms-item') {
+      if (typeof pdOpenTerms === 'function') pdOpenTerms(e);
+    } else if (item.closest('.pd-menu')) {
+      // Any other pd-item in a pd-menu: close open submenus
+      if (typeof _closeHelp  === 'function') _closeHelp();
+      if (typeof _closeTerms === 'function') _closeTerms();
+    }
+  }, false);
+
+  document.addEventListener('mouseout', function (e) {
+    const item = e.target.closest('.pd-item');
+    if (!item) return;
+
+    if (item.id === 'pd-help-item') {
+      if (typeof pdHelpMouseLeave  === 'function') pdHelpMouseLeave(e);
+    } else if (item.id === 'pd-terms-item') {
+      if (typeof pdTermsMouseLeave === 'function') pdTermsMouseLeave(e);
+    }
+  }, false);
+
+})();
 </script>
 
 </body>
