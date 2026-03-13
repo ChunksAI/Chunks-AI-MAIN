@@ -285,8 +285,8 @@
 
 /* ── Profile dropdown menu ────────────────────────────────── */
 .profile-dropdown {
-  position: fixed;
-  bottom: 70px;
+  position: absolute;
+  bottom: 100%;
   left: 10px;
   width: 230px;
   background: var(--surface-2);
