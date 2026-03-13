@@ -1,0 +1,75 @@
+/* ═══════════════════════════════════════════════════════════
+   LAYOUT & SCREEN SYSTEM
+   Extracted from monolith lines 170–236 (Task 5).
+   Depends on: tokens.css
+═══════════════════════════════════════════════════════════ */
+
+/* ── Screen system ────────────────────────────────────────── */
+.screen { display: none; height: 100vh; }
+.screen.active { display: flex; flex-direction: column; animation: screenIn var(--t-mid) var(--ease-snap) both; }
+
+/* ── Skeleton / shimmer loading utilities ─────────────────── */
+@keyframes shimmer {
+  0%   { opacity: 0.45; }
+  50%  { opacity: 0.9;  }
+  100% { opacity: 0.45; }
+}
+.skeleton-line {
+  background: var(--surface-3);
+  border-radius: 4px;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes screenIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── backdrop-filter: GPU compositing hint ────────────────────
+   Hint the GPU to composite these layers independently for
+   smoother blur. Applied globally so any new modal added in
+   future automatically gets the hint.                         */
+.upgrade-modal, .library-modal, .shortcuts-modal, .settings-modal,
+.bug-modal-overlay, .help-modal, .mobile-bottom-nav, .sp-topbar,
+#sp-generating-overlay, .mobile-drawer-overlay, #fc-complete-modal {
+  will-change: transform;
+}
+
+/* Fallback for browsers without backdrop-filter support
+   (older Android WebView, Firefox < 103)                     */
+@supports not (backdrop-filter: blur(1px)) {
+  .upgrade-modal, .library-modal, .shortcuts-modal, .settings-modal,
+  .bug-modal-overlay, .help-modal {
+    background: rgba(8, 8, 16, 0.94) !important;
+  }
+  .mobile-bottom-nav {
+    background: rgba(13, 14, 20, 0.98) !important;
+  }
+  .sp-topbar {
+    background: rgba(13, 14, 20, 0.95) !important;
+  }
+  .mobile-drawer-overlay, #fc-complete-modal {
+    background: rgba(0, 0, 0, 0.88) !important;
+  }
+}
+
+/* ── Icon button (shared utility) ────────────────────────────
+   Used across every screen — lives here rather than a component
+   file because it has no JS and is referenced by hundreds of
+   selectors throughout the monolith.                          */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 28px;
+  border-radius: var(--r-sm);
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.icon-btn:hover { background: var(--surface-3); color: var(--text-1); }
+.icon-btn.accent { color: var(--gold); }
+.icon-btn.violet { color: var(--violet); }

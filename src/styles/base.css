@@ -1,0 +1,76 @@
+/* ═══════════════════════════════════════════════════════════
+   RESET & BASE
+   Extracted from monolith lines 97–168 (Task 4).
+   Depends on: tokens.css (loaded first in main.js)
+═══════════════════════════════════════════════════════════ */
+
+/* ── Box model reset ──────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  font-family: var(--font-body);
+  background: #080810;
+  color: var(--text-1);
+  height: 100%;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Fixed background gradient — pseudo-element avoids background-attachment:fixed
+   which does not render correctly on iOS Safari */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(100,80,200,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(30,20,80,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 0% 80%, rgba(10,30,60,0.15) 0%, transparent 55%),
+    linear-gradient(160deg, #0b0b14 0%, #080810 40%, #070710 100%);
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Subtle vignette overlay for depth */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 40%, rgba(0,0,0,0.35) 100%);
+  pointer-events: none;
+  z-index: 9998;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface-4); border-radius: 2px; }
+
+/* ── Focus-visible: keyboard navigation ring ──────────────────
+   Suppressed for mouse/touch (no :focus ring), shown only when
+   the browser determines keyboard navigation is active.         */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+/* Inputs & textareas get an inset ring so layout doesn't shift */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 0;
+}
+
+/* ── Screen-reader only utility ───────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
