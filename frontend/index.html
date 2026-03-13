@@ -560,6 +560,112 @@ select:focus-visible {
 .pd-submenu .pd-item { padding: 8px 12px; font-size: 13px; border-radius: var(--r-sm); margin: 0; }
 
 /* ── Settings Modal ── */
+/* ── Upgrade / Pricing Modal ─────────────────────────────── */
+.upgrade-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 10003;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  animation: modal-fade-in 0.18s ease;
+}
+.upgrade-modal.active { display: flex; }
+.upgrade-content {
+  background: var(--surface-1);
+  border: 1px solid var(--border-md);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 720px;
+  overflow: hidden;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
+  animation: modal-slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.upgrade-header {
+  padding: 28px 28px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.upgrade-header-text { display: flex; flex-direction: column; gap: 6px; }
+.upgrade-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--gold-muted);
+  border: 1px solid var(--gold-border);
+  color: var(--gold);
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  padding: 4px 10px; border-radius: var(--r-pill);
+  text-transform: uppercase;
+  width: fit-content;
+}
+.upgrade-title {
+  font-family: var(--font-head);
+  font-size: 22px; font-weight: 700;
+  color: var(--text-1); line-height: 1.2;
+}
+.upgrade-subtitle { font-size: 13px; color: var(--text-2); line-height: 1.5; }
+.upgrade-close {
+  background: var(--surface-3); border: none; border-radius: 50%;
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  color: var(--text-2); cursor: pointer; font-size: 14px; flex-shrink: 0;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.upgrade-close:hover { background: var(--surface-4); color: var(--text-1); }
+.upgrade-plans {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 14px; padding: 22px 28px;
+}
+.upgrade-plan {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  display: flex; flex-direction: column; gap: 14px;
+  position: relative; overflow: hidden;
+  transition: border-color var(--t-fast), transform var(--t-fast);
+  cursor: default;
+}
+.upgrade-plan.featured {
+  border-color: var(--gold-border);
+  background: linear-gradient(160deg, rgba(232,172,46,0.06) 0%, var(--surface-2) 60%);
+}
+.upgrade-plan.featured::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+}
+.up-plan-name { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-2); }
+.up-plan-price { display: flex; align-items: baseline; gap: 3px; }
+.up-plan-price .amount { font-family: var(--font-head); font-size: 28px; font-weight: 800; color: var(--text-1); }
+.up-plan-price .period { font-size: 12px; color: var(--text-3); }
+.up-features { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.up-feature { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: var(--text-2); line-height: 1.4; }
+.up-feature svg { flex-shrink: 0; margin-top: 1px; color: var(--gold); }
+.upgrade-plan:not(.featured) .up-feature svg { color: var(--text-3); }
+.up-plan-btn {
+  width: 100%; padding: 9px;
+  border-radius: var(--r-md); border: 1px solid var(--border-md);
+  background: var(--surface-3); color: var(--text-2);
+  font-size: 12px; font-weight: 600; font-family: var(--font-body);
+  cursor: pointer; transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.up-plan-btn:hover { background: var(--surface-4); color: var(--text-1); }
+.up-plan-btn.primary {
+  background: var(--gold); border-color: var(--gold);
+  color: #090900;
+}
+.up-plan-btn.primary:hover { background: var(--gold-bright); border-color: var(--gold-bright); }
+.upgrade-footer {
+  padding: 0 28px 22px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-size: 11px; color: var(--text-3);
+}
+.upgrade-footer svg { flex-shrink: 0; }
+
 .settings-modal {
   display: none;
   position: fixed;
@@ -7081,6 +7187,492 @@ document.getElementById('library-modal')?.addEventListener('click', function(e) 
 });
 </script>
 <script>
+/* ══════════════════════════════════════════
+   RECENT CONVERSATIONS + NEW CHAT
+══════════════════════════════════════════ */
+
+const RECENT_MAX = 8;
+const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+
+let _recentItems = JSON.parse(localStorage.getItem('chunks_recent') || 'null') || [];
+let _activeRecentId = null;
+
+function _historySavingEnabled() {
+  return localStorage.getItem('chunks_save_history') !== '0';
+}
+
+function _saveRecent() {
+  if (!_historySavingEnabled()) return;
+  localStorage.setItem('chunks_recent', JSON.stringify(_recentItems));
+}
+
+// ── Chat session save/restore ────────────────────────────
+function _saveSession(id, historyArr) {
+  if (!_historySavingEnabled()) return;
+  // Save the rendered HTML + history array for a chat session
+  const html = document.getElementById('home-chat-history')?.innerHTML || '';
+  localStorage.setItem('chunks_session_' + id, JSON.stringify({ html, history: historyArr }));
+}
+
+function _loadSession(id) {
+  try {
+    const raw = localStorage.getItem('chunks_session_' + id);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
+
+// ── Workspace session save/restore ───────────────────────
+function _saveWsSession(bookId, historyArr) {
+  const html = document.getElementById('ws-messages')?.innerHTML || '';
+  localStorage.setItem('chunks_ws_session_' + bookId, JSON.stringify({ html, history: historyArr }));
+  // Track which book + recent item was last active
+  localStorage.setItem('chunks_active_ws_book', bookId);
+}
+
+function _loadWsSession(bookId) {
+  try {
+    const raw = localStorage.getItem('chunks_ws_session_' + bookId);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
+
+// ── New Chat ─────────────────────────────────────────────
+function goHome() {
+  // Always return to the homepage landing — clear any active chat state
+  _activeRecentId = null;
+  homeHistory = [];
+  _homeSessionId = null;
+  localStorage.removeItem('chunks_active_home_session');
+  localStorage.removeItem('chunks_active_ws_book');
+  localStorage.removeItem('chunks_active_recent_id');
+
+  // Reset home to landing
+  const chatHist    = document.getElementById('home-chat-history');
+  const homeLanding = document.getElementById('home-landing');
+  const homeHero    = document.querySelector('.home-hero');
+  const homeBar     = document.getElementById('home-input-bar');
+  const homeScroll  = document.getElementById('home-scroll-area');
+  if (chatHist)    chatHist.innerHTML = '';
+  if (homeLanding) homeLanding.style.display = '';
+  if (homeHero)    homeHero.style.display = '';
+  if (homeBar)     homeBar.style.display = 'none';
+  if (homeScroll)  homeScroll.style.justifyContent = 'center';
+
+  // Clear sidebar active state
+  document.querySelectorAll('.recent-item').forEach(el => el.classList.remove('active'));
+
+  showScreen('home');
+}
+
+function newChat() {
+  // Always navigate to home screen first
+  const _activeNow = document.querySelector('.screen.active');
+  if (!_activeNow || _activeNow.id !== 'screen-home') showScreen('home');
+
+    // Clear workspace messages + restore empty state
+  const msgs = document.getElementById('ws-messages');
+  if (msgs) msgs.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div>
+    </div>`;
+
+  // Reset chat state
+  _wsChatHistory = [];
+  _activeRecentId = null;
+  homeHistory = [];
+  _homeSessionId = null;
+  localStorage.removeItem('chunks_active_home_session');
+  localStorage.removeItem('chunks_home_session');
+  localStorage.removeItem('chunks_active_ws_book');
+  localStorage.removeItem('chunks_active_recent_id');
+
+  // Reset home screen to landing state
+  const homeChatHistory = document.getElementById('home-chat-history');
+  if (homeChatHistory) homeChatHistory.innerHTML = '';
+  const homeLanding = document.getElementById('home-landing');
+  const homeHero = document.querySelector('.home-hero');
+  const homeBar = document.getElementById('home-input-bar');
+  const homeScrollArea = document.getElementById('home-scroll-area');
+  if (homeLanding) homeLanding.style.display = '';
+  if (homeHero) homeHero.style.display = '';
+  if (homeBar) homeBar.style.display = 'none';
+  if (homeScrollArea) homeScrollArea.style.justifyContent = 'center';
+
+  // Rotate hero heading to a new random phrase
+  (function() {
+    const phrases = [
+      { h: 'Study smarter,<br>not <em>harder</em>', s: 'Ask questions, explore your textbooks, and generate study tools — all in one place.' },
+      { h: 'Learn faster,<br>remember <em>longer</em>', s: 'Your AI-powered study companion that turns difficult concepts into clear understanding.' },
+      { h: 'Knowledge is<br>your <em>superpower</em>', s: 'Ask anything, study everything — Chunks AI has your back every step of the way.' },
+      { h: 'Stop cramming,<br>start <em>understanding</em>', s: 'Deep learning, not surface memorization. Let Chunks AI guide you to real mastery.' },
+      { h: 'Every expert<br>was once a <em>beginner</em>', s: 'Break down complex topics, one question at a time. Your journey starts here.' },
+      { h: 'Your grades,<br>your <em>future</em>', s: 'Study with purpose. Chunks AI helps you focus on what matters most.' },
+      { h: 'Turn confusion<br>into <em>clarity</em>', s: 'No question is too hard. Chunks AI breaks it down until it clicks.' },
+      { h: 'Ace your exams,<br>own your <em>success</em>', s: 'Flashcards, summaries, practice questions — everything you need, all in one place.' },
+    ];
+    const current = document.getElementById('home-hero-heading')?.innerHTML || '';
+    let pick;
+    do { pick = phrases[Math.floor(Math.random() * phrases.length)]; }
+    while (pick.h === current && phrases.length > 1);
+    const h = document.getElementById('home-hero-heading');
+    const s = document.getElementById('home-hero-sub');
+    if (h) h.innerHTML = pick.h;
+    if (s) s.textContent = pick.s;
+  })();
+
+  // Clear input
+  const inp = document.getElementById('ws-chat-input');
+  if (inp) { inp.value = ''; wsAutoResize(inp); }
+
+  // Update context tag back to default
+  const ctag = document.getElementById('ws-context-tag');
+  if (ctag) ctag.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg> ${wsBookMeta[_wsBookId]?.split('/')[0]?.trim() || 'No book'}`;
+
+  const title = document.getElementById('ws-chat-title');
+  if (title) title.textContent = 'Select a book to start studying';
+
+  // Go to workspace
+  showScreen('workspace');
+
+  // Focus input
+  setTimeout(() => inp?.focus(), 120);
+
+  // Deselect all recents
+  _renderAllRecent();
+}
+
+// ── Add to recents (called on every send) ────────────────
+function recentAdd(question, bookId, source) {
+  if (!question) return;
+  const label = question.length > 32 ? question.slice(0, 32).trimEnd() + '…' : question;
+  // Don't duplicate if same as most recent of same source
+  if (_recentItems.length && _recentItems[0].question === question && _recentItems[0].source === source) {
+    _setActiveRecent(_recentItems[0].id);
+    if (source === 'general') {
+      _homeSessionId = _recentItems[0].id;
+      localStorage.setItem('chunks_home_session', _homeSessionId);
+    }
+    return;
+  }
+  const item = {
+    id: 'r' + Date.now(),
+    label,
+    question,
+    bookId: bookId || _wsBookId || '',
+    source: source || (bookId ? 'workspace' : 'general')
+  };
+  _recentItems.unshift(item);
+  if (_recentItems.length > RECENT_MAX) _recentItems = _recentItems.slice(0, RECENT_MAX);
+  _saveRecent();
+  _renderAllRecent();
+  _setActiveRecent(item.id);
+  if (source === 'general') {
+    _homeSessionId = item.id;
+    localStorage.setItem('chunks_home_session', _homeSessionId);
+  }
+}
+
+function _setActiveRecent(id) {
+  _activeRecentId = id;
+  document.querySelectorAll('.recent-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === id);
+  });
+  if (id) localStorage.setItem('chunks_active_recent_id', id);
+  else localStorage.removeItem('chunks_active_recent_id');
+}
+
+function _deleteRecent(id, e) {
+  e.stopPropagation();
+
+  // Find the item before removing it
+  const item = _recentItems.find(r => r.id === id);
+
+  // Remove from list and persist
+  _recentItems = _recentItems.filter(r => r.id !== id);
+  _saveRecent();
+
+  // Remove saved session data from localStorage
+  localStorage.removeItem('chunks_session_' + id);
+  if (item && item.bookId) {
+    localStorage.removeItem('chunks_ws_session_' + item.bookId);
+  }
+
+  // If this was the active chat, reset the UI back to landing
+  if (_activeRecentId === id) {
+    _activeRecentId = null;
+    localStorage.removeItem('chunks_active_recent_id');
+    localStorage.removeItem('chunks_active_home_session');
+    localStorage.removeItem('chunks_active_ws_book');
+
+    // Reset home landing
+    homeHistory = [];
+    _homeSessionId = null;
+    const chatHist   = document.getElementById('home-chat-history');
+    const homeLanding = document.getElementById('home-landing');
+    const homeHero   = document.querySelector('.home-hero');
+    const homeBar    = document.getElementById('home-input-bar');
+    const homeScroll = document.getElementById('home-scroll-area');
+    if (chatHist)   chatHist.innerHTML = '';
+    if (homeLanding) homeLanding.style.display = '';
+    if (homeHero)   homeHero.style.display = '';
+    if (homeBar)    homeBar.style.display = 'none';
+    if (homeScroll) homeScroll.style.justifyContent = 'center';
+
+    // Reset workspace messages
+    const msgs = document.getElementById('ws-messages');
+    if (msgs) msgs.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div></div>`;
+    _wsChatHistory = [];
+
+    showScreen('home');
+  }
+
+  _renderAllRecent();
+}
+
+function _clickRecent(item) {
+  _setActiveRecent(item.id);
+  if (item.source === 'general' || !item.bookId) {
+    // General AI — restore saved session
+    showScreen('home');
+    const session = _loadSession(item.id);
+    const landing = document.getElementById('home-landing');
+    const hero = document.querySelector('.home-hero');
+    const bar = document.getElementById('home-input-bar');
+    const scrollArea = document.getElementById('home-scroll-area');
+    const chatHistory = document.getElementById('home-chat-history');
+
+    if (session && session.html) {
+      // Restore full conversation
+      if (landing) landing.style.display = 'none';
+      if (hero) hero.style.display = 'none';
+      if (bar) bar.style.display = 'flex';
+      if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
+      if (chatHistory) chatHistory.innerHTML = sanitize(session.html);
+      homeHistory = session.history || [];
+      _homeSessionId = item.id;
+      setTimeout(() => {
+        homeScrollBottom();
+        document.getElementById('home-ask-input-bottom')?.focus();
+      }, 60);
+    } else {
+      // No saved session — pre-fill input to let user send fresh
+      if (landing) landing.style.display = 'none';
+      if (hero) hero.style.display = 'none';
+      if (bar) bar.style.display = 'flex';
+      if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
+      _homeSessionId = item.id;
+      setTimeout(() => {
+        const bi = document.getElementById('home-ask-input-bottom');
+        if (bi) { bi.value = item.question; bi.focus(); homeAutoResize(bi); }
+      }, 80);
+    }
+  } else {
+    // Workspace / book question — open in workspace
+    showScreen('workspace');
+    const go = () => { wsSetInput(item.question); wsChatSend(); };
+    if (item.bookId !== _wsBookId) {
+      selectBook(item.bookId).then(() => setTimeout(go, 300));
+    } else {
+      setTimeout(go, 80);
+    }
+  }
+}
+
+function _buildRecentItem(item) {
+  const el = document.createElement('div');
+  el.className = 'recent-item' + (item.id === _activeRecentId ? ' active' : '');
+  el.dataset.id = item.id;
+  el.title = item.question;
+  el.innerHTML = `
+    ${CHAT_SVG}
+    <span>${(item.pinned ? '📌 ' : '') + item.label.replace(/</g,'&lt;')}</span>
+    <span class="recent-menu-btn" title="More options">···</span>`;
+  el.addEventListener('click', () => _clickRecent(item));
+  el.querySelector('.recent-menu-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    _showRecentCtxMenu(item, e);
+  });
+  return el;
+}
+
+// ── Context menu ─────────────────────────────────────────
+let _ctxMenuEl = null;
+
+function _closeCtxMenu() {
+  if (_ctxMenuEl) { _ctxMenuEl.remove(); _ctxMenuEl = null; }
+}
+
+function _showRecentCtxMenu(item, e) {
+  _closeCtxMenu();
+
+  const menu = document.createElement('div');
+  menu.className = 'recent-ctx-menu';
+  _ctxMenuEl = menu;
+
+  const isPinned = item.pinned || false;
+
+  menu.innerHTML = `
+    <div class="recent-ctx-item" data-action="rename">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Rename
+    </div>
+    <div class="recent-ctx-item" data-action="pin">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+      ${isPinned ? 'Unpin chat' : 'Pin chat'}
+    </div>
+    <div class="recent-ctx-divider"></div>
+    <div class="recent-ctx-item danger" data-action="delete">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      Delete
+    </div>`;
+
+  document.body.appendChild(menu);
+
+  // Position near the button
+  const rect = e.currentTarget.getBoundingClientRect();
+  let top = rect.top;
+  let left = rect.right + 8;
+  // If it goes off screen right, flip to left side
+  if (left + 180 > window.innerWidth) left = rect.left - 188;
+  if (top + 160 > window.innerHeight) top = window.innerHeight - 170;
+  menu.style.top = top + 'px';
+  menu.style.left = left + 'px';
+
+  menu.addEventListener('click', e => {
+    const action = e.target.closest('[data-action]')?.dataset.action;
+    if (!action) return;
+    _closeCtxMenu();
+
+    if (action === 'delete') {
+      showConfirmModal({
+        title: 'Delete this chat?',
+        desc: `"${item.label.replace(/…$/, '')}" will be permanently removed.`,
+        confirmLabel: 'Delete chat',
+        onConfirm: () => {
+          _deleteRecent(item.id, { stopPropagation: () => {} });
+          wsShowToast('🗑️', 'Chat deleted', '');
+        }
+      });
+
+    } else if (action === 'rename') {
+      const newName = prompt('Rename chat:', item.label.replace(/…$/, ''));
+      if (newName && newName.trim()) {
+        item.label = newName.trim().slice(0, 40);
+        _saveRecent();
+        _renderAllRecent();
+      }
+
+    } else if (action === 'pin') {
+      item.pinned = !item.pinned;
+      // Move pinned items to top
+      _recentItems.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+      _saveRecent();
+      _renderAllRecent();
+    }
+  });
+
+  // Close on outside click
+  setTimeout(() => document.addEventListener('click', _closeCtxMenu, { once: true }), 0);
+}
+
+function _renderAllRecent() {
+  const generalItems   = _recentItems.filter(r => r.source === 'general' || !r.bookId);
+  const workspaceItems = _recentItems.filter(r => r.source === 'workspace' && r.bookId);
+
+  // Render general AI history into all sidebars
+  ['recent-list-general','recent-list-general-ws','recent-list-general-flash','recent-list-general-research','recent-list-general-exam'].forEach(id => {
+    const container = document.getElementById(id);
+    if (!container) return;
+    container.innerHTML = '';
+    if (!generalItems.length) {
+      container.innerHTML = '<div class="recent-empty">No chats yet</div>';
+      return;
+    }
+    generalItems.forEach(item => container.appendChild(_buildRecentItem(item)));
+  });
+
+  // Render workspace/book history into all sidebars
+  ['recent-list-home','recent-list-workspace','recent-list-flash','recent-list-ws-research','recent-list-ws-exam'].forEach(id => {
+    const container = document.getElementById(id);
+    if (!container) return;
+    container.innerHTML = '';
+    if (!workspaceItems.length) {
+      container.innerHTML = '<div class="recent-empty">No recent chats yet</div>';
+      return;
+    }
+    workspaceItems.forEach(item => container.appendChild(_buildRecentItem(item)));
+  });
+}
+
+_renderAllRecent();
+
+// ── Restore chat session on refresh (runs after all vars declared) ──────
+if (sessionStorage.getItem('chunks_is_refresh') === '1') {
+  const activeScreen   = sessionStorage.getItem('chunks_active_screen');
+  const activeRecentId = localStorage.getItem('chunks_active_recent_id');
+
+  if (activeScreen === 'workspace' || (!activeScreen && localStorage.getItem('chunks_active_ws_book'))) {
+    // ── Restore workspace chat ──
+    const bookId = localStorage.getItem('chunks_active_ws_book');
+    if (bookId) {
+      const wsSession = _loadWsSession(bookId);
+      selectBook(bookId).then(() => {
+        if (wsSession && wsSession.html) {
+          setTimeout(() => {
+            const msgs = document.getElementById('ws-messages');
+            if (msgs) msgs.innerHTML = sanitize(wsSession.html);
+            _wsChatHistory = wsSession.history || [];
+            if (activeRecentId) _setActiveRecent(activeRecentId);
+            setTimeout(() => {
+              const m = document.getElementById('ws-messages');
+              if (m) m.scrollTop = m.scrollHeight;
+            }, 80);
+          }, 600);
+        }
+      });
+    }
+  } else {
+    // ── Restore home chat ──
+    const savedId = localStorage.getItem('chunks_active_home_session');
+    if (savedId && (!activeScreen || activeScreen === 'home')) {
+      let session;
+      try { session = JSON.parse(localStorage.getItem('chunks_session_' + savedId)); } catch(e) {}
+      if (session && session.html) {
+        const landing    = document.getElementById('home-landing');
+        const hero       = document.querySelector('.home-hero');
+        const bar        = document.getElementById('home-input-bar');
+        const scrollArea = document.getElementById('home-scroll-area');
+        const chatHist   = document.getElementById('home-chat-history');
+        if (landing)    landing.style.display = 'none';
+        if (hero)       hero.style.display = 'none';
+        if (bar)        bar.style.display = 'flex';
+        if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
+        if (chatHist)   chatHist.innerHTML = sanitize(session.html);
+        homeHistory    = session.history || [];
+        _homeSessionId = savedId;
+        _setActiveRecent(savedId);
+        setTimeout(() => homeScrollBottom(), 80);
+      }
+    }
+  }
+}
+
+// ── Hook wsChatSend to add to recents on every send ──────
+// We hook at the DOM level so it works regardless of script order
+document.getElementById('ws-chat-send')?.addEventListener('click', () => {
+  const q = document.getElementById('ws-chat-input')?.value?.trim();
+  if (q) recentAdd(q, _wsBookId, 'workspace');
+}, true); // capture phase — fires before wsChatSend clears the input
+
+document.getElementById('ws-chat-input')?.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    const q = this.value.trim();
+    if (q) recentAdd(q, _wsBookId);
+  }
+}, true);
+</script>
+<script>
 /* ═══════════════════════════════════════════════
    HOME PAGE AI CHAT
 ═══════════════════════════════════════════════ */
@@ -7447,6 +8039,133 @@ document.getElementById('home-ask-input')?.addEventListener('input', function() 
 </div>
 
 <!-- /settings-modal -->
+
+<!-- ══════════════════════════════════════════
+     UPGRADE / PRICING MODAL
+══════════════════════════════════════════ -->
+<div class="upgrade-modal" id="upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="upgrade-modal-title" onclick="if(event.target===this)closeUpgradeModal()">
+  <div class="upgrade-content">
+
+    <div class="upgrade-header">
+      <div class="upgrade-header-text">
+        <div class="upgrade-badge">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Unlock Pro
+        </div>
+        <div class="upgrade-title" id="upgrade-modal-title">Study smarter, no limits.</div>
+        <div class="upgrade-subtitle">Get unlimited chats, all textbooks, and advanced tools.</div>
+      </div>
+      <button class="upgrade-close" onclick="closeUpgradeModal()" aria-label="Close">✕</button>
+    </div>
+
+    <div class="upgrade-plans" style="grid-template-columns:1fr 1fr 1fr;">
+
+      <!-- Free -->
+      <div class="upgrade-plan">
+        <div>
+          <div class="up-plan-name">Free</div>
+          <div class="up-plan-price">
+            <span class="amount">₱0</span>
+            <span class="period">/ mo</span>
+          </div>
+        </div>
+        <div class="up-features">
+          <div class="up-feature">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            20 AI messages / day
+          </div>
+          <div class="up-feature">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            3 textbooks
+          </div>
+          <div class="up-feature">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Flashcards &amp; quizzes
+          </div>
+          <div class="up-feature">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Community support
+          </div>
+        </div>
+        <button class="up-plan-btn" onclick="closeUpgradeModal()">Current plan</button>
+      </div>
+
+      <!-- Pro (featured) -->
+      <div class="upgrade-plan featured">
+        <div>
+          <div class="up-plan-name" style="color:var(--gold)">Pro</div>
+          <div class="up-plan-price" style="flex-direction:column;align-items:flex-start;gap:2px;">
+            <div style="display:flex;align-items:baseline;gap:3px;">
+              <span class="amount">₱149</span>
+              <span class="period">/ mo</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:5px;">
+              <span style="font-size:10px;background:var(--gold);color:#090900;font-weight:700;padding:1px 6px;border-radius:var(--r-pill);letter-spacing:0.04em;">INTRO OFFER</span>
+              <span style="font-size:10px;color:var(--text-3);text-decoration:line-through;">₱199</span>
+            </div>
+          </div>
+        </div>
+        <div class="up-features">
+          <div class="up-feature">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Unlimited AI messages
+          </div>
+          <div class="up-feature">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            All textbooks unlocked
+          </div>
+          <div class="up-feature">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Priority response speed
+          </div>
+          <div class="up-feature">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Advanced study tools
+          </div>
+        </div>
+        <button class="up-plan-btn primary" onclick="handleUpgradeClick('pro')">Get Pro →</button>
+      </div>
+
+      <!-- Ultra -->
+      <div class="upgrade-plan" style="border-color:rgba(139,124,248,0.25);background:linear-gradient(160deg,rgba(139,124,248,0.06) 0%,var(--surface-2) 60%);position:relative;overflow:hidden;">
+        <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--violet),transparent);"></div>
+        <div>
+          <div class="up-plan-name" style="color:var(--violet)">Ultra</div>
+          <div class="up-plan-price">
+            <span class="amount">₱299</span>
+            <span class="period">/ mo</span>
+          </div>
+        </div>
+        <div class="up-features">
+          <div class="up-feature">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Everything in Pro
+          </div>
+          <div class="up-feature">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            AI-generated study plans
+          </div>
+          <div class="up-feature">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Unlimited file uploads
+          </div>
+          <div class="up-feature">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Early access to new features
+          </div>
+        </div>
+        <button class="up-plan-btn" style="border-color:rgba(139,124,248,0.3);color:var(--violet);" onmouseover="this.style.background='rgba(139,124,248,0.12)'" onmouseout="this.style.background=''" onclick="handleUpgradeClick('ultra')">Get Ultra →</button>
+      </div>
+
+    </div>
+
+    <div class="upgrade-footer">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Secure checkout · Cancel anytime · No hidden fees
+    </div>
+
+  </div>
+</div>
 
 
 <script>
@@ -8076,492 +8795,7 @@ document.getElementById('ws-chat-input')?.addEventListener('input', function() {
   wsAutoResize(this);
 });
 </script>
-<script>
-/* ══════════════════════════════════════════
-   RECENT CONVERSATIONS + NEW CHAT
-══════════════════════════════════════════ */
 
-const RECENT_MAX = 8;
-const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
-
-let _recentItems = JSON.parse(localStorage.getItem('chunks_recent') || 'null') || [];
-let _activeRecentId = null;
-
-function _historySavingEnabled() {
-  return localStorage.getItem('chunks_save_history') !== '0';
-}
-
-function _saveRecent() {
-  if (!_historySavingEnabled()) return;
-  localStorage.setItem('chunks_recent', JSON.stringify(_recentItems));
-}
-
-// ── Chat session save/restore ────────────────────────────
-function _saveSession(id, historyArr) {
-  if (!_historySavingEnabled()) return;
-  // Save the rendered HTML + history array for a chat session
-  const html = document.getElementById('home-chat-history')?.innerHTML || '';
-  localStorage.setItem('chunks_session_' + id, JSON.stringify({ html, history: historyArr }));
-}
-
-function _loadSession(id) {
-  try {
-    const raw = localStorage.getItem('chunks_session_' + id);
-    return raw ? JSON.parse(raw) : null;
-  } catch(e) { return null; }
-}
-
-// ── Workspace session save/restore ───────────────────────
-function _saveWsSession(bookId, historyArr) {
-  const html = document.getElementById('ws-messages')?.innerHTML || '';
-  localStorage.setItem('chunks_ws_session_' + bookId, JSON.stringify({ html, history: historyArr }));
-  // Track which book + recent item was last active
-  localStorage.setItem('chunks_active_ws_book', bookId);
-}
-
-function _loadWsSession(bookId) {
-  try {
-    const raw = localStorage.getItem('chunks_ws_session_' + bookId);
-    return raw ? JSON.parse(raw) : null;
-  } catch(e) { return null; }
-}
-
-// ── New Chat ─────────────────────────────────────────────
-function goHome() {
-  // Always return to the homepage landing — clear any active chat state
-  _activeRecentId = null;
-  homeHistory = [];
-  _homeSessionId = null;
-  localStorage.removeItem('chunks_active_home_session');
-  localStorage.removeItem('chunks_active_ws_book');
-  localStorage.removeItem('chunks_active_recent_id');
-
-  // Reset home to landing
-  const chatHist    = document.getElementById('home-chat-history');
-  const homeLanding = document.getElementById('home-landing');
-  const homeHero    = document.querySelector('.home-hero');
-  const homeBar     = document.getElementById('home-input-bar');
-  const homeScroll  = document.getElementById('home-scroll-area');
-  if (chatHist)    chatHist.innerHTML = '';
-  if (homeLanding) homeLanding.style.display = '';
-  if (homeHero)    homeHero.style.display = '';
-  if (homeBar)     homeBar.style.display = 'none';
-  if (homeScroll)  homeScroll.style.justifyContent = 'center';
-
-  // Clear sidebar active state
-  document.querySelectorAll('.recent-item').forEach(el => el.classList.remove('active'));
-
-  showScreen('home');
-}
-
-function newChat() {
-  // Always navigate to home screen first
-  const _activeNow = document.querySelector('.screen.active');
-  if (!_activeNow || _activeNow.id !== 'screen-home') showScreen('home');
-
-    // Clear workspace messages + restore empty state
-  const msgs = document.getElementById('ws-messages');
-  if (msgs) msgs.innerHTML = `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      <div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div>
-    </div>`;
-
-  // Reset chat state
-  _wsChatHistory = [];
-  _activeRecentId = null;
-  homeHistory = [];
-  _homeSessionId = null;
-  localStorage.removeItem('chunks_active_home_session');
-  localStorage.removeItem('chunks_home_session');
-  localStorage.removeItem('chunks_active_ws_book');
-  localStorage.removeItem('chunks_active_recent_id');
-
-  // Reset home screen to landing state
-  const homeChatHistory = document.getElementById('home-chat-history');
-  if (homeChatHistory) homeChatHistory.innerHTML = '';
-  const homeLanding = document.getElementById('home-landing');
-  const homeHero = document.querySelector('.home-hero');
-  const homeBar = document.getElementById('home-input-bar');
-  const homeScrollArea = document.getElementById('home-scroll-area');
-  if (homeLanding) homeLanding.style.display = '';
-  if (homeHero) homeHero.style.display = '';
-  if (homeBar) homeBar.style.display = 'none';
-  if (homeScrollArea) homeScrollArea.style.justifyContent = 'center';
-
-  // Rotate hero heading to a new random phrase
-  (function() {
-    const phrases = [
-      { h: 'Study smarter,<br>not <em>harder</em>', s: 'Ask questions, explore your textbooks, and generate study tools — all in one place.' },
-      { h: 'Learn faster,<br>remember <em>longer</em>', s: 'Your AI-powered study companion that turns difficult concepts into clear understanding.' },
-      { h: 'Knowledge is<br>your <em>superpower</em>', s: 'Ask anything, study everything — Chunks AI has your back every step of the way.' },
-      { h: 'Stop cramming,<br>start <em>understanding</em>', s: 'Deep learning, not surface memorization. Let Chunks AI guide you to real mastery.' },
-      { h: 'Every expert<br>was once a <em>beginner</em>', s: 'Break down complex topics, one question at a time. Your journey starts here.' },
-      { h: 'Your grades,<br>your <em>future</em>', s: 'Study with purpose. Chunks AI helps you focus on what matters most.' },
-      { h: 'Turn confusion<br>into <em>clarity</em>', s: 'No question is too hard. Chunks AI breaks it down until it clicks.' },
-      { h: 'Ace your exams,<br>own your <em>success</em>', s: 'Flashcards, summaries, practice questions — everything you need, all in one place.' },
-    ];
-    const current = document.getElementById('home-hero-heading')?.innerHTML || '';
-    let pick;
-    do { pick = phrases[Math.floor(Math.random() * phrases.length)]; }
-    while (pick.h === current && phrases.length > 1);
-    const h = document.getElementById('home-hero-heading');
-    const s = document.getElementById('home-hero-sub');
-    if (h) h.innerHTML = pick.h;
-    if (s) s.textContent = pick.s;
-  })();
-
-  // Clear input
-  const inp = document.getElementById('ws-chat-input');
-  if (inp) { inp.value = ''; wsAutoResize(inp); }
-
-  // Update context tag back to default
-  const ctag = document.getElementById('ws-context-tag');
-  if (ctag) ctag.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg> ${wsBookMeta[_wsBookId]?.split('/')[0]?.trim() || 'No book'}`;
-
-  const title = document.getElementById('ws-chat-title');
-  if (title) title.textContent = 'Select a book to start studying';
-
-  // Go to workspace
-  showScreen('workspace');
-
-  // Focus input
-  setTimeout(() => inp?.focus(), 120);
-
-  // Deselect all recents
-  _renderAllRecent();
-}
-
-// ── Add to recents (called on every send) ────────────────
-function recentAdd(question, bookId, source) {
-  if (!question) return;
-  const label = question.length > 32 ? question.slice(0, 32).trimEnd() + '…' : question;
-  // Don't duplicate if same as most recent of same source
-  if (_recentItems.length && _recentItems[0].question === question && _recentItems[0].source === source) {
-    _setActiveRecent(_recentItems[0].id);
-    if (source === 'general') {
-      _homeSessionId = _recentItems[0].id;
-      localStorage.setItem('chunks_home_session', _homeSessionId);
-    }
-    return;
-  }
-  const item = {
-    id: 'r' + Date.now(),
-    label,
-    question,
-    bookId: bookId || _wsBookId || '',
-    source: source || (bookId ? 'workspace' : 'general')
-  };
-  _recentItems.unshift(item);
-  if (_recentItems.length > RECENT_MAX) _recentItems = _recentItems.slice(0, RECENT_MAX);
-  _saveRecent();
-  _renderAllRecent();
-  _setActiveRecent(item.id);
-  if (source === 'general') {
-    _homeSessionId = item.id;
-    localStorage.setItem('chunks_home_session', _homeSessionId);
-  }
-}
-
-function _setActiveRecent(id) {
-  _activeRecentId = id;
-  document.querySelectorAll('.recent-item').forEach(el => {
-    el.classList.toggle('active', el.dataset.id === id);
-  });
-  if (id) localStorage.setItem('chunks_active_recent_id', id);
-  else localStorage.removeItem('chunks_active_recent_id');
-}
-
-function _deleteRecent(id, e) {
-  e.stopPropagation();
-
-  // Find the item before removing it
-  const item = _recentItems.find(r => r.id === id);
-
-  // Remove from list and persist
-  _recentItems = _recentItems.filter(r => r.id !== id);
-  _saveRecent();
-
-  // Remove saved session data from localStorage
-  localStorage.removeItem('chunks_session_' + id);
-  if (item && item.bookId) {
-    localStorage.removeItem('chunks_ws_session_' + item.bookId);
-  }
-
-  // If this was the active chat, reset the UI back to landing
-  if (_activeRecentId === id) {
-    _activeRecentId = null;
-    localStorage.removeItem('chunks_active_recent_id');
-    localStorage.removeItem('chunks_active_home_session');
-    localStorage.removeItem('chunks_active_ws_book');
-
-    // Reset home landing
-    homeHistory = [];
-    _homeSessionId = null;
-    const chatHist   = document.getElementById('home-chat-history');
-    const homeLanding = document.getElementById('home-landing');
-    const homeHero   = document.querySelector('.home-hero');
-    const homeBar    = document.getElementById('home-input-bar');
-    const homeScroll = document.getElementById('home-scroll-area');
-    if (chatHist)   chatHist.innerHTML = '';
-    if (homeLanding) homeLanding.style.display = '';
-    if (homeHero)   homeHero.style.display = '';
-    if (homeBar)    homeBar.style.display = 'none';
-    if (homeScroll) homeScroll.style.justifyContent = 'center';
-
-    // Reset workspace messages
-    const msgs = document.getElementById('ws-messages');
-    if (msgs) msgs.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div></div>`;
-    _wsChatHistory = [];
-
-    showScreen('home');
-  }
-
-  _renderAllRecent();
-}
-
-function _clickRecent(item) {
-  _setActiveRecent(item.id);
-  if (item.source === 'general' || !item.bookId) {
-    // General AI — restore saved session
-    showScreen('home');
-    const session = _loadSession(item.id);
-    const landing = document.getElementById('home-landing');
-    const hero = document.querySelector('.home-hero');
-    const bar = document.getElementById('home-input-bar');
-    const scrollArea = document.getElementById('home-scroll-area');
-    const chatHistory = document.getElementById('home-chat-history');
-
-    if (session && session.html) {
-      // Restore full conversation
-      if (landing) landing.style.display = 'none';
-      if (hero) hero.style.display = 'none';
-      if (bar) bar.style.display = 'flex';
-      if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
-      if (chatHistory) chatHistory.innerHTML = sanitize(session.html);
-      homeHistory = session.history || [];
-      _homeSessionId = item.id;
-      setTimeout(() => {
-        homeScrollBottom();
-        document.getElementById('home-ask-input-bottom')?.focus();
-      }, 60);
-    } else {
-      // No saved session — pre-fill input to let user send fresh
-      if (landing) landing.style.display = 'none';
-      if (hero) hero.style.display = 'none';
-      if (bar) bar.style.display = 'flex';
-      if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
-      _homeSessionId = item.id;
-      setTimeout(() => {
-        const bi = document.getElementById('home-ask-input-bottom');
-        if (bi) { bi.value = item.question; bi.focus(); homeAutoResize(bi); }
-      }, 80);
-    }
-  } else {
-    // Workspace / book question — open in workspace
-    showScreen('workspace');
-    const go = () => { wsSetInput(item.question); wsChatSend(); };
-    if (item.bookId !== _wsBookId) {
-      selectBook(item.bookId).then(() => setTimeout(go, 300));
-    } else {
-      setTimeout(go, 80);
-    }
-  }
-}
-
-function _buildRecentItem(item) {
-  const el = document.createElement('div');
-  el.className = 'recent-item' + (item.id === _activeRecentId ? ' active' : '');
-  el.dataset.id = item.id;
-  el.title = item.question;
-  el.innerHTML = `
-    ${CHAT_SVG}
-    <span>${(item.pinned ? '📌 ' : '') + item.label.replace(/</g,'&lt;')}</span>
-    <span class="recent-menu-btn" title="More options">···</span>`;
-  el.addEventListener('click', () => _clickRecent(item));
-  el.querySelector('.recent-menu-btn').addEventListener('click', e => {
-    e.stopPropagation();
-    _showRecentCtxMenu(item, e);
-  });
-  return el;
-}
-
-// ── Context menu ─────────────────────────────────────────
-let _ctxMenuEl = null;
-
-function _closeCtxMenu() {
-  if (_ctxMenuEl) { _ctxMenuEl.remove(); _ctxMenuEl = null; }
-}
-
-function _showRecentCtxMenu(item, e) {
-  _closeCtxMenu();
-
-  const menu = document.createElement('div');
-  menu.className = 'recent-ctx-menu';
-  _ctxMenuEl = menu;
-
-  const isPinned = item.pinned || false;
-
-  menu.innerHTML = `
-    <div class="recent-ctx-item" data-action="rename">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      Rename
-    </div>
-    <div class="recent-ctx-item" data-action="pin">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-      ${isPinned ? 'Unpin chat' : 'Pin chat'}
-    </div>
-    <div class="recent-ctx-divider"></div>
-    <div class="recent-ctx-item danger" data-action="delete">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-      Delete
-    </div>`;
-
-  document.body.appendChild(menu);
-
-  // Position near the button
-  const rect = e.currentTarget.getBoundingClientRect();
-  let top = rect.top;
-  let left = rect.right + 8;
-  // If it goes off screen right, flip to left side
-  if (left + 180 > window.innerWidth) left = rect.left - 188;
-  if (top + 160 > window.innerHeight) top = window.innerHeight - 170;
-  menu.style.top = top + 'px';
-  menu.style.left = left + 'px';
-
-  menu.addEventListener('click', e => {
-    const action = e.target.closest('[data-action]')?.dataset.action;
-    if (!action) return;
-    _closeCtxMenu();
-
-    if (action === 'delete') {
-      showConfirmModal({
-        title: 'Delete this chat?',
-        desc: `"${item.label.replace(/…$/, '')}" will be permanently removed.`,
-        confirmLabel: 'Delete chat',
-        onConfirm: () => {
-          _deleteRecent(item.id, { stopPropagation: () => {} });
-          wsShowToast('🗑️', 'Chat deleted', '');
-        }
-      });
-
-    } else if (action === 'rename') {
-      const newName = prompt('Rename chat:', item.label.replace(/…$/, ''));
-      if (newName && newName.trim()) {
-        item.label = newName.trim().slice(0, 40);
-        _saveRecent();
-        _renderAllRecent();
-      }
-
-    } else if (action === 'pin') {
-      item.pinned = !item.pinned;
-      // Move pinned items to top
-      _recentItems.sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
-      _saveRecent();
-      _renderAllRecent();
-    }
-  });
-
-  // Close on outside click
-  setTimeout(() => document.addEventListener('click', _closeCtxMenu, { once: true }), 0);
-}
-
-function _renderAllRecent() {
-  const generalItems   = _recentItems.filter(r => r.source === 'general' || !r.bookId);
-  const workspaceItems = _recentItems.filter(r => r.source === 'workspace' && r.bookId);
-
-  // Render general AI history into all sidebars
-  ['recent-list-general','recent-list-general-ws','recent-list-general-flash','recent-list-general-research','recent-list-general-exam'].forEach(id => {
-    const container = document.getElementById(id);
-    if (!container) return;
-    container.innerHTML = '';
-    if (!generalItems.length) {
-      container.innerHTML = '<div class="recent-empty">No chats yet</div>';
-      return;
-    }
-    generalItems.forEach(item => container.appendChild(_buildRecentItem(item)));
-  });
-
-  // Render workspace/book history into all sidebars
-  ['recent-list-home','recent-list-workspace','recent-list-flash','recent-list-ws-research','recent-list-ws-exam'].forEach(id => {
-    const container = document.getElementById(id);
-    if (!container) return;
-    container.innerHTML = '';
-    if (!workspaceItems.length) {
-      container.innerHTML = '<div class="recent-empty">No recent chats yet</div>';
-      return;
-    }
-    workspaceItems.forEach(item => container.appendChild(_buildRecentItem(item)));
-  });
-}
-
-_renderAllRecent();
-
-// ── Restore chat session on refresh (runs after all vars declared) ──────
-if (sessionStorage.getItem('chunks_is_refresh') === '1') {
-  const activeScreen   = sessionStorage.getItem('chunks_active_screen');
-  const activeRecentId = localStorage.getItem('chunks_active_recent_id');
-
-  if (activeScreen === 'workspace' || (!activeScreen && localStorage.getItem('chunks_active_ws_book'))) {
-    // ── Restore workspace chat ──
-    const bookId = localStorage.getItem('chunks_active_ws_book');
-    if (bookId) {
-      const wsSession = _loadWsSession(bookId);
-      selectBook(bookId).then(() => {
-        if (wsSession && wsSession.html) {
-          setTimeout(() => {
-            const msgs = document.getElementById('ws-messages');
-            if (msgs) msgs.innerHTML = sanitize(wsSession.html);
-            _wsChatHistory = wsSession.history || [];
-            if (activeRecentId) _setActiveRecent(activeRecentId);
-            setTimeout(() => {
-              const m = document.getElementById('ws-messages');
-              if (m) m.scrollTop = m.scrollHeight;
-            }, 80);
-          }, 600);
-        }
-      });
-    }
-  } else {
-    // ── Restore home chat ──
-    const savedId = localStorage.getItem('chunks_active_home_session');
-    if (savedId && (!activeScreen || activeScreen === 'home')) {
-      let session;
-      try { session = JSON.parse(localStorage.getItem('chunks_session_' + savedId)); } catch(e) {}
-      if (session && session.html) {
-        const landing    = document.getElementById('home-landing');
-        const hero       = document.querySelector('.home-hero');
-        const bar        = document.getElementById('home-input-bar');
-        const scrollArea = document.getElementById('home-scroll-area');
-        const chatHist   = document.getElementById('home-chat-history');
-        if (landing)    landing.style.display = 'none';
-        if (hero)       hero.style.display = 'none';
-        if (bar)        bar.style.display = 'flex';
-        if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
-        if (chatHist)   chatHist.innerHTML = sanitize(session.html);
-        homeHistory    = session.history || [];
-        _homeSessionId = savedId;
-        _setActiveRecent(savedId);
-        setTimeout(() => homeScrollBottom(), 80);
-      }
-    }
-  }
-}
-
-// ── Hook wsChatSend to add to recents on every send ──────
-// We hook at the DOM level so it works regardless of script order
-document.getElementById('ws-chat-send')?.addEventListener('click', () => {
-  const q = document.getElementById('ws-chat-input')?.value?.trim();
-  if (q) recentAdd(q, _wsBookId, 'workspace');
-}, true); // capture phase — fires before wsChatSend clears the input
-
-document.getElementById('ws-chat-input')?.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    const q = this.value.trim();
-    if (q) recentAdd(q, _wsBookId);
-  }
-}, true);
-</script>
 <script>
 /* ── Workspace drag-to-resize splitter ── */
 (function() {
@@ -8750,7 +8984,10 @@ async function pdAction(action) {
 
   switch(action) {
     case 'upgrade':
-      wsShowToast && wsShowToast('⭐', 'Upgrade plan — coming soon!', 'var(--gold-border)');
+      openUpgradeModal();
+      break;
+    case 'admin':
+      openAdminPanel();
       break;
     case 'personalization':
       openSettings('personalization');
@@ -8779,7 +9016,7 @@ async function pdAction(action) {
         title: 'Are you sure you want to log out?',
         desc: _userEmail ? `Log out of Chunks AI as ${_userEmail}?` : 'Log out of Chunks AI?',
         confirmLabel: 'Log out',
-        onConfirm: () => window._authSignOut && window._authSignOut()
+        onConfirm: () => chunksSignOut()
       });
       break;
     }
@@ -8852,10 +9089,12 @@ function settingsFontSize(size, btn) {
       btn.querySelector('span').textContent = value;
     }
 
-    // Accent color — special: restore dot + colored label
+    // Accent color — special: restore dot + colored label + CSS variables
     const accentName  = localStorage.getItem('chunks_setting_accent');
     const accentColor = localStorage.getItem('chunks_setting_accent_color');
     if (accentName && accentColor) {
+      // Apply CSS variables immediately so the whole UI reflects the saved color
+      if (typeof applyAccentColor === 'function') applyAccentColor(accentColor);
       const menu = document.querySelector('.settings-select-menu[data-setting-key="accent"]');
       if (menu) {
         const btn = menu.previousElementSibling;
@@ -8865,8 +9104,9 @@ function settingsFontSize(size, btn) {
           menu.querySelectorAll('.settings-select-option').forEach(o => o.classList.remove('selected'));
           match.classList.add('selected');
           const dot = document.getElementById('accent-dot');
-          if (dot) dot.style.background = accentColor;
-          btn.querySelector('span').innerHTML = `<span style="display:inline-flex;align-items:center;gap:7px;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${accentColor};flex-shrink:0;"></span>${accentName}</span>`;
+          const dotColor = accentColor === '#888' ? 'var(--text-3)' : accentColor;
+          if (dot) dot.style.background = dotColor;
+          btn.querySelector('span').innerHTML = `<span style="display:inline-flex;align-items:center;gap:7px;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${dotColor};flex-shrink:0;"></span>${accentName}</span>`;
         }
       }
     }
@@ -8923,6 +9163,342 @@ function settingsFontSize(size, btn) {
       : init();
   } catch(e) {}
 })();
+
+/* ── Admin Panel connection ───────────────────────────────────────────
+   Opens admin.html in a new tab. The button is only shown for emails
+   listed in ADMIN_EMAILS — checked once on page load and on dropdown open.
+   ─────────────────────────────────────────────────────────────────── */
+/* ════════════════════════════════════════════════════════════
+   PLAN + PRESENCE SYSTEM
+   Uses API_BASE (already configured and working in this file)
+   to get Supabase config, waits for deferred window.supabase,
+   then loads the user's plan and broadcasts presence.
+════════════════════════════════════════════════════════════ */
+
+let _chunksSb     = null;
+let _chunksConfig = null;
+let _currentUser  = null;
+let _presenceChan = null;
+
+/* Wait for the deferred supabase script to finish loading */
+function _waitForSupabase() {
+  return new Promise(resolve => {
+    if (window.supabase) return resolve(window.supabase);
+    let waited = 0;
+    const t = setInterval(() => {
+      waited += 100;
+      if (window.supabase) { clearInterval(t); resolve(window.supabase); }
+      else if (waited >= 8000) { clearInterval(t); resolve(null); }
+    }, 100);
+  });
+}
+
+/* Build (or reuse) a Supabase client.
+   Priority:
+   1. localStorage chunks_sb_url / chunks_sb_anon (written by admin.html) — instant, works for guests
+   2. Fetch /api/config from backend — works in prod even without admin session
+*/
+async function _getChunksSb() {
+  if (_chunksSb) return _chunksSb;
+  const lib = await _waitForSupabase();
+  if (!lib) { console.warn('[Chunks] supabase lib not ready'); return null; }
+
+  let url = '', anon = '';
+
+  // Priority 1: read from localStorage (set by admin.html after login)
+  try {
+    url  = localStorage.getItem('chunks_sb_url')  || '';
+    anon = localStorage.getItem('chunks_sb_anon') || '';
+  } catch(e) {}
+
+  // Priority 2: fetch config from backend
+  if (!url || !anon) {
+    const backends = [API_BASE, 'https://chemistry-app-production.up.railway.app'];
+    for (const base of backends) {
+      try {
+        const r = await fetch(`${base}/api/config`, { signal: AbortSignal.timeout(5000) });
+        const c = await r.json();
+        if (c?.supabaseUrl && c?.supabaseAnonKey) {
+          url  = c.supabaseUrl;
+          anon = c.supabaseAnonKey;
+          // Cache for next time
+          try { localStorage.setItem('chunks_sb_url', url); localStorage.setItem('chunks_sb_anon', anon); } catch(e) {}
+          break;
+        }
+      } catch(e) { console.warn('[Chunks] Config fetch failed from', base, e.message); }
+    }
+  }
+
+  if (!url || !anon) { console.warn('[Chunks] No Supabase credentials available'); return null; }
+
+  _chunksSb = lib.createClient(url, anon, {
+    auth: { persistSession: true, autoRefreshToken: true, storage: localStorage }
+  });
+  console.log('[Chunks] Supabase ready:', url);
+  return _chunksSb;
+}
+
+/* Read logged-in email from Supabase localStorage session */
+function _getSessionEmail() {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.includes('auth-token') || k.includes('supabase.auth'))) {
+        const raw = JSON.parse(localStorage.getItem(k) || '{}');
+        const e = raw?.user?.email || raw?.currentSession?.user?.email;
+        if (e) return e;
+      }
+    }
+  } catch(e) {}
+  return null;
+}
+
+/* ── Plan UI ── */
+const PLAN_LABELS = { free: 'Free Plan', pro: 'Pro', ultra: 'Ultra' };
+const PLAN_COLORS = { free: 'var(--text-3)', pro: 'var(--green)', ultra: 'var(--gold)' };
+const PLAN_ICONS  = { free: '', pro: '\u2B50 ', ultra: '\u26A1 ' };
+function _normPlan(raw) {
+  const p = String(raw||'').toLowerCase().trim();
+  return p === 'ultra' ? 'ultra' : p === 'pro' ? 'pro' : 'free';
+}
+function _applyPlanUI(planRow) {
+  const plan  = _normPlan(planRow?.plan);
+  const label = PLAN_ICONS[plan] + PLAN_LABELS[plan];
+  const color = PLAN_COLORS[plan];
+  document.querySelectorAll('.profile-plan').forEach(el => { el.textContent = label; el.style.color = color; });
+  document.querySelectorAll('.md-profile-plan').forEach(el => { el.textContent = label; el.style.color = color; });
+  const upgradeItem = document.querySelector('.pd-item.upgrade');
+  if (upgradeItem) upgradeItem.style.display = plan === 'ultra' ? 'none' : '';
+  window._userPlan    = plan;
+  window._userPlanRow = planRow;
+}
+
+/* ── Load plan from Supabase ── */
+async function _refreshUserPlan() {
+  try {
+    const email = _getSessionEmail();
+    const sb    = await _getChunksSb();
+    if (sb && email) {
+      const { data, error } = await sb.from('users')
+        .select('email, plan, subscription_end, paid, full_name')
+        .eq('email', email).single();
+      if (!error && data) _currentUser = data;
+      else _currentUser = { email, plan: 'free' };
+    } else {
+      _currentUser = email ? { email, plan: 'free' } : null;
+    }
+    _applyPlanUI(_currentUser);
+    _checkAdminAccess();
+  } catch(e) {
+    console.warn('[Chunks] Plan load error:', e.message);
+    _applyPlanUI(null);
+  }
+  _startPresence(); // always start presence after plan attempt
+}
+
+/* ── Presence broadcast ── */
+async function _startPresence() {
+  try {
+    const sb = await _getChunksSb();
+    if (!sb) { console.warn('[Chunks] Presence skipped: no Supabase'); return; }
+
+    if (_presenceChan) {
+      try { await sb.removeChannel(_presenceChan); } catch(e) {}
+      _presenceChan = null;
+    }
+
+    const email   = _getSessionEmail() || _currentUser?.email;
+    const payload = email
+      ? { type: 'user', email, plan: _currentUser?.plan || 'free' }
+      : { type: 'guest' };
+
+    _presenceChan = sb.channel('app-presence');
+    _presenceChan.subscribe(async (status) => {
+      console.log('[Chunks] Presence:', status);
+      if (status === 'SUBSCRIBED') {
+        const r = await _presenceChan.track(payload);
+        console.log('[Chunks] Tracked:', JSON.stringify(payload), r);
+      }
+    });
+
+    window.removeEventListener('beforeunload', window._chunksUntrack);
+    window._chunksUntrack = () => { try { _presenceChan?.untrack(); } catch(e) {} };
+    window.addEventListener('beforeunload', window._chunksUntrack);
+  } catch(e) {
+    console.warn('[Chunks] Presence error:', e.message);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => setTimeout(_refreshUserPlan, 800));
+
+/* ════════════════════════════════════════════════════════════
+   GOOGLE AUTH + USER REGISTRATION
+   Handles sign-in via Google OAuth and automatically writes
+   the user into the `users` table so they appear in admin.
+════════════════════════════════════════════════════════════ */
+
+async function chunksSignIn() {
+  const sb = await _getChunksSb();
+  if (!sb) { console.warn('[Auth] No Supabase client'); return; }
+  await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.href, queryParams: { prompt: 'select_account' } }
+  });
+}
+
+async function chunksSignOut() {
+  const sb = await _getChunksSb();
+  if (sb) await sb.auth.signOut();
+  _currentUser = null;
+  _applyPlanUI(null);
+  location.reload();
+}
+
+/* Register or refresh user in the `users` table */
+async function _ensureUserInDb(session) {
+  if (!session?.user) return;
+  const sb = await _getChunksSb();
+  if (!sb) return;
+  const { user } = session;
+  const email     = user.email;
+  const full_name = user.user_metadata?.full_name || user.user_metadata?.name || email.split('@')[0];
+  const avatar    = user.user_metadata?.avatar_url || '';
+
+  const { error } = await sb.from('users').upsert({
+    email,
+    full_name,
+    avatar,
+    plan:       'free',
+    approved:   true,
+    created_at: new Date().toISOString()
+  }, { onConflict: 'email', ignoreDuplicates: true });
+
+  if (error) console.warn('[Auth] User upsert error:', error.message);
+  else console.log('[Auth] User registered/verified:', email);
+}
+
+/* Update profile UI with real user data */
+function _applyUserProfile(session) {
+  if (!session?.user) return;
+  const { user } = session;
+  const email     = user.email;
+  const full_name = user.user_metadata?.full_name || user.user_metadata?.name || '';
+  const firstName = full_name.split(' ')[0] || email.split('@')[0];
+  const initials  = full_name
+    ? full_name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+    : email[0].toUpperCase();
+  const handle    = '@' + email.split('@')[0];
+
+  // Sidebar profile rows
+  document.querySelectorAll('.profile-name').forEach(el => el.textContent = firstName);
+
+  // Profile dropdown
+  const pdAvatar = document.querySelector('.pd-avatar');
+  const pdName   = document.querySelector('.pd-name');
+  const pdHandle = document.querySelector('.pd-handle');
+  if (pdAvatar) pdAvatar.textContent = initials;
+  if (pdName)   pdName.textContent   = full_name || firstName;
+  if (pdHandle) pdHandle.textContent = handle;
+
+  // Settings name
+  document.querySelectorAll('.settings-account-name, [data-user-name]').forEach(el => el.textContent = full_name || firstName);
+  document.querySelectorAll('.settings-account-email, [data-user-email]').forEach(el => el.textContent = email);
+
+  // Mobile drawer
+  const mdName = document.querySelector('.md-profile-name');
+  if (mdName) mdName.textContent = firstName;
+}
+
+/* Boot: check for existing session and listen for auth changes */
+async function _initAuth() {
+  const sb = await _getChunksSb();
+  if (!sb) return;
+
+  // Handle OAuth redirect (access_token in URL hash)
+  if (window.location.hash.includes('access_token') || window.location.search.includes('code=')) {
+    const { data } = await sb.auth.getSession();
+    if (data?.session) {
+      history.replaceState(null, '', window.location.pathname);
+      await _ensureUserInDb(data.session);
+      _applyUserProfile(data.session);
+    }
+  }
+
+  // Restore existing session
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    await _ensureUserInDb(session);
+    _applyUserProfile(session);
+  }
+
+  // Listen for auth changes (sign-in / sign-out / token refresh)
+  sb.auth.onAuthStateChange(async (event, session) => {
+    console.log('[Auth] Event:', event);
+    if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+      await _ensureUserInDb(session);
+      _applyUserProfile(session);
+      await _refreshUserPlan();
+    } else if (event === 'SIGNED_OUT') {
+      _currentUser = null;
+      _applyPlanUI(null);
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => setTimeout(_initAuth, 1000));
+const ADMIN_EMAILS = ['contridascharles91@gmail.com', 'deffmichaeldawang@gmail.com'];
+
+function openAdminPanel() {
+  window.open('admin.html', '_blank', 'noopener,noreferrer');
+}
+
+function _checkAdminAccess() {
+  // Use confirmed email from plan load if available
+  const email = _currentUser?.email || (() => {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.includes('auth-token') || k.includes('supabase'))) {
+          const raw = JSON.parse(localStorage.getItem(k) || '{}');
+          const candidate = raw?.user?.email || raw?.currentSession?.user?.email;
+          if (candidate) return candidate;
+        }
+      }
+    } catch(e) {}
+    return document.querySelector('.pd-handle')?.textContent?.trim().replace(/^@/, '') || '';
+  })();
+
+  const isAdmin = ADMIN_EMAILS.includes(email);
+  const btn = document.getElementById('pd-admin-btn');
+  if (btn) btn.style.display = isAdmin ? '' : 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  _checkAdminAccess();
+  // Re-check when the dropdown opens, in case profile loaded async
+  document.getElementById('profile-dropdown')?.addEventListener('animationstart', _checkAdminAccess);
+});
+setTimeout(_checkAdminAccess, 1200);
+
+function openUpgradeModal() {
+  document.getElementById('upgrade-modal')?.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+function closeUpgradeModal() {
+  document.getElementById('upgrade-modal')?.classList.remove('active');
+  document.body.style.overflow = '';
+}
+function handleUpgradeClick(plan) {
+  closeUpgradeModal();
+  const label = plan === 'ultra' ? 'Ultra' : 'Pro';
+  wsShowToast && wsShowToast('⭐', `Redirecting to ${label} checkout…`, 'var(--gold-border)');
+  // TODO: replace with actual checkout URLs
+  // if (plan === 'ultra') window.open('https://chunks.ai/checkout/ultra', '_blank');
+  // else window.open('https://chunks.ai/checkout/pro', '_blank');
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeUpgradeModal();
+});
 
 function settingsNav(page, el) {
   document.querySelectorAll('.settings-nav-item').forEach(n => {
@@ -8993,6 +9569,44 @@ function settingsSelect(optionEl) {
   btn.setAttribute('aria-expanded', 'false');
 }
 
+/* ── Convert hex color → r,g,b triple ── */
+function _hexToRgb(hex) {
+  const h = hex.replace('#', '');
+  const n = parseInt(h.length === 3
+    ? h.split('').map(c => c + c).join('')
+    : h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/* ── Apply accent color by overriding the --gold family of CSS vars ──
+   The UI uses var(--gold), var(--gold-bright), var(--gold-muted),
+   var(--gold-glow), var(--gold-border) everywhere — not --accent.
+   We remap those to the chosen color so the whole UI updates.        */
+function applyAccentColor(color) {
+  const root = document.documentElement;
+  if (!color || color === '#888') {
+    // Default — restore gold
+    root.style.removeProperty('--gold');
+    root.style.removeProperty('--gold-bright');
+    root.style.removeProperty('--gold-muted');
+    root.style.removeProperty('--gold-glow');
+    root.style.removeProperty('--gold-border');
+    root.style.removeProperty('--accent');
+    root.style.removeProperty('--accent-dim');
+    root.style.removeProperty('--accent-glow');
+  } else {
+    const [r, g, b] = _hexToRgb(color);
+    root.style.setProperty('--gold',        color);
+    root.style.setProperty('--gold-bright', color);
+    root.style.setProperty('--gold-muted',  `rgba(${r},${g},${b},0.10)`);
+    root.style.setProperty('--gold-glow',   `rgba(${r},${g},${b},0.20)`);
+    root.style.setProperty('--gold-border', `rgba(${r},${g},${b},0.22)`);
+    root.style.setProperty('--accent',      color);
+    root.style.setProperty('--accent-dim',  `rgba(${r},${g},${b},0.12)`);
+    root.style.setProperty('--accent-glow', `rgba(${r},${g},${b},0.25)`);
+  }
+}
+
 function settingsSelectAccent(optionEl, color, name) {
   const menu = optionEl.closest('.settings-select-menu');
   const btn  = menu.previousElementSibling;
@@ -9000,12 +9614,16 @@ function settingsSelectAccent(optionEl, color, name) {
   menu.querySelectorAll('.settings-select-option').forEach(o => o.classList.remove('selected'));
   optionEl.classList.add('selected');
 
+  // Apply accent CSS variables immediately
+  applyAccentColor(color);
+
   // Update the color dot
   const dot = document.getElementById('accent-dot');
-  if (dot) dot.style.background = color;
+  if (dot) dot.style.background = color === '#888' ? 'var(--text-3)' : color;
 
   // Update button label
-  btn.querySelector('span').innerHTML = `<span style="display:inline-flex;align-items:center;gap:7px;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0;"></span>${name}</span>`;
+  const displayColor = color === '#888' ? 'var(--text-3)' : color;
+  btn.querySelector('span').innerHTML = `<span style="display:inline-flex;align-items:center;gap:7px;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${displayColor};flex-shrink:0;"></span>${name}</span>`;
 
   // Persist both name and color
   try {
@@ -13776,7 +14394,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
           <div class="settings-row-left"><div class="settings-row-label">Plan</div><div class="settings-row-desc">Upgrade to unlock more features.</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="font-size:12px;color:var(--text-3);">Free</span>
-            <button onclick="closeSettings();pdAction('upgrade')" style="padding:5px 12px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Upgrade</button>
+            <button onclick="closeSettings();openUpgradeModal()" style="padding:5px 12px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Upgrade</button>
           </div>
         </div>
         <div class="settings-row">
@@ -13802,6 +14420,10 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     <div class="pd-item upgrade" role="menuitem" tabindex="0" onclick="pdAction('upgrade')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('upgrade')" onmouseenter="_closeHelp();_closeTerms();">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
       Upgrade plan
+    </div>
+    <div class="pd-item" id="pd-admin-btn" role="menuitem" tabindex="0" onclick="pdAction('admin')" onmouseenter="_closeHelp();_closeTerms();" style="display:none;color:#ff6b6b;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      Admin Panel
     </div>
     <div class="pd-divider" role="separator"></div>
     <div class="pd-item" role="menuitem" tabindex="0" onclick="pdAction('personalization')" onkeydown="if(event.key==='Enter'||event.key===' ')pdAction('personalization')" onmouseenter="_closeHelp();_closeTerms();">
@@ -16651,7 +17273,7 @@ document.addEventListener('click', function(e) {
         <div class="md-profile-name">Alex Cruz</div>
         <div class="md-profile-plan">Free Plan</div>
       </div>
-      <div class="md-upgrade">Upgrade</div>
+      <div class="md-upgrade" onclick="closeMobileDrawer();openUpgradeModal()" style="cursor:pointer;">Upgrade</div>
     </div>
   </div>
 
