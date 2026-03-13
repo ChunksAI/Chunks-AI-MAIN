@@ -7714,7 +7714,7 @@ function _renderAllRecent() {
   });
 
   // Render workspace/book history into all sidebars
-  ['recent-list-home','recent-list-workspace','recent-list-flash','recent-list-ws-research','recent-list-ws-exam'].forEach(id => {
+  ['recent-list-home','recent-list-workspace','recent-list-flash','recent-list-ws-research','recent-list-ws-exam','recent-list-ws-studyplan'].forEach(id => {
     const container = document.getElementById(id);
     if (!container) return;
     container.innerHTML = '';
@@ -15059,9 +15059,13 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
     <!-- Recent Chats — populated by _renderAllRecent() -->
     <div class="sidebar-divider"></div>
-    <div class="sidebar-section" style="flex:1;overflow-y:auto;min-height:0;">
-      <div class="sidebar-section-label">Recent Chats</div>
-      <div id="recent-list-general-studyplan"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">General AI</div>
+      <div id="recent-list-general-studyplan" class="recent-list"></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Workspace</div>
+      <div id="recent-list-ws-studyplan" class="recent-list"></div>
     </div>
 
     <!-- Saved Plans — shown only after a plan is created -->
