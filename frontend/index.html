@@ -3444,30 +3444,37 @@ body {
 .sp-body { flex:1; display:flex; overflow:hidden; }
 .sp-roadmap-col { flex:1; overflow-y:auto; padding:28px 28px 40px; min-width:0; }
 .sp-detail-col { width:300px; flex-shrink:0; border-left:1px solid var(--border-xs); overflow-y:auto; padding:24px 20px; display:flex; flex-direction:column; gap:20px; }
-.sp-setup { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100%; padding:40px; gap:32px; }
-.sp-setup-hero { text-align:center; max-width:500px; }
-.sp-setup-icon { width:56px; height:56px; border-radius:18px; background:var(--gold-muted); border:1px solid var(--gold-border); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; }
-.sp-setup-title { font-family:var(--font-head); font-size:22px; font-weight:800; color:var(--text-1); letter-spacing:-0.02em; margin-bottom:8px; }
-.sp-setup-subtitle { font-size:13px; color:var(--text-3); line-height:1.65; }
-.sp-setup-card { width:100%; max-width:560px; background:var(--surface-1); border:1px solid var(--border-sm); border-radius:var(--r-xl); overflow:hidden; }
-.sp-setup-card-header { padding:18px 22px 14px; border-bottom:1px solid var(--border-xs); }
-.sp-setup-card-header h2 { font-family:var(--font-head); font-size:14px; font-weight:700; color:var(--text-1); margin-bottom:3px; }
+.sp-setup { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:100%; padding:36px 40px; gap:24px; }
+.sp-setup-hero { text-align:center; max-width:520px; }
+.sp-setup-icon { width:64px; height:64px; border-radius:20px; background:linear-gradient(135deg, var(--gold-muted) 0%, rgba(232,172,46,0.05) 100%); border:1px solid var(--gold-border); display:flex; align-items:center; justify-content:center; margin:0 auto 18px; box-shadow:0 0 32px rgba(232,172,46,0.12), 0 4px 16px rgba(0,0,0,0.3); position:relative; }
+.sp-setup-icon::after { content:''; position:absolute; inset:-1px; border-radius:21px; background:linear-gradient(135deg,rgba(232,172,46,0.3),transparent 60%); pointer-events:none; }
+.sp-setup-title { font-family:var(--font-head); font-size:26px; font-weight:800; color:var(--text-1); letter-spacing:-0.03em; margin-bottom:10px; }
+.sp-setup-subtitle { font-size:13px; color:var(--text-3); line-height:1.7; max-width:400px; margin:0 auto; }
+.sp-hero-chips { display:flex; flex-wrap:wrap; gap:6px; justify-content:center; margin-top:18px; }
+.sp-hero-chip { display:inline-flex; align-items:center; gap:5px; padding:5px 11px; border-radius:var(--r-pill); border:1px solid var(--border-xs); background:var(--surface-1); font-size:11px; color:var(--text-3); font-family:var(--font-body); transition:border-color var(--t-fast),color var(--t-fast); }
+.sp-hero-chip:hover { border-color:var(--gold-border); color:var(--gold); }
+.sp-setup-card { width:100%; max-width:560px; background:var(--surface-1); border:1px solid var(--border-sm); border-radius:var(--r-xl); overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.25), 0 1px 0 rgba(255,255,255,0.04) inset; }
+.sp-setup-card-header { padding:20px 24px 16px; border-bottom:1px solid var(--border-xs); background:linear-gradient(180deg,var(--surface-2) 0%,transparent 100%); }
+.sp-setup-card-header h2 { font-family:var(--font-head); font-size:15px; font-weight:700; color:var(--text-1); margin-bottom:3px; }
 .sp-setup-card-header p { font-size:12px; color:var(--text-3); }
-.sp-setup-card-body { padding:20px 22px; display:flex; flex-direction:column; gap:16px; }
+.sp-setup-card-body { padding:20px 24px; display:flex; flex-direction:column; gap:16px; }
 .sp-src-tabs { display:flex; gap:4px; background:var(--surface-2); padding:3px; border-radius:var(--r-sm); border:1px solid var(--border-xs); }
-.sp-src-tab { flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:6px 10px; border-radius:6px; border:none; background:transparent; color:var(--text-3); font-family:var(--font-body); font-size:12px; font-weight:500; cursor:pointer; transition:all var(--t-fast); }
-.sp-src-tab.active { background:var(--surface-3); color:var(--text-1); border:1px solid var(--border-sm); }
-.sp-field label { display:block; font-size:12px; font-weight:600; color:var(--text-2); margin-bottom:7px; letter-spacing:0.01em; }
-.sp-input { width:100%; background:var(--surface-2); border:1px solid var(--border-sm); border-radius:var(--r-md); padding:10px 13px; font-family:var(--font-body); font-size:13px; color:var(--text-1); outline:none; transition:border-color var(--t-fast); }
+.sp-src-tab { flex:1; display:flex; align-items:center; justify-content:center; gap:5px; padding:7px 10px; border-radius:6px; border:none; background:transparent; color:var(--text-3); font-family:var(--font-body); font-size:12px; font-weight:500; cursor:pointer; transition:all var(--t-fast); }
+.sp-src-tab.active { background:var(--surface-3); color:var(--text-1); border:1px solid var(--border-sm); box-shadow:0 1px 4px rgba(0,0,0,0.2); }
+.sp-field label { display:block; font-size:11px; font-weight:600; color:var(--text-3); margin-bottom:8px; letter-spacing:0.06em; text-transform:uppercase; }
+.sp-input { width:100%; background:var(--surface-2); border:1px solid var(--border-sm); border-radius:var(--r-md); padding:11px 14px; font-family:var(--font-body); font-size:13px; color:var(--text-1); outline:none; transition:border-color var(--t-fast),box-shadow var(--t-fast); }
 .sp-input::placeholder { color:var(--text-4); }
-.sp-input:focus { border-color:var(--gold-border); }
-.sp-upload-zone { border:1.5px dashed var(--border-md); border-radius:var(--r-md); padding:24px 16px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:border-color var(--t-fast),background var(--t-fast); text-align:center; gap:0; }
-.sp-upload-zone:hover { border-color:var(--gold-border); background:var(--gold-muted); }
-.sp-upload-zone-label { font-size:12px; font-weight:600; color:var(--text-2); margin:8px 0 3px; }
+.sp-input:focus { border-color:var(--gold-border); box-shadow:0 0 0 3px rgba(232,172,46,0.08); }
+.sp-upload-zone { border:1.5px dashed var(--border-md); border-radius:var(--r-lg); padding:32px 20px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:border-color var(--t-fast),background var(--t-fast),box-shadow var(--t-fast); text-align:center; gap:0; background:var(--surface-2); }
+.sp-upload-zone:hover { border-color:var(--gold-border); background:rgba(232,172,46,0.04); box-shadow:0 0 0 4px rgba(232,172,46,0.06); }
+.sp-upload-zone-icon { width:40px; height:40px; border-radius:12px; background:var(--surface-3); border:1px solid var(--border-sm); display:flex; align-items:center; justify-content:center; margin-bottom:12px; transition:background var(--t-fast),border-color var(--t-fast); }
+.sp-upload-zone:hover .sp-upload-zone-icon { background:var(--gold-muted); border-color:var(--gold-border); }
+.sp-upload-zone-label { font-size:13px; font-weight:600; color:var(--text-1); margin-bottom:4px; }
 .sp-upload-zone-sub { font-size:11px; color:var(--text-4); }
-.sp-generate-btn { width:100%; padding:12px; border-radius:var(--r-md); border:none; background:var(--gold); color:#090900; font-family:var(--font-body); font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:background var(--t-fast),transform var(--t-fast) var(--ease-spring); }
-.sp-generate-btn:hover { background:var(--gold-bright); transform:translateY(-1px); }
-.sp-generate-btn:disabled { cursor:not-allowed; }
+.sp-generate-btn { width:100%; padding:13px; border-radius:var(--r-md); border:none; background:linear-gradient(135deg,var(--gold) 0%,var(--gold-bright) 100%); color:#090900; font-family:var(--font-body); font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:opacity var(--t-fast),transform var(--t-fast) var(--ease-spring),box-shadow var(--t-fast); box-shadow:0 4px 16px rgba(232,172,46,0.25); letter-spacing:0.01em; }
+.sp-generate-btn:hover { opacity:0.92; transform:translateY(-1px); box-shadow:0 6px 24px rgba(232,172,46,0.35); }
+.sp-generate-btn:active { transform:translateY(0); }
+.sp-generate-btn:disabled { cursor:not-allowed; opacity:0.5; box-shadow:none; }
 .sp-plan-header { background:var(--surface-1); border:1px solid var(--border-sm); border-radius:var(--r-xl); padding:20px 22px; margin-bottom:24px; display:flex; align-items:center; gap:20px; }
 .sp-plan-header-info { flex:1; min-width:0; }
 .sp-plan-header-eyebrow { font-family:var(--font-mono); font-size:10px; color:var(--gold); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:5px; }
@@ -4402,8 +4409,9 @@ body {
   /* Hero: horizontal compact row instead of centered block */
   .sp-setup-hero {
     display: flex !important;
-    align-items: center !important;
-    gap: 14px !important;
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    gap: 10px !important;
     text-align: left !important;
     max-width: 100% !important;
   }
@@ -4415,13 +4423,15 @@ body {
     margin: 0 !important;
   }
   .sp-setup-title {
-    font-size: 17px !important;
+    font-size: 20px !important;
     margin-bottom: 4px !important;
   }
   .sp-setup-subtitle {
     font-size: 12px !important;
     line-height: 1.5 !important;
+    margin: 0 !important;
   }
+  .sp-hero-chips { justify-content: flex-start !important; }
 
   /* Setup card: full width, no max-width constraint */
   .sp-setup-card {
@@ -15027,17 +15037,11 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
       </div>
     </div>
 
-    <div class="sidebar-divider"></div>
-
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Recent Plans</div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Organic Chemistry" style="cursor:pointer; font-size:12px; padding: 6px 16px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Organic Chemistry</span>
-      </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Cell Biology — Midterm" style="cursor:pointer; font-size:12px; padding: 6px 16px;">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Cell Biology — Midterm</span>
+    <div id="sp-recent-plans-section" style="display:none;">
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Recent Plans</div>
+        <div id="sp-recent-plans-list"></div>
       </div>
     </div>
 
@@ -15082,12 +15086,21 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
       <!-- ══ EMPTY / SETUP STATE ══ -->
       <div id="sp-empty-state" style="flex:1;overflow-y:auto;">
         <div class="sp-setup">
+
+          <!-- Hero -->
           <div class="sp-setup-hero">
             <div class="sp-setup-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e8ac2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#e8ac2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
             </div>
             <div class="sp-setup-title">Build Your Critical Path</div>
             <div class="sp-setup-subtitle">Upload your lecture slides or enter a topic — the AI will break it into essential concepts and guide you step-by-step to full mastery.</div>
+            <!-- Feature chips integrated near hero -->
+            <div class="sp-hero-chips">
+              <span class="sp-hero-chip"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>Step-by-step pacing</span>
+              <span class="sp-hero-chip"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Mastery tracking</span>
+              <span class="sp-hero-chip"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>AI flashcards</span>
+              <span class="sp-hero-chip"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 11l3 3L22 4"/></svg>Exam simulation</span>
+            </div>
           </div>
 
           <!-- Setup Card -->
@@ -15127,7 +15140,9 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
                   ondragover="spDragOver(event)"
                   ondragleave="spDragLeave(event)"
                   ondrop="spDrop(event)">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-4);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <div class="sp-upload-zone-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-3);"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  </div>
                   <div class="sp-upload-zone-label">Drop a PDF here or click to browse</div>
                   <div class="sp-upload-zone-sub">AI will extract every concept from your slides</div>
                 </div>
@@ -15196,26 +15211,6 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
               </button>
 
             </div>
-          </div>
-
-          <!-- Feature chips -->
-          <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:500px;">
-            <span style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r-pill);border:1px solid var(--border-xs);background:var(--surface-1);font-size:11px;color:var(--text-3);">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-              Step-by-step pacing
-            </span>
-            <span style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r-pill);border:1px solid var(--border-xs);background:var(--surface-1);font-size:11px;color:var(--text-3);">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-              Mastery tracking
-            </span>
-            <span style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r-pill);border:1px solid var(--border-xs);background:var(--surface-1);font-size:11px;color:var(--text-3);">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
-              AI flashcards
-            </span>
-            <span style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--r-pill);border:1px solid var(--border-xs);background:var(--surface-1);font-size:11px;color:var(--text-3);">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/></svg>
-              Exam simulation
-            </span>
           </div>
 
         </div>
@@ -15952,13 +15947,28 @@ Rules:
 - Keep titles sharp and student-friendly.
 - estimatedHours should be the sum of all estimatedMinutes / 60, rounded to 1 decimal.`;
 
+  // Cap PDF content at 16 000 chars — leaves headroom under the 20 000 backend limit
+  const contentSlice = sourceType === 'topic' ? sourceContent : sourceContent.slice(0, 16000);
   const userPrompt = sourceType === 'topic'
-    ? `Build a critical path for: ${sourceContent}`
-    : `Analyze the following material and build a critical path to mastery:\n\n${sourceContent.slice(0, 12000)}`;
+    ? `Build a critical path for: ${contentSlice}`
+    : `Analyze the following material and build a critical path to mastery:\n\n${contentSlice}`;
 
-  // ── Backend call — same /ask proxy used by exam & research screens ──
-  // Embed the system prompt inline so the backend treats it as one question
+  // ── Backend call ─────────────────────────────────────────────────────────────
+  // We send system + user prompt as a single question field.
+  // sourceType is passed separately so the backend knows not to inject book context.
   const fullPrompt = systemPrompt + '\n\n' + userPrompt;
+
+  // Try to attach the auth token if the user is signed in (improves rate limit tier).
+  let _authHeaders = { 'Content-Type': 'application/json' };
+  try {
+    const _sb = await _getChunksSb();
+    if (_sb) {
+      const { data: _sess } = await _sb.auth.getSession();
+      if (_sess?.session?.access_token) {
+        _authHeaders['Authorization'] = 'Bearer ' + _sess.session.access_token;
+      }
+    }
+  } catch (_) { /* no auth — continue anyway */ }
 
   let _spAttempt = 0;
   const _spMaxAttempts = 3;
@@ -15966,7 +15976,7 @@ Rules:
   const _spTryGenerate = async () => {
     const response = await fetch(API_BASE + '/ask', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: _authHeaders,
       body: JSON.stringify({
         question:   fullPrompt,
         mode:       'generate',
@@ -15978,13 +15988,35 @@ Rules:
 
     if (response.status === 429) throw Object.assign(new Error('Server is busy — please wait a moment and try again.'), { noRetry: true });
     if (response.status >= 500) throw new Error('Server error ' + response.status + ' — please retry.');
-    if (!response.ok)           throw Object.assign(new Error('Server error ' + response.status), { noRetry: true });
+    if (!response.ok) {
+      let errMsg = 'Server error ' + response.status;
+      try { const e = await response.json(); errMsg = e.error || errMsg; } catch(_) {}
+      throw Object.assign(new Error(errMsg), { noRetry: response.status < 500 });
+    }
 
-    const data    = await response.json();
-    const rawText = (data.answer || data.response || data.text || data.content || '').trim();
-    if (!rawText) throw new Error('Empty response from server.');
+    const data = await response.json();
 
-    const plan = JSON.parse(rawText.replace(/```(?:json)?/g, '').trim());
+    // Backend /ask in generate mode returns { success: true, answer: <object> }
+    // where answer is already parsed JSON — handle both parsed object and raw string.
+    let plan;
+    if (data.answer && typeof data.answer === 'object' && data.answer.concepts) {
+      // Already a parsed plan object
+      plan = data.answer;
+    } else {
+      // Fallback: treat as raw text and parse
+      const rawText = (
+        typeof data.answer === 'string' ? data.answer :
+        data.response || data.text || data.content || JSON.stringify(data.answer) || ''
+      ).trim();
+      if (!rawText) throw new Error('Empty response from server.');
+      const cleaned = rawText.replace(/```(?:json)?/g, '').trim();
+      plan = JSON.parse(cleaned);
+    }
+
+    if (!plan || !Array.isArray(plan.concepts) || plan.concepts.length === 0) {
+      throw new Error('Invalid plan structure returned. Please try again.');
+    }
+
     _spCurrentPlan = plan;
     _spMastery = {};  // reset mastery for new plan
     spHideOverlay();
@@ -16202,6 +16234,44 @@ function spShowPlan() {
   document.getElementById('toggle-plan').classList.add('active-view');
   document.getElementById('toggle-empty').classList.remove('active-view');
 }
+
+function spSavePlanToSidebar(topic) {
+  if (!topic) return;
+  // Load existing plans from localStorage
+  let plans = [];
+  try { plans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]'); } catch(e) {}
+  // Deduplicate and prepend
+  plans = plans.filter(p => p !== topic);
+  plans.unshift(topic);
+  plans = plans.slice(0, 6); // max 6 recent plans
+  localStorage.setItem('sp_recent_plans', JSON.stringify(plans));
+  spRenderRecentPlansSidebar(plans);
+}
+
+function spRenderRecentPlansSidebar(plans) {
+  const section = document.getElementById('sp-recent-plans-section');
+  const list = document.getElementById('sp-recent-plans-list');
+  if (!section || !list) return;
+  if (!plans || plans.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  list.innerHTML = plans.map(p => `
+    <div class="sidebar-item" role="button" tabindex="0" aria-label="${p}" style="cursor:pointer;font-size:12px;padding:6px 16px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p}</span>
+    </div>
+  `).join('');
+}
+
+// On load, restore recent plans from localStorage
+(function() {
+  try {
+    const plans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]');
+    spRenderRecentPlansSidebar(plans);
+  } catch(e) {}
+})();
 
 function spAnimateBars() {
   document.querySelectorAll('.sp-mastery-bar-fill').forEach(bar => {
