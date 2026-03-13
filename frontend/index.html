@@ -9,7 +9,7 @@
   style-src 'self' https://fonts.googleapis.com https://cdn.jsdelivr.net 'unsafe-inline';
   font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:;
   img-src 'self' data: blob: https:;
-  connect-src 'self' https://chunks-ai-main-production.up.railway.app https://chemistry-app-production.up.railway.app https://*.supabase.co wss://*.supabase.co https://cdnjs.cloudflare.com;
+  connect-src 'self' https://chunks-ai-main-production.up.railway.app https://chemistry-app-production.up.railway.app https://*.supabase.co wss://*.supabase.co https://cdnjs.cloudflare.com https://cdn.jsdelivr.net;
   worker-src blob: https://cdnjs.cloudflare.com;
   frame-src 'none';
   object-src 'none';
@@ -497,6 +497,7 @@ select:focus-visible {
   background: linear-gradient(135deg, #8b7cf8, #e8ac2e);
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
+  overflow: hidden;
 }
 
 .profile-name { font-size: 13px; font-weight: 500; color: var(--text-1); }
@@ -1640,14 +1641,67 @@ select:focus-visible {
 }
 .chat-send:hover { background: var(--gold-bright); transform: scale(1.06); }
 
+/* ── Attachment popup menu ── */
+.attach-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border-md);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  padding: 4px;
+  z-index: 999;
+  min-width: 160px;
+  opacity: 0; transform: translateY(6px) scale(0.97);
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.attach-menu.open { opacity: 1; transform: none; pointer-events: all; }
+.attach-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; color: var(--text-2);
+  transition: background 0.1s, color 0.1s;
+}
+.attach-menu-item:hover { background: var(--surface-3); color: var(--text-1); }
+.attach-menu-item svg { flex-shrink: 0; color: var(--text-3); }
+
+/* ── Attachment preview strip ── */
+.attach-preview {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 8px 12px 0;
+}
+.attach-thumb {
+  position: relative; width: 56px; height: 56px; border-radius: 8px;
+  overflow: hidden; border: 1px solid var(--border-md); flex-shrink: 0;
+  background: var(--surface-3);
+}
+.attach-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.attach-thumb-pdf {
+  display: flex; align-items: center; justify-content: center; flex-direction: column;
+  gap: 2px; font-size: 9px; font-weight: 600; color: var(--text-3);
+  padding: 4px; text-align: center;
+}
+.attach-remove {
+  position: absolute; top: 2px; right: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: rgba(0,0,0,0.7); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; color: #fff; font-size: 9px;
+}
+.attach-remove:hover { background: rgba(200,50,50,0.8); }
+
+/* wrap plus button so menu can position relative to it */
+.chat-plus-wrap, .ask-plus-wrap { position: relative; flex-shrink: 0; }
+
 .chat-plus {
-  width: 26px; height: 26px; border-radius: var(--r-sm);
-  background: transparent; border: 1px solid var(--border-sm);
+  width: 28px; height: 28px; border-radius: 99px;
+  background: transparent; border: none;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   color: var(--text-3); flex-shrink: 0;
-  transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
+  transition: color var(--t-fast), background var(--t-fast);
 }
-.chat-plus:hover { color: var(--text-1); border-color: var(--border-md); background: var(--surface-3); }
+.chat-plus:hover { color: var(--text-1); background: var(--surface-3); }
 
 .input-hints {
   display: flex; align-items: center; justify-content: center;
@@ -1947,37 +2001,18 @@ select:focus-visible {
    LIBRARY MODAL
 ═══════════════════════════════════════ */
 /* ── DESIGN SYSTEM (from mockup) ────────────────────────────── */
+/* NOTE: Duplicate :root and body blocks removed — all tokens are
+   defined in the primary :root above. Library-modal-specific tokens
+   that don't exist in the global set are kept here as scoped vars.  */
 :root {
-  --bg:          #0c0d10;
-  --surface:     #13141a;
-  --surface-2:   #1a1b24;
-  --surface-3:   #222430;
-  --border:      rgba(255,255,255,0.07);
-  --border-md:   rgba(255,255,255,0.12);
+  --lib-surface: #13141a;
+  --lib-radius:  12px;
+  --lib-radius-lg: 18px;
   --accent:      #f0b429;
   --accent-dim:  rgba(240,180,41,0.12);
   --accent-glow: rgba(240,180,41,0.25);
-  --violet:      #8b7cf8;
   --violet-dim:  rgba(139,124,248,0.12);
-  --teal:        #2dd4bf;
   --teal-dim:    rgba(45,212,191,0.10);
-  --text-1:      #f0f0f0;
-  --text-2:      #9a9ab0;
-  --text-3:      #7c7c96;  /* raised to pass WCAG AA */
-  --radius:      12px;
-  --radius-lg:   18px;
-  --font-head:   'Syne', sans-serif;
-  --font-body:   'DM Sans', sans-serif;
-  --font-mono:   'DM Mono', monospace;
-}
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  font-family: var(--font-body);
-  background: var(--bg);
-  color: var(--text-1);
-  min-height: 100vh;
 }
 
 /* ── MODAL OVERLAY ──────────────────────────────────────────── */
@@ -2006,7 +2041,7 @@ body {
 
 /* ── MODAL CONTENT ──────────────────────────────────────────── */
 .library-modal-content {
-  background: var(--surface);
+  background: var(--surface-1);
   border: 1px solid var(--border-md);
   border-radius: var(--radius-lg);
   width: 100%;
@@ -3891,11 +3926,15 @@ body {
   .mht-avatar {
     width: 34px; height: 34px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #8b7cf8, #e8ac2e);
+    background-color: #8b7cf8; /* fallback colour shown behind initials */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 700; color: #fff;
+    font-size: 13px; font-weight: 700; color: #fff;
     cursor: pointer;
     flex-shrink: 0;
+    overflow: hidden;
   }
 
   /* home-main: switch to stretch so topbar + scroll area fill full width */
@@ -4542,7 +4581,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('studyplan')" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" onclick="showScreen('studyplan')" onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('studyplan')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
@@ -4601,7 +4640,7 @@ body {
         <div class="mht-search-btn" title="Search">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         </div>
-        <div class="mht-avatar" onclick="toggleProfileDropdown(event)" title="Profile">A</div>
+        <div class="mht-avatar" onclick="toggleProfileDropdown(event)" title="Profile"></div>
       </div>
     </div>
 
@@ -4651,12 +4690,27 @@ body {
       <div id="home-landing">
         <!-- Ask box centered on landing -->
         <div class="ask-box" id="home-ask-box" style="margin-bottom:20px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-3);flex-shrink:0;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          <div class="ask-plus-wrap">
+            <button class="chat-plus" id="home-plus-btn" onclick="homeToggleAttachMenu(event)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+            <div class="attach-menu" id="home-attach-menu">
+              <div class="attach-menu-item" onclick="homeAttachTrigger('image')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                Image
+              </div>
+              <div class="attach-menu-item" onclick="homeAttachTrigger('pdf')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                PDF
+              </div>
+            </div>
+          </div>
+          <input type="file" id="home-attach-image" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image')">
+          <input type="file" id="home-attach-pdf-new" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf')">
           <textarea id="home-ask-input" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
           <button class="ask-send" id="home-send-btn" data-action="homeSendMessage">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
+        <div id="home-attach-preview" class="attach-preview" style="margin-bottom:8px;"></div>
 
         <div class="quick-grid">
         <div class="quick-card" data-action="openLibraryModal">
@@ -4690,8 +4744,23 @@ body {
 
     <!-- Sticky bottom input bar — shown only after first message -->
     <div class="home-input-bar" id="home-input-bar" style="display:none;">
+      <div id="home-attach-preview-bottom" class="attach-preview" style="margin-bottom:4px;"></div>
       <div class="ask-box" id="home-ask-box-bottom" style="max-width:860px;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-3);flex-shrink:0;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <div class="ask-plus-wrap">
+          <button class="chat-plus" id="home-plus-btn-bottom" onclick="homeToggleAttachMenu(event,'bottom')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+          <div class="attach-menu" id="home-attach-menu-bottom">
+            <div class="attach-menu-item" onclick="homeAttachTrigger('image','bottom')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              Image
+            </div>
+            <div class="attach-menu-item" onclick="homeAttachTrigger('pdf','bottom')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              PDF
+            </div>
+          </div>
+        </div>
+        <input type="file" id="home-attach-image-bottom" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image','bottom')">
+        <input type="file" id="home-attach-pdf-bottom" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf','bottom')">
         <textarea id="home-ask-input-bottom" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
         <button class="ask-send" id="home-send-btn-bottom" data-action="homeSendMessage">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -4784,7 +4853,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" onclick="showScreen('studyplan')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
@@ -4808,7 +4877,7 @@ body {
     </div>
     <div class="sidebar-footer">
       <div class="profile-row" onclick="toggleProfileDropdown(event)">
-        <div class="avatar">A</div>
+        <div class="avatar"></div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
           <div class="profile-plan">Free Plan</div>
@@ -4968,8 +5037,23 @@ body {
     </div>
 
     <div class="chat-input-wrap">
+      <div id="ws-attach-preview" class="attach-preview" style="display:none;"></div>
       <div class="chat-input-inner">
-        <button class="chat-plus"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+        <div class="chat-plus-wrap">
+          <button class="chat-plus" id="ws-plus-btn" onclick="wsToggleAttachMenu(event)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+          <div class="attach-menu" id="ws-attach-menu">
+            <div class="attach-menu-item" onclick="wsAttachTrigger('image')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              Image
+            </div>
+            <div class="attach-menu-item" onclick="wsAttachTrigger('pdf')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              PDF
+            </div>
+          </div>
+        </div>
+        <input type="file" id="ws-attach-image" accept="image/*" style="display:none;" onchange="wsHandleAttach(this,'image')">
+        <input type="file" id="ws-attach-pdf" accept="application/pdf" style="display:none;" onchange="wsHandleAttach(this,'pdf')">
         <textarea id="ws-chat-input" class="chat-input-field" placeholder="Ask a follow-up about Chapter 3…" rows="1" style="resize:none;max-height:120px;overflow-y:auto;font-family:var(--font-body);font-size:13px;color:var(--text-1);background:transparent;border:none;outline:none;flex:1;line-height:1.5;"></textarea>
         <button class="chat-send" id="ws-chat-send" data-action="wsChatSend"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
       </div>
@@ -5046,7 +5130,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" onclick="showScreen('studyplan')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
@@ -5071,9 +5155,21 @@ body {
       <div id="recent-list-flash" class="recent-list"></div>
     </div>
 
+    <!-- Saved Decks -->
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label" style="display:flex;align-items:center;justify-content:space-between;">
+        My Decks
+        <span id="fc-deck-count" style="font-size:10px;color:var(--text-4);"></span>
+      </div>
+      <div id="fc-saved-decks-list" class="recent-list">
+        <div class="recent-empty">No saved decks yet</div>
+      </div>
+    </div>
+
     <div class="sidebar-footer">
       <div class="profile-row" onclick="toggleProfileDropdown(event)">
-        <div class="avatar">A</div>
+        <div class="avatar"></div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
           <div class="profile-plan">Free Plan</div>
@@ -5103,7 +5199,7 @@ body {
 
   <div class="gen-bar">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-3);flex-shrink:0;"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83"/></svg>
-    <input class="gen-input" id="fc-gen-input" type="text" placeholder="Generate cards from a topic e.g. Entropy, Gibbs free energy…">
+    <input class="gen-input" id="fc-gen-input" type="text" placeholder="Generate cards from a topic e.g. Entropy, Gibbs free energy…" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();_fcGenerateFromBar();}">
     <button class="gen-btn" id="gen-btn" data-action="_fcGenerateFromBar">Generate with AI</button>
   </div>
 
@@ -5136,15 +5232,15 @@ body {
   <p class="flash-hint" id="flipHint">Click the card or press Space to reveal the answer</p>
 
   <div class="flash-controls">
-    <button class="flash-btn hard" onclick="_fcNext('hard')">
+    <button class="flash-btn hard" data-action="_fcNext-self" data-rating="hard">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
       Hard
     </button>
-    <button class="flash-btn ok" onclick="_fcNext('ok')">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+    <button class="flash-btn ok" data-action="_fcNext-self" data-rating="ok">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
       Got it
     </button>
-    <button class="flash-btn easy" onclick="_fcNext('easy')">
+    <button class="flash-btn easy" data-action="_fcNext-self" data-rating="easy">
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
       Easy
     </button>
@@ -5217,7 +5313,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" onclick="showScreen('studyplan')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
@@ -5241,7 +5337,7 @@ body {
     </div>
     <div class="sidebar-footer">
       <div class="profile-row" onclick="toggleProfileDropdown(event)">
-        <div class="avatar">A</div>
+        <div class="avatar"></div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
           <div class="profile-plan">Free Plan</div>
@@ -5642,7 +5738,7 @@ body {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" style="cursor:pointer;">
+      <div class="sidebar-item" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" onclick="showScreen('studyplan')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
@@ -5667,7 +5763,7 @@ body {
     </div>
     <div class="sidebar-footer">
       <div class="profile-row" onclick="toggleProfileDropdown(event)">
-        <div class="avatar">A</div>
+        <div class="avatar"></div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
           <div class="profile-plan">Free Plan</div>
@@ -6090,10 +6186,15 @@ body {
     }[name];
 
     // Update ALL sidebars in the document (keeps state consistent)
+    // Items may use onclick OR data-action/data-screen (delegated system) — check both
     document.querySelectorAll('.sidebar-item').forEach(item => {
       const oc = (item.getAttribute('onclick') || '').trim();
+      const ds = item.dataset.screen || '';
+      const da = item.dataset.action || '';
       const isActive = oc === activeOnclick ||
-        (name === 'home' && (oc === "goHome()" || oc === "handleLogoClick(this)"));
+        ds === name ||
+        (name === 'home' && (oc === "goHome()" || oc === "handleLogoClick(this)" || da === 'goHome')) ||
+        (name !== 'home' && da === 'showScreen' && ds === name);
       item.classList.toggle('active', isActive);
       item.style.background = isActive ? 'var(--gold-muted)' : '';
       item.style.color      = isActive ? 'var(--gold)'       : '';
@@ -6104,7 +6205,19 @@ body {
 
     // ── Screen-specific init ──
     if (name === 'flash') {
-      // Init saved decks list whenever flash screen is opened
+      // Wait for auth to settle before querying Supabase — avoids race on fresh login
+      if (typeof _fcRenderDeckList === 'function') {
+        const _tryLoad = (attempts) => {
+          // If user id is already known, load immediately
+          if (window._currentUser?.id) {
+            _fcRenderDeckList().catch(() => {});
+          } else if (attempts > 0) {
+            // Auth not ready yet — retry up to 10 times (2 seconds total)
+            setTimeout(() => _tryLoad(attempts - 1), 200);
+          }
+        };
+        _tryLoad(10);
+      }
     }
 
     if (name === 'research') {
@@ -6172,6 +6285,13 @@ body {
     hint.textContent = cardFlipped
       ? 'Click again to see the question'
       : 'Click the card or press Space to reveal the answer';
+
+    // Enable / disable rating buttons based on flip state
+    document.querySelectorAll('.flash-btn.hard, .flash-btn.ok, .flash-btn.easy').forEach(btn => {
+      btn.disabled = !cardFlipped;
+      btn.style.opacity = cardFlipped ? '' : '0.38';
+      btn.style.pointerEvents = cardFlipped ? '' : 'none';
+    });
   }
 
   /* ── Keyboard shortcuts ── */
@@ -7719,6 +7839,9 @@ function _renderAllRecent() {
 
 _renderAllRecent();
 
+// Alias — called on page load and when research screen opens
+function _renderRecentList() { _renderAllRecent(); }
+
 // ── Restore chat session on refresh (runs after all vars declared) ──────
 if (sessionStorage.getItem('chunks_is_refresh') === '1') {
   const activeScreen   = sessionStorage.getItem('chunks_active_screen');
@@ -8315,10 +8438,12 @@ function wsCopyMsg(btn, msgId) {
 
 // ── Make Flashcard ────────────────────────────────────────
 // Global flashcard deck state for the flashcard screen
-let _fcDeck   = [];
-let _fcDeckTopic = '';
-let _fcIndex  = 0;
-let _fcStats  = { easy: 0, ok: 0, hard: 0 };
+let _fcDeck          = [];
+let _fcDeckTopic     = '';
+let _fcCurrentDeckId = null;   // Supabase deck row id for the active deck
+let _fcIndex         = 0;
+let _fcStats         = { easy: 0, ok: 0, hard: 0, skipped: 0 };
+let _fcCardRatings   = [];     // per-card ratings for the current session [{ front, card_id, rating }]
 
 async function wsMakeFlashcard(btn, msgId, question) {
   if (btn.classList.contains('loading')) return;
@@ -8337,15 +8462,20 @@ async function wsMakeFlashcard(btn, msgId, question) {
     if (!data.success || !data.flashcards?.length) throw new Error(data.error || 'No cards returned');
 
     // Load into flashcard screen
-    _fcDeck  = data.flashcards;
-    _fcDeckTopic = topic;
-    _fcIndex = 0;
-    _fcStats = { easy: 0, ok: 0, hard: 0 };
+    _fcDeck          = data.flashcards;
+    _fcDeckTopic     = topic;
+    _fcCurrentDeckId = null;   // will be updated by _fcSaveDeck once the row is created
+    _fcIndex         = 0;
+    _fcStats         = { easy: 0, ok: 0, hard: 0, skipped: 0 };
+    _fcCardRatings   = [];
     _fcClearSkeleton();
     _fcRenderCard();
 
     wsShowToast('🃏', `${data.flashcards.length} flashcards generated!`, 'var(--gold-border)');
     setTimeout(() => showScreen('flash'), 600);
+
+    // ── Save deck ──
+    await _fcSaveDeck(topic, data.flashcards);
 
   } catch(e) {
     wsShowToast('⚠', 'Could not generate flashcards', '#f87171');
@@ -8362,17 +8492,19 @@ function _fcRenderCard() {
   const card = _fcDeck[_fcIndex];
   const total = _fcDeck.length;
 
-  // Reset flip state
+  // Reset flip state (DOM class AND JS variable must both be reset)
   const wrap = document.getElementById('flashCard');
   if (wrap) wrap.classList.remove('flipped');
+  cardFlipped = false;
 
-  // Update front
+  // Update front (support both field naming conventions)
   const qEl = document.getElementById('flash-question');
-  if (qEl) qEl.textContent = card.front;
+  if (qEl) qEl.textContent = card.front || card.question || '';
 
   // Update back with LaTeX inline rendering
   const aEl = document.getElementById('flash-answer');
-  if (aEl) aEl.innerHTML = sanitize(card.back
+  const backText = card.back || card.answer || '';
+  if (aEl) aEl.innerHTML = sanitize(backText
     .replace(/\$([^$]+)\$/g, '<code style="font-family:var(--font-mono);font-size:12px;background:var(--surface-3);border:1px solid var(--border-xs);padding:1px 5px;border-radius:4px;color:var(--teal);">$1</code>'));
 
   // Update progress
@@ -8391,6 +8523,13 @@ function _fcRenderCard() {
   const hint = document.getElementById('flipHint');
   if (hint) { hint.textContent = 'Click the card or press Space to reveal the answer'; hint.style.opacity = '1'; }
 
+  // Disable rating buttons until the answer is revealed
+  document.querySelectorAll('.flash-btn.hard, .flash-btn.ok, .flash-btn.easy').forEach(btn => {
+    btn.disabled = true;
+    btn.style.opacity = '0.38';
+    btn.style.pointerEvents = 'none';
+  });
+
   // Update stats
   _fcUpdateStats();
 }
@@ -8400,15 +8539,29 @@ function _fcUpdateStats() {
   const ok      = document.getElementById('stat-ok');
   const hard    = document.getElementById('stat-hard');
   const skipped = document.getElementById('stat-skipped');
-  if (easy)    easy.textContent    = _fcStats.easy  || 0;
-  if (ok)      ok.textContent      = _fcStats.ok    || 0;
-  if (hard)    hard.textContent    = _fcStats.hard  || 0;
-  if (skipped) skipped.textContent = Math.max(0, _fcDeck.length - _fcIndex - 1);
+  if (easy)    easy.textContent    = _fcStats.easy    || 0;
+  if (ok)      ok.textContent      = _fcStats.ok      || 0;
+  if (hard)    hard.textContent    = _fcStats.hard    || 0;
+  if (skipped) skipped.textContent = _fcStats.skipped || 0;
 }
 
 function _fcNext(rating) {
   if (!_fcDeck.length) return;
-  if (rating) _fcStats[rating] = (_fcStats[rating] || 0) + 1;
+
+  // Record per-card rating for session sync
+  const card = _fcDeck[_fcIndex];
+  const resolvedRating = (rating && ['easy','ok','hard'].includes(rating)) ? rating : 'skipped';
+  _fcCardRatings.push({
+    front:   card.front || card.question || '',
+    card_id: card.id || null,
+    rating:  resolvedRating,
+  });
+
+  if (resolvedRating !== 'skipped') {
+    _fcStats[resolvedRating] = (_fcStats[resolvedRating] || 0) + 1;
+  } else {
+    _fcStats.skipped = (_fcStats.skipped || 0) + 1;
+  }
   _fcIndex++;
 
   // Deck finished — show completion modal instead of looping
@@ -8434,12 +8587,16 @@ function _fcShowCompleteModal() {
 
   const modal = document.getElementById('fc-complete-modal');
   modal.style.display = 'flex';
+
+  // Persist session progress (fire-and-forget — don't block the modal)
+  _fcSaveSession().catch(e => console.warn('[FC] Session save failed:', e));
 }
 
 function _fcRestartDeck() {
   document.getElementById('fc-complete-modal').style.display = 'none';
-  _fcIndex = 0;
-  _fcStats = { easy: 0, ok: 0, hard: 0 };
+  _fcIndex       = 0;
+  _fcStats       = { easy: 0, ok: 0, hard: 0, skipped: 0 };
+  _fcCardRatings = [];
   _fcUpdateStats();
   _fcRenderCard();
 }
@@ -8464,17 +8621,14 @@ function _fcCreateNew() {
 
 
 
-// Initialize saved decks on load
-
-// Wire Hard / Got It / Easy / Reveal buttons on flashcard screen
+// Wire Hard / Got It / Easy buttons on flashcard screen
+// NOTE: the "Reveal Answer" (.primary) button uses data-action="flipCard" and is
+// handled by the centralized event delegation — do NOT add an onclick here too,
+// as that would cause flipCard() to fire twice and immediately undo the flip.
+// Hard / Ok / Easy buttons now also use data-action="_fcNext-self" with data-rating
+// — no manual onclick wiring needed here.
 document.addEventListener('DOMContentLoaded', () => {
-  const btns = document.querySelectorAll('.flash-btn');
-  btns.forEach(btn => {
-    if (btn.classList.contains('hard'))    btn.onclick = () => _fcNext('hard');
-    if (btn.classList.contains('ok'))      btn.onclick = () => _fcNext('ok');
-    if (btn.classList.contains('easy'))    btn.onclick = () => _fcNext('easy');
-    if (btn.classList.contains('primary')) btn.onclick = () => { flipCard(); };
-  });
+  // (Rating buttons handled by data-action delegation — nothing to wire here)
 });
 
 function _fcShowSkeleton(topic) {
@@ -8549,15 +8703,21 @@ async function _fcGenerateFromBar() {
     if (!res.ok) throw new Error(`Server error ${res.status}`);
     const data = await res.json();
     if (!data.success || !data.flashcards?.length) throw new Error(data.error || 'No cards returned');
-    _fcDeck      = data.flashcards;
-    _fcDeckTopic = topic;
-    _fcIndex     = 0;
-    _fcStats     = { easy: 0, ok: 0, hard: 0 };
+    _fcDeck          = data.flashcards;
+    _fcDeckTopic     = topic;
+    _fcCurrentDeckId = null;   // will be updated by _fcSaveDeck once the row is created
+    _fcIndex         = 0;
+    _fcStats         = { easy: 0, ok: 0, hard: 0, skipped: 0 };
+    _fcCardRatings   = [];
     _fcClearSkeleton();
     _fcUpdateStats();
     _fcRenderCard();
     if (input) input.value = '';
     wsShowToast && wsShowToast('🃏', `${data.flashcards.length} cards generated!`, 'var(--gold-border)');
+
+    // ── Save deck to Supabase / localStorage ──
+    await _fcSaveDeck(topic, data.flashcards);
+
   } catch(e) {
     console.error('Flashcard generation error:', e);
     _fcClearSkeleton();
@@ -8577,6 +8737,7 @@ async function _fcGenerateFromBar() {
     if (btn) { btn.textContent = 'Generate with AI'; btn.disabled = false; }
   }
 }
+
 function wsSetInput(text) {
   const inp = document.getElementById('ws-chat-input');
   if (!inp) return;
@@ -8991,6 +9152,157 @@ document.getElementById('ws-chat-input')?.addEventListener('keydown', e => {
 document.getElementById('ws-chat-input')?.addEventListener('input', function() {
   wsAutoResize(this);
 });
+
+/* ════════════════════════════════════════════════════════════
+   ATTACHMENT SYSTEM — workspace + home
+════════════════════════════════════════════════════════════ */
+
+let _wsAttachments   = []; // { type, file, dataUrl, name }
+let _homeAttachments = []; // same
+
+/* ── Shared helpers ── */
+function _closeAllAttachMenus() {
+  document.querySelectorAll('.attach-menu').forEach(m => m.classList.remove('open'));
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.chat-plus-wrap') && !e.target.closest('.ask-plus-wrap')) _closeAllAttachMenus();
+});
+
+function _buildThumb(att, removeFn) {
+  const wrap = document.createElement('div');
+  wrap.className = 'attach-thumb';
+  if (att.type === 'image') {
+    const img = document.createElement('img');
+    img.src = att.dataUrl; img.alt = att.name;
+    wrap.appendChild(img);
+  } else {
+    const label = document.createElement('div');
+    label.className = 'attach-thumb-pdf';
+    label.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>${att.name.slice(0,8)}</span>`;
+    wrap.appendChild(label);
+  }
+  const rm = document.createElement('button');
+  rm.className = 'attach-remove'; rm.innerHTML = '✕';
+  rm.onclick = removeFn;
+  wrap.appendChild(rm);
+  return wrap;
+}
+
+function _readFile(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+/* ── Workspace attach ── */
+function wsToggleAttachMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('ws-attach-menu');
+  const isOpen = menu.classList.contains('open');
+  _closeAllAttachMenus();
+  if (!isOpen) menu.classList.add('open');
+}
+function wsAttachTrigger(type) {
+  _closeAllAttachMenus();
+  document.getElementById(type === 'image' ? 'ws-attach-image' : 'ws-attach-pdf').click();
+}
+async function wsHandleAttach(input, type) {
+  const file = input.files[0]; if (!file) return;
+  input.value = '';
+  const dataUrl = await _readFile(file);
+  const att = { type, file, dataUrl, name: file.name };
+  _wsAttachments.push(att);
+  _wsRenderPreview();
+}
+function _wsRenderPreview() {
+  const strip = document.getElementById('ws-attach-preview');
+  strip.innerHTML = ''; 
+  strip.style.display = _wsAttachments.length ? 'flex' : 'none';
+  _wsAttachments.forEach((att, i) => {
+    strip.appendChild(_buildThumb(att, () => { _wsAttachments.splice(i,1); _wsRenderPreview(); }));
+  });
+}
+
+/* ── Patch wsChatSend to include attachments ── */
+const _origWsChatSend = wsChatSend;
+wsChatSend = async function() {
+  if (_wsTyping) return;
+  const inp = document.getElementById('ws-chat-input');
+  const question = inp.value.trim();
+  if (!question && !_wsAttachments.length) return;
+
+  // Build display HTML with thumbnails
+  let bubbleHtml = question ? question.replace(/&/g,'&amp;').replace(/</g,'&lt;') : '';
+  if (_wsAttachments.length) {
+    const thumbs = _wsAttachments.map(a =>
+      a.type === 'image'
+        ? `<img src="${a.dataUrl}" style="max-width:180px;max-height:140px;border-radius:8px;display:block;margin-top:6px;">`
+        : `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-3);border:1px solid var(--border-md);border-radius:8px;padding:6px 10px;font-size:12px;margin-top:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>${a.name}</div>`
+    ).join('');
+    bubbleHtml += thumbs;
+  }
+
+  const msgs = document.getElementById('ws-messages');
+  const d = document.createElement('div');
+  d.className = 'msg msg-user';
+  d.innerHTML = `<div class="bubble-user">${bubbleHtml}</div>`;
+  msgs.appendChild(d); wsScrollBottom();
+
+  // Build text prompt with attachment context
+  let fullQuestion = question;
+  if (_wsAttachments.length) {
+    const names = _wsAttachments.map(a => `"${a.name}" (${a.type})`).join(', ');
+    fullQuestion += `\n[Attached: ${names}]`;
+  }
+
+  inp.value = ''; wsAutoResize(inp); inp.focus();
+  _wsChatHistory.push({ role: 'user', content: fullQuestion });
+  _wsAttachments = []; _wsRenderPreview();
+  await _wsAsk(fullQuestion);
+};
+
+/* ── Home attach ── */
+function homeToggleAttachMenu(e, slot) {
+  e.stopPropagation();
+  const id = slot === 'bottom' ? 'home-attach-menu-bottom' : 'home-attach-menu';
+  const menu = document.getElementById(id);
+  const isOpen = menu.classList.contains('open');
+  _closeAllAttachMenus();
+  if (!isOpen) menu.classList.add('open');
+}
+function homeAttachTrigger(type, slot) {
+  _closeAllAttachMenus();
+  const suffix = slot === 'bottom' ? '-bottom' : (type === 'image' ? '' : '-new');
+  const id = type === 'image' ? `home-attach-image${slot === 'bottom' ? '-bottom' : ''}` : `home-attach-pdf${slot === 'bottom' ? '-bottom' : '-new'}`;
+  document.getElementById(id)?.click();
+}
+async function homeHandleAttach(input, type, slot) {
+  const file = input.files[0]; if (!file) return;
+  input.value = '';
+  const dataUrl = await _readFile(file);
+  const att = { type, file, dataUrl, name: file.name };
+  _homeAttachments.push(att);
+  _homeRenderPreview();
+  // Also pre-fill input for PDF like before
+  if (type === 'pdf') {
+    const name = file.name.replace(/\.pdf$/i,'');
+    window._uploadedPdfFile = file; window._uploadedPdfName = name;
+    homeSetInput(`Summarize "${name}" for me`);
+  }
+}
+function _homeRenderPreview() {
+  ['home-attach-preview','home-attach-preview-bottom'].forEach(id => {
+    const strip = document.getElementById(id); if (!strip) return;
+    strip.innerHTML = '';
+    strip.style.display = _homeAttachments.length ? 'flex' : 'none';
+    _homeAttachments.forEach((att, i) => {
+      strip.appendChild(_buildThumb(att, () => { _homeAttachments.splice(i,1); _homeRenderPreview(); }));
+    });
+  });
+}
 </script>
 
 <script>
@@ -9046,10 +9358,39 @@ function toggleProfileDropdown(e) {
   dd.classList.toggle('open', _pdOpen);
 
   if (_pdOpen) {
-    const sidebar = e?.currentTarget?.closest('.sidebar');
+    const trigger = e?.currentTarget;
+    const sidebar = trigger?.closest('.sidebar');
     const isCompact = sidebar?.classList.contains('compact');
-    dd.style.left = isCompact ? '58px' : '10px';
-    dd.style.bottom = '60px';
+
+    if (trigger) {
+      const rect = trigger.getBoundingClientRect();
+      const ddHeight = 320; // approximate dropdown height
+      const spaceAbove = rect.top;
+      const spaceBelow = window.innerHeight - rect.bottom;
+
+      if (spaceAbove > ddHeight || spaceAbove > spaceBelow) {
+        // Open upward
+        dd.style.bottom = (window.innerHeight - rect.top + 6) + 'px';
+        dd.style.top = 'auto';
+      } else {
+        // Open downward
+        dd.style.top = (rect.bottom + 6) + 'px';
+        dd.style.bottom = 'auto';
+      }
+      dd.style.left = isCompact ? '58px' : Math.max(8, rect.left) + 'px';
+      // If dropdown would overflow right edge, anchor to right instead
+      const ddWidth = 230;
+      if (rect.left + ddWidth > window.innerWidth - 8) {
+        dd.style.left = 'auto';
+        dd.style.right = (window.innerWidth - rect.right) + 'px';
+      } else {
+        dd.style.right = 'auto';
+      }
+    } else {
+      dd.style.left = isCompact ? '58px' : '10px';
+      dd.style.bottom = '60px';
+      dd.style.top = 'auto';
+    }
   }
 }
 
@@ -9473,7 +9814,12 @@ async function _getChunksSb() {
     if (!url || !anon) { console.warn('[Chunks] No Supabase credentials available'); return null; }
 
     _chunksSb = lib.createClient(url, anon, {
-      auth: { persistSession: true, autoRefreshToken: true, storage: localStorage }
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        storage: localStorage,
+        storageKey: 'chunks-ai-auth'   // unique key — prevents GoTrueClient collision with other Supabase instances on the same domain
+      }
     });
     console.log('[Chunks] Supabase ready:', url);
     return _chunksSb;
@@ -9525,8 +9871,17 @@ async function _refreshUserPlan() {
     if (sb && email) {
       const { data, error } = await sb.from('users')
         .select('email, plan, subscription_end, paid, full_name')
-        .eq('email', email).single();
-      if (!error && data) _currentUser = data;
+        .eq('email', email).maybeSingle(); // .single() causes 406 when row doesn't exist yet; maybeSingle() returns null safely
+      if (!error && data) {
+        _currentUser = data;
+        // Ensure user UUID is always on _currentUser for ChunksDB
+        if (!_currentUser.id) {
+          try {
+            const { data: { session } } = await sb.auth.getSession();
+            if (session?.user?.id) _currentUser.id = session.user.id;
+          } catch(e) {}
+        }
+      }
       else _currentUser = { email, plan: 'free' };
     } else {
       _currentUser = email ? { email, plan: 'free' } : null;
@@ -9632,6 +9987,29 @@ function _applyUserProfile(session) {
     ? full_name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
     : email[0].toUpperCase();
   const handle    = '@' + email.split('@')[0];
+  const avatarUrl = user.user_metadata?.avatar_url || '';
+
+  // Helper: apply photo or initials to an avatar element
+  function _setAvatar(el, url, text) {
+    if (!el) return;
+    // Remove any previous img
+    const prev = el.querySelector('img.avatar-photo');
+    if (prev) prev.remove();
+    if (url) {
+      const img = document.createElement('img');
+      img.className = 'avatar-photo';
+      img.src = url;
+      img.alt = text;
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;';
+      img.onerror = () => { img.remove(); el.textContent = text; }; // fallback to initials if photo fails
+      el.textContent = '';
+      el.style.backgroundImage = '';
+      el.appendChild(img);
+    } else {
+      el.textContent = text;
+      el.style.backgroundImage = '';
+    }
+  }
 
   // Sidebar profile rows
   document.querySelectorAll('.profile-name').forEach(el => el.textContent = firstName);
@@ -9640,9 +10018,15 @@ function _applyUserProfile(session) {
   const pdAvatar = document.querySelector('.pd-avatar');
   const pdName   = document.querySelector('.pd-name');
   const pdHandle = document.querySelector('.pd-handle');
-  if (pdAvatar) pdAvatar.textContent = initials;
+  _setAvatar(pdAvatar, avatarUrl, initials);
   if (pdName)   pdName.textContent   = full_name || firstName;
   if (pdHandle) pdHandle.textContent = handle;
+
+  // Sidebar avatars
+  document.querySelectorAll('.avatar').forEach(el => _setAvatar(el, avatarUrl, initials));
+
+  // Mobile topbar avatar
+  _setAvatar(document.querySelector('.mht-avatar'), avatarUrl, initials);
 
   // Settings name
   document.querySelectorAll('.settings-account-name, [data-user-name]').forEach(el => el.textContent = full_name || firstName);
@@ -11066,6 +11450,508 @@ function closeConfirmModal()     { window._closeSharedConfirm && window._closeSh
 </script>
 <!-- ── Supabase Auth ── -->
 <script src="shared.js" defer></script>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   CHUNKS DB — Shared Sync Layer
+   Central helper for all Supabase read/write operations.
+   Every feature (flashcards, exams, research, study plans)
+   uses these helpers instead of talking to Supabase directly.
+
+   RULES:
+   - Always scoped to the current auth.uid() via RLS
+   - Falls back gracefully to localStorage when not logged in
+   - Never throws — always returns { data, error }
+══════════════════════════════════════════════════════════════ */
+
+const ChunksDB = (() => {
+  'use strict';
+
+  /* ── Get current user id (null if not logged in) ── */
+  function _uid() {
+    return window._currentUser?.id || null;
+  }
+
+  /* ── Get Supabase client (null if unavailable) ── */
+  async function _sb() {
+    try { return await _getChunksSb(); } catch(e) { return null; }
+  }
+
+  /* ── Is the user logged in with a real account? ── */
+  function isLoggedIn() {
+    return !!_uid();
+  }
+
+  /* ────────────────────────────────────────────────
+     CORE CRUD — used by all features
+  ──────────────────────────────────────────────── */
+
+  /**
+   * Fetch rows from a table for the current user.
+   * @param {string} table  - Supabase table name
+   * @param {Object} opts   - { select, eq, order, limit }
+   * @returns {{ data, error }}
+   */
+  async function get(table, opts = {}) {
+    const sb = await _sb();
+    if (!sb || !isLoggedIn()) return { data: null, error: 'not_logged_in' };
+    try {
+      let q = sb.from(table).select(opts.select || '*');
+      // Always filter by user_id (belt + suspenders on top of RLS)
+      q = q.eq('user_id', _uid());
+      if (opts.eq) {
+        Object.entries(opts.eq).forEach(([col, val]) => { q = q.eq(col, val); });
+      }
+      if (opts.order) {
+        q = q.order(opts.order.col, { ascending: opts.order.asc ?? false });
+      }
+      if (opts.limit) q = q.limit(opts.limit);
+      const { data, error } = await q;
+      return { data, error };
+    } catch(e) {
+      console.warn('[ChunksDB] get error:', table, e.message);
+      return { data: null, error: e.message };
+    }
+  }
+
+  /**
+   * Insert or update a row (upsert).
+   * Automatically injects user_id.
+   * @param {string} table
+   * @param {Object|Object[]} rows  - single row or array
+   * @param {string} onConflict    - conflict column(s), default 'id'
+   * @returns {{ data, error }}
+   */
+  async function upsert(table, rows, onConflict = 'id') {
+    const sb = await _sb();
+    if (!sb || !isLoggedIn()) return { data: null, error: 'not_logged_in' };
+    try {
+      const uid = _uid();
+      const payload = Array.isArray(rows)
+        ? rows.map(r => ({ ...r, user_id: uid }))
+        : { ...rows, user_id: uid };
+      const { data, error } = await sb
+        .from(table)
+        .upsert(payload, { onConflict, ignoreDuplicates: false });
+      if (error) console.warn('[ChunksDB] upsert error:', table, error.message);
+      return { data, error };
+    } catch(e) {
+      console.warn('[ChunksDB] upsert error:', table, e.message);
+      return { data: null, error: e.message };
+    }
+  }
+
+  /**
+   * Insert a new row (no conflict handling).
+   * Automatically injects user_id.
+   * Returns the inserted row with its generated id.
+   * @param {string} table
+   * @param {Object} row
+   * @returns {{ data, error }}
+   */
+  async function insert(table, row) {
+    const sb = await _sb();
+    if (!sb || !isLoggedIn()) return { data: null, error: 'not_logged_in' };
+    try {
+      const uid = _uid();
+      const { data, error } = await sb
+        .from(table)
+        .insert({ ...row, user_id: uid })
+        .select()
+        .single();
+      if (error) console.warn('[ChunksDB] insert error:', table, error.message);
+      return { data, error };
+    } catch(e) {
+      console.warn('[ChunksDB] insert error:', table, e.message);
+      return { data: null, error: e.message };
+    }
+  }
+
+  /**
+   * Delete a row by id (must belong to current user — RLS enforces).
+   * @param {string} table
+   * @param {string} id   - uuid
+   * @returns {{ error }}
+   */
+  async function remove(table, id) {
+    const sb = await _sb();
+    if (!sb || !isLoggedIn()) return { error: 'not_logged_in' };
+    try {
+      const { error } = await sb
+        .from(table)
+        .delete()
+        .eq('id', id)
+        .eq('user_id', _uid()); // extra safety on top of RLS
+      if (error) console.warn('[ChunksDB] delete error:', table, error.message);
+      return { error };
+    } catch(e) {
+      console.warn('[ChunksDB] delete error:', table, e.message);
+      return { error: e.message };
+    }
+  }
+
+  /**
+   * Update specific columns on a row by id.
+   * @param {string} table
+   * @param {string} id
+   * @param {Object} updates  - columns to update
+   * @returns {{ data, error }}
+   */
+  async function update(table, id, updates) {
+    const sb = await _sb();
+    if (!sb || !isLoggedIn()) return { data: null, error: 'not_logged_in' };
+    try {
+      const { data, error } = await sb
+        .from(table)
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('user_id', _uid())
+        .select()
+        .single();
+      if (error) console.warn('[ChunksDB] update error:', table, error.message);
+      return { data, error };
+    } catch(e) {
+      console.warn('[ChunksDB] update error:', table, e.message);
+      return { data: null, error: e.message };
+    }
+  }
+
+  /* ────────────────────────────────────────────────
+     LOCAL STORAGE FALLBACK HELPERS
+     Used by features when user is not logged in.
+  ──────────────────────────────────────────────── */
+
+  function lsGet(key, fallback = null) {
+    try { return JSON.parse(localStorage.getItem(key)) ?? fallback; }
+    catch(e) { return fallback; }
+  }
+
+  function lsSet(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); }
+    catch(e) { console.warn('[ChunksDB] localStorage write failed:', key); }
+  }
+
+  function lsRemove(key) {
+    try { localStorage.removeItem(key); } catch(e) {}
+  }
+
+  /* ────────────────────────────────────────────────
+     AUTH STATE LISTENER
+     Patches _currentUser.id from the Supabase session
+     so _uid() works correctly.
+  ──────────────────────────────────────────────── */
+
+  // Extend _applyUserProfile to also store the user's UUID
+  // (called automatically after login by _initAuth)
+  const _origApplyUserProfile = window._applyUserProfile;
+  window._applyUserProfile = function(session) {
+    if (_origApplyUserProfile) _origApplyUserProfile(session);
+    if (session?.user && window._currentUser) {
+      window._currentUser.id = session.user.id;
+    }
+  };
+
+  // Also patch _initAuth's session restore path
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(async () => {
+      try {
+        const sb = await _getChunksSb();
+        if (!sb) return;
+        const { data: { session } } = await sb.auth.getSession();
+        if (session?.user && window._currentUser) {
+          window._currentUser.id = session.user.id;
+        }
+      } catch(e) {}
+    }, 1200); // runs after _initAuth (1000ms delay)
+  });
+
+  /* ────────────────────────────────────────────────
+     PUBLIC API
+  ──────────────────────────────────────────────── */
+  return { get, insert, upsert, update, remove, isLoggedIn, lsGet, lsSet, lsRemove };
+
+})();
+
+console.log('[ChunksDB] Sync layer ready');
+</script>
+
+<script>
+/* ════════════════════════════════════════════════════════════
+   FLASHCARD PERSISTENCE — save / load decks + cards
+   Runs AFTER ChunksDB is defined.
+════════════════════════════════════════════════════════════ */
+
+const FC_LS_KEY = 'chunks_fc_decks_v1';
+
+/* ── Save a deck after generation ── */
+async function _fcSaveDeck(topic, cards) {
+  const deck = {
+    id:         crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
+    name:       topic,
+    card_count: cards.length,
+    cards:      cards,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+
+  if (ChunksDB.isLoggedIn()) {
+    const { data: deckRow, error: deckErr } = await ChunksDB.insert('fc_decks', {
+      name:       deck.name,
+      card_count: deck.card_count,
+    });
+    if (deckErr || !deckRow) {
+      console.warn('[FC] Deck insert failed, falling back to localStorage', deckErr);
+      _fcSaveDeckLocal(deck);
+    } else {
+      _fcCurrentDeckId = deckRow.id;   // wire the live deck id for session saves
+      const cardRows = cards.map(c => ({
+        deck_id: deckRow.id,
+        front:   c.question || c.front || '',
+        back:    c.answer   || c.back  || '',
+      }));
+      await Promise.all(cardRows.map(r => ChunksDB.insert('fc_cards', r)));
+      console.log('[FC] Deck saved to Supabase:', deckRow.id);
+    }
+  } else {
+    _fcSaveDeckLocal(deck);
+  }
+
+  await _fcRenderDeckList();
+}
+
+/* ── localStorage fallback ── */
+function _fcSaveDeckLocal(deck) {
+  const decks = ChunksDB.lsGet(FC_LS_KEY, []);
+  const filtered = decks.filter(d => d.name !== deck.name);
+  filtered.unshift(deck);
+  ChunksDB.lsSet(FC_LS_KEY, filtered.slice(0, 20));
+}
+
+/* ── Load all decks ── */
+async function _fcLoadDecks() {
+  if (ChunksDB.isLoggedIn()) {
+    const { data, error } = await ChunksDB.get('fc_decks', {
+      order: { col: 'created_at', asc: false },
+      limit: 30,
+    });
+    if (error) {
+      console.warn('[FC] Supabase deck load error:', error);
+      // Fall through to localStorage on error only
+      return ChunksDB.lsGet(FC_LS_KEY, []);
+    }
+    // Return Supabase result even if empty — user is logged in, this IS their deck list
+    return data || [];
+  }
+  // Not logged in — use localStorage
+  return ChunksDB.lsGet(FC_LS_KEY, []);
+}
+
+/* ── Load cards for a specific deck ── */
+async function _fcLoadCards(deck) {
+  if (ChunksDB.isLoggedIn()) {
+    const deckId = deck.id;
+    const { data, error } = await ChunksDB.get('fc_cards', { eq: { deck_id: deckId } });
+    if (!error && data?.length) return data;
+  }
+  return deck.cards || [];
+}
+
+/* ── Render saved decks list in sidebar ── */
+async function _fcRenderDeckList() {
+  const list  = document.getElementById('fc-saved-decks-list');
+  const count = document.getElementById('fc-deck-count');
+  if (!list) return;
+
+  list.innerHTML = '<div class="recent-empty" style="font-size:11px;color:var(--text-4);padding:6px 8px;">Loading…</div>';
+  const decks = await _fcLoadDecks();
+  if (count) count.textContent = decks.length ? `${decks.length}` : '';
+
+  if (!decks.length) {
+    list.innerHTML = '<div class="recent-empty">No saved decks yet</div>';
+    return;
+  }
+
+  // Load last session for each deck in parallel
+  const lastSessions = await Promise.all(decks.map(d => _fcGetLastSession(d.id, d.name).catch(() => null)));
+
+  list.innerHTML = '';
+  decks.forEach((deck, i) => {
+    const last = lastSessions[i];
+
+    // Build score pill from last session
+    let scorePill = '';
+    if (last && last.total > 0) {
+      const pct  = Math.round(((last.easy + last.ok) / last.total) * 100);
+      const color = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--gold)' : 'var(--red)';
+      const ago  = _fcTimeAgo(last.studied_at);
+      scorePill = `<span style="font-size:9px;padding:1px 6px;border-radius:var(--r-pill);background:${color}22;color:${color};border:1px solid ${color}44;flex-shrink:0;">${pct}%</span>`;
+      scorePill += `<span style="font-size:9px;color:var(--text-4);flex-shrink:0;">${ago}</span>`;
+    }
+
+    const item = document.createElement('div');
+    item.className = 'recent-item';
+    item.style.cssText = 'cursor:pointer;display:flex;flex-direction:column;gap:3px;padding:6px 8px;border-radius:8px;transition:background 0.1s;';
+    item.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;color:var(--violet);"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;">${deck.name || 'Untitled'}</span>
+        <span style="font-size:10px;color:var(--text-4);flex-shrink:0;">${deck.card_count || '?'}</span>
+      </div>
+      ${scorePill ? `<div style="display:flex;align-items:center;gap:5px;padding-left:19px;">${scorePill}</div>` : ''}`;
+    item.onclick       = () => _fcLoadDeckIntoStudy(deck);
+    item.onmouseenter  = () => item.style.background = 'var(--surface-2)';
+    item.onmouseleave  = () => item.style.background = '';
+    list.appendChild(item);
+  });
+}
+
+/* ── Human-readable time-ago helper ── */
+function _fcTimeAgo(isoString) {
+  if (!isoString) return '';
+  const diff = Date.now() - new Date(isoString).getTime();
+  const mins  = Math.floor(diff / 60000);
+  if (mins < 2)   return 'just now';
+  if (mins < 60)  return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs  < 24)  return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7)   return `${days}d ago`;
+  return `${Math.floor(days / 7)}w ago`;
+}
+
+/* ── Load a saved deck into the study view ── */
+async function _fcLoadDeckIntoStudy(deck) {
+  const cards = await _fcLoadCards(deck);
+  if (!cards.length) {
+    wsShowToast && wsShowToast('⚠', 'No cards found in this deck', '#f87171');
+    return;
+  }
+  // Normalize to front/back; preserve card DB id for per-card session rating
+  _fcDeck = cards.map(c => ({
+    id:    c.id   || null,
+    front: c.front || c.question || '',
+    back:  c.back  || c.answer  || '',
+  }));
+  _fcCurrentDeckId = deck.id || null;
+  _fcDeckTopic     = deck.name;
+  _fcIndex         = 0;
+  _fcStats         = { easy: 0, ok: 0, hard: 0, skipped: 0 };
+  _fcCardRatings   = [];
+  _fcUpdateStats();
+  _fcRenderCard();
+  wsShowToast && wsShowToast('🃏', `Loaded "${deck.name}"`, 'var(--violet-border)');
+}
+
+const FC_SESSIONS_LS_KEY = 'chunks_fc_sessions_v1';
+
+/* ── Save a completed study session ── */
+async function _fcSaveSession() {
+  const total   = _fcDeck.length;
+  const easy    = _fcStats.easy    || 0;
+  const ok      = _fcStats.ok      || 0;
+  const hard    = _fcStats.hard    || 0;
+  const skipped = _fcStats.skipped || 0;
+
+  const session = {
+    id:           crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
+    deck_id:      _fcCurrentDeckId || null,
+    deck_name:    _fcDeckTopic || 'Untitled',
+    easy, ok, hard, skipped, total,
+    card_ratings: _fcCardRatings.slice(),
+    studied_at:   new Date().toISOString(),
+  };
+
+  if (ChunksDB.isLoggedIn() && _fcCurrentDeckId) {
+    try {
+      const { data: sessionRow, error: sessionErr } = await ChunksDB.insert('fc_sessions', {
+        deck_id:    session.deck_id,
+        deck_name:  session.deck_name,
+        easy:       session.easy,
+        ok:         session.ok,
+        hard:       session.hard,
+        skipped:    session.skipped,
+        total:      session.total,
+        studied_at: session.studied_at,
+      });
+      if (!sessionErr && sessionRow) {
+        const ratingRows = session.card_ratings.map(r => ({
+          session_id: sessionRow.id,
+          card_id:    r.card_id || null,
+          card_front: r.front,
+          rating:     r.rating,
+          rated_at:   session.studied_at,
+        }));
+        await Promise.all(ratingRows.map(r => ChunksDB.insert('fc_card_ratings', r)));
+        console.log('[FC] Session saved to Supabase:', sessionRow.id);
+      } else {
+        console.warn('[FC] Session insert failed, falling back', sessionErr);
+        _fcSaveSessionLocal(session);
+      }
+    } catch(e) {
+      console.warn('[FC] Session save error:', e.message);
+      _fcSaveSessionLocal(session);
+    }
+  } else {
+    _fcSaveSessionLocal(session);
+  }
+
+  // Refresh sidebar to show updated last-session stats
+  _fcRenderDeckList().catch(() => {});
+}
+
+/* ── localStorage session fallback ── */
+function _fcSaveSessionLocal(session) {
+  const sessions = ChunksDB.lsGet(FC_SESSIONS_LS_KEY, []);
+  sessions.unshift(session);
+  ChunksDB.lsSet(FC_SESSIONS_LS_KEY, sessions.slice(0, 100));
+}
+
+/* ── Get the most recent session for a deck (for sidebar display) ── */
+async function _fcGetLastSession(deckId, deckName) {
+  if (ChunksDB.isLoggedIn() && deckId) {
+    try {
+      const { data, error } = await ChunksDB.get('fc_sessions', {
+        eq:    { deck_id: deckId },
+        order: { col: 'studied_at', asc: false },
+        limit: 1,
+      });
+      if (!error && data?.length) return data[0];
+    } catch(e) {}
+  }
+  const sessions = ChunksDB.lsGet(FC_SESSIONS_LS_KEY, []);
+  return sessions.find(s => s.deck_id === deckId || s.deck_name === deckName) || null;
+}
+
+/* ── Init on screen open ── */
+async function _fcInitScreen() {
+  await _fcRenderDeckList();
+}
+
+/* ── Re-render deck list whenever the user signs in (fixes cross-device blank sidebar) ── */
+document.addEventListener('DOMContentLoaded', () => {
+  // 1. If flash screen is the landing screen after a refresh, wait for auth then load
+  if (sessionStorage.getItem('chunks_active_screen') === 'flash') {
+    // Wait for _initAuth (1000ms) + a small buffer to ensure _currentUser.id is set
+    setTimeout(_fcInitScreen, 1400);
+  }
+
+  // 2. Hook Supabase auth state changes so the deck list refreshes after login
+  //    (handles: fresh login on new browser, token refresh, OAuth redirect)
+  const _waitForSb = setInterval(async () => {
+    const sb = await _getChunksSb().catch(() => null);
+    if (!sb) return;
+    clearInterval(_waitForSb);
+    sb.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        // Give _refreshUserPlan time to populate _currentUser.id before we query
+        setTimeout(() => {
+          if (typeof _fcRenderDeckList === 'function') _fcRenderDeckList().catch(() => {});
+        }, 800);
+      }
+    });
+  }, 200);
+});
+</script>
 
 
 <script>
@@ -13649,7 +14535,8 @@ async function _examCallAPI(prompt, retries = 3) {
       const data = await resp.json();
       // Log full response for debugging
       // Try all common field names the server might use
-      const answer = data.answer || data.response || data.text || data.content || data.result || '';
+      const rawAnswer = data.answer || data.response || data.text || data.content || data.result || '';
+      const answer = typeof rawAnswer === 'string' ? rawAnswer : String(rawAnswer ?? '');
       if (!answer && attempt < retries) {
         console.warn('[API] Empty answer, retrying... data:', JSON.stringify(data).slice(0, 200));
         await new Promise(r => setTimeout(r, 1000));
@@ -14891,10 +15778,10 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 <!-- Profile Dropdown (shared across all screens) -->
 <div class="profile-dropdown" id="profile-dropdown" role="menu" aria-label="Profile menu">
   <div class="pd-header" role="presentation">
-    <div class="pd-avatar" aria-hidden="true">CD</div>
+    <div class="pd-avatar" aria-hidden="true"></div>
     <div>
-      <div class="pd-name">Charles Daryll Contridas</div>
-      <div class="pd-handle">@contridascharles91</div>
+      <div class="pd-name"></div>
+      <div class="pd-handle"></div>
     </div>
   </div>
   <div class="pd-menu">
@@ -14974,7 +15861,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
         color:var(--text-1);font-weight:600;font-size:14px;
         cursor:pointer;font-family:inherit;
       ">+ Generate New Deck</button>
-      <button onclick="document.getElementById('fc-complete-modal').style.display='none';" style="
+      <button data-action="_fcCloseCompleteModal" style="
         width:100%;padding:10px;border-radius:10px;border:none;
         background:transparent;color:var(--text-3);font-size:13px;
         cursor:pointer;font-family:inherit;
@@ -15040,7 +15927,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
         <span>Flashcards</span>
       </div>
-      <div class="sidebar-item active" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" style="cursor:pointer;">
+      <div class="sidebar-item active" role="button" tabindex="0" aria-label="Study Plan" data-action="showScreen" data-screen="studyplan" onclick="showScreen('studyplan')" style="cursor:pointer;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <span>Study Plan</span>
       </div>
@@ -15075,13 +15962,13 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     </div>
 
     <div class="sidebar-footer">
-      <div class="profile-row">
-        <div class="avatar">CD</div>
+      <div class="profile-row" role="button" tabindex="0" aria-label="Open profile menu" aria-haspopup="true" onclick="toggleProfileDropdown(event)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleProfileDropdown(event)">
+        <div class="avatar"></div>
         <div class="profile-text">
           <div class="profile-name">Charles Daryll</div>
           <div class="profile-plan">Free Plan</div>
         </div>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-3);margin-left:auto;flex-shrink:0;"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+        <svg class="profile-dots" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-3);margin-left:auto;flex-shrink:0;" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
       </div>
     </div>
   </aside>
@@ -18123,7 +19010,8 @@ function syncDrawerRecentChats() {
     '_fcGenerateFromBar':     ()      => _fcGenerateFromBar(),
     '_fcRestartDeck':         ()      => _fcRestartDeck(),
     '_fcCreateNew':           ()      => _fcCreateNew(),
-    '_fcNext-self':           (el)    => _fcNext(el),
+    '_fcNext-self':           (el)    => _fcNext(el.dataset.rating),
+    '_fcCloseCompleteModal':  ()      => { document.getElementById('fc-complete-modal').style.display = 'none'; },
 
     /* ── Research ───────────────────────────────────────── */
     '_researchBackToSetup':   ()      => _researchBackToSetup(),
