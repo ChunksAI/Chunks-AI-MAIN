@@ -1591,16 +1591,13 @@ Keep the summary focused, clear, and easy to review before an exam."""
         #   4. JSON output validation — if the model returns non-JSON we return
         #      a clear 502 rather than silently passing garbage to the frontend.
         elif mode == 'generate':
-            # Guard 1 — require a real authenticated user
-            if str(verified_user_id).startswith('ip:'):
-                return jsonify({
-                    'success': False,
-                    'error': 'generate mode requires authentication. Please sign in.',
-                }), 401
+            # Guard 1 — unauthenticated users are allowed; IP-based rate limiting
+            # (enforced by the daily counter above) is sufficient protection.
+            # Removing the hard auth block so Study Plan works for all users.
 
-            # Guard 2 — prompt length cap (8 000 chars ≈ ~2 000 tokens, ample
-            # for any legitimate structured-generation prompt)
-            _GEN_MAX_LEN = 8_000
+            # Guard 2 — prompt length cap raised to 20 000 chars to accommodate
+            # large PDF extracts (up to 12 000 chars) plus the system prompt.
+            _GEN_MAX_LEN = 20_000
             if len(question) > _GEN_MAX_LEN:
                 logger.warning(
                     "generate mode: prompt rejected — length %d exceeds %d (user %s)",
