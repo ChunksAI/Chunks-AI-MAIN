@@ -50,15 +50,7 @@ async function _post(path, body, signal) {
 
 /** Normalise the answer field — backend uses several key names. */
 function _extractAnswer(data) {
-  let raw = data.answer ?? data.response ?? data.text ?? data.result ?? '';
-  if (!raw && data.content != null) {
-    // Handle Anthropic-style content arrays: [{type:'text', text:'...'}]
-    if (Array.isArray(data.content)) {
-      raw = data.content.filter(b => b && b.type === 'text').map(b => b.text || '').join('');
-    } else {
-      raw = data.content;
-    }
-  }
+  const raw = data.answer ?? data.response ?? data.text ?? data.content ?? data.result ?? '';
   return typeof raw === 'string' ? raw.trim() : String(raw ?? '').trim();
 }
 
