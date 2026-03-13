@@ -24,7 +24,45 @@ import uuid
 import hashlib
 import time
 import threading
+from enum import Enum
 from cachetools import TTLCache
+
+
+# ── Tier enum ─────────────────────────────────────────────────────────────────
+class Tier(str, Enum):
+    """Canonical subscription tiers.
+
+    Inherits from ``str`` so instances compare equal to their string values
+    and can be passed wherever a plain string is expected (JSON serialisation,
+    f-strings, logging, etc.) without an explicit ``.value`` call.
+
+    Ordering (weakest → strongest): FREE < PAID < PRO < ULTRA.
+
+    Usage
+    -----
+    Tier('pro')          # → Tier.PRO   (construct from DB string)
+    Tier.PRO.is_paid     # → True
+    Tier.FREE.is_paid    # → False
+    server_tier == Tier.FREE          # direct equality
+    """
+
+    FREE  = 'free'
+    PAID  = 'paid'
+    PRO   = 'pro'
+    ULTRA = 'ultra'
+
+    @property
+    def is_paid(self) -> bool:
+        """Return True for any tier that grants paid-level access."""
+        return self in (Tier.PAID, Tier.PRO, Tier.ULTRA)
+
+    @classmethod
+    def from_db(cls, value: str) -> 'Tier':
+        """Parse a raw DB string, defaulting to FREE on any unknown value."""
+        try:
+            return cls(value.lower().strip())
+        except (ValueError, AttributeError):
+            return cls.FREE
 import PyPDF2
 import docx
 from pptx import Presentation
@@ -325,14 +363,14 @@ def _verify_supabase_jwt(token: str) -> dict | None:
     return None
 
 
-def _get_user_tier_from_db(user_id: str) -> str:
+def _get_user_tier_from_db(user_id: str) -> Tier:
     """
     Look up the user's subscription tier in Supabase.
-    Returns 'paid' or 'free'. Defaults to 'free' on any error.
+    Returns a :class:`Tier` enum value; defaults to ``Tier.FREE`` on any error.
     Expects a 'users' table with columns: id (uuid), tier (text).
     """
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY or not user_id:
-        return 'free'
+        return Tier.FREE
     try:
         resp = _session.get(
             f"{SUPABASE_URL}/rest/v1/users",
@@ -345,11 +383,11 @@ def _get_user_tier_from_db(user_id: str) -> str:
         )
         if resp.status_code == 200:
             rows = resp.json()
-            if rows and rows[0].get('tier') in ('paid', 'pro', 'ultra'):
-                return 'paid'
+            if rows:
+                return Tier.from_db(rows[0].get('tier', ''))
     except Exception as e:
         logger.warning(f"Tier lookup error: {e}")
-    return 'free'
+    return Tier.FREE
 
 
 def _get_and_increment_daily_count(user_id: str, date_str: str) -> int:
@@ -1226,7 +1264,7 @@ def ask():
             server_tier = _get_user_tier_from_db(verified_user_id)
         else:
             # No valid JWT → treat as free/guest regardless of what client sent
-            server_tier = 'free'
+            server_tier = Tier.FREE
             # Use IP as fallback identifier for unauthenticated requests
             verified_user_id = f'ip:{get_remote_address()}'
 
@@ -1238,7 +1276,7 @@ def ask():
                 if _old_day in k:
                     del _free_tier_counters[k]
 
-        if server_tier == 'free':
+        if not server_tier.is_paid:
             day_key = datetime.utcnow().strftime('%Y-%m-%d')
             _count  = _get_and_increment_daily_count(verified_user_id, day_key)
             if _count > FREE_TIER_DAILY_LIMIT:
