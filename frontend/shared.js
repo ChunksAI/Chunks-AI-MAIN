@@ -61,7 +61,8 @@
   window.fetch = function(input, opts) {
     try {
       const url = typeof input === 'string' ? input : input?.url || '';
-      if (_authToken && url.includes('chunks-ai-main-production')) {
+      const isBackend = url.includes('chunks-ai-main-production') || url.includes('chemistry-app-production');
+      if (_authToken && isBackend) {
         opts = opts ? { ...opts } : {};
         opts.headers = { ...(opts.headers || {}), 'Authorization': `Bearer ${_authToken}` };
       }
