@@ -6205,18 +6205,21 @@ select:focus-visible {
 
     // ── Screen-specific init ──
     if (name === 'flash') {
-      // Wait for auth to settle before querying Supabase — avoids race on fresh login
       if (typeof _fcRenderDeckList === 'function') {
-        const _tryLoad = (attempts) => {
-          // If user id is already known, load immediately
+        // Step 1: Render immediately from localStorage — never blank on refresh
+        _fcRenderDeckList().catch(() => {});
+
+        // Step 2: Once auth settles, re-render to merge in Supabase decks
+        // (runs silently in the background, won't blank the screen if it fails)
+        const _waitForAuth = (attempts) => {
           if (window._currentUser?.id) {
             _fcRenderDeckList().catch(() => {});
           } else if (attempts > 0) {
-            // Auth not ready yet — retry up to 10 times (2 seconds total)
-            setTimeout(() => _tryLoad(attempts - 1), 200);
+            setTimeout(() => _waitForAuth(attempts - 1), 200);
           }
+          // If auth never comes (logged out) the localStorage render from Step 1 stands
         };
-        _tryLoad(10);
+        _waitForAuth(15); // up to 3 seconds
       }
     }
 
@@ -11694,16 +11697,22 @@ async function _fcSaveDeck(topic, cards) {
     updated_at: new Date().toISOString(),
   };
 
+  // ALWAYS write to localStorage immediately — this is the instant cache that
+  // survives refresh and works offline, regardless of Supabase state.
+  _fcSaveDeckLocal(deck);
+
+  // Then attempt Supabase if logged in
   if (ChunksDB.isLoggedIn()) {
     const { data: deckRow, error: deckErr } = await ChunksDB.insert('fc_decks', {
       name:       deck.name,
       card_count: deck.card_count,
     });
     if (deckErr || !deckRow) {
-      console.warn('[FC] Deck insert failed, falling back to localStorage', deckErr);
-      _fcSaveDeckLocal(deck);
+      console.warn('[FC] Deck insert failed, localStorage copy retained', deckErr);
     } else {
-      _fcCurrentDeckId = deckRow.id;   // wire the live deck id for session saves
+      _fcCurrentDeckId = deckRow.id;
+      // Patch the localStorage copy with the real Supabase id so session saves link correctly
+      _fcPatchLocalDeckId(deck.name, deckRow.id);
       const cardRows = cards.map(c => ({
         deck_id: deckRow.id,
         front:   c.question || c.front || '',
@@ -11712,38 +11721,52 @@ async function _fcSaveDeck(topic, cards) {
       await Promise.all(cardRows.map(r => ChunksDB.insert('fc_cards', r)));
       console.log('[FC] Deck saved to Supabase:', deckRow.id);
     }
-  } else {
-    _fcSaveDeckLocal(deck);
   }
 
   await _fcRenderDeckList();
 }
 
-/* ── localStorage fallback ── */
+/* ── localStorage write — always call this, even when logged in ── */
 function _fcSaveDeckLocal(deck) {
   const decks = ChunksDB.lsGet(FC_LS_KEY, []);
   const filtered = decks.filter(d => d.name !== deck.name);
   filtered.unshift(deck);
-  ChunksDB.lsSet(FC_LS_KEY, filtered.slice(0, 20));
+  ChunksDB.lsSet(FC_LS_KEY, filtered.slice(0, 30));
 }
 
-/* ── Load all decks ── */
+/* ── Patch the local deck's id once we get the real Supabase uuid back ── */
+function _fcPatchLocalDeckId(name, supabaseId) {
+  const decks = ChunksDB.lsGet(FC_LS_KEY, []);
+  const patched = decks.map(d => d.name === name ? { ...d, id: supabaseId } : d);
+  ChunksDB.lsSet(FC_LS_KEY, patched);
+}
+
+/* ── Load all decks — merge Supabase + localStorage, dedupe by name ── */
 async function _fcLoadDecks() {
+  const localDecks = ChunksDB.lsGet(FC_LS_KEY, []);
+
   if (ChunksDB.isLoggedIn()) {
-    const { data, error } = await ChunksDB.get('fc_decks', {
-      order: { col: 'created_at', asc: false },
-      limit: 30,
-    });
-    if (error) {
-      console.warn('[FC] Supabase deck load error:', error);
-      // Fall through to localStorage on error only
-      return ChunksDB.lsGet(FC_LS_KEY, []);
+    try {
+      const { data, error } = await ChunksDB.get('fc_decks', {
+        order: { col: 'created_at', asc: false },
+        limit: 30,
+      });
+      if (!error && data?.length) {
+        // Merge: Supabase is source of truth; fill in any local-only decks
+        // (e.g. created offline) that aren't in Supabase yet
+        const sbNames = new Set(data.map(d => d.name));
+        const localOnly = localDecks.filter(d => !sbNames.has(d.name));
+        return [...data, ...localOnly];
+      }
+    } catch(e) {
+      console.warn('[FC] Supabase deck load error:', e.message);
     }
-    // Return Supabase result even if empty — user is logged in, this IS their deck list
-    return data || [];
+    // Supabase failed or returned empty — fall back to localStorage so
+    // refresh never shows a blank sidebar
+    return localDecks;
   }
-  // Not logged in — use localStorage
-  return ChunksDB.lsGet(FC_LS_KEY, []);
+
+  return localDecks;
 }
 
 /* ── Load cards for a specific deck ── */
@@ -11977,9 +12000,13 @@ async function _fcInitScreen() {
 
 /* ── Re-render deck list whenever the user signs in (fixes cross-device blank sidebar) ── */
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. If flash screen is the landing screen after a refresh, wait for auth then load
+  // 1. If flash screen is the landing screen after a refresh, render from
+  //    localStorage immediately so the sidebar is never blank, then re-fetch
+  //    from Supabase once auth is ready.
   if (sessionStorage.getItem('chunks_active_screen') === 'flash') {
-    // Wait for _initAuth (1000ms) + a small buffer to ensure _currentUser.id is set
+    // Immediate localStorage render
+    if (typeof _fcRenderDeckList === 'function') _fcRenderDeckList().catch(() => {});
+    // Supabase refresh once auth settles
     setTimeout(_fcInitScreen, 1400);
   }
 
@@ -11991,7 +12018,6 @@ document.addEventListener('DOMContentLoaded', () => {
     clearInterval(_waitForSb);
     sb.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        // Give _refreshUserPlan time to populate _currentUser.id before we query
         setTimeout(() => {
           if (typeof _fcRenderDeckList === 'function') _fcRenderDeckList().catch(() => {});
         }, 800);
