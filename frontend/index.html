@@ -3,6 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com 'nonce-chunks-init';
+  style-src 'self' https://fonts.googleapis.com https://cdn.jsdelivr.net 'unsafe-inline';
+  font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:;
+  img-src 'self' data: blob: https:;
+  connect-src 'self' https://chunks-ai-main-production.up.railway.app https://*.supabase.co wss://*.supabase.co;
+  frame-src 'none';
+  object-src 'none';
+  base-uri 'self';
+">
 <title>Chunks AI — Study Smarter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin="anonymous">
@@ -176,6 +187,30 @@ select:focus-visible {
 @keyframes screenIn {
   from { opacity: 0; transform: translateY(5px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── backdrop-filter: GPU compositing hint + @supports fallback ── */
+/* Hint the GPU to composite these layers independently for smoother blur */
+.upgrade-modal, .library-modal, .shortcuts-modal, .settings-modal,
+.bug-modal-overlay, .help-modal, .mobile-bottom-nav, .sp-topbar,
+#sp-generating-overlay, .mobile-drawer-overlay, #fc-complete-modal {
+  will-change: transform;
+}
+/* Fallback for browsers without backdrop-filter support (older Android, Firefox < 103) */
+@supports not (backdrop-filter: blur(1px)) {
+  .upgrade-modal, .library-modal, .shortcuts-modal, .settings-modal,
+  .bug-modal-overlay, .help-modal {
+    background: rgba(8, 8, 16, 0.94) !important;
+  }
+  .mobile-bottom-nav {
+    background: rgba(13, 14, 20, 0.98) !important;
+  }
+  .sp-topbar {
+    background: rgba(13, 14, 20, 0.95) !important;
+  }
+  .mobile-drawer-overlay, #fc-complete-modal {
+    background: rgba(0, 0, 0, 0.88) !important;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -4651,6 +4686,11 @@ body {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
+      <div id="incognito-badge" style="display:none;align-items:center;gap:6px;font-size:11px;color:var(--text-3);font-family:var(--font-mono);margin-bottom:4px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Incognito — this chat won't be saved
+        <button onclick="localStorage.removeItem('chunks_incognito_session');document.getElementById('incognito-badge').style.display='none';" style="background:none;border:none;color:var(--text-4);cursor:pointer;font-size:11px;padding:0 2px;" aria-label="Exit incognito mode">✕</button>
+      </div>
       <div class="home-disclaimer">Chunks AI can make mistakes. Verify important information.</div>
     </div>
 
@@ -6241,7 +6281,7 @@ body {
 
           <div class="library-book-card" onclick="selectBook('zumdahl')">
             <div class="library-book-icon">
-              <img src="/public/covers/zumdahl.jpg" alt="" loading="lazy" onerror="this.parentElement.innerHTML='📗'">
+              <img src="/public/covers/zumdahl.jpg" alt="General Chemistry by Zumdahl &amp; Zumdahl — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='📗'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">General Chemistry</div>
@@ -6256,7 +6296,7 @@ body {
 
           <div class="library-book-card" onclick="selectBook('atkins')">
             <div class="library-book-icon">
-              <img src="/public/covers/atkins.jpg" alt="" loading="lazy" onerror="this.parentElement.innerHTML='📘'">
+              <img src="/public/covers/atkins.jpg" alt="Physical Chemistry by Atkins &amp; de Paula — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='📘'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Physical Chemistry</div>
@@ -6271,7 +6311,7 @@ body {
 
           <div class="library-book-card" onclick="selectBook('klein')">
             <div class="library-book-icon">
-              <img src="/public/covers/klein.jpg" alt="" loading="lazy" onerror="this.parentElement.innerHTML='📙'">
+              <img src="/public/covers/klein.jpg" alt="Organic Chemistry by David Klein — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='📙'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Organic Chemistry</div>
@@ -6286,7 +6326,7 @@ body {
 
           <div class="library-book-card" onclick="selectBook('harris')">
             <div class="library-book-icon">
-              <img src="/public/covers/harris.jpg" alt="" loading="lazy" onerror="this.parentElement.innerHTML='📒'">
+              <img src="/public/covers/harris.jpg" alt="Quantitative Chemical Analysis by Daniel C. Harris — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='📒'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Quantitative Chemical Analysis</div>
@@ -6457,7 +6497,7 @@ body {
         <div class="library-grid">
           <div class="library-book-card" onclick="selectBook('anaphy2e')">
             <div class="library-book-icon" style="background:rgba(248,113,113,0.06);">
-              <img src="/public/covers/anaphy2e.jpg" alt="" loading="lazy" onerror="this.parentElement.innerHTML='🫁'">
+              <img src="/public/covers/anaphy2e.jpg" alt="Anatomy &amp; Physiology by Patton &amp; Thibodeau — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='🫁'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Anatomy & Physiology</div>
@@ -6471,7 +6511,7 @@ body {
           </div>
           <div class="library-book-card" onclick="selectBook('netter')">
             <div class="library-book-icon" style="background:rgba(248,113,113,0.06);">
-              <img src="/public/covers/netter.jpg" alt="" loading="lazy" onerror="this.parentElement.innerHTML='🫀'">
+              <img src="/public/covers/netter.jpg" alt="Atlas of Human Anatomy by Frank H. Netter — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='🫀'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Atlas of Human Anatomy</div>
@@ -6764,6 +6804,7 @@ async function _wsRenderPage(pageNum, container) {
 // ── Chat state (declared here, used by selectBook + chat script) ──
 let _wsBookId      = localStorage.getItem('chunks_default_book') || 'atkins';
 let _wsChatHistory = [];
+let _newChatIsIncognito = false; // set true by Ctrl+Shift+I before calling newChat()
 let _wsTyping      = false;
 
 // ── Main book loader ───────────────────────────────────────
@@ -7258,6 +7299,7 @@ let _recentItems = JSON.parse(localStorage.getItem('chunks_recent') || 'null') |
 let _activeRecentId = null;
 
 function _historySavingEnabled() {
+  if (localStorage.getItem('chunks_incognito_session') === '1') return false;
   return localStorage.getItem('chunks_save_history') !== '0';
 }
 
@@ -7283,6 +7325,7 @@ function _loadSession(id) {
 
 // ── Workspace session save/restore ───────────────────────
 function _saveWsSession(bookId, historyArr) {
+  if (!_historySavingEnabled()) return;
   const html = document.getElementById('ws-messages')?.innerHTML || '';
   localStorage.setItem('chunks_ws_session_' + bookId, JSON.stringify({ html, history: historyArr }));
   // Track which book + recent item was last active
@@ -7346,6 +7389,13 @@ function newChat() {
   localStorage.removeItem('chunks_home_session');
   localStorage.removeItem('chunks_active_ws_book');
   localStorage.removeItem('chunks_active_recent_id');
+  // Clear incognito flag unless it was just set by the Ctrl+Shift+I shortcut this tick
+  if (!_newChatIsIncognito) {
+    localStorage.removeItem('chunks_incognito_session');
+    const badge = document.getElementById('incognito-badge');
+    if (badge) badge.style.display = 'none';
+  }
+  _newChatIsIncognito = false;
 
   // Reset home screen to landing state
   const homeChatHistory = document.getElementById('home-chat-history');
@@ -10306,15 +10356,19 @@ document.addEventListener('keydown', function(e) {
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') {
     e.preventDefault();
     localStorage.setItem('chunks_incognito_session', '1');
+    _newChatIsIncognito = true;
     newChat();
     wsShowToast('🕵️', 'Incognito chat — history won\'t be saved', '');
+    const badge = document.getElementById('incognito-badge');
+    if (badge) badge.style.display = 'flex';
     return;
   }
 
   // ── Ctrl+U — upload file ──────────────────────────────────
   if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'u') {
     e.preventDefault();
-    const fileInput = document.querySelector('input[type="file"]');
+    const activeScreen = document.querySelector('.screen.active');
+    const fileInput = (activeScreen || document).querySelector('input[type="file"]');
     if (fileInput) fileInput.click();
     else wsShowToast('📎', 'File upload not available here', '');
     return;
@@ -12187,7 +12241,7 @@ function _showMilestone(icon, title, message) {
     el.id = 'milestone-overlay';
     el.style.cssText = `
       position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
-      background:rgba(9,9,0,0.75);backdrop-filter:blur(6px);z-index:9999;
+      background:rgba(9,9,0,0.75);backdrop-filter:blur(6px);will-change:transform;z-index:9999;
       opacity:0;transition:opacity 0.3s ease;cursor:pointer;`;
     el.innerHTML = `
       <div style="text-align:center;padding:40px 56px;background:var(--surface-2);border:1px solid var(--border-md);border-radius:var(--r-lg);max-width:400px;">
@@ -12528,7 +12582,7 @@ function _showHistory(layerId) {
     modal.id = 'history-modal';
     modal.style.cssText = `position:fixed;inset:0;z-index:9997;display:flex;align-items:center;justify-content:center;`;
     modal.innerHTML = `
-      <div onclick="if(event.target===this)_closeHistory()" style="position:absolute;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);"></div>
+      <div onclick="if(event.target===this)_closeHistory()" style="position:absolute;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);will-change:transform;"></div>
       <div style="position:relative;z-index:1;width:min(560px,90vw);max-height:75vh;background:var(--surface-2);border:1px solid var(--border-md);border-radius:var(--r-md);display:flex;flex-direction:column;overflow:hidden;">
         <div style="padding:16px 20px;border-bottom:1px solid var(--border-xs);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
           <div style="font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text-1);">Version History</div>
@@ -12863,7 +12917,7 @@ function _confirmNewPaper() {
 
   // Show confirmation modal
   const overlay = document.createElement('div');
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);will-change:transform;';
   overlay.innerHTML = `
     <div style="background:var(--surface-2);border:1px solid var(--border-md);border-radius:var(--r-lg);padding:28px 32px;max-width:380px;width:90%;text-align:center;">
       <div style="font-family:var(--font-head);font-size:18px;font-weight:800;color:var(--text-1);margin-bottom:8px;">Start a New Paper?</div>
@@ -14865,7 +14919,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 <!-- ── Flashcard Completion Modal ── -->
 <div id="fc-complete-modal" style="
   display:none;position:fixed;inset:0;z-index:9000;
-  background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);
+  background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);will-change:transform;
   align-items:center;justify-content:center;
 ">
   <div style="
