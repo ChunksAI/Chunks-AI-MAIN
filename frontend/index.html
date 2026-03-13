@@ -12865,10 +12865,7 @@ function _showToast(icon, text, color) {
    RECENT SIDEBAR LIST
 ══════════════════════════════════════════════════════════════ */
 // CHAT_SVG already declared above
-_recentItems = JSON.parse(sessionStorage.getItem('chunks_recent') || 'null') || [
-  { id: 'r1', label: 'Thermodynamics Ch.4',  question: 'Thermodynamics chapter 4 key concepts' },
-  { id: 'r2', label: 'Equilibrium Constants', question: 'Explain equilibrium constants' },
-];
+_recentItems = JSON.parse(sessionStorage.getItem('chunks_recent') || 'null') || [];
 function _renderRecentList() {
   const container = document.getElementById('recent-list-research');
   if (!container) return;
