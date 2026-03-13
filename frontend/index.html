@@ -8350,6 +8350,7 @@ async function wsMakeFlashcard(btn, msgId, question) {
     _fcDeckTopic = topic;
     _fcIndex = 0;
     _fcStats = { easy: 0, ok: 0, hard: 0 };
+    _fcClearSkeleton();
     _fcRenderCard();
 
     wsShowToast('🃏', `${data.flashcards.length} flashcards generated!`, 'var(--gold-border)');
@@ -8516,6 +8517,22 @@ function _fcShowSkeleton(topic) {
 }
 
 function _fcClearSkeleton() {
+  // Restore proper card face HTML (skeleton replaced these elements entirely)
+  const front = document.getElementById('flash-face-front');
+  const back  = document.getElementById('flash-face-back');
+  if (front) front.innerHTML = `
+    <span class="flash-tag" id="flash-tag-front">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+      <span id="flash-tag-text">Question</span>
+    </span>
+    <p class="flash-q" id="flash-question"></p>
+    <div class="flash-source" id="flash-source-front" style="opacity:0;"></div>`;
+  if (back) back.innerHTML = `
+    <span class="flash-tag" style="color:var(--gold);background:var(--gold-muted);border-color:var(--gold-border);">
+      <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+      Answer
+    </span>
+    <div class="flash-a" id="flash-answer">—</div>`;
   const card = document.getElementById('flashCard');
   if (card) card.style.pointerEvents = '';
   const hint = document.getElementById('flipHint');
