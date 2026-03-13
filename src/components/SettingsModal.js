@@ -208,6 +208,8 @@ function _hexToRgb(hex) {
 
 export function applyAccentColor(color) {
   const root = document.documentElement;
+  // Guard against the string "undefined" being stored from a prior bug
+  if (color === 'undefined' || color === 'null') color = null;
   if (!color || color === '#888') {
     ['--gold', '--gold-bright', '--gold-muted', '--gold-glow', '--gold-border',
      '--accent', '--accent-dim', '--accent-glow'].forEach(v => root.style.removeProperty(v));
@@ -445,7 +447,11 @@ function _restoreSettings() {
   // Accent color (special: dot + CSS vars)
   const accentName  = localStorage.getItem('chunks_setting_accent');
   const accentColor = localStorage.getItem('chunks_setting_accent_color');
-  if (accentName && accentColor) {
+  // Clean up corrupted "undefined" values left by a prior bug
+  if (accentName === 'undefined' || accentColor === 'undefined') {
+    localStorage.removeItem('chunks_setting_accent');
+    localStorage.removeItem('chunks_setting_accent_color');
+  } else if (accentName && accentColor) {
     applyAccentColor(accentColor);
     const menu = document.querySelector('.settings-select-menu[data-setting-key="accent"]');
     if (menu) {
