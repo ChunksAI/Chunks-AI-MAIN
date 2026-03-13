@@ -236,12 +236,12 @@ export function renderSidebar(cfg) {
     ${extraSections}
     <div class="sidebar-footer">
       <div class="profile-row" role="button" tabindex="0" aria-label="Open profile menu" aria-haspopup="true" data-action="toggleProfileDropdown">
-        <div class="avatar" aria-hidden="true"></div>
+        <div class="avatar" aria-hidden="true">A</div>
         <div class="profile-text">
           <div class="profile-name">Alex Cruz</div>
           <div class="profile-plan">Free Plan</div>
         </div>
-        <svg class="profile-dots" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="profile-dots-icon" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+        <svg class="profile-dots" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
       </div>
     </div>
   </aside>`.trimStart();
