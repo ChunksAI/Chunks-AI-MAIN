@@ -18116,8 +18116,8 @@ function syncDrawerRecentChats() {
     } else if (item.id === 'pd-terms-item') {
       if (typeof pdOpenTerms === 'function') pdOpenTerms(e);
     } else if (item.closest('.pd-menu')) {
-      // Any other pd-item in a pd-menu: close open submenus
-      if (typeof _closeHelp  === 'function') _closeHelp();
+      // Any other pd-item in a pd-menu: close terms submenu only
+      // Help submenu intentionally stays open until an outside click
       if (typeof _closeTerms === 'function') _closeTerms();
     }
   }, false);
