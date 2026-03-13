@@ -9421,44 +9421,56 @@ function _waitForSupabase() {
    1. localStorage chunks_sb_url / chunks_sb_anon (written by admin.html) — instant, works for guests
    2. Fetch /api/config from backend — works in prod even without admin session
 */
+let _chunksSbPromise = null; // singleton — prevents concurrent inits
+
 async function _getChunksSb() {
   if (_chunksSb) return _chunksSb;
-  const lib = await _waitForSupabase();
-  if (!lib) { console.warn('[Chunks] supabase lib not ready'); return null; }
+  // Return the in-flight promise if init is already underway
+  if (_chunksSbPromise) return _chunksSbPromise;
 
-  let url = '', anon = '';
+  _chunksSbPromise = (async () => {
+    const lib = await _waitForSupabase();
+    if (!lib) { console.warn('[Chunks] supabase lib not ready'); return null; }
 
-  // Priority 1: read from localStorage (set by admin.html after login)
-  try {
-    url  = localStorage.getItem('chunks_sb_url')  || '';
-    anon = localStorage.getItem('chunks_sb_anon') || '';
-  } catch(e) {}
+    let url = '', anon = '';
 
-  // Priority 2: fetch config from backend
-  if (!url || !anon) {
-    const backends = [API_BASE, 'https://chemistry-app-production.up.railway.app'];
-    for (const base of backends) {
-      try {
-        const r = await fetch(`${base}/api/config`, { signal: AbortSignal.timeout(5000) });
-        const c = await r.json();
-        if (c?.supabaseUrl && c?.supabaseAnonKey) {
-          url  = c.supabaseUrl;
-          anon = c.supabaseAnonKey;
-          // Cache for next time
-          try { localStorage.setItem('chunks_sb_url', url); localStorage.setItem('chunks_sb_anon', anon); } catch(e) {}
-          break;
-        }
-      } catch(e) { console.warn('[Chunks] Config fetch failed from', base, e.message); }
+    // Priority 1: read from localStorage (set by admin.html after login)
+    try {
+      url  = localStorage.getItem('chunks_sb_url')  || '';
+      anon = localStorage.getItem('chunks_sb_anon') || '';
+    } catch(e) {}
+
+    // Priority 2: fetch config from backend
+    // IMPORTANT: Do NOT pass an AbortSignal — it cannot be cloned via postMessage
+    // (used internally by PDF.js worker) and causes console warnings on every load.
+    // Instead we use a race against a timeout promise.
+    if (!url || !anon) {
+      const backends = [API_BASE, 'https://chemistry-app-production.up.railway.app'];
+      for (const base of backends) {
+        try {
+          const fetchPromise = fetch(`${base}/api/config`).then(r => r.json());
+          const timeoutPromise = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000));
+          const c = await Promise.race([fetchPromise, timeoutPromise]);
+          if (c?.supabaseUrl && c?.supabaseAnonKey) {
+            url  = c.supabaseUrl;
+            anon = c.supabaseAnonKey;
+            try { localStorage.setItem('chunks_sb_url', url); localStorage.setItem('chunks_sb_anon', anon); } catch(e) {}
+            break;
+          }
+        } catch(e) { console.warn('[Chunks] Config fetch failed from', base, e.message); }
+      }
     }
-  }
 
-  if (!url || !anon) { console.warn('[Chunks] No Supabase credentials available'); return null; }
+    if (!url || !anon) { console.warn('[Chunks] No Supabase credentials available'); return null; }
 
-  _chunksSb = lib.createClient(url, anon, {
-    auth: { persistSession: true, autoRefreshToken: true, storage: localStorage }
-  });
-  console.log('[Chunks] Supabase ready:', url);
-  return _chunksSb;
+    _chunksSb = lib.createClient(url, anon, {
+      auth: { persistSession: true, autoRefreshToken: true, storage: localStorage }
+    });
+    console.log('[Chunks] Supabase ready:', url);
+    return _chunksSb;
+  })();
+
+  return _chunksSbPromise;
 }
 
 /* Read logged-in email from Supabase localStorage session */
@@ -10953,12 +10965,19 @@ function filterFAQs(query) {
 
     try {
       // Attempt to POST to backend; silently fall back to mailto if unavailable
-      const res = await fetch(`${typeof API_BASE !== 'undefined' ? API_BASE : ''}/api/bug-report`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ category: cat, description: desc, user }),
-        signal: AbortSignal.timeout(5000)
-      });
+      const _bugCtrl = new AbortController();
+      const _bugTimer = setTimeout(() => _bugCtrl.abort(), 5000);
+      let res;
+      try {
+        res = await fetch(`${typeof API_BASE !== 'undefined' ? API_BASE : ''}/api/bug-report`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category: cat, description: desc, user }),
+          signal: _bugCtrl.signal
+        });
+      } finally {
+        clearTimeout(_bugTimer);
+      }
       if (!res.ok) throw new Error('server error');
     } catch (_) {
       // Fallback: open mailto so the report still reaches the team
