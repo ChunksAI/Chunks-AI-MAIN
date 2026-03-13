@@ -215,6 +215,17 @@
 .sidebar-new-btn:active { transform: translateY(0); }
 
 /* ── Nav sections & items ─────────────────────────────────── */
+
+/* flex: 1 + min-height: 0 lets the nav grow to fill available sidebar
+   height while still being able to shrink below its content size.
+   overflow-y: auto enables scrolling when chat history grows tall,
+   preventing the nav from pushing .sidebar-footer out of the viewport. */
+.sidebar nav {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
 .sidebar-section { padding: 8px 0; }
 
 .sidebar-section-label {
