@@ -6,9 +6,6 @@
    Depends on: tokens.css
 ═══════════════════════════════════════════════════════════ */
 
-/* ── Screen-level layout (shared by all screens with a sidebar) */
-#screen-home { flex-direction: row; overflow: hidden; }
-
 /* ── Sidebar shell ────────────────────────────────────────── */
 .sidebar {
   width: var(--sidebar-w);
