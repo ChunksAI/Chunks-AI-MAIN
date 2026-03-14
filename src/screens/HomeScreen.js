@@ -477,7 +477,7 @@ mountHomeScreen();
   homeHistory    = session.history || [];
   _homeSessionId = savedId;
   window._setActiveRecent?.(savedId);
-  setTimeout(() => homeScrollBottom(), 80);
+  setTimeout(() => homeScrollBottom(), 250);
 })();
 
 // ── Wire input listeners (after DOM is interactive) ───────────────────────────
