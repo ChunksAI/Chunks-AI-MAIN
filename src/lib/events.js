@@ -42,6 +42,20 @@ document.addEventListener('click', function (e) {
     return;
   }
 
+  // ── File-input triggers (click the hidden <input type="file">) ───────
+  if (action === 'triggerHomePdfUpload') {
+    document.getElementById('home-pdf-upload')?.click();
+    return;
+  }
+  if (action === 'triggerExamPdfUpload') {
+    document.getElementById('exam-pdf-file')?.click();
+    return;
+  }
+  if (action === 'triggerSpFileUpload') {
+    document.getElementById('sp-file-input')?.click();
+    return;
+  }
+
   // ── Look up window function ─────────────────────────────────────────
   const fn = window[action];
   if (typeof fn !== 'function') return;
