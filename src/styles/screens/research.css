@@ -387,7 +387,7 @@
   outline: none; transition: border-color var(--t-fast);
   resize: none;
 }
-.setup-input:focus { outline: none; }
+.setup-input:focus { border-color: var(--gold-border); }
 .setup-input::placeholder { color: var(--text-4); }
 .setup-row { display: flex; gap: 8px; }
 .setup-btn {

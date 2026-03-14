@@ -52,12 +52,26 @@ body::after {
    the browser determines keyboard navigation is active.         */
 :focus { outline: none; }
 :focus-visible {
-  outline: none;
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
-/* Inputs & textareas — no outline ever, caret is sufficient feedback */
+/* Inputs & textareas get an inset ring so layout doesn't shift */
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 0;
+}
+/* ── Suppress focus ring on home / library / flashcard / incognito chat inputs ── */
+.ask-textarea:focus-visible,
+.ask-textarea:focus,
+#home-ask-input:focus-visible,
+#home-ask-input:focus,
+#home-ask-input-bottom:focus-visible,
+#home-ask-input-bottom:focus,
+#incognito-input:focus-visible,
+#incognito-input:focus {
   outline: none;
 }
 

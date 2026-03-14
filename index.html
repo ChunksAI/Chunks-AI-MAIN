@@ -2044,6 +2044,8 @@ function _buildLayerSteps(layerId, layerObj, ls) {
               id="regen-instruction-${layerId}"
               placeholder="e.g. Make it more formal, add more citations, focus on Philippine context, shorten to 150 words…"
               style="width:100%;min-height:60px;background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:8px 10px;font-size:12px;color:var(--text-1);font-family:var(--font-body);resize:vertical;outline:none;line-height:1.6;transition:border-color 0.15s;box-sizing:border-box;"
+              onfocus="this.style.borderColor='var(--gold-border)'"
+              onblur="this.style.borderColor='var(--border-xs)'"
               onkeydown="if(event.key==='Enter'&&(event.ctrlKey||event.metaKey)){event.preventDefault();_generateParagraph('${layerId}')}"
             ></textarea>
             <div style="display:flex;gap:8px;align-items:center;">
@@ -2155,6 +2157,14 @@ function _bindLayerStepActions(layerId) {
         if (label && newText) { label.textContent = '✎ Edited'; label.style.color = 'var(--gold)'; }
 
       }, 800);
+    });
+
+    // ── Focus: highlight editor border ──
+    paraEl.addEventListener('focus', () => {
+      if (editorEl) editorEl.style.borderColor = 'var(--gold-border)';
+    });
+    paraEl.addEventListener('blur', () => {
+      if (editorEl) editorEl.style.borderColor = 'var(--border-xs)';
     });
 
     // ── Tab key: insert 4 spaces instead of moving focus ──
