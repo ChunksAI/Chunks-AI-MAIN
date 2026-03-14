@@ -636,9 +636,8 @@
   transition: border-color var(--t-fast);
 }
 .incognito-compose-box:focus-within {
-  border-color: rgba(232,172,46,0.55);
+  border-color: rgba(255,255,255,0.22);
   border-style: solid;
-  box-shadow: 0 0 0 3px rgba(232,172,46,0.08), 0 8px 32px rgba(0,0,0,0.4);
 }
 
 .incognito-textarea {

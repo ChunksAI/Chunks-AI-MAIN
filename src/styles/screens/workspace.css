@@ -424,7 +424,7 @@
   border-radius: var(--r-md); padding: 9px 9px 9px 13px;
   transition: border-color var(--t-fast);
 }
-.chat-input-inner:focus-within { border-color: var(--gold-border); }
+.chat-input-inner:focus-within { border-color: var(--border-sm); }
 .chat-input-field {
   flex: 1; font-family: var(--font-body); font-size: 13px;
   color: var(--text-1); background: transparent; border: none; outline: none;
