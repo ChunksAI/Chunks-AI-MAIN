@@ -8,13 +8,21 @@
  * Per-screen differences
  * ──────────────────────
  *  active nav item   → determined by data-sidebar-screen attribute
- *  recent list IDs   → suffixed per-screen so _renderAllRecent() works
+ *  recent list IDs   → suffixed per-screen so renderSidebarHistory() works
  *  flash extra       → fc-saved-decks-list / fc-deck-count
  *  studyplan extra   → sp-recent-plans-section / sp-recent-plans-list
  *
  * Task 19 — replaces 6 copies (home, workspace, flash, research, exam,
  * studyplan) with this single component.
  */
+
+import {
+  getRecentList,
+  getSession,
+  deleteSession,
+  getActiveSessionId,
+  setActiveSessionId,
+} from '../utils/storage.js';
 
 // ── SVG constants ──────────────────────────────────────────────────────────
 
@@ -221,37 +229,36 @@ export function mountSidebars() {
     const screen = el.dataset.sidebarScreen || 'home';
     el.innerHTML = buildSidebar(screen);
   });
-  // After sidebar HTML is injected, populate history from localStorage directly.
-  // This is the guaranteed-reliable path: reads storage, no inline-script dependency.
   renderSidebarHistory();
 }
 
-// ── renderSidebarHistory ───────────────────────────────────────────────────
-// Reads chunks_recent from localStorage and populates every sidebar list
-// container that currently exists in the DOM.
-// Called by mountSidebars() on every page load/refresh/new-tab.
-// Also exposed as window._renderAllRecent so recentAdd/delete/rename in
-// index.html re-renders the sidebar after any change.
+// ── History rendering ──────────────────────────────────────────────────────
 
 const CHAT_SVG_SB = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
 const ALL_GENERAL_IDS   = ['recent-list-general','recent-list-general-ws','recent-list-general-flash','recent-list-general-research','recent-list-general-exam','recent-list-general-studyplan'];
 const ALL_WORKSPACE_IDS = ['recent-list-home','recent-list-workspace','recent-list-flash','recent-list-ws-research','recent-list-ws-exam','recent-list-ws-studyplan'];
 
+/**
+ * Read chunks_recent from localStorage via storage.js and populate every
+ * sidebar list container that currently exists in the DOM.
+ *
+ * Called by mountSidebars() on every page load / refresh / new tab.
+ * Also exposed as window._renderAllRecent so any code that saves a new
+ * message can call it to immediately update the sidebar.
+ */
 export function renderSidebarHistory() {
-  let items = [];
-  try { items = JSON.parse(localStorage.getItem('chunks_recent') || '[]') || []; }
-  catch (_) { items = []; }
+  const items    = getRecentList();
+  const activeId = getActiveSessionId();
 
-  const activeId     = localStorage.getItem('chunks_active_recent_id') || null;
-  const generalItems = items.filter(r => r.source === 'general' || !r.bookId);
-  const wsItems      = items.filter(r => r.source === 'workspace'  &&  r.bookId);
+  const generalItems = items.filter(r => r.source === 'general' || !r.source);
+  const wsItems      = items.filter(r => r.source === 'workspace');
 
-  ALL_GENERAL_IDS.forEach(id   => _sbFill(id, generalItems, activeId, 'No chats yet'));
-  ALL_WORKSPACE_IDS.forEach(id => _sbFill(id, wsItems,      activeId, 'No recent chats yet'));
+  ALL_GENERAL_IDS.forEach(id   => _fillList(id, generalItems, activeId, 'No chats yet'));
+  ALL_WORKSPACE_IDS.forEach(id => _fillList(id, wsItems,      activeId, 'No recent chats yet'));
 }
 
-function _sbFill(containerId, items, activeId, emptyMsg) {
+function _fillList(containerId, items, activeId, emptyMsg) {
   const el = document.getElementById(containerId);
   if (!el) return;
   el.innerHTML = '';
@@ -259,22 +266,87 @@ function _sbFill(containerId, items, activeId, emptyMsg) {
     el.innerHTML = `<div class="recent-empty">${emptyMsg}</div>`;
     return;
   }
-  items.forEach(item => {
-    const div = document.createElement('div');
-    div.className = 'recent-item' + (item.id === activeId ? ' active' : '');
-    div.dataset.id = item.id;
-    div.title = item.question || '';
-    div.innerHTML = `
-      ${CHAT_SVG_SB}
-      <span>${(item.pinned ? '📌 ' : '') + (item.label || '').replace(/</g, '&lt;')}</span>
-      <span class="recent-menu-btn" title="More options">···</span>`;
-    div.addEventListener('click',     ()  => window._clickRecent?.(item));
-    div.querySelector('.recent-menu-btn').addEventListener('click', e => {
-      e.stopPropagation();
-      window._showRecentCtxMenu?.(item, e);
-    });
-    el.appendChild(div);
+  items.forEach(item => el.appendChild(_buildSidebarItem(item, activeId)));
+}
+
+function _buildSidebarItem(item, activeId) {
+  const div = document.createElement('div');
+  div.className = 'recent-item' + (item.id === activeId ? ' active' : '');
+  div.dataset.id = item.id;
+  div.title = item.title || '';
+  div.innerHTML = `
+    ${CHAT_SVG_SB}
+    <span>${(item.title || '').replace(/</g, '&lt;')}</span>
+    <span class="recent-menu-btn" title="More options">···</span>`;
+
+  // Click → load session
+  div.addEventListener('click', () => _loadSessionIntoUI(item));
+
+  // ··· menu → context menu (keep legacy working) or inline delete
+  div.querySelector('.recent-menu-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    if (typeof window._showRecentCtxMenu === 'function') {
+      window._showRecentCtxMenu(item, e);
+    } else {
+      _inlineDeleteItem(item.id);
+    }
   });
+
+  return div;
+}
+
+function _loadSessionIntoUI(item) {
+  setActiveSessionId(item.id);
+
+  // Highlight active in all sidebars
+  document.querySelectorAll('.recent-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === item.id);
+  });
+
+  // Delegate to inline-script handler for full restore if available
+  if (typeof window._clickRecent === 'function') {
+    // Convert storage item shape to legacy recentItems shape
+    const legacyItem = {
+      id:       item.id,
+      label:    item.title,
+      question: item.title,
+      bookId:   item.source === 'workspace' ? item.bookId || '' : null,
+      source:   item.source || 'general',
+    };
+    window._clickRecent(legacyItem);
+    return;
+  }
+
+  // Fallback: restore general AI chat from messages array
+  if (item.source !== 'workspace') {
+    const session = getSession(item.id);
+    if (!session) return;
+    window.showScreen?.('home');
+    const landing    = document.getElementById('home-landing');
+    const hero       = document.querySelector('.home-hero');
+    const bar        = document.getElementById('home-input-bar');
+    const scrollArea = document.getElementById('home-scroll-area');
+    const chatHist   = document.getElementById('home-chat-history');
+    if (landing)    landing.style.display = 'none';
+    if (hero)       hero.style.display = 'none';
+    if (bar)        bar.style.display = 'flex';
+    if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
+    if (chatHist) {
+      chatHist.innerHTML = '';
+      (session.messages || []).forEach(msg => {
+        if (msg.role === 'user')      window.homeAppendUser?.(msg.content);
+        else if (msg.role === 'assistant') window.homeAppendAI?.(msg.content, null);
+      });
+    }
+    if (window._homeSessionId !== undefined) window._homeSessionId = item.id;
+    if (window.homeHistory !== undefined)    window.homeHistory = (session.messages || []).map(m => ({ role: m.role, content: m.content }));
+    setTimeout(() => window.homeScrollBottom?.(true), 80);
+  }
+}
+
+function _inlineDeleteItem(id) {
+  deleteSession(id);
+  renderSidebarHistory();
 }
 
 // Auto-mount
@@ -288,7 +360,7 @@ if (document.readyState === 'loading') {
 window.buildSidebar         = buildSidebar;
 window.mountSidebars        = mountSidebars;
 window.renderSidebarHistory = renderSidebarHistory;
-// Point window._renderAllRecent here so index.html's recentAdd/delete/rename
-// re-reads localStorage and re-renders (works for both live updates and restores).
-window._renderAllRecent     = renderSidebarHistory;
-window._renderRecentList    = renderSidebarHistory;
+// Point window._renderAllRecent here — every appendMessage call triggers this
+// to refresh the sidebar immediately.
+window._renderAllRecent  = renderSidebarHistory;
+window._renderRecentList = renderSidebarHistory;
