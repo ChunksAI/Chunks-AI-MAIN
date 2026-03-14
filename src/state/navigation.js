@@ -177,27 +177,56 @@ export function showScreen(name) {
 // ── Restore screen on page load ────────────────────────────────────────────
 
 function _restoreScreen() {
-  // chunks_was_here is now written by showScreen() on every navigation,
-  // so it's reliable even if beforeunload doesn't fire (fast reload, crash, etc.)
   const isRefresh = sessionStorage.getItem('chunks_was_here') === '1';
 
   if (isRefresh) {
+    // Set chunks_is_refresh FIRST — HomeScreen._restoreHomeSession reads this
+    // at module eval time (before DOMContentLoaded), so we must persist it
+    // early via sessionStorage before any module code runs on the NEXT load.
+    // Setting it here ensures it's available for the session AFTER this one.
+    sessionStorage.setItem('chunks_is_refresh', '1');
+
     const last = sessionStorage.getItem('chunks_active_screen');
     if (last && document.getElementById('screen-' + last)) {
       showScreen(last);
     } else {
       showScreen('home');
     }
+
+    // ── Workspace session restore ──────────────────────────────────────────
+    // If the user was on workspace (or had an active book), reload the book
+    // and restore the saved chat HTML. Done here — after DOMContentLoaded —
+    // so selectBook() and #ws-messages both exist.
+    const activeBookId   = localStorage.getItem('chunks_active_ws_book');
+    const activeRecentId = localStorage.getItem('chunks_active_recent_id');
+    if (activeBookId && (last === 'workspace' || last === null)) {
+      const _loadWsSession = window._loadWsSession;
+      const wsSession = _loadWsSession?.(activeBookId);
+      window.selectBook?.(activeBookId).then?.(() => {
+        if (wsSession?.html) {
+          setTimeout(() => {
+            const msgs = document.getElementById('ws-messages');
+            if (msgs) msgs.innerHTML = window.sanitize?.(wsSession.html) ?? wsSession.html;
+            window._wsChatHistory = wsSession.history || [];
+            if (activeRecentId) window._setActiveRecent?.(activeRecentId);
+            setTimeout(() => {
+              const m = document.getElementById('ws-messages');
+              if (m) m.scrollTop = m.scrollHeight;
+            }, 80);
+          }, 600);
+        }
+      });
+    }
+
     // Restore library modal if it was open
     if (sessionStorage.getItem('chunks_library_open') === '1') {
       const modal = document.getElementById('library-modal');
       if (modal) modal.classList.add('active');
     }
-    sessionStorage.setItem('chunks_is_refresh', '1');
   } else {
-    showScreen('home');
     sessionStorage.removeItem('chunks_is_refresh');
     localStorage.removeItem('chunks_active_recent_id');
+    showScreen('home');
   }
 
   // Reveal page after screen is restored — prevents scroll-jump flash
@@ -207,7 +236,7 @@ function _restoreScreen() {
     });
   });
 
-  // beforeunload kept as a belt-and-suspenders fallback
+  // beforeunload as belt-and-suspenders fallback
   window.addEventListener('beforeunload', () => {
     if (sessionStorage.getItem('chunks_signing_out') === '1') return;
     sessionStorage.setItem('chunks_was_here', '1');

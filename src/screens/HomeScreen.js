@@ -667,32 +667,19 @@ mountHomeScreen();
 // type="module" scripts — so #screen-home didn't exist yet. Now it runs right
 // here, after mountHomeScreen() has injected the DOM.
 (function _restoreHomeSession() {
-  if (sessionStorage.getItem('chunks_is_refresh') !== '1') return;
+  // chunks_is_refresh is set by navigation.js._restoreScreen() which runs on
+  // DOMContentLoaded. This IIFE runs at module eval time (before DCL), so we
+  // also check chunks_was_here as the early-available signal.
+  const isRefresh = sessionStorage.getItem('chunks_is_refresh') === '1' ||
+                    sessionStorage.getItem('chunks_was_here') === '1';
+  if (!isRefresh) return;
 
-  const activeScreen   = sessionStorage.getItem('chunks_active_screen');
-  const activeRecentId = localStorage.getItem('chunks_active_recent_id');
+  const activeScreen = sessionStorage.getItem('chunks_active_screen');
 
-  // Workspace restore is handled by workspaceState.js — skip it here
-  if (activeScreen === 'workspace' || (!activeScreen && localStorage.getItem('chunks_active_ws_book'))) {
-    const bookId = localStorage.getItem('chunks_active_ws_book');
-    if (bookId) {
-      const _loadWsSession = window._loadWsSession;
-      const wsSession = _loadWsSession?.(bookId);
-      window.selectBook?.(bookId).then(() => {
-        if (wsSession && wsSession.html) {
-          setTimeout(() => {
-            const msgs = document.getElementById('ws-messages');
-            if (msgs) msgs.innerHTML = window.sanitize?.(wsSession.html) ?? wsSession.html;
-            window._wsChatHistory = wsSession.history || [];
-            if (activeRecentId) window._setActiveRecent?.(activeRecentId);
-            setTimeout(() => {
-              const m = document.getElementById('ws-messages');
-              if (m) m.scrollTop = m.scrollHeight;
-            }, 80);
-          }, 600);
-        }
-      });
-    }
+  // Workspace restore is fully handled by navigation.js._restoreScreen() —
+  // skip it here entirely to avoid double-restore or timing conflicts.
+  if (activeScreen === 'workspace' ||
+      (!activeScreen && localStorage.getItem('chunks_active_ws_book'))) {
     return;
   }
 
