@@ -16,6 +16,18 @@
   base-uri 'self';
 ">
 <title>Chunks AI — Study Smarter</title>
+<style>
+  /* Hide page instantly on load to prevent scroll-jump flash on refresh */
+  html { scroll-behavior: auto !important; }
+  body { opacity: 0; transition: opacity 0.18s ease; }
+  body.chunks-ready { opacity: 1; }
+</style>
+<script>
+  // Prevent browser from restoring scroll position on refresh
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+  // Force scroll to top immediately before anything renders
+  window.scrollTo(0, 0);
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin="anonymous">
 <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
