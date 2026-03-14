@@ -559,11 +559,30 @@ function _renderAllRecent() {
   });
 }
 
-_renderAllRecent();
+// NOTE: _renderAllRecent() is NOT called here at parse time because the sidebar
+// container divs don't exist yet. Sidebar.js calls window._renderAllRecent()
+// after mountSidebars() injects the HTML — that is the correct call site.
 
-// Expose on window so ES-module code (Sidebar.js, HomeScreen.js, workspaceState.js)
-// can reach these helpers. Inline <script> globals are not automatically
-// visible as window.* properties inside ES modules.
+// ── Window bridges ─────────────────────────────────────────────────────────
+// ES modules cannot access `let` variables declared in inline <script> blocks
+// directly — they must go through window.*. Plain assignment (window.foo = bar)
+// works for functions and would work for the initial array reference, but it
+// would NOT reflect later reassignments (e.g. _recentItems = []).
+// We use Object.defineProperty with get/set so that every read/write from
+// module code hits the SAME closure variable that the inline functions use.
+
+Object.defineProperty(window, '_recentItems', {
+  get: ()  => _recentItems,
+  set: (v) => { _recentItems = v; },
+  configurable: true,
+});
+
+Object.defineProperty(window, '_activeRecentId', {
+  get: ()  => _activeRecentId,
+  set: (v) => { _activeRecentId = v; },
+  configurable: true,
+});
+
 window._renderAllRecent  = _renderAllRecent;
 window._setActiveRecent  = _setActiveRecent;
 window._saveSession      = _saveSession;
