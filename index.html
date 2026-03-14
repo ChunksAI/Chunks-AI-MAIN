@@ -179,7 +179,6 @@ function goHome() {
   _activeRecentId = null;
   homeHistory = [];
   _homeSessionId = null;
-  window._homeSessionId = null; // sync HomeScreen.js module var
   localStorage.removeItem('chunks_active_home_session');
   localStorage.removeItem('chunks_active_ws_book');
   localStorage.removeItem('chunks_active_recent_id');
@@ -220,7 +219,6 @@ function newChat() {
   _activeRecentId = null;
   homeHistory = [];
   _homeSessionId = null;
-  window._homeSessionId = null; // sync HomeScreen.js module var
   localStorage.removeItem('chunks_active_home_session');
   localStorage.removeItem('chunks_home_session');
   localStorage.removeItem('chunks_active_ws_book');
@@ -297,7 +295,7 @@ function recentAdd(question, bookId, source) {
     _setActiveRecent(_recentItems[0].id);
     if (source === 'general') {
       _homeSessionId = _recentItems[0].id;
-      window._homeSessionId = _homeSessionId; // sync HomeScreen.js module var
+      window._homeSessionId = _homeSessionId;
       localStorage.setItem('chunks_home_session', _homeSessionId);
     }
     return;
@@ -316,9 +314,6 @@ function recentAdd(question, bookId, source) {
   _setActiveRecent(item.id);
   if (source === 'general') {
     _homeSessionId = item.id;
-    // Also sync the ES-module copy in HomeScreen.js via its defineProperty bridge.
-    // Without this, HomeScreen._homeSessionId stays null and _saveSession is never
-    // called, so the chat HTML is never written to localStorage.
     window._homeSessionId = item.id;
     localStorage.setItem('chunks_home_session', _homeSessionId);
   }
@@ -359,7 +354,6 @@ function _deleteRecent(id, e) {
     // Reset home landing
     homeHistory = [];
     _homeSessionId = null;
-    window._homeSessionId = null; // sync HomeScreen.js module var
     const chatHist   = document.getElementById('home-chat-history');
     const homeLanding = document.getElementById('home-landing');
     const homeHero   = document.querySelector('.home-hero');
@@ -403,7 +397,6 @@ function _clickRecent(item) {
       if (chatHistory) chatHistory.innerHTML = sanitize(session.html);
       homeHistory = session.history || [];
       _homeSessionId = item.id;
-      window._homeSessionId = item.id; // sync HomeScreen.js module var
       setTimeout(() => {
         homeScrollBottom();
         document.getElementById('home-ask-input-bottom')?.focus();
@@ -415,7 +408,6 @@ function _clickRecent(item) {
       if (bar) bar.style.display = 'flex';
       if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
       _homeSessionId = item.id;
-      window._homeSessionId = item.id; // sync HomeScreen.js module var
       setTimeout(() => {
         const bi = document.getElementById('home-ask-input-bottom');
         if (bi) { bi.value = item.question; bi.focus(); homeAutoResize(bi); }
@@ -559,70 +551,49 @@ function _renderAllRecent() {
   });
 }
 
-// NOTE: _renderAllRecent() is NOT called here at parse time because the sidebar
-// container divs don't exist yet. Sidebar.js calls window._renderAllRecent()
-// after mountSidebars() injects the HTML — that is the correct call site.
-
-// ── Window bridges ─────────────────────────────────────────────────────────
-// ES modules cannot access `let` variables declared in inline <script> blocks
-// directly — they must go through window.*. Plain assignment (window.foo = bar)
-// works for functions and would work for the initial array reference, but it
-// would NOT reflect later reassignments (e.g. _recentItems = []).
-// We use Object.defineProperty with get/set so that every read/write from
-// module code hits the SAME closure variable that the inline functions use.
-
-Object.defineProperty(window, '_recentItems', {
-  get: ()  => _recentItems,
-  set: (v) => { _recentItems = v; },
-  configurable: true,
-});
-
-Object.defineProperty(window, '_activeRecentId', {
-  get: ()  => _activeRecentId,
-  set: (v) => { _activeRecentId = v; },
-  configurable: true,
-});
-
-window._renderAllRecent  = _renderAllRecent;
-window._setActiveRecent  = _setActiveRecent;
-window._saveSession      = _saveSession;
-window._loadSession      = _loadSession;
-window._saveWsSession    = _saveWsSession;
-window._loadWsSession    = _loadWsSession;
-window._deleteRecent     = _deleteRecent;
-window._clickRecent      = _clickRecent;
-window._showRecentCtxMenu = _showRecentCtxMenu;
-window.recentAdd         = recentAdd;
+_renderAllRecent();
 
 // Alias — called on page load and when research screen opens
 function _renderRecentList() { _renderAllRecent(); }
-window._renderRecentList = _renderRecentList;
+
+// ── Window bridges — let ES modules reach these inline-script functions ───
+window._renderAllRecent   = _renderAllRecent;
+window._renderRecentList  = _renderRecentList;
+window._setActiveRecent   = _setActiveRecent;
+window._saveSession       = _saveSession;
+window._loadSession       = _loadSession;
+window._saveWsSession     = _saveWsSession;
+window._loadWsSession     = _loadWsSession;
+window._deleteRecent      = _deleteRecent;
+window._clickRecent       = _clickRecent;
+window._showRecentCtxMenu = _showRecentCtxMenu;
+window.recentAdd          = recentAdd;
 
 // ── Home chat session restore → src/screens/HomeScreen.js (Task 25) ──────
 // (Moved to HomeScreen.js so it runs after mountHomeScreen() injects the DOM)
 
 // ── Hook wsChatSend to add to recents on every send ──────
-// Deferred to DOMContentLoaded because #ws-chat-send and #ws-chat-input are
-// injected by WorkspaceScreen.js (also on DOMContentLoaded) and do not exist
-// in the DOM at inline-script parse time. Without this deferral, both
-// getElementById calls return null and recentAdd is never called for workspace
-// chats, so they never appear in the sidebar.
-document.addEventListener('DOMContentLoaded', function _hookWsRecent() {
-  const sendBtn  = document.getElementById('ws-chat-send');
-  const inputEl  = document.getElementById('ws-chat-input');
-
-  // Capture phase fires before wsChatSend clears the input value
-  sendBtn?.addEventListener('click', () => {
-    const q = document.getElementById('ws-chat-input')?.value?.trim();
-    if (q) recentAdd(q, window._wsBookId, 'workspace');
-  }, true);
-
-  inputEl?.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      const q = this.value.trim();
+// Deferred to DOMContentLoaded: #ws-chat-send and #ws-chat-input are injected
+// by WorkspaceScreen.js (a module), which runs before DOMContentLoaded fires.
+// At inline-script parse time those elements don't exist yet — attaching here
+// would return null and the listeners would never fire.
+document.addEventListener('DOMContentLoaded', function() {
+  const sendBtn = document.getElementById('ws-chat-send');
+  const inputEl = document.getElementById('ws-chat-input');
+  if (sendBtn) {
+    sendBtn.addEventListener('click', () => {
+      const q = document.getElementById('ws-chat-input')?.value?.trim();
       if (q) recentAdd(q, window._wsBookId, 'workspace');
-    }
-  }, true);
+    }, true); // capture — fires before wsChatSend clears the input
+  }
+  if (inputEl) {
+    inputEl.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        const q = this.value.trim();
+        if (q) recentAdd(q, window._wsBookId, 'workspace');
+      }
+    }, true);
+  }
 });
 </script>
 <!-- HOME PAGE AI CHAT → src/screens/HomeScreen.js (Task 25) -->
