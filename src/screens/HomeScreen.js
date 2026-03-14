@@ -179,40 +179,41 @@ const HOME_HTML = /* html */`
 ════════════════════════════════════════════════════════════ -->
 <div class="incognito-modal" id="incognito-modal" role="dialog" aria-modal="true" aria-labelledby="incognito-modal-title">
 
-  <!-- Top bar: plan pill + close -->
-  <div class="incognito-topbar">
-    <div class="incognito-plan-pill">Free plan &nbsp;&bull;&nbsp; <span class="incognito-upgrade-link" onclick="closeIncognitoChat();window.openUpgradeModal?.()">Upgrade</span></div>
-    <button class="incognito-close" onclick="closeIncognitoChat()" aria-label="Close incognito chat">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-    </button>
-  </div>
+  <!-- Close button — top right only -->
+  <button class="incognito-close" onclick="closeIncognitoChat()" aria-label="Close incognito chat">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  </button>
 
-  <!-- Messages / empty hero -->
+  <!-- Messages / hero — fills all space -->
   <div class="incognito-messages" id="incognito-messages">
     <div class="incognito-empty" id="incognito-empty">
-      <!-- Ghost / incognito icon -->
-      <div class="incognito-hero-icon" aria-hidden="true">
-        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      </div>
+      <!-- Plan pill -->
+      <div class="incognito-plan-pill">Free plan &nbsp;&bull;&nbsp; <span class="incognito-upgrade-link" onclick="closeIncognitoChat();window.openUpgradeModal?.()">Upgrade</span></div>
+      <!-- Asterisk star icon -->
+      <div class="incognito-hero-icon" aria-hidden="true">&#10033;</div>
       <h2 class="incognito-hero-heading" id="incognito-modal-title">You&rsquo;re incognito</h2>
-      <p class="incognito-hero-sub">Chats aren&rsquo;t saved to history or used to train models.</p>
     </div>
   </div>
 
-  <!-- Input box -->
+  <!-- Compose area — centered wide box -->
   <div class="incognito-compose-wrap">
     <div class="incognito-compose-box">
       <textarea
         id="incognito-input"
         class="incognito-textarea"
-        placeholder="Reply&#x2026;"
+        placeholder="How can I help you today?"
         rows="1"
       ></textarea>
       <div class="incognito-compose-footer">
-        <span class="incognito-compose-hint">Ctrl + I to toggle &nbsp;&middot;&nbsp; Esc to close</span>
-        <button class="incognito-send" id="incognito-send-btn" onclick="incognitoSendMessage()" aria-label="Send">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <button class="incognito-plus-btn" aria-label="Attach" tabindex="-1">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         </button>
+        <div class="incognito-compose-right">
+          <span class="incognito-model-tag">Chunks AI</span>
+          <button class="incognito-send" id="incognito-send-btn" onclick="incognitoSendMessage()" aria-label="Send">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
       </div>
     </div>
     <p class="incognito-privacy-note">Incognito chats aren&rsquo;t saved to history or used to train models.</p>
@@ -255,11 +256,9 @@ export function openIncognitoChat() {
   if (msgs) {
     msgs.innerHTML = `
       <div class="incognito-empty" id="incognito-empty">
-        <div class="incognito-hero-icon" aria-hidden="true">
-          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
+        <div class="incognito-plan-pill">Free plan &nbsp;&bull;&nbsp; <span class="incognito-upgrade-link" onclick="closeIncognitoChat();window.openUpgradeModal?.()">Upgrade</span></div>
+        <div class="incognito-hero-icon" aria-hidden="true">&#10033;</div>
         <h2 class="incognito-hero-heading">You\u2019re incognito</h2>
-        <p class="incognito-hero-sub">Chats aren\u2019t saved to history or used to train models.</p>
       </div>`;
   }
   const inp = document.getElementById('incognito-input');
@@ -286,36 +285,41 @@ function _incogScrollBottom() {
   if (msgs) msgs.scrollTop = msgs.scrollHeight;
 }
 
-function _incogAvatarSvg() {
-  return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="13" height="13">
-    <ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#9b8fe8" stroke-width="9" opacity="0.95"/>
-    <ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#9b8fe8" stroke-width="9" transform="rotate(60 50 50)" opacity="0.75"/>
-    <ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#9b8fe8" stroke-width="9" transform="rotate(120 50 50)" opacity="0.55"/>
-    <circle cx="50" cy="50" r="7" fill="#9b8fe8"/>
-  </svg>`;
+function _incogGetInner() {
+  const msgs = document.getElementById('incognito-messages');
+  if (!msgs) return null;
+  let inner = msgs.querySelector('.incognito-messages-inner');
+  if (!inner) {
+    inner = document.createElement('div');
+    inner.className = 'incognito-messages-inner';
+    msgs.appendChild(inner);
+  }
+  return inner;
 }
 
 function _incogAppendUser(text) {
   document.getElementById('incognito-empty')?.remove();
-  const msgs = document.getElementById('incognito-messages');
+  const inner = _incogGetInner();
+  if (!inner) return;
   const d = document.createElement('div');
   d.className = 'incognito-msg incognito-msg-user';
   d.textContent = text;
-  msgs.appendChild(d);
+  inner.appendChild(d);
   _incogScrollBottom();
 }
 
 function _incogAppendThinking() {
-  const msgs = document.getElementById('incognito-messages');
+  const inner = _incogGetInner();
+  if (!inner) return;
   const d = document.createElement('div');
   d.className = 'incognito-msg incognito-msg-ai';
   d.id = 'incognito-thinking';
   d.innerHTML = `
     <div class="incognito-ai-row">
-      <div class="incognito-ai-ava">${_incogAvatarSvg()}</div>
+      <div class="incognito-ai-ava">&#10033;</div>
       <div class="hc-thinking"><span></span><span></span><span></span><span></span><span></span></div>
     </div>`;
-  msgs.appendChild(d);
+  inner.appendChild(d);
   _incogScrollBottom();
 }
 
@@ -324,24 +328,26 @@ function _incogRemoveThinking() {
 }
 
 function _incogAppendAI(text) {
-  const msgs = document.getElementById('incognito-messages');
+  const inner = _incogGetInner();
+  if (!inner) return;
   const d = document.createElement('div');
   d.className = 'incognito-msg incognito-msg-ai';
   d.innerHTML = `
     <div class="incognito-ai-row">
-      <div class="incognito-ai-ava">${_incogAvatarSvg()}</div>
+      <div class="incognito-ai-ava">&#10033;</div>
       <div class="incognito-ai-body">${window.homeMarkdown?.(text) ?? text.replace(/</g,'&lt;')}</div>
     </div>`;
-  msgs.appendChild(d);
+  inner.appendChild(d);
   _incogScrollBottom();
 }
 
 function _incogAppendError(msg) {
-  const msgs = document.getElementById('incognito-messages');
+  const inner = _incogGetInner();
+  if (!inner) return;
   const d = document.createElement('div');
   d.className = 'incognito-msg incognito-msg-error';
   d.textContent = '\u26a0 ' + msg;
-  msgs.appendChild(d);
+  inner.appendChild(d);
   _incogScrollBottom();
 }
 

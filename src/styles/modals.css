@@ -460,125 +460,126 @@
 #simple-notif.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 /* ══════════════════════════════════════════════════════════
    INCOGNITO CHAT MODAL
-   Redesigned to match reference: dark fullscreen with centered
-   hero, compose box at bottom, no sidebar header.
+   Redesigned v3 — matches reference: fullscreen dark, centered
+   hero with asterisk icon, wide dashed-border compose box.
 ══════════════════════════════════════════════════════════ */
 
-/* ── Overlay — fullscreen dark bg ── */
+/* ── Fullscreen overlay ── */
 .incognito-modal {
   display: none;
   position: fixed;
   inset: 0;
   z-index: 10020;
   flex-direction: column;
-  background: #1a1a1a;
+  background: #232323;
   animation: modal-fade-in 0.18s ease;
 }
 .incognito-modal.active { display: flex; }
 
-/* ── Top bar ── */
-.incognito-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 20px;
-  flex-shrink: 0;
-}
-.incognito-plan-pill {
-  font-size: 12px;
-  color: rgba(255,255,255,0.45);
-  font-family: var(--font-body);
-  background: rgba(255,255,255,0.07);
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: var(--r-pill);
-  padding: 5px 14px;
-}
-.incognito-upgrade-link {
-  color: rgba(255,255,255,0.7);
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.incognito-upgrade-link:hover { color: #fff; }
+/* ── Close button — absolute top-right ── */
 .incognito-close {
+  position: absolute;
+  top: 18px;
+  right: 20px;
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.07);
   border: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: rgba(255,255,255,0.55);
+  color: rgba(255,255,255,0.50);
   cursor: pointer;
   flex-shrink: 0;
   transition: background var(--t-fast), color var(--t-fast);
+  z-index: 2;
 }
-.incognito-close:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.incognito-close:hover { background: rgba(255,255,255,0.13); color: rgba(255,255,255,0.9); }
 
-/* ── Messages / hero area — fills all space ── */
+/* ── Plan pill — inside empty hero ── */
+.incognito-plan-pill {
+  font-size: 12px;
+  color: rgba(255,255,255,0.40);
+  font-family: var(--font-body);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: var(--r-pill);
+  padding: 5px 16px;
+  margin-bottom: 32px;
+  letter-spacing: 0.01em;
+}
+.incognito-upgrade-link {
+  color: rgba(255,255,255,0.65);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--t-fast);
+}
+.incognito-upgrade-link:hover { color: #fff; }
+
+/* ── Messages / hero area ── */
 .incognito-messages {
   flex: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px 32px;
   min-height: 0;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255,255,255,0.1) transparent;
+  scrollbar-color: rgba(255,255,255,0.08) transparent;
 }
 .incognito-messages::-webkit-scrollbar { width: 4px; }
-.incognito-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+.incognito-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
 
-/* ── Empty / hero state ── */
+/* ── Empty / hero ── */
 .incognito-empty {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
+  padding: 60px 20px 20px;
   text-align: center;
-  padding: 40px 20px;
+  gap: 0;
 }
+
+/* ── Asterisk / star icon ── */
 .incognito-hero-icon {
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  background: rgba(205,115,80,0.18);
-  border: 1px solid rgba(205,115,80,0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #cd7350;
-  margin-bottom: 4px;
+  font-size: 48px;
+  color: #cd7c58;
+  line-height: 1;
+  margin-bottom: 18px;
+  font-family: serif;
+  display: block;
 }
+
 .incognito-hero-heading {
   font-family: var(--font-head);
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 700;
   color: rgba(255,255,255,0.88);
   margin: 0;
-  letter-spacing: -0.01em;
-}
-.incognito-hero-sub {
-  font-size: 13px;
-  color: rgba(255,255,255,0.35);
-  margin: 0;
-  max-width: 340px;
-  line-height: 1.6;
-  font-family: var(--font-body);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
-/* ── Message bubbles ── */
+/* ── Message bubbles (shown after first send) ── */
+.incognito-messages-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 40px;
+  max-width: 780px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
 .incognito-msg { max-width: 100%; }
-
 .incognito-msg-user {
   align-self: flex-end;
-  background: rgba(255,255,255,0.10);
-  border: 1px solid rgba(255,255,255,0.12);
-  color: rgba(255,255,255,0.90);
+  background: rgba(255,255,255,0.09);
+  border: 1px solid rgba(255,255,255,0.11);
+  color: rgba(255,255,255,0.88);
   font-size: 14px;
   line-height: 1.65;
   padding: 11px 16px;
@@ -587,134 +588,146 @@
   font-family: var(--font-body);
   word-break: break-word;
 }
-.incognito-msg-ai {
-  align-self: flex-start;
-  max-width: 82%;
-}
-.incognito-ai-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
+.incognito-msg-ai { align-self: flex-start; max-width: 82%; }
+.incognito-ai-row { display: flex; align-items: flex-start; gap: 12px; }
 .incognito-ai-ava {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: rgba(205,115,80,0.15);
-  border: 1px solid rgba(205,115,80,0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #cd7350;
-  flex-shrink: 0;
-  margin-top: 2px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: rgba(205,124,88,0.15);
+  border: 1px solid rgba(205,124,88,0.25);
+  display: flex; align-items: center; justify-content: center;
+  color: #cd7c58; font-size: 14px; flex-shrink: 0; margin-top: 2px;
 }
 .incognito-ai-body {
-  background: rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.05);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 4px 18px 18px 18px;
   padding: 11px 16px;
-  font-size: 14px;
-  color: rgba(255,255,255,0.85);
-  line-height: 1.75;
-  font-family: var(--font-body);
-  word-break: break-word;
+  font-size: 14px; color: rgba(255,255,255,0.82);
+  line-height: 1.75; font-family: var(--font-body); word-break: break-word;
 }
 .incognito-ai-body p { margin: 0 0 8px; }
 .incognito-ai-body p:last-child { margin-bottom: 0; }
 .incognito-ai-body code {
-  background: rgba(255,255,255,0.08);
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  color: rgba(255,255,255,0.75);
+  background: rgba(255,255,255,0.07); border-radius: 4px;
+  padding: 2px 6px; font-family: var(--font-mono); font-size: 12px;
 }
 .incognito-msg-error {
-  font-size: 13px;
-  color: #f87171;
-  padding: 10px 14px;
-  background: rgba(248,113,113,0.08);
-  border: 1px solid rgba(248,113,113,0.18);
-  border-radius: var(--r-sm);
-  font-family: var(--font-body);
+  font-size: 13px; color: #f87171; padding: 10px 14px;
+  background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.18);
+  border-radius: var(--r-sm); font-family: var(--font-body);
 }
 
 /* ── Compose area ── */
 .incognito-compose-wrap {
   flex-shrink: 0;
-  padding: 0 32px 24px;
+  padding: 0 32px 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   max-width: 780px;
   width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
 }
+
+/* The dashed-border input box from the reference */
 .incognito-compose-box {
   width: 100%;
-  background: #2a2a2a;
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 16px;
-  padding: 14px 16px 10px;
+  background: rgba(255,255,255,0.035);
+  border: 1.5px dashed rgba(255,255,255,0.18);
+  border-radius: 18px;
+  padding: 18px 18px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
+  transition: border-color var(--t-fast);
 }
+.incognito-compose-box:focus-within {
+  border-color: rgba(255,255,255,0.32);
+  border-style: solid;
+}
+
 .incognito-textarea {
   width: 100%;
   background: transparent;
   border: none;
   outline: none;
-  color: rgba(255,255,255,0.88);
+  color: rgba(255,255,255,0.85);
   font-size: 15px;
   font-family: var(--font-body);
   line-height: 1.6;
   resize: none;
   overflow-y: hidden;
-  min-height: 24px;
+  min-height: 26px;
   caret-color: rgba(255,255,255,0.7);
 }
-.incognito-textarea::placeholder { color: rgba(255,255,255,0.28); }
+.incognito-textarea::placeholder { color: rgba(255,255,255,0.30); }
+
 .incognito-compose-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
-.incognito-compose-hint {
-  font-size: 10px;
-  color: rgba(255,255,255,0.2);
-  font-family: var(--font-mono);
-  letter-spacing: 0.03em;
+
+/* + attach button — left side */
+.incognito-plus-btn {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
 }
-.incognito-send {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.88);
-  border: none;
+.incognito-plus-btn:hover { background: rgba(255,255,255,0.12); color: rgba(255,255,255,0.75); }
+
+/* Right side: model tag + send */
+.incognito-compose-right {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: #1a1a1a;
+  gap: 10px;
+}
+.incognito-model-tag {
+  font-size: 11px;
+  color: rgba(255,255,255,0.28);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+/* Send button */
+.incognito-send {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.85);
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  color: #232323;
   cursor: pointer;
   flex-shrink: 0;
-  transition: opacity var(--t-fast), transform var(--t-fast);
+  transition: background var(--t-fast), transform var(--t-fast);
 }
-.incognito-send:hover  { opacity: 0.88; }
-.incognito-send:active { transform: scale(0.93); }
+.incognito-send:hover  { background: #fff; }
+.incognito-send:active { transform: scale(0.92); }
 .incognito-send:disabled { opacity: 0.25; cursor: not-allowed; }
 
-/* ── Privacy note below compose ── */
+/* ── Privacy note ── */
 .incognito-privacy-note {
   font-size: 12px;
-  color: rgba(255,255,255,0.28);
+  color: rgba(255,255,255,0.22);
   text-align: center;
   margin: 0;
   font-family: var(--font-body);
   line-height: 1.5;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .incognito-compose-wrap { padding: 0 14px 20px; }
+  .incognito-hero-heading { font-size: 26px; }
+  .incognito-hero-icon { font-size: 40px; }
 }
 
 /* ── Profile dropdown: incognito item badge ── */
