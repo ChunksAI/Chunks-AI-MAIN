@@ -314,7 +314,7 @@ function recentAdd(question, bookId, source) {
   _setActiveRecent(item.id);
   if (source === 'general') {
     _homeSessionId = item.id;
-    window._homeSessionId = item.id;
+    window._homeSessionId = item.id; // keep HomeScreen.js module var in sync
     localStorage.setItem('chunks_home_session', _homeSessionId);
   }
 }
@@ -556,7 +556,8 @@ _renderAllRecent();
 // Alias — called on page load and when research screen opens
 function _renderRecentList() { _renderAllRecent(); }
 
-// ── Window bridges — let ES modules reach these inline-script functions ───
+// ── Window bridges ─────────────────────────────────────────────────────────
+// Expose all inline functions on window so ES modules can reach them.
 window._renderAllRecent   = _renderAllRecent;
 window._renderRecentList  = _renderRecentList;
 window._setActiveRecent   = _setActiveRecent;
@@ -573,10 +574,9 @@ window.recentAdd          = recentAdd;
 // (Moved to HomeScreen.js so it runs after mountHomeScreen() injects the DOM)
 
 // ── Hook wsChatSend to add to recents on every send ──────
-// Deferred to DOMContentLoaded: #ws-chat-send and #ws-chat-input are injected
-// by WorkspaceScreen.js (a module), which runs before DOMContentLoaded fires.
-// At inline-script parse time those elements don't exist yet — attaching here
-// would return null and the listeners would never fire.
+// MUST be deferred to DOMContentLoaded: ws-chat-send and ws-chat-input are
+// injected by WorkspaceScreen.js (a module that runs before DOMContentLoaded).
+// At inline-script parse time those elements do not exist yet.
 document.addEventListener('DOMContentLoaded', function() {
   const sendBtn = document.getElementById('ws-chat-send');
   const inputEl = document.getElementById('ws-chat-input');
