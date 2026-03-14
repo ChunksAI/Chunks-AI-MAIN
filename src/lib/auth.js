@@ -148,11 +148,15 @@ window._initAuth = async function _initAuth() {
     // If no active session AND not in guest mode → redirect to login page.
     // Guest mode is set by login.html's "Continue as guest" button via
     // sessionStorage.setItem('chunks_guest_mode', '1').
-    const isGuest     = sessionStorage.getItem('chunks_guest_mode') === '1';
-    const isAuthed    = !!session?.user;
-    const isLoginPage = window.location.pathname.endsWith('login.html'); // ← FIX 1: skip gate on login page
+    const isGuest      = sessionStorage.getItem('chunks_guest_mode') === '1';
+    const isAuthed     = !!session?.user;
+    const isLoginPage  = window.location.pathname.endsWith('login.html'); // ← FIX 1: skip gate on login page
+    // FIX 3: if Supabase OAuth code/hash is in URL, wait — don't redirect yet
+    const hasOAuthCode = window.location.search.includes('code=');
+    const hasOAuthHash = window.location.hash.includes('access_token') ||
+                         window.location.hash.includes('error_description');
 
-    if (!isAuthed && !isGuest && !isLoginPage) {
+    if (!isAuthed && !isGuest && !isLoginPage && !hasOAuthCode && !hasOAuthHash) {
       // Preserve the current URL so login.html can redirect back after sign-in
       const returnTo = encodeURIComponent(window.location.href);
       window.location.replace(`login.html?returnTo=${returnTo}`);
