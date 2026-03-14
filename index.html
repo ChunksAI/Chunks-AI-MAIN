@@ -551,25 +551,49 @@ function _renderAllRecent() {
 
 _renderAllRecent();
 
+// Expose on window so ES-module code (Sidebar.js, HomeScreen.js, workspaceState.js)
+// can reach these helpers. Inline <script> globals are not automatically
+// visible as window.* properties inside ES modules.
+window._renderAllRecent  = _renderAllRecent;
+window._setActiveRecent  = _setActiveRecent;
+window._saveSession      = _saveSession;
+window._loadSession      = _loadSession;
+window._saveWsSession    = _saveWsSession;
+window._loadWsSession    = _loadWsSession;
+window._deleteRecent     = _deleteRecent;
+window._clickRecent      = _clickRecent;
+window.recentAdd         = recentAdd;
+
 // Alias — called on page load and when research screen opens
 function _renderRecentList() { _renderAllRecent(); }
+window._renderRecentList = _renderRecentList;
 
 // ── Home chat session restore → src/screens/HomeScreen.js (Task 25) ──────
 // (Moved to HomeScreen.js so it runs after mountHomeScreen() injects the DOM)
 
 // ── Hook wsChatSend to add to recents on every send ──────
-// We hook at the DOM level so it works regardless of script order
-document.getElementById('ws-chat-send')?.addEventListener('click', () => {
-  const q = document.getElementById('ws-chat-input')?.value?.trim();
-  if (q) recentAdd(q, _wsBookId, 'workspace');
-}, true); // capture phase — fires before wsChatSend clears the input
+// Deferred to DOMContentLoaded because #ws-chat-send and #ws-chat-input are
+// injected by WorkspaceScreen.js (also on DOMContentLoaded) and do not exist
+// in the DOM at inline-script parse time. Without this deferral, both
+// getElementById calls return null and recentAdd is never called for workspace
+// chats, so they never appear in the sidebar.
+document.addEventListener('DOMContentLoaded', function _hookWsRecent() {
+  const sendBtn  = document.getElementById('ws-chat-send');
+  const inputEl  = document.getElementById('ws-chat-input');
 
-document.getElementById('ws-chat-input')?.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    const q = this.value.trim();
-    if (q) recentAdd(q, _wsBookId);
-  }
-}, true);
+  // Capture phase fires before wsChatSend clears the input value
+  sendBtn?.addEventListener('click', () => {
+    const q = document.getElementById('ws-chat-input')?.value?.trim();
+    if (q) recentAdd(q, window._wsBookId, 'workspace');
+  }, true);
+
+  inputEl?.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      const q = this.value.trim();
+      if (q) recentAdd(q, window._wsBookId, 'workspace');
+    }
+  }, true);
+});
 </script>
 <!-- HOME PAGE AI CHAT → src/screens/HomeScreen.js (Task 25) -->
 <!-- Toast notification -->
