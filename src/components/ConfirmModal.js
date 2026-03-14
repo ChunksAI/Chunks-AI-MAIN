@@ -85,8 +85,9 @@ export function showConfirmModal(opts = {}) {
 
   newOk.textContent = opts.confirmLabel || 'Confirm';
   newOk.addEventListener('click', () => {
+    const cb = _pendingConfirm;   // capture BEFORE closeConfirmModal nulls it
     closeConfirmModal();
-    if (_pendingConfirm) { _pendingConfirm(); _pendingConfirm = null; }
+    if (typeof cb === 'function') cb();
   });
   newCancel.addEventListener('click', closeConfirmModal);
 
