@@ -157,9 +157,7 @@ window._initAuth = async function _initAuth() {
                          window.location.hash.includes('error_description');
 
     if (!isAuthed && !isGuest && !isLoginPage && !hasOAuthCode && !hasOAuthHash) {
-      // Preserve the current URL so login.html can redirect back after sign-in
-      const returnTo = encodeURIComponent(window.location.href);
-      window.location.replace(`login.html?returnTo=${returnTo}`);
+      window.location.replace('login.html');
       return; // stop further init — page is navigating away
     }
     // ────────────────────────────────────────────────────────────────────
@@ -175,10 +173,8 @@ window._initAuth = async function _initAuth() {
     if (_event === 'SIGNED_IN') {
       const isLoginPage = window.location.pathname.endsWith('login.html');
       if (isLoginPage) {
-        const params   = new URLSearchParams(window.location.search);
-        const returnTo = params.get('returnTo') || 'index.html';
-        window.location.replace(decodeURIComponent(returnTo));
-        return; // stop further execution — page is navigating away
+        window.location.replace('index.html');
+        return;
       }
 
       // Give ChunksDB's DOMContentLoaded patcher time to run first
