@@ -454,15 +454,12 @@
 
   // ── Redirect target after login ──
   function _getReturnUrl() {
-    const params = new URLSearchParams(window.location.search);
-    const returnTo = params.get('returnTo');
-    if (returnTo) { try { return decodeURIComponent(returnTo); } catch (_) {} }
     return 'index.html';
   }
 
   function _getRedirectUrl() {
-    const loc = window.location;
-    return loc.origin + loc.pathname; // stays on login.html
+    // OAuth callback returns to login.html — we then redirect to index.html
+    return window.location.origin + '/login.html';
   }
 
   // ── Google Sign In ────────────────────────────────────────────────────────
