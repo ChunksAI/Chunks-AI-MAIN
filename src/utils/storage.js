@@ -130,7 +130,6 @@ export const KEYS = Object.freeze({
   DEFAULT_BOOK:    'chunks_default_book',
   STUDY_MODE:      'chunks_study_mode',
   SAVE_HISTORY:    'chunks_save_history',
-  INCOGNITO:       'chunks_incognito_session',
   IMPROVE_DATA:    'chunks_improve_data',
 
   // ── Exam ───────────────────────────────────────────────────────────

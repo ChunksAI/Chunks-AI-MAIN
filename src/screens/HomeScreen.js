@@ -167,11 +167,6 @@ const HOME_HTML = /* html */`
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
-      <div id="incognito-badge" style="display:none;align-items:center;gap:6px;font-size:11px;color:var(--text-3);font-family:var(--font-mono);margin-bottom:4px;">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        Incognito — this chat won't be saved
-        <button onclick="localStorage.removeItem('chunks_incognito_session');document.getElementById('incognito-badge').style.display='none';" style="background:none;border:none;color:var(--text-4);cursor:pointer;font-size:11px;padding:0 2px;" aria-label="Exit incognito mode">✕</button>
-      </div>
       <div class="home-disclaimer">Chunks AI can make mistakes. Verify important information.</div>
     </div>
 
@@ -368,10 +363,17 @@ export async function homeSendMessage() {
   const question = inp.value.trim();
   if (!question) return;
 
-  // Only create a new history entry on the FIRST message of a session
+  // On the FIRST message of a session: create a recent entry which
+  // also sets window._homeSessionId via recentAdd → _saveRecent.
+  // We must call recentAdd BEFORE appending to homeHistory so the
+  // session id is assigned before the first _saveSession call below.
   if (!_homeSessionId) {
     window.recentAdd?.(question, null, 'general');
+    // recentAdd sets window._homeSessionId via the index.html closure;
+    // read it back so this module's local var is in sync.
+    if (window._homeSessionId) _homeSessionId = window._homeSessionId;
   }
+
   homeHideLanding();
   homeAppendUser(question);
   inp.value = '';
@@ -380,7 +382,8 @@ export async function homeSendMessage() {
 
   homeHistory.push({ role: 'user', content: question });
 
-  // Save immediately so refresh before AI responds still restores the chat
+  // Save immediately so refresh before AI responds still restores the chat.
+  // _homeSessionId is now guaranteed to be set (created above if new).
   if (_homeSessionId) {
     window._saveSession?.(_homeSessionId, homeHistory);
     localStorage.setItem('chunks_active_home_session', _homeSessionId);
@@ -419,6 +422,7 @@ export async function homeSendMessage() {
       if (_homeSessionId) {
         window._saveSession?.(_homeSessionId, homeHistory);
         localStorage.setItem('chunks_active_home_session', _homeSessionId);
+        window._renderAllRecent?.();
       }
     }
   } catch (e) {

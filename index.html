@@ -132,20 +132,13 @@ const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" st
 let _recentItems = JSON.parse(localStorage.getItem('chunks_recent') || 'null') || [];
 let _activeRecentId = null;
 
-function _historySavingEnabled() {
-  if (localStorage.getItem('chunks_incognito_session') === '1') return false;
-  return localStorage.getItem('chunks_save_history') !== '0';
-}
-
 function _saveRecent() {
-  if (!_historySavingEnabled()) return;
   localStorage.setItem('chunks_recent', JSON.stringify(_recentItems));
 }
 
 // ── Chat session save/restore ────────────────────────────
 function _saveSession(id, historyArr) {
-  if (!_historySavingEnabled()) return;
-  // Save the rendered HTML + history array for a chat session
+  // Always save — history is only deleted when user explicitly clears it
   const html = document.getElementById('home-chat-history')?.innerHTML || '';
   localStorage.setItem('chunks_session_' + id, JSON.stringify({ html, history: historyArr }));
 }
@@ -159,7 +152,7 @@ function _loadSession(id) {
 
 // ── Workspace session save/restore ───────────────────────
 function _saveWsSession(bookId, historyArr) {
-  if (!_historySavingEnabled()) return;
+  // Always save — history is only deleted when user explicitly clears it
   const html = document.getElementById('ws-messages')?.innerHTML || '';
   localStorage.setItem('chunks_ws_session_' + bookId, JSON.stringify({ html, history: historyArr }));
   // Track which book + recent item was last active
@@ -173,7 +166,13 @@ function _loadWsSession(bookId) {
   } catch(e) { return null; }
 }
 
-// ── New Chat ─────────────────────────────────────────────
+// ── One-time startup cleanup ─────────────────────────────
+// Remove stale keys left by any previous incognito session or save_history=0 setting.
+// After this patch all chats always save, so these keys are no longer meaningful.
+(function _cleanStaleKeys() {
+  localStorage.removeItem('chunks_incognito_session');
+  localStorage.removeItem('chunks_save_history');
+})();
 function goHome() {
   // Always return to the homepage landing — clear any active chat state
   _activeRecentId = null;
@@ -223,13 +222,6 @@ function newChat() {
   localStorage.removeItem('chunks_home_session');
   localStorage.removeItem('chunks_active_ws_book');
   localStorage.removeItem('chunks_active_recent_id');
-  // Clear incognito flag unless it was just set by the Ctrl+Shift+I shortcut this tick
-  if (!_newChatIsIncognito) {
-    localStorage.removeItem('chunks_incognito_session');
-    const badge = document.getElementById('incognito-badge');
-    if (badge) badge.style.display = 'none';
-  }
-  _newChatIsIncognito = false;
 
   // Reset home screen to landing state
   const homeChatHistory = document.getElementById('home-chat-history');
@@ -772,10 +764,6 @@ document.addEventListener('DOMContentLoaded', function() {
         <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>K</kbd></span>
       </div>
       <div class="shortcuts-row">
-        <span class="shortcuts-row-label">Incognito chat</span>
-        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>⇧</kbd><span class="kbd-sep">+</span><kbd>I</kbd></span>
-      </div>
-      <div class="shortcuts-row">
         <span class="shortcuts-row-label">Toggle sidebar</span>
         <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>.</kbd></span>
       </div>
@@ -916,16 +904,6 @@ document.addEventListener('keydown', function(e) {
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'o') {
     e.preventDefault();
     newChat();
-    return;
-  }
-  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') {
-    e.preventDefault();
-    localStorage.setItem('chunks_incognito_session', '1');
-    _newChatIsIncognito = true;
-    newChat();
-    wsShowToast('🕵️', 'Incognito chat — history won\'t be saved', '');
-    const badge = document.getElementById('incognito-badge');
-    if (badge) badge.style.display = 'flex';
     return;
   }
 

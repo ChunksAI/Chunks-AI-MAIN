@@ -616,21 +616,12 @@ export function _isAutoFlashEnabled()  { return localStorage.getItem('chunks_set
 // ── Data controls ─────────────────────────────────────────────────────────────
 
 export function dataToggleSaveHistory(checkbox) {
-  const enabled = checkbox.checked;
-  localStorage.setItem('chunks_save_history', enabled ? '1' : '0');
-  if (!enabled) {
-    localStorage.removeItem('chunks_recent');
-    // Use the defineProperty bridge so we write back into the inline-script
-    // closure var, not just a detached window property.
-    window._recentItems     = [];
-    window._activeRecentId  = null;
-    window._renderAllRecent?.();
-    Object.keys(localStorage)
-      .filter(k => k.startsWith('chunks_session_') || k.startsWith('chunks_ws_session_'))
-      .forEach(k => localStorage.removeItem(k));
-    ['chunks_active_home_session','chunks_active_ws_book','chunks_active_recent_id'].forEach(k => localStorage.removeItem(k));
-  }
-  window.wsShowToast?.(enabled ? '✓' : '✕', `Chat history ${enabled ? 'will be saved' : 'disabled — history cleared'}`, '');
+  // Chat history is always saved — this toggle now only controls
+  // whether usage data is shared (kept for UI compatibility).
+  // Force the checkbox back on if somehow unchecked.
+  if (checkbox) checkbox.checked = true;
+  localStorage.removeItem('chunks_save_history');
+  window.wsShowToast?.('✓', 'Chat history is always saved', '');
 }
 
 export function dataToggleImprove(checkbox) {
@@ -809,10 +800,11 @@ function _restoreSettings() {
 }
 
 function _restoreDataToggles() {
-  if (localStorage.getItem('chunks_save_history') === '0') {
-    const el = document.getElementById('toggle-save-history');
-    if (el) el.checked = false;
-  }
+  // Save history is always on — ensure the toggle reflects that
+  const saveHistoryEl = document.getElementById('toggle-save-history');
+  if (saveHistoryEl) saveHistoryEl.checked = true;
+  localStorage.removeItem('chunks_save_history'); // clean up any stale '0' value
+
   if (localStorage.getItem('chunks_improve_data') === '0') {
     const el = document.getElementById('toggle-improve-data');
     if (el) el.checked = false;

@@ -41,7 +41,6 @@ export const ZOOM_STEP = 0.2, ZOOM_MIN = 0.6, ZOOM_MAX = 3.0;
 
 export let _wsBookId      = localStorage.getItem('chunks_default_book') || 'atkins';
 export let _wsChatHistory = [];
-export let _newChatIsIncognito = false;
 export let _wsTyping      = false;
 
 // ── Per-book fallback outlines ─────────────────────────────────────────────
