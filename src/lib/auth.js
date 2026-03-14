@@ -215,8 +215,10 @@ window.chunksSignOut = async function chunksSignOut() {
     sessionStorage.removeItem('chunks_was_here');
     sessionStorage.removeItem('chunks_active_screen');
     sessionStorage.removeItem('chunks_is_refresh');
-    // Reload to a clean state — auth gate will redirect to login.html
-    window.location.reload();
+    sessionStorage.removeItem('chunks_guest_mode');  // must clear or auth gate is bypassed
+    // Redirect to login page directly — more reliable than reload
+    // because reload re-runs auth init which can race with signOut completing
+    window.location.replace('login.html');
   } catch (e) {
     console.warn('[auth] signOut failed:', e.message);
   }
