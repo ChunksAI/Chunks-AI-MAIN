@@ -86,6 +86,11 @@ document.addEventListener('click', function (e) {
   if (action === 'handleUpgradeClick')         { fn(el); return; }
   if (action === 'upgradeModalBackdrop')       { fn(e); return; }
   if (action === 'settingsUpgrade')            { fn(); return; }
+  if (action === 'closeHelpCenter')            { fn(); return; }
+  if (action === 'closeBugReport')             { fn(); return; }
+  if (action === 'closeShortcuts')             { fn(); return; }
+  if (action === 'submitBugReport')            { fn(); return; }
+  if (action === 'showSupportEmail')           { fn(); return; }
 
   // Default
   if (isSelf || fn.length > 0) { fn(el); } else { fn(); }
