@@ -254,7 +254,7 @@ export function openIncognitoChat() {
       </div>`;
   }
   const inp = document.getElementById('incognito-input');
-  if (inp) { inp.value = ''; inp.style.height = '24px'; }
+  if (inp) { inp.value = ''; inp.style.height = 'auto'; }
   modal.classList.add('active');
   if (typeof trapFocus === 'function') _incogFocus = trapFocus(modal);
   setTimeout(() => document.getElementById('incognito-input')?.focus(), 80);
@@ -269,8 +269,9 @@ export function closeIncognitoChat() {
 }
 
 function _incogAutoResize(el) {
+  // No cap — textarea grows freely with content, no scrollbar ever shown
   el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  el.style.height = el.scrollHeight + 'px';
 }
 
 function _incogScrollBottom() {
@@ -345,7 +346,7 @@ export async function incognitoSendMessage() {
   if (!question) return;
 
   inp.value = '';
-  inp.style.height = '24px';
+  inp.style.height = 'auto';
   _incogAppendUser(question);
   _incogHistory.push({ role: 'user', content: question });
 

@@ -471,7 +471,7 @@
   z-index: 10020;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 24px 32px;
   background: rgba(0,0,0,0.72);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -481,8 +481,9 @@
 
 .incognito-panel {
   width: 100%;
-  max-width: 720px;
-  max-height: 86vh;
+  max-width: 900px;
+  height: calc(100vh - 48px);
+  max-height: 900px;
   background: var(--surface-1);
   border: 1px solid rgba(139,124,248,0.28);
   border-radius: var(--r-xl);
@@ -576,8 +577,7 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
-  min-height: 300px;
-  max-height: 520px;
+  min-height: 0;
   scrollbar-width: thin;
   scrollbar-color: var(--surface-4) transparent;
 }
@@ -677,26 +677,27 @@
   display: flex;
   align-items: flex-end;
   gap: 12px;
-  padding: 14px 20px;
+  padding: 14px 26px 16px;
   border-top: 1px solid var(--border-xs);
   background: var(--surface-1);
   flex-shrink: 0;
 }
 .incognito-textarea {
   flex: 1;
+  min-width: 0;
   background: var(--surface-2);
   border: 1px solid var(--border-sm);
   border-radius: var(--r-md);
-  padding: 11px 15px;
+  padding: 12px 16px;
   font-size: 14px;
   font-family: var(--font-body);
   color: var(--text-1);
   resize: none;
   outline: none;
-  line-height: 1.55;
-  max-height: 140px;
-  overflow-y: auto;
+  line-height: 1.6;
+  overflow-y: hidden;
   transition: border-color var(--t-fast);
+  /* No max-height cap — grows freely with content */
 }
 .incognito-textarea::placeholder { color: var(--text-4); }
 .incognito-textarea:focus { border-color: rgba(139,124,248,0.45); }
@@ -746,17 +747,19 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
+  .incognito-modal { padding: 12px; }
   .incognito-panel {
     max-width: 100%;
-    max-height: 90vh;
-    border-radius: var(--r-lg) var(--r-lg) 0 0;
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    top: auto;
-    animation: none;
+    height: calc(100vh - 24px);
+    max-height: none;
+    border-radius: var(--r-lg);
   }
-  .incognito-modal { align-items: flex-end; padding: 0; }
+}
+@media (max-width: 480px) {
+  .incognito-modal { padding: 0; align-items: flex-end; }
+  .incognito-panel {
+    height: 95vh;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+  }
 }
