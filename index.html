@@ -923,17 +923,7 @@ document.addEventListener('keydown', function(e) {
     return;
   }
 
-  // Skip remaining shortcuts while typing
-  if (isTyping) return;
-
-  // ── Ctrl+Shift+O — new chat ───────────────────────────────
-  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'o') {
-    e.preventDefault();
-    newChat();
-    return;
-  }
-
-  // ── Ctrl+I — toggle incognito chat modal ─────────────────
+  // ── Ctrl+I — toggle incognito chat modal (always works, even while typing) ──
   if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'i') {
     e.preventDefault();
     const modal = document.getElementById('incognito-modal');
@@ -941,6 +931,9 @@ document.addEventListener('keydown', function(e) {
     else window.openIncognitoChat?.();
     return;
   }
+
+  // Skip remaining shortcuts while typing
+  if (isTyping) return;
 
   // ── Ctrl+U — upload file ──────────────────────────────────
   if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'u') {

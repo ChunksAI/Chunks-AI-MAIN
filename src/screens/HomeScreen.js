@@ -175,42 +175,49 @@ const HOME_HTML = /* html */`
 
 <!-- ══ INCOGNITO CHAT MODAL ══════════════════════════════════
      Fully self-contained — zero localStorage writes.
-     Opened via profile dropdown item or Ctrl+Shift+I.
+     Opened via profile dropdown item or Ctrl+I.
 ════════════════════════════════════════════════════════════ -->
 <div class="incognito-modal" id="incognito-modal" role="dialog" aria-modal="true" aria-labelledby="incognito-modal-title">
-  <div class="incognito-panel">
-    <div class="incognito-header">
-      <div class="incognito-header-left">
-        <div class="incognito-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <div>
-          <div class="incognito-title" id="incognito-modal-title">Incognito Chat</div>
-          <div class="incognito-subtitle">This conversation won't be saved anywhere</div>
-        </div>
-      </div>
-      <button class="incognito-close" onclick="closeIncognitoChat()" aria-label="Close incognito chat">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <div class="incognito-notice">
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-      No history saved &nbsp;&middot;&nbsp; Cleared when closed &nbsp;&middot;&nbsp; Private session
-    </div>
-    <div class="incognito-messages" id="incognito-messages">
-      <div class="incognito-empty" id="incognito-empty">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <p>Ask anything &mdash; nothing will be saved</p>
-      </div>
-    </div>
-    <div class="incognito-input-bar">
-      <textarea id="incognito-input" class="incognito-textarea" placeholder="Ask anything privately&hellip;" rows="1"></textarea>
-      <button class="incognito-send" id="incognito-send-btn" onclick="incognitoSendMessage()" aria-label="Send">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      </button>
-    </div>
-    <div class="incognito-footer-note">Ctrl + I to toggle &nbsp;&middot;&nbsp; Esc to close</div>
+
+  <!-- Top bar: plan pill + close -->
+  <div class="incognito-topbar">
+    <div class="incognito-plan-pill">Free plan &nbsp;&bull;&nbsp; <span class="incognito-upgrade-link" onclick="closeIncognitoChat();window.openUpgradeModal?.()">Upgrade</span></div>
+    <button class="incognito-close" onclick="closeIncognitoChat()" aria-label="Close incognito chat">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
   </div>
+
+  <!-- Messages / empty hero -->
+  <div class="incognito-messages" id="incognito-messages">
+    <div class="incognito-empty" id="incognito-empty">
+      <!-- Ghost / incognito icon -->
+      <div class="incognito-hero-icon" aria-hidden="true">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </div>
+      <h2 class="incognito-hero-heading" id="incognito-modal-title">You&rsquo;re incognito</h2>
+      <p class="incognito-hero-sub">Chats aren&rsquo;t saved to history or used to train models.</p>
+    </div>
+  </div>
+
+  <!-- Input box -->
+  <div class="incognito-compose-wrap">
+    <div class="incognito-compose-box">
+      <textarea
+        id="incognito-input"
+        class="incognito-textarea"
+        placeholder="Reply&#x2026;"
+        rows="1"
+      ></textarea>
+      <div class="incognito-compose-footer">
+        <span class="incognito-compose-hint">Ctrl + I to toggle &nbsp;&middot;&nbsp; Esc to close</span>
+        <button class="incognito-send" id="incognito-send-btn" onclick="incognitoSendMessage()" aria-label="Send">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+    <p class="incognito-privacy-note">Incognito chats aren&rsquo;t saved to history or used to train models.</p>
+  </div>
+
 </div>
 `;
 
@@ -248,16 +255,16 @@ export function openIncognitoChat() {
   if (msgs) {
     msgs.innerHTML = `
       <div class="incognito-empty" id="incognito-empty">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.2" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        <p>Ask anything — nothing will be saved</p>
+        <div class="incognito-hero-icon" aria-hidden="true">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <h2 class="incognito-hero-heading">You\u2019re incognito</h2>
+        <p class="incognito-hero-sub">Chats aren\u2019t saved to history or used to train models.</p>
       </div>`;
   }
   const inp = document.getElementById('incognito-input');
   if (inp) { inp.value = ''; inp.style.height = 'auto'; }
   modal.classList.add('active');
-  // No focus trap — trapFocus adds a capture-phase keydown listener that
-  // prevents Ctrl+I from reaching the global handler after the first close.
-  // Simply focus the input directly so the shortcut always works.
   setTimeout(() => document.getElementById('incognito-input')?.focus(), 80);
 }
 
