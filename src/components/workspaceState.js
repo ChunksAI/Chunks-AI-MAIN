@@ -240,7 +240,8 @@ export async function selectBook(bookId) {
   const coverWrap = document.getElementById('ws-outline-cover');
   const coverImg  = document.getElementById('ws-outline-cover-img');
   if (coverWrap && coverImg) {
-    coverImg.src = '/public/covers/' + bookId + '.jpg';
+    // Cover images not deployed — hide the img element silently
+    coverImg.style.display = 'none';
     coverWrap.style.display = 'block';
   }
 
