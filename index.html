@@ -179,6 +179,7 @@ function goHome() {
   _activeRecentId = null;
   homeHistory = [];
   _homeSessionId = null;
+  window._homeSessionId = null; // sync HomeScreen.js module var
   localStorage.removeItem('chunks_active_home_session');
   localStorage.removeItem('chunks_active_ws_book');
   localStorage.removeItem('chunks_active_recent_id');
@@ -219,6 +220,7 @@ function newChat() {
   _activeRecentId = null;
   homeHistory = [];
   _homeSessionId = null;
+  window._homeSessionId = null; // sync HomeScreen.js module var
   localStorage.removeItem('chunks_active_home_session');
   localStorage.removeItem('chunks_home_session');
   localStorage.removeItem('chunks_active_ws_book');
@@ -295,6 +297,7 @@ function recentAdd(question, bookId, source) {
     _setActiveRecent(_recentItems[0].id);
     if (source === 'general') {
       _homeSessionId = _recentItems[0].id;
+      window._homeSessionId = _homeSessionId; // sync HomeScreen.js module var
       localStorage.setItem('chunks_home_session', _homeSessionId);
     }
     return;
@@ -313,6 +316,10 @@ function recentAdd(question, bookId, source) {
   _setActiveRecent(item.id);
   if (source === 'general') {
     _homeSessionId = item.id;
+    // Also sync the ES-module copy in HomeScreen.js via its defineProperty bridge.
+    // Without this, HomeScreen._homeSessionId stays null and _saveSession is never
+    // called, so the chat HTML is never written to localStorage.
+    window._homeSessionId = item.id;
     localStorage.setItem('chunks_home_session', _homeSessionId);
   }
 }
@@ -352,6 +359,7 @@ function _deleteRecent(id, e) {
     // Reset home landing
     homeHistory = [];
     _homeSessionId = null;
+    window._homeSessionId = null; // sync HomeScreen.js module var
     const chatHist   = document.getElementById('home-chat-history');
     const homeLanding = document.getElementById('home-landing');
     const homeHero   = document.querySelector('.home-hero');
@@ -395,6 +403,7 @@ function _clickRecent(item) {
       if (chatHistory) chatHistory.innerHTML = sanitize(session.html);
       homeHistory = session.history || [];
       _homeSessionId = item.id;
+      window._homeSessionId = item.id; // sync HomeScreen.js module var
       setTimeout(() => {
         homeScrollBottom();
         document.getElementById('home-ask-input-bottom')?.focus();
@@ -406,6 +415,7 @@ function _clickRecent(item) {
       if (bar) bar.style.display = 'flex';
       if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
       _homeSessionId = item.id;
+      window._homeSessionId = item.id; // sync HomeScreen.js module var
       setTimeout(() => {
         const bi = document.getElementById('home-ask-input-bottom');
         if (bi) { bi.value = item.question; bi.focus(); homeAutoResize(bi); }
