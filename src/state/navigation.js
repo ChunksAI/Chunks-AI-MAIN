@@ -173,7 +173,7 @@ export function showScreen(name) {
 
 // ── Restore screen on page load ────────────────────────────────────────────
 
-(function _restoreScreen() {
+function _restoreScreen() {
   // 'chunks_was_here' survives a refresh but not a fresh open
   const isRefresh = sessionStorage.getItem('chunks_was_here') === '1';
 
@@ -184,15 +184,8 @@ export function showScreen(name) {
     }
     // Restore library modal state
     if (sessionStorage.getItem('chunks_library_open') === '1') {
-      const restoreModal = () => {
-        const modal = document.getElementById('library-modal');
-        if (modal) modal.classList.add('active');
-      };
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', restoreModal, { once: true });
-      } else {
-        restoreModal();
-      }
+      const modal = document.getElementById('library-modal');
+      if (modal) modal.classList.add('active');
     }
     sessionStorage.setItem('chunks_is_refresh', '1');
   } else {
@@ -213,7 +206,18 @@ export function showScreen(name) {
     if (sessionStorage.getItem('chunks_signing_out') === '1') return;
     sessionStorage.setItem('chunks_was_here', '1');
   });
-})();
+}
+
+// Defer until DOMContentLoaded so all screen modules (WorkspaceScreen,
+// FlashScreen, etc.) have already injected their #screen-* elements.
+// Previously this ran as an IIFE at import time, which meant showScreen()
+// was called before the target element existed and silently returned early —
+// leaving the page with no active screen and unstyled raw HTML on refresh.
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _restoreScreen, { once: true });
+} else {
+  _restoreScreen();
+}
 
 // ── Flash-card flip + keyboard shortcuts ───────────────────────────────────
 
