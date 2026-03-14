@@ -104,9 +104,8 @@ export function showScreen(name) {
   const target = document.getElementById('screen-' + name);
   if (!target) return;
   target.classList.add('active');
-  // Reset screen entry animation without causing a visible flash
-  void target.offsetWidth; // force reflow
-  target.style.animation = '';
+  target.style.animation = 'none';
+  requestAnimationFrame(() => { target.style.animation = ''; });
 
   // Carry compact state to the new screen's sidebar
   if (wasCompact) {
@@ -201,16 +200,7 @@ export function showScreen(name) {
     localStorage.removeItem('chunks_active_recent_id');
   }
 
-  // Reveal page after screen is restored — prevents scroll-jump flash
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      document.body.classList.add('chunks-ready');
-    });
-  });
-
   window.addEventListener('beforeunload', () => {
-    // Don't mark as refresh if the user is signing out
-    if (sessionStorage.getItem('chunks_signing_out') === '1') return;
     sessionStorage.setItem('chunks_was_here', '1');
   });
 })();

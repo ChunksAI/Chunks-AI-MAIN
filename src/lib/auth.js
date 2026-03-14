@@ -135,44 +135,6 @@ window._applyUserProfile = function _applyUserProfile(session) {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 window._initAuth = async function _initAuth() {
-  // ── Instant gate: check localStorage BEFORE any network call ─────────────
-  // If no session token exists at all, redirect to login immediately
-  // without waiting for Supabase SDK or getSession() network call.
-  // This prevents the homepage from flashing for unauthenticated users.
-  const isGuest_      = sessionStorage.getItem('chunks_guest_mode') === '1';
-  const isLoginPage_  = window.location.pathname.endsWith('login.html');
-  const hasOAuthCode_ = window.location.search.includes('code=');
-  const hasOAuthHash_ = window.location.hash.includes('access_token');
-
-  if (!isGuest_ && !isLoginPage_ && !hasOAuthCode_ && !hasOAuthHash_) {
-    try {
-      const raw = localStorage.getItem('chunks-ai-auth');
-      if (!raw) {
-        // No session at all — redirect instantly, no network call needed
-        window.location.replace('login.html');
-        return;
-      }
-      // Check if token is expired
-      const parsed  = JSON.parse(raw);
-      const session = parsed.access_token ? parsed
-                    : parsed.currentSession ? parsed.currentSession
-                    : null;
-      if (session && session.expires_at) {
-        const nowSec = Math.floor(Date.now() / 1000);
-        if (session.expires_at - nowSec < 60) {
-          // Token expired or expiring soon — let getSession() refresh it below
-          // Don't redirect yet — Supabase will auto-refresh
-        }
-      } else if (!session || !session.access_token) {
-        window.location.replace('login.html');
-        return;
-      }
-    } catch (e) {
-      // localStorage parse failed — fall through to network check
-    }
-  }
-  // ─────────────────────────────────────────────────────────────────────────
-
   let sb;
   try { sb = await getSupabaseClient(); } catch (e) { return; }
   if (!sb) return;
@@ -183,16 +145,22 @@ window._initAuth = async function _initAuth() {
     window._applyUserProfile(session);
 
     // ── Auth gate ────────────────────────────────────────────────────────
+    // If no active session AND not in guest mode → redirect to login page.
+    // Guest mode is set by login.html's "Continue as guest" button via
+    // sessionStorage.setItem('chunks_guest_mode', '1').
     const isGuest      = sessionStorage.getItem('chunks_guest_mode') === '1';
     const isAuthed     = !!session?.user;
-    const isLoginPage  = window.location.pathname.endsWith('login.html');
+    const isLoginPage  = window.location.pathname.endsWith('login.html'); // ← FIX 1: skip gate on login page
+    // FIX 3: if Supabase OAuth code/hash is in URL, wait — don't redirect yet
     const hasOAuthCode = window.location.search.includes('code=');
     const hasOAuthHash = window.location.hash.includes('access_token') ||
                          window.location.hash.includes('error_description');
 
     if (!isAuthed && !isGuest && !isLoginPage && !hasOAuthCode && !hasOAuthHash) {
-      window.location.replace('login.html');
-      return;
+      // Preserve the current URL so login.html can redirect back after sign-in
+      const returnTo = encodeURIComponent(window.location.href);
+      window.location.replace(`login.html?returnTo=${returnTo}`);
+      return; // stop further init — page is navigating away
     }
     // ────────────────────────────────────────────────────────────────────
   } catch (e) {
@@ -207,8 +175,10 @@ window._initAuth = async function _initAuth() {
     if (_event === 'SIGNED_IN') {
       const isLoginPage = window.location.pathname.endsWith('login.html');
       if (isLoginPage) {
-        window.location.replace('index.html');
-        return;
+        const params   = new URLSearchParams(window.location.search);
+        const returnTo = params.get('returnTo') || 'index.html';
+        window.location.replace(decodeURIComponent(returnTo));
+        return; // stop further execution — page is navigating away
       }
 
       // Give ChunksDB's DOMContentLoaded patcher time to run first
@@ -227,33 +197,23 @@ window._initAuth = async function _initAuth() {
 // ── Sign out ──────────────────────────────────────────────────────────────────
 
 window.chunksSignOut = async function chunksSignOut() {
-  // Always clear state and redirect — never let a Supabase failure block logout
-  function _doRedirect() {
+  let sb;
+  try { sb = await getSupabaseClient(); } catch (e) { return; }
+  if (!sb) return;
+
+  try {
+    await sb.auth.signOut();
     window._currentUser = null;
     _applyUI(null);
-    // Clear localStorage session state
+    // Clear any active session state
     localStorage.removeItem('chunks_active_home_session');
     localStorage.removeItem('chunks_active_ws_book');
     localStorage.removeItem('chunks_active_recent_id');
-    // Clear sessionStorage so auth gate redirects to login on next load
-    sessionStorage.setItem('chunks_signing_out', '1');
-    sessionStorage.removeItem('chunks_was_here');
-    sessionStorage.removeItem('chunks_active_screen');
-    sessionStorage.removeItem('chunks_is_refresh');
-    sessionStorage.removeItem('chunks_guest_mode');
-    // Hard redirect to login
-    window.location.replace('login.html');
-  }
-
-  // Try to sign out from Supabase, but redirect regardless of result
-  try {
-    const sb = await getSupabaseClient();
-    if (sb) await sb.auth.signOut();
+    // Reload to a clean state
+    window.location.reload();
   } catch (e) {
-    console.warn('[auth] signOut error (continuing with redirect):', e.message);
+    console.warn('[auth] signOut failed:', e.message);
   }
-
-  _doRedirect();
 };
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

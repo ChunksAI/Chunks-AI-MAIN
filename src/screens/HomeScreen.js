@@ -328,16 +328,9 @@ export function homeAppendError(msg) {
   homeScrollBottom();
 }
 
-export function homeScrollBottom(instant = false) {
+export function homeScrollBottom() {
   const area = document.getElementById('home-scroll-area');
-  if (!area) return;
-  if (instant) {
-    area.style.scrollBehavior = 'auto';
-    area.scrollTop = area.scrollHeight;
-    area.style.scrollBehavior = '';
-  } else {
-    area.scrollTop = area.scrollHeight;
-  }
+  if (area) area.scrollTop = area.scrollHeight;
 }
 
 // ── Hide landing when first message sent ──────────────────────────────────────
@@ -484,7 +477,7 @@ mountHomeScreen();
   homeHistory    = session.history || [];
   _homeSessionId = savedId;
   window._setActiveRecent?.(savedId);
-  setTimeout(() => homeScrollBottom(true), 80);
+  setTimeout(() => homeScrollBottom(), 80);
 })();
 
 // ── Wire input listeners (after DOM is interactive) ───────────────────────────

@@ -103,7 +103,7 @@ const LIBRARY_MODAL_HTML = `
 
           <div class="library-book-card" onclick="selectBook('zumdahl')">
             <div class="library-book-icon">
-              <img src="data:," alt="General Chemistry by Zumdahl &amp; Zumdahl — textbook cover" onerror="this.parentElement.innerHTML='📗'">
+              <img src="/public/covers/zumdahl.jpg" alt="General Chemistry by Zumdahl &amp; Zumdahl — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='📗'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">General Chemistry</div>
@@ -118,7 +118,7 @@ const LIBRARY_MODAL_HTML = `
 
           <div class="library-book-card" onclick="selectBook('atkins')">
             <div class="library-book-icon">
-              <img src="data:," alt="Physical Chemistry by Atkins &amp; de Paula — textbook cover" onerror="this.parentElement.innerHTML='📘'">
+              <img src="/public/covers/atkins.jpg" alt="Physical Chemistry by Atkins &amp; de Paula — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='📘'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Physical Chemistry</div>
@@ -133,7 +133,7 @@ const LIBRARY_MODAL_HTML = `
 
           <div class="library-book-card" onclick="selectBook('klein')">
             <div class="library-book-icon">
-              <img src="data:," alt="Organic Chemistry by David Klein — textbook cover" onerror="this.parentElement.innerHTML='📙'">
+              <img src="/public/covers/klein.jpg" alt="Organic Chemistry by David Klein — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='📙'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Organic Chemistry</div>
@@ -148,7 +148,7 @@ const LIBRARY_MODAL_HTML = `
 
           <div class="library-book-card" onclick="selectBook('harris')">
             <div class="library-book-icon">
-              <img src="data:," alt="Quantitative Chemical Analysis by Daniel C. Harris — textbook cover" onerror="this.parentElement.innerHTML='📒'">
+              <img src="/public/covers/harris.jpg" alt="Quantitative Chemical Analysis by Daniel C. Harris — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='📒'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Quantitative Chemical Analysis</div>
@@ -311,7 +311,7 @@ const LIBRARY_MODAL_HTML = `
         <div class="library-grid">
           <div class="library-book-card" onclick="selectBook('anaphy2e')">
             <div class="library-book-icon" style="background:rgba(248,113,113,0.06);">
-              <img src="data:," alt="Anatomy &amp; Physiology by Patton &amp; Thibodeau — textbook cover" onerror="this.parentElement.innerHTML='🫁'">
+              <img src="/public/covers/anaphy2e.jpg" alt="Anatomy &amp; Physiology by Patton &amp; Thibodeau — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='🫁'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Anatomy &amp; Physiology</div>
@@ -325,7 +325,7 @@ const LIBRARY_MODAL_HTML = `
           </div>
           <div class="library-book-card" onclick="selectBook('netter')">
             <div class="library-book-icon" style="background:rgba(248,113,113,0.06);">
-              <img src="data:," alt="Atlas of Human Anatomy by Frank H. Netter — textbook cover" onerror="this.parentElement.innerHTML='🫀'">
+              <img src="/public/covers/netter.jpg" alt="Atlas of Human Anatomy by Frank H. Netter — textbook cover" loading="lazy" onerror="this.parentElement.innerHTML='🫀'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Atlas of Human Anatomy</div>
