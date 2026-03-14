@@ -29,7 +29,15 @@
  *   homeHandleAttach    ← state/workspaceState.js (window.homeHandleAttach)
  */
 
-import { API_BASE } from '../lib/api.js';
+import { API_BASE, askQuestion } from '../lib/api.js';
+import {
+  createSession,
+  appendMessage,
+  getSession,
+  getActiveSessionId,
+  setActiveSessionId,
+  getRecentList,
+} from '../utils/storage.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -368,10 +376,18 @@ export async function homeSendMessage() {
   const question = inp.value.trim();
   if (!question) return;
 
-  // Only create a new history entry on the FIRST message of a session
+  // ── Session management (guide §04) ───────────────────────────────────────
+  // First message → create a new session in localStorage and add to recent list
   if (!_homeSessionId) {
+    const session = createSession(question, 'general');
+    if (session) {
+      _homeSessionId = session.id;
+      window._homeSessionId = session.id; // keep window bridge in sync
+    }
+    // Also keep legacy recentAdd working so the inline sidebar list updates
     window.recentAdd?.(question, null, 'general');
   }
+
   homeHideLanding();
   homeAppendUser(question);
   inp.value = '';
@@ -380,50 +396,32 @@ export async function homeSendMessage() {
 
   homeHistory.push({ role: 'user', content: question });
 
-  // Save immediately so refresh before AI responds still restores the chat
-  if (_homeSessionId) {
-    window._saveSession?.(_homeSessionId, homeHistory);
-    localStorage.setItem('chunks_active_home_session', _homeSessionId);
-    window._renderAllRecent?.();
-  }
+  // Save user message immediately — sidebar & restore work even on mid-send refresh
+  appendMessage(_homeSessionId, 'user', question);
+  if (_homeSessionId) setActiveSessionId(_homeSessionId);
+  // Re-render sidebar so new session appears right away
+  window._renderAllRecent?.();
 
   homeIsTyping = true;
   homeAppendThinking();
   if (sendBtn) sendBtn.disabled = true;
 
   try {
-    const res = await fetch(`${API_BASE}/ask`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        question,
-        bookId: '',
-        mode: 'general',
-        complexity: 5,
-        history: homeHistory.slice(-12),
-      }),
+    const { answer } = await askQuestion({
+      question,
+      bookId:     '',
+      mode:       'general',
+      complexity: 5,
+      history:    homeHistory.slice(-12),
     });
 
     homeRemoveThinking();
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      homeAppendError(err.error || `Error ${res.status}`);
-      homeHistory.pop();
-    } else {
-      const data   = await res.json();
-      const answer = data.answer || 'No response.';
-      homeAppendAI(answer, null);
-      homeHistory.push({ role: 'assistant', content: answer });
-      // Overwrite with full exchange (user + AI)
-      if (_homeSessionId) {
-        window._saveSession?.(_homeSessionId, homeHistory);
-        localStorage.setItem('chunks_active_home_session', _homeSessionId);
-      }
-    }
+    homeAppendAI(answer, null);
+    homeHistory.push({ role: 'assistant', content: answer });
+    appendMessage(_homeSessionId, 'assistant', answer);
   } catch (e) {
     homeRemoveThinking();
-    homeAppendError('Could not reach the server. Check your connection.');
+    homeAppendError(e.message || 'Could not reach the server. Check your connection.');
     homeHistory.pop();
   } finally {
     homeIsTyping = false;
@@ -443,42 +441,22 @@ mountHomeScreen();
 // type="module" scripts — so #screen-home didn't exist yet. Now it runs right
 // here, after mountHomeScreen() has injected the DOM.
 (function _restoreHomeSession() {
-  if (sessionStorage.getItem('chunks_is_refresh') !== '1') return;
+  // Works on both refresh AND new tab — localStorage persists across both.
+  // Only skipped when user explicitly started a new chat (active key cleared).
+  const activeScreen = sessionStorage.getItem('chunks_active_screen');
+  if (activeScreen === 'workspace') return; // workspace handles its own restore
 
-  const activeScreen   = sessionStorage.getItem('chunks_active_screen');
-  const activeRecentId = localStorage.getItem('chunks_active_recent_id');
+  const savedId = getActiveSessionId();
+  if (!savedId) return;
+  if (activeScreen && activeScreen !== 'home') return;
 
-  // Workspace restore is handled by workspaceState.js — skip it here
-  if (activeScreen === 'workspace' || (!activeScreen && localStorage.getItem('chunks_active_ws_book'))) {
-    const bookId = localStorage.getItem('chunks_active_ws_book');
-    if (bookId) {
-      const _loadWsSession = window._loadWsSession;
-      const wsSession = _loadWsSession?.(bookId);
-      window.selectBook?.(bookId).then(() => {
-        if (wsSession && wsSession.html) {
-          setTimeout(() => {
-            const msgs = document.getElementById('ws-messages');
-            if (msgs) msgs.innerHTML = window.sanitize?.(wsSession.html) ?? wsSession.html;
-            window._wsChatHistory = wsSession.history || [];
-            if (activeRecentId) window._setActiveRecent?.(activeRecentId);
-            setTimeout(() => {
-              const m = document.getElementById('ws-messages');
-              if (m) m.scrollTop = m.scrollHeight;
-            }, 80);
-          }, 600);
-        }
-      });
-    }
-    return;
-  }
+  const session = getSession(savedId);
+  if (!session || !session.messages?.length) return;
 
-  // ── Restore home chat ──
-  const savedId = localStorage.getItem('chunks_active_home_session');
-  if (!savedId || (activeScreen && activeScreen !== 'home')) return;
-
-  let session;
-  try { session = JSON.parse(localStorage.getItem('chunks_session_' + savedId)); } catch (e) {}
-  if (!session?.html) return;
+  // Rebuild in-memory history from stored messages
+  homeHistory    = session.messages.map(m => ({ role: m.role, content: m.content }));
+  _homeSessionId = savedId;
+  window._homeSessionId = savedId;
 
   const landing    = document.getElementById('home-landing');
   const hero       = document.querySelector('.home-hero');
@@ -489,9 +467,16 @@ mountHomeScreen();
   if (hero)       hero.style.display = 'none';
   if (bar)        bar.style.display = 'flex';
   if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
-  if (chatHist)   chatHist.innerHTML = window.sanitize?.(session.html) ?? session.html;
-  homeHistory    = session.history || [];
-  _homeSessionId = savedId;
+
+  // Re-render every message from the stored messages array
+  if (chatHist) {
+    chatHist.innerHTML = '';
+    session.messages.forEach(msg => {
+      if (msg.role === 'user')      homeAppendUser(msg.content);
+      else if (msg.role === 'assistant') homeAppendAI(msg.content, null);
+    });
+  }
+
   window._setActiveRecent?.(savedId);
   setTimeout(() => homeScrollBottom(true), 80);
 })();
