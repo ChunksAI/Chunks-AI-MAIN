@@ -187,10 +187,19 @@ const HOME_HTML = /* html */`
   <!-- Messages / hero — fills all space -->
   <div class="incognito-messages" id="incognito-messages">
     <div class="incognito-empty" id="incognito-empty">
-      <!-- Plan pill -->
-      <div class="incognito-plan-pill">Free plan &nbsp;&bull;&nbsp; <span class="incognito-upgrade-link" onclick="closeIncognitoChat();window.openUpgradeModal?.()">Upgrade</span></div>
-      <!-- Asterisk star icon -->
-      <div class="incognito-hero-icon" aria-hidden="true">&#10033;</div>
+      <!-- Chunks AI orbital logo -->
+      <div class="incognito-hero-icon" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="52" height="52">
+          <defs>
+            <linearGradient id="ig-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
+            <linearGradient id="ig-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient>
+          </defs>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-gv)" stroke-width="7" opacity="0.95"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+          <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+        </svg>
+      </div>
       <h2 class="incognito-hero-heading" id="incognito-modal-title">You&rsquo;re incognito</h2>
     </div>
   </div>
@@ -256,8 +265,18 @@ export function openIncognitoChat() {
   if (msgs) {
     msgs.innerHTML = `
       <div class="incognito-empty" id="incognito-empty">
-        <div class="incognito-plan-pill">Free plan &nbsp;&bull;&nbsp; <span class="incognito-upgrade-link" onclick="closeIncognitoChat();window.openUpgradeModal?.()">Upgrade</span></div>
-        <div class="incognito-hero-icon" aria-hidden="true">&#10033;</div>
+        <div class="incognito-hero-icon" aria-hidden="true">
+          <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="52" height="52">
+            <defs>
+              <linearGradient id="ig-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
+              <linearGradient id="ig-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient>
+            </defs>
+            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-gv)" stroke-width="7" opacity="0.95"/>
+            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+            <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+          </svg>
+        </div>
         <h2 class="incognito-hero-heading">You\u2019re incognito</h2>
       </div>`;
   }
@@ -316,7 +335,18 @@ function _incogAppendThinking() {
   d.id = 'incognito-thinking';
   d.innerHTML = `
     <div class="incognito-ai-row">
-      <div class="incognito-ai-ava">&#10033;</div>
+      <div class="incognito-ai-ava" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14">
+          <defs>
+            <linearGradient id="ig-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
+            <linearGradient id="ig-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient>
+          </defs>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-av-gv)" stroke-width="8" opacity="0.95"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/>
+          <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+        </svg>
+      </div>
       <div class="hc-thinking"><span></span><span></span><span></span><span></span><span></span></div>
     </div>`;
   inner.appendChild(d);
@@ -334,7 +364,18 @@ function _incogAppendAI(text) {
   d.className = 'incognito-msg incognito-msg-ai';
   d.innerHTML = `
     <div class="incognito-ai-row">
-      <div class="incognito-ai-ava">&#10033;</div>
+      <div class="incognito-ai-ava" aria-hidden="true">
+        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14">
+          <defs>
+            <linearGradient id="ig-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
+            <linearGradient id="ig-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient>
+          </defs>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-av-gv)" stroke-width="8" opacity="0.95"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/>
+          <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+        </svg>
+      </div>
       <div class="incognito-ai-body">${window.homeMarkdown?.(text) ?? text.replace(/</g,'&lt;')}</div>
     </div>`;
   inner.appendChild(d);
