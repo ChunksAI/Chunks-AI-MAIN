@@ -6,10 +6,11 @@
   <title>Chunks AI — Sign in</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="preconnect" href="https://accounts.google.com">
   <link rel="preconnect" href="https://wiwbfspsrgayvquzfryl.supabase.co">
+  <link rel="dns-prefetch" href="https://accounts.google.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
+    /* Hide body until we know whether to show login or redirect */
     body { opacity: 0; }
     body.ready { opacity: 1; transition: opacity 0.15s ease; }
     :root {
@@ -65,29 +66,45 @@
   </style>
 
   <script>
-    // ── Instant session check — before body renders ───────────────────────────
+    // ── INSTANT session check — runs before body renders ─────────────────────
+    // Supabase stores the session in localStorage synchronously.
+    // If a valid non-expired session exists, redirect immediately — no network
+    // call, no SDK load, no flash. The user never sees the login page.
     (function() {
       var isPostLogout = sessionStorage.getItem('chunks_signing_out') === '1';
       var hasCode      = location.search.includes('code=');
       var hasHash      = location.hash.includes('access_token');
-      if (isPostLogout || hasCode || hasHash) return;
-      // Already logged in? Redirect instantly — no network call
+      if (isPostLogout || hasCode || hasHash) return; // need SDK for these cases
+
+      // Check for an existing non-expired Supabase session in localStorage
       try {
         var raw = localStorage.getItem('chunks-ai-auth');
         if (raw) {
-          var s = JSON.parse(raw);
-          var sess = s.access_token ? s : (s.currentSession || null);
-          if (sess && sess.access_token) {
-            var exp = sess.expires_at || 0;
-            if (exp === 0 || exp - Math.floor(Date.now()/1000) > 60) {
-              location.replace('index.html'); return;
+          var parsed = JSON.parse(raw);
+          // Supabase session shape: { access_token, expires_at (unix seconds) }
+          var session = parsed.access_token ? parsed
+                      : parsed.currentSession ? parsed.currentSession
+                      : null;
+          if (session && session.access_token) {
+            var expiresAt = session.expires_at || 0;
+            var nowSec = Math.floor(Date.now() / 1000);
+            // Give 60s buffer for clock skew
+            if (expiresAt === 0 || expiresAt - nowSec > 60) {
+              // Valid session — redirect instantly, no flash
+              location.replace('index.html');
+              return;
             }
           }
         }
       } catch(e) {}
+
+      // Also check guest mode
       if (sessionStorage.getItem('chunks_guest_mode') === '1') {
-        location.replace('index.html'); return;
+        location.replace('index.html');
+        return;
       }
+
+      // No session — show the login page
       document.addEventListener('DOMContentLoaded', function() {
         document.body.classList.add('ready');
       });
@@ -133,12 +150,7 @@
       <span class="feat-pill">Research</span>
     </div>
     <div class="auth-error" id="auth-error"></div>
-
-    <!--
-      Direct link to Google OAuth — skips Supabase server on first hop entirely.
-      Click → Google account chooser with zero server round-trip.
-    -->
-    <a class="btn-google" id="btn-google" href="https://accounts.google.com/o/oauth2/v2/auth?client_id=870381179036-k4q4d7in622c6ecd5hjfl9bbf5thmcel.apps.googleusercontent.com&redirect_uri=https://chunks-ai-main.vercel.app/login.html&response_type=code&scope=openid%20email%20profile&access_type=offline&prompt=select_account">
+    <a class="btn-google" id="btn-google" href="https://wiwbfspsrgayvquzfryl.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://chunks-ai-main.vercel.app/login.html">
       <svg class="btn-google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -147,14 +159,11 @@
       </svg>
       <span>Continue with Google</span>
     </a>
-
     <div class="divider"><div class="divider-line"></div><span class="divider-text">or</span><div class="divider-line"></div></div>
-
     <button class="btn-guest" onclick="continueAsGuest()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       Continue as guest
     </button>
-
     <div class="card-footer">
       By signing in you agree to our
       <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a>
@@ -182,56 +191,59 @@
     sessionStorage.removeItem('chunks_signing_out');
     document.body.classList.add('ready');
   } else if (_hasCode || _hasHash) {
+    // Show loading overlay immediately — user sees spinner not login form
     document.getElementById('cb-overlay').classList.add('show');
   }
 
-  // ── OAuth callback: exchange Google code with Supabase ────────────────────
-  // When Google redirects back with ?code=, we pass it to Supabase to create
-  // a session. Load SDK synchronously on this path so exchange is immediate.
-  if (_hasCode || _hasHash || _isPostLogout) {
-    var _sdkEl = document.createElement('script');
-    _sdkEl.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
-    _sdkEl.onload = async function() {
-      var _mem = {};
-      var _store = (function() {
-        try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return localStorage; } catch(e) {}
-        try { sessionStorage.setItem('__t','1'); sessionStorage.removeItem('__t'); return sessionStorage; } catch(e) {}
-        return { getItem:function(k){return _mem[k]||null;}, setItem:function(k,v){_mem[k]=String(v);}, removeItem:function(k){delete _mem[k];} };
-      })();
+  var SUPABASE_URL  = 'https://wiwbfspsrgayvquzfryl.supabase.co';
+  var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I';
 
-      var sb = window.supabase.createClient('https://wiwbfspsrgayvquzfryl.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I', {
-        auth: { persistSession:true, autoRefreshToken:true, storage:_store, storageKey:'chunks-ai-auth' }
-      });
+  var _mem = {};
+  var _store = (function() {
+    try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return localStorage; } catch(e) {}
+    try { sessionStorage.setItem('__t','1'); sessionStorage.removeItem('__t'); return sessionStorage; } catch(e) {}
+    return { getItem:function(k){return _mem[k]||null;}, setItem:function(k,v){_mem[k]=String(v);}, removeItem:function(k){delete _mem[k];} };
+  })();
 
-      if (_isPostLogout) {
-        try { await sb.auth.signOut({ scope:'local' }); } catch(e) {}
-        return;
+  // Load Supabase SDK — sync on callback (fast exchange), async otherwise
+  var _sdkEl = document.createElement('script');
+  _sdkEl.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  if (!_hasCode && !_hasHash && !_isPostLogout) _sdkEl.async = true;
+  _sdkEl.onload = async function() {
+    var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: { persistSession:true, autoRefreshToken:true, storage:_store, storageKey:'chunks-ai-auth' }
+    });
+
+    if (_isPostLogout) {
+      try { await sb.auth.signOut({ scope:'local' }); } catch(e) {}
+      return;
+    }
+
+    if (_hasCode || _hasHash) {
+      // Exchange code for session — getSession() triggers PKCE exchange automatically
+      try {
+        var result = await sb.auth.getSession();
+        var session = result.data && result.data.session;
+        if (session) { location.replace('index.html'); return; }
+        // Not ready — wait for auth state change
+        sb.auth.onAuthStateChange(function(event, session) {
+          if (event === 'SIGNED_IN' && session) location.replace('index.html');
+          else if (event === 'SIGNED_IN' && !session) showError('Sign-in failed. Please try again.');
+        });
+      } catch(err) {
+        showError(err.message || 'Sign-in failed. Please try again.');
       }
+      return;
+    }
 
-      if (_hasCode || _hasHash) {
-        try {
-          // exchangeCodeForSession handles the PKCE code exchange with Supabase
-          var code = new URLSearchParams(location.search).get('code');
-          if (code) {
-            var result = await sb.auth.exchangeCodeForSession(code);
-            if (result.data && result.data.session) {
-              location.replace('index.html'); return;
-            }
-            if (result.error) throw result.error;
-          }
-          // Fallback: getSession triggers exchange automatically
-          var r2 = await sb.auth.getSession();
-          if (r2.data && r2.data.session) { location.replace('index.html'); return; }
-          sb.auth.onAuthStateChange(function(event, session) {
-            if (event === 'SIGNED_IN' && session) location.replace('index.html');
-          });
-        } catch(err) {
-          showError(err.message || 'Sign-in failed. Please try again.');
-        }
-      }
-    };
-    document.head.appendChild(_sdkEl);
-  }
+    // Normal load — check session (SDK path, for expired/refreshed tokens)
+    var result2 = await sb.auth.getSession();
+    var session2 = result2.data && result2.data.session;
+    if (session2) { location.replace('index.html'); return; }
+    // No session — show login page
+    document.body.classList.add('ready');
+  };
+  document.head.appendChild(_sdkEl);
 </script>
 </body>
 </html>
