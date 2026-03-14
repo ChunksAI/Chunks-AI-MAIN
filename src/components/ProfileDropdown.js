@@ -316,20 +316,63 @@ export async function pdAction(action) {
 function _attachSubmenuListeners() {
   const helpItem  = document.getElementById('pd-help-item');
   const termsItem = document.getElementById('pd-terms-item');
+  const helpSub   = document.getElementById('pd-help-submenu');
+  const termsSub  = document.getElementById('pd-terms-submenu');
+  const mainDd    = document.getElementById('profile-dropdown');
 
-  if (helpItem)  helpItem.addEventListener('mouseenter',  e => pdOpenHelp(e));
-  if (termsItem) termsItem.addEventListener('mouseenter', e => pdOpenTerms(e));
+  // ── Help item in main dropdown → open help submenu ────────────────────────
+  if (helpItem) helpItem.addEventListener('mouseenter', e => pdOpenHelp(e));
 
-  // Hovering any other main-menu item closes both submenus
-  document.addEventListener('mouseover', function (e) {
-    const item = e.target.closest('.pd-item');
-    if (!item) return;
-    if (item.closest('#pd-help-submenu') || item.closest('#pd-terms-submenu')) return;
-    if (item.closest('.pd-menu') && item.id !== 'pd-help-item' && item.id !== 'pd-terms-item') {
-      _closeHelp();
-      _closeTerms();
-    }
-  }, false);
+  // ── Terms item inside help submenu → open terms submenu ───────────────────
+  if (termsItem) termsItem.addEventListener('mouseenter', e => {
+    clearTimeout(_termsCloseTimer);
+    _openTermsSubmenu();
+  });
+
+  // ── Hovering any OTHER item in the main dropdown closes both submenus ─────
+  // Use mouseenter on each main-dropdown item individually so we never
+  // accidentally fire on submenu items (mouseover bubbles up through the DOM
+  // and can't be reliably filtered when submenus are appended to <body>).
+  if (mainDd) {
+    mainDd.querySelectorAll('.pd-item').forEach(item => {
+      if (item.id === 'pd-help-item') return; // handled above
+      item.addEventListener('mouseenter', () => {
+        _closeHelp();
+        _closeTerms();
+      });
+    });
+  }
+
+  // ── Hovering items inside the help submenu (not Terms) closes terms ────────
+  if (helpSub) {
+    helpSub.querySelectorAll('.pd-item').forEach(item => {
+      if (item.id === 'pd-terms-item') return; // handled above
+      item.addEventListener('mouseenter', () => {
+        _closeTerms();
+      });
+    });
+  }
+
+  // ── Keep submenus open while mouse is inside them ─────────────────────────
+  if (helpSub) {
+    helpSub.addEventListener('mouseleave', () => {
+      _helpCloseTimer = setTimeout(() => {
+        if (!_pdTermsOpen) _closeHelp();
+      }, 120);
+    });
+    helpSub.addEventListener('mouseenter', () => {
+      clearTimeout(_helpCloseTimer);
+    });
+  }
+
+  if (termsSub) {
+    termsSub.addEventListener('mouseleave', () => {
+      _termsCloseTimer = setTimeout(_closeTerms, 120);
+    });
+    termsSub.addEventListener('mouseenter', () => {
+      clearTimeout(_termsCloseTimer);
+    });
+  }
 }
 
 // ── Window bridges ────────────────────────────────────────────────────────────
