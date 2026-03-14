@@ -740,6 +740,14 @@ export async function wsChatSend() {
   wsAppendUser(question);
   inp.value = ''; wsAutoResize(inp); inp.focus();
   _wsChatHistory.push({ role: 'user', content: question });
+
+  // Persist immediately after the user sends so a refresh before the AI
+  // responds still restores the conversation.
+  if (_wsBookId && typeof window._saveWsSession === 'function') {
+    window._saveWsSession(_wsBookId, _wsChatHistory);
+    localStorage.setItem('chunks_active_ws_book', _wsBookId);
+  }
+
   await _wsAsk(question);
 }
 
@@ -765,7 +773,8 @@ export async function _wsAsk(question) {
       const answer = data.answer || 'No response.';
       wsAppendAI(answer, data.sources || [], question);
       _wsChatHistory.push({ role: 'assistant', content: answer });
-      if (typeof _saveWsSession === 'function') _saveWsSession(_wsBookId, _wsChatHistory);
+      // Overwrite with the complete exchange (user + AI)
+      if (typeof window._saveWsSession === 'function') window._saveWsSession(_wsBookId, _wsChatHistory);
     }
   } catch (e) {
     wsRemoveThinking();
@@ -885,6 +894,13 @@ window.wsChatSend = async function() {
   inp.value = ''; wsAutoResize(inp); inp.focus();
   _wsChatHistory.push({ role: 'user', content: fullQuestion });
   _wsAttachments = []; _wsRenderPreview();
+
+  // Persist immediately after the user sends
+  if (_wsBookId && typeof window._saveWsSession === 'function') {
+    window._saveWsSession(_wsBookId, _wsChatHistory);
+    localStorage.setItem('chunks_active_ws_book', _wsBookId);
+  }
+
   await _wsAsk(fullQuestion);
 };
 
