@@ -20,6 +20,38 @@
 
 import { API_BASE } from './api.js';
 
+// ── Safe storage fallback ──────────────────────────────────────────────────
+// Edge / Safari Tracking Prevention can block localStorage access from CDN
+// scripts. We try localStorage → sessionStorage → in-memory as fallbacks
+// so the Supabase session always has somewhere to persist.
+const _memStore = {};
+const _safeStorage = (() => {
+  // Test if localStorage is available and not blocked
+  try {
+    const t = '__chunks_test__';
+    localStorage.setItem(t, '1');
+    localStorage.removeItem(t);
+    return localStorage;                          // ✅ localStorage works
+  } catch (_) {}
+
+  // Fall back to sessionStorage
+  try {
+    const t = '__chunks_test__';
+    sessionStorage.setItem(t, '1');
+    sessionStorage.removeItem(t);
+    console.warn('[supabase] localStorage blocked — using sessionStorage');
+    return sessionStorage;                        // ✅ sessionStorage works
+  } catch (_) {}
+
+  // Last resort — in-memory storage (session lost on page close)
+  console.warn('[supabase] sessionStorage blocked — using in-memory storage');
+  return {
+    getItem:    key       => _memStore[key] ?? null,
+    setItem:    (key, val) => { _memStore[key] = String(val); },
+    removeItem: key       => { delete _memStore[key]; },
+  };
+})();
+
 // ── Wait for the deferred Supabase CDN script ──────────────────────────────
 // index.html loads <script src="https://cdn.jsdelivr.net/…/supabase.min.js">
 // asynchronously. This promise resolves as soon as window.supabase is set,
@@ -60,11 +92,11 @@ export async function getSupabaseClient() {
 
     let url = '', anon = '';
 
-    // Priority 1 — localStorage (set by admin.html)
+    // Priority 1 — safe storage (set by admin.html)
     try {
-      url  = localStorage.getItem('chunks_sb_url')  || '';
-      anon = localStorage.getItem('chunks_sb_anon') || '';
-    } catch (_) { /* private-browsing / storage blocked */ }
+      url  = _safeStorage.getItem('chunks_sb_url')  || '';
+      anon = _safeStorage.getItem('chunks_sb_anon') || '';
+    } catch (_) { /* storage fully blocked */ }
 
     // Priority 2 — fetch /api/config from backend
     // NOTE: no AbortSignal here — it cannot be cloned via postMessage (used by
@@ -80,8 +112,8 @@ export async function getSupabaseClient() {
             url  = config.supabaseUrl;
             anon = config.supabaseAnonKey;
             try {
-              localStorage.setItem('chunks_sb_url',  url);
-              localStorage.setItem('chunks_sb_anon', anon);
+              _safeStorage.setItem('chunks_sb_url',  url);
+              _safeStorage.setItem('chunks_sb_anon', anon);
             } catch (_) {}
             break;
           }
@@ -98,9 +130,9 @@ export async function getSupabaseClient() {
 
     _client = lib.createClient(url, anon, {
       auth: {
-        persistSession:  true,
+        persistSession:   true,
         autoRefreshToken: true,
-        storage:         localStorage,
+        storage:          _safeStorage,           // ← safe fallback storage
         // Unique key — prevents GoTrueClient collision with other Supabase
         // instances on the same domain (e.g. admin.html).
         storageKey: 'chunks-ai-auth',
