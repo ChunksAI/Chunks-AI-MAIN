@@ -71,7 +71,11 @@ select:focus-visible {
 #home-ask-input-bottom:focus-visible,
 #home-ask-input-bottom:focus,
 #incognito-input:focus-visible,
-#incognito-input:focus {
+#incognito-input:focus,
+.lib-search-input:focus-visible,
+.lib-search-input:focus,
+.gen-input:focus-visible,
+.gen-input:focus {
   outline: none;
 }
 

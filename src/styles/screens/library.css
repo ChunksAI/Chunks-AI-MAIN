@@ -145,7 +145,6 @@
   transition: border-color 0.15s;
 }
 .lib-search-wrap:focus-within {
-  border-color: rgba(240,180,41,0.35);
   background: var(--surface-3);
 }
 .lib-search-wrap svg { color: var(--text-3); flex-shrink: 0; }
