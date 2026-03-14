@@ -380,15 +380,12 @@ export async function homeSendMessage() {
 
   homeHistory.push({ role: 'user', content: question });
 
-  // ── Persist immediately after the user sends ──────────────────────────────
-  // Save the session right now (with just the user bubble) so that if the user
-  // refreshes before the AI responds, the sidebar entry still restores instead
-  // of showing a blank screen. We overwrite again below with the full exchange.
+  // Save immediately so refresh before AI responds still restores the chat
   if (_homeSessionId) {
     window._saveSession?.(_homeSessionId, homeHistory);
     localStorage.setItem('chunks_active_home_session', _homeSessionId);
+    window._renderAllRecent?.();
   }
-  // ─────────────────────────────────────────────────────────────────────────
 
   homeIsTyping = true;
   homeAppendThinking();
@@ -418,7 +415,7 @@ export async function homeSendMessage() {
       const answer = data.answer || 'No response.';
       homeAppendAI(answer, null);
       homeHistory.push({ role: 'assistant', content: answer });
-      // Overwrite with the complete exchange (user + AI)
+      // Overwrite with full exchange (user + AI)
       if (_homeSessionId) {
         window._saveSession?.(_homeSessionId, homeHistory);
         localStorage.setItem('chunks_active_home_session', _homeSessionId);
