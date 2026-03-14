@@ -197,31 +197,33 @@ window._initAuth = async function _initAuth() {
 // ── Sign out ──────────────────────────────────────────────────────────────────
 
 window.chunksSignOut = async function chunksSignOut() {
-  let sb;
-  try { sb = await getSupabaseClient(); } catch (e) { return; }
-  if (!sb) return;
-
-  try {
-    await sb.auth.signOut();
+  // Always clear state and redirect — never let a Supabase failure block logout
+  function _doRedirect() {
     window._currentUser = null;
     _applyUI(null);
-    // Clear any active session state
+    // Clear localStorage session state
     localStorage.removeItem('chunks_active_home_session');
     localStorage.removeItem('chunks_active_ws_book');
     localStorage.removeItem('chunks_active_recent_id');
-    // Clear the refresh flag so the auth gate fires on the next page load
-    // (without this, the page reloads thinking it's a refresh and skips login redirect)
+    // Clear sessionStorage so auth gate redirects to login on next load
     sessionStorage.setItem('chunks_signing_out', '1');
     sessionStorage.removeItem('chunks_was_here');
     sessionStorage.removeItem('chunks_active_screen');
     sessionStorage.removeItem('chunks_is_refresh');
-    sessionStorage.removeItem('chunks_guest_mode');  // must clear or auth gate is bypassed
-    // Redirect to login page directly — more reliable than reload
-    // because reload re-runs auth init which can race with signOut completing
+    sessionStorage.removeItem('chunks_guest_mode');
+    // Hard redirect to login
     window.location.replace('login.html');
-  } catch (e) {
-    console.warn('[auth] signOut failed:', e.message);
   }
+
+  // Try to sign out from Supabase, but redirect regardless of result
+  try {
+    const sb = await getSupabaseClient();
+    if (sb) await sb.auth.signOut();
+  } catch (e) {
+    console.warn('[auth] signOut error (continuing with redirect):', e.message);
+  }
+
+  _doRedirect();
 };
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
