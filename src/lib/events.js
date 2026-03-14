@@ -83,6 +83,9 @@ document.addEventListener('click', function (e) {
   if (action === 'examSelectScanMode')         { fn(el); return; }
   if (action === 'examSrcTab')                 { fn(el); return; }
   if (action === '_fcNext')                    { fn(el.dataset.rate || undefined); return; }
+  if (action === 'handleUpgradeClick')         { fn(el); return; }
+  if (action === 'upgradeModalBackdrop')       { fn(e); return; }
+  if (action === 'settingsUpgrade')            { fn(); return; }
 
   // Default
   if (isSelf || fn.length > 0) { fn(el); } else { fn(); }
