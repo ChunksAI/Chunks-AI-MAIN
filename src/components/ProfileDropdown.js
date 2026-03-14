@@ -292,12 +292,25 @@ export async function pdAction(action) {
     case 'shortcuts':     window.openShortcuts?.();               break;
     case 'logout': {
       const email = document.querySelector('.pd-handle')?.textContent?.trim() || '';
-      window.showConfirmModal?.({
-        title:        'Are you sure you want to log out?',
-        desc:         email ? `Log out of Chunks AI as ${email}?` : 'Log out of Chunks AI?',
-        confirmLabel: 'Log out',
-        onConfirm:    () => window.chunksSignOut?.()
-      });
+      const _doLogout = () => {
+        if (typeof window.chunksSignOut === 'function') {
+          window.chunksSignOut();
+        } else {
+          sessionStorage.removeItem('chunks_was_here');
+          sessionStorage.removeItem('chunks_guest_mode');
+          window.location.replace('login.html');
+        }
+      };
+      if (typeof window.showConfirmModal === 'function') {
+        window.showConfirmModal({
+          title:        'Are you sure you want to log out?',
+          desc:         email ? `Log out of Chunks AI as ${email}?` : 'Log out of Chunks AI?',
+          confirmLabel: 'Log out',
+          onConfirm:    _doLogout
+        });
+      } else {
+        _doLogout();
+      }
       break;
     }
     default:

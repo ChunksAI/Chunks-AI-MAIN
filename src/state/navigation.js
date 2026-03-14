@@ -24,13 +24,6 @@
  *   patchShowScreenForWsMobile/mobileNav/patchShowScreen  → lines 13960–14093
  */
 
-// ── Prevent browser scroll-jump on refresh ────────────────────────────────
-history.scrollRestoration = 'manual';
-
-// Hide body immediately so the screen-restore flash is invisible.
-// We reveal it once restore is done (see _restoreScreen below).
-document.documentElement.style.opacity = '0';
-
 // ── Sidebar animation ──────────────────────────────────────────────────────
 
 /**
@@ -96,7 +89,7 @@ export function expandSidebar(_el) { goHome(); }
  *
  * @param {string} name — 'home' | 'workspace' | 'flash' | 'research' | 'exam' | 'studyplan'
  */
-export function showScreen(name, { silent = false } = {}) {
+export function showScreen(name) {
   const screens    = document.querySelectorAll('.screen');
   const wasCompact = !!document.querySelector('.sidebar.compact');
 
@@ -111,10 +104,9 @@ export function showScreen(name, { silent = false } = {}) {
   const target = document.getElementById('screen-' + name);
   if (!target) return;
   target.classList.add('active');
-  if (!silent) {
-    target.style.animation = 'none';
-    requestAnimationFrame(() => { target.style.animation = ''; });
-  }
+  // Reset screen entry animation without causing a visible flash
+  void target.offsetWidth; // force reflow
+  target.style.animation = '';
 
   // Carry compact state to the new screen's sidebar
   if (wasCompact) {
@@ -188,7 +180,7 @@ export function showScreen(name, { silent = false } = {}) {
   if (isRefresh) {
     const last = sessionStorage.getItem('chunks_active_screen');
     if (last && document.getElementById('screen-' + last)) {
-      showScreen(last, { silent: true });
+      showScreen(last);
     }
     // Restore library modal state
     if (sessionStorage.getItem('chunks_library_open') === '1') {
@@ -204,31 +196,21 @@ export function showScreen(name, { silent = false } = {}) {
     }
     sessionStorage.setItem('chunks_is_refresh', '1');
   } else {
-    showScreen('home', { silent: true });
+    showScreen('home');
     sessionStorage.removeItem('chunks_is_refresh');
     localStorage.removeItem('chunks_active_recent_id');
   }
 
-  // Fade the page in now that the correct screen is already active —
-  // this hides any flash or scroll-jump that would otherwise be visible.
-  const _revealPage = () => {
-    document.documentElement.style.transition = 'opacity 0.15s ease';
-    document.documentElement.style.opacity = '1';
-    // Clean up inline styles after transition
-    setTimeout(() => {
-      document.documentElement.style.transition = '';
-      document.documentElement.style.opacity = '';
-    }, 200);
-  };
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', _revealPage, { once: true });
-  } else {
-    // Already interactive — reveal on next frame so the screen switch paints first
-    requestAnimationFrame(_revealPage);
-  }
+  // Reveal page after screen is restored — prevents scroll-jump flash
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      document.body.classList.add('chunks-ready');
+    });
+  });
 
   window.addEventListener('beforeunload', () => {
+    // Don't mark as refresh if the user is signing out
+    if (sessionStorage.getItem('chunks_signing_out') === '1') return;
     sessionStorage.setItem('chunks_was_here', '1');
   });
 })();
