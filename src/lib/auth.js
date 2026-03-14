@@ -144,13 +144,15 @@ window._initAuth = async function _initAuth() {
     const { data: { session } } = await sb.auth.getSession();
     window._applyUserProfile(session);
 
-    // ── Auth gate (Option A) ─────────────────────────────────────────────
+    // ── Auth gate ────────────────────────────────────────────────────────
     // If no active session AND not in guest mode → redirect to login page.
     // Guest mode is set by login.html's "Continue as guest" button via
     // sessionStorage.setItem('chunks_guest_mode', '1').
-    const isGuest  = sessionStorage.getItem('chunks_guest_mode') === '1';
-    const isAuthed = !!session?.user;
-    if (!isAuthed && !isGuest) {
+    const isGuest     = sessionStorage.getItem('chunks_guest_mode') === '1';
+    const isAuthed    = !!session?.user;
+    const isLoginPage = window.location.pathname.endsWith('login.html'); // ← FIX 1: skip gate on login page
+
+    if (!isAuthed && !isGuest && !isLoginPage) {
       // Preserve the current URL so login.html can redirect back after sign-in
       const returnTo = encodeURIComponent(window.location.href);
       window.location.replace(`login.html?returnTo=${returnTo}`);
@@ -165,13 +167,22 @@ window._initAuth = async function _initAuth() {
   sb.auth.onAuthStateChange((_event, session) => {
     window._applyUserProfile(session);
 
-    // Notify other modules that care about auth state
-    if (_event === 'SIGNED_IN' || _event === 'TOKEN_REFRESHED') {
+    // ── FIX 2: After Google OAuth redirect back, send user to returnTo ──
+    if (_event === 'SIGNED_IN') {
+      const isLoginPage = window.location.pathname.endsWith('login.html');
+      if (isLoginPage) {
+        const params   = new URLSearchParams(window.location.search);
+        const returnTo = params.get('returnTo') || 'index.html';
+        window.location.replace(decodeURIComponent(returnTo));
+        return; // stop further execution — page is navigating away
+      }
+
       // Give ChunksDB's DOMContentLoaded patcher time to run first
       setTimeout(() => {
         window._fcRenderDeckList?.().catch?.(() => {});
       }, 600);
     }
+    // ────────────────────────────────────────────────────────────────────
 
     if (_event === 'SIGNED_OUT') {
       window._currentUser = null;
