@@ -187,17 +187,29 @@ const HOME_HTML = /* html */`
   <!-- Messages / hero — fills all space -->
   <div class="incognito-messages" id="incognito-messages">
     <div class="incognito-empty" id="incognito-empty">
-      <!-- Chunks AI orbital logo -->
+      <!-- Classic incognito hat + glasses icon -->
       <div class="incognito-hero-icon" aria-hidden="true">
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="52" height="52">
-          <defs>
-            <linearGradient id="ig-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
-            <linearGradient id="ig-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient>
-          </defs>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-gv)" stroke-width="7" opacity="0.95"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
-          <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+        <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- Hat brim -->
+          <rect x="10" y="38" width="60" height="7" rx="3.5" fill="rgba(255,255,255,0.75)"/>
+          <!-- Hat top -->
+          <rect x="24" y="14" width="32" height="26" rx="4" fill="rgba(255,255,255,0.75)"/>
+          <!-- Hat band -->
+          <rect x="24" y="33" width="32" height="6" rx="0" fill="rgba(255,255,255,0.35)"/>
+          <!-- Left lens outer -->
+          <circle cx="26" cy="57" r="12" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.70)" stroke-width="2.5"/>
+          <!-- Left lens inner shine -->
+          <circle cx="22" cy="53" r="3" fill="rgba(255,255,255,0.18)"/>
+          <!-- Right lens outer -->
+          <circle cx="54" cy="57" r="12" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.70)" stroke-width="2.5"/>
+          <!-- Right lens inner shine -->
+          <circle cx="50" cy="53" r="3" fill="rgba(255,255,255,0.18)"/>
+          <!-- Bridge between lenses -->
+          <path d="M38 57 Q40 54 42 57" stroke="rgba(255,255,255,0.70)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <!-- Left arm -->
+          <path d="M14 57 Q8 55 6 50" stroke="rgba(255,255,255,0.60)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+          <!-- Right arm -->
+          <path d="M66 57 Q72 55 74 50" stroke="rgba(255,255,255,0.60)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
         </svg>
       </div>
       <h2 class="incognito-hero-heading" id="incognito-modal-title">You&rsquo;re incognito</h2>
@@ -266,15 +278,17 @@ export function openIncognitoChat() {
     msgs.innerHTML = `
       <div class="incognito-empty" id="incognito-empty">
         <div class="incognito-hero-icon" aria-hidden="true">
-          <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="52" height="52">
-            <defs>
-              <linearGradient id="ig-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
-              <linearGradient id="ig-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient>
-            </defs>
-            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-gv)" stroke-width="7" opacity="0.95"/>
-            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
-            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
-            <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+          <svg width="80" height="80" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="38" width="60" height="7" rx="3.5" fill="rgba(255,255,255,0.75)"/>
+            <rect x="24" y="14" width="32" height="26" rx="4" fill="rgba(255,255,255,0.75)"/>
+            <rect x="24" y="33" width="32" height="6" rx="0" fill="rgba(255,255,255,0.35)"/>
+            <circle cx="26" cy="57" r="12" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.70)" stroke-width="2.5"/>
+            <circle cx="22" cy="53" r="3" fill="rgba(255,255,255,0.18)"/>
+            <circle cx="54" cy="57" r="12" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.70)" stroke-width="2.5"/>
+            <circle cx="50" cy="53" r="3" fill="rgba(255,255,255,0.18)"/>
+            <path d="M38 57 Q40 54 42 57" stroke="rgba(255,255,255,0.70)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <path d="M14 57 Q8 55 6 50" stroke="rgba(255,255,255,0.60)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <path d="M66 57 Q72 55 74 50" stroke="rgba(255,255,255,0.60)" stroke-width="2.5" fill="none" stroke-linecap="round"/>
           </svg>
         </div>
         <h2 class="incognito-hero-heading">You\u2019re incognito</h2>

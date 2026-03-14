@@ -471,8 +471,11 @@
   inset: 0;
   z-index: 10020;
   flex-direction: column;
-  background: #232323;
-  animation: modal-fade-in 0.18s ease;
+  background: #1c1c1e;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 50% 30%, rgba(139,124,248,0.07) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 50% 80%, rgba(255,255,255,0.02) 0%, transparent 70%);
+  animation: modal-fade-in 0.20s ease;
 }
 .incognito-modal.active { display: flex; }
 
@@ -523,22 +526,33 @@
   gap: 0;
 }
 
-/* ── Chunks orbital logo icon ── */
+/* ── Incognito logo icon with glow ── */
 .incognito-hero-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 20px;
+  margin-bottom: 28px;
+  position: relative;
+}
+/* Subtle glow ring behind icon */
+.incognito-hero-icon::before {
+  content: '';
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139,124,248,0.18) 0%, transparent 70%);
+  pointer-events: none;
 }
 
 .incognito-hero-heading {
   font-family: var(--font-head);
-  font-size: 32px;
-  font-weight: 700;
-  color: rgba(255,255,255,0.88);
+  font-size: 52px;
+  font-weight: 800;
+  color: rgba(255,255,255,0.92);
   margin: 0;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
 /* ── Message bubbles (shown after first send) ── */
@@ -622,8 +636,9 @@
   transition: border-color var(--t-fast);
 }
 .incognito-compose-box:focus-within {
-  border-color: rgba(255,255,255,0.32);
+  border-color: rgba(232,172,46,0.55);
   border-style: solid;
+  box-shadow: 0 0 0 3px rgba(232,172,46,0.08), 0 8px 32px rgba(0,0,0,0.4);
 }
 
 .incognito-textarea {
@@ -631,16 +646,16 @@
   background: transparent;
   border: none;
   outline: none;
-  color: rgba(255,255,255,0.85);
-  font-size: 15px;
+  color: rgba(255,255,255,0.88);
+  font-size: 16px;
   font-family: var(--font-body);
   line-height: 1.6;
   resize: none;
   overflow-y: hidden;
-  min-height: 26px;
-  caret-color: rgba(255,255,255,0.7);
+  min-height: 28px;
+  caret-color: var(--gold);
 }
-.incognito-textarea::placeholder { color: rgba(255,255,255,0.30); }
+.incognito-textarea::placeholder { color: rgba(255,255,255,0.26); }
 
 .incognito-compose-footer {
   display: flex;
@@ -677,17 +692,17 @@
 
 /* Send button */
 .incognito-send {
-  width: 32px; height: 32px;
+  width: 34px; height: 34px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.85);
+  background: var(--gold);
   border: none;
   display: flex; align-items: center; justify-content: center;
-  color: #232323;
+  color: #1c1c1e;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background var(--t-fast), transform var(--t-fast);
+  transition: background var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
 }
-.incognito-send:hover  { background: #fff; }
+.incognito-send:hover  { background: var(--gold-bright); box-shadow: 0 0 12px rgba(232,172,46,0.4); }
 .incognito-send:active { transform: scale(0.92); }
 .incognito-send:disabled { opacity: 0.25; cursor: not-allowed; }
 
@@ -699,12 +714,6 @@
   margin: 0;
   font-family: var(--font-body);
   line-height: 1.5;
-}
-
-/* ── Responsive ── */
-@media (max-width: 600px) {
-  .incognito-compose-wrap { padding: 0 14px 20px; }
-  .incognito-hero-heading { font-size: 26px; }
 }
 
 /* ── Profile dropdown: incognito item badge ── */
@@ -723,8 +732,12 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: 600px) {
-  .incognito-compose-wrap { padding: 0 16px 20px; }
-  .incognito-hero-heading { font-size: 22px; }
-  .incognito-messages { padding: 16px; }
+@media (max-width: 768px) {
+  .incognito-hero-heading { font-size: 38px; }
+  .incognito-compose-wrap { padding: 0 20px 24px; }
+}
+@media (max-width: 480px) {
+  .incognito-hero-heading { font-size: 28px; }
+  .incognito-compose-wrap { padding: 0 12px 16px; }
+  .incognito-hero-icon::before { width: 90px; height: 90px; }
 }
