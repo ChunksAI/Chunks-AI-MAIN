@@ -620,7 +620,10 @@ export function dataToggleSaveHistory(checkbox) {
   localStorage.setItem('chunks_save_history', enabled ? '1' : '0');
   if (!enabled) {
     localStorage.removeItem('chunks_recent');
-    if (window._recentItems) window._recentItems = [];
+    // Use the defineProperty bridge so we write back into the inline-script
+    // closure var, not just a detached window property.
+    window._recentItems     = [];
+    window._activeRecentId  = null;
     window._renderAllRecent?.();
     Object.keys(localStorage)
       .filter(k => k.startsWith('chunks_session_') || k.startsWith('chunks_ws_session_'))
@@ -649,11 +652,11 @@ export function clearAllHistory() {
         k === 'chunks_home_session'
       ).forEach(k => localStorage.removeItem(k));
 
-      if (window._recentItems)  window._recentItems  = [];
+      if (window._recentItems !== undefined)   window._recentItems   = [];
       if (window._activeRecentId !== undefined) window._activeRecentId = null;
-      if (window.homeHistory)   window.homeHistory   = [];
-      if (window._homeSessionId !== undefined) window._homeSessionId = null;
-      if (window._wsChatHistory) window._wsChatHistory = [];
+      if (window.homeHistory !== undefined)     window.homeHistory    = [];
+      if (window._homeSessionId !== undefined)  window._homeSessionId = null;
+      if (window._wsChatHistory !== undefined)  window._wsChatHistory = [];
       window._renderAllRecent?.();
 
       const chatHist   = document.getElementById('home-chat-history');

@@ -221,19 +221,27 @@ export function mountSidebars() {
     const screen = el.dataset.sidebarScreen || 'home';
     el.innerHTML = buildSidebar(screen);
   });
-  // Re-populate recent lists now that sidebar DOM elements exist.
-  // _renderAllRecent() is defined in the inline script block in index.html and
-  // runs once during page parse — at that point the sidebar <aside> elements are
-  // still empty, so all getElementById calls return null. Calling it again here,
-  // after every sidebar has been stamped out, ensures the lists are filled.
+  // Now that every sidebar's container divs exist, populate the recent lists.
+  // window._renderAllRecent is set by index.html's bridge block (which runs at
+  // inline-script parse time, before this module). The ?. guard is just safety.
   window._renderAllRecent?.();
 }
 
-// Auto-mount
+// Auto-mount — runs as soon as the module is evaluated.
+// At that point readyState is 'interactive' (deferred/module scripts run before
+// DOMContentLoaded), so all screen placeholders have already been replaced by
+// their respective mountXxxScreen() calls that ran earlier in main.js.
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', mountSidebars);
+  // Fallback: if somehow the module was injected during parse, wait for DOM.
+  document.addEventListener('DOMContentLoaded', mountSidebars, { once: true });
 } else {
   mountSidebars();
+  // Extra safety: re-render after DOMContentLoaded in case any late-running
+  // inline DOMContentLoaded listeners (e.g. research screen _load()) mutate
+  // the sidebar. This is a no-op if nothing changed.
+  document.addEventListener('DOMContentLoaded', () => {
+    window._renderAllRecent?.();
+  }, { once: true });
 }
 
 // Legacy global
