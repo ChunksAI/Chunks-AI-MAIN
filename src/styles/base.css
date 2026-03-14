@@ -52,16 +52,13 @@ body::after {
    the browser determines keyboard navigation is active.         */
 :focus { outline: none; }
 :focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 2px;
-  border-radius: 4px;
+  outline: none;
 }
-/* Inputs & textareas get an inset ring so layout doesn't shift */
+/* Inputs & textareas — no outline ever, caret is sufficient feedback */
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid var(--gold);
-  outline-offset: 0;
+  outline: none;
 }
 
 /* ── Screen-reader only utility ───────────────────────────── */

@@ -38,7 +38,7 @@
 .sp-field label { display:block; font-size:11px; font-weight:600; color:var(--text-3); margin-bottom:7px; letter-spacing:0.06em; text-transform:uppercase; }
 .sp-input { width:100%; background:var(--surface-2); border:1px solid var(--border-sm); border-radius:var(--r-md); padding:10px 13px; font-family:var(--font-body); font-size:13px; color:var(--text-1); outline:none; transition:border-color var(--t-fast),box-shadow var(--t-fast); }
 .sp-input::placeholder { color:var(--text-4); }
-.sp-input:focus { border-color:var(--gold-border); box-shadow:0 0 0 3px rgba(232,172,46,0.08); }
+.sp-input:focus { outline: none; }
 .sp-upload-zone { border:1.5px dashed var(--border-md); border-radius:var(--r-lg); padding:22px 20px; display:flex; flex-direction:column; align-items:center; justify-content:center; cursor:pointer; transition:border-color var(--t-fast),background var(--t-fast),box-shadow var(--t-fast); text-align:center; gap:0; background:var(--surface-2); }
 .sp-upload-zone:hover { border-color:var(--gold-border); background:rgba(232,172,46,0.04); box-shadow:0 0 0 4px rgba(232,172,46,0.06); }
 .sp-upload-zone-icon { width:36px; height:36px; border-radius:10px; background:var(--surface-3); border:1px solid var(--border-sm); display:flex; align-items:center; justify-content:center; margin-bottom:10px; transition:background var(--t-fast),border-color var(--t-fast); }
