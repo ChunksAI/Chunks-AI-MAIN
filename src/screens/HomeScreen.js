@@ -237,7 +237,6 @@ let homeIsTyping = false;
 // ── Incognito chat state (lives only in memory — never written to storage) ────
 let _incogHistory = [];
 let _incogTyping  = false;
-let _incogFocus   = null;
 
 // ── Incognito chat functions ──────────────────────────────────────────────────
 
@@ -256,7 +255,9 @@ export function openIncognitoChat() {
   const inp = document.getElementById('incognito-input');
   if (inp) { inp.value = ''; inp.style.height = 'auto'; }
   modal.classList.add('active');
-  if (typeof trapFocus === 'function') _incogFocus = trapFocus(modal);
+  // No focus trap — trapFocus adds a capture-phase keydown listener that
+  // prevents Ctrl+I from reaching the global handler after the first close.
+  // Simply focus the input directly so the shortcut always works.
   setTimeout(() => document.getElementById('incognito-input')?.focus(), 80);
 }
 
@@ -264,7 +265,6 @@ export function closeIncognitoChat() {
   const modal = document.getElementById('incognito-modal');
   if (!modal) return;
   modal.classList.remove('active');
-  if (_incogFocus) { _incogFocus(); _incogFocus = null; }
   _incogHistory = [];
 }
 
