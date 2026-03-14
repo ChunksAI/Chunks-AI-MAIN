@@ -503,6 +503,18 @@
 
   // ── On load: handle OAuth callback OR skip if already authenticated ───────
   (async () => {
+    // If we just came from a logout, DO NOT auto-redirect back to the app.
+    // chunksSignOut sets chunks_signing_out=1 before navigating here.
+    const isPostLogout = sessionStorage.getItem('chunks_signing_out') === '1';
+    if (isPostLogout) {
+      // Clear the flag and force Supabase to sign out fully on this page too
+      sessionStorage.removeItem('chunks_signing_out');
+      // Clear any lingering Supabase session from storage
+      try { await _supabase.auth.signOut({ scope: 'local' }); } catch (_) {}
+      // Stay on login page — do not redirect
+      return;
+    }
+
     // If Supabase just redirected back with a code, exchange it first
     const hasCode = window.location.search.includes('code=');
     const hasHash = window.location.hash.includes('access_token');
