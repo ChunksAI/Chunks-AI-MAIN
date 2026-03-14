@@ -406,13 +406,33 @@ function _clickRecent(item) {
       }, 80);
     }
   } else {
-    // Workspace / book question — open in workspace
+    // Workspace / book question — restore saved session, never re-send
     showScreen('workspace');
-    const go = () => { wsSetInput(item.question); wsChatSend(); };
+
+    const _doRestore = () => {
+      const wsSession = _loadWsSession(item.bookId);
+      if (wsSession && wsSession.html) {
+        // Restore saved messages HTML and history array
+        const msgs = document.getElementById('ws-messages');
+        if (msgs) msgs.innerHTML = typeof sanitize === 'function' ? sanitize(wsSession.html) : wsSession.html;
+        _wsChatHistory = wsSession.history || [];
+        localStorage.setItem('chunks_active_ws_book', item.bookId);
+        setTimeout(() => {
+          const m = document.getElementById('ws-messages');
+          if (m) m.scrollTop = m.scrollHeight;
+          document.getElementById('ws-chat-input')?.focus();
+        }, 80);
+      } else {
+        // No saved session found — pre-fill input so user can re-ask
+        wsSetInput(item.question);
+        setTimeout(() => document.getElementById('ws-chat-input')?.focus(), 80);
+      }
+    };
+
     if (item.bookId !== _wsBookId) {
-      selectBook(item.bookId).then(() => setTimeout(go, 300));
+      selectBook(item.bookId).then(() => setTimeout(_doRestore, 400));
     } else {
-      setTimeout(go, 80);
+      setTimeout(_doRestore, 80);
     }
   }
 }
