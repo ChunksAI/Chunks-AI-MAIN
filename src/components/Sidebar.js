@@ -221,6 +221,12 @@ export function mountSidebars() {
     const screen = el.dataset.sidebarScreen || 'home';
     el.innerHTML = buildSidebar(screen);
   });
+  // Re-populate recent lists now that sidebar DOM elements exist.
+  // _renderAllRecent() is defined in the inline script block in index.html and
+  // runs once during page parse — at that point the sidebar <aside> elements are
+  // still empty, so all getElementById calls return null. Calling it again here,
+  // after every sidebar has been stamped out, ensures the lists are filled.
+  window._renderAllRecent?.();
 }
 
 // Auto-mount
