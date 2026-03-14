@@ -14,14 +14,7 @@
  *   Chat / toast      → lines 3571–4318
  */
 
-import { API_BASE, askQuestion } from '../lib/api.js';
-import {
-  createSession,
-  appendMessage,
-  getSession,
-  getActiveSessionId,
-  setActiveSessionId,
-} from '../utils/storage.js';
+import { API_BASE } from '../lib/api.js';
 
 // ── Book metadata ──────────────────────────────────────────────────────────
 
@@ -48,7 +41,6 @@ export const ZOOM_STEP = 0.2, ZOOM_MIN = 0.6, ZOOM_MAX = 3.0;
 
 export let _wsBookId      = localStorage.getItem('chunks_default_book') || 'atkins';
 export let _wsChatHistory = [];
-let _wsSessionId = null; // tracks the current workspace session in localStorage
 export let _newChatIsIncognito = false;
 export let _wsTyping      = false;
 
@@ -748,19 +740,12 @@ export async function wsChatSend() {
   wsAppendUser(question);
   inp.value = ''; wsAutoResize(inp); inp.focus();
   _wsChatHistory.push({ role: 'user', content: question });
-
-  // First message → create session in localStorage (guide §04)
-  if (!_wsSessionId) {
-    const session = createSession(question, 'workspace');
-    if (session) {
-      _wsSessionId = session.id;
-      setActiveSessionId(session.id);
-    }
-    window.recentAdd?.(question, _wsBookId, 'workspace');
+  // Save immediately so refresh before AI responds still restores the chat
+  if (_wsBookId && typeof window._saveWsSession === 'function') {
+    window._saveWsSession(_wsBookId, _wsChatHistory);
+    localStorage.setItem('chunks_active_ws_book', _wsBookId);
+    window._renderAllRecent?.();
   }
-  appendMessage(_wsSessionId, 'user', question);
-  window._renderAllRecent?.();
-
   await _wsAsk(question);
 }
 
@@ -769,22 +754,29 @@ export async function _wsAsk(question) {
   document.getElementById('ws-chat-send').disabled = true;
   wsAppendThinking();
   try {
-    const mode       = typeof _getStudyMode === 'function' ? _getStudyMode() : 'study';
+    const mode = typeof _getStudyMode === 'function' ? _getStudyMode() : 'study';
     const complexity = mode === 'concise' ? 3 : mode === 'detailed' ? 8 : 5;
-    const { answer, sources } = await askQuestion({
-      question,
-      bookId:     _wsBookId || 'atkins',
-      mode,
-      complexity,
-      history:    _wsChatHistory.slice(-10),
+    const res = await fetch(`${API_BASE}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, bookId: _wsBookId || 'atkins', mode, complexity, history: _wsChatHistory.slice(-10) }),
     });
     wsRemoveThinking();
-    wsAppendAI(answer, sources, question);
-    _wsChatHistory.push({ role: 'assistant', content: answer });
-    appendMessage(_wsSessionId, 'assistant', answer);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      wsAppendError(err.error || `Server error ${res.status}`);
+      _wsChatHistory.pop();
+    } else {
+      const data   = await res.json();
+      const answer = data.answer || 'No response.';
+      wsAppendAI(answer, data.sources || [], question);
+      _wsChatHistory.push({ role: 'assistant', content: answer });
+      // Overwrite with full exchange (user + AI)
+      if (typeof window._saveWsSession === 'function') window._saveWsSession(_wsBookId, _wsChatHistory);
+    }
   } catch (e) {
     wsRemoveThinking();
-    wsAppendError(e.message || 'Could not reach the server. Check your connection.');
+    wsAppendError('Could not reach the server. Check your connection.');
     _wsChatHistory.pop();
   } finally {
     _wsTyping = false;
@@ -900,6 +892,12 @@ window.wsChatSend = async function() {
   inp.value = ''; wsAutoResize(inp); inp.focus();
   _wsChatHistory.push({ role: 'user', content: fullQuestion });
   _wsAttachments = []; _wsRenderPreview();
+  // Save immediately (same as wsChatSend)
+  if (_wsBookId && typeof window._saveWsSession === 'function') {
+    window._saveWsSession(_wsBookId, _wsChatHistory);
+    localStorage.setItem('chunks_active_ws_book', _wsBookId);
+    window._renderAllRecent?.();
+  }
   await _wsAsk(fullQuestion);
 };
 
