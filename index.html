@@ -764,6 +764,10 @@ document.addEventListener('DOMContentLoaded', function() {
         <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>K</kbd></span>
       </div>
       <div class="shortcuts-row">
+        <span class="shortcuts-row-label">Incognito chat</span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>⇧</kbd><span class="kbd-sep">+</span><kbd>I</kbd></span>
+      </div>
+      <div class="shortcuts-row">
         <span class="shortcuts-row-label">Toggle sidebar</span>
         <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>.</kbd></span>
       </div>
@@ -830,6 +834,7 @@ document.addEventListener('keydown', function(e) {
   const confirmOpen   = document.getElementById('confirm-modal')?.classList.contains('active');
   const libraryOpen   = document.getElementById('library-modal')?.classList.contains('active');
   const explainOpen   = document.getElementById('sp-explain-drawer')?.classList.contains('open');
+  const incogOpen     = document.getElementById('incognito-modal')?.classList.contains('active');
 
   // ── Ctrl+/ — toggle shortcuts (always works) ─────────────
   if (e.ctrlKey && !e.shiftKey && e.key === '/') {
@@ -858,12 +863,13 @@ document.addEventListener('keydown', function(e) {
 
   // ── Escape — layered close ────────────────────────────────
   if (e.key === 'Escape' && !e.ctrlKey && !e.shiftKey) {
-    if (confirmOpen)   { closeConfirmModal();    return; }
-    if (explainOpen)   { spCloseExplainDrawer(); return; }
-    if (shortcutsOpen) { closeShortcuts();       return; }
-    if (helpOpen)      { closeHelpCenter();      return; }
-    if (libraryOpen)   { closeLibraryModal();    return; }
-    if (settingsOpen)  { closeSettings();        return; }
+    if (confirmOpen)   { closeConfirmModal();           return; }
+    if (incogOpen)     { window.closeIncognitoChat?.(); return; }
+    if (explainOpen)   { spCloseExplainDrawer();        return; }
+    if (shortcutsOpen) { closeShortcuts();              return; }
+    if (helpOpen)      { closeHelpCenter();             return; }
+    if (libraryOpen)   { closeLibraryModal();           return; }
+    if (settingsOpen)  { closeSettings();               return; }
     if (typeof wsStopStream === 'function') { wsStopStream(); }
     return;
   }
@@ -904,6 +910,15 @@ document.addEventListener('keydown', function(e) {
   if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'o') {
     e.preventDefault();
     newChat();
+    return;
+  }
+
+  // ── Ctrl+Shift+I — toggle incognito chat modal ────────────
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') {
+    e.preventDefault();
+    const modal = document.getElementById('incognito-modal');
+    if (modal?.classList.contains('active')) window.closeIncognitoChat?.();
+    else window.openIncognitoChat?.();
     return;
   }
 
@@ -5067,6 +5082,10 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     /* ── Bug report (Task 34) ────────────────────────────── */
     'closeBugReport':         ()      => closeBugReport(),
     'submitBugReport':        ()      => submitBugReport(),
+
+    /* ── Incognito chat ──────────────────────────────────── */
+    'openIncognitoChat':      ()      => window.openIncognitoChat?.(),
+    'closeIncognitoChat':     ()      => window.closeIncognitoChat?.(),
 
     /* ── Help centre (Task 34) ───────────────────────────── */
     'contactSupport':         ()      => { if (typeof wsShowToast === 'function') wsShowToast('📬', 'Support email: help@chunksai.com', ''); },

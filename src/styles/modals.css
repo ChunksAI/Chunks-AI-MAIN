@@ -458,3 +458,305 @@
   transition: opacity 200ms ease, transform 200ms ease;
 }
 #simple-notif.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* ══════════════════════════════════════════════════════════
+   INCOGNITO CHAT MODAL
+   A floating modal chatbox — fully ephemeral, no storage.
+   Opened via profile dropdown or Ctrl+Shift+I.
+══════════════════════════════════════════════════════════ */
+
+.incognito-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10020;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: modal-fade-in 0.18s ease;
+}
+.incognito-modal.active { display: flex; }
+
+.incognito-panel {
+  width: 100%;
+  max-width: 580px;
+  max-height: 80vh;
+  background: var(--surface-1);
+  border: 1px solid rgba(139,124,248,0.28);
+  border-radius: var(--r-xl);
+  box-shadow:
+    0 40px 100px rgba(0,0,0,0.8),
+    0 0 0 1px rgba(139,124,248,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modal-slide-up 0.22s cubic-bezier(0.16,1,0.3,1);
+}
+
+/* ── Header ── */
+.incognito-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border-xs);
+  flex-shrink: 0;
+}
+.incognito-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.incognito-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(139,124,248,0.12);
+  border: 1px solid rgba(139,124,248,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--violet);
+  flex-shrink: 0;
+}
+.incognito-title {
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+  line-height: 1.2;
+}
+.incognito-subtitle {
+  font-size: 11px;
+  color: var(--text-4);
+  margin-top: 2px;
+  font-family: var(--font-body);
+}
+.incognito-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.incognito-close:hover { background: var(--surface-4); color: var(--text-1); }
+
+/* ── Privacy notice pill ── */
+.incognito-notice {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 20px 0;
+  padding: 7px 12px;
+  background: rgba(139,124,248,0.07);
+  border: 1px solid rgba(139,124,248,0.18);
+  border-radius: var(--r-pill);
+  font-size: 11px;
+  color: var(--violet);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+/* ── Messages area ── */
+.incognito-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 200px;
+  max-height: 380px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface-4) transparent;
+}
+.incognito-messages::-webkit-scrollbar { width: 4px; }
+.incognito-messages::-webkit-scrollbar-thumb { background: var(--surface-4); border-radius: 2px; }
+
+/* ── Empty state ── */
+.incognito-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 160px;
+  color: var(--text-4);
+  text-align: center;
+}
+.incognito-empty p {
+  font-size: 12px;
+  margin: 0;
+  color: var(--text-4);
+  font-family: var(--font-body);
+}
+
+/* ── Message bubbles ── */
+.incognito-msg { max-width: 100%; }
+
+.incognito-msg-user {
+  align-self: flex-end;
+  background: rgba(139,124,248,0.14);
+  border: 1px solid rgba(139,124,248,0.22);
+  color: var(--text-1);
+  font-size: 13px;
+  line-height: 1.65;
+  padding: 10px 14px;
+  border-radius: 14px 14px 4px 14px;
+  max-width: 78%;
+  font-family: var(--font-body);
+  word-break: break-word;
+}
+
+.incognito-msg-ai {
+  align-self: flex-start;
+  max-width: 88%;
+}
+.incognito-ai-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+.incognito-ai-ava {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: rgba(139,124,248,0.10);
+  border: 1px solid rgba(139,124,248,0.20);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.incognito-ai-body {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: 4px 14px 14px 14px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-1);
+  line-height: 1.7;
+  font-family: var(--font-body);
+  word-break: break-word;
+}
+.incognito-ai-body p { margin: 0 0 6px; }
+.incognito-ai-body p:last-child { margin-bottom: 0; }
+.incognito-ai-body code {
+  background: var(--surface-3);
+  border: 1px solid var(--border-xs);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.incognito-msg-error {
+  font-size: 12px;
+  color: var(--red);
+  padding: 8px 12px;
+  background: rgba(248,113,113,0.08);
+  border: 1px solid rgba(248,113,113,0.18);
+  border-radius: var(--r-sm);
+  font-family: var(--font-body);
+}
+
+/* ── Input bar ── */
+.incognito-input-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-xs);
+  background: var(--surface-1);
+  flex-shrink: 0;
+}
+.incognito-textarea {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-md);
+  padding: 9px 13px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--text-1);
+  resize: none;
+  outline: none;
+  line-height: 1.55;
+  max-height: 120px;
+  overflow-y: auto;
+  transition: border-color var(--t-fast);
+}
+.incognito-textarea::placeholder { color: var(--text-4); }
+.incognito-textarea:focus { border-color: rgba(139,124,248,0.45); }
+
+.incognito-send {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--violet);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity var(--t-fast), transform var(--t-fast);
+}
+.incognito-send:hover  { opacity: 0.88; }
+.incognito-send:active { transform: scale(0.93); }
+.incognito-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Footer note ── */
+.incognito-footer-note {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  padding: 6px 16px 10px;
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+/* ── Profile dropdown: incognito item badge ── */
+.pd-incognito-badge {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  background: rgba(139,124,248,0.15);
+  border: 1px solid rgba(139,124,248,0.28);
+  color: var(--violet);
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  font-family: var(--font-body);
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .incognito-panel {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    animation: none;
+  }
+  .incognito-modal { align-items: flex-end; padding: 0; }
+}
