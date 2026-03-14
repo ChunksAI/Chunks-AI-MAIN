@@ -765,7 +765,7 @@ document.addEventListener('DOMContentLoaded', function() {
       </div>
       <div class="shortcuts-row">
         <span class="shortcuts-row-label">Incognito chat</span>
-        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>⇧</kbd><span class="kbd-sep">+</span><kbd>I</kbd></span>
+        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>I</kbd></span>
       </div>
       <div class="shortcuts-row">
         <span class="shortcuts-row-label">Toggle sidebar</span>
@@ -913,8 +913,8 @@ document.addEventListener('keydown', function(e) {
     return;
   }
 
-  // ── Ctrl+Shift+I — toggle incognito chat modal ────────────
-  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'i') {
+  // ── Ctrl+I — toggle incognito chat modal ─────────────────
+  if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'i') {
     e.preventDefault();
     const modal = document.getElementById('incognito-modal');
     if (modal?.classList.contains('active')) window.closeIncognitoChat?.();

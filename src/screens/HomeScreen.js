@@ -209,7 +209,7 @@ const HOME_HTML = /* html */`
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </button>
     </div>
-    <div class="incognito-footer-note">Ctrl + Shift + I to toggle &nbsp;&middot;&nbsp; Esc to close</div>
+    <div class="incognito-footer-note">Ctrl + I to toggle &nbsp;&middot;&nbsp; Esc to close</div>
   </div>
 </div>
 `;
