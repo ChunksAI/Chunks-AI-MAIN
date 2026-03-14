@@ -137,7 +137,10 @@ export function showScreen(name) {
     item.style.color      = isActive ? 'var(--gold)'       : '';
   });
 
+  // Persist active screen — write BOTH keys here so refresh always restores
+  // correctly regardless of whether beforeunload fired.
   sessionStorage.setItem('chunks_active_screen', name);
+  sessionStorage.setItem('chunks_was_here', '1');
 
   // ── Screen-specific init hooks ──
   if (name === 'flash') {
@@ -174,15 +177,18 @@ export function showScreen(name) {
 // ── Restore screen on page load ────────────────────────────────────────────
 
 function _restoreScreen() {
-  // 'chunks_was_here' survives a refresh but not a fresh open
+  // chunks_was_here is now written by showScreen() on every navigation,
+  // so it's reliable even if beforeunload doesn't fire (fast reload, crash, etc.)
   const isRefresh = sessionStorage.getItem('chunks_was_here') === '1';
 
   if (isRefresh) {
     const last = sessionStorage.getItem('chunks_active_screen');
     if (last && document.getElementById('screen-' + last)) {
       showScreen(last);
+    } else {
+      showScreen('home');
     }
-    // Restore library modal state
+    // Restore library modal if it was open
     if (sessionStorage.getItem('chunks_library_open') === '1') {
       const modal = document.getElementById('library-modal');
       if (modal) modal.classList.add('active');
@@ -201,8 +207,8 @@ function _restoreScreen() {
     });
   });
 
+  // beforeunload kept as a belt-and-suspenders fallback
   window.addEventListener('beforeunload', () => {
-    // Don't mark as refresh if the user is signing out
     if (sessionStorage.getItem('chunks_signing_out') === '1') return;
     sessionStorage.setItem('chunks_was_here', '1');
   });
