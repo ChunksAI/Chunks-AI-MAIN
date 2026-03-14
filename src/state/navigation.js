@@ -209,6 +209,8 @@ export function showScreen(name) {
   });
 
   window.addEventListener('beforeunload', () => {
+    // Don't mark as refresh if the user is signing out
+    if (sessionStorage.getItem('chunks_signing_out') === '1') return;
     sessionStorage.setItem('chunks_was_here', '1');
   });
 })();
