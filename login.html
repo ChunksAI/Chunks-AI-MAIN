@@ -4,12 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chunks AI — Sign in</title>
+  <!-- Preconnect to everything we need before JS even runs -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="preconnect" href="https://wiwbfspsrgayvquzfryl.supabase.co">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="dns-prefetch" href="https://accounts.google.com">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" async></script>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Supabase SDK — NOT async so it's ready when the inline script runs -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --bg:          #080810;
@@ -58,7 +61,6 @@
       overflow: hidden;
     }
 
-    /* ── Background layers ── */
     .bg-layer {
       position: fixed;
       inset: 0;
@@ -106,7 +108,6 @@
       66% { transform: translate(20px, -30px); }
     }
 
-    /* Fine grid overlay */
     .bg-grid {
       position: absolute;
       inset: 0;
@@ -116,7 +117,6 @@
       background-size: 48px 48px;
     }
 
-    /* ── Layout ── */
     .page {
       position: relative;
       z-index: 1;
@@ -127,7 +127,6 @@
       padding: 24px;
     }
 
-    /* ── Card ── */
     .card {
       width: 100%;
       max-width: 400px;
@@ -147,7 +146,6 @@
       to   { opacity: 1; transform: translateY(0) scale(1); }
     }
 
-    /* ── Logo ── */
     .logo-wrap {
       display: flex;
       align-items: center;
@@ -155,10 +153,7 @@
       margin-bottom: 28px;
     }
 
-    .logo-mark {
-      width: 34px; height: 34px;
-      flex-shrink: 0;
-    }
+    .logo-mark { width: 34px; height: 34px; flex-shrink: 0; }
 
     .logo-name {
       font-family: var(--font-head);
@@ -169,7 +164,6 @@
     }
     .logo-name span { color: var(--gold); }
 
-    /* ── Heading ── */
     .card-title {
       font-family: var(--font-head);
       font-size: 24px;
@@ -186,7 +180,6 @@
       margin-bottom: 28px;
     }
 
-    /* ── Google button ── */
     .btn-google {
       width: 100%;
       display: flex;
@@ -215,35 +208,19 @@
       background: linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 60%);
       pointer-events: none;
     }
-    .btn-google:hover {
-      background: var(--surface-3);
-      border-color: var(--border-lg);
-      transform: translateY(-1px);
-    }
+    .btn-google:hover  { background: var(--surface-3); border-color: var(--border-lg); transform: translateY(-1px); }
     .btn-google:active { transform: translateY(0); }
-    .btn-google:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
+    .btn-google:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
-    .btn-google-icon {
-      width: 18px; height: 18px;
-      flex-shrink: 0;
-    }
+    .btn-google-icon { width: 18px; height: 18px; flex-shrink: 0; }
 
-    /* ── Divider ── */
     .divider {
       display: flex;
       align-items: center;
       gap: 12px;
       margin: 20px 0;
     }
-    .divider-line {
-      flex: 1;
-      height: 1px;
-      background: var(--border-xs);
-    }
+    .divider-line { flex: 1; height: 1px; background: var(--border-xs); }
     .divider-text {
       font-size: 11px;
       color: var(--text-4);
@@ -251,7 +228,6 @@
       letter-spacing: 0.05em;
     }
 
-    /* ── Continue as guest ── */
     .btn-guest {
       width: 100%;
       display: flex;
@@ -270,19 +246,9 @@
       transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
       outline: none;
     }
-    .btn-guest:hover {
-      color: var(--text-2);
-      border-color: var(--border-sm);
-      background: var(--surface-2);
-    }
+    .btn-guest:hover { color: var(--text-2); border-color: var(--border-sm); background: var(--surface-2); }
 
-    /* ── Feature pills ── */
-    .features {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 28px;
-    }
+    .features { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 28px; }
     .feat-pill {
       font-size: 11px;
       color: var(--text-3);
@@ -293,7 +259,6 @@
       font-family: var(--font-mono);
     }
 
-    /* ── Footer ── */
     .card-footer {
       margin-top: 24px;
       text-align: center;
@@ -301,13 +266,9 @@
       color: var(--text-4);
       line-height: 1.6;
     }
-    .card-footer a {
-      color: var(--text-3);
-      text-decoration: none;
-    }
+    .card-footer a { color: var(--text-3); text-decoration: none; }
     .card-footer a:hover { color: var(--text-2); text-decoration: underline; }
 
-    /* ── Error ── */
     .auth-error {
       display: none;
       background: rgba(248,113,113,0.08);
@@ -320,7 +281,6 @@
     }
     .auth-error.show { display: block; }
 
-    /* ── Loading spinner ── */
     .spinner {
       display: none;
       width: 16px; height: 16px;
@@ -348,7 +308,6 @@
 <div class="page">
   <div class="card">
 
-    <!-- Logo -->
     <div class="logo-wrap">
       <svg class="logo-mark" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -369,11 +328,9 @@
       <span class="logo-name">Chunks <span>AI</span></span>
     </div>
 
-    <!-- Heading -->
     <h1 class="card-title">Welcome back</h1>
     <p class="card-sub">Sign in to access your textbooks, flashcards, and study history.</p>
 
-    <!-- Feature pills -->
     <div class="features">
       <span class="feat-pill">Workspace</span>
       <span class="feat-pill">Flashcards</span>
@@ -382,10 +339,8 @@
       <span class="feat-pill">Research</span>
     </div>
 
-    <!-- Error -->
     <div class="auth-error" id="auth-error"></div>
 
-    <!-- Google sign-in -->
     <button class="btn-google" id="btn-google" onclick="signInWithGoogle()">
       <svg class="btn-google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -403,7 +358,6 @@
       <div class="divider-line"></div>
     </div>
 
-    <!-- Guest -->
     <button class="btn-guest" onclick="continueAsGuest()">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       Continue as guest
@@ -418,94 +372,60 @@
 </div>
 
 <script>
-  // ── Supabase config (anon key is safe to expose in frontend) ──
   const SUPABASE_URL  = 'https://wiwbfspsrgayvquzfryl.supabase.co';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I';
+  const REDIRECT_URL  = window.location.origin + '/login.html';
 
-  // ── Safe storage fallback ─────────────────────────────────────────────────
-  // Edge / Safari Tracking Prevention blocks localStorage from CDN scripts.
-  // We try localStorage → sessionStorage → in-memory so the session always
-  // has somewhere to persist. Must match storageKey in supabase.js!
-  const _memStore = {};
-  const _safeStorage = (() => {
-    try {
-      localStorage.setItem('__t', '1');
-      localStorage.removeItem('__t');
-      return localStorage;                              // ✅ localStorage works
-    } catch (_) {}
-    try {
-      sessionStorage.setItem('__t', '1');
-      sessionStorage.removeItem('__t');
-      return sessionStorage;                            // ✅ sessionStorage works
-    } catch (_) {}
-    return {                                            // ✅ in-memory fallback
-      getItem:    k     => _memStore[k] ?? null,
-      setItem:    (k,v) => { _memStore[k] = String(v); },
-      removeItem: k     => { delete _memStore[k]; },
-    };
+  // ── Safe storage (matches supabase.js storageKey) ─────────────────────────
+  const _mem = {};
+  const _store = (() => {
+    try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return localStorage; } catch(_) {}
+    try { sessionStorage.setItem('__t','1'); sessionStorage.removeItem('__t'); return sessionStorage; } catch(_) {}
+    return { getItem: k => _mem[k]??null, setItem:(k,v)=>{_mem[k]=String(v);}, removeItem:k=>{delete _mem[k];} };
   })();
 
-  const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-    auth: {
-      persistSession:   true,
-      autoRefreshToken: true,
-      storage:          _safeStorage,
-      storageKey:       'chunks-ai-auth',   // ← must match supabase.js
-    }
+  // ── Init Supabase client (SDK is sync-loaded so window.supabase is ready) ──
+  const _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: { persistSession:true, autoRefreshToken:true, storage:_store, storageKey:'chunks-ai-auth' }
   });
 
-  // ── Redirect target after login ──
-  function _getReturnUrl() {
-    return 'index.html';
-  }
-
-  function _getRedirectUrl() {
-    // OAuth callback returns to login.html — we then redirect to index.html
-    return window.location.origin + '/login.html';
-  }
-
-  // ── Google Sign In ────────────────────────────────────────────────────────
-  // Pre-warm the OAuth URL as soon as Supabase SDK is ready
-  // so clicking the button redirects instantly instead of waiting for a network call
+  // ── Pre-warm: fetch OAuth URL immediately in background ───────────────────
+  // Uses skipBrowserRedirect so it fetches silently without navigating.
+  // By the time user clicks, _oauthUrl is ready → zero-wait redirect.
   let _oauthUrl = null;
-  let _oauthPrewarming = false;
-
-  async function _prewarmOAuth() {
-    if (_oauthUrl || _oauthPrewarming) return;
-    _oauthPrewarming = true;
+  (async () => {
     try {
-      // getOAuthSignInUrl builds the redirect URL without navigating
-      const { data } = await _supabase.auth.signInWithOAuth({
+      const { data } = await _sb.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: _getRedirectUrl(), skipBrowserRedirect: true }
+        options: { redirectTo: REDIRECT_URL, skipBrowserRedirect: true }
       });
       if (data?.url) _oauthUrl = data.url;
-    } catch (_) {}
-    _oauthPrewarming = false;
-  }
+    } catch(_) {}
+  })();
 
+  // ── Google Sign In ────────────────────────────────────────────────────────
   async function signInWithGoogle() {
     const btn = document.getElementById('btn-google');
     btn.classList.add('loading');
     btn.disabled = true;
     hideError();
 
-    // If pre-warmed URL is ready, redirect immediately — no network wait
+    // Pre-warmed URL ready — instant redirect, no network wait
     if (_oauthUrl) {
       window.location.href = _oauthUrl;
       return;
     }
 
-    // Fallback: fetch URL now (first click or prewarm failed)
+    // Not ready yet — fetch now (rare: user clicked within ~200ms of page load)
     try {
-      const { data, error } = await _supabase.auth.signInWithOAuth({
+      const { data, error } = await _sb.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: _getRedirectUrl(), skipBrowserRedirect: true }
+        options: { redirectTo: REDIRECT_URL, skipBrowserRedirect: true }
       });
       if (error) throw error;
       if (data?.url) { window.location.href = data.url; return; }
       throw new Error('No OAuth URL returned');
-    } catch (err) {
+    } catch(err) {
       showError(err.message || 'Sign-in failed. Please try again.');
       btn.classList.remove('loading');
       btn.disabled = false;
@@ -515,7 +435,7 @@
   // ── Guest ─────────────────────────────────────────────────────────────────
   function continueAsGuest() {
     sessionStorage.setItem('chunks_guest_mode', '1');
-    window.location.href = _getReturnUrl();
+    window.location.href = 'index.html';
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -528,52 +448,28 @@
     document.getElementById('auth-error').classList.remove('show');
   }
 
-  // ── On load: handle OAuth callback OR skip if already authenticated ───────
-  // Start pre-warming OAuth URL as soon as SDK is available
-  function _waitAndPrewarm() {
-    if (window.supabase) { _prewarmOAuth(); }
-    else { setTimeout(_waitAndPrewarm, 50); }
-  }
-  _waitAndPrewarm();
-
+  // ── On load ───────────────────────────────────────────────────────────────
   (async () => {
-    // If we just came from a logout, DO NOT auto-redirect back to the app.
-    // chunksSignOut sets chunks_signing_out=1 before navigating here.
-    const isPostLogout = sessionStorage.getItem('chunks_signing_out') === '1';
-    if (isPostLogout) {
-      // Clear the flag and force Supabase to sign out fully on this page too
+    // Came from logout — clear any lingering session and stay on this page
+    if (sessionStorage.getItem('chunks_signing_out') === '1') {
       sessionStorage.removeItem('chunks_signing_out');
-      // Clear any lingering Supabase session from storage
-      try { await _supabase.auth.signOut({ scope: 'local' }); } catch (_) {}
-      // Stay on login page — do not redirect
+      try { await _sb.auth.signOut({ scope: 'local' }); } catch(_) {}
       return;
     }
 
-    // If Supabase just redirected back with a code, exchange it first
-    const hasCode = window.location.search.includes('code=');
-    const hasHash = window.location.hash.includes('access_token');
-
-    if (hasCode || hasHash) {
-      // Let Supabase process the callback — then redirect to returnTo
-      const { data: { session }, error } = await _supabase.auth.getSession();
-      if (session) {
-        window.location.replace(_getReturnUrl());
-        return;
-      }
-      // If no session yet, listen for SIGNED_IN event
-      _supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-          window.location.replace(_getReturnUrl());
-        }
+    // OAuth callback — Supabase redirected back with a code in the URL
+    if (window.location.search.includes('code=') || window.location.hash.includes('access_token')) {
+      const { data: { session } } = await _sb.auth.getSession();
+      if (session) { window.location.replace('index.html'); return; }
+      _sb.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session) window.location.replace('index.html');
       });
       return;
     }
 
-    // Normal load — skip login if already authenticated
-    const { data: { session } } = await _supabase.auth.getSession();
-    if (session) {
-      window.location.replace(_getReturnUrl());
-    }
+    // Already logged in — skip login page
+    const { data: { session } } = await _sb.auth.getSession();
+    if (session) window.location.replace('index.html');
   })();
 </script>
 </body>
