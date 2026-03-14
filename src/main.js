@@ -50,6 +50,7 @@ import './components/ProfileDropdown.js';               // Task 22 ✓ — sets 
 import './components/LibraryModal.js';                  // Task 23 ✓ — sets window.{openLibraryModal,closeLibraryModal,filterLibrary,filterLibSection}
 import './components/SettingsModal.js';                 // Task 24 ✓ — sets window.{openSettings,closeSettings,settingsFontSize,settingsNav,settingsDropdown,settingsSelect,settingsSelectAccent,settingsSelectVoice,settingsPlayVoice,settingsToggleChanged,settingsSelectDefaultBook,settingsSelectStudyMode,applyAccentColor,dataToggleSaveHistory,dataToggleImprove,clearAllHistory,clearPdfCache}
 import './components/UpgradeModal.js';                  // Bug fix ✓ — sets window.{openUpgradeModal,closeUpgradeModal,handleUpgradeClick,upgradeModalBackdrop,settingsUpgrade}
+import './components/HelpBugShortcutsModals.js';        // Bug fix ✓ — sets window.{openHelpCenter,closeHelpCenter,filterFAQs,toggleFAQ,showSupportEmail,openBugReport,closeBugReport,submitBugReport,openShortcuts,closeShortcuts}
 
 // ── Screens (added task-by-task) ───────────────────────────────────────────
 import './screens/HomeScreen.js';                        // Task 25 ✓ — sets window.{goHome,newChat,recentAdd,_setActiveRecent,_deleteRecent,_renderAllRecent,homeSetMode,homeSetInput,homeHandlePdfUpload,homeAutoResize,homeScrollBottom,homeHideLanding,homeSendMessage,homeToggleAttachMenu,homeAttachTrigger,homeHandleAttach,homeAppendUser,homeAppendAI,homeAppendError}
