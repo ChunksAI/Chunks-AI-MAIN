@@ -420,12 +420,39 @@
   const SUPABASE_URL  = 'https://wiwbfspsrgayvquzfryl.supabase.co';
   const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I';
 
-  const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  // ── Safe storage fallback ─────────────────────────────────────────────────
+  // Edge / Safari Tracking Prevention blocks localStorage from CDN scripts.
+  // We try localStorage → sessionStorage → in-memory so the session always
+  // has somewhere to persist. Must match storageKey in supabase.js!
+  const _memStore = {};
+  const _safeStorage = (() => {
+    try {
+      localStorage.setItem('__t', '1');
+      localStorage.removeItem('__t');
+      return localStorage;                              // ✅ localStorage works
+    } catch (_) {}
+    try {
+      sessionStorage.setItem('__t', '1');
+      sessionStorage.removeItem('__t');
+      return sessionStorage;                            // ✅ sessionStorage works
+    } catch (_) {}
+    return {                                            // ✅ in-memory fallback
+      getItem:    k     => _memStore[k] ?? null,
+      setItem:    (k,v) => { _memStore[k] = String(v); },
+      removeItem: k     => { delete _memStore[k]; },
+    };
+  })();
+
+  const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: {
+      persistSession:   true,
+      autoRefreshToken: true,
+      storage:          _safeStorage,
+      storageKey:       'chunks-ai-auth',   // ← must match supabase.js
+    }
+  });
 
   // ── Redirect target after login ──
-  // Point back to login.html so the Supabase client HERE handles
-  // the OAuth callback (code exchange / hash parsing). The existing
-  // ── Resolve redirect destination ──────────────────────────
   function _getReturnUrl() {
     const params = new URLSearchParams(window.location.search);
     const returnTo = params.get('returnTo');
@@ -438,7 +465,7 @@
     return loc.origin + loc.pathname; // stays on login.html
   }
 
-  // ── Google Sign In ────────────────────────────────────────
+  // ── Google Sign In ────────────────────────────────────────────────────────
   async function signInWithGoogle() {
     const btn = document.getElementById('btn-google');
     btn.classList.add('loading');
@@ -458,13 +485,13 @@
     // On success the browser navigates away — loading stays
   }
 
-  // ── Guest ─────────────────────────────────────────────────
+  // ── Guest ─────────────────────────────────────────────────────────────────
   function continueAsGuest() {
     sessionStorage.setItem('chunks_guest_mode', '1');
     window.location.href = _getReturnUrl();
   }
 
-  // ── Helpers ───────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
   function showError(msg) {
     const el = document.getElementById('auth-error');
     el.textContent = msg;
@@ -474,8 +501,29 @@
     document.getElementById('auth-error').classList.remove('show');
   }
 
-  // ── On load: skip login if already authenticated ──────────
+  // ── On load: handle OAuth callback OR skip if already authenticated ───────
   (async () => {
+    // If Supabase just redirected back with a code, exchange it first
+    const hasCode = window.location.search.includes('code=');
+    const hasHash = window.location.hash.includes('access_token');
+
+    if (hasCode || hasHash) {
+      // Let Supabase process the callback — then redirect to returnTo
+      const { data: { session }, error } = await _supabase.auth.getSession();
+      if (session) {
+        window.location.replace(_getReturnUrl());
+        return;
+      }
+      // If no session yet, listen for SIGNED_IN event
+      _supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          window.location.replace(_getReturnUrl());
+        }
+      });
+      return;
+    }
+
+    // Normal load — skip login if already authenticated
     const { data: { session } } = await _supabase.auth.getSession();
     if (session) {
       window.location.replace(_getReturnUrl());
