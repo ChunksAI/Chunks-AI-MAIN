@@ -1,19 +1,16 @@
 /**
  * src/components/Sidebar.js — Sidebar component
  *
- * Replaces 6 identical (modulo active-item + list IDs) sidebar copies
- * with a single JS template. Injects rendered HTML into every
- * <aside class="sidebar" data-sidebar-screen="SCREEN"> placeholder.
+ * History rendering
+ * ─────────────────
+ * renderSidebarHistory() reads directly from localStorage ('chunks_recent')
+ * so it works on every page load, refresh, and new tab without depending
+ * on index.html's inline-script variables or bridges.
  *
- * Per-screen differences
- * ──────────────────────
- *  active nav item   → determined by data-sidebar-screen attribute
- *  recent list IDs   → suffixed per-screen so _renderAllRecent() works
- *  flash extra       → fc-saved-decks-list / fc-deck-count
- *  studyplan extra   → sp-recent-plans-section / sp-recent-plans-list
- *
- * Task 19 — replaces 6 copies (home, workspace, flash, research, exam,
- * studyplan) with this single component.
+ * Each screen module calls renderSidebarHistory() after it mounts its own
+ * aside placeholder.  mountSidebars() also calls it after stamping out all
+ * sidebars.  index.html's window._renderAllRecent is pointed here so that
+ * recentAdd / delete / rename instantly reflects in all open sidebars.
  */
 
 // ── SVG constants ──────────────────────────────────────────────────────────
@@ -31,61 +28,21 @@ const PANEL_ICON = `<svg width="16" height="16" viewBox="0 0 20 20" fill="none" 
 
 const DOTS_SVG = `<svg class="profile-dots" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-3);margin-left:auto;flex-shrink:0;"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>`;
 
-// ── Nav items config ───────────────────────────────────────────────────────
+const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+
+// ── Nav items ──────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  {
-    id:     'home',
-    label:  'Home',
-    action: 'goHome',
-    svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
-    extra:  '',
-  },
-  {
-    id:     'workspace',
-    label:  'Workspace',
-    action: 'showScreen',
-    screen: 'workspace',
-    svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>`,
-  },
-  {
-    id:     'library',
-    label:  'Library',
-    action: 'openLibraryModal',
-    svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>`,
-  },
-  {
-    id:     'flash',
-    label:  'Flashcards',
-    action: 'showScreen',
-    screen: 'flash',
-    svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>`,
-  },
-  {
-    id:     'studyplan',
-    label:  'Study Plan',
-    action: 'showScreen',
-    screen: 'studyplan',
-    onclick: `onclick="showScreen('studyplan')"`,
-    svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
-  },
-  {
-    id:     'research',
-    label:  'Research',
-    action: 'showScreen',
-    screen: 'research',
-    svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>`,
-  },
-  {
-    id:     'exam',
-    label:  'Exam',
-    action: 'showScreen',
-    screen: 'exam',
-    svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
-  },
+  { id:'home',      label:'Home',       action:'goHome',           svg:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>` },
+  { id:'workspace', label:'Workspace',  action:'showScreen', screen:'workspace', svg:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>` },
+  { id:'library',   label:'Library',    action:'openLibraryModal', svg:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>` },
+  { id:'flash',     label:'Flashcards', action:'showScreen', screen:'flash',     svg:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>` },
+  { id:'studyplan', label:'Study Plan', action:'showScreen', screen:'studyplan', onclick:`onclick="showScreen('studyplan')"`, svg:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>` },
+  { id:'research',  label:'Research',   action:'showScreen', screen:'research',  svg:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>` },
+  { id:'exam',      label:'Exam',       action:'showScreen', screen:'exam',      svg:`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>` },
 ];
 
-// ── Recent list ID map ─────────────────────────────────────────────────────
+// ── Recent list container IDs per screen ───────────────────────────────────
 
 const RECENT_IDS = {
   home:      { general: 'recent-list-general',            workspace: 'recent-list-home' },
@@ -96,29 +53,75 @@ const RECENT_IDS = {
   studyplan: { general: 'recent-list-general-studyplan',  workspace: 'recent-list-ws-studyplan' },
 };
 
-// ── Component builder ──────────────────────────────────────────────────────
+const ALL_GENERAL_IDS   = Object.values(RECENT_IDS).map(v => v.general);
+const ALL_WORKSPACE_IDS = Object.values(RECENT_IDS).map(v => v.workspace);
+
+// ── History rendering ──────────────────────────────────────────────────────
 
 /**
- * Build the sidebar HTML string for a given screen.
+ * Read chunks_recent from localStorage and populate every sidebar list
+ * container that currently exists in the DOM.
  *
- * @param {string} screen — 'home' | 'workspace' | 'flash' | 'research' | 'exam' | 'studyplan'
- * @returns {string} innerHTML to set on the <aside> element
+ * This is the single source of truth for sidebar history rendering.
+ * It reads localStorage directly — no inline-script variables needed.
  */
+export function renderSidebarHistory() {
+  let items = [];
+  try { items = JSON.parse(localStorage.getItem('chunks_recent') || '[]') || []; }
+  catch (_) { items = []; }
+
+  const activeId     = localStorage.getItem('chunks_active_recent_id') || null;
+  const generalItems = items.filter(r => r.source === 'general' || !r.bookId);
+  const wsItems      = items.filter(r => r.source === 'workspace'  &&  r.bookId);
+
+  ALL_GENERAL_IDS.forEach(id   => _fill(id, generalItems, activeId, 'No chats yet'));
+  ALL_WORKSPACE_IDS.forEach(id => _fill(id, wsItems,      activeId, 'No recent chats yet'));
+}
+
+function _fill(containerId, items, activeId, emptyMsg) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '';
+  if (!items.length) {
+    el.innerHTML = `<div class="recent-empty">${emptyMsg}</div>`;
+    return;
+  }
+  items.forEach(item => el.appendChild(_buildItem(item, activeId)));
+}
+
+function _buildItem(item, activeId) {
+  const el = document.createElement('div');
+  el.className = 'recent-item' + (item.id === activeId ? ' active' : '');
+  el.dataset.id = item.id;
+  el.title = item.question || '';
+  el.innerHTML = `
+    ${CHAT_SVG}
+    <span>${(item.pinned ? '📌 ' : '') + (item.label || '').replace(/</g, '&lt;')}</span>
+    <span class="recent-menu-btn" title="More options">···</span>`;
+  el.addEventListener('click', () => window._clickRecent?.(item));
+  el.querySelector('.recent-menu-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    window._showRecentCtxMenu?.(item, e);
+  });
+  return el;
+}
+
+// ── Component builder ──────────────────────────────────────────────────────
+
 export function buildSidebar(screen) {
   const ids = RECENT_IDS[screen] || RECENT_IDS.home;
 
-  // Nav items
   const navHTML = NAV_ITEMS.map(item => {
-    const isActive = item.id === screen || (item.id === 'home' && screen === 'home');
-    const activeAttr     = isActive ? ' active' : '';
-    const ariaCurrent    = isActive ? ' aria-current="page"' : '';
-    const dataAction     = item.action === 'goHome'
+    const isActive    = item.id === screen;
+    const activeAttr  = isActive ? ' active' : '';
+    const ariaCurrent = isActive ? ' aria-current="page"' : '';
+    const dataAction  = item.action === 'goHome'
       ? `data-action="goHome"`
       : item.action === 'openLibraryModal'
         ? `data-action="openLibraryModal"`
         : `data-action="showScreen" data-screen="${item.screen}"`;
-    const onclickExtra   = item.onclick || '';
-    const onkeydown      = item.action === 'goHome'
+    const onclickExtra = item.onclick || '';
+    const onkeydown    = item.action === 'goHome'
       ? `onkeydown="if(event.key==='Enter'||event.key===' ')goHome()"`
       : item.action === 'openLibraryModal'
         ? `onkeydown="if(event.key==='Enter'||event.key===' ')openLibraryModal()"`
@@ -131,9 +134,7 @@ export function buildSidebar(screen) {
       </div>`;
   }).join('\n');
 
-  // Screen-specific extra sections
   let extraSections = '';
-
   if (screen === 'flash') {
     extraSections = `
     <div class="sidebar-divider"></div>
@@ -147,7 +148,6 @@ export function buildSidebar(screen) {
       </div>
     </div>`;
   }
-
   if (screen === 'studyplan') {
     extraSections = `
     <div id="sp-recent-plans-section" style="display:none;">
@@ -210,40 +210,27 @@ ${navHTML}
 
 // ── Mount ──────────────────────────────────────────────────────────────────
 
-/**
- * Inject sidebar HTML into every placeholder element.
- * Placeholders: <aside class="sidebar" data-sidebar-screen="SCREEN"></aside>
- *
- * Call once on DOMContentLoaded (done automatically below).
- */
 export function mountSidebars() {
   document.querySelectorAll('aside.sidebar[data-sidebar-screen]').forEach(el => {
     const screen = el.dataset.sidebarScreen || 'home';
     el.innerHTML = buildSidebar(screen);
   });
-  // Now that every sidebar's container divs exist, populate the recent lists.
-  // window._renderAllRecent is set by index.html's bridge block (which runs at
-  // inline-script parse time, before this module). The ?. guard is just safety.
-  window._renderAllRecent?.();
+  // Populate history immediately after containers exist
+  renderSidebarHistory();
 }
 
-// Auto-mount — runs as soon as the module is evaluated.
-// At that point readyState is 'interactive' (deferred/module scripts run before
-// DOMContentLoaded), so all screen placeholders have already been replaced by
-// their respective mountXxxScreen() calls that ran earlier in main.js.
+// Runs at module eval time — all screen mounts have already run before this
 if (document.readyState === 'loading') {
-  // Fallback: if somehow the module was injected during parse, wait for DOM.
   document.addEventListener('DOMContentLoaded', mountSidebars, { once: true });
 } else {
   mountSidebars();
-  // Extra safety: re-render after DOMContentLoaded in case any late-running
-  // inline DOMContentLoaded listeners (e.g. research screen _load()) mutate
-  // the sidebar. This is a no-op if nothing changed.
-  document.addEventListener('DOMContentLoaded', () => {
-    window._renderAllRecent?.();
-  }, { once: true });
 }
 
-// Legacy global
-window.buildSidebar  = buildSidebar;
-window.mountSidebars = mountSidebars;
+// ── Global bridges ─────────────────────────────────────────────────────────
+// Point window._renderAllRecent at renderSidebarHistory so index.html's
+// recentAdd / delete / rename instantly re-reads localStorage and re-renders.
+window._renderAllRecent     = renderSidebarHistory;
+window._renderRecentList    = renderSidebarHistory;
+window.renderSidebarHistory = renderSidebarHistory;
+window.buildSidebar         = buildSidebar;
+window.mountSidebars        = mountSidebars;
