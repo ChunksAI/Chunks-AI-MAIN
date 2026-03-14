@@ -7,7 +7,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://wiwbfspsrgayvquzfryl.supabase.co">
+  <link rel="dns-prefetch" href="https://accounts.google.com">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" async></script>
   <style>
     :root {
       --bg:          #080810;
@@ -463,23 +465,51 @@
   }
 
   // ── Google Sign In ────────────────────────────────────────────────────────
+  // Pre-warm the OAuth URL as soon as Supabase SDK is ready
+  // so clicking the button redirects instantly instead of waiting for a network call
+  let _oauthUrl = null;
+  let _oauthPrewarming = false;
+
+  async function _prewarmOAuth() {
+    if (_oauthUrl || _oauthPrewarming) return;
+    _oauthPrewarming = true;
+    try {
+      // getOAuthSignInUrl builds the redirect URL without navigating
+      const { data } = await _supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: _getRedirectUrl(), skipBrowserRedirect: true }
+      });
+      if (data?.url) _oauthUrl = data.url;
+    } catch (_) {}
+    _oauthPrewarming = false;
+  }
+
   async function signInWithGoogle() {
     const btn = document.getElementById('btn-google');
     btn.classList.add('loading');
     btn.disabled = true;
     hideError();
 
-    const { error } = await _supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: _getRedirectUrl() }
-    });
+    // If pre-warmed URL is ready, redirect immediately — no network wait
+    if (_oauthUrl) {
+      window.location.href = _oauthUrl;
+      return;
+    }
 
-    if (error) {
-      showError(error.message || 'Sign-in failed. Please try again.');
+    // Fallback: fetch URL now (first click or prewarm failed)
+    try {
+      const { data, error } = await _supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: _getRedirectUrl(), skipBrowserRedirect: true }
+      });
+      if (error) throw error;
+      if (data?.url) { window.location.href = data.url; return; }
+      throw new Error('No OAuth URL returned');
+    } catch (err) {
+      showError(err.message || 'Sign-in failed. Please try again.');
       btn.classList.remove('loading');
       btn.disabled = false;
     }
-    // On success the browser navigates away — loading stays
   }
 
   // ── Guest ─────────────────────────────────────────────────────────────────
@@ -499,6 +529,13 @@
   }
 
   // ── On load: handle OAuth callback OR skip if already authenticated ───────
+  // Start pre-warming OAuth URL as soon as SDK is available
+  function _waitAndPrewarm() {
+    if (window.supabase) { _prewarmOAuth(); }
+    else { setTimeout(_waitAndPrewarm, 50); }
+  }
+  _waitAndPrewarm();
+
   (async () => {
     // If we just came from a logout, DO NOT auto-redirect back to the app.
     // chunksSignOut sets chunks_signing_out=1 before navigating here.
