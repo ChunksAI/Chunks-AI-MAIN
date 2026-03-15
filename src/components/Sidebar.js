@@ -175,27 +175,29 @@ export function buildSidebar(screen) {
       <div class="sidebar-section-label">Study</div>
 ${navHTML}
     </div>
+    </nav>
 
     <div class="sidebar-divider"></div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">General AI</div>
-      <div id="${ids.general}" class="recent-list"></div>
+    <div class="sidebar-history-scroll">
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">General AI</div>
+        <div id="${ids.general}" class="recent-list"></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Workspace</div>
+        <div id="${ids.workspace}" class="recent-list"></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Visual Tutor Chats</div>
+        <div id="${ids.visual}" class="recent-list"></div>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Exam Chats</div>
+        <div id="${ids.exam}" class="recent-list"></div>
+      </div>
+      ${extraSections}
     </div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Workspace</div>
-      <div id="${ids.workspace}" class="recent-list"></div>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Visual Tutor Chats</div>
-      <div id="${ids.visual}" class="recent-list"></div>
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Exam Chats</div>
-      <div id="${ids.exam}" class="recent-list"></div>
-    </div>
-    </nav>
-    ${extraSections}
 
     <div class="sidebar-footer">
       <div class="profile-row" role="button" tabindex="0" aria-label="Open profile menu" aria-haspopup="true" onclick="toggleProfileDropdown(event)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleProfileDropdown(event)">
