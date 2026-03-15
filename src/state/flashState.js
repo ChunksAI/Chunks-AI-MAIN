@@ -67,6 +67,179 @@ function _fcShowError(msg) {
 // ── Deck list rendering ───────────────────────────────────────────────────────
 
 
+
+// ── Accent color system ───────────────────────────────────────────────────────
+// Unlocked by streak milestones. Stored in localStorage.
+// Applying changes --fc-accent on :root — one variable changes everything.
+
+const ACCENT_KEY = 'chunks_fc_accent_v1';
+
+const FC_ACCENTS = [
+  {
+    id:       'gold',
+    name:     'Gold',
+    color:    '#e8ac2e',
+    emoji:    '⭐',
+    unlocksAt: 0,
+    label:    'Default',
+  },
+  {
+    id:       'ocean',
+    name:     'Ocean',
+    color:    '#2dd4bf',
+    emoji:    '🌊',
+    unlocksAt: 0,
+    label:    '3-day streak',
+  },
+  {
+    id:       'violet',
+    name:     'Violet',
+    color:    '#8b7cf8',
+    emoji:    '💜',
+    unlocksAt: 0,
+    label:    '7-day streak',
+  },
+  {
+    id:       'crimson',
+    name:     'Crimson',
+    color:    '#f87171',
+    emoji:    '❤️',
+    unlocksAt: 0,
+    label:    '14-day streak',
+  },
+  {
+    id:       'sunrise',
+    name:     'Sunrise',
+    color:    '#fb923c',
+    emoji:    '🌅',
+    unlocksAt: 0,
+    label:    '30-day streak',
+  },
+  {
+    id:       'cherry',
+    name:     'Cherry',
+    color:    '#f472b6',
+    emoji:    '🌸',
+    unlocksAt: 0,
+    label:    '60-day streak',
+  },
+];
+
+function _fcGetSavedAccent() {
+  return localStorage.getItem(ACCENT_KEY) || 'gold';
+}
+
+function _fcApplyAccent(id) {
+  const accent = FC_ACCENTS.find(a => a.id === id) || FC_ACCENTS[0];
+  document.documentElement.style.setProperty('--fc-accent', accent.color);
+  localStorage.setItem(ACCENT_KEY, id);
+}
+
+function _fcGetUnlockedAccents() {
+  const streak = _fcGetStreak();
+  const current = streak.current || 0;
+  return FC_ACCENTS.filter(a => a.unlocksAt <= current);
+}
+
+// Check if new accent was just unlocked and notify
+function _fcCheckNewAccentUnlock(prevStreak, newStreak) {
+  const newUnlocks = FC_ACCENTS.filter(
+    a => a.unlocksAt > 0 && a.unlocksAt <= newStreak && a.unlocksAt > prevStreak
+  );
+  newUnlocks.forEach(accent => {
+    setTimeout(() => {
+      window._showToast?.(accent.emoji, `New accent unlocked: ${accent.name}! Tap your streak to customize.`, 'var(--fc-accent)');
+    }, 1500);
+  });
+}
+
+function _fcOpenAccentPicker() {
+  // Remove existing picker
+  const existing = document.getElementById('fc-accent-picker');
+  if (existing) { existing.remove(); return; }
+
+  const unlocked   = _fcGetUnlockedAccents();
+  const savedId    = _fcGetSavedAccent();
+  const streak     = _fcGetStreak();
+  const curStreak  = streak.current || 0;
+
+  const picker = document.createElement('div');
+  picker.id = 'fc-accent-picker';
+  picker.className = 'fc-accent-picker';
+  picker.innerHTML = `
+    <div class="fc-accent-picker-header">
+      <span>Card accent color</span>
+      <button onclick="document.getElementById('fc-accent-picker').remove()" style="background:none;border:none;color:var(--text-4);cursor:pointer;padding:2px;line-height:0;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="fc-accent-grid">
+      ${FC_ACCENTS.map(a => {
+        const isUnlocked = a.unlocksAt <= curStreak;
+        const isActive   = a.id === savedId;
+        return `
+        <button
+          class="fc-accent-swatch ${isActive ? 'active' : ''} ${!isUnlocked ? 'locked' : ''}"
+          style="--swatch-color:${a.color};"
+          onclick="${isUnlocked ? `window._fcSelectAccent('${a.id}')` : ''}"
+          title="${isUnlocked ? a.name : 'Locked — ' + a.label}"
+        >
+          <div class="fc-accent-dot" style="background:${a.color};"></div>
+          <span class="fc-accent-name">${a.name}</span>
+          <span class="fc-accent-req">${isUnlocked ? (isActive ? '✓ Active' : 'Unlocked') : '🔒 ' + a.label}</span>
+        </button>`;
+      }).join('')}
+    </div>
+  `;
+
+  // Insert after streak widget
+  const widget = _el('fc-streak-widget');
+  if (widget) widget.after(picker);
+  else document.querySelector('.fc-hero')?.appendChild(picker);
+
+  // Close on outside click
+  setTimeout(() => {
+    document.addEventListener('click', function handler(e) {
+      if (!picker.contains(e.target) && e.target.id !== 'fc-streak-widget') {
+        picker.remove();
+        document.removeEventListener('click', handler);
+      }
+    });
+  }, 10);
+}
+
+function _fcSelectAccent(id) {
+  _fcApplyAccent(id);
+  // Update active state in picker
+  document.querySelectorAll('.fc-accent-swatch').forEach(el => {
+    el.classList.toggle('active', el.querySelector('.fc-accent-name')?.textContent === FC_ACCENTS.find(a => a.id === id)?.name);
+  });
+  document.querySelectorAll('.fc-accent-swatch .fc-accent-req').forEach((el, i) => {
+    const a = FC_ACCENTS[i];
+    if (a.unlocksAt <= (_fcGetStreak().current || 0)) {
+      el.textContent = a.id === id ? '✓ Active' : 'Unlocked';
+    }
+  });
+}
+
+// Apply saved accent on init
+function _fcInitAccent() {
+  _fcApplyAccent(_fcGetSavedAccent());
+  // Make streak widget clickable to open picker
+  const widget = _el('fc-streak-widget');
+  if (widget) {
+    widget.style.cursor = 'pointer';
+    widget.title = 'Tap to customize accent color';
+    widget.addEventListener('click', _fcOpenAccentPicker);
+  }
+}
+
+window._fcOpenAccentPicker = _fcOpenAccentPicker;
+window._fcSelectAccent     = _fcSelectAccent;
+window._fcInitAccent       = _fcInitAccent;
+window._fcCheckNewAccentUnlock = _fcCheckNewAccentUnlock;
+window.FC_ACCENTS          = FC_ACCENTS;
+
 // ── Streak engine ─────────────────────────────────────────────────────────────
 // localStorage key: chunks_fc_streak_v1
 // Shape: { current, longest, lastStudyDate }
@@ -103,16 +276,15 @@ function _fcRecordStudyDay() {
   const streak    = _fcGetStreak();
 
   if (streak.lastStudyDate === today) {
-    // Already recorded today — just re-render
     _fcRenderStreak();
     return;
   }
 
+  const prevStreak = streak.current || 0;
+
   if (streak.lastStudyDate === yesterday) {
-    // Studied yesterday — extend streak
     streak.current++;
   } else {
-    // Missed a day (or first time) — reset
     streak.current = 1;
   }
 
@@ -120,6 +292,9 @@ function _fcRecordStudyDay() {
   streak.longest = Math.max(streak.longest, streak.current);
   _fcSaveStreak(streak);
   _fcRenderStreak();
+
+  // Check if new accent color was just unlocked
+  _fcCheckNewAccentUnlock(prevStreak, streak.current);
 
   // Celebrate milestones
   const milestones = [3, 7, 14, 30, 60, 100];
@@ -218,6 +393,43 @@ async function _fcLoadLibraryDecks() {
   } catch (e) { return []; }
 }
 
+// ── Mastery storage ──────────────────────────────────────────────────────────
+// Simple localStorage key: chunks_fc_mastery_v1
+// Shape: { [deck_id]: { easy, ok, hard, total, pct, lastStudied } }
+// Written after every session. Read on deck list render. Always works.
+
+const MASTERY_KEY = 'chunks_fc_mastery_v1';
+
+function _fcGetMasteryStore() {
+  try {
+    return JSON.parse(localStorage.getItem(MASTERY_KEY) || '{}');
+  } catch (e) { return {}; }
+}
+
+function _fcSaveMastery(deckId, stats, total) {
+  const store = _fcGetMasteryStore();
+  const easy  = stats.easy    || 0;
+  const ok    = stats.ok      || 0;
+  const hard  = stats.hard    || 0;
+  const rated = easy + ok + hard;
+  // Always use the latest session result — no blending
+  const pct   = rated > 0 ? Math.min(100, Math.round(((easy + ok) / rated) * 100)) : 0;
+
+  store[deckId] = { easy, ok, hard, rated, total, pct, lastStudied: new Date().toISOString() };
+  try { localStorage.setItem(MASTERY_KEY, JSON.stringify(store)); } catch (e) {}
+  return store[deckId];
+}
+
+async function _fcLoadMasteryMap(deckIds) {
+  if (!deckIds.length) return {};
+  const store = _fcGetMasteryStore();
+  const map   = {};
+  deckIds.forEach(id => {
+    if (store[id]) map[id] = store[id];
+  });
+  return map;
+}
+
 async function _fcRenderDeckList() {
   const grid    = _el('fc-deck-grid');
   const empty   = _el('fc-empty-state');
@@ -229,8 +441,13 @@ async function _fcRenderDeckList() {
     _fcLoadLibraryDecks(),
   ]);
 
+  // Load mastery data for user decks
+  const deckIds = userDecks.filter(d => d.id).map(d => d.id);
+  const masteryMap = await _fcLoadMasteryMap(deckIds);
+
   window._fcDecksCache   = userDecks;
   window._fcLibraryCache = libraryDecks;
+  window._fcMasteryMap   = masteryMap;
 
   // Render streak widget
   _fcRenderStreak();
@@ -263,7 +480,7 @@ async function _fcRenderDeckList() {
   if (empty) empty.style.display = 'none';
 
   if (userDecks.length) {
-    html += userDecks.map((d, i) => _fcDeckCardHTML(d, i, '_fcDecksCache')).join('');
+    html += userDecks.map((d, i) => _fcDeckCardHTML(d, i, '_fcDecksCache', masteryMap[d.id])).join('');
   }
 
   // Medical library sections grouped by system — collapsible
@@ -305,37 +522,60 @@ async function _fcRenderDeckList() {
   grid.innerHTML = html;
 }
 
-function _fcDeckCardHTML(d, i, cacheKey) {
+function _fcDeckCardHTML(d, i, cacheKey, mastery) {
   const count     = d.card_count || (d.cards && d.cards.length) || 0;
   const created   = d.created_at
     ? new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
     : '';
   const isLibrary = !!d.is_library;
-  const deleteBtn = isLibrary ? '' : `
-    <button class="fc-deck-delete" title="Delete deck" onclick="event.stopPropagation();_fcDeleteDeck('${d.id}','${d.name.replace(/'/g, "\\'")}')">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-    </button>`;
-  return `
-  <div class="fc-deck-card${isLibrary ? ' library' : ''}" onclick="_fcStartDeck(window.${cacheKey}[${i}])">
-    <div class="fc-deck-card-inner">
-      <div class="fc-deck-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
-      </div>
-      <div class="fc-deck-info">
-        <div class="fc-deck-name">${d.name}</div>
-        <div class="fc-deck-meta">
-          <span>${count} card${count !== 1 ? 's' : ''}</span>
-          ${created ? `<span class="fc-meta-dot">·</span><span>${created}</span>` : ''}
-        </div>
-      </div>
-      <button class="fc-deck-start" onclick="event.stopPropagation();_fcStartDeck(window.${cacheKey}[${i}])">
-        Study
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
-      </button>
-      ${deleteBtn}
-    </div>
-  </div>`;
+
+  // Mastery bar
+  const hasMastery = mastery && mastery.total > 0;
+  const pct        = hasMastery ? mastery.pct : 0;
+  const mastColor  = pct >= 80 ? 'var(--teal)' : pct >= 50 ? 'var(--gold)' : 'var(--violet)';
+  const mastLabel  = hasMastery ? (pct === 100 ? '✓ Mastered' : pct + '% mastered') : '';
+  const masteryBar = hasMastery ? (
+    '<div class="fc-deck-mastery">' +
+    '<div class="fc-deck-mastery-bar">' +
+    '<div class="fc-deck-mastery-fill" style="width:' + pct + '%;background:' + mastColor + ';"></div>' +
+    '</div>' +
+    '<span class="fc-deck-mastery-label" style="color:' + mastColor + ';">' + mastLabel + '</span>' +
+    '</div>'
+  ) : '';
+
+  const deleteBtn = isLibrary ? '' : (
+    '<button class="fc-deck-delete" title="Delete deck" onclick="event.stopPropagation();_fcDeleteDeck(\'' + d.id + '\',\'' + d.name.replace(/'/g, "\'") + '\')">' +
+    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>' +
+    '</button>'
+  );
+
+  const iconHtml = pct === 100
+    ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>'
+    : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>';
+
+  const iconStyle = pct === 100 ? 'background:rgba(45,212,191,0.15);border-color:rgba(45,212,191,0.3);color:var(--teal);' : '';
+
+  return (
+    '<div class="fc-deck-card' + (isLibrary ? ' library' : '') + '" onclick="_fcStartDeck(window.' + cacheKey + '[' + i + '])">' +
+    '<div class="fc-deck-card-inner">' +
+    '<div class="fc-deck-icon" style="' + iconStyle + '">' + iconHtml + '</div>' +
+    '<div class="fc-deck-info">' +
+    '<div class="fc-deck-name">' + d.name + '</div>' +
+    '<div class="fc-deck-meta">' +
+    '<span>' + count + ' card' + (count !== 1 ? 's' : '') + '</span>' +
+    (created ? '<span class="fc-meta-dot">·</span><span>' + created + '</span>' : '') +
+    '</div>' +
+    masteryBar +
+    '</div>' +
+    '<button class="fc-deck-start" onclick="event.stopPropagation();_fcStartDeck(window.' + cacheKey + '[' + i + '])">' +
+    (pct === 100 ? 'Review' : 'Study') +
+    '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>' +
+    '</button>' +
+    deleteBtn +
+    '</div></div>'
+  );
 }
+
 
 
 // ── Delete deck ───────────────────────────────────────────────────────────────
@@ -563,6 +803,12 @@ async function _fcStartDeck(deck, hardOnly) {
     return;
   }
 
+  // Shuffle cards every session — Fisher-Yates
+  for (let i = studyCards.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [studyCards[i], studyCards[j]] = [studyCards[j], studyCards[i]];
+  }
+
   _fcDeck            = studyCards;
   _fcIndex           = 0;
   _fcFlipped         = false;
@@ -590,14 +836,29 @@ function _fcRenderCard() {
   const cardEl = _el('fc-card');
   if (cardEl) cardEl.classList.remove('fc-card--flipped');
 
+  // Always hide tutor panel when moving to a new card
+  const tutorPanel = _el('fc-tutor-panel');
+  if (tutorPanel) {
+    tutorPanel.style.display = 'none';
+    const tutorText = _el('fc-tutor-text');
+    const tutorLoading = _el('fc-tutor-loading');
+    if (tutorText)    tutorText.textContent = '';
+    if (tutorLoading) tutorLoading.style.display = '';
+  }
+  if (window._fcTutorAbort) {
+    window._fcTutorAbort.abort();
+    window._fcTutorAbort = null;
+  }
+
   const q = _el('fc-card-question');
   const a = _el('fc-card-answer');
   if (q) q.textContent = card.front || card.question || '';
   if (a) a.textContent = card.back  || card.answer   || '';
 
+  // Progress: show cards completed out of total (current card = current index + 1)
   const total   = _fcDeck.length;
   const current = _fcIndex + 1;
-  const pct     = ((current - 1) / total) * 100;
+  const pct     = (current / total) * 100;
 
   const labelEl = _el('fc-card-label');
   const fillEl  = _el('fc-progress-fill');
@@ -854,6 +1115,11 @@ async function _fcFinishSession() {
   // Record study day for streak
   _fcRecordStudyDay();
 
+  // Save mastery to localStorage immediately
+  if (_fcCurrentDeckMeta?.id) {
+    _fcSaveMastery(_fcCurrentDeckMeta.id, _fcStats, _fcDeck.length);
+  }
+
   // Play celebration fanfare
   _fcSound.complete();
 
@@ -871,7 +1137,7 @@ async function _fcFinishSession() {
 
   const { easy, ok, hard, skipped } = _fcStats;
   const total = _fcDeck.length;
-  const score = total ? Math.round(((easy + ok) / total) * 100) : 0;
+  const score = total ? Math.min(100, Math.round(((easy + ok) / total) * 100)) : 0;
 
   // Fill stat numbers
   [['easy', easy], ['ok', ok], ['hard', hard], ['skipped', skipped]].forEach(([k, v]) => {
@@ -989,6 +1255,7 @@ async function wsMakeFlashcard(el) {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 function _fcInit() {
+  _fcInitAccent();
   _fcRenderDeckList();
 }
 
@@ -999,6 +1266,102 @@ if (document.readyState === 'loading') {
 }
 
 // ── Window exports ────────────────────────────────────────────────────────────
+
+
+// ── Edit card ─────────────────────────────────────────────────────────────────
+
+let _fcEditSide = 'front'; // 'front' or 'back'
+
+function _fcOpenEditCard(side) {
+  _fcEditSide = side;
+  const card    = _fcDeck[_fcIndex];
+  if (!card) return;
+
+  const overlay  = _el('fc-edit-overlay');
+  const textarea = _el('fc-edit-textarea');
+  const label    = _el('fc-edit-label');
+  if (!overlay || !textarea) return;
+
+  const text = side === 'front'
+    ? (card.front || card.question || '')
+    : (card.back  || card.answer   || '');
+
+  if (label) label.textContent = side === 'front' ? 'Edit question' : 'Edit answer';
+  textarea.value = text;
+  overlay.style.display = 'flex';
+  setTimeout(() => textarea.focus(), 50);
+}
+
+function _fcCloseEditCard() {
+  const overlay = _el('fc-edit-overlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+async function _fcSaveEditCard() {
+  const textarea = _el('fc-edit-textarea');
+  if (!textarea) return;
+
+  const newText = textarea.value.trim();
+  if (!newText) return;
+
+  const card = _fcDeck[_fcIndex];
+  if (!card) return;
+
+  // Update in-memory deck
+  if (_fcEditSide === 'front') {
+    card.front    = newText;
+    card.question = newText;
+    const q = _el('fc-card-question');
+    if (q) q.textContent = newText;
+  } else {
+    card.back   = newText;
+    card.answer = newText;
+    const a = _el('fc-card-answer');
+    if (a) a.textContent = newText;
+  }
+
+  // Update in localStorage deck cache
+  try {
+    const lsKey = window.FlashcardDB?.FC_LS_KEY;
+    if (lsKey) {
+      const decks = JSON.parse(localStorage.getItem(lsKey) || '[]');
+      const deckIdx = decks.findIndex(d => d.id === _fcCurrentDeckMeta?.id);
+      if (deckIdx >= 0 && decks[deckIdx].cards) {
+        const cardIdx = decks[deckIdx].cards.findIndex(
+          c => (c.front || c.question) === (_fcEditSide === 'front'
+            ? (card.front || card.question)
+            : '') || c.id === card.id
+        );
+        if (cardIdx >= 0) {
+          decks[deckIdx].cards[cardIdx] = { ...decks[deckIdx].cards[cardIdx], ...card };
+        }
+        localStorage.setItem(lsKey, JSON.stringify(decks));
+      }
+    }
+  } catch (e) {}
+
+  // Update in Supabase if card has an ID
+  if (card.id) {
+    try {
+      const sb = await window._getChunksSb?.();
+      if (sb) {
+        await sb.from('fc_cards').update({
+          front: card.front || card.question || '',
+          back:  card.back  || card.answer   || '',
+        }).eq('id', card.id);
+      }
+    } catch (e) {
+      console.warn('[flashState] card update error:', e.message);
+    }
+  }
+
+  _fcCloseEditCard();
+  window._showToast?.('✓', 'Card updated', 'var(--teal)');
+}
+
+window._fcOpenEditCard  = _fcOpenEditCard;
+window._fcCloseEditCard = _fcCloseEditCard;
+window._fcSaveEditCard  = _fcSaveEditCard;
 
 window._fcDeleteDeck         = _fcDeleteDeck;
 window._fcDismissTutor        = _fcDismissTutor;
