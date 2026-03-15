@@ -1,3 +1,11 @@
+/* ── Accent color system ─────────────────────────────────────────────────────
+   --fc-accent is set by JS (_fcApplyAccent) based on unlocked theme.
+   Default: gold. Override on :root to change everything at once.
+────────────────────────────────────────────────────────────────────────── */
+:root {
+  --fc-accent: #e8ac2e; /* gold — default */
+}
+
 /* ══════════════════════════════════════════════════════════
    src/styles/screens/flash.css — Task 8 / Task 27
    Flashcard screen: home, study session, card flip, modal.
@@ -129,8 +137,8 @@
 }
 
 .fc-input:focus {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 2px rgba(232,172,46,0.12);
+  border-color: var(--fc-accent);
+  box-shadow: 0 0 0 2px rgba(var(--fc-accent-rgb, 232,172,46),0.12);
 }
 
 .fc-gen-btn {
@@ -138,7 +146,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: var(--gold);
+  background: var(--fc-accent);
   color: #0a0900;
   border: none;
   border-radius: var(--r-sm, 8px);
@@ -216,13 +224,13 @@
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: rgba(232,172,46,0.1);
-  border: 1px solid rgba(232,172,46,0.2);
+  background: color-mix(in srgb, var(--fc-accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--fc-accent) 20%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: var(--gold);
+  color: var(--fc-accent);
 }
 
 .fc-deck-info {
@@ -285,6 +293,7 @@
   flex-direction: column;
   height: 100%;
   overflow: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .fc-study-wrap {
@@ -347,7 +356,7 @@
 
 .fc-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--gold), var(--violet));
+  background: linear-gradient(90deg, var(--fc-accent), var(--violet));
   border-radius: 2px;
   transition: width 0.4s ease;
 }
@@ -721,7 +730,7 @@
 .fc-modal-btn:active { transform: scale(0.98); }
 
 .fc-modal-btn.primary {
-  background: var(--gold);
+  background: var(--fc-accent);
   color: #0a0900;
 }
 
@@ -984,7 +993,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  background: var(--gold);
+  background: var(--fc-accent);
   border: none;
   border-radius: 6px;
   color: #0a0900;
@@ -1060,8 +1069,8 @@
 }
 
 .fc-streak-widget.fc-streak-active {
-  border-color: rgba(232,172,46,0.4);
-  box-shadow: 0 0 0 3px rgba(232,172,46,0.08);
+  border-color: color-mix(in srgb, var(--fc-accent) 40%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fc-accent) 8%, transparent);
 }
 
 .fc-streak-widget.fc-streak-danger {
@@ -1096,7 +1105,7 @@
   font-family: var(--font-head);
   font-size: 36px;
   font-weight: 800;
-  color: var(--gold);
+  color: var(--fc-accent);
   line-height: 1;
   margin-bottom: 2px;
 }
@@ -1130,4 +1139,403 @@
   .fc-streak-widget { flex-direction: row; gap: 16px; padding: 14px 20px; min-width: unset; width: 100%; }
   .fc-streak-fire   { font-size: 24px; margin-bottom: 0; }
   .fc-streak-count  { font-size: 28px; }
+}
+
+/* ── Mastery bar on deck cards ──────────────────────────────────────────── */
+
+.fc-deck-mastery {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.fc-deck-mastery-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--surface-4, var(--border-xs));
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.fc-deck-mastery-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fc-deck-mastery-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── Card edit button ────────────────────────────────────────────────────── */
+
+.fc-card-face-label {
+  position: absolute;
+  top: 14px;
+  left: 20px;
+  right: 20px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fc-card-edit-btn {
+  background: none;
+  border: none;
+  color: var(--text-4);
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  line-height: 0;
+}
+
+.fc-card:hover .fc-card-edit-btn {
+  opacity: 1;
+}
+
+.fc-card-edit-btn:hover {
+  color: var(--gold);
+  background: rgba(232,172,46,0.1);
+  opacity: 1;
+}
+
+/* ── Edit card modal ─────────────────────────────────────────────────────── */
+
+#fc-edit-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.65);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.fc-edit-modal {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: 14px;
+  padding: 0;
+  width: 100%;
+  max-width: 520px;
+  overflow: hidden;
+  animation: fc-modal-up 0.2s cubic-bezier(0.4,0,0.2,1);
+}
+
+.fc-edit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-xs);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.fc-edit-textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 16px 18px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.fc-edit-textarea:focus {
+  outline: none;
+}
+
+.fc-edit-actions {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-xs);
+  background: var(--surface-1);
+}
+
+.fc-edit-cancel {
+  flex: 1;
+  padding: 10px;
+  background: none;
+  border: 1px solid var(--border-sm);
+  border-radius: 8px;
+  color: var(--text-3);
+  font-family: var(--font-body);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.fc-edit-cancel:hover {
+  background: var(--surface-3, var(--surface-2));
+}
+
+.fc-edit-save {
+  flex: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px;
+  background: var(--teal);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.fc-edit-save:hover { opacity: 0.88; }
+
+/* Make card-area position relative so overlay is contained */
+.fc-card-area {
+  position: relative;
+}
+
+/* ══════════════════════════════════════════════════════════
+   MOBILE — all flashcard responsive overrides
+══════════════════════════════════════════════════════════ */
+
+@media (max-width: 640px) {
+
+  /* ── Layout ─────────────────────────────────────────── */
+  .fc-main          { overflow-x: hidden; }
+  .fc-home-wrap     { padding: 16px 14px 80px; }
+
+  /* ── Hero ───────────────────────────────────────────── */
+  .fc-hero          { margin-bottom: 16px; }
+  .fc-hero-title    { font-size: 20px; }
+  .fc-hero-sub      { font-size: 12px; }
+
+  /* ── Streak widget — compact inline strip ────────────── */
+  .fc-hero-top      { flex-direction: column; gap: 12px; }
+  .fc-streak-widget {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    width: 100%;
+    min-width: unset;
+    border-radius: 10px;
+  }
+  .fc-streak-fire   { font-size: 18px; margin-bottom: 0; }
+  .fc-streak-count  { font-size: 20px; margin-bottom: 0; line-height: 1; }
+  .fc-streak-label  { font-size: 10px; margin-bottom: 0; }
+  .fc-streak-status { font-size: 10px; margin-left: auto; }
+
+  /* ── Generate card ──────────────────────────────────── */
+  .fc-gen-header    { padding: 14px 14px 0; }
+  .fc-gen-body      { padding: 12px 14px 16px; gap: 10px; }
+  .fc-gen-row       { flex-direction: row; gap: 8px; align-items: flex-end; }
+  .fc-gen-row .fc-field:first-child { flex: 1; min-width: 0; }
+  .fc-gen-row .fc-field:last-child  { width: 100px; flex-shrink: 0; }
+  .fc-field label   { font-size: 10px; }
+  .fc-gen-actions   { flex-direction: column; gap: 8px; }
+  .fc-gen-btn       { width: 100%; justify-content: center; }
+  .fc-upload-btn    { width: 100%; justify-content: center; }
+
+  /* ── Deck grid ──────────────────────────────────────── */
+  .fc-deck-grid         { gap: 8px; }
+  .fc-deck-card-inner   { padding: 11px 12px; gap: 8px; }
+  .fc-deck-icon         { width: 30px; height: 30px; flex-shrink: 0; }
+  .fc-deck-name         { font-size: 13px; }
+  .fc-deck-meta         { font-size: 10px; }
+  .fc-deck-start        { padding: 5px 10px; font-size: 11px; }
+  .fc-deck-delete       { opacity: 1; width: 24px; height: 24px; }
+  .fc-deck-mastery      { margin-top: 4px; }
+  .fc-deck-mastery-label{ font-size: 9px; }
+
+  /* ── Section headers ────────────────────────────────── */
+  .fc-section-header { margin-bottom: 10px; }
+  .fc-section-label  { font-size: 9px; }
+
+  /* ── Medical library ────────────────────────────────── */
+  .fc-library-divider   { margin: 20px 0 10px; }
+  .fc-system-toggle     { padding: 10px 12px; }
+  .fc-system-toggle-name{ font-size: 13px; }
+  .fc-deck-grid-sub     { padding: 6px; gap: 6px; }
+
+  /* ── Study topbar ───────────────────────────────────── */
+  .fc-study-topbar      { padding: 10px 12px; gap: 8px; }
+  .fc-progress-meta     { font-size: 10px; }
+  .fc-exit-btn          { font-size: 11px; }
+  .fc-session-info      { display: none; }
+
+  /* ── Card area ──────────────────────────────────────── */
+  .fc-card-area         { padding: 10px 12px 16px; gap: 10px; }
+
+  /* ── Card ───────────────────────────────────────────── */
+  .fc-card              { min-height: 180px; }
+  .fc-card-face         { padding: 24px 16px 16px; min-height: 180px; }
+  .fc-card-text         { font-size: 16px; line-height: 1.4; }
+  .fc-card-flip-hint    { font-size: 10px; margin-top: auto; }
+  .fc-card-face-label   { font-size: 8px; }
+  .fc-pre-flip-hint     { font-size: 11px; }
+
+  /* ── Rating buttons — 3 columns, compact ────────────── */
+  .fc-rating-row    { flex-direction: row; gap: 6px; width: 100%; }
+  .fc-rating-btn    { flex: 1; flex-direction: column; padding: 10px 4px; gap: 2px; border-radius: 8px; min-width: 0; }
+  .fc-rating-icon   { font-size: 16px; }
+  .fc-rating-label  { font-size: 12px; }
+  .fc-rating-sub    { display: none; }
+  .fc-skip-btn      { font-size: 11px; margin-top: 2px; }
+
+  /* ── AI Tutor ───────────────────────────────────────── */
+  .fc-tutor-header  { padding: 8px 12px; }
+  .fc-tutor-title   { font-size: 11px; }
+  .fc-tutor-close   { font-size: 11px; padding: 4px 10px; }
+  .fc-tutor-body    { padding: 12px; max-height: 160px; }
+  .fc-tutor-text    { font-size: 12px; line-height: 1.6; }
+
+  /* ── Completion modal — slides up from bottom ────────── */
+  .fc-modal-overlay { padding: 0; align-items: flex-end; }
+  .fc-modal-card    {
+    max-width: 100%;
+    border-radius: 20px 20px 0 0;
+    padding: 24px 18px 32px;
+  }
+  .fc-modal-emoji   { font-size: 30px; }
+  .fc-modal-title   { font-size: 18px; }
+  .fc-modal-sub     { font-size: 12px; }
+  .fc-modal-stats   { grid-template-columns: repeat(4,1fr); padding: 12px 6px; gap: 4px; }
+  .fc-modal-stat-num{ font-size: 20px; }
+  .fc-modal-stat-label { font-size: 9px; }
+  .fc-modal-btn     { padding: 13px; font-size: 13px; }
+  .fc-modal-srs-note{ font-size: 10px; padding: 7px 10px; }
+
+  /* ── Edit modal — slides up from bottom ─────────────── */
+  #fc-edit-overlay  { padding: 0; align-items: flex-end; }
+  .fc-edit-modal    { border-radius: 16px 16px 0 0; max-width: 100%; }
+  .fc-edit-textarea { min-height: 100px; padding: 14px; }
+}
+
+/* ── Extra small (< 380px) ──────────────────────────────── */
+@media (max-width: 380px) {
+  .fc-hero-title    { font-size: 18px; }
+  .fc-card-text     { font-size: 15px; }
+  .fc-rating-btn    { padding: 9px 2px; }
+  .fc-rating-label  { font-size: 11px; }
+  .fc-modal-stats   { grid-template-columns: repeat(2,1fr); }
+}
+
+/* ── Accent color picker ─────────────────────────────────────────────────── */
+
+.fc-accent-picker {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: 14px;
+  overflow: hidden;
+  animation: fc-tutor-in 0.2s cubic-bezier(0.4,0,0.2,1);
+  margin-bottom: 16px;
+}
+
+.fc-accent-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-xs);
+}
+
+.fc-accent-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border-xs);
+}
+
+.fc-accent-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 14px 10px;
+  background: var(--surface-2);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.fc-accent-swatch:hover:not(.locked) {
+  background: var(--surface-3, var(--surface-1));
+}
+
+.fc-accent-swatch.active {
+  background: color-mix(in srgb, var(--swatch-color) 8%, var(--surface-2));
+}
+
+.fc-accent-swatch.locked {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.fc-accent-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  transition: transform 0.15s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.fc-accent-swatch.active .fc-accent-dot {
+  transform: scale(1.2);
+  box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+}
+
+.fc-accent-swatch:hover:not(.locked) .fc-accent-dot {
+  transform: scale(1.1);
+}
+
+.fc-accent-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.fc-accent-req {
+  font-size: 10px;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+}
+
+.fc-accent-swatch.active .fc-accent-req {
+  color: var(--fc-accent);
+}
+
+@media (max-width: 640px) {
+  .fc-accent-grid { grid-template-columns: repeat(3, 1fr); }
+  .fc-accent-swatch { padding: 12px 8px; }
+  .fc-accent-dot { width: 24px; height: 24px; }
+  .fc-accent-name { font-size: 11px; }
+  .fc-accent-req  { font-size: 9px; }
 }
