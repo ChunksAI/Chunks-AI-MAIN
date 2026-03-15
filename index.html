@@ -5020,14 +5020,14 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     'homeSetInput-text':      (el)    => homeSetInput(el.textContent),
 
     /* ── Flashcards ─────────────────────────────────────── */
-    '_fcFlip':                ()      => window._fcFlip(),
-    '_fcGenerateFromBar':     ()      => window._fcGenerateFromBar(),
-    '_fcRestartDeck':         ()      => window._fcRestartDeck(),
-    '_fcStudyHardOnly':       ()      => window._fcStudyHardOnly(),
-    '_fcCreateNew':           ()      => window._fcCreateNew(),
-    '_fcExitStudy':           ()      => window._fcExitStudy(),
-    '_fcNext-self':           (el)    => window._fcNext(el.dataset.rating),
-    '_fcCloseCompleteModal':  ()      => window._fcCloseCompleteModal(),
+    '_fcFlip':                ()      => _fcFlip(),
+    '_fcGenerateFromBar':     ()      => _fcGenerateFromBar(),
+    '_fcRestartDeck':         ()      => _fcRestartDeck(),
+    '_fcStudyHardOnly':       ()      => _fcStudyHardOnly(),
+    '_fcCreateNew':           ()      => _fcCreateNew(),
+    '_fcExitStudy':           ()      => _fcExitStudy(),
+    '_fcNext-self':           (el)    => _fcNext(el.dataset.rating),
+    '_fcCloseCompleteModal':  ()      => _fcCloseCompleteModal(),
 
     /* ── Research ───────────────────────────────────────── */
     '_researchBackToSetup':   ()      => _researchBackToSetup(),
