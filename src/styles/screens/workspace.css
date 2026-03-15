@@ -531,9 +531,11 @@
 .hc-ai { align-self: stretch; display: flex; gap: 14px; max-width: 100%; }
 .hc-ai-avatar {
   width: 28px; height: 28px; border-radius: 8px;
-  background: var(--gold-muted); border: 1px solid var(--gold-border);
+  background: linear-gradient(135deg,#1a1508,#231538);
+  border: 1px solid rgba(200,168,75,0.3);
   display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; margin-top: 3px; color: var(--gold); font-size: 13px;
+  flex-shrink: 0; margin-top: 3px;
+  overflow: visible;
 }
 .hc-ai-body {
   flex: 1; font-size: var(--chat-font-size); color: var(--text-1);

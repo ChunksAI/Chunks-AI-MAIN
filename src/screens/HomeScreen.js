@@ -258,6 +258,9 @@ const HERO_PHRASES = [
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
+// Shared Chunks orbital logo avatar — used in all AI message bubbles
+const _HOME_AI_AVATAR = `<div class="hc-ai-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#c8a84b" stroke-width="9" opacity="0.95"/><ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#a855f7" stroke-width="9" transform="rotate(60 50 50)" opacity="0.85"/><ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#c8a84b" stroke-width="9" transform="rotate(120 50 50)" opacity="0.75"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg></div>`;
+
 export let homeMode      = 'general';
 export let homeHistory   = [];
 export let _homeSessionId = null;
@@ -552,14 +555,7 @@ export function homeAppendThinking() {
   wrap.className = 'hc-ai';
   wrap.id = 'hc-thinking';
   wrap.innerHTML = `
-    <div class="hc-ai-avatar" style="background:linear-gradient(135deg,#1a1508,#231538);border:1px solid rgba(200,168,75,0.3);overflow:visible;">
-      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14">
-        <ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#c8a84b" stroke-width="9" opacity="0.95"/>
-        <ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#a855f7" stroke-width="9" transform="rotate(60 50 50)" opacity="0.85"/>
-        <ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#c8a84b" stroke-width="9" transform="rotate(120 50 50)" opacity="0.75"/>
-        <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
-      </svg>
-    </div>
+    ${_HOME_AI_AVATAR}
     <div class="hc-ai-body">
       <div style="display:flex;align-items:center;gap:9px;padding:2px 0;">
         <div class="hc-thinking"><span></span><span></span><span></span><span></span><span></span></div>
@@ -592,7 +588,7 @@ export function homeAppendAI(text, sources) {
     </div>`;
   }
   wrap.innerHTML = `
-    <div class="hc-ai-avatar">✦</div>
+    ${_HOME_AI_AVATAR}
     <div class="hc-ai-body">${window.homeMarkdown(text)}${sourceBadge}</div>`;
   document.getElementById('home-chat-history').appendChild(wrap);
   homeScrollBottom();

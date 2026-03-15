@@ -102,6 +102,60 @@ function _applyUI(user) {
   if (adminBtn) adminBtn.style.display = user.isAdmin ? '' : 'none';
 }
 
+// ── Default settings (new users) ─────────────────────────────────────────────
+
+/**
+ * Write default settings to localStorage the very first time a user signs in.
+ * Safe to call on every SIGNED_IN — the `chunks_settings_initialized` guard
+ * ensures defaults are only written once and never overwrite user choices.
+ */
+function _applyDefaultSettings() {
+  try {
+    if (localStorage.getItem('chunks_settings_initialized') === '1') return;
+
+    const defaults = {
+      // General
+      'chunks-chat-font-size':            'medium',
+      'chunks_setting_appearance':        'dark',
+      'chunks_setting_language':          'Auto-detect',
+      'chunks_setting_spoken-language':   'Auto-detect',
+      'chunks_setting_voice':             'Maple',
+      'chunks_setting_separate-voice':    '0',
+
+      // Notifications (study reminders + flashcard alerts on by default)
+      'chunks_setting_notif-study':       '1',
+      'chunks_setting_notif-flashcard':   '1',
+      'chunks_setting_notif-library':     '0',
+      'chunks_setting_notif-updates':     '0',
+
+      // Personalization
+      'chunks_default_book':              'atkins',
+      'chunks_study_mode':                'balanced',
+      'chunks_setting_followups':         '1',
+      'chunks_setting_auto-flash':        '0',
+
+      // Data controls
+      'chunks_improve_data':              '1',
+
+      // Parental controls
+      'chunks_setting_safe-content':      '0',
+    };
+
+    Object.entries(defaults).forEach(([key, value]) => {
+      localStorage.setItem(key, value);
+    });
+
+    // Apply font size CSS var immediately
+    const fontMap = { small: '11px', medium: '13px', large: '15px' };
+    document.documentElement.style.setProperty('--chat-font-size', fontMap['medium']);
+
+    // Mark as initialized so we never overwrite again
+    localStorage.setItem('chunks_settings_initialized', '1');
+  } catch (e) {
+    console.warn('[auth] _applyDefaultSettings failed:', e);
+  }
+}
+
 // ── Session → _currentUser ────────────────────────────────────────────────────
 
 /**
@@ -182,6 +236,9 @@ window._initAuth = async function _initAuth() {
     const { data: { session } } = await sb.auth.getSession();
     window._applyUserProfile(session);
 
+    // Apply default settings for users who haven't been initialized yet
+    if (session?.user) _applyDefaultSettings();
+
     // ── Auth gate ────────────────────────────────────────────────────────
     const isGuest      = sessionStorage.getItem('chunks_guest_mode') === '1';
     const isAuthed     = !!session?.user;
@@ -205,6 +262,9 @@ window._initAuth = async function _initAuth() {
 
     // ── FIX 2: After Google OAuth redirect back, send user to returnTo ──
     if (_event === 'SIGNED_IN') {
+      // Apply default settings for new users (no-op if already initialized)
+      _applyDefaultSettings();
+
       const isLoginPage = window.location.pathname.endsWith('login.html');
       if (isLoginPage) {
         window.location.replace('index.html');
