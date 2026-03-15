@@ -18,15 +18,10 @@ const VT_HTML = `
   <main class="vt-main">
 
     <div class="vt-topbar">
-      <button class="vt-back-btn" data-action="_vtBack">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
-        Back
-      </button>
       <div class="vt-title">
         <div class="vt-live-dot"></div>
         Visual Tutor
       </div>
-      <button class="vt-clear-btn" data-action="_vtClear">Clear canvas</button>
     </div>
 
     <div class="vt-body">
