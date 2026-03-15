@@ -392,9 +392,10 @@ function _clickRecent(item) {
     showScreen('exam');
     setTimeout(() => {
       if (item._snapId && typeof window._examLoadSnap === 'function') {
-        window._examLoadSnap(item._snapId);
+        window._examLoadSnap(item._snapId, item.id);
       } else {
         // No snapshot — pre-fill topic so user can re-run
+        _activeExamRecentId = item.id;
         const topicInput = document.getElementById('exam-topic-input');
         if (topicInput) topicInput.value = item.question?.replace(/\s*\(\d+%\)$/, '') || '';
       }
@@ -3849,6 +3850,7 @@ let _examType        = 'mcq';
 let _examDiff        = 'medium';
 let _examStreakBest  = 0;
 let _examStreakCur   = 0;
+let _activeExamRecentId = null; // tracks sidebar entry for current exam session — retakes update it
 
 function examSelectType(btn) {
   document.querySelectorAll('#exam-type-grid .exam-type-btn').forEach(b => b.classList.remove('active'));
@@ -4748,12 +4750,31 @@ function _examFinish() {
     type: _examType,
     diff: _examDiff
   }));
-  // Add to sidebar recent history
-  recentAdd(_examTopic + ' (' + pct + '%)', null, 'exam');
-  // Store snapId on the most recent exam recent item so _clickRecent can restore it
-  if (_recentItems.length && _recentItems[0].source === 'exam') {
-    _recentItems[0]._snapId = String(_snapId);
-    _saveRecent();
+  // Add to sidebar recent history — reuse existing entry on retake, create new on fresh exam
+  const newLabel = _examTopic + ' (' + pct + '%)';
+  if (_activeExamRecentId) {
+    // Retake — update the existing sidebar item in place (no new entry)
+    const existing = _recentItems.find(r => r.id === _activeExamRecentId);
+    if (existing) {
+      existing.label    = newLabel.length > 32 ? newLabel.slice(0, 32).trimEnd() + '…' : newLabel;
+      existing.question = newLabel;
+      existing._snapId  = String(_snapId);
+      _saveRecent();
+      _renderAllRecent();
+      _setActiveRecent(_activeExamRecentId);
+    } else {
+      // Entry was deleted — fall through to create a new one
+      _activeExamRecentId = null;
+    }
+  }
+  if (!_activeExamRecentId) {
+    // Fresh exam — create new sidebar entry
+    recentAdd(newLabel, null, 'exam');
+    if (_recentItems.length && _recentItems[0].source === 'exam') {
+      _recentItems[0]._snapId = String(_snapId);
+      _activeExamRecentId = _recentItems[0].id;
+      _saveRecent();
+    }
   }
   // Clean up old snapshots beyond 5
   trimmed.forEach((r,i) => { if (i >= 5 && r.id) localStorage.removeItem('exam_snap_' + r.id); });
@@ -4827,7 +4848,7 @@ function _examShowResults() {
   _examShow('exam-results');
 }
 
-function _examLoadSnap(id) {
+function _examLoadSnap(id, recentItemId) {
   if (!id) return;
   const raw = localStorage.getItem('exam_snap_' + id);
   if (!raw) {
@@ -4846,8 +4867,11 @@ function _examLoadSnap(id) {
     _examDiff       = snap.diff || 'medium';
     _examStreakBest = 0;
     _examStreakCur  = 0;
+    // Restore session tracking so a retake updates this sidebar entry
+    if (recentItemId) _activeExamRecentId = recentItemId;
     _examShowResults();
   } catch(e) { _examShow('exam-setup'); }
+}
 }
 
 function examRetry() {
@@ -4861,7 +4885,7 @@ function examRetry() {
   });
   examStart();
 }
-function examNewTopic() { document.getElementById('exam-topic-input').value = ''; _examShow('exam-setup'); }
+function examNewTopic() { _activeExamRecentId = null; document.getElementById('exam-topic-input').value = ''; _examShow('exam-setup'); }
 function examAbort() { clearInterval(_examTimerHandle); _examShow('exam-setup'); }
 
 // Expose for sidebar _clickRecent
