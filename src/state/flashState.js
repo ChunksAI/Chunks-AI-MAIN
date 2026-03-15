@@ -719,6 +719,18 @@ function _fcParseUploadedCards(rawText) {
 
 // ── Generation ────────────────────────────────────────────────────────────────
 
+// ── Settings helpers (study mode, language, safe content) ───────────────────
+function _aiParams(base) {
+  const m = (typeof window._getStudyMode === 'function' ? window._getStudyMode() : null)
+            || localStorage.getItem('chunks_study_mode') || 'balanced';
+  const complexity = m === 'concise' ? Math.max(2, base - 2)
+                   : m === 'detailed' ? Math.min(9, base + 2)
+                   : base;
+  const language    = localStorage.getItem('chunks_setting_language') || 'Auto-detect';
+  const safeContent = localStorage.getItem('chunks_setting_safe-content') === '1';
+  return { complexity, language, safe_content: safeContent };
+}
+
 async function _fcGenerateFromBar() {
   const topicEl = _el('fc-topic-input');
   const countEl = _el('fc-count-input');
@@ -1061,7 +1073,7 @@ Be warm, encouraging, and concise. No bullet points — write naturally like a t
       body: JSON.stringify({
         question:   prompt,
         mode:       'study',
-        complexity: 5,
+        ...(() => { const p = _aiParams(5); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(),
         bookId:     'netter',
       }),
     });

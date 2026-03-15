@@ -308,7 +308,19 @@ export function spHideOverlay() {
 
 // ── Plan generation ────────────────────────────────────────────────────────
 
-export async function spHandleGenerate() {
+export // ── Settings helpers (study mode, language, safe content) ───────────────────
+function _aiParams(base) {
+  const m = (typeof window._getStudyMode === 'function' ? window._getStudyMode() : null)
+            || localStorage.getItem('chunks_study_mode') || 'balanced';
+  const complexity = m === 'concise' ? Math.max(2, base - 2)
+                   : m === 'detailed' ? Math.min(9, base + 2)
+                   : base;
+  const language    = localStorage.getItem('chunks_setting_language') || 'Auto-detect';
+  const safeContent = localStorage.getItem('chunks_setting_safe-content') === '1';
+  return { complexity, language, safe_content: safeContent };
+}
+
+async function spHandleGenerate() {
   if (!spValidateInputs()) return;
 
   let sourceContent = '', sourceName = '', sourceType = _spActiveTab;
@@ -379,7 +391,7 @@ Rules:
   const _spTryGenerate = async () => {
     const response = await fetch(API_BASE + '/ask', {
       method: 'POST', headers: _authHeaders,
-      body: JSON.stringify({ question: fullPrompt, mode: 'generate', complexity: 7, bookId: 'none', history: [] }),
+      body: JSON.stringify({ question: fullPrompt, mode: 'generate', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }),
     });
     if (response.status === 429) throw Object.assign(new Error('Server is busy — please wait a moment and try again.'), { noRetry: true });
     if (response.status >= 500) throw new Error('Server error ' + response.status + ' — please retry.');
@@ -663,7 +675,7 @@ Use **bold** for key terms. Use ### headings to separate sections. Use bullet li
     const resp = await fetch(API_BASE + '/ask', {
       method: 'POST', signal: _explainAbortCtrl.signal,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: prompt, mode: 'study', complexity: 7, bookId: 'none', history: [] }),
+      body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }),
     });
     if (!resp.ok) throw new Error('API error ' + resp.status);
     const data = await resp.json();
@@ -915,7 +927,7 @@ export async function spPqGenerate() {
   const concept = _spDrawerConcept;
   const prompt  = `Generate exactly 5 short-answer practice questions about: "${concept.title}".\n${concept.description ? 'Context: ' + concept.description : ''}\n${concept.keyTerms?.length ? 'Key terms: ' + concept.keyTerms.join(', ') : ''}\n\nRules:\n- Questions should test understanding, not just recall\n- Each should be answerable in 1-3 sentences\n- Vary difficulty: 2 easy, 2 medium, 1 hard\n- Output ONLY a raw JSON array, no markdown:\n[{"question":"...","ideal_answer":"...","key_points":["point1","point2"]}]`;
   try {
-    const res  = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt, mode: 'study', complexity: 6, bookId: 'none', history: [] }) });
+    const res  = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(6); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
     if (!res.ok) throw new Error('Server error ' + res.status);
     const data = await res.json();
     _spPqQuestions = JSON.parse((data.answer || data.response || data.text || '').trim().replace(/```(?:json)?/g,'').trim());
@@ -955,7 +967,7 @@ export async function spPqSubmit() {
   const q = _spPqQuestions[_spPqIndex];
   const prompt = `You are a tutor grading a student's short-answer response.\n\nQuestion: ${q.question}\nIdeal answer covers: ${q.ideal_answer}\nKey points to check: ${(q.key_points || []).join('; ')}\n\nStudent's answer: "${answer}"\n\nGrade the answer and respond ONLY as raw JSON (no markdown):\n{"correct": true/false, "score": 0-100, "feedback": "1-2 sentence explanation of what was right/wrong and the correct answer"}`;
   try {
-    const res    = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt, mode: 'study', complexity: 5, bookId: 'none', history: [] }) });
+    const res    = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(5); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
     const data   = await res.json();
     const result = JSON.parse((data.answer || data.response || data.text || '').trim().replace(/```(?:json)?/g,'').trim());
     if (result.correct || result.score >= 60) _spPqScore++;
@@ -1008,7 +1020,7 @@ export async function spExamGenerate() {
   const concept = _spDrawerConcept;
   const prompt  = `Generate exactly 10 multiple-choice exam questions about: "${concept.title}".\n${concept.description ? 'Context: ' + concept.description : ''}\n${concept.keyTerms?.length ? 'Key terms: ' + concept.keyTerms.join(', ') : ''}\n\nRules:\n- 4 options labeled A-D, one correct answer\n- Mix of easy, medium, and hard questions\n- Test understanding and application, not just definitions\n- Output ONLY a raw JSON array, no markdown:\n[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"1 sentence why this is correct"}]`;
   try {
-    const res  = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt, mode: 'study', complexity: 7, bookId: 'none', history: [] }) });
+    const res  = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
     if (!res.ok) throw new Error('Server error ' + res.status);
     const data = await res.json();
     _spExamQuestions = JSON.parse((data.answer || data.response || data.text || '').trim().replace(/```(?:json)?/g,'').trim());

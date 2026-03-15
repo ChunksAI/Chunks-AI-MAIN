@@ -1626,8 +1626,8 @@ Rules:
       body: JSON.stringify({
         question:   prompt,
         mode:       'study',
-        complexity: 7,
-        bookId:     'none',  // non-existent book = no textbook context injected
+        ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(),
+        bookId:     'none',
         history:    []
       })
     });
@@ -2481,7 +2481,7 @@ Output the paragraph text only. No heading, no label, no preamble.`;
     const resp = await fetch(API_BASE + '/ask', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: prompt, mode: 'study', complexity: 7, bookId: 'none', history: [] })
+      body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
     });
     const data = await resp.json();
     if (!data.success) throw new Error(data.error);
@@ -3110,7 +3110,7 @@ Ignore any textbook context. Output ONLY a raw JSON array — no markdown fences
       body: JSON.stringify({
         question:   searchPrompt,
         mode:       'study',
-        complexity: 5,
+        ...(() => { const p = _aiParams(5); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(),
         bookId:     'none',
         web_search: false,
         history:    []
@@ -3926,7 +3926,7 @@ async function _examCallAPI(prompt, retries = 3) {
     try {
       const resp = await fetch(API_BASE + '/ask', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ question: prompt, mode: 'generate', complexity: 6, bookId: 'none', history: [] })
+        body: JSON.stringify({ question: prompt, mode: 'generate', ...(() => { const p = _aiParams(6); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
       });
       if (resp.status === 429) {
         // Rate limited — wait 2s per attempt before retrying
