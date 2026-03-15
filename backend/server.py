@@ -2559,6 +2559,127 @@ def ask_image():
 
 
 # ============================================
+# ADMIN: VERIFY ACCESS (JWT + role + PIN)
+# ============================================
+
+# Admin PIN hashes are stored server-side only (never sent to client).
+# SHA-256( 'chunks_admin_salt_' + PIN ) — same salt as admin.html used.
+# Set via environment variables: ADMIN_PIN_HASH_<EMAIL_SLUG>
+# e.g. ADMIN_PIN_HASH_OWNER, ADMIN_PIN_HASH_ADMIN1
+# Or fall back to ADMIN_PIN_HASHES as JSON: {"email@x.com": "hexhash..."}
+import json as _json
+import hashlib as _hashlib
+
+def _get_admin_pin_hashes() -> dict:
+    """Load PIN hashes from environment. Never hardcoded."""
+    raw = os.environ.get('ADMIN_PIN_HASHES', '')
+    if raw:
+        try:
+            return _json.loads(raw)
+        except Exception:
+            pass
+    return {}
+
+def _verify_admin_pin(email: str, pin: str) -> bool:
+    """Verify a submitted PIN against the server-side hash."""
+    hashes = _get_admin_pin_hashes()
+    if not hashes:
+        logger.warning('ADMIN_PIN_HASHES env var not set — PIN verification disabled')
+        return False
+    expected = hashes.get(email, '')
+    if not expected:
+        return False
+    salt = 'chunks_admin_salt_'
+    computed = _hashlib.sha256((salt + pin).encode()).hexdigest()
+    # Constant-time comparison
+    return _hashlib.compare_digest(computed, expected)
+
+def _check_admin_role(jwt_token: str) -> tuple:
+    """
+    Verify JWT and check admin role in DB.
+    Returns (user_dict, role_str) or raises on failure.
+    role_str is 'admin', 'owner', 'superadmin' if authorized.
+    """
+    verified = _verify_supabase_jwt(jwt_token)
+    if not verified:
+        return None, None
+
+    user_id = verified.get('id', '')
+    if not user_id or not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return None, None
+
+    try:
+        resp = _session.get(
+            f"{SUPABASE_URL}/rest/v1/users",
+            params={"id": f"eq.{user_id}", "select": "email,role,plan"},
+            headers={
+                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                "apikey": SUPABASE_SERVICE_KEY,
+            },
+            timeout=5
+        )
+        if resp.status_code == 200:
+            rows = resp.json()
+            if rows:
+                role = rows[0].get('role', '')
+                if role in ('admin', 'owner', 'superadmin'):
+                    return verified, role
+    except Exception as e:
+        logger.warning(f'Admin role check failed: {e}')
+
+    return None, None
+
+
+@app.route('/api/admin/verify-access', methods=['POST', 'OPTIONS'])
+def admin_verify_access():
+    """
+    Two-phase admin verification:
+      Phase 1 (pin omitted): verify JWT → check admin role → return role info
+      Phase 2 (pin provided): verify JWT → check admin role → verify PIN
+
+    This keeps admin email list and PIN hashes entirely server-side.
+    The client never receives the list of admin emails or any hash.
+
+    Body: { "pin": "123456" }  (pin optional for phase 1)
+    Returns: { "success": true, "role": "owner"|"admin", "email": "...", "pin_required": false }
+    """
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    jwt_token = auth_header[7:]
+    verified, role = _check_admin_role(jwt_token)
+
+    if not verified or not role:
+        return jsonify({'success': False, 'error': 'Forbidden — not an admin account'}), 403
+
+    email = verified.get('email', '')
+    data = request.get_json(silent=True) or {}
+    pin = data.get('pin', '').strip()
+
+    pin_hashes = _get_admin_pin_hashes()
+
+    # If no PIN hashes configured, skip PIN requirement
+    if not pin_hashes:
+        return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
+
+    # Phase 1: no PIN submitted — tell client PIN is required
+    if not pin:
+        return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': True})
+
+    # Phase 2: PIN submitted — verify it
+    if not _verify_admin_pin(email, pin):
+        logger.warning(f'Admin PIN failed for {email}')
+        return jsonify({'success': False, 'error': 'Incorrect PIN'}), 403
+
+    logger.info(f'Admin verified: {email} ({role})')
+    return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
+
+
+# ============================================
 # ADMIN: OPENROUTER CREDIT USAGE
 # ============================================
 

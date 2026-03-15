@@ -950,8 +950,11 @@ function loadConfig() {
   })();
   return _configPromise;
 }
-const ADMIN_EMAILS=['contridascharles91@gmail.com','deffmichaeldawang@gmail.com'];
-const ROLES={'contridascharles91@gmail.com':'owner','deffmichaeldawang@gmail.com':'admin'};
+// ── Admin emails, roles, and PIN hashes are NEVER stored client-side ─────────
+// The backend /api/admin/verify-access endpoint handles all authentication.
+// After successful verification, the server returns the email + role.
+let _adminEmail = '';   // set by server response after verify-access
+let _adminRole  = '';   // 'owner' | 'admin' — set by server response
 
 let sb=null,allUsers=[],currentFilter='all',sortKey='created_at',sortAsc=false,pendingAction=null,onlineEmails=new Set(),onlineGuestCount=0;
 
@@ -998,38 +1001,45 @@ async function adminSignIn(){
 
 let _adminActive=false,_signingOut=false;
 
-/* ── PIN CONFIG ──────────────────────────────────────────────────────────
-   PINs are stored as SHA-256 hashes so the actual digits never appear
-   in source. To generate: crypto.subtle → hex string (see pinHash below).
-   Default PINs (change these!):
-     owner  → 246810   hash below
-     admin  → 135790   hash below
-   Run in browser console to get your own hash:
-     pinHash('YOUR_PIN').then(console.log)
-──────────────────────────────────────────────────────────────────────── */
-const PIN_HASHES = {
-  'contridascharles91@gmail.com': '30e148ac88a2d339557400d87ee5d5465f8029d2b85c8879f7479d13b058fe2c',
-  'deffmichaeldawang@gmail.com':  '54211e297e77362881702e7848b8469404dffd28ecc6bfe525b3dd4ae82d3414'
-};
+// ── PIN is verified server-side via /api/admin/verify-access ─────────────────
+// No PIN hashes, no admin email list, no role map on the client.
 const PIN_LENGTH = 6;
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 60 * 1000; // 1 minute
-
-async function pinHash(pin) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('chunks_admin_salt_' + pin));
-  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
 
 let _pendingEmail = null;
 let _pinEntry = '';
 let _pinAttempts = 0;
 let _pinLockUntil = 0;
 
-function _enterAdmin(email) {
+async function _enterAdmin(email) {
   _pendingEmail = email;
   // If PIN already verified this session, go straight in
   if (sessionStorage.getItem('chunks_pin_ok') === email) {
     _finalizeAdmin(email); return;
+  }
+  // Ask server if PIN is required for this account
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { showLogin('Session lost — please sign in again.'); return; }
+    const res = await fetch(`${getBackend()}/api/admin/verify-access`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({})
+    });
+    const json = await res.json();
+    if (!json.success) {
+      await _denyUser(email); return;
+    }
+    // Cache role from server response
+    _adminEmail = json.email;
+    _adminRole  = json.role;
+    if (!json.pin_required) {
+      // No PIN configured — go straight in
+      _finalizeAdmin(email); return;
+    }
+  } catch(e) {
+    showLogin('Could not reach server — please refresh.'); return;
   }
   _pinEntry = '';
   _pinAttempts = 0;
@@ -1115,10 +1125,27 @@ function _updatePinDots() {
 
 async function _pinSubmit() {
   if (!_pendingEmail) return;
-  const entered = await pinHash(_pinEntry);
-  const expected = PIN_HASHES[_pendingEmail];
+  // Submit PIN to server — no hash comparison on client
+  let pinCorrect = false;
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { showLogin('Session expired — please sign in again.'); return; }
+    const res = await fetch(`${getBackend()}/api/admin/verify-access`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ pin: _pinEntry })
+    });
+    const json = await res.json();
+    pinCorrect = json.success && !json.pin_required;
+    if (pinCorrect) {
+      _adminEmail = json.email;
+      _adminRole  = json.role;
+    }
+  } catch(e) {
+    // Network error — treat as wrong PIN, let user retry
+  }
 
-  if (entered === expected) {
+  if (pinCorrect) {
     // ✅ Correct
     window.removeEventListener('keydown', _pinKeyHandler);
     sessionStorage.setItem('chunks_pin_ok', _pendingEmail);
@@ -1165,7 +1192,7 @@ function _finalizeAdmin(email) {
   if (_adminActive && document.getElementById('admin-app').style.display === 'block') return;
   _adminActive = true; _signingOut = false;
   const [c1, c2] = avatarColor(email);
-  const role = ROLES[email];
+  const role = _adminRole || 'admin';  // set by server during verify-access
   const rb = role === 'owner'
     ? `<span class="badge b-owner" style="font-size:11px;">👑 Owner</span>`
     : `<span class="badge b-admin" style="font-size:11px;">🛡 Admin</span>`;
@@ -1224,7 +1251,7 @@ async function checkAdminSession(){
       if(!session)return;
       if(hasHash)history.replaceState(null,'',window.location.pathname);
       const email=session.user.email;
-      if(!ADMIN_EMAILS.includes(email)){await _denyUser(email);return;}
+      // Role check is done inside _enterAdmin via /api/admin/verify-access
       _enterAdmin(email);
     }
   });
@@ -1232,7 +1259,6 @@ async function checkAdminSession(){
     const{data:{session}}=await sb.auth.getSession();
     if(session&&session.user){
       const email=session.user.email;
-      if(!ADMIN_EMAILS.includes(email)){await _denyUser(email);return;}
       _enterAdmin(email);
     }else{showLogin();}
   }
@@ -1344,7 +1370,7 @@ async function loadUsers(){
   allUsers=data||[];
   const now=new Date();
   for(const u of allUsers){
-    if(ADMIN_EMAILS.includes(u.email))continue;
+    if(u.role==='owner'||u.role==='admin'||u.role==='superadmin')continue;  // skip admin users in auto-revoke
     if(u.paid&&u.subscription_end&&new Date(u.subscription_end)<now){
       console.log('⏰ Auto-revoking:',u.email);
       await sb.from('users').update({plan:'free',approved:true,paid:false,subscription_start:null,subscription_end:null}).eq('email',u.email);
@@ -1356,7 +1382,7 @@ async function loadUsers(){
 }
 
 function updateStats(){
-  const reg=allUsers.filter(u=>!ADMIN_EMAILS.includes(u.email));
+  const reg=allUsers.filter(u=>u.role!=='owner'&&u.role!=='admin'&&u.role!=='superadmin');
   document.getElementById('stat-total').textContent=reg.length;
   document.getElementById('stat-free').textContent=reg.filter(u=>!u.plan||u.plan==='free').length;
   document.getElementById('stat-pro').textContent=reg.filter(u=>u.plan==='pro').length;
@@ -1391,7 +1417,7 @@ function renderTable(){
   const tbody=document.getElementById('users-tbody');
   if(!rows.length){tbody.innerHTML='<tr><td colspan="6" class="empty-state">No users found.</td></tr>';return;}
   tbody.innerHTML=rows.map(u=>{
-    const plan=u.plan||'free',role=ROLES[u.email];
+    const plan=u.plan||'free',role=(u.role==='owner'||u.role==='admin'||u.role==='superadmin')?u.role:null;
     const[c1,c2]=avatarColor(u.email||'');
     const ini=avatarInit(u.email||'',u.name||'');
     const isOn=onlineEmails.has(u.email);
