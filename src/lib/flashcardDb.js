@@ -207,14 +207,25 @@ export async function fcLoadDecks() {
  * @returns {Promise<Array>}
  */
 export async function fcLoadCards(deck) {
-  if (window.ChunksDB?.isLoggedIn() && deck.id) {
-    const { data, error } = await ChunksDB.get('fc_cards', { eq: { deck_id: deck.id } });
-    if (!error && data?.length) {
-      // Cache cards back into localStorage
-      const decks   = lsGet(FC_LS_KEY, []);
-      const patched = decks.map(d => d.id === deck.id ? { ...d, cards: data } : d);
-      lsSet(FC_LS_KEY, patched);
-      return data;
+  if (deck.id) {
+    try {
+      const sb = await window._getChunksSb?.();
+      if (sb) {
+        // Query directly — bypasses ChunksDB user_id filter so library cards work too
+        const { data, error } = await sb
+          .from('fc_cards')
+          .select('*')
+          .eq('deck_id', deck.id);
+        if (!error && data?.length) {
+          // Cache back into localStorage for offline use
+          const decks   = lsGet(FC_LS_KEY, []);
+          const patched = decks.map(d => d.id === deck.id ? { ...d, cards: data } : d);
+          lsSet(FC_LS_KEY, patched);
+          return data;
+        }
+      }
+    } catch (e) {
+      console.warn('[FlashcardDB] fcLoadCards error:', e.message);
     }
   }
   return deck.cards || [];
