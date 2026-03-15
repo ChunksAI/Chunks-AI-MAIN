@@ -545,6 +545,7 @@ Focus on the key mechanism that makes this concept click. No bullet points — w
         mode: 'study',
         complexity: (() => { const m = window._getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 6; })(),
         language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
+        safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
       }),
     });
     const data = await res.json();

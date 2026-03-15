@@ -602,7 +602,8 @@ export function settingsToggleChanged(checkbox, key) {
   if (key === 'followups') {
     document.querySelectorAll('.followups').forEach(el => { el.style.display = val ? '' : 'none'; });
   }
-  window.wsShowToast?.(val ? '✓' : '✕', `${key.replace(/-/g, ' ')} ${val ? 'enabled' : 'disabled'}`, val ? '' : '');
+  const label = key.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase());
+  window.wsShowToast?.(val ? '✓' : '✕', `${label} ${val ? 'enabled' : 'disabled'}`, val ? '' : '');
 }
 
 export function settingsSelectDefaultBook(optionEl) {

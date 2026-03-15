@@ -432,6 +432,7 @@ export async function incognitoSendMessage() {
         mode: 'general',
         complexity: (() => { const m = window._getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
         language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
+        safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
         history: _incogHistory.slice(-12),
       }),
     });
@@ -686,6 +687,7 @@ export async function homeSendMessage() {
         mode: 'general',
         complexity: (() => { const m = window._getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
         language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
+        safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
         history: homeHistory.slice(-12),
       }),
     });
