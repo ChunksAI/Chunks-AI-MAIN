@@ -2597,14 +2597,17 @@ def _verify_admin_pin(email: str, pin: str) -> bool:
 def _check_admin_role(jwt_token: str) -> tuple:
     """
     Verify JWT and check admin role in DB.
-    Returns (user_dict, role_str) or raises on failure.
-    role_str is 'admin', 'owner', 'superadmin' if authorized.
+    Fallback: ADMIN_EMAILS env var (comma-separated) for bootstrap access
+    before the role column is set in Supabase.
     """
     verified = _verify_supabase_jwt(jwt_token)
     if not verified:
         return None, None
 
+    email   = verified.get('email', '')
     user_id = verified.get('id', '')
+
+    # Primary: role column in users table
     if not user_id or not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         return None, None
 
@@ -2620,6 +2623,18 @@ def _check_admin_role(jwt_token: str) -> tuple:
         )
         if resp.status_code == 200:
             rows = resp.json()
+            if not rows and email:
+                resp2 = _session.get(
+                    f"{SUPABASE_URL}/rest/v1/users",
+                    params={"email": f"eq.{email}", "select": "email,role,plan"},
+                    headers={
+                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                        "apikey": SUPABASE_SERVICE_KEY,
+                    },
+                    timeout=5
+                )
+                if resp2.status_code == 200:
+                    rows = resp2.json()
             if rows:
                 role = rows[0].get('role', '')
                 if role in ('admin', 'owner', 'superadmin'):
