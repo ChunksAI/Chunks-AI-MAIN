@@ -68,6 +68,96 @@ function _fcShowError(msg) {
 
 
 
+
+// ── Card theme system ─────────────────────────────────────────────────────────
+
+const THEME_KEY = 'chunks_fc_theme_v1';
+
+const FC_THEMES = [
+  { id: 'classic',    name: 'Classic',     emoji: '🌑', desc: 'Default dark',      unlocksAt: 0  },
+  { id: 'minimal',    name: 'Minimal',     emoji: '⬛', desc: 'Clean & simple',    unlocksAt: 0  },
+  { id: 'galaxy',     name: 'Galaxy',      emoji: '🌌', desc: 'Deep space vibes',  unlocksAt: 0  },
+  { id: 'gold-elite', name: 'Gold Elite',  emoji: '✨', desc: 'Gold border glow',  unlocksAt: 0  },
+  { id: 'midnight',   name: 'Midnight',    emoji: '🌃', desc: 'Deep blue night',   unlocksAt: 0  },
+];
+
+function _fcGetSavedTheme() {
+  return localStorage.getItem(THEME_KEY) || 'classic';
+}
+
+function _fcApplyTheme(id) {
+  const card = _el('fc-card');
+  if (!card) return;
+  // Remove all theme classes
+  FC_THEMES.forEach(t => card.classList.remove('fc-theme-' + t.id));
+  if (id !== 'classic') card.classList.add('fc-theme-' + id);
+  localStorage.setItem(THEME_KEY, id);
+}
+
+function _fcOpenThemePicker() {
+  const existing = document.getElementById('fc-theme-picker');
+  if (existing) { existing.remove(); return; }
+
+  const savedId = _fcGetSavedTheme();
+  const picker  = document.createElement('div');
+  picker.id = 'fc-theme-picker';
+  picker.className = 'fc-theme-picker';
+  picker.innerHTML = `
+    <div class="fc-accent-picker-header">
+      <span>Card theme</span>
+      <button onclick="document.getElementById('fc-theme-picker').remove()" style="background:none;border:none;color:var(--text-4);cursor:pointer;padding:2px;line-height:0;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="fc-theme-grid">
+      ${FC_THEMES.map(t => `
+        <button class="fc-theme-swatch ${t.id === savedId ? 'active' : ''} fc-theme-preview-${t.id}"
+          onclick="window._fcSelectTheme('${t.id}')">
+          <span class="fc-theme-emoji">${t.emoji}</span>
+          <span class="fc-theme-name">${t.name}</span>
+          <span class="fc-theme-desc">${t.desc}</span>
+          ${t.id === savedId ? '<span class="fc-theme-active-badge">✓</span>' : ''}
+        </button>`).join('')}
+    </div>`;
+
+  const heroTop = document.querySelector('.fc-hero-top');
+  if (heroTop) heroTop.after(picker);
+
+  setTimeout(() => {
+    document.addEventListener('click', function handler(e) {
+      if (!picker.contains(e.target)) {
+        picker.remove();
+        document.removeEventListener('click', handler);
+      }
+    });
+  }, 10);
+}
+
+function _fcSelectTheme(id) {
+  _fcApplyTheme(id);
+  // Re-render picker active state
+  document.querySelectorAll('.fc-theme-swatch').forEach(el => {
+    const isActive = el.classList.contains('fc-theme-preview-' + id);
+    el.classList.toggle('active', isActive);
+    const badge = el.querySelector('.fc-theme-active-badge');
+    if (isActive && !badge) {
+      const b = document.createElement('span');
+      b.className = 'fc-theme-active-badge';
+      b.textContent = '✓';
+      el.appendChild(b);
+    } else if (!isActive && badge) badge.remove();
+  });
+}
+
+// Re-apply theme when study session starts
+function _fcInitTheme() {
+  _fcApplyTheme(_fcGetSavedTheme());
+}
+
+window._fcOpenThemePicker = _fcOpenThemePicker;
+window._fcSelectTheme     = _fcSelectTheme;
+window._fcInitTheme       = _fcInitTheme;
+
 // ── Accent color system ───────────────────────────────────────────────────────
 // Unlocked by streak milestones. Stored in localStorage.
 // Applying changes --fc-accent on :root — one variable changes everything.
@@ -829,6 +919,7 @@ async function _fcStartDeck(deck, hardOnly) {
   _fcCurrentDeckMeta = { id: deck.id, name: deck.name };
 
   _fcShowView('study');
+  _fcInitTheme();
   _fcRenderCard();
 
   const nameEl = _el('fc-deck-name-label');
@@ -1267,6 +1358,7 @@ async function wsMakeFlashcard(el) {
 
 function _fcInit() {
   _fcInitAccent();
+  _fcInitTheme();
   _fcRenderDeckList();
 }
 
