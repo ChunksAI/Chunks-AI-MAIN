@@ -310,7 +310,8 @@ limiter = Limiter(
     storage_uri=_limiter_storage,
     strategy="fixed-window",
     storage_options={"socket_connect_timeout": 2, "socket_timeout": 2},
-    swallow_errors=True   # FIX: Redis hiccups must not crash endpoints with a 500
+    swallow_errors=True,              # FIX: Redis hiccups must not crash endpoints with a 500
+    in_memory_fallback_enabled=True   # FIX: fall back to memory if Redis is unavailable
 )
 
 # ── Upload size limit 25MB ────────────────────────────────────────────────────
@@ -2670,38 +2671,48 @@ def admin_verify_access():
     if request.method == 'OPTIONS':
         return jsonify({}), 200
 
-    auth_header = request.headers.get('Authorization', '')
-    if not auth_header.startswith('Bearer '):
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    try:
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
 
-    jwt_token = auth_header[7:]
-    verified, role = _check_admin_role(jwt_token)
+        jwt_token = auth_header[7:]
+        verified, role = _check_admin_role(jwt_token)
 
-    if not verified or not role:
-        return jsonify({'success': False, 'error': 'Forbidden — not an admin account'}), 403
+        if not verified or not role:
+            return jsonify({'success': False, 'error': 'Forbidden — not an admin account'}), 403
 
-    email = verified.get('email', '')
-    data = request.get_json(silent=True) or {}
-    pin = data.get('pin', '').strip()
+        # FIX: guard against non-dict verified response from Supabase
+        email = (verified.get('email', '') if isinstance(verified, dict) else '')
+        if not email:
+            logger.warning('verify-access: could not extract email from verified token')
+            return jsonify({'success': False, 'error': 'Could not determine account email'}), 403
 
-    # Check if a PIN hash is configured for this email
-    has_pin = bool(_get_pin_hash_for_email(email))
+        data = request.get_json(silent=True) or {}
+        pin = data.get('pin', '').strip()
 
-    # If no PIN configured for this email, skip PIN requirement
-    if not has_pin:
+        # Check if a PIN hash is configured for this email
+        has_pin = bool(_get_pin_hash_for_email(email))
+
+        # If no PIN configured for this email, skip PIN requirement
+        if not has_pin:
+            return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
+
+        # Phase 1: no PIN submitted — tell client PIN is required
+        if not pin:
+            return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': True})
+
+        # Phase 2: PIN submitted — verify it
+        if not _verify_admin_pin(email, pin):
+            logger.warning(f'Admin PIN failed for {email}')
+            return jsonify({'success': False, 'error': 'Incorrect PIN'}), 403
+
+        logger.info(f'Admin verified: {email} ({role})')
         return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
 
-    # Phase 1: no PIN submitted — tell client PIN is required
-    if not pin:
-        return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': True})
-
-    # Phase 2: PIN submitted — verify it
-    if not _verify_admin_pin(email, pin):
-        logger.warning(f'Admin PIN failed for {email}')
-        return jsonify({'success': False, 'error': 'Incorrect PIN'}), 403
-
-    logger.info(f'Admin verified: {email} ({role})')
-    return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
+    except Exception as e:
+        logger.exception(f'verify-access unexpected error: {e}')
+        return jsonify({'success': False, 'error': 'Server error during authentication'}), 500
 
 
 # ============================================
