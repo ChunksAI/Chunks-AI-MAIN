@@ -5029,7 +5029,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     '_fcNext-self':           (el)    => _fcNext(el.dataset.rating),
     '_fcCloseCompleteModal':  ()      => _fcCloseCompleteModal(),
     '_fcOpenThemePicker':     ()      => _fcOpenThemePicker(),
-    '_fcToggleSound':         (el)    => {
+    '_fcToggleSound':         ()      => {
       const muted = _fcSound.toggle();
       const btn = document.getElementById('fc-sound-toggle');
       if (btn) {
