@@ -140,6 +140,9 @@ function _navInit() {
   const last = (() => { try { return sessionStorage.getItem('chunks_last_screen'); } catch(e) { return null; } })();
   const start = last && SCREEN_MAP[last] ? last : 'home';
   document.querySelectorAll('.screen').forEach(s => { s.style.display = 'none'; s.classList.remove('active'); });
+  // On refresh, preserve the state of whatever screen was active —
+  // set the flag so showScreen skips its fresh-nav reset logic
+  if (last && SCREEN_MAP[last]) window._navFromHistory = true;
   showScreen(start);
   const overlay = document.getElementById('mobile-drawer-overlay');
   if (overlay) overlay.addEventListener('click', closeMobileDrawer);
