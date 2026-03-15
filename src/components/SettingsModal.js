@@ -543,7 +543,7 @@ export function applyAccentColor(color) {
   const root = document.documentElement;
   if (!color || color === '#888') {
     ['--gold','--gold-bright','--gold-muted','--gold-glow','--gold-border',
-     '--accent','--accent-dim','--accent-glow'].forEach(v => root.style.removeProperty(v));
+     '--accent','--accent-dim','--accent-glow','--fc-accent'].forEach(v => root.style.removeProperty(v));
   } else {
     const [r, g, b] = _hexToRgb(color);
     root.style.setProperty('--gold',        color);
@@ -554,6 +554,8 @@ export function applyAccentColor(color) {
     root.style.setProperty('--accent',      color);
     root.style.setProperty('--accent-dim',  `rgba(${r},${g},${b},0.12)`);
     root.style.setProperty('--accent-glow', `rgba(${r},${g},${b},0.25)`);
+    // Keep --fc-accent in sync so Flashcards and Visual Tutor respect the accent
+    root.style.setProperty('--fc-accent',   color);
   }
 }
 

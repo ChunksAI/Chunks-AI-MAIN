@@ -3,7 +3,7 @@
    Default: gold. Override on :root to change everything at once.
 ────────────────────────────────────────────────────────────────────────── */
 :root {
-  --fc-accent: #e8ac2e; /* gold — default */
+  --fc-accent: var(--gold, #e8ac2e); /* inherits from Settings accent color */
 }
 
 /* ══════════════════════════════════════════════════════════
