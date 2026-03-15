@@ -306,7 +306,7 @@ function recentAdd(question, bookId, source) {
     id: 'r' + Date.now(),
     label,
     question,
-    bookId: bookId || _wsBookId || '',
+    bookId: (source === 'exam' || source === 'visual') ? '' : (bookId || _wsBookId || ''),
     source: source || (bookId ? 'workspace' : 'general')
   };
   _recentItems.unshift(item);
@@ -348,6 +348,9 @@ function _deleteRecent(id, e) {
   if (item && item.source === 'visual') {
     localStorage.removeItem('chunks_vt_session_' + id);
   }
+  if (item && item.source === 'exam' && item._snapId) {
+    localStorage.removeItem('exam_snap_' + item._snapId);
+  }
 
   // If this was the active chat, reset the UI back to landing
   if (_activeRecentId === id) {
@@ -384,7 +387,19 @@ function _deleteRecent(id, e) {
 
 function _clickRecent(item) {
   _setActiveRecent(item.id);
-  if (item.source === 'visual') {
+  if (item.source === 'exam') {
+    // Exam — navigate to exam screen and restore snapshot
+    showScreen('exam');
+    setTimeout(() => {
+      if (item._snapId && typeof window._examLoadSnap === 'function') {
+        window._examLoadSnap(item._snapId);
+      } else {
+        // No snapshot — pre-fill topic so user can re-run
+        const topicInput = document.getElementById('exam-topic-input');
+        if (topicInput) topicInput.value = item.question?.replace(/\s*\(\d+%\)$/, '') || '';
+      }
+    }, 150);
+  } else if (item.source === 'visual') {
     // Visual Tutor — restore session on visual screen
     showScreen('visual');
     setTimeout(() => {
@@ -558,55 +573,70 @@ function _showRecentCtxMenu(item, e) {
 }
 
 function _renderAllRecent() {
-  const generalItems   = _recentItems.filter(r => r.source === 'general' || (!r.bookId && r.source !== 'visual'));
+  const generalItems   = _recentItems.filter(r => r.source === 'general' || (!r.bookId && r.source !== 'visual' && r.source !== 'exam'));
   const workspaceItems = _recentItems.filter(r => r.source === 'workspace' && r.bookId);
   const visualItems    = _recentItems.filter(r => r.source === 'visual');
+  const examItems      = _recentItems.filter(r => r.source === 'exam');
 
-  // Render general AI history into all sidebars (excluding visual screen which has its own section)
-  ['recent-list-general','recent-list-general-ws','recent-list-general-flash','recent-list-general-research','recent-list-general-exam','recent-list-general-studyplan'].forEach(id => {
-    const container = document.getElementById(id);
-    if (!container) return;
-    container.innerHTML = '';
-    if (!generalItems.length) {
-      container.innerHTML = '<div class="recent-empty">No chats yet</div>';
-      return;
-    }
-    generalItems.forEach(item => container.appendChild(_buildRecentItem(item)));
+  // All General AI list IDs across every screen
+  const generalIds = [
+    'recent-list-general', 'recent-list-general-ws', 'recent-list-general-flash',
+    'recent-list-general-research', 'recent-list-general-exam', 'recent-list-general-studyplan',
+    'recent-list-general-visual',
+  ];
+  generalIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = generalItems.length
+      ? ''
+      : '<div class="recent-empty">No chats yet</div>';
+    generalItems.forEach(item => el.appendChild(_buildRecentItem(item)));
   });
 
-  // Visual screen "General AI" section shows only general items (visual items have their own section below)
-  const generalVisualContainer = document.getElementById('recent-list-general-visual');
-  if (generalVisualContainer) {
-    generalVisualContainer.innerHTML = '';
-    if (!generalItems.length) {
-      generalVisualContainer.innerHTML = '<div class="recent-empty">No chats yet</div>';
-    } else {
-      generalItems.forEach(item => generalVisualContainer.appendChild(_buildRecentItem(item)));
-    }
-  }
-
-  // Render workspace/book history into all sidebars
-  ['recent-list-home','recent-list-workspace','recent-list-flash','recent-list-ws-research','recent-list-ws-exam','recent-list-ws-studyplan'].forEach(id => {
-    const container = document.getElementById(id);
-    if (!container) return;
-    container.innerHTML = '';
-    if (!workspaceItems.length) {
-      container.innerHTML = '<div class="recent-empty">No recent chats yet</div>';
-      return;
-    }
-    workspaceItems.forEach(item => container.appendChild(_buildRecentItem(item)));
+  // All Workspace list IDs across every screen
+  const workspaceIds = [
+    'recent-list-home', 'recent-list-workspace', 'recent-list-flash',
+    'recent-list-ws-research', 'recent-list-ws-exam', 'recent-list-ws-studyplan',
+    'recent-list-ws-visual',
+  ];
+  workspaceIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = workspaceItems.length
+      ? ''
+      : '<div class="recent-empty">No recent chats yet</div>';
+    workspaceItems.forEach(item => el.appendChild(_buildRecentItem(item)));
   });
 
-  // Visual Tutor Chats section (dedicated section on visual screen sidebar)
-  const vtContainer = document.getElementById('recent-list-vt-visual');
-  if (vtContainer) {
-    vtContainer.innerHTML = '';
-    if (!visualItems.length) {
-      vtContainer.innerHTML = '<div class="recent-empty">No visual chats yet</div>';
-    } else {
-      visualItems.forEach(item => vtContainer.appendChild(_buildRecentItem(item)));
-    }
-  }
+  // All Visual Tutor Chats list IDs across every screen
+  const visualIds = [
+    'recent-list-vt-home', 'recent-list-vt-ws', 'recent-list-vt-flash',
+    'recent-list-vt-research', 'recent-list-vt-exam', 'recent-list-vt-studyplan',
+    'recent-list-vt-visual',
+  ];
+  visualIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = visualItems.length
+      ? ''
+      : '<div class="recent-empty">No visual chats yet</div>';
+    visualItems.forEach(item => el.appendChild(_buildRecentItem(item)));
+  });
+
+  // All Exam Chats list IDs across every screen
+  const examIds = [
+    'recent-list-exam-home', 'recent-list-exam-ws', 'recent-list-exam-flash',
+    'recent-list-exam-research', 'recent-list-exam-exam', 'recent-list-exam-studyplan',
+    'recent-list-exam-visual',
+  ];
+  examIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = examItems.length
+      ? ''
+      : '<div class="recent-empty">No exam chats yet</div>';
+    examItems.forEach(item => el.appendChild(_buildRecentItem(item)));
+  });
 }
 
 _renderAllRecent();
@@ -4718,6 +4748,13 @@ function _examFinish() {
     type: _examType,
     diff: _examDiff
   }));
+  // Add to sidebar recent history
+  recentAdd(_examTopic + ' (' + pct + '%)', null, 'exam');
+  // Store snapId on the most recent exam recent item so _clickRecent can restore it
+  if (_recentItems.length && _recentItems[0].source === 'exam') {
+    _recentItems[0]._snapId = String(_snapId);
+    _saveRecent();
+  }
   // Clean up old snapshots beyond 5
   trimmed.forEach((r,i) => { if (i >= 5 && r.id) localStorage.removeItem('exam_snap_' + r.id); });
   _examLoadRecent();
@@ -4826,6 +4863,9 @@ function examRetry() {
 }
 function examNewTopic() { document.getElementById('exam-topic-input').value = ''; _examShow('exam-setup'); }
 function examAbort() { clearInterval(_examTimerHandle); _examShow('exam-setup'); }
+
+// Expose for sidebar _clickRecent
+window._examLoadSnap = _examLoadSnap;
 
 document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 

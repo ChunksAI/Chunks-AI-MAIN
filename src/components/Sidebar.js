@@ -95,13 +95,13 @@ const NAV_ITEMS = [
 // ── Recent list ID map ─────────────────────────────────────────────────────
 
 const RECENT_IDS = {
-  home:      { general: 'recent-list-general',            workspace: 'recent-list-home' },
-  workspace: { general: 'recent-list-general-ws',         workspace: 'recent-list-workspace' },
-  flash:     { general: 'recent-list-general-flash',      workspace: 'recent-list-flash' },
-  research:  { general: 'recent-list-general-research',   workspace: 'recent-list-ws-research' },
-  exam:      { general: 'recent-list-general-exam',       workspace: 'recent-list-ws-exam' },
-  studyplan: { general: 'recent-list-general-studyplan',  workspace: 'recent-list-ws-studyplan' },
-  visual:    { general: 'recent-list-general-visual',     workspace: 'recent-list-ws-visual-unused' },
+  home:      { general: 'recent-list-general',           workspace: 'recent-list-home',          visual: 'recent-list-vt-home',          exam: 'recent-list-exam-home' },
+  workspace: { general: 'recent-list-general-ws',        workspace: 'recent-list-workspace',      visual: 'recent-list-vt-ws',            exam: 'recent-list-exam-ws' },
+  flash:     { general: 'recent-list-general-flash',     workspace: 'recent-list-flash',          visual: 'recent-list-vt-flash',         exam: 'recent-list-exam-flash' },
+  research:  { general: 'recent-list-general-research',  workspace: 'recent-list-ws-research',    visual: 'recent-list-vt-research',      exam: 'recent-list-exam-research' },
+  exam:      { general: 'recent-list-general-exam',      workspace: 'recent-list-ws-exam',        visual: 'recent-list-vt-exam',          exam: 'recent-list-exam-exam' },
+  studyplan: { general: 'recent-list-general-studyplan', workspace: 'recent-list-ws-studyplan',   visual: 'recent-list-vt-studyplan',     exam: 'recent-list-exam-studyplan' },
+  visual:    { general: 'recent-list-general-visual',    workspace: 'recent-list-ws-visual',      visual: 'recent-list-vt-visual',        exam: 'recent-list-exam-visual' },
 };
 
 // ── Component builder ──────────────────────────────────────────────────────
@@ -141,15 +141,6 @@ export function buildSidebar(screen) {
 
   // Screen-specific extra sections
   let extraSections = '';
-
-  if (screen === 'visual') {
-    extraSections = `
-    <div class="sidebar-divider"></div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Visual Tutor Chats</div>
-      <div id="recent-list-vt-visual" class="recent-list"></div>
-    </div>`;
-  }
 
   if (screen === 'flash') {
     extraSections = `
@@ -206,10 +197,18 @@ ${navHTML}
       <div class="sidebar-section-label">General AI</div>
       <div id="${ids.general}" class="recent-list"></div>
     </div>
-    ${screen !== 'visual' ? `<div class="sidebar-section">
+    <div class="sidebar-section">
       <div class="sidebar-section-label">Workspace</div>
       <div id="${ids.workspace}" class="recent-list"></div>
-    </div>` : ''}
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Visual Tutor Chats</div>
+      <div id="${ids.visual}" class="recent-list"></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Exam Chats</div>
+      <div id="${ids.exam}" class="recent-list"></div>
+    </div>
     </nav>
     ${extraSections}
 
