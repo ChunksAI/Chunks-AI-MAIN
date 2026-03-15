@@ -222,16 +222,19 @@ function _fcSelectAccent(id) {
   });
 }
 
-// Apply saved accent on init
+// Apply saved accent on init — just sets the CSS variable
 function _fcInitAccent() {
   _fcApplyAccent(_fcGetSavedAccent());
-  // Make streak widget clickable to open picker
+}
+
+// Called after deck list renders so the widget is in DOM
+function _fcBindAccentWidget() {
   const widget = _el('fc-streak-widget');
-  if (widget) {
-    widget.style.cursor = 'pointer';
-    widget.title = 'Tap to customize accent color';
-    widget.addEventListener('click', _fcOpenAccentPicker);
-  }
+  if (!widget || widget.dataset.accentBound) return;
+  widget.dataset.accentBound = '1';
+  widget.style.cursor = 'pointer';
+  widget.title = 'Tap to change accent color';
+  widget.addEventListener('click', _fcOpenAccentPicker);
 }
 
 window._fcOpenAccentPicker = _fcOpenAccentPicker;
@@ -449,8 +452,9 @@ async function _fcRenderDeckList() {
   window._fcLibraryCache = libraryDecks;
   window._fcMasteryMap   = masteryMap;
 
-  // Render streak widget
+  // Render streak widget then bind accent picker
   _fcRenderStreak();
+  _fcBindAccentWidget();
 
   if (counter) counter.textContent = userDecks.length ? `${userDecks.length} deck${userDecks.length !== 1 ? 's' : ''}` : '';
 
