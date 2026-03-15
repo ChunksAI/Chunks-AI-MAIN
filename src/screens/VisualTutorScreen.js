@@ -603,8 +603,8 @@ window._vtClear = function() {
   const svgEl = document.getElementById('vt-svg');
   if (svgEl) {
     svgEl.innerHTML = `
-      <text x="220" y="155" text-anchor="middle" font-size="14" fill="var(--text-4)" font-family="var(--font-body)">Canvas cleared</text>
-      <text x="220" y="178" text-anchor="middle" font-size="12" fill="var(--text-4)" font-family="var(--font-body)" opacity="0.6">Ask me to explain anything</text>
+      <text x="220" y="155" text-anchor="middle" font-size="14" fill="var(--text-4)" font-family="var(--font-body)">Ask me to explain anything</text>
+      <text x="220" y="178" text-anchor="middle" font-size="12" fill="var(--text-4)" font-family="var(--font-body)" opacity="0.6">I'll draw it here as I explain</text>
     `;
   }
   const dot = document.getElementById('vt-canvas-dot');
@@ -613,7 +613,7 @@ window._vtClear = function() {
   if (topicEl) topicEl.textContent = 'Waiting for a concept...';
   const msgs = document.getElementById('vt-chat-msgs');
   if (msgs) {
-    msgs.innerHTML = `<div class="vt-msg vt-msg-ai"><div class="vt-avatar">AI</div><div class="vt-bubble">Canvas cleared! Ask me to explain anything and I'll draw it here.</div></div>`;
+    msgs.innerHTML = `<div class="vt-msg vt-msg-ai"><div class="vt-avatar">AI</div><div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Try "explain osmosis" or tap a concept on the left.</div></div>`;
   }
   // Clear session so next message starts a fresh recent entry
   _vtSessionId = null;
