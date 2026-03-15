@@ -89,3 +89,43 @@ select:focus-visible {
   white-space: nowrap;
   border: 0;
 }
+
+/* ── Prevent text-cursor on all interactive elements ─────── */
+/* Browsers default to cursor:text for divs/spans with text.
+   Any element with cursor:pointer should also block selection. */
+a, button, label, select,
+[role="button"], [role="tab"], [role="option"],
+[role="menuitem"], [role="listitem"], [tabindex],
+[data-action], [onclick] {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Specific UI elements that are clickable but not <button> */
+.profile-row, .avatar,
+.sidebar-item, .logo-link, .logo-mark,
+.pd-item, .settings-nav-item, .settings-select-option,
+.settings-toggle, .sidebar-section-toggle,
+.recent-item, .followup-item, .source-item,
+.quick-card, .prompt-chip, .tool-chip,
+.fc-deck-card, .fc-card-scene, .fc-system-toggle,
+.exam-option, .exam-src-tab, .exam-scan-card,
+.sp-node-card, .sp-activity-chip, .sp-src-tab,
+.ro-layer, .research-tab, .paper-card,
+.vt-pill, .vt-pill-label,
+.msg-act, .attach-menu-item, .outline-item {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Always allow text selection inside actual content areas */
+.hc-ai-body, .hc-user,
+.ai-text, .ai-body,
+.vt-bubble, .vt-msg-ai .vt-bubble,
+.ws-messages, #home-chat-history,
+.sp-explain-body, #sp-explain-body,
+input, textarea, [contenteditable] {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: auto;
+}
