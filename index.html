@@ -948,14 +948,23 @@ document.addEventListener('keydown', function(e) {
     return;
   }
 
-  // ── Ctrl+K — focus/blur chat input (always works) ────────
+  // ── Ctrl+K — focus/blur active screen chat input (always works, any screen) ────
   if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'k') {
     e.preventDefault();
-    const input = document.getElementById('home-ask-input-bottom') ||
-                  document.getElementById('ws-chat-input') ||
-                  document.getElementById('home-ask-input');
-    if (document.activeElement === input) input?.blur();
-    else input?.focus();
+    const activeScreen = document.querySelector('.screen.active');
+    const input =
+      (activeScreen && (
+        activeScreen.querySelector('textarea:not([style*="display:none"])') ||
+        activeScreen.querySelector('input[type="text"]:not([style*="display:none"])')
+      )) ||
+      document.getElementById('home-ask-input-bottom') ||
+      document.getElementById('ws-chat-input') ||
+      document.getElementById('vt-input') ||
+      document.getElementById('home-ask-input');
+    if (input) {
+      if (document.activeElement === input) input.blur();
+      else input.focus();
+    }
     return;
   }
 
@@ -972,11 +981,10 @@ document.addEventListener('keydown', function(e) {
     return;
   }
 
-  // ── Ctrl+. — toggle sidebar (always works) ───────────────
+  // ── Ctrl+. — toggle sidebar (always works, any screen) ───
   if (e.ctrlKey && !e.shiftKey && e.key === '.') {
     e.preventDefault();
-    const sidebar = document.querySelector('.screen.active .sidebar');
-    if (sidebar) toggleSidebar(sidebar.querySelector('.sidebar-collapse-btn, .sidebar-expand-btn') || sidebar);
+    if (typeof toggleSidebar === 'function') toggleSidebar();
     return;
   }
 
@@ -1010,10 +1018,14 @@ document.addEventListener('keydown', function(e) {
     return;
   }
 
-  // Skip remaining shortcuts while typing
-  if (isTyping) return;
+  // ── Ctrl+Shift+O — new chat (always works, even while typing) ──
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'o') {
+    e.preventDefault();
+    if (typeof newChat === 'function') newChat();
+    return;
+  }
 
-  // ── Ctrl+U — upload file ──────────────────────────────────
+  // ── Ctrl+U — upload file (always works, even while typing) ───
   if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'u') {
     e.preventDefault();
     const activeScreen = document.querySelector('.screen.active');
@@ -1022,6 +1034,10 @@ document.addEventListener('keydown', function(e) {
     else wsShowToast('📎', 'File upload not available here', '');
     return;
   }
+
+  // Skip remaining shortcuts while typing
+  if (isTyping) return;
+
 });
 </script>
 <!-- ── Help Center Modal ── -->

@@ -25,6 +25,12 @@ function showScreen(name) {
   if (target) {
     target.style.display = 'flex';
     target.classList.add('active');
+    // Apply persisted sidebar compact state to this screen's sidebar
+    try {
+      const compact = sessionStorage.getItem('chunks_sidebar_compact') === '1';
+      const sb = target.querySelector('.sidebar');
+      if (sb) sb.classList.toggle('compact', compact);
+    } catch(e) {}
   } else {
     console.warn(`[navigation] screen not found: ${id}`);
     const home = document.getElementById('screen-home');
@@ -67,9 +73,35 @@ function closeMobileDrawer() {
 }
 
 function toggleSidebar(el) {
-  const sidebar = document.querySelector('.screen.active .sidebar') || document.querySelector('.sidebar');
-  if (sidebar) sidebar.classList.toggle('collapsed');
+  // Determine target sidebar — prefer the active screen's sidebar
+  const activeSidebar = document.querySelector('.screen.active .sidebar');
+  if (!activeSidebar) return;
+
+  const willCollapse = !activeSidebar.classList.contains('compact');
+
+  // Apply to ALL sidebars so state is consistent when switching screens
+  document.querySelectorAll('.sidebar').forEach(sb => {
+    sb.classList.toggle('compact', willCollapse);
+  });
+
+  // Persist so state survives screen switches
+  try { sessionStorage.setItem('chunks_sidebar_compact', willCollapse ? '1' : '0'); } catch(e) {}
 }
+
+// Restore sidebar compact state on page load
+(function _restoreSidebarState() {
+  try {
+    const compact = sessionStorage.getItem('chunks_sidebar_compact') === '1';
+    if (!compact) return;
+    // Run after DOM is ready — sidebars may not exist yet at parse time
+    const apply = () => document.querySelectorAll('.sidebar').forEach(sb => sb.classList.add('compact'));
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', apply);
+    } else {
+      apply();
+    }
+  } catch(e) {}
+})();
 
 function handleLogoClick() { showScreen('home'); }
 
