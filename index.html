@@ -5134,7 +5134,15 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
     /* ── Sidebar / sidebar-self ─────────────────────────── */
     'toggleSidebar-self':     (el)    => toggleSidebar(el),
-    'handleLogoClick-self':   (el)    => handleLogoClick(el),
+    'handleLogoClick-self':   (el)    => {
+      // If sidebar is compact, expand it; otherwise go home
+      const sidebar = el.closest('.sidebar');
+      if (sidebar && sidebar.classList.contains('compact')) {
+        toggleSidebar(el);
+      } else {
+        handleLogoClick(el);
+      }
+    },
     'toggleHistorySection-self': (el) => {
       const sectionId = el.dataset.section;
       // Toggle all instances of this section across all sidebars
