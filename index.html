@@ -4893,6 +4893,12 @@ function examAbort() { clearInterval(_examTimerHandle); _examShow('exam-setup');
 
 // Expose for sidebar _clickRecent
 window._examLoadSnap = _examLoadSnap;
+window._examShow     = _examShow;
+Object.defineProperty(window, '_activeExamRecentId', {
+  get: () => _activeExamRecentId,
+  set: v  => { _activeExamRecentId = v; },
+  configurable: true,
+});
 
 // Expose exam PDF upload handlers so ExamScreen.js inline handlers can call them
 window.examSrcTab         = examSrcTab;

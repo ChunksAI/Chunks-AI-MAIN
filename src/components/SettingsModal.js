@@ -636,30 +636,63 @@ export function clearAllHistory() {
     desc:         'This will permanently delete all saved conversations and cannot be undone.',
     confirmLabel: 'Confirm deletion',
     onConfirm: () => {
+      // ── Clear all history keys from localStorage ──────────
       Object.keys(localStorage).filter(k =>
-        k.startsWith('chunks_session_') || k.startsWith('chunks_ws_session_') ||
-        k === 'chunks_recent' || k === 'chunks_active_home_session' ||
-        k === 'chunks_active_ws_book' || k === 'chunks_active_recent_id' ||
-        k === 'chunks_home_session'
+        k.startsWith('chunks_session_') ||
+        k.startsWith('chunks_ws_session_') ||
+        k.startsWith('chunks_vt_session_') ||
+        k.startsWith('exam_snap_') ||
+        k === 'chunks_recent' ||
+        k === 'chunks_active_home_session' ||
+        k === 'chunks_active_ws_book' ||
+        k === 'chunks_active_recent_id' ||
+        k === 'chunks_home_session' ||
+        k === 'chunks_active_vt_session' ||
+        k === 'exam_recent'
       ).forEach(k => localStorage.removeItem(k));
 
-      if (window._recentItems !== undefined)   window._recentItems   = [];
+      // ── Reset in-memory state via window bridges ──────────
+      // _recentItems is a live getter — clear via _saveRecent pattern
+      if (Array.isArray(window._recentItems)) window._recentItems.length = 0;
       if (window._activeRecentId !== undefined) window._activeRecentId = null;
       if (window.homeHistory !== undefined)     window.homeHistory    = [];
       if (window._homeSessionId !== undefined)  window._homeSessionId = null;
       if (window._wsChatHistory !== undefined)  window._wsChatHistory = [];
+      if (window._activeExamRecentId !== undefined) window._activeExamRecentId = null;
+
+      // ── Re-render sidebar history (all sections show empty) ─
       window._renderAllRecent?.();
 
-      const chatHist   = document.getElementById('home-chat-history');
-      const homeLanding= document.getElementById('home-landing');
-      const homeHero   = document.querySelector('.home-hero');
-      const homeBar    = document.getElementById('home-input-bar');
-      const homeScroll = document.getElementById('home-scroll-area');
-      if (chatHist)   chatHist.innerHTML = '';
+      // ── Reset Home screen to landing ──────────────────────
+      const chatHist    = document.getElementById('home-chat-history');
+      const homeLanding = document.getElementById('home-landing');
+      const homeHero    = document.querySelector('.home-hero');
+      const homeBar     = document.getElementById('home-input-bar');
+      const homeScroll  = document.getElementById('home-scroll-area');
+      if (chatHist)    chatHist.innerHTML = '';
       if (homeLanding) homeLanding.style.display = '';
-      if (homeHero)   homeHero.style.display = '';
-      if (homeBar)    homeBar.style.display = 'none';
-      if (homeScroll) homeScroll.style.justifyContent = 'center';
+      if (homeHero)    homeHero.style.display = '';
+      if (homeBar)     homeBar.style.display = 'none';
+      if (homeScroll)  homeScroll.style.justifyContent = 'center';
+
+      // ── Reset Workspace messages ──────────────────────────
+      const wsMsgs = document.getElementById('ws-messages');
+      if (wsMsgs) wsMsgs.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div>
+        </div>`;
+
+      // ── Reset Visual Tutor to blank canvas ────────────────
+      if (typeof window._vtClear === 'function') window._vtClear();
+
+      // ── Reset Exam to setup view ──────────────────────────
+      if (typeof window._examShow === 'function') window._examShow('exam-setup');
+      const examTopicInput = document.getElementById('exam-topic-input');
+      if (examTopicInput) examTopicInput.value = '';
+      // Clear exam recent list in the exam screen sidebar
+      const examRecentList = document.getElementById('exam-recent-list');
+      if (examRecentList) examRecentList.innerHTML = '<div style="padding:8px 12px;font-size:11px;color:var(--text-4);">No exams yet</div>';
 
       closeSettings();
       setTimeout(() => window.showSimpleNotif?.('Chat history cleared'), 200);
