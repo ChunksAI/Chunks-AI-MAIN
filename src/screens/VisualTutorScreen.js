@@ -543,7 +543,8 @@ async function _vtAskAI(q) {
 Explain the concept clearly in 3-4 sentences. Be concrete and use vivid analogies.
 Focus on the key mechanism that makes this concept click. No bullet points — write as a natural explanation.`,
         mode: 'study',
-        complexity: 6,
+        complexity: (() => { const m = window._getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 6; })(),
+        language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
       }),
     });
     const data = await res.json();

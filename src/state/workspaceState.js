@@ -758,7 +758,7 @@ export async function _wsAsk(question) {
     const res = await fetch(`${API_BASE}/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, bookId: _wsBookId || 'atkins', mode, complexity, history: _wsChatHistory.slice(-10) }),
+      body: JSON.stringify({ question, bookId: _wsBookId || 'atkins', mode, complexity, language: localStorage.getItem('chunks_setting_language') || 'Auto-detect', history: _wsChatHistory.slice(-10) }),
     });
     wsRemoveThinking();
     if (!res.ok) {

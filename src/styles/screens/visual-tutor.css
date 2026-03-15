@@ -218,7 +218,7 @@
 }
 
 .vt-bubble {
-  font-size: 13px;
+  font-size: var(--chat-font-size);
   line-height: 1.65;
   color: var(--text-1);
   background: var(--surface-2);
@@ -233,7 +233,7 @@
   color: #0a0900;
   border-color: var(--fc-accent, #e8ac2e);
   border-radius: 12px 4px 12px 12px;
-  font-size: 12px;
+  font-size: var(--chat-font-size);
 }
 
 /* ── Chat input ──────────────────────────────────────────────────────────── */

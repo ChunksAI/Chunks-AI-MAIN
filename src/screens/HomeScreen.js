@@ -430,7 +430,8 @@ export async function incognitoSendMessage() {
         question,
         bookId: '',
         mode: 'general',
-        complexity: 5,
+        complexity: (() => { const m = window._getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
+        language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
         history: _incogHistory.slice(-12),
       }),
     });
@@ -683,7 +684,8 @@ export async function homeSendMessage() {
         question,
         bookId: '',
         mode: 'general',
-        complexity: 5,
+        complexity: (() => { const m = window._getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
+        language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
         history: homeHistory.slice(-12),
       }),
     });

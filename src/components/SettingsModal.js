@@ -95,6 +95,9 @@ const SETTINGS_MODAL_HTML = `
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
             </div>
             <div class="settings-select-menu" role="listbox" data-setting-key="appearance">
+              <div class="settings-select-option selected" data-action="settingsSelect-self" data-appearance="dark">Dark</div>
+              <div class="settings-select-option" data-action="settingsSelect-self" data-appearance="system" style="opacity:0.45;pointer-events:none;">System <span style="font-size:10px;color:var(--text-4);">(soon)</span></div>
+              <div class="settings-select-option" data-action="settingsSelect-self" data-appearance="light" style="opacity:0.45;pointer-events:none;">Light <span style="font-size:10px;color:var(--text-4);">(soon)</span></div>
             </div>
           </div>
         </div>
@@ -197,19 +200,19 @@ const SETTINGS_MODAL_HTML = `
         <div class="settings-page-title">Notifications</div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Study reminders</div><div class="settings-row-desc">Get reminded to study at your scheduled times.</div></div>
-          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-notif-study" checked onchange="settingsToggleChanged(this,'notif-study')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Flashcard review alerts</div><div class="settings-row-desc">Be notified when cards are due for review.</div></div>
-          <label class="settings-toggle"><input type="checkbox" checked><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-notif-flashcard" checked onchange="settingsToggleChanged(this,'notif-flashcard')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">New library books</div><div class="settings-row-desc">Get notified when new textbooks are added.</div></div>
-          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-notif-library" onchange="settingsToggleChanged(this,'notif-library')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Product updates</div><div class="settings-row-desc">Feature announcements and improvements.</div></div>
-          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-notif-updates" onchange="settingsToggleChanged(this,'notif-updates')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
       </div>
 
@@ -295,15 +298,15 @@ const SETTINGS_MODAL_HTML = `
         <div class="settings-page-title">Security</div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Two-factor authentication</div><div class="settings-row-desc">Add an extra layer of security to your account.</div></div>
-          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <div style="font-size:11px;color:var(--text-4);padding:6px 12px;background:var(--surface-3);border-radius:var(--r-pill);border:1px solid var(--border-xs);">Coming soon</div>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Active sessions</div><div class="settings-row-desc">View and manage devices logged into your account.</div></div>
-          <div class="settings-select" style="color:var(--text-3);cursor:default;">1 device</div>
+          <div style="font-size:13px;color:var(--text-3);">1 device</div>
         </div>
         <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Change password</div></div>
-          <button style="padding:6px 14px;border-radius:var(--r-sm);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-family:var(--font-body);cursor:pointer;">Update</button>
+          <div class="settings-row-left"><div class="settings-row-label">Change password</div><div class="settings-row-desc">Send a password reset link to your email.</div></div>
+          <button id="settings-change-password-btn" onclick="settingsChangePassword()" style="padding:6px 14px;border-radius:var(--r-sm);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Send reset link</button>
         </div>
       </div>
 
@@ -311,12 +314,12 @@ const SETTINGS_MODAL_HTML = `
       <div class="settings-page" id="settings-page-parental">
         <div class="settings-page-title">Parental controls</div>
         <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Safe content mode</div><div class="settings-row-desc">Restrict content to age-appropriate study material.</div></div>
-          <label class="settings-toggle"><input type="checkbox"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
+          <div class="settings-row-left"><div class="settings-row-label">Safe content mode</div><div class="settings-row-desc">Restrict AI responses to age-appropriate study material only.</div></div>
+          <label class="settings-toggle"><input type="checkbox" id="toggle-safe-content" onchange="settingsToggleChanged(this,'safe-content')"><div class="settings-toggle-track"></div><div class="settings-toggle-thumb"></div></label>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Set a PIN</div><div class="settings-row-desc">Protect settings with a PIN code.</div></div>
-          <button style="padding:6px 14px;border-radius:var(--r-sm);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-family:var(--font-body);cursor:pointer;">Set PIN</button>
+          <div style="font-size:11px;color:var(--text-4);padding:6px 12px;background:var(--surface-3);border-radius:var(--r-pill);border:1px solid var(--border-xs);">Coming soon</div>
         </div>
       </div>
 
@@ -325,22 +328,22 @@ const SETTINGS_MODAL_HTML = `
         <div class="settings-page-title">Account</div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Name</div></div>
-          <div style="font-size:13px;color:var(--text-2);">Charles Daryll Contridas</div>
+          <div id="settings-account-name" style="font-size:13px;color:var(--text-2);">—</div>
         </div>
         <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Username</div></div>
-          <div style="font-size:13px;color:var(--text-2);font-family:var(--font-mono);">@contridascharles91</div>
+          <div class="settings-row-left"><div class="settings-row-label">Email</div></div>
+          <div id="settings-account-email" style="font-size:13px;color:var(--text-2);font-family:var(--font-mono);">—</div>
         </div>
         <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Plan</div><div class="settings-row-desc">Upgrade to unlock more features.</div></div>
+          <div class="settings-row-left"><div class="settings-row-label">Plan</div><div class="settings-row-desc">Upgrade to unlock unlimited messages and all textbooks.</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:12px;color:var(--text-3);">Free</span>
+            <span id="settings-account-plan" style="font-size:12px;color:var(--text-3);">Free</span>
             <button onclick="closeSettings();openUpgradeModal()" style="padding:5px 12px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Upgrade</button>
           </div>
         </div>
         <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label" style="color:var(--red);">Delete account</div><div class="settings-row-desc">Permanently delete your account and all data.</div></div>
-          <button style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;">Delete</button>
+          <div class="settings-row-left"><div class="settings-row-label" style="color:var(--red);">Delete account</div><div class="settings-row-desc">Permanently delete your account and all data. This cannot be undone.</div></div>
+          <button onclick="settingsDeleteAccount()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Delete</button>
         </div>
       </div>
 
@@ -377,6 +380,19 @@ export function openSettings(page) {
   const modal = document.getElementById('settings-modal');
   if (!modal) return;
   modal.classList.add('active');
+
+  // ── Populate account with live user data ──────────────
+  const user = window._currentUser;
+  const nameEl  = document.getElementById('settings-account-name');
+  const emailEl = document.getElementById('settings-account-email');
+  const planEl  = document.getElementById('settings-account-plan');
+  if (nameEl)  nameEl.textContent  = user?.name  || user?.email?.split('@')[0] || '—';
+  if (emailEl) emailEl.textContent = user?.email || '—';
+  if (planEl) {
+    const plan = user?.plan || 'free';
+    planEl.textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
+    planEl.style.color = plan === 'free' ? 'var(--text-3)' : 'var(--gold)';
+  }
 
   if (page) {
     const navItems = modal.querySelectorAll('.settings-nav-item');
@@ -836,20 +852,24 @@ function _restoreDataToggles() {
   // Save history is always on — ensure the toggle reflects that
   const saveHistoryEl = document.getElementById('toggle-save-history');
   if (saveHistoryEl) saveHistoryEl.checked = true;
-  localStorage.removeItem('chunks_save_history'); // clean up any stale '0' value
+  localStorage.removeItem('chunks_save_history');
 
-  if (localStorage.getItem('chunks_improve_data') === '0') {
-    const el = document.getElementById('toggle-improve-data');
-    if (el) el.checked = false;
-  }
-  if (localStorage.getItem('chunks_setting_followups') === '0') {
-    const el = document.getElementById('toggle-followups');
-    if (el) el.checked = false;
-  }
-  if (localStorage.getItem('chunks_setting_auto-flash') === '1') {
-    const el = document.getElementById('toggle-auto-flash');
-    if (el) el.checked = true;
-  }
+  const toggleMap = {
+    'toggle-improve-data':    { key: 'chunks_improve_data',         default: '1' },
+    'toggle-followups':       { key: 'chunks_setting_followups',    default: '1' },
+    'toggle-auto-flash':      { key: 'chunks_setting_auto-flash',   default: '0' },
+    'toggle-notif-study':     { key: 'chunks_setting_notif-study',  default: '1' },
+    'toggle-notif-flashcard': { key: 'chunks_setting_notif-flashcard', default: '1' },
+    'toggle-notif-library':   { key: 'chunks_setting_notif-library',default: '0' },
+    'toggle-notif-updates':   { key: 'chunks_setting_notif-updates',default: '0' },
+    'toggle-safe-content':    { key: 'chunks_setting_safe-content', default: '0' },
+  };
+  Object.entries(toggleMap).forEach(([id, { key, default: def }]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const stored = localStorage.getItem(key);
+    el.checked = stored !== null ? stored === '1' : def === '1';
+  });
 }
 
 // ── ARIA init for dropdowns ───────────────────────────────────────────────────
@@ -871,6 +891,50 @@ function _initDropdownAria() {
       btn.addEventListener('keydown', function (e) {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); settingsDropdown(this); }
       });
+    }
+  });
+}
+
+// ── Security actions ──────────────────────────────────────────────────────────
+
+export async function settingsChangePassword() {
+  const btn   = document.getElementById('settings-change-password-btn');
+  const email = window._currentUser?.email;
+  if (!email) { window.wsShowToast?.('⚠', 'No account email found', ''); return; }
+
+  if (btn) { btn.textContent = 'Sending…'; btn.disabled = true; }
+  try {
+    const sb = window._getChunksSb?.();
+    if (sb) {
+      const { error } = await sb.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/login.html',
+      });
+      if (error) throw error;
+    }
+    window.wsShowToast?.('📧', `Reset link sent to ${email}`, '');
+  } catch (e) {
+    window.wsShowToast?.('⚠', e.message || 'Failed to send reset link', '');
+  } finally {
+    if (btn) { btn.textContent = 'Send reset link'; btn.disabled = false; }
+  }
+}
+
+export function settingsDeleteAccount() {
+  window.showConfirmModal?.({
+    title: 'Delete your account?',
+    desc: 'This will permanently delete your account and all data. This cannot be undone.',
+    confirmLabel: 'Delete account',
+    onConfirm: async () => {
+      try {
+        const sb = window._getChunksSb?.();
+        if (sb) await sb.auth.signOut();
+        // Clear all local data
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.replace('login.html');
+      } catch (e) {
+        window.wsShowToast?.('⚠', 'Could not delete account — contact support', '');
+      }
     }
   });
 }
@@ -897,3 +961,5 @@ window.dataToggleSaveHistory     = dataToggleSaveHistory;
 window.dataToggleImprove         = dataToggleImprove;
 window.clearAllHistory           = clearAllHistory;
 window.clearPdfCache             = clearPdfCache;
+window.settingsChangePassword    = settingsChangePassword;
+window.settingsDeleteAccount     = settingsDeleteAccount;
