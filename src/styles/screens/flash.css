@@ -1539,3 +1539,130 @@
   .fc-accent-name   { font-size: 11px; }
   .fc-accent-req    { font-size: 9px; }
 }
+
+/* ── Card themes ─────────────────────────────────────────────────────────── */
+
+/* Classic Dark — default, no class needed */
+
+/* Minimal — clean near-white card */
+.fc-theme-minimal .fc-card-front,
+.fc-theme-minimal .fc-card-back {
+  background: #1a1a1f;
+  border-color: rgba(255,255,255,0.06);
+}
+.fc-theme-minimal .fc-card-text { letter-spacing: 0.01em; }
+
+/* Galaxy — deep space with starfield shimmer */
+.fc-theme-galaxy .fc-card-front {
+  background: linear-gradient(135deg, #0d0d1a 0%, #0a0a2e 50%, #0d0d1a 100%);
+  border-color: rgba(100,80,255,0.25);
+  box-shadow: 0 0 0 1px rgba(100,80,255,0.1), inset 0 0 60px rgba(60,40,200,0.08);
+}
+.fc-theme-galaxy .fc-card-back {
+  background: linear-gradient(135deg, #0a0a2e 0%, #0d0d1a 50%, #120820 100%);
+  border-color: rgba(150,100,255,0.3);
+  box-shadow: 0 0 0 1px rgba(150,100,255,0.12), inset 0 0 60px rgba(100,60,220,0.1);
+  transform: rotateY(180deg);
+}
+.fc-theme-galaxy .fc-card-text { color: #e8e0ff; }
+.fc-theme-galaxy .fc-card-face-label { color: rgba(180,160,255,0.5); }
+.fc-theme-galaxy::before {
+  content: '✦ ✧ ✦ ✧ ✦';
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  font-size: 8px;
+  color: rgba(180,160,255,0.3);
+  letter-spacing: 4px;
+  pointer-events: none;
+}
+
+/* Gold Elite — gold border glow */
+.fc-theme-gold-elite .fc-card-front {
+  background: linear-gradient(160deg, var(--surface-2) 0%, rgba(232,172,46,0.06) 100%);
+  border-color: rgba(232,172,46,0.35);
+  box-shadow: 0 0 0 1px rgba(232,172,46,0.15), 0 4px 24px rgba(232,172,46,0.08);
+}
+.fc-theme-gold-elite .fc-card-back {
+  background: linear-gradient(160deg, rgba(232,172,46,0.06) 0%, var(--surface-2) 100%);
+  border-color: rgba(232,172,46,0.4);
+  box-shadow: 0 0 0 1px rgba(232,172,46,0.2), 0 4px 24px rgba(232,172,46,0.1);
+  transform: rotateY(180deg);
+}
+.fc-theme-gold-elite .fc-card-text { color: var(--text-1); }
+
+/* Midnight — near-black with subtle blue edge */
+.fc-theme-midnight .fc-card-front {
+  background: linear-gradient(135deg, #080c14 0%, #0c1220 100%);
+  border-color: rgba(50,100,200,0.2);
+  box-shadow: inset 0 0 40px rgba(20,60,160,0.06);
+}
+.fc-theme-midnight .fc-card-back {
+  background: linear-gradient(135deg, #0c1220 0%, #080c14 100%);
+  border-color: rgba(50,100,200,0.25);
+  transform: rotateY(180deg);
+}
+.fc-theme-midnight .fc-card-text { color: #c8d8f0; }
+
+/* ── Theme picker ────────────────────────────────────────────────────────── */
+
+.fc-theme-picker {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 420px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: 14px;
+  overflow: hidden;
+  animation: fc-tutor-in 0.2s cubic-bezier(0.4,0,0.2,1);
+  z-index: 300;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+}
+
+.fc-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1px;
+  background: var(--border-xs);
+}
+
+.fc-theme-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 6px;
+  background: var(--surface-2);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+}
+
+.fc-theme-swatch:hover { background: var(--surface-3, var(--surface-1)); }
+.fc-theme-swatch.active { background: color-mix(in srgb, var(--fc-accent) 8%, var(--surface-2)); }
+
+.fc-theme-emoji { font-size: 20px; line-height: 1; }
+.fc-theme-name  { font-size: 11px; font-weight: 700; color: var(--text-1); }
+.fc-theme-desc  { font-size: 9px; color: var(--text-4); text-align: center; line-height: 1.3; }
+
+.fc-theme-active-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 9px;
+  color: var(--fc-accent);
+  font-weight: 800;
+}
+
+/* Theme previews in picker */
+.fc-theme-preview-galaxy     { background: linear-gradient(135deg, #0d0d1a, #0a0a2e) !important; }
+.fc-theme-preview-galaxy .fc-theme-name,
+.fc-theme-preview-galaxy .fc-theme-emoji { filter: none; }
+.fc-theme-preview-gold-elite { background: linear-gradient(135deg, var(--surface-2), rgba(232,172,46,0.08)) !important; border-top: 2px solid rgba(232,172,46,0.3) !important; }
+.fc-theme-preview-midnight   { background: linear-gradient(135deg, #080c14, #0c1220) !important; }
+.fc-theme-preview-midnight .fc-theme-name { color: #c8d8f0 !important; }
+.fc-theme-preview-minimal    { background: #1a1a1f !important; }
