@@ -1704,3 +1704,24 @@
   .fc-topbar-btn { padding: 5px 8px; font-size: 10px; gap: 4px; }
   .fc-topbar-btn svg { width: 13px; height: 13px; }
 }
+
+/* ── Visual Tutor button in AI panel ────────────────────────────────────── */
+.fc-visual-tutor-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface-3, var(--surface-2));
+  border: 1px solid var(--border-xs);
+  border-radius: 6px;
+  color: var(--text-3);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.fc-visual-tutor-btn:hover {
+  background: var(--surface-4, var(--border-xs));
+  color: var(--text-1);
+}
