@@ -192,10 +192,17 @@ function _fcOpenAccentPicker() {
     </div>
   `;
 
-  // Insert after streak widget
+  // Insert inside a wrapper so position:absolute works correctly
   const widget = _el('fc-streak-widget');
-  if (widget) widget.after(picker);
-  else document.querySelector('.fc-hero')?.appendChild(picker);
+  // Insert below fc-hero-top at full width
+  const heroTop = document.querySelector('.fc-hero-top');
+  if (heroTop) {
+    heroTop.after(picker);
+  } else if (widget) {
+    widget.after(picker);
+  } else {
+    document.querySelector('.fc-hero')?.appendChild(picker);
+  }
 
   // Close on outside click
   setTimeout(() => {
