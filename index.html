@@ -5128,6 +5128,16 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     /* ── Sidebar / sidebar-self ─────────────────────────── */
     'toggleSidebar-self':     (el)    => toggleSidebar(el),
     'handleLogoClick-self':   (el)    => handleLogoClick(el),
+    'toggleHistorySection-self': (el) => {
+      const sectionId = el.dataset.section;
+      // Toggle all instances of this section across all sidebars
+      document.querySelectorAll('#' + sectionId).forEach(sec => {
+        sec.classList.toggle('collapsed');
+      });
+      // Persist state
+      const isCollapsed = document.getElementById(sectionId)?.classList.contains('collapsed');
+      try { sessionStorage.setItem('hist_collapsed_' + sectionId, isCollapsed ? '1' : '0'); } catch(e) {}
+    },
 
     /* ── showScreen ─────────────────────────────────────── */
     'showScreen':             (el)    => showScreen(el.dataset.screen),

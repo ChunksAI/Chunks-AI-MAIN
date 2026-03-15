@@ -180,21 +180,33 @@ ${navHTML}
     <div class="sidebar-divider"></div>
 
     <div class="sidebar-history-scroll">
-      <div class="sidebar-section">
-        <div class="sidebar-section-label">General AI</div>
-        <div id="${ids.general}" class="recent-list"></div>
+      <div class="sidebar-section sidebar-history-section" id="hist-section-general">
+        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="hist-section-general">
+          General AI
+          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div id="${ids.general}" class="recent-list hist-list"></div>
       </div>
-      <div class="sidebar-section">
-        <div class="sidebar-section-label">Workspace</div>
-        <div id="${ids.workspace}" class="recent-list"></div>
+      <div class="sidebar-section sidebar-history-section" id="hist-section-workspace">
+        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="hist-section-workspace">
+          Workspace
+          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div id="${ids.workspace}" class="recent-list hist-list"></div>
       </div>
-      <div class="sidebar-section">
-        <div class="sidebar-section-label">Visual Tutor Chats</div>
-        <div id="${ids.visual}" class="recent-list"></div>
+      <div class="sidebar-section sidebar-history-section" id="hist-section-visual">
+        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="hist-section-visual">
+          Visual Tutor Chats
+          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div id="${ids.visual}" class="recent-list hist-list"></div>
       </div>
-      <div class="sidebar-section">
-        <div class="sidebar-section-label">Exam Chats</div>
-        <div id="${ids.exam}" class="recent-list"></div>
+      <div class="sidebar-section sidebar-history-section" id="hist-section-exam">
+        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="hist-section-exam">
+          Exam Chats
+          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div id="${ids.exam}" class="recent-list hist-list"></div>
       </div>
       ${extraSections}
     </div>
@@ -223,6 +235,15 @@ export function mountSidebars() {
   document.querySelectorAll('aside.sidebar[data-sidebar-screen]').forEach(el => {
     const screen = el.dataset.sidebarScreen || 'home';
     el.innerHTML = buildSidebar(screen);
+  });
+  // Restore persisted collapsed state for each history section
+  ['hist-section-general','hist-section-workspace','hist-section-visual','hist-section-exam'].forEach(id => {
+    try {
+      const collapsed = sessionStorage.getItem('hist_collapsed_' + id) === '1';
+      if (collapsed) {
+        document.querySelectorAll('#' + id).forEach(sec => sec.classList.add('collapsed'));
+      }
+    } catch(e) {}
   });
 }
 

@@ -31,6 +31,13 @@ function showScreen(name) {
       const sb = target.querySelector('.sidebar');
       if (sb) sb.classList.toggle('compact', compact);
     } catch(e) {}
+    // Restore collapsed state for history sections in this screen's sidebar
+    ['hist-section-general','hist-section-workspace','hist-section-visual','hist-section-exam'].forEach(id => {
+      try {
+        const collapsed = sessionStorage.getItem('hist_collapsed_' + id) === '1';
+        target.querySelectorAll('#' + id).forEach(sec => sec.classList.toggle('collapsed', collapsed));
+      } catch(e) {}
+    });
   } else {
     console.warn(`[navigation] screen not found: ${id}`);
     const home = document.getElementById('screen-home');
