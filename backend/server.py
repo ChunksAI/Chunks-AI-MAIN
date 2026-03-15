@@ -22,7 +22,7 @@ from urllib.parse import urlparse
 import random
 import uuid
 import hashlib
-import time
+import hmac
 import threading
 from enum import Enum
 from cachetools import TTLCache
@@ -2592,7 +2592,7 @@ def _verify_admin_pin(email: str, pin: str) -> bool:
         return True
     salt = 'chunks_admin_salt_'
     computed = _hashlib.sha256((salt + pin).encode()).hexdigest()
-    return _hashlib.compare_digest(computed, expected)
+    return hmac.compare_digest(computed, expected)
 
 
 def _check_admin_role(jwt_token: str) -> tuple:
