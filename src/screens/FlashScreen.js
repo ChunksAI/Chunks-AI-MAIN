@@ -119,16 +119,11 @@ const FLASH_HTML = `
             </div>
           </div>
           <div class="fc-session-info">
-            <button class="fc-topbar-btn" onclick="window._fcOpenThemePicker()" title="Card theme">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 8v8m-4-4h8"/></svg>
+            <button class="fc-topbar-btn" data-action="_fcOpenThemePicker">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"/></svg>
               Theme
             </button>
-            <button class="fc-topbar-btn" id="fc-sound-toggle" onclick="
-              const muted = window._fcSound.toggle();
-              this.title = muted ? 'Unmute sounds' : 'Mute sounds';
-              this.querySelector('.fc-sound-on').style.display  = muted ? 'none' : '';
-              this.querySelector('.fc-sound-off').style.display = muted ? '' : 'none';
-            " title="Mute sounds">
+            <button class="fc-topbar-btn" data-action="_fcToggleSound" id="fc-sound-toggle">
               <span class="fc-sound-on">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
               </span>
