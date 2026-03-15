@@ -5028,6 +5028,15 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     '_fcExitStudy':           ()      => _fcExitStudy(),
     '_fcNext-self':           (el)    => _fcNext(el.dataset.rating),
     '_fcCloseCompleteModal':  ()      => _fcCloseCompleteModal(),
+    '_fcOpenThemePicker':     ()      => _fcOpenThemePicker(),
+    '_fcToggleSound':         (el)    => {
+      const muted = _fcSound.toggle();
+      const btn = document.getElementById('fc-sound-toggle');
+      if (btn) {
+        btn.querySelector('.fc-sound-on').style.display  = muted ? 'none' : '';
+        btn.querySelector('.fc-sound-off').style.display = muted ? '' : 'none';
+      }
+    },
 
     /* ── Research ───────────────────────────────────────── */
     '_researchBackToSetup':   ()      => _researchBackToSetup(),
