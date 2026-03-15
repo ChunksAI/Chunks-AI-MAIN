@@ -389,6 +389,7 @@ function _clickRecent(item) {
   _setActiveRecent(item.id);
   if (item.source === 'exam') {
     // Exam — navigate to exam screen and restore snapshot
+    window._navFromHistory = true;
     showScreen('exam');
     setTimeout(() => {
       if (item._snapId && typeof window._examLoadSnap === 'function') {
@@ -402,6 +403,7 @@ function _clickRecent(item) {
     }, 150);
   } else if (item.source === 'visual') {
     // Visual Tutor — restore session on visual screen
+    window._navFromHistory = true;
     showScreen('visual');
     setTimeout(() => {
       if (typeof window._vtRestoreSession === 'function') {

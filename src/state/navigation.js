@@ -37,6 +37,30 @@ function showScreen(name) {
     if (home) { home.style.display = 'flex'; home.classList.add('active'); }
     return;
   }
+
+  // ── Fresh navigation resets ───────────────────────────────
+  // When user clicks the nav button (not a sidebar history item), reset
+  // exam to setup view and visual tutor to a clean canvas.
+  // _clickRecent sets window._navFromHistory = true before calling showScreen
+  // to skip this reset when restoring a saved session.
+  if (!window._navFromHistory) {
+    if (name === 'exam') {
+      // Reset to setup view — don't show previous results/quiz
+      if (typeof _examShow === 'function') {
+        _examShow('exam-setup');
+        _activeExamRecentId = null;
+        if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
+      }
+    }
+    if (name === 'visual') {
+      // Reset canvas and chat to fresh state
+      if (typeof window._vtClear === 'function') window._vtClear();
+      if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
+    }
+  }
+  // Always reset the flag after consuming it
+  window._navFromHistory = false;
+
   document.querySelectorAll('.md-item').forEach(el => {
     el.classList.toggle('active', el.dataset.screen === name);
   });

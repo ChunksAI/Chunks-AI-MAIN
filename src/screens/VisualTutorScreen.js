@@ -618,6 +618,7 @@ window._vtClear = function() {
 window._vtOpenForConcept = function(front, back) {
   _vtPrevScreen = 'flash';
   _vtSessionId = null; // fresh session for each flashcard concept
+  window._navFromHistory = true; // skip showScreen reset — we set state ourselves
   if (window.showScreen) window.showScreen('visual');
   setTimeout(() => {
     const q = front || 'this concept';
