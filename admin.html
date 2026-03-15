@@ -663,6 +663,7 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
   <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px;">
     <div style="width:36px;height:36px;border:2px solid rgba(255,255,255,.06);border-top-color:#ff4444;border-radius:50%;animation:spin .8s linear infinite;"></div>
     <p style="color:var(--text3);font-size:13px;font-weight:500;">Verifying credentials…</p>
+    <button onclick="showLogin()" style="margin-top:4px;padding:6px 18px;border-radius:var(--r-pill);background:transparent;border:1px solid var(--border-sm);color:var(--text3);font-size:12px;font-family:var(--font-body);cursor:pointer;">Cancel</button>
   </div>
 </div>
 
@@ -914,9 +915,8 @@ let _configPromise = null;
 
 function loadConfig() {
   if (_configPromise) return _configPromise;
-  // Use absolute backend URL — admin.html is on Vercel, not Railway,
-  // so relative /api/config would 404. Always hit Railway directly.
-  // Use BOTH URLs as fallback in case one is the active deployment.
+  // Use absolute backend URL — admin.html may be on a different host than Railway.
+  // Try each backend in order, cache the working one so all subsequent calls use it.
   const BACKENDS = [
     'https://chunks-ai-main-production.up.railway.app',
     'https://chemistry-app-production.up.railway.app'
@@ -936,8 +936,8 @@ function loadConfig() {
             SUPABASE_URL = cfg.supabaseUrl || '';
             SUPABASE_ANON_KEY = cfg.supabaseAnonKey || '';
             _configLoaded = true;
-            // Cache for index.html to use (anon key is public, safe to store)
-            try { localStorage.setItem('chunks_sb_url', SUPABASE_URL); localStorage.setItem('chunks_sb_anon', SUPABASE_ANON_KEY); } catch(e) {}
+            // Cache which backend is active so all API calls use the same one
+            window._activeBackend = BACKEND;
             return true;
           }
         } catch(e) {
@@ -978,21 +978,21 @@ async function adminSignIn(){
   if (!ok || !SUPABASE_URL) {
     const el = document.getElementById('login-error');
     if (el) { el.textContent = 'Could not reach server. Please refresh and try again.'; el.style.display = 'block'; }
-    if (btn) { btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
+    if (btn) { btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
     return;
   }
   await initSupabase();
   if (!sb) {
     const el = document.getElementById('login-error');
     if (el) { el.textContent = 'Initialisation error. Please refresh the page.'; el.style.display = 'block'; }
-    if (btn) { btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
+    if (btn) { btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
     return;
   }
   const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:window.location.href,queryParams:{prompt:'select_account'}}});
   if(error){
     const el=document.getElementById('login-error');
     if (el) { el.textContent='Sign in failed: '+error.message; el.style.display='block'; }
-    if (btn) { btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
+    if (btn) { btn.style.opacity = '1'; btn.style.pointerEvents = 'auto'; }
   }
 }
 
@@ -1055,6 +1055,11 @@ function _showPinScreen(email) {
   document.getElementById('pin-attempts').textContent = '';
   document.getElementById('pin-attempts').className = 'pin-attempts';
 
+  // Restore lockout from sessionStorage (survives page refresh)
+  try {
+    const stored = sessionStorage.getItem('chunks_pin_lock_until');
+    if (stored) _pinLockUntil = parseInt(stored, 10) || 0;
+  } catch(e) {}
   // Check lockout
   _pinCheckLockout();
 
@@ -1144,6 +1149,8 @@ async function _pinSubmit() {
 
     if (_pinAttempts >= MAX_ATTEMPTS) {
       _pinLockUntil = Date.now() + LOCKOUT_MS;
+      // Persist lockout in sessionStorage so page refresh doesn't bypass it
+      try { sessionStorage.setItem('chunks_pin_lock_until', String(_pinLockUntil)); } catch(e) {}
       attEl.textContent = '🔒 Too many attempts — locked for 60s';
       attEl.className = 'pin-attempts warn';
       _pinCheckLockout();
@@ -1167,6 +1174,8 @@ function _finalizeAdmin(email) {
   showApp();
   _ensureAdminApproved(email);
   loadUsers(); startRealtimeSync(); loadOpenRouterCredits();
+  // Load PAEV status only after auth is complete
+  setTimeout(paevRefreshAll, 800);
 }
 
 async function _ensureAdminApproved(email){
@@ -1283,7 +1292,8 @@ async function doLogout(){
 }
 
 // OPENROUTER
-const BACKEND_URL='https://chunks-ai-main-production.up.railway.app';
+// BACKEND_URL is resolved after loadConfig() runs — always points to the active deployment
+function getBackend(){ return window._activeBackend || 'https://chunks-ai-main-production.up.railway.app'; }
 
 async function loadOpenRouterCredits(){
   const body=document.getElementById('or-credit-body');
@@ -1293,7 +1303,7 @@ async function loadOpenRouterCredits(){
   try{
     const{data:{session}}=await sb.auth.getSession();
     if(!session){body.innerHTML='<div class="or-error">⚠ Not authenticated.</div>';return;}
-    const res=await fetch(`${BACKEND_URL}/api/admin/openrouter-credits`,{headers:{'Authorization':`Bearer ${session.access_token}`}});
+    const res=await fetch(`${getBackend()}/api/admin/openrouter-credits`,{headers:{'Authorization':`Bearer ${session.access_token}`}});
     const json=await res.json();
     if(!json.success)throw new Error(json.error||'Unknown error');
     const{key_info,usage_summary,model_breakdown}=json;
@@ -1487,9 +1497,9 @@ let _tt;
 function toast(msg,isError){
   const el=document.getElementById('admin-toast');
   el.textContent=msg;
-  el.style.background=isError?'rgba(239,68,68,.95)':'rgba(99,102,241,.95)';
-  el.style.border=isError?'1px solid rgba(248,113,113,.4)':'1px solid rgba(129,140,248,.4)';
-  el.style.color='white';
+  el.style.background=isError?'rgba(248,113,113,0.12)':'rgba(52,211,153,0.12)';
+  el.style.border=isError?'1px solid rgba(248,113,113,0.35)':'1px solid rgba(52,211,153,0.30)';
+  el.style.color=isError?'var(--red)':'var(--green)';
   el.style.opacity='1';
   el.style.transform='translateX(-50%) translateY(0)';
   clearTimeout(_tt);
@@ -1642,7 +1652,7 @@ async function paevRefreshAll() {
   const btn = document.getElementById('paev-refresh-btn');
   if (btn) { btn.classList.add('loading'); }
   try {
-    const res = await fetch(`${BACKEND_URL}/paev/status`);
+    const res = await fetch(`${getBackend()}/paev/status`);
     const data = await res.json();
     if (data.success) renderPaevGrid(data.books);
   } catch(e) {
@@ -1660,10 +1670,14 @@ async function paevBuild(bookId) {
   try {
     let session = null;
     try { session = sb ? (await sb.auth.getSession()).data.session : null; } catch(e) {}
-    const headers = { 'Content-Type': 'application/json' };
-    if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+    if (!session?.access_token) {
+      paevLog('❌ Not authenticated — cannot build index.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Build Index'; }
+      return;
+    }
+    const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` };
 
-    const res = await fetch(`${BACKEND_URL}/paev/build-index`, {
+    const res = await fetch(`${getBackend()}/paev/build-index`, {
       method: 'POST', headers,
       body: JSON.stringify({ bookId, fingerprintSampleRate: 0.3 })
     });
@@ -1684,7 +1698,7 @@ async function paevBuild(bookId) {
 function paevPollStatus(bookId) {
   const interval = setInterval(async () => {
     try {
-      const res = await fetch(`${BACKEND_URL}/paev/status`);
+      const res = await fetch(`${getBackend()}/paev/status`);
       const data = await res.json();
       if (!data.success) return;
       renderPaevGrid(data.books);
@@ -1703,10 +1717,7 @@ function paevPollStatus(bookId) {
   }, 8000); // poll every 8s
 }
 
-// Auto-load PAEV status when admin panel is ready
-document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(paevRefreshAll, 1500);
-});
+// PAEV status is loaded by _finalizeAdmin() after auth completes — not on DOMContentLoaded
 </script>
 </div>
 
