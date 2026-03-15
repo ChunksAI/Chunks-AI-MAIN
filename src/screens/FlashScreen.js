@@ -140,7 +140,12 @@ const FLASH_HTML = `
           <div class="fc-card-scene" id="fc-card-scene">
             <div class="fc-card" id="fc-card" data-action="_fcFlip">
               <div class="fc-card-face fc-card-front">
-                <div class="fc-card-face-label">Question</div>
+                <div class="fc-card-face-label">
+                  Question
+                  <button class="fc-card-edit-btn" onclick="event.stopPropagation();window._fcOpenEditCard('front')" title="Edit question">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                </div>
                 <div class="fc-card-text" id="fc-card-question"></div>
                 <div class="fc-card-flip-hint">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
@@ -148,7 +153,12 @@ const FLASH_HTML = `
                 </div>
               </div>
               <div class="fc-card-face fc-card-back">
-                <div class="fc-card-face-label">Answer</div>
+                <div class="fc-card-face-label" style="color:var(--gold);opacity:0.7;">
+                  Answer
+                  <button class="fc-card-edit-btn" onclick="event.stopPropagation();window._fcOpenEditCard('back')" title="Edit answer">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                </div>
                 <div class="fc-card-text" id="fc-card-answer"></div>
                 <div class="fc-card-flip-hint" style="color:var(--text-4);">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 4v6h6"/><path d="M23 20v-6h-6"/><path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/></svg>
@@ -182,6 +192,26 @@ const FLASH_HTML = `
 
           <div style="text-align:center;margin-top:12px;">
             <button class="fc-skip-btn" data-rating="skipped" data-action="_fcNext-self">Skip this card</button>
+          </div>
+
+          <!-- Edit card modal -->
+          <div id="fc-edit-overlay" style="display:none;position:absolute;inset:0;background:rgba(0,0,0,0.6);z-index:100;display:none;align-items:center;justify-content:center;padding:24px;">
+            <div class="fc-edit-modal" onclick="event.stopPropagation()">
+              <div class="fc-edit-header">
+                <span id="fc-edit-label">Edit question</span>
+                <button onclick="window._fcCloseEditCard()" style="background:none;border:none;color:var(--text-4);cursor:pointer;padding:4px;line-height:0;">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <textarea id="fc-edit-textarea" class="fc-edit-textarea" placeholder="Enter text..."></textarea>
+              <div class="fc-edit-actions">
+                <button class="fc-edit-cancel" onclick="window._fcCloseEditCard()">Cancel</button>
+                <button class="fc-edit-save" onclick="window._fcSaveEditCard()">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  Save card
+                </button>
+              </div>
+            </div>
           </div>
 
           <!-- AI Tutor explanation panel — appears after rating Hard -->
