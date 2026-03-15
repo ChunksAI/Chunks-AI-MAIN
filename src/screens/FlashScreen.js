@@ -220,10 +220,16 @@ const FLASH_HTML = `
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                 AI Tutor
               </div>
-              <button class="fc-tutor-close" onclick="window._fcDismissTutor()" title="Got it, next card">
-                Next card
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
-              </button>
+              <div style="display:flex;gap:6px;align-items:center;">
+                <button class="fc-visual-tutor-btn" onclick="window._vtOpenForConcept(document.getElementById('fc-card-question')?.textContent, document.getElementById('fc-card-answer')?.textContent)" title="Open Visual Tutor">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><circle cx="12" cy="10" r="3"/></svg>
+                  Visual
+                </button>
+                <button class="fc-tutor-close" onclick="window._fcDismissTutor()" title="Got it, next card">
+                  Next card
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+              </div>
             </div>
             <div class="fc-tutor-body" id="fc-tutor-body">
               <div class="fc-tutor-loading" id="fc-tutor-loading">
