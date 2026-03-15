@@ -388,29 +388,27 @@ function _deleteRecent(id, e) {
 function _clickRecent(item) {
   _setActiveRecent(item.id);
   if (item.source === 'exam') {
-    // Exam — navigate to exam screen and restore snapshot
+    // Restore snapshot first, THEN show screen — prevents flash of setup view
+    if (item._snapId && typeof window._examLoadSnap === 'function') {
+      window._examLoadSnap(item._snapId, item.id);
+    } else {
+      // No snapshot — pre-fill topic so user can re-run
+      _activeExamRecentId = item.id;
+      const topicInput = document.getElementById('exam-topic-input');
+      if (topicInput) topicInput.value = item.question?.replace(/\s*\(\d+%\)$/, '') || '';
+    }
     window._navFromHistory = true;
     showScreen('exam');
-    setTimeout(() => {
-      if (item._snapId && typeof window._examLoadSnap === 'function') {
-        window._examLoadSnap(item._snapId, item.id);
-      } else {
-        // No snapshot — pre-fill topic so user can re-run
-        _activeExamRecentId = item.id;
-        const topicInput = document.getElementById('exam-topic-input');
-        if (topicInput) topicInput.value = item.question?.replace(/\s*\(\d+%\)$/, '') || '';
-      }
-    }, 150);
   } else if (item.source === 'visual') {
     // Visual Tutor — restore session on visual screen
     window._navFromHistory = true;
+    // Restore session first, THEN show screen — prevents flash of blank canvas
+    if (typeof window._vtRestoreSession === 'function') {
+      window._vtRestoreSession(item.id, item.question);
+    }
+    window._navFromHistory = true;
     showScreen('visual');
-    setTimeout(() => {
-      if (typeof window._vtRestoreSession === 'function') {
-        window._vtRestoreSession(item.id, item.question);
-      }
-      setTimeout(() => document.getElementById('vt-input')?.focus(), 80);
-    }, 150);
+    setTimeout(() => document.getElementById('vt-input')?.focus(), 80);
   } else if (item.source === 'general' || !item.bookId) {
     // General AI — restore saved session
     showScreen('home');
