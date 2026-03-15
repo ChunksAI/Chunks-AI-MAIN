@@ -487,13 +487,23 @@ function _vtAddMsg(text, role) {
     div.innerHTML = `<div class="vt-bubble">${text}</div>`;
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
-    // Register in recent history on every user message
-    if (window.recentAdd) {
+    // Only create a new sidebar entry on the FIRST message of a session
+    // Subsequent messages just update the label and save
+    if (!_vtSessionId && window.recentAdd) {
       window.recentAdd(text, null, 'visual');
-      // Grab the session id from the item recentAdd just created/activated
+      // Grab the session id from the item recentAdd just created
       if (window._recentItems && window._recentItems.length) {
         const latest = window._recentItems[0];
         if (latest.source === 'visual') _vtSessionId = latest.id;
+      }
+    } else if (_vtSessionId && window._recentItems) {
+      // Update the existing entry's label to reflect the latest question
+      const existing = window._recentItems.find(r => r.id === _vtSessionId);
+      if (existing) {
+        existing.label = text.length > 32 ? text.slice(0, 32).trimEnd() + '…' : text;
+        existing.question = text;
+        if (typeof window._saveRecent === 'function') window._saveRecent();
+        window._renderAllRecent?.();
       }
     }
     _vtSaveSession();
