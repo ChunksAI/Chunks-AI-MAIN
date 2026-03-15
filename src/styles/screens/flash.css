@@ -1383,7 +1383,7 @@
   .fc-study-topbar      { padding: 10px 12px; gap: 8px; }
   .fc-progress-meta     { font-size: 10px; }
   .fc-exit-btn          { font-size: 11px; }
-  .fc-session-info      { display: none; }
+  .fc-session-info      { gap: 6px; }
 
   /* ── Card area ──────────────────────────────────────── */
   .fc-card-area         { padding: 10px 12px 16px; gap: 10px; }
@@ -1666,3 +1666,41 @@
 .fc-theme-preview-midnight   { background: linear-gradient(135deg, #080c14, #0c1220) !important; }
 .fc-theme-preview-midnight .fc-theme-name { color: #c8d8f0 !important; }
 .fc-theme-preview-minimal    { background: #1a1a1f !important; }
+
+/* ── Topbar action buttons ──────────────────────────────────────────────── */
+
+.fc-session-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.fc-topbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface-3, var(--surface-2));
+  border: 1px solid var(--border-xs);
+  border-radius: 8px;
+  color: var(--text-3);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.fc-topbar-btn:hover {
+  background: var(--surface-4, var(--border-xs));
+  color: var(--text-1);
+  border-color: var(--border-sm);
+}
+
+@media (max-width: 640px) {
+  .fc-topbar-btn { padding: 5px 8px; font-size: 10px; gap: 4px; }
+  .fc-topbar-btn svg { width: 13px; height: 13px; }
+}
