@@ -120,8 +120,8 @@ function _fcOpenThemePicker() {
         </button>`).join('')}
     </div>`;
 
-  const heroTop = document.querySelector('.fc-hero-top');
-  if (heroTop) heroTop.after(picker);
+  // Append to body so it works from both home and study screens
+  document.body.appendChild(picker);
 
   setTimeout(() => {
     document.addEventListener('click', function handler(e) {
@@ -645,7 +645,7 @@ function _fcDeckCardHTML(d, i, cacheKey, mastery) {
   ) : '';
 
   const deleteBtn = isLibrary ? '' : (
-    '<button class="fc-deck-delete" title="Delete deck" onclick="event.stopPropagation();_fcDeleteDeck(\'' + d.id + '\',\'' + d.name.replace(/'/g, "\'") + '\')">' +
+    '<button class="fc-deck-delete" title="Delete deck" onclick="event.stopPropagation();event.preventDefault();window._fcDeleteDeck(\'' + d.id + '\',\'' + d.name.replace(/'/g, "\\'") + '\')">' +
     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>' +
     '</button>'
   );
