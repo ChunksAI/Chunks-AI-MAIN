@@ -101,6 +101,7 @@ const RECENT_IDS = {
   research:  { general: 'recent-list-general-research',   workspace: 'recent-list-ws-research' },
   exam:      { general: 'recent-list-general-exam',       workspace: 'recent-list-ws-exam' },
   studyplan: { general: 'recent-list-general-studyplan',  workspace: 'recent-list-ws-studyplan' },
+  visual:    { general: 'recent-list-general-visual',     workspace: 'recent-list-ws-visual-unused' },
 };
 
 // ── Component builder ──────────────────────────────────────────────────────
@@ -140,6 +141,15 @@ export function buildSidebar(screen) {
 
   // Screen-specific extra sections
   let extraSections = '';
+
+  if (screen === 'visual') {
+    extraSections = `
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-label">Visual Tutor Chats</div>
+      <div id="recent-list-vt-visual" class="recent-list"></div>
+    </div>`;
+  }
 
   if (screen === 'flash') {
     extraSections = `
@@ -196,10 +206,10 @@ ${navHTML}
       <div class="sidebar-section-label">General AI</div>
       <div id="${ids.general}" class="recent-list"></div>
     </div>
-    <div class="sidebar-section">
+    ${screen !== 'visual' ? `<div class="sidebar-section">
       <div class="sidebar-section-label">Workspace</div>
       <div id="${ids.workspace}" class="recent-list"></div>
-    </div>
+    </div>` : ''}
     </nav>
     ${extraSections}
 

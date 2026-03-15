@@ -18,7 +18,7 @@ const VT_HTML = `
   <main class="vt-main">
 
     <div class="vt-topbar">
-      <button class="vt-back-btn" onclick="window._vtBack()">
+      <button class="vt-back-btn" data-action="_vtBack">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
         Back
       </button>
@@ -26,7 +26,7 @@ const VT_HTML = `
         <div class="vt-live-dot"></div>
         Visual Tutor
       </div>
-      <button class="vt-clear-btn" onclick="window._vtClear()">Clear canvas</button>
+      <button class="vt-clear-btn" data-action="_vtClear">Clear canvas</button>
     </div>
 
     <div class="vt-body">
@@ -46,14 +46,14 @@ const VT_HTML = `
         <div class="vt-canvas-footer">
           <div class="vt-quick-pills" id="vt-quick-pills">
             <span class="vt-pills-label">Try:</span>
-            <button class="vt-pill" onclick="window._vtAsk('explain osmosis')">Osmosis</button>
-            <button class="vt-pill" onclick="window._vtAsk('show me the heart pumping blood')">Heart</button>
-            <button class="vt-pill" onclick="window._vtAsk('explain action potential')">Neuron</button>
-            <button class="vt-pill" onclick="window._vtAsk('show me mitosis')">Mitosis</button>
-            <button class="vt-pill" onclick="window._vtAsk('explain photosynthesis')">Photosynthesis</button>
-            <button class="vt-pill" onclick="window._vtAsk('show me DNA replication')">DNA</button>
-            <button class="vt-pill" onclick="window._vtAsk('explain how vaccines work')">Vaccines</button>
-            <button class="vt-pill" onclick="window._vtAsk('show me ohms law')">Ohm\'s law</button>
+            <button class="vt-pill" data-action="_vtAskPill-self" data-query="explain osmosis">Osmosis</button>
+            <button class="vt-pill" data-action="_vtAskPill-self" data-query="show me the heart pumping blood">Heart</button>
+            <button class="vt-pill" data-action="_vtAskPill-self" data-query="explain action potential">Neuron</button>
+            <button class="vt-pill" data-action="_vtAskPill-self" data-query="show me mitosis">Mitosis</button>
+            <button class="vt-pill" data-action="_vtAskPill-self" data-query="explain photosynthesis">Photosynthesis</button>
+            <button class="vt-pill" data-action="_vtAskPill-self" data-query="show me DNA replication">DNA</button>
+            <button class="vt-pill" data-action="_vtAskPill-self" data-query="explain how vaccines work">Vaccines</button>
+            <button class="vt-pill" data-action="_vtAskPill-self" data-query="show me ohms law">Ohm's law</button>
           </div>
         </div>
       </div>
@@ -68,7 +68,7 @@ const VT_HTML = `
         </div>
         <div class="vt-chat-input-row">
           <input class="vt-input" id="vt-input" placeholder="Ask me to explain anything..." />
-          <button class="vt-send-btn" id="vt-send-btn" onclick="window._vtSendInput()">
+          <button class="vt-send-btn" id="vt-send-btn" data-action="_vtSendInput">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
@@ -428,6 +428,28 @@ ${hot ? `<ellipse cx="220" cy="235" rx="68" ry="10" fill="#e67e22" opacity="0.3"
 
 let _vtPrevScreen = 'flash';
 let _vtAbort = null;
+let _vtSessionId = null;   // tracks current recent-item id for save/restore
+
+// ── Session persistence helpers ────────────────────────────────────────────
+
+function _vtSaveSession() {
+  if (!_vtSessionId) return;
+  const msgs = document.getElementById('vt-chat-msgs');
+  if (!msgs) return;
+  const html  = msgs.innerHTML;
+  const topic = document.getElementById('vt-canvas-topic')?.textContent || '';
+  try {
+    localStorage.setItem('chunks_vt_session_' + _vtSessionId, JSON.stringify({ html, topic }));
+    localStorage.setItem('chunks_active_vt_session', _vtSessionId);
+  } catch(e) {}
+}
+
+function _vtLoadSession(id) {
+  try {
+    const raw = localStorage.getItem('chunks_vt_session_' + id);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
 
 // ── Scene matcher ──────────────────────────────────────────────────────────
 
@@ -462,6 +484,19 @@ function _vtAddMsg(text, role) {
   div.className = `vt-msg vt-msg-${role}`;
   if (role === 'user') {
     div.innerHTML = `<div class="vt-bubble">${text}</div>`;
+    msgs.appendChild(div);
+    msgs.scrollTop = msgs.scrollHeight;
+    // Register in recent history on every user message
+    if (window.recentAdd) {
+      window.recentAdd(text, null, 'visual');
+      // Grab the session id from the item recentAdd just created/activated
+      if (window._recentItems && window._recentItems.length) {
+        const latest = window._recentItems[0];
+        if (latest.source === 'visual') _vtSessionId = latest.id;
+      }
+    }
+    _vtSaveSession();
+    return;
   } else {
     div.innerHTML = `<div class="vt-avatar">AI</div><div class="vt-bubble"></div>`;
     msgs.appendChild(div);
@@ -470,14 +505,16 @@ function _vtAddMsg(text, role) {
     let i = 0;
     const words = text.split(' ');
     const iv = setInterval(() => {
-      if (i >= words.length) { clearInterval(iv); return; }
+      if (i >= words.length) {
+        clearInterval(iv);
+        _vtSaveSession(); // save after AI finishes typing
+        return;
+      }
       bubble.textContent += (i > 0 ? ' ' : '') + words[i++];
       msgs.scrollTop = msgs.scrollHeight;
     }, 22);
     return;
   }
-  msgs.appendChild(div);
-  msgs.scrollTop = msgs.scrollHeight;
 }
 
 // ── AI fallback ────────────────────────────────────────────────────────────
@@ -572,16 +609,57 @@ window._vtClear = function() {
   if (msgs) {
     msgs.innerHTML = `<div class="vt-msg vt-msg-ai"><div class="vt-avatar">AI</div><div class="vt-bubble">Canvas cleared! Ask me to explain anything and I'll draw it here.</div></div>`;
   }
+  // Clear session so next message starts a fresh recent entry
+  _vtSessionId = null;
+  localStorage.removeItem('chunks_active_vt_session');
 };
 
 // Called from flashcard Hard rating to open tutor on a specific concept
 window._vtOpenForConcept = function(front, back) {
   _vtPrevScreen = 'flash';
+  _vtSessionId = null; // fresh session for each flashcard concept
   if (window.showScreen) window.showScreen('visual');
   setTimeout(() => {
     const q = front || 'this concept';
     window._vtAsk(`explain ${q}`);
   }, 300);
+};
+
+// Called when user clicks a recent item that was saved from Visual Tutor
+window._vtRestoreSession = function(sessionId, question) {
+  _vtSessionId = sessionId;
+
+  // Mark item active in sidebar
+  if (window._setActiveRecent) window._setActiveRecent(sessionId);
+
+  const session = _vtLoadSession(sessionId);
+  const msgs = document.getElementById('vt-chat-msgs');
+
+  if (session && session.html && msgs) {
+    // Restore chat messages
+    msgs.innerHTML = typeof window.sanitize === 'function'
+      ? window.sanitize(session.html)
+      : session.html;
+    msgs.scrollTop = msgs.scrollHeight;
+
+    // Restore topic label
+    if (session.topic) {
+      const topicEl = document.getElementById('vt-canvas-topic');
+      if (topicEl) topicEl.textContent = session.topic;
+      // Show a "session restored" placeholder on canvas
+      const svgEl = document.getElementById('vt-svg');
+      if (svgEl) {
+        svgEl.innerHTML = `
+          <text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>
+          <text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>
+        `;
+      }
+    }
+  } else if (question) {
+    // No saved HTML — pre-fill input so user can re-ask
+    const input = document.getElementById('vt-input');
+    if (input) { input.value = question; input.focus(); }
+  }
 };
 
 // ── Mount ──────────────────────────────────────────────────────────────────
@@ -614,6 +692,46 @@ export function mountVisualTutorScreen() {
       });
     }
   }, 100);
+
+  // ── Restore last visual session on page refresh ──
+  (function _restoreVtSession() {
+    const savedId = localStorage.getItem('chunks_active_vt_session');
+    if (!savedId) return;
+
+    const lastScreen = (() => {
+      try { return sessionStorage.getItem('chunks_last_screen'); } catch(e) { return null; }
+    })();
+    // Only auto-restore if we were on the visual screen
+    if (lastScreen !== 'visual') return;
+
+    const session = _vtLoadSession(savedId);
+    if (!session?.html) return;
+
+    const msgs = document.getElementById('vt-chat-msgs');
+    if (msgs) {
+      msgs.innerHTML = typeof window.sanitize === 'function'
+        ? window.sanitize(session.html)
+        : session.html;
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    if (session.topic) {
+      const topicEl = document.getElementById('vt-canvas-topic');
+      if (topicEl) topicEl.textContent = session.topic;
+      const svgEl = document.getElementById('vt-svg');
+      if (svgEl) {
+        svgEl.innerHTML = `
+          <text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>
+          <text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>
+        `;
+      }
+    }
+
+    _vtSessionId = savedId;
+    setTimeout(() => {
+      if (window._setActiveRecent) window._setActiveRecent(savedId);
+    }, 200);
+  })();
 
   console.log('[VisualTutorScreen] mounted ✦');
 }

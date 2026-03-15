@@ -188,6 +188,7 @@ function goHome() {
   localStorage.removeItem('chunks_active_home_session');
   localStorage.removeItem('chunks_active_ws_book');
   localStorage.removeItem('chunks_active_recent_id');
+  localStorage.removeItem('chunks_active_vt_session');
 
   // Reset home to landing
   const chatHist    = document.getElementById('home-chat-history');
@@ -229,6 +230,7 @@ function newChat() {
   localStorage.removeItem('chunks_home_session');
   localStorage.removeItem('chunks_active_ws_book');
   localStorage.removeItem('chunks_active_recent_id');
+  localStorage.removeItem('chunks_active_vt_session');
 
   // Reset home screen to landing state
   const homeChatHistory = document.getElementById('home-chat-history');
@@ -297,6 +299,7 @@ function recentAdd(question, bookId, source) {
       window._homeSessionId = _homeSessionId;
       localStorage.setItem('chunks_home_session', _homeSessionId);
     }
+    // For visual, the session id is tracked in VisualTutorScreen directly via _recentItems[0]
     return;
   }
   const item = {
@@ -342,6 +345,9 @@ function _deleteRecent(id, e) {
   if (item && item.bookId) {
     localStorage.removeItem('chunks_ws_session_' + item.bookId);
   }
+  if (item && item.source === 'visual') {
+    localStorage.removeItem('chunks_vt_session_' + id);
+  }
 
   // If this was the active chat, reset the UI back to landing
   if (_activeRecentId === id) {
@@ -349,6 +355,7 @@ function _deleteRecent(id, e) {
     localStorage.removeItem('chunks_active_recent_id');
     localStorage.removeItem('chunks_active_home_session');
     localStorage.removeItem('chunks_active_ws_book');
+    localStorage.removeItem('chunks_active_vt_session');
 
     // Reset home landing
     homeHistory = [];
@@ -377,7 +384,16 @@ function _deleteRecent(id, e) {
 
 function _clickRecent(item) {
   _setActiveRecent(item.id);
-  if (item.source === 'general' || !item.bookId) {
+  if (item.source === 'visual') {
+    // Visual Tutor — restore session on visual screen
+    showScreen('visual');
+    setTimeout(() => {
+      if (typeof window._vtRestoreSession === 'function') {
+        window._vtRestoreSession(item.id, item.question);
+      }
+      setTimeout(() => document.getElementById('vt-input')?.focus(), 80);
+    }, 150);
+  } else if (item.source === 'general' || !item.bookId) {
     // General AI — restore saved session
     showScreen('home');
     const session = _loadSession(item.id);
@@ -542,10 +558,11 @@ function _showRecentCtxMenu(item, e) {
 }
 
 function _renderAllRecent() {
-  const generalItems   = _recentItems.filter(r => r.source === 'general' || !r.bookId);
+  const generalItems   = _recentItems.filter(r => r.source === 'general' || (!r.bookId && r.source !== 'visual'));
   const workspaceItems = _recentItems.filter(r => r.source === 'workspace' && r.bookId);
+  const visualItems    = _recentItems.filter(r => r.source === 'visual');
 
-  // Render general AI history into all sidebars
+  // Render general AI history into all sidebars (excluding visual screen which has its own section)
   ['recent-list-general','recent-list-general-ws','recent-list-general-flash','recent-list-general-research','recent-list-general-exam','recent-list-general-studyplan'].forEach(id => {
     const container = document.getElementById(id);
     if (!container) return;
@@ -556,6 +573,18 @@ function _renderAllRecent() {
     }
     generalItems.forEach(item => container.appendChild(_buildRecentItem(item)));
   });
+
+  // Visual screen "General AI" section shows general + visual items combined
+  const generalVisualCombined = _recentItems.filter(r => r.source === 'general' || r.source === 'visual' || !r.bookId);
+  const generalVisualContainer = document.getElementById('recent-list-general-visual');
+  if (generalVisualContainer) {
+    generalVisualContainer.innerHTML = '';
+    if (!generalVisualCombined.length) {
+      generalVisualContainer.innerHTML = '<div class="recent-empty">No chats yet</div>';
+    } else {
+      generalVisualCombined.forEach(item => generalVisualContainer.appendChild(_buildRecentItem(item)));
+    }
+  }
 
   // Render workspace/book history into all sidebars
   ['recent-list-home','recent-list-workspace','recent-list-flash','recent-list-ws-research','recent-list-ws-exam','recent-list-ws-studyplan'].forEach(id => {
@@ -568,6 +597,17 @@ function _renderAllRecent() {
     }
     workspaceItems.forEach(item => container.appendChild(_buildRecentItem(item)));
   });
+
+  // Visual Tutor Chats section (dedicated section on visual screen sidebar)
+  const vtContainer = document.getElementById('recent-list-vt-visual');
+  if (vtContainer) {
+    vtContainer.innerHTML = '';
+    if (!visualItems.length) {
+      vtContainer.innerHTML = '<div class="recent-empty">No visual chats yet</div>';
+    } else {
+      visualItems.forEach(item => vtContainer.appendChild(_buildRecentItem(item)));
+    }
+  }
 }
 
 _renderAllRecent();
@@ -587,6 +627,7 @@ window._deleteRecent      = _deleteRecent;
 window._clickRecent       = _clickRecent;
 window._showRecentCtxMenu = _showRecentCtxMenu;
 window.recentAdd          = recentAdd;
+Object.defineProperty(window, '_recentItems', { get: () => _recentItems });
 
 // ── Home chat session restore → src/screens/HomeScreen.js (Task 25) ──────
 // (Moved to HomeScreen.js so it runs after mountHomeScreen() injects the DOM)
@@ -5042,6 +5083,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     '_vtSendInput':           ()      => window._vtSendInput(),
     '_vtBack':                ()      => window._vtBack(),
     '_vtClear':               ()      => window._vtClear(),
+    '_vtAskPill-self':        (el)    => window._vtAsk(el.dataset.query),
     '_fcOpenThemePicker':     ()      => window._fcOpenThemePicker(),
     '_fcToggleSound':         ()      => {
       const muted = window._fcSound.toggle();
