@@ -1608,18 +1608,18 @@
 
 .fc-theme-picker {
   position: fixed;
-  bottom: 80px;
+  bottom: 90px;
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 32px);
-  max-width: 420px;
+  max-width: 460px;
   background: var(--surface-2);
   border: 1px solid var(--border-sm);
   border-radius: 14px;
   overflow: hidden;
   animation: fc-tutor-in 0.2s cubic-bezier(0.4,0,0.2,1);
-  z-index: 300;
-  box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+  z-index: 9999;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
 }
 
 .fc-theme-grid {
