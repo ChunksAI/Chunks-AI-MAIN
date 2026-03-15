@@ -574,15 +574,14 @@ function _renderAllRecent() {
     generalItems.forEach(item => container.appendChild(_buildRecentItem(item)));
   });
 
-  // Visual screen "General AI" section shows general + visual items combined
-  const generalVisualCombined = _recentItems.filter(r => r.source === 'general' || r.source === 'visual' || !r.bookId);
+  // Visual screen "General AI" section shows only general items (visual items have their own section below)
   const generalVisualContainer = document.getElementById('recent-list-general-visual');
   if (generalVisualContainer) {
     generalVisualContainer.innerHTML = '';
-    if (!generalVisualCombined.length) {
+    if (!generalItems.length) {
       generalVisualContainer.innerHTML = '<div class="recent-empty">No chats yet</div>';
     } else {
-      generalVisualCombined.forEach(item => generalVisualContainer.appendChild(_buildRecentItem(item)));
+      generalItems.forEach(item => generalVisualContainer.appendChild(_buildRecentItem(item)));
     }
   }
 
