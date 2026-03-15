@@ -92,12 +92,36 @@ export function showConfirmModal(opts = {}) {
   newCancel.addEventListener('click', closeConfirmModal);
 
   modal.classList.add('active');
+
+  // Focus Cancel by default, allow arrow keys to switch between buttons
   newCancel.focus();
+
+  const handleArrows = (e) => {
+    if (!modal.classList.contains('active')) return;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      newOk.focus();
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      newCancel.focus();
+    } else if (e.key === 'Enter') {
+      // Let focused button handle it naturally
+    }
+  };
+  modal.addEventListener('keydown', handleArrows);
+  // Clean up listener when modal closes
+  const origClose = closeConfirmModal;
+  newOk._arrowCleanup = newCancel._arrowCleanup = () => modal.removeEventListener('keydown', handleArrows);
 }
 
 export function closeConfirmModal() {
   const modal = document.getElementById('confirm-modal');
-  if (modal) modal.classList.remove('active');
+  if (modal) {
+    modal.classList.remove('active');
+    // Clean up arrow key listener if present
+    const okBtn = document.getElementById('confirm-ok-btn');
+    if (okBtn?._arrowCleanup) { okBtn._arrowCleanup(); okBtn._arrowCleanup = null; }
+  }
   _pendingConfirm = null;
 }
 
