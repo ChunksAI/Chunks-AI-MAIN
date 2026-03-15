@@ -438,8 +438,9 @@ function _vtSaveSession() {
   if (!msgs) return;
   const html  = msgs.innerHTML;
   const topic = document.getElementById('vt-canvas-topic')?.textContent || '';
+  const svg   = document.getElementById('vt-svg')?.innerHTML || '';
   try {
-    localStorage.setItem('chunks_vt_session_' + _vtSessionId, JSON.stringify({ html, topic }));
+    localStorage.setItem('chunks_vt_session_' + _vtSessionId, JSON.stringify({ html, topic, svg }));
     localStorage.setItem('chunks_active_vt_session', _vtSessionId);
   } catch(e) {}
 }
@@ -647,13 +648,30 @@ window._vtRestoreSession = function(sessionId, question) {
     if (session.topic) {
       const topicEl = document.getElementById('vt-canvas-topic');
       if (topicEl) topicEl.textContent = session.topic;
-      // Show a "session restored" placeholder on canvas
-      const svgEl = document.getElementById('vt-svg');
-      if (svgEl) {
-        svgEl.innerHTML = `
-          <text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>
-          <text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>
-        `;
+    }
+
+    // Restore SVG canvas — use saved SVG if available, else re-render from scene library
+    const svgEl = document.getElementById('vt-svg');
+    if (svgEl) {
+      if (session.svg) {
+        // Restore exactly what was drawn
+        svgEl.innerHTML = session.svg;
+        const dot = document.getElementById('vt-canvas-dot');
+        if (dot) dot.style.background = '#4ade80';
+      } else if (session.topic) {
+        // Fallback: try to re-render from scene library using the topic
+        const scene = _vtMatchScene(session.topic);
+        if (scene) {
+          const result = scene.render(session.topic);
+          svgEl.innerHTML = result.svg;
+          const dot = document.getElementById('vt-canvas-dot');
+          if (dot) dot.style.background = '#4ade80';
+        } else {
+          svgEl.innerHTML = `
+            <text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>
+            <text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>
+          `;
+        }
       }
     }
   } else if (question) {
@@ -721,10 +739,23 @@ export function mountVisualTutorScreen() {
       if (topicEl) topicEl.textContent = session.topic;
       const svgEl = document.getElementById('vt-svg');
       if (svgEl) {
-        svgEl.innerHTML = `
-          <text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>
-          <text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>
-        `;
+        if (session.svg) {
+          svgEl.innerHTML = session.svg;
+          const dot = document.getElementById('vt-canvas-dot');
+          if (dot) dot.style.background = '#4ade80';
+        } else {
+          const scene = _vtMatchScene(session.topic);
+          if (scene) {
+            svgEl.innerHTML = scene.render(session.topic).svg;
+            const dot = document.getElementById('vt-canvas-dot');
+            if (dot) dot.style.background = '#4ade80';
+          } else {
+            svgEl.innerHTML = `
+              <text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>
+              <text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>
+            `;
+          }
+        }
       }
     }
 
