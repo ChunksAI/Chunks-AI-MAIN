@@ -2596,51 +2596,59 @@ def _verify_admin_pin(email: str, pin: str) -> bool:
 
 def _check_admin_role(jwt_token: str) -> tuple:
     """
-    Verify JWT and check admin role in DB.
-    Fallback: ADMIN_EMAILS env var (comma-separated) for bootstrap access
-    before the role column is set in Supabase.
+    Verify JWT and check admin role.
+    1. ADMIN_EMAILS env var — most reliable, works always (comma-separated)
+    2. role column in users table — looked up by email
     """
     verified = _verify_supabase_jwt(jwt_token)
     if not verified:
+        logger.warning('Admin check: JWT verification failed')
         return None, None
 
-    email   = verified.get('email', '')
-    user_id = verified.get('id', '')
+    email = verified.get('email', '')
+    if not email:
+        logger.warning('Admin check: no email in JWT')
+        return None, None
 
-    # Primary: role column in users table
-    if not user_id or not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+    # ── role column in users table (looked up by email) ──────────────────────
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        logger.warning('Admin check: Supabase config missing')
         return None, None
 
     try:
+        # Build URL manually to avoid requests encoding '@' as '%40'
+        # Supabase PostgREST needs the literal @ in the filter value
+        from urllib.parse import quote
+        url = (
+            f"{SUPABASE_URL}/rest/v1/users"
+            f"?email=eq.{quote(email, safe='@')}"
+            f"&select=email,role,plan"
+        )
         resp = _session.get(
-            f"{SUPABASE_URL}/rest/v1/users",
-            params={"id": f"eq.{user_id}", "select": "email,role,plan"},
+            url,
             headers={
                 "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
                 "apikey": SUPABASE_SERVICE_KEY,
             },
             timeout=5
         )
+        logger.info(f'Admin DB lookup for {email}: status={resp.status_code}')
         if resp.status_code == 200:
             rows = resp.json()
-            if not rows and email:
-                resp2 = _session.get(
-                    f"{SUPABASE_URL}/rest/v1/users",
-                    params={"email": f"eq.{email}", "select": "email,role,plan"},
-                    headers={
-                        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                        "apikey": SUPABASE_SERVICE_KEY,
-                    },
-                    timeout=5
-                )
-                if resp2.status_code == 200:
-                    rows = resp2.json()
+            logger.info(f'Admin DB rows: {rows}')
             if rows:
-                role = rows[0].get('role', '')
+                role = (rows[0].get('role') or '').strip().lower()
                 if role in ('admin', 'owner', 'superadmin'):
+                    logger.info(f'Admin verified via DB role: {email} ({role})')
                     return verified, role
+                else:
+                    logger.warning(f'Admin check: role="{role}" not in allowed list for {email}')
+            else:
+                logger.warning(f'Admin check: no row found for {email}')
+        else:
+            logger.warning(f'Admin DB lookup failed: {resp.status_code} {resp.text[:200]}')
     except Exception as e:
-        logger.warning(f'Admin role check failed: {e}')
+        logger.warning(f'Admin role check exception: {e}')
 
     return None, None
 
