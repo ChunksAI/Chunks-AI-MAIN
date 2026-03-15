@@ -454,20 +454,6 @@ async function _fcRenderDeckList() {
 
   if (counter) counter.textContent = userDecks.length ? `${userDecks.length} deck${userDecks.length !== 1 ? 's' : ''}` : '';
 
-  // Sidebar count + mini list
-  const sideCount = _el('fc-deck-count');
-  if (sideCount) sideCount.textContent = userDecks.length ? `${userDecks.length}` : '';
-
-  const sideList = _el('fc-saved-decks-list');
-  if (sideList) {
-    sideList.innerHTML = userDecks.slice(0, 8).map((d, i) => `
-      <div class="recent-item" onclick="_fcStartDeck(window._fcDecksCache[${i}])" title="${d.name}">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;opacity:0.5;"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${d.name}</span>
-        <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-4);flex-shrink:0;">${d.card_count || (d.cards && d.cards.length) || 0}</span>
-      </div>`).join('');
-  }
-
   // Build HTML: user decks + library sections
   let html = '';
 

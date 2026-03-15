@@ -3828,18 +3828,6 @@ function examClearSource(e, silent) {
 }
 
 /* ── Notes handlers ──────────────────────────────────────── */
-document.addEventListener('DOMContentLoaded', () => {
-  const notesEl = document.getElementById('exam-notes-input');
-  if (!notesEl) return;
-  notesEl.addEventListener('input', () => {
-    const len = notesEl.value.length;
-    document.getElementById('exam-notes-count').textContent = len.toLocaleString() + ' chars';
-    _examSourceText  = notesEl.value.slice(0, 60000);
-    _examSourceLabel = 'your notes';
-    _examToggleScanMode(len > 0);
-  });
-});
-
 function examClearNotes() {
   const notesEl = document.getElementById('exam-notes-input');
   if (notesEl) notesEl.value = '';
@@ -4907,6 +4895,20 @@ function examAbort() { clearInterval(_examTimerHandle); _examShow('exam-setup');
 // Expose for sidebar _clickRecent
 window._examLoadSnap = _examLoadSnap;
 
+// Expose exam PDF upload handlers so ExamScreen.js inline handlers can call them
+window.examSrcTab         = examSrcTab;
+window.examHandlePdfFile  = examHandlePdfFile;
+window.examDragOver       = examDragOver;
+window.examDragLeave      = examDragLeave;
+window.examDrop           = examDrop;
+window.examClearSource    = examClearSource;
+window.examClearNotes     = examClearNotes;
+window._examToggleScanMode = _examToggleScanMode;
+
+// Expose mutable exam source state so ExamScreen.js module can write to them
+Object.defineProperty(window, '_examSourceText',  { get: () => _examSourceText,  set: v => { _examSourceText  = v; }, configurable: true });
+Object.defineProperty(window, '_examSourceLabel', { get: () => _examSourceLabel, set: v => { _examSourceLabel = v; }, configurable: true });
+
 document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
 
@@ -5187,7 +5189,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     '_toggleSection-self':    (el)    => _toggleSection(el),
 
     /* ── Exam ───────────────────────────────────────────── */
-    'examClearSource':        ()      => examClearSource(),
+    'examClearSource':        (el, ev) => examClearSource(ev),
     'examClearNotes':         ()      => examClearNotes(),
     'examStart':              ()      => examStart(),
     'examAbort':              ()      => examAbort(),

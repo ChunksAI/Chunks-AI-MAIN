@@ -9,7 +9,6 @@
  * ──────────────────────
  *  active nav item   → determined by data-sidebar-screen attribute
  *  recent list IDs   → suffixed per-screen so _renderAllRecent() works
- *  flash extra       → fc-saved-decks-list / fc-deck-count
  *  studyplan extra   → sp-recent-plans-section / sp-recent-plans-list
  *
  * Task 19 — replaces 6 copies (home, workspace, flash, research, exam,
@@ -141,20 +140,6 @@ export function buildSidebar(screen) {
 
   // Screen-specific extra sections
   let extraSections = '';
-
-  if (screen === 'flash') {
-    extraSections = `
-    <div class="sidebar-divider"></div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-label" style="display:flex;align-items:center;justify-content:space-between;">
-        My Decks
-        <span id="fc-deck-count" style="font-size:10px;color:var(--text-4);"></span>
-      </div>
-      <div id="fc-saved-decks-list" class="recent-list">
-        <div class="recent-empty">No saved decks yet</div>
-      </div>
-    </div>`;
-  }
 
   if (screen === 'studyplan') {
     extraSections = `

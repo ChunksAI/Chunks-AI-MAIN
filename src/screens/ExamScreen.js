@@ -62,7 +62,7 @@ const EXAM_HTML = /* html */`
               <div id="exam-src-pdf">
                 <input type="file" id="exam-pdf-file" accept="application/pdf" style="display:none;" onchange="examHandlePdfFile(this)">
                 <div class="exam-upload-zone" id="exam-upload-zone"
-                     onclick="document.getElementById('exam-pdf-file').click()"
+                     onclick="if(!this.classList.contains('has-file'))document.getElementById('exam-pdf-file').click()"
                      ondragover="examDragOver(event)" ondragleave="examDragLeave(event)" ondrop="examDrop(event)">
                   <div id="exam-upload-idle">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-4);margin-bottom:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -356,6 +356,19 @@ export function mountExamScreen() {
     return;
   }
   placeholder.outerHTML = EXAM_HTML;
+
+  // Wire notes textarea listener now that the DOM element exists
+  const notesEl = document.getElementById('exam-notes-input');
+  if (notesEl) {
+    notesEl.addEventListener('input', () => {
+      const len = notesEl.value.length;
+      const countEl = document.getElementById('exam-notes-count');
+      if (countEl) countEl.textContent = len.toLocaleString() + ' chars';
+      window._examSourceText  = notesEl.value.slice(0, 60000);
+      window._examSourceLabel = 'your notes';
+      if (typeof window._examToggleScanMode === 'function') window._examToggleScanMode(len > 0);
+    });
+  }
 }
 
 // ── Auto-mount (synchronous) ──────────────────────────────────────────────────
