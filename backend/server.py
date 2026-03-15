@@ -308,7 +308,9 @@ limiter = Limiter(
     app=app,
     default_limits=["500 per hour", "120 per minute"],
     storage_uri=_limiter_storage,
-    strategy="fixed-window"
+    strategy="fixed-window",
+    storage_options={"socket_connect_timeout": 2, "socket_timeout": 2},
+    swallow_errors=True   # FIX: Redis hiccups must not crash endpoints with a 500
 )
 
 # ── Upload size limit 25MB ────────────────────────────────────────────────────
@@ -2652,6 +2654,7 @@ def _check_admin_role(jwt_token: str) -> tuple:
 
 
 @app.route('/api/admin/verify-access', methods=['POST', 'OPTIONS'])
+@limiter.exempt   # FIX: exempt from rate limiter — limiter storage errors were causing 500s here
 def admin_verify_access():
     """
     Two-phase admin verification:
