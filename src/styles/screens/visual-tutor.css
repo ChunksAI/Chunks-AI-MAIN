@@ -19,30 +19,10 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 20px;
+  padding: 10px 20px;
   border-bottom: 1px solid var(--border-xs);
   background: var(--surface-2);
   flex-shrink: 0;
-}
-
-.vt-back-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  background: none;
-  border: 1px solid var(--border-xs);
-  border-radius: 7px;
-  padding: 6px 12px;
-  font-size: 12px;
-  color: var(--text-3);
-  cursor: pointer;
-  font-family: var(--font-body);
-  transition: background 0.15s, color 0.15s;
-}
-
-.vt-back-btn:hover {
-  background: var(--surface-3, var(--surface-2));
-  color: var(--text-1);
 }
 
 .vt-title {
@@ -52,7 +32,29 @@
   font-size: 13px;
   font-weight: 700;
   color: var(--text-1);
-  flex: 1;
+}
+
+.vt-title-divider {
+  width: 1px;
+  height: 14px;
+  background: var(--border-sm);
+  flex-shrink: 0;
+}
+
+.vt-topic-inline {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  overflow: hidden;
+}
+
+#vt-canvas-topic {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .vt-live-dot {
@@ -60,7 +62,17 @@
   height: 7px;
   border-radius: 50%;
   background: #4ade80;
+  flex-shrink: 0;
   animation: vt-pulse-dot 2s ease-in-out infinite;
+}
+
+.vt-canvas-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4ade80;
+  flex-shrink: 0;
+  transition: background 0.3s;
 }
 
 @keyframes vt-pulse-dot {
@@ -103,34 +115,6 @@
   border-right: 1px solid var(--border-xs);
   background: var(--surface-1);
   overflow: hidden;
-}
-
-.vt-canvas-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  font-size: 11px;
-  color: var(--text-3);
-  border-bottom: 1px solid var(--border-xs);
-  background: var(--surface-2);
-  flex-shrink: 0;
-  font-family: var(--font-mono);
-}
-
-.vt-canvas-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: #4ade80;
-  flex-shrink: 0;
-  transition: background 0.3s;
-}
-
-#vt-canvas-topic {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .vt-canvas-area {
@@ -224,15 +208,13 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--fc-accent, #e8ac2e);
-  color: #0a0900;
-  font-size: 9px;
-  font-weight: 800;
+  background: linear-gradient(135deg, #1a1508, #231538);
+  border: 1px solid rgba(200,168,75,0.3);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-family: var(--font-body);
+  overflow: visible;
 }
 
 .vt-bubble {

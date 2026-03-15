@@ -22,16 +22,17 @@ const VT_HTML = `
         <div class="vt-live-dot"></div>
         Visual Tutor
       </div>
+      <div class="vt-title-divider"></div>
+      <div class="vt-topic-inline">
+        <div class="vt-canvas-dot" id="vt-canvas-dot"></div>
+        <span id="vt-canvas-topic">Waiting for a concept...</span>
+      </div>
     </div>
 
     <div class="vt-body">
 
       <!-- LEFT: Live canvas -->
       <div class="vt-canvas-panel">
-        <div class="vt-canvas-label">
-          <div class="vt-canvas-dot" id="vt-canvas-dot"></div>
-          <span id="vt-canvas-topic">Waiting for a concept...</span>
-        </div>
         <div class="vt-canvas-area" id="vt-canvas-area">
           <svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
             <text x="220" y="155" text-anchor="middle" font-size="14" fill="var(--text-4)" font-family="var(--font-body)">Ask me to explain anything</text>
@@ -57,7 +58,7 @@ const VT_HTML = `
       <div class="vt-chat-panel">
         <div class="vt-chat-msgs" id="vt-chat-msgs">
           <div class="vt-msg vt-msg-ai">
-            <div class="vt-avatar">AI</div>
+            <div class="vt-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><defs><linearGradient id="vt-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient><linearGradient id="vt-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient></defs><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" opacity="0.95"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg></div>
             <div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Try "explain osmosis" or tap a concept on the left.</div>
           </div>
         </div>
@@ -504,7 +505,7 @@ function _vtAddMsg(text, role) {
     _vtSaveSession();
     return;
   } else {
-    div.innerHTML = `<div class="vt-avatar">AI</div><div class="vt-bubble"></div>`;
+    div.innerHTML = `<div class="vt-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><defs><linearGradient id="vt-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient><linearGradient id="vt-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient></defs><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" opacity="0.95"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg></div><div class="vt-bubble"></div>`;
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
     const bubble = div.querySelector('.vt-bubble');
@@ -613,7 +614,7 @@ window._vtClear = function() {
   if (topicEl) topicEl.textContent = 'Waiting for a concept...';
   const msgs = document.getElementById('vt-chat-msgs');
   if (msgs) {
-    msgs.innerHTML = `<div class="vt-msg vt-msg-ai"><div class="vt-avatar">AI</div><div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Try "explain osmosis" or tap a concept on the left.</div></div>`;
+    msgs.innerHTML = `<div class="vt-msg vt-msg-ai"><div class="vt-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><defs><linearGradient id="vt-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient><linearGradient id="vt-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient></defs><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" opacity="0.95"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg></div><div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Try "explain osmosis" or tap a concept on the left.</div></div>`;
   }
   // Clear session so next message starts a fresh recent entry
   _vtSessionId = null;
