@@ -136,7 +136,7 @@ function toggleSidebar(el) {
 
 function handleLogoClick() { showScreen('home'); }
 
-function _navInit() {
+export function _navInit() {
   const last = (() => { try { return sessionStorage.getItem('chunks_last_screen'); } catch(e) { return null; } })();
   const start = last && SCREEN_MAP[last] ? last : 'home';
   document.querySelectorAll('.screen').forEach(s => { s.style.display = 'none'; s.classList.remove('active'); });
@@ -148,15 +148,8 @@ function _navInit() {
   if (overlay) overlay.addEventListener('click', closeMobileDrawer);
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    _navInit();
-    document.body.classList.add('chunks-ready');
-  });
-} else {
-  _navInit();
-  document.body.classList.add('chunks-ready');
-}
+// _navInit is now called from main.js after all screens are mounted
+// so that screen elements exist when showScreen() runs
 
 window.showScreen        = showScreen;
 window.drawerNav         = drawerNav;

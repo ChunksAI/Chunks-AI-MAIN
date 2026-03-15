@@ -39,7 +39,7 @@ import './utils/storage.js';                            // Task 13 ✓ — sets 
 import './utils/focusTrap.js';                          // Task 14 ✓ — sets window.trapFocus
 
 // ── State (added task-by-task) ─────────────────────────────────────────────
-import './state/navigation.js';                         // Task 15 ✓ — sets window.showScreen, toggleSidebar, mobileNav, etc.
+import { _navInit } from './state/navigation.js';       // Task 15 ✓ — sets window.showScreen, toggleSidebar, mobileNav, etc.
 import './state/workspaceState.js';                     // Task 16 ✓ — sets window.selectBook, wsGoToPage, wsChatSend, etc.
 import './state/flashState.js';
 import './styles/screens/visual-tutor.css';                         // Task 17 ✓ — sets window.wsMakeFlashcard, _fcRenderCard, etc.
@@ -66,6 +66,10 @@ import './components/LibraryModal.js';                  // Task 23 ✓ — sets 
 import './components/SettingsModal.js';                 // Task 24 ✓ — sets window.openSettings, closeSettings, settingsNav, etc.
 
 // ── App bootstrap ──────────────────────────────────────────────────────────
-// HomeScreen self-mounts via its own readyState guard (same pattern as Sidebar).
+// _navInit runs HERE — after ALL screen modules have mounted synchronously above.
+// This guarantees every screen element exists when showScreen() is called,
+// so refresh correctly restores whichever screen was active.
+_navInit();
+document.body.classList.add('chunks-ready');
 
 console.log('[Chunks AI] main.js loaded ✦');
