@@ -97,6 +97,7 @@
 
 /* Scrollable body */
 #sp-explain-body {
+  font-size: var(--chat-font-size);
   scrollbar-width: thin;
 }
 #sp-explain-body p { margin: 0 0 12px; }

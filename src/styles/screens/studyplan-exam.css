@@ -9,7 +9,7 @@
   border: 1px solid var(--border-sm);
   background: var(--surface-2);
   color: var(--text-2);
-  font-size: 12.5px;
+  font-size: var(--chat-font-size);
   font-family: var(--font-body);
   cursor: pointer;
   transition: all var(--t-fast);

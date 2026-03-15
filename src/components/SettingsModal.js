@@ -95,8 +95,8 @@ const SETTINGS_MODAL_HTML = `
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
             </div>
             <div class="settings-select-menu" role="listbox" data-setting-key="appearance">
-              <div class="settings-select-option selected" data-action="settingsSelect-self" data-appearance="dark">Dark</div>
-              <div class="settings-select-option" data-action="settingsSelect-self" data-appearance="system" style="opacity:0.45;pointer-events:none;">System <span style="font-size:10px;color:var(--text-4);">(soon)</span></div>
+              <div class="settings-select-option selected" data-action="settingsSelect-self" data-appearance="dark" onclick="applyAppearance('dark')">Dark</div>
+              <div class="settings-select-option" data-action="settingsSelect-self" data-appearance="system" onclick="applyAppearance('system')">System</div>
               <div class="settings-select-option" data-action="settingsSelect-self" data-appearance="light" style="opacity:0.45;pointer-events:none;">Light <span style="font-size:10px;color:var(--text-4);">(soon)</span></div>
             </div>
           </div>
@@ -443,21 +443,13 @@ export function settingsFontSize(size, btn) {
   try { localStorage.setItem('chunks-chat-font-size', size); } catch (e) {}
 }
 
-// Restore font size immediately (before DOMContentLoaded)
+// Restore font size CSS var immediately on load (before modal HTML exists)
 (function () {
   try {
     const s = localStorage.getItem('chunks-chat-font-size');
     const map = { small: '11px', medium: '13px', large: '15px' };
     if (s && map[s]) {
       document.documentElement.style.setProperty('--chat-font-size', map[s]);
-      const sync = () => {
-        document.querySelectorAll('.font-size-btn').forEach(b => b.classList.remove('active'));
-        const t = document.querySelector(`.font-size-btn[onclick*="'${s}'"]`);
-        if (t) t.classList.add('active');
-      };
-      document.readyState === 'loading'
-        ? document.addEventListener('DOMContentLoaded', sync)
-        : sync();
     }
   } catch (e) {}
 })();
@@ -518,7 +510,28 @@ export function settingsSelect(optionEl) {
   btn.setAttribute('aria-expanded', 'false');
 }
 
-// ── Accent color ──────────────────────────────────────────────────────────────
+// ── Appearance ────────────────────────────────────────────────────────────────
+
+export function applyAppearance(value) {
+  // Only dark theme is fully built. System respects prefers-color-scheme.
+  // Light is marked coming soon and will never be passed here.
+  const root = document.documentElement;
+  if (value === 'system') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.setAttribute('data-theme', prefersDark ? 'dark' : 'dark'); // both dark for now
+  } else {
+    root.setAttribute('data-theme', 'dark');
+  }
+  try { localStorage.setItem('chunks_setting_appearance', value); } catch(e) {}
+}
+
+// Restore appearance immediately on load
+(function() {
+  try {
+    const saved = localStorage.getItem('chunks_setting_appearance') || 'dark';
+    document.documentElement.setAttribute('data-theme', 'dark'); // always dark for now
+  } catch(e) {}
+})();
 
 function _hexToRgb(hex) {
   const h = hex.replace('#', '');
@@ -761,6 +774,11 @@ export async function _updateCacheSizeLabel() {
 // ── Restore persisted settings ────────────────────────────────────────────────
 
 function _restoreSettings() {
+  // ── Font size button highlight ──────────────────────────
+  const savedSize = localStorage.getItem('chunks-chat-font-size') || 'medium';
+  document.querySelectorAll('.font-size-btn').forEach(b => b.classList.remove('active'));
+  const activeBtn = document.querySelector(`.font-size-btn[onclick*="'${savedSize}'"]`);
+  if (activeBtn) activeBtn.classList.add('active');
   function applySelect(key, value) {
     const menu = document.querySelector(`.settings-select-menu[data-setting-key="${key}"]`);
     if (!menu || !value) return;
@@ -803,6 +821,9 @@ function _restoreSettings() {
   }
 
   applySelect('appearance',      localStorage.getItem('chunks_setting_appearance'));
+  // Apply the saved appearance immediately
+  const savedAppearance = localStorage.getItem('chunks_setting_appearance') || 'dark';
+  applyAppearance(savedAppearance);
   applySelect('language',        localStorage.getItem('chunks_setting_language'));
   applySelect('spoken-language', localStorage.getItem('chunks_setting_spoken-language'));
 
@@ -949,6 +970,7 @@ window.settingsFontSize          = settingsFontSize;
 window.settingsDropdown          = settingsDropdown;
 window.settingsSelect            = settingsSelect;
 window.applyAccentColor          = applyAccentColor;
+window.applyAppearance           = applyAppearance;
 window.settingsSelectAccent      = settingsSelectAccent;
 window.settingsSelectVoice       = settingsSelectVoice;
 window.settingsPlayVoice         = settingsPlayVoice;

@@ -1038,7 +1038,7 @@
 }
 
 .fc-tutor-text {
-  font-size: 13px;
+  font-size: var(--chat-font-size);
   color: var(--text-2);
   line-height: 1.7;
   font-family: var(--font-body);
