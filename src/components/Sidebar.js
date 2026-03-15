@@ -70,6 +70,13 @@ const NAV_ITEMS = [
     svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
   },
   {
+    id:     'visual',
+    label:  'Visual Tutor',
+    action: 'showScreen',
+    screen: 'visual',
+    svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M8 21h8m-4-4v4"/></svg>`,
+  },
+  {
     id:     'research',
     label:  'Research',
     action: 'showScreen',
@@ -221,60 +228,6 @@ export function mountSidebars() {
     const screen = el.dataset.sidebarScreen || 'home';
     el.innerHTML = buildSidebar(screen);
   });
-  // After sidebar HTML is injected, populate history from localStorage directly.
-  // This is the guaranteed-reliable path: reads storage, no inline-script dependency.
-  renderSidebarHistory();
-}
-
-// ── renderSidebarHistory ───────────────────────────────────────────────────
-// Reads chunks_recent from localStorage and populates every sidebar list
-// container that currently exists in the DOM.
-// Called by mountSidebars() on every page load/refresh/new-tab.
-// Also exposed as window._renderAllRecent so recentAdd/delete/rename in
-// index.html re-renders the sidebar after any change.
-
-const CHAT_SVG_SB = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
-
-const ALL_GENERAL_IDS   = ['recent-list-general','recent-list-general-ws','recent-list-general-flash','recent-list-general-research','recent-list-general-exam','recent-list-general-studyplan'];
-const ALL_WORKSPACE_IDS = ['recent-list-home','recent-list-workspace','recent-list-flash','recent-list-ws-research','recent-list-ws-exam','recent-list-ws-studyplan'];
-
-export function renderSidebarHistory() {
-  let items = [];
-  try { items = JSON.parse(localStorage.getItem('chunks_recent') || '[]') || []; }
-  catch (_) { items = []; }
-
-  const activeId     = localStorage.getItem('chunks_active_recent_id') || null;
-  const generalItems = items.filter(r => r.source === 'general' || !r.bookId);
-  const wsItems      = items.filter(r => r.source === 'workspace'  &&  r.bookId);
-
-  ALL_GENERAL_IDS.forEach(id   => _sbFill(id, generalItems, activeId, 'No chats yet'));
-  ALL_WORKSPACE_IDS.forEach(id => _sbFill(id, wsItems,      activeId, 'No recent chats yet'));
-}
-
-function _sbFill(containerId, items, activeId, emptyMsg) {
-  const el = document.getElementById(containerId);
-  if (!el) return;
-  el.innerHTML = '';
-  if (!items.length) {
-    el.innerHTML = `<div class="recent-empty">${emptyMsg}</div>`;
-    return;
-  }
-  items.forEach(item => {
-    const div = document.createElement('div');
-    div.className = 'recent-item' + (item.id === activeId ? ' active' : '');
-    div.dataset.id = item.id;
-    div.title = item.question || '';
-    div.innerHTML = `
-      ${CHAT_SVG_SB}
-      <span>${(item.pinned ? '📌 ' : '') + (item.label || '').replace(/</g, '&lt;')}</span>
-      <span class="recent-menu-btn" title="More options">···</span>`;
-    div.addEventListener('click',     ()  => window._clickRecent?.(item));
-    div.querySelector('.recent-menu-btn').addEventListener('click', e => {
-      e.stopPropagation();
-      window._showRecentCtxMenu?.(item, e);
-    });
-    el.appendChild(div);
-  });
 }
 
 // Auto-mount
@@ -285,10 +238,5 @@ if (document.readyState === 'loading') {
 }
 
 // Legacy global
-window.buildSidebar         = buildSidebar;
-window.mountSidebars        = mountSidebars;
-window.renderSidebarHistory = renderSidebarHistory;
-// Point window._renderAllRecent here so index.html's recentAdd/delete/rename
-// re-reads localStorage and re-renders (works for both live updates and restores).
-window._renderAllRecent     = renderSidebarHistory;
-window._renderRecentList    = renderSidebarHistory;
+window.buildSidebar  = buildSidebar;
+window.mountSidebars = mountSidebars;
