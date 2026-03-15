@@ -73,7 +73,7 @@
 .sidebar-divider { transition: opacity 200ms ease; }
 
 .sidebar.compact .sidebar-collapse-btn { display: none; }
-.sidebar.compact .sidebar-footer { padding: 10px 0; display: flex; justify-content: center; align-items: center; }
+.sidebar.compact .sidebar-footer { padding: 10px 0; display: flex; justify-content: center; align-items: center; margin-top: auto; }
 .sidebar.compact .sidebar-header { justify-content: center; padding: 12px 0 10px; gap: 0; }
 
 /* Compact: logo-link becomes a square toggle area */
@@ -240,7 +240,7 @@
 .sidebar-history-scroll .recent-list::-webkit-scrollbar { width: 2px; }
 .sidebar-history-scroll .recent-list::-webkit-scrollbar-thumb { background: var(--border-xs); border-radius: 2px; }
 
-.sidebar.compact .sidebar-history-scroll { display: none; }
+.sidebar.compact .sidebar-history-scroll { display: none; flex: 0; }
 
 .sidebar-section-label {
   font-family: var(--font-mono);
