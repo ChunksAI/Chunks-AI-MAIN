@@ -41,7 +41,8 @@ import './utils/focusTrap.js';                          // Task 14 ✓ — sets 
 // ── State (added task-by-task) ─────────────────────────────────────────────
 import './state/navigation.js';                         // Task 15 ✓ — sets window.showScreen, toggleSidebar, mobileNav, etc.
 import './state/workspaceState.js';                     // Task 16 ✓ — sets window.selectBook, wsGoToPage, wsChatSend, etc.
-import './state/flashState.js';                         // Task 17 ✓ — sets window.wsMakeFlashcard, _fcRenderCard, etc.
+import './state/flashState.js';
+import './styles/screens/visual-tutor.css';                         // Task 17 ✓ — sets window.wsMakeFlashcard, _fcRenderCard, etc.
 import './state/studyPlanState.js';                     // Task 18 ✓ — sets window.spHandleGenerate, spOpenExplainDrawer, etc.
 
 // ── Screens (added task-by-task) ───────────────────────────────────────────
@@ -54,6 +55,7 @@ import { mountFlashScreen }      from './screens/FlashScreen.js';      // Task 2
 import { mountResearchScreen }   from './screens/ResearchScreen.js';   // Task 28 ✓
 import { mountExamScreen }       from './screens/ExamScreen.js';       // Task 29 ✓
 import { mountStudyPlanScreen }  from './screens/StudyPlanScreen.js';  // Task 30 ✓
+import { mountVisualTutorScreen } from './screens/VisualTutorScreen.js'; // Visual Tutor ✓
 
 // ── Components (added task-by-task) ───────────────────────────────────────
 import './components/Sidebar.js';                       // Task 19 ✓ — mounts all 6 sidebar placeholders
