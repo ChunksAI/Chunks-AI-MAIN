@@ -119,7 +119,10 @@ const FLASH_HTML = `
             </div>
           </div>
           <div class="fc-session-info">
-            <span id="fc-deck-name-label" style="font-size:11px;color:var(--text-4);font-family:var(--font-mono);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+            <span id="fc-deck-name-label" style="font-size:11px;color:var(--text-4);font-family:var(--font-mono);max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+            <button onclick="window._fcOpenThemePicker()" title="Card theme" style="background:none;border:none;cursor:pointer;color:var(--text-4);padding:2px 4px;border-radius:4px;display:flex;align-items:center;transition:color 0.15s;" onmouseenter="this.style.color='var(--text-2)'" onmouseleave="this.style.color='var(--text-4)'">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M18.66 5.34l1.41-1.41"/></svg>
+            </button>
             <button id="fc-sound-toggle" onclick="
               const muted = window._fcSound.toggle();
               this.title = muted ? 'Unmute sounds' : 'Mute sounds';
