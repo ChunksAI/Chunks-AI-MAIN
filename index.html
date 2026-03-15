@@ -19,7 +19,7 @@
 <style>
   /* Hide page until auth check + screen restore complete */
   html { scroll-behavior: auto !important; }
-  body { opacity: 0; transition: opacity 0.18s ease; }
+  body { opacity: 0; transition: opacity 0.3s ease; }
   body.chunks-ready { opacity: 1; }
 </style>
 <script>
@@ -94,6 +94,13 @@
 ══════════════════════════════ -->
 <!-- #screen-flash → src/screens/FlashScreen.js (Task 27) -->
 <div data-flash-screen></div>
+
+
+<!-- ══════════════════════════════
+     SCREEN: VISUAL TUTOR
+══════════════════════════════ -->
+<!-- #screen-visual → src/screens/VisualTutorScreen.js -->
+<div data-visual-screen></div>
 
 
 <!-- ══════════════════════════════
@@ -4878,6 +4885,10 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
       Study Plan
     </div>
+    <div class="md-item" id="md-item-visual" data-action="drawerNav" data-screen="visual">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M8 21h8m-4-4v4"/></svg>
+      Visual Tutor
+    </div>
     <div class="md-item" id="md-item-research" data-action="drawerNav" data-screen="research">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
       Research
@@ -5028,6 +5039,9 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     '_fcExitStudy':           ()      => _fcExitStudy(),
     '_fcNext-self':           (el)    => _fcNext(el.dataset.rating),
     '_fcCloseCompleteModal':  ()      => _fcCloseCompleteModal(),
+    '_vtSendInput':           ()      => window._vtSendInput(),
+    '_vtBack':                ()      => window._vtBack(),
+    '_vtClear':               ()      => window._vtClear(),
     '_fcOpenThemePicker':     ()      => window._fcOpenThemePicker(),
     '_fcToggleSound':         ()      => {
       const muted = window._fcSound.toggle();
@@ -5155,5 +5169,13 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
   <!-- ── Vite module entry point ── -->
   <script type="module" src="/src/main.js"></script>
+<script>
+// Failsafe: ensure body is visible after all modules load
+window.addEventListener('load', function() {
+  setTimeout(function() {
+    document.body.classList.add('chunks-ready');
+  }, 100);
+});
+</script>
 </body>
 </html>
