@@ -2562,37 +2562,35 @@ def ask_image():
 # ADMIN: VERIFY ACCESS (JWT + role + PIN)
 # ============================================
 
-# Admin PIN hashes are stored server-side only (never sent to client).
-# SHA-256( 'chunks_admin_salt_' + PIN ) — same salt as admin.html used.
-# Set via environment variables: ADMIN_PIN_HASH_<EMAIL_SLUG>
-# e.g. ADMIN_PIN_HASH_OWNER, ADMIN_PIN_HASH_ADMIN1
-# Or fall back to ADMIN_PIN_HASHES as JSON: {"email@x.com": "hexhash..."}
-import json as _json
+# Admin PIN hashes — stored in Railway environment variables, never in source.
+# Set these two variables on Railway:
+#   ADMIN_PIN_HASH_OWNER  — SHA-256 hash of owner PIN
+#   ADMIN_PIN_HASH_ADMIN  — SHA-256 hash of admin PIN
+#
+# To generate a hash, run in browser console:
+#   crypto.subtle.digest('SHA-256', new TextEncoder().encode('chunks_admin_salt_' + 'YOUR_PIN'))
+#   .then(b => console.log(Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')))
 import hashlib as _hashlib
 
-def _get_admin_pin_hashes() -> dict:
-    """Load PIN hashes from environment. Never hardcoded."""
-    raw = os.environ.get('ADMIN_PIN_HASHES', '')
-    if raw:
-        try:
-            return _json.loads(raw)
-        except Exception:
-            pass
-    return {}
+def _get_pin_hash_for_email(email: str) -> str:
+    """Get PIN hash for a given email from Railway env vars."""
+    # Map emails to their Railway variable names
+    mapping = {
+        'contridascharles91@gmail.com': os.environ.get('ADMIN_PIN_HASH_OWNER', ''),
+        'deffmichaeldawang@gmail.com':  os.environ.get('ADMIN_PIN_HASH_ADMIN',  ''),
+    }
+    return (mapping.get(email.lower(), '') or '').strip()
 
 def _verify_admin_pin(email: str, pin: str) -> bool:
-    """Verify a submitted PIN against the server-side hash."""
-    hashes = _get_admin_pin_hashes()
-    if not hashes:
-        logger.warning('ADMIN_PIN_HASHES env var not set — PIN verification disabled')
-        return False
-    expected = hashes.get(email, '')
+    """Verify a submitted PIN against the Railway-stored hash."""
+    expected = _get_pin_hash_for_email(email)
     if not expected:
-        return False
+        # No hash set for this email — skip PIN requirement
+        return True
     salt = 'chunks_admin_salt_'
     computed = _hashlib.sha256((salt + pin).encode()).hexdigest()
-    # Constant-time comparison
     return _hashlib.compare_digest(computed, expected)
+
 
 def _check_admin_role(jwt_token: str) -> tuple:
     """
@@ -2683,10 +2681,11 @@ def admin_verify_access():
     data = request.get_json(silent=True) or {}
     pin = data.get('pin', '').strip()
 
-    pin_hashes = _get_admin_pin_hashes()
+    # Check if a PIN hash is configured for this email
+    has_pin = bool(_get_pin_hash_for_email(email))
 
-    # If no PIN hashes configured, skip PIN requirement
-    if not pin_hashes:
+    # If no PIN configured for this email, skip PIN requirement
+    if not has_pin:
         return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
 
     # Phase 1: no PIN submitted — tell client PIN is required
