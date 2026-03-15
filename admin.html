@@ -1018,6 +1018,12 @@ async function _enterAdmin(email) {
   if (sessionStorage.getItem('chunks_pin_ok') === email) {
     _finalizeAdmin(email); return;
   }
+  // Ensure config (and active backend URL) is loaded before calling verify-access
+  const cfgOk = await loadConfig();
+  if (!cfgOk) {
+    showLogin('Could not reach server — please refresh and try again.');
+    return;
+  }
   // Ask server if PIN is required for this account
   try {
     const { data: { session } } = await sb.auth.getSession();
