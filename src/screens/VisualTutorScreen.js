@@ -42,14 +42,14 @@ const VT_HTML = `
         <div class="vt-canvas-footer">
           <div class="vt-quick-pills" id="vt-quick-pills">
             <span class="vt-pills-label">Try:</span>
-            <button class="vt-pill" data-action="_vtAskPill-self" data-query="explain osmosis">Osmosis</button>
-            <button class="vt-pill" data-action="_vtAskPill-self" data-query="show me the heart pumping blood">Heart</button>
-            <button class="vt-pill" data-action="_vtAskPill-self" data-query="explain action potential">Neuron</button>
-            <button class="vt-pill" data-action="_vtAskPill-self" data-query="show me mitosis">Mitosis</button>
-            <button class="vt-pill" data-action="_vtAskPill-self" data-query="explain photosynthesis">Photosynthesis</button>
-            <button class="vt-pill" data-action="_vtAskPill-self" data-query="show me DNA replication">DNA</button>
-            <button class="vt-pill" data-action="_vtAskPill-self" data-query="explain how vaccines work">Vaccines</button>
-            <button class="vt-pill" data-action="_vtAskPill-self" data-query="show me ohms law">Ohm's law</button>
+            <button class="vt-pill" data-query="explain osmosis">Osmosis</button>
+            <button class="vt-pill" data-query="show me the heart pumping blood">Heart</button>
+            <button class="vt-pill" data-query="explain action potential">Neuron</button>
+            <button class="vt-pill" data-query="show me mitosis">Mitosis</button>
+            <button class="vt-pill" data-query="explain photosynthesis">Photosynthesis</button>
+            <button class="vt-pill" data-query="show me DNA replication">DNA</button>
+            <button class="vt-pill" data-query="explain how vaccines work">Vaccines</button>
+            <button class="vt-pill" data-query="show me ohms law">Ohm's law</button>
           </div>
         </div>
       </div>
@@ -434,6 +434,7 @@ function _vtSaveSession() {
   if (!msgs) return;
   const html  = msgs.innerHTML;
   const topic = document.getElementById('vt-canvas-topic')?.textContent || '';
+  // Save the inner SVG content (the <g> fragments), not the outer <svg> wrapper
   const svg   = document.getElementById('vt-svg')?.innerHTML || '';
   try {
     if (typeof localStorage === 'undefined') return;
@@ -465,8 +466,17 @@ function _vtMatchScene(q) {
 
 function _vtRenderScene(scene, q) {
   const result = scene.render(q);
-  const svgEl = document.getElementById('vt-svg');
-  if (svgEl) svgEl.innerHTML = result.svg;
+
+  // WhiteboardEngine wipes vt-canvas-area on every AI call, so always
+  // rebuild #vt-svg from scratch inside the container.
+  const area = document.getElementById('vt-canvas-area');
+  if (area) {
+    area.innerHTML =
+      `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+      result.svg +
+      `</svg>`;
+  }
+
   const topicEl = document.getElementById('vt-canvas-topic');
   if (topicEl) topicEl.textContent = scene.topic;
   const dot = document.getElementById('vt-canvas-dot');
@@ -611,9 +621,12 @@ if (typeof window !== 'undefined') window._vtAsk = function(q) {
     const text = _vtRenderScene(scene, q);
     setTimeout(() => _vtAddMsg(text, 'ai'), 200);
   } else {
-    const svgEl = document.getElementById('vt-svg');
-    if (svgEl) {
-      svgEl.innerHTML = `<text x="220" y="165" text-anchor="middle" font-size="13" fill="var(--text-4)" font-family="var(--font-body)">Thinking about ${q}...</text>`;
+    const area = document.getElementById('vt-canvas-area');
+    if (area) {
+      area.innerHTML =
+        `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+        `<text x="220" y="165" text-anchor="middle" font-size="13" fill="var(--text-4)" font-family="var(--font-body)">Thinking about ${q}...</text>` +
+        `</svg>`;
     }
     _vtAddMsg("Let me think about that for you...", 'ai');
     _vtAskAI(q);
@@ -630,12 +643,13 @@ if (typeof window !== 'undefined') window._vtBack = function() {
 };
 
 if (typeof window !== 'undefined') window._vtClear = function() {
-  const svgEl = document.getElementById('vt-svg');
-  if (svgEl) {
-    svgEl.innerHTML = `
-      <text x="220" y="155" text-anchor="middle" font-size="14" fill="var(--text-4)" font-family="var(--font-body)">Ask me to explain anything</text>
-      <text x="220" y="178" text-anchor="middle" font-size="12" fill="var(--text-4)" font-family="var(--font-body)" opacity="0.6">I'll draw it here as I explain</text>
-    `;
+  const area = document.getElementById('vt-canvas-area');
+  if (area) {
+    area.innerHTML =
+      `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+      `<text x="220" y="155" text-anchor="middle" font-size="14" fill="var(--text-4)" font-family="var(--font-body)">Ask me to explain anything</text>` +
+      `<text x="220" y="178" text-anchor="middle" font-size="12" fill="var(--text-4)" font-family="var(--font-body)" opacity="0.6">I'll draw it here as I explain</text>` +
+      `</svg>`;
   }
   const dot = document.getElementById('vt-canvas-dot');
   if (dot) dot.style.background = '#4ade80';
@@ -686,26 +700,28 @@ if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId
     }
 
     // Restore SVG canvas — use saved SVG if available, else re-render from scene library
-    const svgEl = document.getElementById('vt-svg');
-    if (svgEl) {
+    const area = document.getElementById('vt-canvas-area');
+    if (area) {
       if (session.svg) {
-        // Restore exactly what was drawn
-        svgEl.innerHTML = session.svg;
+        area.innerHTML =
+          `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+          session.svg + `</svg>`;
         const dot = document.getElementById('vt-canvas-dot');
         if (dot) dot.style.background = '#4ade80';
       } else if (session.topic) {
-        // Fallback: try to re-render from scene library using the topic
         const scene = _vtMatchScene(session.topic);
         if (scene) {
-          const result = scene.render(session.topic);
-          svgEl.innerHTML = result.svg;
+          area.innerHTML =
+            `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+            scene.render(session.topic).svg + `</svg>`;
           const dot = document.getElementById('vt-canvas-dot');
           if (dot) dot.style.background = '#4ade80';
         } else {
-          svgEl.innerHTML = `
-            <text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>
-            <text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>
-          `;
+          area.innerHTML =
+            `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+            `<text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>` +
+            `<text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>` +
+            `</svg>`;
         }
       }
     }
@@ -718,7 +734,11 @@ if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId
 
 // ── Mount ──────────────────────────────────────────────────────────────────
 
+let _vtMounted = false;
+
 export function mountVisualTutorScreen() {
+  if (_vtMounted) return;   // prevent double-mount / duplicate event listeners
+  _vtMounted = true;
   const sp = document.querySelector('[data-visual-screen]');
   if (sp) {
     sp.outerHTML = VT_HTML;
@@ -745,6 +765,14 @@ export function mountVisualTutorScreen() {
         if (e.key === 'Enter') window._vtSendInput();
       });
     }
+
+    // Wire pill buttons directly — avoids double-fire from global data-action delegation
+    document.querySelectorAll('#vt-quick-pills .vt-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const q = btn.getAttribute('data-query');
+        if (q && window._vtAsk) window._vtAsk(q);
+      });
+    });
   }, 100);
 
   // ── Restore last visual session on page refresh ──
@@ -772,23 +800,28 @@ export function mountVisualTutorScreen() {
     if (session.topic) {
       const topicEl = document.getElementById('vt-canvas-topic');
       if (topicEl) topicEl.textContent = session.topic;
-      const svgEl = document.getElementById('vt-svg');
-      if (svgEl) {
+      const area2 = document.getElementById('vt-canvas-area');
+      if (area2) {
         if (session.svg) {
-          svgEl.innerHTML = session.svg;
+          area2.innerHTML =
+            `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+            session.svg + `</svg>`;
           const dot = document.getElementById('vt-canvas-dot');
           if (dot) dot.style.background = '#4ade80';
         } else {
           const scene = _vtMatchScene(session.topic);
           if (scene) {
-            svgEl.innerHTML = scene.render(session.topic).svg;
+            area2.innerHTML =
+              `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+              scene.render(session.topic).svg + `</svg>`;
             const dot = document.getElementById('vt-canvas-dot');
             if (dot) dot.style.background = '#4ade80';
           } else {
-            svgEl.innerHTML = `
-              <text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>
-              <text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>
-            `;
+            area2.innerHTML =
+              `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+              `<text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>` +
+              `<text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>` +
+              `</svg>`;
           }
         }
       }
