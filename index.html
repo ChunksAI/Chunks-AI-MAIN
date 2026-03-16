@@ -24,11 +24,11 @@
 <meta name="twitter:description" content="AI-powered flashcards, study plans, visual tutor, and exam prep.">
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
-  script-src 'self' blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com 'unsafe-inline';
-  style-src 'self' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-inline';
-  font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com data:;
+  script-src 'self' blob: https://cdnjs.cloudflare.com https://unpkg.com https://fonts.googleapis.com 'unsafe-inline';
+  style-src 'self' https://fonts.googleapis.com https://cdnjs.cloudflare.com 'unsafe-inline';
+  font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:;
   img-src 'self' data: blob: https:;
-  connect-src 'self' blob: https://api.chunks.online https://*.supabase.co wss://*.supabase.co https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://api.semanticscholar.org;
+  connect-src 'self' blob: https://api.chunks.online https://*.supabase.co wss://*.supabase.co https://cdnjs.cloudflare.com https://unpkg.com https://api.semanticscholar.org;
   worker-src blob: https://cdnjs.cloudflare.com;
   frame-src 'none';
   object-src 'none';
@@ -93,13 +93,13 @@
   })();
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin="anonymous">
-<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin="anonymous">
+<link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer crossorigin="anonymous"></script>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" defer crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js" defer crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/supabase-js/2.39.3/umd/supabase.min.js" defer crossorigin="anonymous"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js" defer crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" defer crossorigin="anonymous"></script>
 
 <!-- Supabase credentials — injected so app works even if Railway /api/config is slow/down -->
 <script>
