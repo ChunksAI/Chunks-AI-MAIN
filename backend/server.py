@@ -22,7 +22,7 @@ from urllib.parse import urlparse
 import random
 import uuid
 import hashlib
-import hmac
+import time
 import threading
 from enum import Enum
 from cachetools import TTLCache
@@ -194,7 +194,7 @@ CORS_ORIGINS = '*'
 if _raw_origins != '*':
     _allowed_origins = [o.strip() for o in _raw_origins.split(',') if o.strip()]
     _default_origins = [
-        "https://chunks-ai.vercel.app",
+        "https://chunks.online", "https://www.chunks.online", "https://chunks-ai.vercel.app",
         "http://localhost:5173",
         "http://localhost:3000",
         "http://localhost:5000",
@@ -264,14 +264,14 @@ def after_request(response):
         "font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com",
         (
             "img-src 'self' data: blob: "
-            "https://chunks-ai-main-production.up.railway.app "
-            "https://chemistry-app-production.up.railway.app "
+            "https://api.chunks.online "
+            "https://api.chunks.online "
             "https://*.r2.dev"
         ),
         (
             "connect-src 'self' "
-            "https://chunks-ai-main-production.up.railway.app "
-            "https://chemistry-app-production.up.railway.app "
+            "https://api.chunks.online "
+            "https://api.chunks.online "
             "https://*.supabase.co "
             "https://api.semanticscholar.org"
         ),
@@ -308,10 +308,7 @@ limiter = Limiter(
     app=app,
     default_limits=["500 per hour", "120 per minute"],
     storage_uri=_limiter_storage,
-    strategy="fixed-window",
-    storage_options={"socket_connect_timeout": 2, "socket_timeout": 2},
-    swallow_errors=True,              # FIX: Redis hiccups must not crash endpoints with a 500
-    in_memory_fallback_enabled=True   # FIX: fall back to memory if Redis is unavailable
+    strategy="fixed-window"
 )
 
 # ── Upload size limit 25MB ────────────────────────────────────────────────────
@@ -652,7 +649,7 @@ class TextbookSearch:
             headers = {
                 "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                 "Content-Type":  "application/json",
-                "HTTP-Referer":  "https://chunks-ai.vercel.app",
+                "HTTP-Referer":  "https://chunks.online", "https://www.chunks.online", "https://chunks-ai.vercel.app",
                 "X-Title":       "Chunks Chemistry"
             }
             payload = {
@@ -860,7 +857,7 @@ def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=No
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://chunks-ai.vercel.app",
+            "HTTP-Referer": "https://chunks.online", "https://www.chunks.online", "https://chunks-ai.vercel.app",
             "X-Title": "Chunks Chemistry"
         }
         messages = [{"role": "system", "content": system_prompt}]
@@ -909,7 +906,7 @@ def call_ai_web_search(question, system_prompt=None, history=None):
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type":  "application/json",
-            "HTTP-Referer":  "https://chunks-ai.vercel.app",
+            "HTTP-Referer":  "https://chunks.online", "https://www.chunks.online", "https://chunks-ai.vercel.app",
             "X-Title":       "Chunks Chemistry"
         }
 
@@ -2499,7 +2496,7 @@ def ask_image():
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type":  "application/json",
-            "HTTP-Referer":  "https://chunks-ai.vercel.app",
+            "HTTP-Referer":  "https://chunks.online", "https://www.chunks.online", "https://chunks-ai.vercel.app",
             "X-Title":       "Chunks Chemistry"
         }
 
@@ -2592,7 +2589,7 @@ def _verify_admin_pin(email: str, pin: str) -> bool:
         return True
     salt = 'chunks_admin_salt_'
     computed = _hashlib.sha256((salt + pin).encode()).hexdigest()
-    return hmac.compare_digest(computed, expected)
+    return _hashlib.compare_digest(computed, expected)
 
 
 def _check_admin_role(jwt_token: str) -> tuple:
@@ -2655,7 +2652,6 @@ def _check_admin_role(jwt_token: str) -> tuple:
 
 
 @app.route('/api/admin/verify-access', methods=['POST', 'OPTIONS'])
-@limiter.exempt   # FIX: exempt from rate limiter — limiter storage errors were causing 500s here
 def admin_verify_access():
     """
     Two-phase admin verification:
@@ -2671,48 +2667,38 @@ def admin_verify_access():
     if request.method == 'OPTIONS':
         return jsonify({}), 200
 
-    try:
-        auth_header = request.headers.get('Authorization', '')
-        if not auth_header.startswith('Bearer '):
-            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
 
-        jwt_token = auth_header[7:]
-        verified, role = _check_admin_role(jwt_token)
+    jwt_token = auth_header[7:]
+    verified, role = _check_admin_role(jwt_token)
 
-        if not verified or not role:
-            return jsonify({'success': False, 'error': 'Forbidden — not an admin account'}), 403
+    if not verified or not role:
+        return jsonify({'success': False, 'error': 'Forbidden — not an admin account'}), 403
 
-        # FIX: guard against non-dict verified response from Supabase
-        email = (verified.get('email', '') if isinstance(verified, dict) else '')
-        if not email:
-            logger.warning('verify-access: could not extract email from verified token')
-            return jsonify({'success': False, 'error': 'Could not determine account email'}), 403
+    email = verified.get('email', '')
+    data = request.get_json(silent=True) or {}
+    pin = data.get('pin', '').strip()
 
-        data = request.get_json(silent=True) or {}
-        pin = data.get('pin', '').strip()
+    # Check if a PIN hash is configured for this email
+    has_pin = bool(_get_pin_hash_for_email(email))
 
-        # Check if a PIN hash is configured for this email
-        has_pin = bool(_get_pin_hash_for_email(email))
-
-        # If no PIN configured for this email, skip PIN requirement
-        if not has_pin:
-            return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
-
-        # Phase 1: no PIN submitted — tell client PIN is required
-        if not pin:
-            return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': True})
-
-        # Phase 2: PIN submitted — verify it
-        if not _verify_admin_pin(email, pin):
-            logger.warning(f'Admin PIN failed for {email}')
-            return jsonify({'success': False, 'error': 'Incorrect PIN'}), 403
-
-        logger.info(f'Admin verified: {email} ({role})')
+    # If no PIN configured for this email, skip PIN requirement
+    if not has_pin:
         return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
 
-    except Exception as e:
-        logger.exception(f'verify-access unexpected error: {e}')
-        return jsonify({'success': False, 'error': 'Server error during authentication'}), 500
+    # Phase 1: no PIN submitted — tell client PIN is required
+    if not pin:
+        return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': True})
+
+    # Phase 2: PIN submitted — verify it
+    if not _verify_admin_pin(email, pin):
+        logger.warning(f'Admin PIN failed for {email}')
+        return jsonify({'success': False, 'error': 'Incorrect PIN'}), 403
+
+    logger.info(f'Admin verified: {email} ({role})')
+    return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
 
 
 # ============================================

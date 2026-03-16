@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://chemistry-app-production.up.railway.app https://chunksai.up.railway.app https://chunks-ai-main-production.up.railway.app https://*.supabase.co wss://*.supabase.co https://openrouter.ai https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-ancestors 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://api.chunks.online https://api.chunks.online https://api.chunks.online https://*.supabase.co wss://*.supabase.co https://openrouter.ai https://cdn.jsdelivr.net; worker-src 'self' blob:; frame-ancestors 'none';">
 <title>Admin — Chunks</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -918,8 +918,8 @@ function loadConfig() {
   // Use absolute backend URL — admin.html may be on a different host than Railway.
   // Try each backend in order, cache the working one so all subsequent calls use it.
   const BACKENDS = [
-    'https://chunks-ai-main-production.up.railway.app',
-    'https://chemistry-app-production.up.railway.app'
+    'https://api.chunks.online',
+    'https://api.chunks.online'
   ];
   _configPromise = (async () => {
     // Try up to 3 times with increasing timeouts (handles Railway cold starts)
@@ -1330,7 +1330,7 @@ async function doLogout(){
 
 // OPENROUTER
 // BACKEND_URL is resolved after loadConfig() runs — always points to the active deployment
-function getBackend(){ return window._activeBackend || 'https://chunks-ai-main-production.up.railway.app'; }
+function getBackend(){ return window._activeBackend || 'https://api.chunks.online'; }
 
 async function loadOpenRouterCredits(){
   const body=document.getElementById('or-credit-body');
