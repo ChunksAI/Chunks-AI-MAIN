@@ -108,9 +108,21 @@ export class VisualTutorRenderer {
       }
 
       // ── Step 2: generate diagram blueprint ────────────────────────────────
-      const hint       = detectDiagramType(q);
-      const prompt     = buildDiagramPrompt(q, hint);
-      const rawAnswer  = await this._fetch(prompt, 8);
+      const hint = detectDiagramType(q);
+
+      // When the user explicitly names a diagram type, rewrite the question
+      // so the AI receives an unambiguous instruction — not a topic that could
+      // be interpreted as "explain X", which defaults to whiteboard anatomy.
+      const EXPLICIT_REWRITES = {
+        graph:    (q) => `Draw a ${q}. Use graph type with labeled axes, plotted data, and a clear title.`,
+        timeline: (q) => `Draw a timeline for: ${q}. Use the timeline type with ordered events left to right.`,
+        branch:   (q) => `Draw a mind map / branch diagram for: ${q}. Use the branch type with a central node and radiating branches.`,
+        container:(q) => `Draw a labelled diagram showing the parts of: ${q}. Use the container type with nested regions.`,
+      };
+      const rewriteFn   = EXPLICIT_REWRITES[hint];
+      const finalQ      = rewriteFn ? rewriteFn(q) : q;
+      const prompt      = buildDiagramPrompt(finalQ, hint);
+      const rawAnswer   = await this._fetch(prompt, 8);
       const concept    = parseBlueprint(rawAnswer);
 
       if (!concept) throw new Error('Could not parse diagram blueprint');
