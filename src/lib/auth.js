@@ -97,6 +97,20 @@ function _applyUI(user) {
     }
   });
 
+  // Mobile drawer profile
+  document.querySelectorAll('.md-profile-name').forEach(el => { el.textContent = user.name || user.email || 'User'; });
+  document.querySelectorAll('.md-profile-plan').forEach(el => { el.textContent = planLabel; });
+  document.querySelectorAll('.md-avatar').forEach(el => {
+    if (user.avatar) {
+      el.style.backgroundImage = `url(${user.avatar})`;
+      el.style.backgroundSize = 'cover';
+      el.textContent = '';
+    } else {
+      el.style.backgroundImage = '';
+      el.textContent = initials;
+    }
+  });
+
   // Show/hide the admin button in ProfileDropdown if applicable
   const adminBtn = document.getElementById('pd-admin-btn');
   if (adminBtn) adminBtn.style.display = user.isAdmin ? '' : 'none';

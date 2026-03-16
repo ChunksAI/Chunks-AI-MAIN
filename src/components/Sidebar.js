@@ -213,10 +213,10 @@ ${navHTML}
 
     <div class="sidebar-footer">
       <div class="profile-row" role="button" tabindex="0" aria-label="Open profile menu" aria-haspopup="true" onclick="toggleProfileDropdown(event)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleProfileDropdown(event)">
-        <div class="avatar" aria-hidden="true">A</div>
+        <div class="avatar" aria-hidden="true"></div>
         <div class="profile-text">
-          <div class="profile-name">Alex Cruz</div>
-          <div class="profile-plan">Free Plan</div>
+          <div class="profile-name"></div>
+          <div class="profile-plan"></div>
         </div>
         ${DOTS_SVG}
       </div>
