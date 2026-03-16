@@ -174,9 +174,9 @@ export class VisualTutorRenderer {
   async _tryLoadSimulation(key) {
     // Inline simulations — expand this map as you add more
     const sims = {
-      'osmosis':           () => import('./simulations/OsmosisSim.js'),
-      'supply and demand': () => import('./simulations/SupplyDemandSim.js'),
-      'ohms law':          () => import('./simulations/OhmsLawSim.js'),
+      'osmosis':           () => import(/* @vite-ignore */ './simulations/OsmosisSim.js'),
+      'supply and demand': () => import(/* @vite-ignore */ './simulations/SupplyDemandSim.js'),
+      'ohms law':          () => import(/* @vite-ignore */ './simulations/OhmsLawSim.js'),
     };
     const loader = sims[key];
     if (!loader) return null;
@@ -189,7 +189,7 @@ export class VisualTutorRenderer {
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   async _fetch(question, complexity = 5) {
-    const apiBase = this._opts.apiBase || window.API_BASE || 'https://api.chunks.online';
+    const apiBase = this._opts.apiBase || (typeof window !== 'undefined' ? window.API_BASE : undefined) || 'https://api.chunks.online';
     const res = await fetch(`${apiBase}/ask`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
