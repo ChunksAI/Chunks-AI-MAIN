@@ -51,6 +51,8 @@
   color: var(--text-3);
   font-family: var(--font-mono);
   overflow: hidden;
+  flex: 1;
+  min-width: 0;
 }
 
 #vt-canvas-topic {
@@ -82,21 +84,65 @@
   50%       { opacity: 0.3; }
 }
 
+/* ── Topbar right-side action group ──────────────────────────────────────── */
+
+.vt-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* Mode toggle buttons */
+.vt-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface-3, var(--surface-2));
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-sm);
+  padding: 5px 11px;
+  font-size: 11px;
+  color: var(--text-3);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  white-space: nowrap;
+}
+
+.vt-mode-btn:hover {
+  background: var(--surface-4, var(--surface-3));
+  color: var(--text-2);
+}
+
+.vt-mode-btn.active {
+  background: var(--gold-muted);
+  border-color: var(--gold-border);
+  color: var(--gold);
+}
+
+/* Clear canvas button */
 .vt-clear-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   background: none;
   border: 1px solid var(--border-xs);
-  border-radius: 7px;
-  padding: 6px 12px;
+  border-radius: var(--r-sm);
+  padding: 5px 11px;
   font-size: 11px;
   color: var(--text-4);
   cursor: pointer;
   font-family: var(--font-body);
-  transition: background 0.15s;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  white-space: nowrap;
 }
 
 .vt-clear-btn:hover {
-  background: var(--surface-3, var(--border-xs));
-  color: var(--text-2);
+  background: rgba(248,113,113,0.08);
+  border-color: rgba(248,113,113,0.3);
+  color: #f87171;
 }
 
 /* ── Body ────────────────────────────────────────────────────────────────── */
@@ -108,7 +154,7 @@
   min-height: 0;
 }
 
-/* ── Canvas panel ────────────────────────────────────────────────────────── */
+/* ── Canvas panel (shared by whiteboard + occlusion) ─────────────────────── */
 
 .vt-canvas-panel {
   flex: 1;
@@ -174,6 +220,171 @@
   background: var(--fc-accent, #e8ac2e);
   border-color: var(--fc-accent, #e8ac2e);
   color: #0a0900;
+}
+
+/* ── Image Occlusion Panel ───────────────────────────────────────────────── */
+
+.vt-occlusion-panel {
+  background: var(--surface-1);
+}
+
+/* Toolbar */
+.vt-occ-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border-xs);
+  background: var(--surface-2);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.vt-occ-upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--gold-muted);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--r-sm);
+  padding: 5px 12px;
+  font-size: 11px;
+  color: var(--gold);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-weight: 600;
+  transition: background var(--t-fast);
+  white-space: nowrap;
+  user-select: none;
+}
+
+.vt-occ-upload-btn:hover {
+  background: rgba(232,172,46,0.18);
+}
+
+.vt-occ-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-xs);
+  flex-shrink: 0;
+}
+
+.vt-occ-tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface-3, var(--surface-2));
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-sm);
+  padding: 5px 11px;
+  font-size: 11px;
+  color: var(--text-3);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  white-space: nowrap;
+}
+
+.vt-occ-tool-btn:hover {
+  background: var(--surface-4, var(--surface-3));
+  color: var(--text-2);
+}
+
+.vt-occ-tool-btn.active {
+  background: var(--violet-muted);
+  border-color: var(--violet-border);
+  color: var(--violet);
+}
+
+.vt-occ-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--surface-3, var(--surface-2));
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-sm);
+  padding: 5px 11px;
+  font-size: 11px;
+  color: var(--text-3);
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  white-space: nowrap;
+}
+
+.vt-occ-action-btn:hover {
+  background: var(--surface-4, var(--surface-3));
+  color: var(--text-1);
+}
+
+.vt-occ-reveal-btn {
+  background: rgba(52,211,153,0.08);
+  border-color: rgba(52,211,153,0.2);
+  color: var(--green);
+}
+
+.vt-occ-reveal-btn:hover {
+  background: rgba(52,211,153,0.15);
+  color: var(--green);
+}
+
+/* Canvas wrap */
+.vt-occ-canvas-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-0);
+}
+
+.vt-occ-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: var(--text-4);
+  text-align: center;
+  padding: 32px;
+}
+
+.vt-occ-empty p {
+  font-size: 13px;
+  color: var(--text-3);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.vt-occ-empty span {
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+#vt-occ-canvas,
+#vt-occ-overlay {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+#vt-occ-overlay {
+  cursor: crosshair;
+}
+
+/* Status bar */
+.vt-occ-status {
+  padding: 7px 14px;
+  font-size: 11px;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  border-top: 1px solid var(--border-xs);
+  background: var(--surface-2);
+  flex-shrink: 0;
+  min-height: 30px;
+  line-height: 1.5;
 }
 
 /* ── Chat panel ──────────────────────────────────────────────────────────── */
@@ -306,6 +517,20 @@
 
   .vt-topbar {
     padding: 10px 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .vt-topbar-actions {
+    margin-left: 0;
+    width: 100%;
+    gap: 5px;
+  }
+
+  .vt-mode-btn,
+  .vt-clear-btn {
+    font-size: 10px;
+    padding: 4px 8px;
   }
 
   .vt-quick-pills {
@@ -321,5 +546,16 @@
   .vt-bubble {
     font-size: var(--chat-font-size);
     max-width: 220px;
+  }
+
+  .vt-occ-toolbar {
+    gap: 4px;
+    padding: 7px 10px;
+  }
+
+  .vt-occ-tool-btn,
+  .vt-occ-action-btn {
+    font-size: 10px;
+    padding: 4px 8px;
   }
 }
