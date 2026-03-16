@@ -233,11 +233,21 @@ def after_request(response):
     # using the CORS_ORIGINS whitelist. Setting them here with a wildcard would
     # override that whitelist on every response and render it useless.
     # ── Security headers ─────────────────────────────────────────────────────
+    # Force HTTP -> HTTPS: Railway forwards requests as HTTP internally;
+    # the original protocol is in X-Forwarded-Proto.
+    if request.headers.get('X-Forwarded-Proto', 'https') == 'http':
+        https_url = request.url.replace('http://', 'https://', 1)
+        from flask import redirect as _redir
+        return _redir(https_url, code=301)
+
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    # HSTS: tells browsers to always use HTTPS for 1 year — permanently
+    # removes the 'Not Secure' warning for all returning visitors.
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
     response.headers.pop('Server', None)
     response.headers.pop('X-Powered-By', None)
 
