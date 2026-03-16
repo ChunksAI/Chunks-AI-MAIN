@@ -649,7 +649,7 @@ class TextbookSearch:
             headers = {
                 "Authorization": f"Bearer {OPENROUTER_API_KEY}",
                 "Content-Type":  "application/json",
-                "HTTP-Referer":  "https://chunks.online", "https://www.chunks.online", "https://chunks-ai.vercel.app",
+                "HTTP-Referer":  "https://chunks.online",
                 "X-Title":       "Chunks Chemistry"
             }
             payload = {
@@ -857,7 +857,7 @@ def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=No
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type": "application/json",
-            "HTTP-Referer": "https://chunks.online", "https://www.chunks.online", "https://chunks-ai.vercel.app",
+            "HTTP-Referer": "https://chunks.online",
             "X-Title": "Chunks Chemistry"
         }
         messages = [{"role": "system", "content": system_prompt}]
@@ -906,7 +906,7 @@ def call_ai_web_search(question, system_prompt=None, history=None):
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type":  "application/json",
-            "HTTP-Referer":  "https://chunks.online", "https://www.chunks.online", "https://chunks-ai.vercel.app",
+            "HTTP-Referer":  "https://chunks.online",
             "X-Title":       "Chunks Chemistry"
         }
 
@@ -2496,7 +2496,7 @@ def ask_image():
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type":  "application/json",
-            "HTTP-Referer":  "https://chunks.online", "https://www.chunks.online", "https://chunks-ai.vercel.app",
+            "HTTP-Referer":  "https://chunks.online",
             "X-Title":       "Chunks Chemistry"
         }
 
