@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests;">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="description" content="Chunks AI — Study smarter with AI-powered flashcards, study plans, visual tutor, and exam prep. Upload your textbooks and let AI help you learn faster.">
 <meta name="keywords" content="AI study tool, flashcards, study plan, exam prep, visual tutor, AI tutor, learn faster, chunks AI">
 <meta name="author" content="Chunks AI">
@@ -41,6 +43,30 @@
   body.chunks-ready { opacity: 1; }
 </style>
 <script>
+  // ── Force all dynamic HTTP → HTTPS ───────────────────────────────────────
+  // Prevents mixed content warnings from dynamically set image/resource URLs
+  (function() {
+    const _origSet = Object.getOwnPropertyDescriptor(CSSStyleDeclaration.prototype, 'backgroundImage');
+    if (_origSet && _origSet.set) {
+      Object.defineProperty(CSSStyleDeclaration.prototype, 'backgroundImage', {
+        set: function(val) {
+          _origSet.set.call(this, val ? val.replace(/http:\/\//g, 'https://') : val);
+        },
+        get: _origSet.get
+      });
+    }
+    // Also intercept img src
+    const _origSrc = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
+    if (_origSrc && _origSrc.set) {
+      Object.defineProperty(HTMLImageElement.prototype, 'src', {
+        set: function(val) {
+          _origSrc.set.call(this, typeof val === 'string' ? val.replace(/^http:\/\//i, 'https://') : val);
+        },
+        get: _origSrc.get
+      });
+    }
+  })();
+
   // Prevent browser scroll restore on refresh
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   window.scrollTo(0, 0);

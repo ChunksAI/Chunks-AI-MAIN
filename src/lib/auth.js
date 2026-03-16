@@ -188,7 +188,7 @@ window._applyUserProfile = function _applyUserProfile(session) {
     id:      u.id,
     email:   u.email || '',
     name:    meta.full_name || meta.name || meta.display_name || u.email?.split('@')[0] || 'User',
-    avatar:  meta.avatar_url || meta.picture || '',
+    avatar:  (meta.avatar_url || meta.picture || '').replace(/^http:\/\//i, 'https://'),
     plan:    meta.plan || u.app_metadata?.plan || 'free',
     isAdmin: u.app_metadata?.role === 'admin' || 
              u.app_metadata?.role === 'owner' ||
