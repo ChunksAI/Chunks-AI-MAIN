@@ -8,7 +8,6 @@
  *   • 50 pre-built SVG animations for common topics (zero cost)
  *   • AI fallback via /ask endpoint for unknown topics
  *   • Accessible from flashcard Hard rating and sidebar
- *   • Image Occlusion mode: upload image, draw boxes, quiz yourself
  */
 
 // ── HTML ──────────────────────────────────────────────────────────────────────
@@ -28,27 +27,12 @@ const VT_HTML = `
         <div class="vt-canvas-dot" id="vt-canvas-dot"></div>
         <span id="vt-canvas-topic">Waiting for a concept...</span>
       </div>
-      <div class="vt-topbar-actions">
-        <button class="vt-mode-btn" id="vt-mode-whiteboard" title="Whiteboard mode">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-          Whiteboard
-        </button>
-        <button class="vt-mode-btn" id="vt-mode-occlusion" title="Image occlusion mode">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>
-          Occlusion
-        </button>
-        <div class="vt-title-divider"></div>
-        <button class="vt-clear-btn" id="vt-clear-btn" title="Clear canvas">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
-          Clear
-        </button>
-      </div>
     </div>
 
     <div class="vt-body">
 
-      <!-- LEFT: Live canvas (whiteboard mode) -->
-      <div class="vt-canvas-panel" id="vt-whiteboard-panel">
+      <!-- LEFT: Live canvas -->
+      <div class="vt-canvas-panel">
         <div class="vt-canvas-area" id="vt-canvas-area">
           <svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
             <text x="220" y="155" text-anchor="middle" font-size="14" fill="var(--text-4)" font-family="var(--font-body)">Ask me to explain anything</text>
@@ -58,58 +42,20 @@ const VT_HTML = `
         <div class="vt-canvas-footer">
           <div class="vt-quick-pills" id="vt-quick-pills">
             <span class="vt-pills-label">Try:</span>
-            <button class="vt-pill" data-query="explain osmosis">Osmosis</button>
+            <button class="vt-pill" data-query="explain titration">Titration</button>
             <button class="vt-pill" data-query="show me the heart pumping blood">Heart</button>
             <button class="vt-pill" data-query="explain action potential">Neuron</button>
-            <button class="vt-pill" data-query="show me mitosis">Mitosis</button>
+            <button class="vt-pill" data-query="explain cell structure organelles">Cell</button>
             <button class="vt-pill" data-query="explain photosynthesis">Photosynthesis</button>
-            <button class="vt-pill" data-query="show me DNA replication">DNA</button>
+            <button class="vt-pill" data-query="explain supply and demand equilibrium">Supply &amp; Demand</button>
+            <button class="vt-pill" data-query="explain newton laws of motion">Newton's Laws</button>
+            <button class="vt-pill" data-query="explain wave properties wavelength frequency">Waves</button>
+            <button class="vt-pill" data-query="explain the water cycle">Water Cycle</button>
+            <button class="vt-pill" data-query="explain enzymes active site lock and key">Enzymes</button>
+            <button class="vt-pill" data-query="explain pH scale acids bases">pH Scale</button>
             <button class="vt-pill" data-query="explain how vaccines work">Vaccines</button>
-            <button class="vt-pill" data-query="show me ohms law">Ohm's law</button>
           </div>
         </div>
-      </div>
-
-      <!-- LEFT: Image occlusion panel -->
-      <div class="vt-canvas-panel vt-occlusion-panel" id="vt-occlusion-panel" style="display:none;">
-        <div class="vt-occ-toolbar">
-          <label class="vt-occ-upload-btn" id="vt-occ-upload-btn" title="Upload image">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            Upload Image
-            <input type="file" id="vt-occ-file" accept="image/*" style="display:none;"/>
-          </label>
-          <div class="vt-occ-divider"></div>
-          <button class="vt-occ-tool-btn active" id="vt-occ-tool-draw" title="Draw occlusion box">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-            Draw Box
-          </button>
-          <button class="vt-occ-tool-btn" id="vt-occ-tool-erase" title="Erase box">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16l9-9 8 8z"/><path d="M6.5 17.5l5-5"/></svg>
-            Erase
-          </button>
-          <div class="vt-occ-divider"></div>
-          <button class="vt-occ-action-btn" id="vt-occ-quiz-btn" title="Start quiz">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-            Quiz Me
-          </button>
-          <button class="vt-occ-action-btn vt-occ-reveal-btn" id="vt-occ-reveal-btn" title="Reveal all" style="display:none;">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            Reveal All
-          </button>
-          <button class="vt-occ-action-btn" id="vt-occ-clear-boxes-btn" title="Clear all boxes">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
-            Clear Boxes
-          </button>
-        </div>
-        <div class="vt-occ-canvas-wrap" id="vt-occ-canvas-wrap">
-          <div class="vt-occ-empty" id="vt-occ-empty">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-4)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            <p>Upload an image to start.<br/><span>Draw boxes over parts you want to hide, then hit Quiz Me.</span></p>
-          </div>
-          <canvas id="vt-occ-canvas" style="display:none;"></canvas>
-          <canvas id="vt-occ-overlay" style="display:none; position:absolute; top:0; left:0; cursor:crosshair;"></canvas>
-        </div>
-        <div class="vt-occ-status" id="vt-occ-status">Upload an image to begin image occlusion</div>
       </div>
 
       <!-- RIGHT: Chat panel -->
@@ -117,12 +63,12 @@ const VT_HTML = `
         <div class="vt-chat-msgs" id="vt-chat-msgs">
           <div class="vt-msg vt-msg-ai">
             <div class="vt-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><defs><linearGradient id="vt-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient><linearGradient id="vt-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient></defs><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" opacity="0.95"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg></div>
-            <div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Or switch to <strong>Occlusion</strong> mode to upload a diagram and quiz yourself.</div>
+            <div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Try "explain osmosis" or tap a concept on the left.</div>
           </div>
         </div>
         <div class="vt-chat-input-row">
           <input class="vt-input" id="vt-input" placeholder="Ask me to explain anything..." />
-          <button class="vt-send-btn" id="vt-send-btn">
+          <button class="vt-send-btn" id="vt-send-btn" data-action="_vtSendInput">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
@@ -146,10 +92,9 @@ const VT_ANIMS = `
 @keyframes vt-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 @keyframes vt-grow { from{transform:scaleY(0)} to{transform:scaleY(1)} }
 @keyframes vt-dash { to{stroke-dashoffset:0} }
-@keyframes vt-occ-reveal { from{opacity:1} to{opacity:0} }
 `;
 
-// ── Scene library ─────────────────────────────────────────────────────────────
+// ── Scene library — 50 concepts ──────────────────────────────────────────────
 
 const VT_SCENES = [
 
@@ -375,6 +320,7 @@ ${Array.from({length:10},(_,i)=>{
 <text x="220" y="76" text-anchor="middle" font-size="11" fill="#412402" font-family="var(--font-body)" font-weight="500">Battery (V)</text>
 <rect x="188" y="192" width="64" height="32" rx="6" fill="#AFA9EC" opacity="0.85"/>
 <text x="220" y="212" text-anchor="middle" font-size="11" fill="#26215C" font-family="var(--font-body)" font-weight="500">Resistor (R)</text>
+<path d="M220 88 L220 220" stroke="var(--text-4)" stroke-width="0" fill="none"/>
 <path d="M80 140 L80 88 L188 88" stroke="#e74c3c" stroke-width="3" fill="none" stroke-linecap="round" style="stroke-dasharray:50;animation:vt-flow 1.5s linear infinite"/>
 <path d="M252 88 L360 88 L360 140" stroke="#e74c3c" stroke-width="3" fill="none" stroke-linecap="round" style="stroke-dasharray:50;animation:vt-flow 1.5s linear 0.5s infinite"/>
 <path d="M360 140 L360 212 L252 212" stroke="#3498db" stroke-width="3" fill="none" stroke-linecap="round" style="stroke-dasharray:50;animation:vt-flow 1.5s linear 1s infinite"/>
@@ -476,13 +422,380 @@ ${hot ? `<ellipse cx="220" cy="235" rx="68" ry="10" fill="#e67e22" opacity="0.3"
     }
   },
 
+  // ── CHEMISTRY ────────────────────────────────────────────────────────────
+
+  {
+    id: 'titration',
+    keywords: ['titration','titrate','burette','equivalence','neutrali','acid.*base.*reaction','pH.*curve','indicator.*color'],
+    topic: 'Acid-Base Titration',
+    render() {
+      return {
+        svg: `<g style="animation:vt-fi 0.5s ease both">
+<defs>
+  <marker id="vt1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#3498db" stroke-width="2"/></marker>
+  <linearGradient id="vtg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3498db" stop-opacity="0.9"/><stop offset="100%" stop-color="#3498db" stop-opacity="0.3"/></linearGradient>
+  <linearGradient id="vtg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e74c3c" stop-opacity="0.7"/><stop offset="100%" stop-color="#e74c3c" stop-opacity="0.2"/></linearGradient>
+</defs>
+<rect x="178" y="22" width="28" height="7" rx="2" fill="#b0bec5"/>
+<rect x="180" y="29" width="24" height="115" rx="3" fill="none" stroke="#b0bec5" stroke-width="2"/>
+<rect x="182" y="31" width="20" height="80" rx="2" fill="url(#vtg1)" style="animation:vt-grow 1.5s ease both;transform-origin:182px 111px"/>
+${[0,1,2,3,4].map(i=>`<line x1="204" y1="${38+i*18}" x2="210" y2="${38+i*18}" stroke="#b0bec5" stroke-width="1"/><text x="213" y="${42+i*18}" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">${50-i*10} mL</text>`).join('')}
+<path d="M188 144 L188 155 L192 160 L188 165" stroke="#b0bec5" stroke-width="2" fill="none" stroke-linecap="round"/>
+<circle cx="192" cy="161" r="2.5" fill="#3498db" opacity="0.9" style="animation:vt-bob 0.9s ease-in-out infinite"/>
+<path d="M192 163 Q192 185 192 195" stroke="#3498db" stroke-width="1.5" fill="none" stroke-linecap="round" style="stroke-dasharray:6,4;animation:vt-flow 0.8s linear infinite" marker-end="url(#vt1)"/>
+<path d="M148 225 Q148 200 168 195 Q192 190 216 195 Q236 200 236 225 Q236 252 192 255 Q148 252 148 225Z" fill="url(#vtg2)" stroke="#e74c3c" stroke-width="1.5"/>
+<path d="M148 225 Q148 200 168 195 Q192 190 216 195 Q236 200 236 225" fill="none" stroke="#e74c3c" stroke-width="1.5"/>
+<text x="192" y="230" text-anchor="middle" font-size="10" fill="white" font-family="var(--font-body)" font-weight="500">HCl (acid)</text>
+<text x="192" y="244" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.75)" font-family="var(--font-body)">+ indicator</text>
+<line x1="152" y1="255" x2="232" y2="255" stroke="#e74c3c" stroke-width="1.5" opacity="0.4"/>
+<path d="M280 155 L380 155" stroke="var(--border-sm)" stroke-width="1" stroke-dasharray="3,3"/>
+<path d="M280 80 Q295 78 300 100 Q305 130 310 150 Q314 162 320 155 Q328 148 330 100 Q332 72 340 68 Q360 62 380 62" stroke="#8b7cf8" stroke-width="2.5" fill="none" stroke-linecap="round" style="stroke-dasharray:200;animation:vt-dash 2s ease both"/>
+<text x="270" y="80" text-anchor="middle" font-size="9" fill="var(--text-3)" font-family="var(--font-body)" transform="rotate(-90,270,120)">pH</text>
+<text x="330" y="175" text-anchor="middle" font-size="9" fill="var(--text-3)" font-family="var(--font-body)">Volume NaOH →</text>
+<circle cx="320" cy="155" r="4" fill="#e8ac2e" style="animation:vt-pulse 1.2s ease-in-out infinite"/>
+<text x="320" y="148" text-anchor="middle" font-size="8" fill="#e8ac2e" font-family="var(--font-body)" font-weight="600">Equiv.</text>
+<text x="192" y="295" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">At equivalence: moles acid = moles base → pH = 7</text>
+</g>`,
+        text: "Titration is the most elegant experiment in chemistry — you slowly add a known base (NaOH from the burette) into an unknown acid until they perfectly cancel each other out. The indicator dye changes color the moment that happens. On the right, watch the pH curve: it barely changes at first, then ROCKETS upward at the equivalence point — that sharp jump is where moles of acid exactly equal moles of base. By reading the burette, you can calculate the exact concentration of the unknown acid. Precise, beautiful, and absolutely fundamental to medicine, food science, and environmental testing."
+      };
+    }
+  },
+
+  {
+    id: 'atomstructure',
+    keywords: ['atom','proton','neutron','electron','nucleus','bohr','electron.*shell','atomic.*structure','periodic','element'],
+    topic: 'Atomic Structure',
+    render() {
+      return {
+        svg: `<g style="animation:vt-fi 0.5s ease both">
+<defs>
+  <radialGradient id="vag1"><stop offset="0%" stop-color="#e74c3c" stop-opacity="0.9"/><stop offset="100%" stop-color="#c0392b" stop-opacity="0.6"/></radialGradient>
+  <radialGradient id="vag2"><stop offset="0%" stop-color="#3498db" stop-opacity="0.9"/><stop offset="100%" stop-color="#2980b9" stop-opacity="0.6"/></radialGradient>
+</defs>
+${[0,1,2].map(i=>`<circle cx="192" cy="148" r="${42+i*38}" fill="none" stroke="var(--border-sm)" stroke-width="${1.2-i*0.2}" stroke-dasharray="${i===0?'none':'4,3'}"/>`).join('')}
+<circle cx="192" cy="148" r="22" fill="#1e1f29" stroke="#e74c3c" stroke-width="1.5"/>
+${[[183,143],[201,143],[192,156],[184,155],[200,155],[192,140]].map(([x,y],i)=>`<circle cx="${x}" cy="${y}" r="5.5" fill="${i%2===0?'url(#vag1)':'url(#vag2)'}" style="animation:vt-pulse ${1.2+i*0.1}s ease-in-out ${i*0.15}s infinite"/>`).join('')}
+<text x="192" y="183" text-anchor="middle" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">Nucleus</text>
+${[[192,106,0],[154,148,1],[192,190,2],[230,148,3],[160,120,0],[224,120,0]].slice(0,2).map(([x,y,sh],i)=>`<circle cx="${x}" cy="${y}" r="6" fill="#f1c40f" stroke="#e8ac2e" stroke-width="1" style="animation:vt-spin ${1.8+sh*0.6}s linear infinite;transform-origin:192px 148px"/>`).join('')}
+<circle cx="234" cy="148" r="6" fill="#f1c40f" stroke="#e8ac2e" stroke-width="1" style="animation:vt-spin 1.8s linear infinite;transform-origin:192px 148px"/>
+<circle cx="192" cy="110" r="6" fill="#f1c40f" stroke="#e8ac2e" stroke-width="1" style="animation:vt-spin 1.8s linear reverse infinite;transform-origin:192px 148px"/>
+<circle cx="175" cy="224" r="6" fill="#f1c40f" stroke="#e8ac2e" stroke-width="1" style="animation:vt-spin 3s linear infinite;transform-origin:192px 148px"/>
+<circle cx="209" cy="224" r="6" fill="#f1c40f" stroke="#e8ac2e" stroke-width="1" style="animation:vt-spin 3s linear 1.5s infinite;transform-origin:192px 148px"/>
+<text x="60" y="148" text-anchor="middle" font-size="9" fill="#e74c3c" font-family="var(--font-body)" font-weight="600">Proton +</text>
+<text x="60" y="162" text-anchor="middle" font-size="9" fill="#3498db" font-family="var(--font-body)" font-weight="600">Neutron 0</text>
+<text x="60" y="176" text-anchor="middle" font-size="9" fill="#f1c40f" font-family="var(--font-body)" font-weight="600">Electron –</text>
+<line x1="78" y1="148" x2="168" y2="150" stroke="var(--border-sm)" stroke-width="0.8"/>
+<text x="340" y="115" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">Shell K: 2e⁻</text>
+<text x="340" y="135" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">Shell L: 8e⁻</text>
+<text x="340" y="155" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">Shell M: 8e⁻</text>
+<text x="192" y="298" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Protons = atomic number. Electrons = protons (neutral atom).</text>
+</g>`,
+        text: "Every atom is mostly empty space — if the nucleus were the size of a marble in the center of a football stadium, the electrons would be orbiting at the stadium's outer walls. The nucleus holds protons (positive charge) and neutrons (no charge), packed tight together. Electrons whirl around in shells or energy levels — up to 2 in the first shell, 8 in the second and third. The number of protons defines the element: 6 protons = carbon, always. The electrons in the outer shell determine how the atom bonds with others — that's the entire basis of chemistry."
+      };
+    }
+  },
+
+  {
+    id: 'acidbase',
+    keywords: ['acid.*base','pH scale','pH.*neutral','hydrogen.*ion','hydroxide','strong acid','weak acid','buffer','pOH'],
+    topic: 'pH Scale & Acids/Bases',
+    render() {
+      return {
+        svg: `<g style="animation:vt-fi 0.5s ease both">
+<defs>
+  <linearGradient id="phg" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#e74c3c"/>
+    <stop offset="28%" stop-color="#f39c12"/>
+    <stop offset="50%" stop-color="#2ecc71"/>
+    <stop offset="72%" stop-color="#3498db"/>
+    <stop offset="100%" stop-color="#9b59b6"/>
+  </linearGradient>
+</defs>
+<rect x="30" y="95" width="380" height="32" rx="8" fill="url(#phg)" opacity="0.85"/>
+${Array.from({length:15},(_,i)=>`<line x1="${30+i*27}" y1="95" x2="${30+i*27}" y2="127" stroke="rgba(0,0,0,0.25)" stroke-width="1"/><text x="${30+i*27}" y="142" text-anchor="middle" font-size="9" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">${i}</text>`).join('')}
+<text x="30" y="162" font-size="9" fill="#e74c3c" font-family="var(--font-body)" font-weight="600">ACID</text>
+<text x="196" y="162" text-anchor="middle" font-size="9" fill="#2ecc71" font-family="var(--font-body)" font-weight="600">NEUTRAL</text>
+<text x="408" y="162" text-anchor="end" font-size="9" fill="#9b59b6" font-family="var(--font-body)" font-weight="600">BASE</text>
+${[
+  {x:57,y:185,label:'Battery acid',sub:'pH 1',c:'#e74c3c'},
+  {x:111,y:205,label:'Lemon juice',sub:'pH 3',c:'#e67e22'},
+  {x:165,y:185,label:'Coffee',sub:'pH 5',c:'#f39c12'},
+  {x:219,y:205,label:'Pure water',sub:'pH 7',c:'#2ecc71'},
+  {x:273,y:185,label:'Baking soda',sub:'pH 9',c:'#3498db'},
+  {x:354,y:205,label:'Bleach',sub:'pH 12',c:'#9b59b6'},
+].map(({x,y,label,sub,c})=>`<line x1="${x}" y1="127" x2="${x}" y2="${y-12}" stroke="${c}" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/><text x="${x}" y="${y}" text-anchor="middle" font-size="9" fill="${c}" font-family="var(--font-body)" font-weight="600">${label}</text><text x="${x}" y="${y+11}" text-anchor="middle" font-size="8" fill="${c}" font-family="var(--font-body)" opacity="0.8">${sub}</text>`).join('')}
+<text x="30" y="258" font-size="10" fill="#e74c3c" font-family="var(--font-body)">Acid: more H⁺ ions</text>
+<text x="30" y="272" font-size="10" fill="#9b59b6" font-family="var(--font-body)">Base: more OH⁻ ions</text>
+<text x="220" y="300" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Each pH unit = 10× change in H⁺ concentration</text>
+</g>`,
+        text: "The pH scale measures how acidic or basic a solution is, running from 0 to 14. Acids donate hydrogen ions (H⁺) — the more H⁺, the lower the pH, the stronger the acid. Bases accept H⁺ or donate OH⁻ ions. pH 7 is neutral — pure water at 25°C. Here's the critical part: the scale is logarithmic, meaning pH 4 is TEN TIMES more acidic than pH 5, and 100 times more acidic than pH 6. This is why a tiny shift in blood pH from 7.4 to 7.0 can be life-threatening — your body's enzymes only work in a very narrow pH window."
+      };
+    }
+  },
+
+  // ── PHYSICS ───────────────────────────────────────────────────────────────
+
+  {
+    id: 'newtonslaws',
+    keywords: ['newton','force','mass.*acceleration','inertia','F=ma','third.*law','action.*reaction','momentum','classical.*mechanics'],
+    topic: "Newton's Three Laws",
+    render() {
+      return {
+        svg: `<g style="animation:vt-fi 0.5s ease both">
+<defs><marker id="vn1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#e8ac2e" stroke-width="2"/></marker>
+<marker id="vn2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#e74c3c" stroke-width="2"/></marker>
+<marker id="vn3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#3498db" stroke-width="2"/></marker></defs>
+<rect x="25" y="30" width="118" height="82" rx="8" fill="var(--surface-3)" stroke="var(--border-sm)" stroke-width="1"/>
+<text x="84" y="48" text-anchor="middle" font-size="9" fill="var(--gold)" font-family="var(--font-body)" font-weight="700">1st LAW</text>
+<text x="84" y="61" text-anchor="middle" font-size="8" fill="var(--text-2)" font-family="var(--font-body)">Inertia</text>
+<circle cx="68" cy="87" r="11" fill="#3498db" opacity="0.8" style="animation:vt-bob 2s ease-in-out infinite"/>
+<path d="M40 87 L56 87" stroke="#e8ac2e" stroke-width="2" fill="none" marker-end="url(#vn1)"/>
+<text x="84" y="102" text-anchor="middle" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">stays moving forever</text>
+<rect x="161" y="30" width="118" height="82" rx="8" fill="var(--surface-3)" stroke="var(--border-sm)" stroke-width="1"/>
+<text x="220" y="48" text-anchor="middle" font-size="9" fill="var(--gold)" font-family="var(--font-body)" font-weight="700">2nd LAW</text>
+<text x="220" y="61" text-anchor="middle" font-size="9" fill="var(--gold)" font-family="var(--font-body)" font-weight="700">F = ma</text>
+<circle cx="204" cy="87" r="8" fill="#2ecc71" opacity="0.8"/>
+<circle cx="236" cy="87" r="14" fill="#2ecc71" opacity="0.5"/>
+<path d="M178 87 L194 87" stroke="#e74c3c" stroke-width="2.5" fill="none" marker-end="url(#vn2)"/>
+<path d="M178 87 L214 87" stroke="#3498db" stroke-width="2.5" fill="none" marker-end="url(#vn3)" style="stroke-dasharray:30;animation:vt-flow 1s linear infinite"/>
+<text x="220" y="104" text-anchor="middle" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">bigger mass → less acc.</text>
+<rect x="297" y="30" width="118" height="82" rx="8" fill="var(--surface-3)" stroke="var(--border-sm)" stroke-width="1"/>
+<text x="356" y="48" text-anchor="middle" font-size="9" fill="var(--gold)" font-family="var(--font-body)" font-weight="700">3rd LAW</text>
+<text x="356" y="61" text-anchor="middle" font-size="8" fill="var(--text-2)" font-family="var(--font-body)">Action = Reaction</text>
+<circle cx="336" cy="87" r="11" fill="#e74c3c" opacity="0.8"/>
+<circle cx="376" cy="87" r="11" fill="#9b59b6" opacity="0.8"/>
+<path d="M348 84 L364 84" stroke="#e74c3c" stroke-width="2" fill="none" marker-end="url(#vn2)"/>
+<path d="M364 90 L348 90" stroke="#9b59b6" stroke-width="2" fill="none" marker-end="url(#vn3)"/>
+<path d="M55 155 Q110 130 165 155 Q220 180 275 155 Q330 130 385 155" stroke="#e8ac2e" stroke-width="2" fill="none" stroke-linecap="round" stroke-dasharray="180;animation:vt-dash 1.8s ease both"/>
+<circle cx="55" cy="155" r="10" fill="#3498db" opacity="0.85" style="animation:vt-bob 1.2s ease-in-out infinite"/>
+<text x="220" y="205" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Projectile path curves under gravity</text>
+<rect x="35" y="220" width="370" height="44" rx="8" fill="var(--surface-3)" stroke="var(--border-sm)" stroke-width="1"/>
+<text x="220" y="238" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)">F = ma    →    a = F/m    →    bigger force = bigger acceleration</text>
+<text x="220" y="254" text-anchor="middle" font-size="9" fill="var(--text-3)" font-family="var(--font-body)">Applies to everything from atoms to galaxies</text>
+</g>`,
+        text: "Newton gave us three laws that explain ALL motion in the universe. Law 1 (Inertia): objects keep doing what they're doing — moving or still — unless a force acts on them. That's why you lurch forward when a car brakes. Law 2 (F=ma): force equals mass times acceleration. Push harder → accelerate more. Push the same force on something heavier → less acceleration. Law 3: every action has an equal and opposite reaction. The rocket pushes gas backward, the gas pushes the rocket forward. You push Earth down with your weight, Earth pushes back up with exactly the same force. These three ideas built the entire field of classical mechanics."
+      };
+    }
+  },
+
+  {
+    id: 'waves',
+    keywords: ['wave','wavelength','frequency','amplitude','transverse','longitudinal','sound.*wave','light.*wave','oscillat','crest.*trough'],
+    topic: 'Wave Properties',
+    render() {
+      return {
+        svg: `<g style="animation:vt-fi 0.5s ease both">
+<defs><marker id="vw1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="var(--text-3)" stroke-width="2"/></marker></defs>
+<line x1="30" y1="140" x2="420" y2="140" stroke="var(--border-sm)" stroke-width="1" stroke-dasharray="4,3"/>
+<path d="M30 140 Q65 68 100 140 Q135 212 170 140 Q205 68 240 140 Q275 212 310 140 Q345 68 380 140" stroke="#8b7cf8" stroke-width="2.5" fill="none" stroke-linecap="round" style="stroke-dasharray:600;animation:vt-dash 2s ease both"/>
+<path d="M30 140 Q65 68 100 140 Q135 212 170 140 Q205 68 240 140 Q275 212 310 140 Q345 68 380 140" stroke="#8b7cf8" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.15" style="animation:vt-flow 2s linear infinite"/>
+<line x1="100" y1="68" x2="100" y2="140" stroke="#e8ac2e" stroke-width="1.5" stroke-dasharray="3,2"/>
+<text x="100" y="60" text-anchor="middle" font-size="9" fill="#e8ac2e" font-family="var(--font-body)" font-weight="600">Crest</text>
+<line x1="170" y1="212" x2="170" y2="140" stroke="#e74c3c" stroke-width="1.5" stroke-dasharray="3,2"/>
+<text x="170" y="226" text-anchor="middle" font-size="9" fill="#e74c3c" font-family="var(--font-body)" font-weight="600">Trough</text>
+<line x1="240" y1="95" x2="240" y2="140" stroke="#2ecc71" stroke-width="1.5" stroke-dasharray="3,2"/>
+<line x1="100" y1="95" x2="240" y2="95" stroke="#2ecc71" stroke-width="1.5" marker-end="url(#vw1)"/>
+<line x1="240" y1="95" x2="100" y2="95" stroke="#2ecc71" stroke-width="1.5" marker-end="url(#vw1)"/>
+<text x="170" y="89" text-anchor="middle" font-size="9" fill="#2ecc71" font-family="var(--font-body)" font-weight="600">λ wavelength</text>
+<line x1="52" y1="140" x2="52" y2="68" stroke="#3498db" stroke-width="1.5" marker-end="url(#vw1)"/>
+<line x1="52" y1="140" x2="52" y2="212" stroke="#3498db" stroke-width="1.5" marker-end="url(#vw1)"/>
+<text x="40" y="144" text-anchor="end" font-size="9" fill="#3498db" font-family="var(--font-body)" font-weight="600">A</text>
+<text x="22" y="136" text-anchor="middle" font-size="8" fill="#3498db" font-family="var(--font-body)">amp.</text>
+<rect x="30" y="250" width="380" height="52" rx="8" fill="var(--surface-3)" stroke="var(--border-sm)" stroke-width="1"/>
+<text x="220" y="268" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">v = f × λ</text>
+<text x="220" y="284" text-anchor="middle" font-size="9" fill="var(--text-3)" font-family="var(--font-body)">speed = frequency × wavelength</text>
+<text x="220" y="297" text-anchor="middle" font-size="8" fill="var(--text-4)" font-family="var(--font-body)">Higher frequency → shorter wavelength (same speed)</text>
+</g>`,
+        text: "A wave is a disturbance that transfers energy without transferring matter. The crest is the peak, the trough is the valley. Amplitude is the height from rest to crest — it determines the wave's energy and intensity. Wavelength is the distance from one crest to the next. Frequency is how many complete waves pass a point per second, measured in Hertz. The golden equation is v = f × λ: wave speed equals frequency times wavelength. For light in a vacuum the speed is fixed at 300,000 km/s — so higher frequency light (violet) must have shorter wavelengths, and lower frequency light (red) has longer ones. This is the entire electromagnetic spectrum in one equation."
+      };
+    }
+  },
+
+  // ── BIOLOGY continued ─────────────────────────────────────────────────────
+
+  {
+    id: 'cellstructure',
+    keywords: ['cell.*structur','eukaryot','organelle','mitochondr','nucleus.*cell','cell.*membrane','ribosome','golgi','endoplasmic'],
+    topic: 'Eukaryotic Cell Structure',
+    render() {
+      return {
+        svg: `<g style="animation:vt-fi 0.5s ease both">
+<defs>
+  <radialGradient id="vcg"><stop offset="0%" stop-color="#2ecc71" stop-opacity="0.08"/><stop offset="100%" stop-color="#27ae60" stop-opacity="0.18"/></radialGradient>
+</defs>
+<path d="M75 165 Q80 60 160 45 Q245 30 320 55 Q390 75 400 155 Q410 235 330 275 Q240 300 160 285 Q80 270 75 165Z" fill="url(#vcg)" stroke="#27ae60" stroke-width="1.8"/>
+<path d="M78 165 Q82 62 160 48 Q244 33 318 57 Q386 77 397 155" fill="none" stroke="#27ae60" stroke-width="0.8" opacity="0.4" stroke-dasharray="4,3"/>
+<ellipse cx="195" cy="155" rx="48" ry="38" fill="rgba(139,124,248,0.22)" stroke="#8b7cf8" stroke-width="2"/>
+<ellipse cx="195" cy="155" rx="40" ry="30" fill="rgba(139,124,248,0.12)" stroke="#8b7cf8" stroke-width="1" stroke-dasharray="3,2"/>
+<circle cx="195" cy="152" r="11" fill="#534AB7" opacity="0.7"/>
+<text x="195" y="193" text-anchor="middle" font-size="9" fill="#AFA9EC" font-family="var(--font-body)" font-weight="600">Nucleus</text>
+<ellipse cx="318" cy="135" rx="30" ry="18" fill="rgba(232,172,46,0.25)" stroke="#e8ac2e" stroke-width="1.5"/>
+<path d="M295 135 Q305 127 318 135 Q305 143 295 135Z" fill="#e8ac2e" opacity="0.5"/>
+<path d="M318 135 Q331 127 341 135 Q331 143 318 135Z" fill="#e8ac2e" opacity="0.5"/>
+<text x="318" y="162" text-anchor="middle" font-size="8" fill="#e8ac2e" font-family="var(--font-body)">Mitochondria</text>
+<path d="M268 205 Q285 195 302 205 Q285 215 268 205Z" fill="rgba(52,152,219,0.3)" stroke="#3498db" stroke-width="1"/>
+<path d="M268 218 Q285 208 302 218 Q285 228 268 218Z" fill="rgba(52,152,219,0.3)" stroke="#3498db" stroke-width="1"/>
+<path d="M268 231 Q285 221 302 231 Q285 241 268 231Z" fill="rgba(52,152,219,0.3)" stroke="#3498db" stroke-width="1"/>
+<text x="285" y="250" text-anchor="middle" font-size="8" fill="#3498db" font-family="var(--font-body)">Golgi</text>
+<path d="M130 218 Q128 200 140 190 Q155 182 165 192 Q168 205 158 215Z" fill="rgba(231,76,60,0.2)" stroke="#e74c3c" stroke-width="1.2"/>
+<text x="140" y="238" text-anchor="middle" font-size="8" fill="#e74c3c" font-family="var(--font-body)">Lysosome</text>
+${[[108,102],[118,120],[100,135]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="3" fill="#f1c40f" opacity="0.9"/>`).join('')}
+<text x="95" y="92" text-anchor="middle" font-size="8" fill="#f1c40f" font-family="var(--font-body)">Ribosomes</text>
+<path d="M355 195 Q368 190 375 200 Q370 215 355 215 Q342 215 340 200 Q345 188 355 195Z" fill="rgba(46,204,113,0.25)" stroke="#2ecc71" stroke-width="1.2"/>
+<text x="362" y="232" text-anchor="middle" font-size="8" fill="#2ecc71" font-family="var(--font-body)">Vacuole</text>
+<text x="220" y="322" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Every organelle has a specific job — like organs in a body</text>
+</g>`,
+        text: "A eukaryotic cell is a miniature city, and every organelle is a specialized department. The nucleus is city hall — it holds the DNA blueprints and controls everything. Mitochondria are the power plants — they take glucose and oxygen and produce ATP energy. The Golgi apparatus is the post office — it packages and ships proteins to the right addresses. Ribosomes are the factories — tiny machines that read RNA instructions and build proteins. Lysosomes are the recycling centers — they break down waste and old organelles. All of this packed into a space 10 micrometres wide, running 24/7 without stopping."
+      };
+    }
+  },
+
+  {
+    id: 'enzyme',
+    keywords: ['enzyme','substrate','active.*site','lock.*key','induced.*fit','catalyst','activation.*energy','inhibitor','denatured'],
+    topic: 'Enzymes & Active Sites',
+    render() {
+      return {
+        svg: `<g style="animation:vt-fi 0.5s ease both">
+<defs><marker id="ve1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="var(--text-3)" stroke-width="2"/></marker></defs>
+<text x="80" y="32" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="600">1. Substrate approaches</text>
+<path d="M35 75 Q38 55 60 52 Q95 48 110 58 Q125 68 118 85 Q108 105 85 108 Q55 110 42 95 Q32 85 35 75Z" fill="rgba(45,212,191,0.25)" stroke="#2dd4bf" stroke-width="2"/>
+<path d="M65 80 Q70 68 85 68 Q98 68 100 80 Q100 92 85 92 Q70 92 65 80Z" fill="rgba(45,212,191,0.15)" stroke="#2dd4bf" stroke-width="1.5" stroke-dasharray="3,2"/>
+<text x="75" y="128" text-anchor="middle" font-size="9" fill="#2dd4bf" font-family="var(--font-body)">Enzyme</text>
+<circle cx="128" cy="78" r="14" fill="rgba(232,172,46,0.7)" stroke="#e8ac2e" stroke-width="1.5" style="animation:vt-bob 1.2s ease-in-out infinite"/>
+<text x="128" y="103" text-anchor="middle" font-size="8" fill="#e8ac2e" font-family="var(--font-body)">Substrate</text>
+<text x="220" y="32" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="600">2. Lock & key fit</text>
+<path d="M175 75 Q178 55 200 52 Q235 48 250 58 Q265 68 258 85 Q248 105 225 108 Q195 110 182 95 Q172 85 175 75Z" fill="rgba(45,212,191,0.25)" stroke="#2dd4bf" stroke-width="2"/>
+<path d="M205 80 Q210 68 225 68 Q238 68 240 80 Q240 92 225 92 Q210 92 205 80Z" fill="rgba(232,172,46,0.45)" stroke="#e8ac2e" stroke-width="1.5"/>
+<text x="215" y="128" text-anchor="middle" font-size="9" fill="#2dd4bf" font-family="var(--font-body)">ES Complex</text>
+<text x="355" y="32" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="600">3. Products released</text>
+<path d="M305 75 Q308 55 330 52 Q365 48 380 58 Q395 68 388 85 Q378 105 355 108 Q325 110 312 95 Q302 85 305 75Z" fill="rgba(45,212,191,0.25)" stroke="#2dd4bf" stroke-width="2"/>
+<path d="M335 80 Q340 68 355 68 Q368 68 370 80 Q370 92 355 92 Q340 92 335 80Z" fill="rgba(45,212,191,0.15)" stroke="#2dd4bf" stroke-width="1.5" stroke-dasharray="3,2"/>
+<circle cx="385" cy="68" r="9" fill="rgba(52,211,153,0.7)" stroke="#34d399" stroke-width="1.5" style="animation:vt-bob 0.9s ease-in-out infinite"/>
+<circle cx="398" cy="85" r="8" fill="rgba(52,211,153,0.7)" stroke="#34d399" stroke-width="1.5" style="animation:vt-bob 0.9s ease-in-out 0.4s infinite"/>
+<text x="355" y="128" text-anchor="middle" font-size="9" fill="#34d399" font-family="var(--font-body)">Products</text>
+<path d="M140 82 L168 82" stroke="var(--text-3)" stroke-width="1.5" fill="none" marker-end="url(#ve1)"/>
+<path d="M272 82 L298 82" stroke="var(--text-3)" stroke-width="1.5" fill="none" marker-end="url(#ve1)"/>
+<rect x="55" y="155" width="330" height="55" rx="8" fill="var(--surface-3)" stroke="var(--border-sm)" stroke-width="1"/>
+<path d="M80 205 Q100 165 130 185 Q160 205 190 165 Q195 158 220 158" stroke="#8b7cf8" stroke-width="2" fill="none" stroke-linecap="round"/>
+<text x="232" y="162" font-size="8" fill="#8b7cf8" font-family="var(--font-body)">with enzyme</text>
+<path d="M80 205 Q120 205 150 195 Q185 182 220 175" stroke="var(--text-4)" stroke-width="1.5" fill="none" stroke-dasharray="4,3"/>
+<text x="232" y="178" font-size="8" fill="var(--text-4)" font-family="var(--font-body)">without</text>
+<text x="220" y="230" text-anchor="middle" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">Enzyme lowers activation energy needed</text>
+<text x="220" y="298" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Enzymes are reusable — released unchanged after each reaction</text>
+</g>`,
+        text: "Enzymes are proteins that act as biological catalysts — they speed up chemical reactions by a million times without being used up. Each enzyme has an active site — a precisely shaped pocket that fits one specific substrate like a lock and key. The substrate binds to the active site, gets transformed into products, and then releases. The enzyme is left unchanged, ready to do it again. Without enzymes, reactions like digesting food or copying DNA would take thousands of years. Temperature and pH affect enzyme shape — too hot or too acidic and the enzyme denatures (unfolds) and permanently loses its shape."
+      };
+    }
+  },
+
+  {
+    id: 'bloodcells',
+    keywords: ['blood.*cell','red blood','white blood','platelet','haemoglobin','hemoglobin','immune.*blood','RBC','WBC','plasma'],
+    topic: 'Blood Cells & Components',
+    render() {
+      return {
+        svg: `<g style="animation:vt-fi 0.5s ease both">
+<rect x="25" y="35" width="390" height="220" rx="12" fill="rgba(231,76,60,0.06)" stroke="rgba(231,76,60,0.2)" stroke-width="1.5"/>
+<text x="220" y="26" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Blood plasma (55%) — yellow liquid carrying nutrients, hormones, waste</text>
+${[
+  [65,95],[120,78],[175,98],[55,138],[105,155],[155,135],[68,175],[130,180],[175,160],[90,118],[148,108],
+].map(([x,y],i)=>`<ellipse cx="${x}" cy="${y}" rx="13" ry="9" fill="#e74c3c" opacity="${0.75+i*0.02}" style="animation:vt-bob ${1+i*0.08}s ease-in-out ${i*0.06}s infinite"/>`).join('')}
+<text x="115" y="210" text-anchor="middle" font-size="9" fill="#e74c3c" font-family="var(--font-body)" font-weight="600">Red blood cells (45%)</text>
+<text x="115" y="222" text-anchor="middle" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">carry O₂ via haemoglobin · no nucleus · biconcave disc</text>
+${[[280,90],[330,75],[375,95],[290,135],[348,148],[385,128]].map(([x,y],i)=>`<circle cx="${x}" cy="${y}" r="${10+i%2*3}" fill="rgba(139,124,248,${0.5+i*0.05})" stroke="#8b7cf8" stroke-width="1" style="animation:vt-pulse ${1.4+i*0.1}s ease-in-out ${i*0.15}s infinite"/>`).join('')}
+<text x="330" y="175" text-anchor="middle" font-size="9" fill="#8b7cf8" font-family="var(--font-body)" font-weight="600">White blood cells (&lt;1%)</text>
+<text x="330" y="187" text-anchor="middle" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">fight infection · larger · have nucleus</text>
+${[[268,218],[295,212],[322,220],[349,215],[376,222]].map(([x,y],i)=>`<ellipse cx="${x}" cy="${y}" rx="7" ry="4" fill="rgba(232,172,46,0.6)" stroke="#e8ac2e" stroke-width="0.8" style="animation:vt-bob ${0.9+i*0.05}s ease-in-out ${i*0.05}s infinite"/>`).join('')}
+<text x="330" y="238" text-anchor="middle" font-size="8" fill="#e8ac2e" font-family="var(--font-body)">Platelets — clot wounds</text>
+<text x="220" y="288" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">1 mm³ of blood: 5 million RBCs · 7,000 WBCs · 250,000 platelets</text>
+</g>`,
+        text: "Blood is a tissue — a liquid connective tissue carrying out life-critical jobs. Red blood cells are the most numerous: biconcave discs (like a squashed donut) packed with haemoglobin that grabs oxygen in the lungs and drops it off at every tissue. They have no nucleus, maximising space for haemoglobin. White blood cells are your immune army — they recognise pathogens and destroy them. Platelets are tiny fragments that clump together at a wound and release chemicals that trigger clotting to seal the damage. The yellowish plasma carries glucose, hormones, antibodies, and carries carbon dioxide back to the lungs. Every second, your bone marrow produces 3.5 million new red blood cells."
+      };
+    }
+  },
+
+  // ── ECONOMICS ─────────────────────────────────────────────────────────────
+
+  {
+    id: 'supplydemand',
+    keywords: ['supply.*demand','demand.*supply','equilibrium.*price','market.*price','price.*mechanism','consumer.*surplus','producer.*surplus','shift.*demand','shift.*supply'],
+    topic: 'Supply & Demand',
+    render() {
+      return {
+        svg: `<g style="animation:vt-fi 0.5s ease both">
+<defs>
+  <marker id="vsd1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="var(--text-3)" stroke-width="2"/></marker>
+</defs>
+<line x1="55" y1="25" x2="55" y2="265" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round" marker-end="url(#vsd1)"/>
+<line x1="45" y1="255" x2="400" y2="255" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round" marker-end="url(#vsd1)"/>
+<text x="45" y="20" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="600">Price</text>
+<text x="400" y="268" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="600">Quantity</text>
+<path d="M80 60 Q180 120 380 230" stroke="#e74c3c" stroke-width="2.5" fill="none" stroke-linecap="round" style="stroke-dasharray:380;animation:vt-dash 1.5s ease both"/>
+<text x="388" y="225" font-size="10" fill="#e74c3c" font-family="var(--font-body)" font-weight="700">D</text>
+<text x="330" y="82" font-size="9" fill="#e74c3c" font-family="var(--font-body)">Demand curve</text>
+<text x="330" y="94" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">(higher price → less bought)</text>
+<path d="M80 230 Q180 170 380 60" stroke="#2ecc71" stroke-width="2.5" fill="none" stroke-linecap="round" style="stroke-dasharray:380;animation:vt-dash 1.5s ease 0.4s both"/>
+<text x="388" y="56" font-size="10" fill="#2ecc71" font-family="var(--font-body)" font-weight="700">S</text>
+<text x="68" y="218" font-size="9" fill="#2ecc71" font-family="var(--font-body)">Supply curve</text>
+<text x="68" y="230" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">(higher price → more produced)</text>
+<circle cx="230" cy="145" r="7" fill="#e8ac2e" style="animation:vt-pulse 1.2s ease-in-out infinite"/>
+<line x1="230" y1="145" x2="230" y2="255" stroke="#e8ac2e" stroke-width="1" stroke-dasharray="4,3"/>
+<line x1="55" y1="145" x2="230" y2="145" stroke="#e8ac2e" stroke-width="1" stroke-dasharray="4,3"/>
+<text x="237" y="142" font-size="9" fill="#e8ac2e" font-family="var(--font-body)" font-weight="700">Equilibrium</text>
+<text x="237" y="154" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">P* and Q*</text>
+<text x="220" y="290" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Where curves cross: market clears — no surplus, no shortage</text>
+</g>`,
+        text: "Supply and demand is the engine of every market. The demand curve slopes downward — as price rises, buyers want less. The supply curve slopes upward — as price rises, producers make more. Where they intersect is the equilibrium: the price at which exactly the right amount is produced and consumed, with nothing left over and nobody going without. If something shifts — a drought cuts coffee supply, or a new study boosts demand for avocados — the curves shift and a new equilibrium forms at a different price and quantity. This model predicts how wages, rents, oil prices, and even taxi fares respond to the real world."
+      };
+    }
+  },
+
+  // ── EARTH SCIENCE ─────────────────────────────────────────────────────────
+
+  {
+    id: 'watercycle',
+    keywords: ['water cycle','hydrological','evaporation','condensation','precipitation','transpiration','runoff','groundwater'],
+    topic: 'The Water Cycle',
+    render() {
+      return {
+        svg: `<g style="animation:vt-fi 0.5s ease both">
+<defs>
+  <marker id="vwc1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#3498db" stroke-width="2"/></marker>
+  <marker id="vwc2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#7f8c8d" stroke-width="2"/></marker>
+  <linearGradient id="vwcg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3498db" stop-opacity="0.5"/><stop offset="100%" stop-color="#3498db" stop-opacity="0.15"/></linearGradient>
+</defs>
+<path d="M25 255 Q100 230 160 235 Q220 240 280 235 Q340 230 415 255 L415 310 L25 310Z" fill="url(#vwcg)" stroke="#3498db" stroke-width="1.5"/>
+<text x="220" y="278" text-anchor="middle" font-size="10" fill="#3498db" font-family="var(--font-body)" font-weight="500">Ocean / Sea</text>
+<path d="M310 255 Q315 200 325 160 Q340 120 360 100 Q380 82 415 75 L415 255Z" fill="rgba(101,131,91,0.35)" stroke="rgba(101,131,91,0.6)" stroke-width="1.5"/>
+<text x="372" y="175" text-anchor="middle" font-size="9" fill="#27ae60" font-family="var(--font-body)" font-weight="500">Mountain</text>
+<path d="M155 240 Q162 175 172 130" stroke="#3498db" stroke-width="1.5" fill="none" stroke-dasharray="5,4" style="animation:vt-flow 1.8s linear infinite" marker-end="url(#vwc1)"/>
+<text x="133" y="185" font-size="9" fill="#3498db" font-family="var(--font-body)" font-weight="500">Evaporation</text>
+<path d="M260 240 Q262 195 265 165" stroke="#3498db" stroke-width="1" fill="none" stroke-dasharray="5,4" style="animation:vt-flow 2.2s linear 0.4s infinite" marker-end="url(#vwc1)"/>
+<path d="M85 255 Q82 215 80 185" stroke="#2ecc71" stroke-width="1" fill="none" stroke-dasharray="4,4" style="animation:vt-flow 2s linear 0.8s infinite" marker-end="url(#vwc1)"/>
+<text x="60" y="215" font-size="8" fill="#2ecc71" font-family="var(--font-body)">Transpiration</text>
+<path d="M80 75 Q130 55 190 65 Q240 72 290 62 Q330 55 370 65" stroke="#7f8c8d" stroke-width="2" fill="none"/>
+<ellipse cx="100" cy="68" rx="42" ry="22" fill="rgba(127,140,141,0.35)" stroke="rgba(127,140,141,0.5)" stroke-width="1.5"/>
+<ellipse cx="175" cy="58" rx="55" ry="26" fill="rgba(127,140,141,0.4)" stroke="rgba(127,140,141,0.5)" stroke-width="1.5"/>
+<ellipse cx="280" cy="55" rx="60" ry="28" fill="rgba(127,140,141,0.45)" stroke="rgba(127,140,141,0.5)" stroke-width="1.5"/>
+<text x="280" y="59" text-anchor="middle" font-size="9" fill="white" font-family="var(--font-body)" font-weight="500">Cloud (condensation)</text>
+${[[240,95],[252,108],[228,112],[260,122],[235,130]].map(([x,y],i)=>`<path d="M${x} ${y} L${x-2} ${y+14}" stroke="#3498db" stroke-width="2" fill="none" stroke-linecap="round" style="animation:vt-flow 1s linear ${i*0.18}s infinite" marker-end="url(#vwc1)"/>`).join('')}
+<text x="270" y="145" font-size="9" fill="#3498db" font-family="var(--font-body)" font-weight="500">Precipitation</text>
+<path d="M230 230 Q290 248 355 252" stroke="#3498db" stroke-width="2" fill="none" stroke-linecap="round" style="stroke-dasharray:100;animation:vt-flow 1.5s linear infinite" marker-end="url(#vwc1)"/>
+<text x="295" y="245" text-anchor="middle" font-size="9" fill="#3498db" font-family="var(--font-body)">Runoff</text>
+</g>`,
+        text: "The water cycle is the planet's most important recycling system — every water molecule on Earth has been cycling for billions of years. Heat from the sun causes evaporation from oceans and lakes, sending water vapor upward. Plants add to this through transpiration — releasing water through their leaves. As vapor rises and cools, it condenses around tiny particles to form clouds. When droplets grow heavy enough, precipitation falls as rain or snow. On land, water runs off into rivers back to the sea, or soaks into the ground as groundwater. This continuous cycle distributes fresh water across the planet and drives weather patterns."
+      };
+    }
+  },
+
 ];
 
 // ── State ──────────────────────────────────────────────────────────────────
 
 let _vtPrevScreen = 'flash';
 let _vtAbort = null;
-let _vtSessionId = null;
+let _vtSessionId = null;   // tracks current recent-item id for save/restore
 
 // ── Session persistence helpers ────────────────────────────────────────────
 
@@ -492,6 +805,7 @@ function _vtSaveSession() {
   if (!msgs) return;
   const html  = msgs.innerHTML;
   const topic = document.getElementById('vt-canvas-topic')?.textContent || '';
+  // Save the inner SVG content (the <g> fragments), not the outer <svg> wrapper
   const svg   = document.getElementById('vt-svg')?.innerHTML || '';
   try {
     if (typeof localStorage === 'undefined') return;
@@ -519,31 +833,21 @@ function _vtMatchScene(q) {
   return null;
 }
 
-// ── Canvas helpers — always rebuild #vt-svg inside vt-canvas-area ──────────
-// WhiteboardEngine wipes container.innerHTML, so we never assume #vt-svg exists.
-
-function _vtSetCanvas(innerSVG) {
-  const area = document.getElementById('vt-canvas-area');
-  if (area) {
-    area.innerHTML =
-      `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-      innerSVG +
-      `</svg>`;
-  }
-}
-
-function _vtResetCanvas() {
-  _vtSetCanvas(
-    `<text x="220" y="155" text-anchor="middle" font-size="14" fill="var(--text-4)" font-family="var(--font-body)">Ask me to explain anything</text>` +
-    `<text x="220" y="178" text-anchor="middle" font-size="12" fill="var(--text-4)" font-family="var(--font-body)" opacity="0.6">I'll draw it here as I explain</text>`
-  );
-}
-
 // ── Render scene ───────────────────────────────────────────────────────────
 
 function _vtRenderScene(scene, q) {
   const result = scene.render(q);
-  _vtSetCanvas(result.svg);
+
+  // WhiteboardEngine wipes vt-canvas-area on every AI call, so always
+  // rebuild #vt-svg from scratch inside the container.
+  const area = document.getElementById('vt-canvas-area');
+  if (area) {
+    area.innerHTML =
+      `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+      result.svg +
+      `</svg>`;
+  }
+
   const topicEl = document.getElementById('vt-canvas-topic');
   if (topicEl) topicEl.textContent = scene.topic;
   const dot = document.getElementById('vt-canvas-dot');
@@ -562,13 +866,17 @@ function _vtAddMsg(text, role) {
     div.innerHTML = `<div class="vt-bubble">${text}</div>`;
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
+    // Only create a new sidebar entry on the FIRST message of a session
+    // Subsequent messages just update the label and save
     if (!_vtSessionId && window.recentAdd) {
       window.recentAdd(text, null, 'visual');
+      // Grab the session id from the item recentAdd just created
       if (window._recentItems && window._recentItems.length) {
         const latest = window._recentItems[0];
         if (latest.source === 'visual') _vtSessionId = latest.id;
       }
     } else if (_vtSessionId && window._recentItems) {
+      // Update the existing entry's label to reflect the latest question
       const existing = window._recentItems.find(r => r.id === _vtSessionId);
       if (existing) {
         existing.label = text.length > 32 ? text.slice(0, 32).trimEnd() + '…' : text;
@@ -580,8 +888,7 @@ function _vtAddMsg(text, role) {
     _vtSaveSession();
     return;
   } else {
-    const AVATAR_SVG = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><defs><linearGradient id="vt-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient><linearGradient id="vt-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient></defs><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" opacity="0.95"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg>`;
-    div.innerHTML = `<div class="vt-avatar">${AVATAR_SVG}</div><div class="vt-bubble"></div>`;
+    div.innerHTML = `<div class="vt-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><defs><linearGradient id="vt-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient><linearGradient id="vt-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient></defs><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" opacity="0.95"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg></div><div class="vt-bubble"></div>`;
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
     const bubble = div.querySelector('.vt-bubble');
@@ -590,7 +897,7 @@ function _vtAddMsg(text, role) {
     const iv = setInterval(() => {
       if (i >= words.length) {
         clearInterval(iv);
-        _vtSaveSession();
+        _vtSaveSession(); // save after AI finishes typing
         return;
       }
       bubble.textContent += (i > 0 ? ' ' : '') + words[i++];
@@ -613,21 +920,28 @@ async function _getRenderer() {
       apiBase:      window.API_BASE,
       getLanguage:  () => localStorage.getItem('chunks_setting_language') || 'Auto-detect',
       getSafeMode:  () => localStorage.getItem('chunks_setting_safe-content') === '1',
-      onNarration: (text) => { if (text) _vtAddMsg(text, 'ai'); },
+
+      onNarration: (text, stepIdx, total) => {
+        if (text) _vtAddMsg(text, 'ai');
+      },
+
       onTopic: (name) => {
         const topicEl = document.getElementById('vt-canvas-topic');
         if (topicEl) topicEl.textContent = name;
       },
+
       onComplete: () => {
         const dot = document.getElementById('vt-canvas-dot');
         if (dot) dot.style.background = '#4ade80';
         _vtAddMsg('Diagram complete! Ask me anything about it to go deeper.', 'ai');
       },
+
       onError: (err) => {
         const dot = document.getElementById('vt-canvas-dot');
         if (dot) dot.style.background = '#f87171';
         console.error('[VisualTutor]', err);
       },
+
       onModeChange: (mode) => {
         const dot = document.getElementById('vt-canvas-dot');
         if (!dot) return;
@@ -643,281 +957,20 @@ async function _getRenderer() {
 async function _vtAskAI(q) {
   const dot = document.getElementById('vt-canvas-dot');
   if (dot) dot.style.background = '#facc15';
+
   try {
     const renderer = await _getRenderer();
+    // Update the container reference in case the DOM was rebuilt (e.g. after _vtClear)
     renderer._container = document.getElementById('vt-canvas-area');
     await renderer.ask(q);
   } catch (e) {
     if (e.name === 'AbortError') return;
-    _vtAddMsg("Sorry, I couldn't generate a diagram right now. Try one of the pre-built topics!", 'ai');
+    _vtAddMsg("Sorry, I couldn\'t generate a diagram right now. Try one of the pre-built topics!", 'ai');
     if (dot) dot.style.background = '#f87171';
   }
 }
 
-// ── Image Occlusion Engine ─────────────────────────────────────────────────
-
-const _occ = {
-  boxes:     [],       // [{x,y,w,h,revealed}]
-  img:       null,     // HTMLImageElement
-  tool:      'draw',   // 'draw' | 'erase'
-  quizMode:  false,
-  dragging:  false,
-  startX:    0,
-  startY:    0,
-  scale:     1,
-  offsetX:   0,
-  offsetY:   0,
-
-  get canvas()  { return document.getElementById('vt-occ-canvas');  },
-  get overlay() { return document.getElementById('vt-occ-overlay'); },
-  get status()  { return document.getElementById('vt-occ-status');  },
-  get empty()   { return document.getElementById('vt-occ-empty');   },
-  get wrap()    { return document.getElementById('vt-occ-canvas-wrap'); },
-
-  load(file) {
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        this.img    = img;
-        this.boxes  = [];
-        this.quizMode = false;
-        this._resize();
-        this.redraw();
-        this.canvas.style.display  = 'block';
-        this.overlay.style.display = 'block';
-        this.empty.style.display   = 'none';
-        this._updateStatus();
-        document.getElementById('vt-occ-reveal-btn').style.display = 'none';
-        document.getElementById('vt-occ-quiz-btn').style.display   = '';
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  },
-
-  _resize() {
-    if (!this.img) return;
-    const wrap = this.wrap;
-    const maxW = wrap.clientWidth  - 24;
-    const maxH = wrap.clientHeight - 24;
-    this.scale   = Math.min(maxW / this.img.width, maxH / this.img.height, 1);
-    const w      = Math.round(this.img.width  * this.scale);
-    const h      = Math.round(this.img.height * this.scale);
-    this.offsetX = Math.round((maxW - w) / 2);
-    this.offsetY = Math.round((maxH - h) / 2);
-    [this.canvas, this.overlay].forEach(c => {
-      c.width  = maxW;
-      c.height = maxH;
-      c.style.width  = maxW + 'px';
-      c.style.height = maxH + 'px';
-    });
-  },
-
-  redraw() {
-    if (!this.img) return;
-    const ctx = this.canvas.getContext('2d');
-    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    const w = Math.round(this.img.width  * this.scale);
-    const h = Math.round(this.img.height * this.scale);
-    ctx.drawImage(this.img, this.offsetX, this.offsetY, w, h);
-
-    // Draw occlusion boxes
-    this.boxes.forEach(b => {
-      if (this.quizMode && !b.revealed) {
-        // Solid gold box hiding content
-        ctx.fillStyle = 'rgba(232,172,46,0.92)';
-        ctx.fillRect(b.x, b.y, b.w, b.h);
-        ctx.strokeStyle = 'rgba(232,172,46,1)';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(b.x, b.y, b.w, b.h);
-        // Question mark
-        ctx.fillStyle = '#0a0900';
-        ctx.font = `bold ${Math.min(b.w, b.h) * 0.5}px var(--font-body, sans-serif)`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('?', b.x + b.w / 2, b.y + b.h / 2);
-      } else if (!this.quizMode) {
-        // Edit mode: semi-transparent gold outline
-        ctx.fillStyle   = 'rgba(232,172,46,0.25)';
-        ctx.strokeStyle = 'rgba(232,172,46,0.85)';
-        ctx.lineWidth   = 2;
-        ctx.fillRect(b.x, b.y, b.w, b.h);
-        ctx.strokeRect(b.x, b.y, b.w, b.h);
-      } else if (b.revealed) {
-        // Revealed: green outline
-        ctx.strokeStyle = 'rgba(52,211,153,0.8)';
-        ctx.lineWidth   = 2;
-        ctx.strokeRect(b.x, b.y, b.w, b.h);
-      }
-    });
-  },
-
-  drawOverlay(rx, ry, rw, rh) {
-    const ctx = this.overlay.getContext('2d');
-    ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
-    if (rw === 0 || rh === 0) return;
-    ctx.strokeStyle = 'rgba(232,172,46,0.9)';
-    ctx.lineWidth   = 2;
-    ctx.setLineDash([4, 3]);
-    ctx.strokeRect(rx, ry, rw, rh);
-    ctx.fillStyle = 'rgba(232,172,46,0.15)';
-    ctx.fillRect(rx, ry, rw, rh);
-    ctx.setLineDash([]);
-  },
-
-  _pos(e) {
-    const rect = this.overlay.getBoundingClientRect();
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    return { x: clientX - rect.left, y: clientY - rect.top };
-  },
-
-  onDown(e) {
-    if (!this.img) return;
-    e.preventDefault();
-    const p = this._pos(e);
-
-    if (this.tool === 'erase') {
-      // Remove box under cursor
-      const idx = this.boxes.findIndex(b =>
-        p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h
-      );
-      if (idx !== -1) {
-        this.boxes.splice(idx, 1);
-        this.redraw();
-        this._updateStatus();
-      }
-      return;
-    }
-
-    if (this.quizMode) {
-      // Quiz mode: click box to reveal
-      const box = this.boxes.find(b =>
-        p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h
-      );
-      if (box) {
-        box.revealed = true;
-        this.redraw();
-        const hidden = this.boxes.filter(b => !b.revealed).length;
-        this._updateStatus(hidden);
-        if (hidden === 0) {
-          this.status.textContent = '🎉 All revealed! Great work. Click Reveal All to reset or draw more boxes.';
-        }
-      }
-      return;
-    }
-
-    this.dragging = true;
-    this.startX   = p.x;
-    this.startY   = p.y;
-  },
-
-  onMove(e) {
-    if (!this.dragging || this.tool !== 'draw' || this.quizMode) return;
-    e.preventDefault();
-    const p  = this._pos(e);
-    const rx = Math.min(p.x, this.startX);
-    const ry = Math.min(p.y, this.startY);
-    const rw = Math.abs(p.x - this.startX);
-    const rh = Math.abs(p.y - this.startY);
-    this.drawOverlay(rx, ry, rw, rh);
-  },
-
-  onUp(e) {
-    if (!this.dragging) return;
-    e.preventDefault();
-    this.dragging = false;
-    const ctx = this.overlay.getContext('2d');
-    ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
-
-    const p  = this._pos(e);
-    const rx = Math.min(p.x, this.startX);
-    const ry = Math.min(p.y, this.startY);
-    const rw = Math.abs(p.x - this.startX);
-    const rh = Math.abs(p.y - this.startY);
-
-    if (rw > 8 && rh > 8) {
-      this.boxes.push({ x: rx, y: ry, w: rw, h: rh, revealed: false });
-      this.redraw();
-      this._updateStatus();
-    }
-  },
-
-  startQuiz() {
-    if (!this.img) return;
-    if (this.boxes.length === 0) {
-      this.status.textContent = '⚠️ Draw at least one box first, then hit Quiz Me.';
-      return;
-    }
-    this.quizMode = true;
-    this.boxes.forEach(b => b.revealed = false);
-    this.redraw();
-    document.getElementById('vt-occ-quiz-btn').style.display   = 'none';
-    document.getElementById('vt-occ-reveal-btn').style.display = '';
-    this._updateStatus(this.boxes.length);
-    _vtAddMsg(`Quiz started! ${this.boxes.length} area${this.boxes.length > 1 ? 's' : ''} hidden. Click each gold box to reveal it.`, 'ai');
-  },
-
-  revealAll() {
-    this.quizMode = false;
-    this.boxes.forEach(b => b.revealed = false);
-    this.redraw();
-    document.getElementById('vt-occ-reveal-btn').style.display = 'none';
-    document.getElementById('vt-occ-quiz-btn').style.display   = '';
-    this._updateStatus();
-  },
-
-  clearBoxes() {
-    this.boxes    = [];
-    this.quizMode = false;
-    this.redraw();
-    document.getElementById('vt-occ-reveal-btn').style.display = 'none';
-    document.getElementById('vt-occ-quiz-btn').style.display   = '';
-    this._updateStatus();
-  },
-
-  _updateStatus(hidden) {
-    if (!this.img) { this.status.textContent = 'Upload an image to begin image occlusion'; return; }
-    if (this.quizMode) {
-      const h = hidden ?? this.boxes.filter(b => !b.revealed).length;
-      this.status.textContent = `Quiz mode — ${h} of ${this.boxes.length} box${this.boxes.length !== 1 ? 'es' : ''} hidden. Click a gold box to reveal.`;
-    } else {
-      this.status.textContent = this.boxes.length === 0
-        ? 'Draw boxes over areas to hide, then click Quiz Me'
-        : `${this.boxes.length} box${this.boxes.length !== 1 ? 'es' : ''} drawn. Click Quiz Me when ready.`;
-    }
-  },
-};
-
-// ── Mode switching ─────────────────────────────────────────────────────────
-
-let _vtCurrentMode = 'whiteboard'; // 'whiteboard' | 'occlusion'
-
-function _vtSwitchMode(mode) {
-  _vtCurrentMode = mode;
-  const wb  = document.getElementById('vt-whiteboard-panel');
-  const occ = document.getElementById('vt-occlusion-panel');
-  const btnWb  = document.getElementById('vt-mode-whiteboard');
-  const btnOcc = document.getElementById('vt-mode-occlusion');
-  if (mode === 'whiteboard') {
-    if (wb)  wb.style.display  = '';
-    if (occ) occ.style.display = 'none';
-    btnWb?.classList.add('active');
-    btnOcc?.classList.remove('active');
-  } else {
-    if (wb)  wb.style.display  = 'none';
-    if (occ) occ.style.display = '';
-    btnOcc?.classList.add('active');
-    btnWb?.classList.remove('active');
-    // Resize occlusion canvas in case panel just became visible
-    setTimeout(() => { _occ._resize(); _occ.redraw(); }, 50);
-  }
-}
-
-// ── Public API ─────────────────────────────────────────────────────────────
-
-// Stop animation when clearing
+// Stop any running animation when clearing the canvas
 if (typeof window !== 'undefined') {
   const _vtOrigClear = window._vtClear;
   window._vtClear = function() {
@@ -925,6 +978,8 @@ if (typeof window !== 'undefined') {
     _vtOrigClear?.();
   };
 }
+
+// ── Public API ─────────────────────────────────────────────────────────────
 
 if (typeof window !== 'undefined') window._vtAsk = function(q) {
   if (!q.trim()) return;
@@ -937,7 +992,13 @@ if (typeof window !== 'undefined') window._vtAsk = function(q) {
     const text = _vtRenderScene(scene, q);
     setTimeout(() => _vtAddMsg(text, 'ai'), 200);
   } else {
-    _vtSetCanvas(`<text x="220" y="165" text-anchor="middle" font-size="13" fill="var(--text-4)" font-family="var(--font-body)">Thinking about ${q}...</text>`);
+    const area = document.getElementById('vt-canvas-area');
+    if (area) {
+      area.innerHTML =
+        `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+        `<text x="220" y="165" text-anchor="middle" font-size="13" fill="var(--text-4)" font-family="var(--font-body)">Thinking about ${q}...</text>` +
+        `</svg>`;
+    }
     _vtAddMsg("Let me think about that for you...", 'ai');
     _vtAskAI(q);
   }
@@ -953,50 +1014,63 @@ if (typeof window !== 'undefined') window._vtBack = function() {
 };
 
 if (typeof window !== 'undefined') window._vtClear = function() {
-  _vtRenderer?.stop();
-  _vtResetCanvas();
+  const area = document.getElementById('vt-canvas-area');
+  if (area) {
+    area.innerHTML =
+      `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+      `<text x="220" y="155" text-anchor="middle" font-size="14" fill="var(--text-4)" font-family="var(--font-body)">Ask me to explain anything</text>` +
+      `<text x="220" y="178" text-anchor="middle" font-size="12" fill="var(--text-4)" font-family="var(--font-body)" opacity="0.6">I'll draw it here as I explain</text>` +
+      `</svg>`;
+  }
   const dot = document.getElementById('vt-canvas-dot');
   if (dot) dot.style.background = '#4ade80';
   const topicEl = document.getElementById('vt-canvas-topic');
   if (topicEl) topicEl.textContent = 'Waiting for a concept...';
   const msgs = document.getElementById('vt-chat-msgs');
-  const AVATAR_SVG = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><defs><linearGradient id="vt-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient><linearGradient id="vt-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient></defs><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" opacity="0.95"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg>`;
   if (msgs) {
-    msgs.innerHTML = `<div class="vt-msg vt-msg-ai"><div class="vt-avatar">${AVATAR_SVG}</div><div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Or switch to <strong>Occlusion</strong> mode to upload a diagram and quiz yourself.</div></div>`;
+    msgs.innerHTML = `<div class="vt-msg vt-msg-ai"><div class="vt-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><defs><linearGradient id="vt-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient><linearGradient id="vt-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient></defs><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" opacity="0.95"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg></div><div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Try "explain osmosis" or tap a concept on the left.</div></div>`;
   }
+  // Clear session so next message starts a fresh recent entry
   _vtSessionId = null;
   if (typeof localStorage !== 'undefined') localStorage.removeItem('chunks_active_vt_session');
 };
 
+// Called from flashcard Hard rating to open tutor on a specific concept
 if (typeof window !== 'undefined') window._vtOpenForConcept = function(front, back) {
   _vtPrevScreen = 'flash';
-  _vtSessionId  = null;
-  window._navFromHistory = true;
+  _vtSessionId = null; // fresh session for each flashcard concept
+  window._navFromHistory = true; // skip showScreen reset — we set state ourselves
   if (window.showScreen) window.showScreen('visual');
   setTimeout(() => {
-    _vtSwitchMode('whiteboard');
-    window._vtAsk(`explain ${front || 'this concept'}`);
+    const q = front || 'this concept';
+    window._vtAsk(`explain ${q}`);
   }, 300);
 };
 
+// Called when user clicks a recent item that was saved from Visual Tutor
 if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId, question) {
   _vtSessionId = sessionId;
+
+  // Mark item active in sidebar
   if (window._setActiveRecent) window._setActiveRecent(sessionId);
 
   const session = _vtLoadSession(sessionId);
-  const msgs    = document.getElementById('vt-chat-msgs');
+  const msgs = document.getElementById('vt-chat-msgs');
 
   if (session && session.html && msgs) {
+    // Restore chat messages
     msgs.innerHTML = typeof window.sanitize === 'function'
       ? window.sanitize(session.html)
       : session.html;
     msgs.scrollTop = msgs.scrollHeight;
 
+    // Restore topic label
     if (session.topic) {
       const topicEl = document.getElementById('vt-canvas-topic');
       if (topicEl) topicEl.textContent = session.topic;
     }
 
+    // Restore SVG canvas — use saved SVG if available, else re-render from scene library
     const area = document.getElementById('vt-canvas-area');
     if (area) {
       if (session.svg) {
@@ -1014,14 +1088,16 @@ if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId
           const dot = document.getElementById('vt-canvas-dot');
           if (dot) dot.style.background = '#4ade80';
         } else {
-          _vtSetCanvas(
+          area.innerHTML =
+            `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
             `<text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>` +
-            `<text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>`
-          );
+            `<text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>` +
+            `</svg>`;
         }
       }
     }
   } else if (question) {
+    // No saved HTML — pre-fill input so user can re-ask
     const input = document.getElementById('vt-input');
     if (input) { input.value = question; input.focus(); }
   }
@@ -1032,13 +1108,13 @@ if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId
 let _vtMounted = false;
 
 export function mountVisualTutorScreen() {
-  if (_vtMounted) return;
+  if (_vtMounted) return;   // prevent double-mount / duplicate event listeners
   _vtMounted = true;
-
   const sp = document.querySelector('[data-visual-screen]');
   if (sp) {
     sp.outerHTML = VT_HTML;
   } else {
+    // Fallback: append to body
     const div = document.createElement('div');
     div.innerHTML = VT_HTML;
     document.body.appendChild(div.firstElementChild);
@@ -1052,8 +1128,8 @@ export function mountVisualTutorScreen() {
     document.head.appendChild(style);
   }
 
+  // Wire input enter key
   setTimeout(() => {
-    // Input enter key
     const input = document.getElementById('vt-input');
     if (input) {
       input.addEventListener('keydown', e => {
@@ -1061,77 +1137,24 @@ export function mountVisualTutorScreen() {
       });
     }
 
-    // Send button
-    document.getElementById('vt-send-btn')?.addEventListener('click', () => window._vtSendInput());
-
-    // Pill buttons
+    // Wire pill buttons directly — avoids double-fire from global data-action delegation
     document.querySelectorAll('#vt-quick-pills .vt-pill').forEach(btn => {
       btn.addEventListener('click', () => {
         const q = btn.getAttribute('data-query');
         if (q && window._vtAsk) window._vtAsk(q);
       });
     });
-
-    // Clear button
-    document.getElementById('vt-clear-btn')?.addEventListener('click', () => window._vtClear());
-
-    // Mode buttons
-    document.getElementById('vt-mode-whiteboard')?.addEventListener('click', () => _vtSwitchMode('whiteboard'));
-    document.getElementById('vt-mode-occlusion')?.addEventListener('click',  () => _vtSwitchMode('occlusion'));
-
-    // ── Occlusion wiring ──────────────────────────────────────────────────
-    document.getElementById('vt-occ-file')?.addEventListener('change', e => {
-      const file = e.target.files[0];
-      if (file) _occ.load(file);
-      e.target.value = ''; // allow re-uploading same file
-    });
-
-    document.getElementById('vt-occ-tool-draw')?.addEventListener('click', () => {
-      _occ.tool = 'draw';
-      document.getElementById('vt-occ-tool-draw')?.classList.add('active');
-      document.getElementById('vt-occ-tool-erase')?.classList.remove('active');
-    });
-
-    document.getElementById('vt-occ-tool-erase')?.addEventListener('click', () => {
-      _occ.tool = 'erase';
-      document.getElementById('vt-occ-tool-erase')?.classList.add('active');
-      document.getElementById('vt-occ-tool-draw')?.classList.remove('active');
-    });
-
-    document.getElementById('vt-occ-quiz-btn')?.addEventListener('click',        () => _occ.startQuiz());
-    document.getElementById('vt-occ-reveal-btn')?.addEventListener('click',      () => _occ.revealAll());
-    document.getElementById('vt-occ-clear-boxes-btn')?.addEventListener('click', () => _occ.clearBoxes());
-
-    // Canvas mouse/touch events
-    const overlay = document.getElementById('vt-occ-overlay');
-    if (overlay) {
-      overlay.addEventListener('mousedown',  e => _occ.onDown(e));
-      overlay.addEventListener('mousemove',  e => _occ.onMove(e));
-      overlay.addEventListener('mouseup',    e => _occ.onUp(e));
-      overlay.addEventListener('mouseleave', e => { if (_occ.dragging) _occ.onUp(e); });
-      overlay.addEventListener('touchstart', e => _occ.onDown(e), { passive: false });
-      overlay.addEventListener('touchmove',  e => _occ.onMove(e), { passive: false });
-      overlay.addEventListener('touchend',   e => _occ.onUp(e),   { passive: false });
-    }
-
-    // Resize occlusion canvas when window resizes
-    window.addEventListener('resize', () => {
-      if (_vtCurrentMode === 'occlusion') {
-        _occ._resize();
-        _occ.redraw();
-      }
-    });
   }, 100);
 
   // ── Restore last visual session on page refresh ──
   (function _restoreVtSession() {
-    if (typeof localStorage === 'undefined') return;
     const savedId = localStorage.getItem('chunks_active_vt_session');
     if (!savedId) return;
 
     const lastScreen = (() => {
       try { return (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('chunks_last_screen') : null; } catch(e) { return null; }
     })();
+    // Only auto-restore if we were on the visual screen
     if (lastScreen !== 'visual') return;
 
     const session = _vtLoadSession(savedId);
@@ -1148,10 +1171,10 @@ export function mountVisualTutorScreen() {
     if (session.topic) {
       const topicEl = document.getElementById('vt-canvas-topic');
       if (topicEl) topicEl.textContent = session.topic;
-      const area = document.getElementById('vt-canvas-area');
-      if (area) {
+      const area2 = document.getElementById('vt-canvas-area');
+      if (area2) {
         if (session.svg) {
-          area.innerHTML =
+          area2.innerHTML =
             `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
             session.svg + `</svg>`;
           const dot = document.getElementById('vt-canvas-dot');
@@ -1159,11 +1182,17 @@ export function mountVisualTutorScreen() {
         } else {
           const scene = _vtMatchScene(session.topic);
           if (scene) {
-            area.innerHTML =
+            area2.innerHTML =
               `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
               scene.render(session.topic).svg + `</svg>`;
             const dot = document.getElementById('vt-canvas-dot');
             if (dot) dot.style.background = '#4ade80';
+          } else {
+            area2.innerHTML =
+              `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+              `<text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>` +
+              `<text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>` +
+              `</svg>`;
           }
         }
       }
