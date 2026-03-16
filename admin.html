@@ -908,8 +908,8 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
 
 <script>
 // Loaded from backend — never hardcode keys in source
-let SUPABASE_URL = '';
-let SUPABASE_ANON_KEY = '';
+let SUPABASE_URL = 'https://wiwbfspsrgayvquzfryl.supabase.co';
+let SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I';
 let _configLoaded = false;
 let _configPromise = null;
 
@@ -919,7 +919,7 @@ function loadConfig() {
   // Try each backend in order, cache the working one so all subsequent calls use it.
   const BACKENDS = [
     'https://api.chunks.online',
-    'https://api.chunks.online'
+    'https://chunks-ai-main-production.up.railway.app'
   ];
   _configPromise = (async () => {
     // Try up to 3 times with increasing timeouts (handles Railway cold starts)
