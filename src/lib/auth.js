@@ -201,6 +201,16 @@ window._applyUserProfile = function _applyUserProfile(session) {
 
   _applyUI(window._currentUser);
 
+  // ── Show admin button instantly from cache ────────────────────────────────
+  // If we previously verified this user is admin, show the button immediately
+  // without waiting for the backend check — avoids the flash on refresh
+  const cachedAdminEmail = localStorage.getItem('chunks_admin_email');
+  if (cachedAdminEmail && cachedAdminEmail === window._currentUser.email) {
+    window._currentUser.isAdmin = true;
+    const adminBtnImmediate = document.getElementById('pd-admin-btn');
+    if (adminBtnImmediate) adminBtnImmediate.style.display = '';
+  }
+
   // ── Check admin role from backend (users table is source of truth) ────────
   // JWT metadata may not have the role — verify via backend after a short delay
   // to ensure Supabase client and API_BASE are ready
@@ -222,8 +232,15 @@ window._applyUserProfile = function _applyUserProfile(session) {
       const data = await res.json();
       if (data.success && (data.role === 'admin' || data.role === 'owner' || data.role === 'superadmin')) {
         if (window._currentUser) window._currentUser.isAdmin = true;
+        // Cache the admin email so next refresh shows instantly
+        localStorage.setItem('chunks_admin_email', window._currentUser.email);
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = '';
+      } else {
+        // Not admin — clear cache
+        localStorage.removeItem('chunks_admin_email');
+        const adminBtn = document.getElementById('pd-admin-btn');
+        if (adminBtn) adminBtn.style.display = 'none';
       }
     } catch (_) {} // silent fail
   }, 500);
@@ -338,6 +355,7 @@ window.chunksSignOut = async function chunksSignOut() {
     localStorage.removeItem('chunks_active_home_session');
     localStorage.removeItem('chunks_active_ws_book');
     localStorage.removeItem('chunks_active_recent_id');
+    localStorage.removeItem('chunks_admin_email');
     // Clear sessionStorage so auth gate redirects to login on next load
     sessionStorage.setItem('chunks_signing_out', '1');
     sessionStorage.removeItem('chunks_was_here');
