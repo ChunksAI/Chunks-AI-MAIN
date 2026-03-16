@@ -8,6 +8,14 @@
  * (see vite.config.js Task 37 for chunk strategy)
  */
 
+// ── Bundled dependencies (no CDN — avoids Edge tracking prevention) ───────
+import * as supabaseJs from '@supabase/supabase-js';
+import katex from 'katex';
+import DOMPurify from 'dompurify';
+window.supabase   = supabaseJs;
+window.katex      = katex;
+window.DOMPurify  = DOMPurify;
+
 // ── Styles (added task-by-task) ────────────────────────────────────────────
 import './styles/tokens.css';             // Task 3 ✓
 import './styles/base.css';              // Task 4 ✓
