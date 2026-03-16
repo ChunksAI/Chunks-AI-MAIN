@@ -57,6 +57,12 @@
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" defer crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js" defer crossorigin="anonymous"></script>
 
+<!-- Supabase credentials — injected so app works even if Railway /api/config is slow/down -->
+<script>
+  localStorage.setItem('chunks_sb_url',  'https://wiwbfspsrgayvquzfryl.supabase.co');
+  localStorage.setItem('chunks_sb_anon', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I');
+</script>
+
 <!-- All CSS → src/styles/ (Tasks 3–9, 35) -->
 
 </head>

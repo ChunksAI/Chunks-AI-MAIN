@@ -72,4 +72,23 @@ import './components/SettingsModal.js';                 // Task 24 ✓ — sets 
 _navInit();
 document.body.classList.add('chunks-ready');
 
+// Re-apply user profile AFTER all components (sidebar, dropdowns) have mounted
+// so .profile-name / .avatar / .pd-* elements exist in the DOM.
+setTimeout(() => {
+  if (window._currentUser) {
+    // _applyUserProfile expects a session — rebuild a minimal one
+    window._applyUserProfile({ user: {
+      id: window._currentUser.id,
+      email: window._currentUser.email,
+      user_metadata: {
+        full_name:  window._currentUser.name,
+        avatar_url: window._currentUser.avatar,
+        picture:    window._currentUser.avatar,
+        plan:       window._currentUser.plan,
+      },
+      app_metadata: { plan: window._currentUser.plan }
+    }});
+  }
+}, 300);
+
 console.log('[Chunks AI] main.js loaded ✦');
