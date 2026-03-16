@@ -436,6 +436,7 @@ function _vtSaveSession() {
   const topic = document.getElementById('vt-canvas-topic')?.textContent || '';
   const svg   = document.getElementById('vt-svg')?.innerHTML || '';
   try {
+    if (typeof localStorage === 'undefined') return;
     localStorage.setItem('chunks_vt_session_' + _vtSessionId, JSON.stringify({ html, topic, svg }));
     localStorage.setItem('chunks_active_vt_session', _vtSessionId);
   } catch(e) {}
@@ -443,6 +444,7 @@ function _vtSaveSession() {
 
 function _vtLoadSession(id) {
   try {
+    if (typeof localStorage === 'undefined') return null;
     const raw = localStorage.getItem('chunks_vt_session_' + id);
     return raw ? JSON.parse(raw) : null;
   } catch(e) { return null; }
@@ -530,7 +532,7 @@ let _vtRenderer = null;
 
 async function _getRenderer() {
   if (_vtRenderer) return _vtRenderer;
-  const { VisualTutorRenderer } = await import('../visual-tutor/VisualTutorRenderer.js');
+  const { VisualTutorRenderer } = await import(/* @vite-ignore */ '../visual-tutor/VisualTutorRenderer.js');
   _vtRenderer = new VisualTutorRenderer(
     document.getElementById('vt-canvas-area'),
     {
@@ -588,15 +590,17 @@ async function _vtAskAI(q) {
 }
 
 // Stop any running animation when clearing the canvas
-const _vtOrigClear = window._vtClear;
-window._vtClear = function() {
-  _vtRenderer?.stop();
-  _vtOrigClear?.();
-};
+if (typeof window !== 'undefined') {
+  const _vtOrigClear = window._vtClear;
+  window._vtClear = function() {
+    _vtRenderer?.stop();
+    _vtOrigClear?.();
+  };
+}
 
 // ── Public API ─────────────────────────────────────────────────────────────
 
-window._vtAsk = function(q) {
+if (typeof window !== 'undefined') window._vtAsk = function(q) {
   if (!q.trim()) return;
   const input = document.getElementById('vt-input');
   if (input) input.value = '';
@@ -616,16 +620,16 @@ window._vtAsk = function(q) {
   }
 };
 
-window._vtSendInput = function() {
+if (typeof window !== 'undefined') window._vtSendInput = function() {
   const input = document.getElementById('vt-input');
   if (input) window._vtAsk(input.value);
 };
 
-window._vtBack = function() {
+if (typeof window !== 'undefined') window._vtBack = function() {
   if (window.showScreen) window.showScreen(_vtPrevScreen || 'flash');
 };
 
-window._vtClear = function() {
+if (typeof window !== 'undefined') window._vtClear = function() {
   const svgEl = document.getElementById('vt-svg');
   if (svgEl) {
     svgEl.innerHTML = `
@@ -643,11 +647,11 @@ window._vtClear = function() {
   }
   // Clear session so next message starts a fresh recent entry
   _vtSessionId = null;
-  localStorage.removeItem('chunks_active_vt_session');
+  if (typeof localStorage !== 'undefined') localStorage.removeItem('chunks_active_vt_session');
 };
 
 // Called from flashcard Hard rating to open tutor on a specific concept
-window._vtOpenForConcept = function(front, back) {
+if (typeof window !== 'undefined') window._vtOpenForConcept = function(front, back) {
   _vtPrevScreen = 'flash';
   _vtSessionId = null; // fresh session for each flashcard concept
   window._navFromHistory = true; // skip showScreen reset — we set state ourselves
@@ -659,7 +663,7 @@ window._vtOpenForConcept = function(front, back) {
 };
 
 // Called when user clicks a recent item that was saved from Visual Tutor
-window._vtRestoreSession = function(sessionId, question) {
+if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId, question) {
   _vtSessionId = sessionId;
 
   // Mark item active in sidebar
@@ -749,7 +753,7 @@ export function mountVisualTutorScreen() {
     if (!savedId) return;
 
     const lastScreen = (() => {
-      try { return sessionStorage.getItem('chunks_last_screen'); } catch(e) { return null; }
+      try { return (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('chunks_last_screen') : null; } catch(e) { return null; }
     })();
     // Only auto-restore if we were on the visual screen
     if (lastScreen !== 'visual') return;
@@ -799,4 +803,4 @@ export function mountVisualTutorScreen() {
   console.log('[VisualTutorScreen] mounted ✦');
 }
 
-mountVisualTutorScreen();
+if (typeof document !== 'undefined') mountVisualTutorScreen();
