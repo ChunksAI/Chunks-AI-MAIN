@@ -190,24 +190,33 @@ BACKEND_URL  = os.environ.get('BACKEND_URL',  'http://localhost:5000')
 # Allow all origins by default — supports local file://, Vercel, Claude.ai, etc.
 # To restrict, set ALLOWED_ORIGINS env var to comma-separated list of domains.
 _raw_origins = os.environ.get('ALLOWED_ORIGINS', '*')
+
+# These origins are ALWAYS allowed regardless of ALLOWED_ORIGINS env var.
+# Prevents production (chunks.online) from being accidentally locked out
+# if Railway env vars are misconfigured or set to a restrictive list.
+_ALWAYS_ALLOWED = [
+    "https://chunks.online",
+    "https://www.chunks.online",
+    "https://chunks-ai.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:5000",
+    "http://localhost:5500",      # VS Code Live Server
+    "http://127.0.0.1:5500",     # VS Code Live Server (IP form)
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+    "null",
+]
+if FRONTEND_URL and FRONTEND_URL not in _ALWAYS_ALLOWED:
+    _ALWAYS_ALLOWED.append(FRONTEND_URL)
+
 CORS_ORIGINS = '*'
 if _raw_origins != '*':
     _allowed_origins = [o.strip() for o in _raw_origins.split(',') if o.strip()]
-    _default_origins = [
-        "https://chunks.online", "https://www.chunks.online", "https://chunks-ai.vercel.app",
-        "http://localhost:5173",
-        "http://localhost:3000",
-        "http://localhost:5000",
-        "http://localhost:5500",      # VS Code Live Server
-        "http://127.0.0.1:5500",     # VS Code Live Server (IP form)
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-        "null",
-    ]
-    if FRONTEND_URL and FRONTEND_URL not in _default_origins:
-        _default_origins.append(FRONTEND_URL)
-    CORS_ORIGINS = list(dict.fromkeys(_allowed_origins + _default_origins))
+    CORS_ORIGINS = list(dict.fromkeys(_allowed_origins + _ALWAYS_ALLOWED))
     CORS_ORIGINS.append(re.compile(r'^https://[a-zA-Z0-9-]+\.vercel\.app$'))
+# If ALLOWED_ORIGINS='*' we keep CORS_ORIGINS='*' — all origins pass through.
+# Either way, _ALWAYS_ALLOWED is merged in so production is never blocked.
 
 CORS(app,
      origins=CORS_ORIGINS,
