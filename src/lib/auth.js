@@ -190,10 +190,43 @@ window._applyUserProfile = function _applyUserProfile(session) {
     name:    meta.full_name || meta.name || meta.display_name || u.email?.split('@')[0] || 'User',
     avatar:  meta.avatar_url || meta.picture || '',
     plan:    meta.plan || u.app_metadata?.plan || 'free',
-    isAdmin: u.app_metadata?.role === 'admin' || meta.is_admin === true,
+    isAdmin: u.app_metadata?.role === 'admin' || 
+             u.app_metadata?.role === 'owner' ||
+             u.app_metadata?.role === 'superadmin' ||
+             meta.is_admin === true ||
+             meta.role === 'admin' ||
+             meta.role === 'owner' ||
+             meta.role === 'superadmin',
   };
 
   _applyUI(window._currentUser);
+
+  // ── Check admin role from backend (users table is source of truth) ────────
+  // JWT metadata may not have the role — verify via backend after a short delay
+  // to ensure Supabase client and API_BASE are ready
+  setTimeout(async () => {
+    try {
+      const sb = await window._getChunksSb?.();
+      if (!sb) return;
+      const { data: { session: s } } = await sb.auth.getSession();
+      if (!s?.access_token) return;
+
+      const res = await fetch(`${window.API_BASE}/api/admin/verify-access`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${s.access_token}`
+        },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.success && (data.role === 'admin' || data.role === 'owner' || data.role === 'superadmin')) {
+        if (window._currentUser) window._currentUser.isAdmin = true;
+        const adminBtn = document.getElementById('pd-admin-btn');
+        if (adminBtn) adminBtn.style.display = '';
+      }
+    } catch (_) {} // silent fail
+  }, 500);
 };
 
 // ── Init ──────────────────────────────────────────────────────────────────────
