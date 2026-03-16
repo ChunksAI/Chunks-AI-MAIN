@@ -524,230 +524,76 @@ function _vtAddMsg(text, role) {
   }
 }
 
-// ── AI fallback ──────────────────────────────────────────────────────────────────────────
+// ── AI fallback — powered by VisualTutorRenderer ────────────────────────────
 
-// Lazy-load WhiteboardEngine only when first needed
-let _WhiteboardEngine = null;
-async function _getWhiteboardEngine() {
-  if (_WhiteboardEngine) return _WhiteboardEngine;
-  const mod = await import('../visual-tutor/WhiteboardEngine.js');
-  _WhiteboardEngine = mod.WhiteboardEngine;
-  return _WhiteboardEngine;
+let _vtRenderer = null;
+
+async function _getRenderer() {
+  if (_vtRenderer) return _vtRenderer;
+  const { VisualTutorRenderer } = await import('../visual-tutor/VisualTutorRenderer.js');
+  _vtRenderer = new VisualTutorRenderer(
+    document.getElementById('vt-canvas-area'),
+    {
+      apiBase:      window.API_BASE,
+      getLanguage:  () => localStorage.getItem('chunks_setting_language') || 'Auto-detect',
+      getSafeMode:  () => localStorage.getItem('chunks_setting_safe-content') === '1',
+
+      onNarration: (text, stepIdx, total) => {
+        if (text) _vtAddMsg(text, 'ai');
+      },
+
+      onTopic: (name) => {
+        const topicEl = document.getElementById('vt-canvas-topic');
+        if (topicEl) topicEl.textContent = name;
+      },
+
+      onComplete: () => {
+        const dot = document.getElementById('vt-canvas-dot');
+        if (dot) dot.style.background = '#4ade80';
+        _vtAddMsg('Diagram complete! Ask me anything about it to go deeper.', 'ai');
+      },
+
+      onError: (err) => {
+        const dot = document.getElementById('vt-canvas-dot');
+        if (dot) dot.style.background = '#f87171';
+        console.error('[VisualTutor]', err);
+      },
+
+      onModeChange: (mode) => {
+        const dot = document.getElementById('vt-canvas-dot');
+        if (!dot) return;
+        if (mode === 'whiteboard')  dot.style.background = '#60a5fa';
+        if (mode === 'simulation')  dot.style.background = '#a78bfa';
+        if (mode === 'idle')        dot.style.background = '#4ade80';
+      },
+    }
+  );
+  return _vtRenderer;
 }
-
-// Sanitise AI-generated concept — filter unknown types, clamp pauseAfter
-function _vtSanitiseConcept(concept) {
-  if (!concept || !Array.isArray(concept.steps)) return null;
-  const allowed = new Set(['path','circle','ellipse','line','arrow','text','label','group','taperpath','glow']);
-  concept.steps = concept.steps.map(step => {
-    if (!Array.isArray(step.elements)) return null;
-    step.elements = step.elements.filter(el => el && allowed.has(el.type));
-    step.pauseAfter = Math.min(Math.max(Number(step.pauseAfter) || 500, 200), 2000);
-    return step;
-  }).filter(Boolean);
-  return concept.steps.length ? concept : null;
-}
-
-const VT_DIAGRAM_PROMPT = `You are the visual brain of an AI tutoring app. Your goal is to make hard concepts easy by drawing them — turning abstract ideas into beautiful, realistic, step-by-step animated diagrams that reveal themselves like a teacher drawing on a whiteboard.
-
-When a student asks about ANY concept you draw it so clearly and realistically that they instantly understand without needing a textbook. Every diagram should feel alive. Every mechanism should be visible. The hardest concepts become obvious the moment they see your drawing.
-
-Output ONLY a raw JSON object — no markdown, no explanation, no code fences. Start with { end with }.
-
-SCHEMA:
-{"steps":[{"narration":"1-2 vivid teacher sentences","pauseAfter":500,"elements":[...]}]}
-
-ELEMENT TYPES:
-
-1. PATH — organic shapes, curves, anatomy
-{"type":"path","d":"M x y C cx1 cy1 cx2 cy2 x y","stroke":"#hex","strokeWidth":2.5,"fill":"rgba(r,g,b,0.15)","fillDuration":500,"drawDuration":900}
-Use cubic Bezier (C, Q, S) for ALL biological/organic shapes. Never use L for curved anatomy.
-
-2. TAPERPATH — vessels, axons, tubes that narrow
-{"type":"taperpath","d":"M x y C ...","stroke":"#hex","widths":[6,3,1],"alphas":[1,0.6,0.2],"drawDuration":800}
-
-3. GLOW — electrical signals, energy pulses, light
-{"type":"glow","d":"M x1 y1 L x2 y2","stroke":"rgba(155,89,182,0.9)","strokeWidth":8,"filter":"url(#wb-glow-purple)","opacity":0.7,"drawDuration":400}
-filter options: url(#wb-glow-purple) url(#wb-glow-orange) url(#wb-glow-blue) url(#wb-glow-green)
-
-4. CIRCLE — cells, nuclei, vesicles
-{"type":"circle","cx":220,"cy":170,"r":45,"stroke":"#hex","strokeWidth":2,"fill":"rgba(r,g,b,0.2)","fillDuration":400,"drawDuration":700}
-
-5. ELLIPSE — chambers, organelles, cross-sections
-{"type":"ellipse","cx":220,"cy":170,"rx":70,"ry":40,"stroke":"#hex","strokeWidth":2,"fill":"rgba(r,g,b,0.15)","fillDuration":400,"drawDuration":700}
-
-6. LINE — guidelines, measurements
-{"type":"line","x1":100,"y1":100,"x2":300,"y2":200,"stroke":"#hex","strokeWidth":1.5,"strokeDash":"5,4","drawDuration":400}
-
-7. ARROW — forces, flow direction, cause-effect
-{"type":"arrow","d":"M x1 y1 C cx cy x2 y2","stroke":"#hex","strokeWidth":2.5,"markerColor":"blue","drawDuration":500}
-markerColor: white green yellow blue teal orange red purple gray
-
-8. TEXT — annotations, facts, formulas
-{"type":"text","x":220,"y":290,"text":"label text","size":11,"color":"#hex","anchor":"middle","duration":350}
-
-9. LABEL — floating name tag with background pill
-{"type":"label","x":220,"y":200,"text":"Mitochondria","size":10,"color":"#2ecc71","weight":"600","anchor":"middle","duration":300}
-
-CANVAS: Size 440x340. Safe zone: x 25-415, y 25-310. Center: (220, 165).
-
-COLORS:
-#AFA9EC = neuron purple    #2ecc71 = membrane green   #f1c40f = synapse yellow
-#3498db = water/oxygen     #1abc9c = active transport  #e67e22 = kinetic/heat
-#e74c3c = blood/force      #9b59b6 = nervous/chemistry #c0392b = deoxygenated blood
-#c8d6e5 = labels/text
-
-LAYERING — elements accumulate across steps:
-Step 1: outer boundary/shell — large organic path with fill
-Step 2: internal sub-structures layered inside
-Step 3: fine detail — channels, connections, organelles
-Step 4: flow arrows and glow pulses showing the mechanism
-Step 5: labels floating near their structures
-Step 6: formula box at y=272-308 + key fact text
-Formula box: {"type":"path","d":"M 40 272 L 400 272 L 400 308 L 40 308 Z","stroke":"rgba(200,214,229,0.18)","strokeWidth":1,"fill":"rgba(200,214,229,0.04)","drawDuration":350}
-
-QUALITY RULES:
-- Use C and Q Bezier curves for ALL curved anatomy — never L for organic shapes
-- Hearts: outer wall path + inner chamber paths + valve paths — all organic curves
-- Cells: outer membrane (large bezier) + nucleus (circle) + organelles (ellipses)
-- Blood vessels/axons: taperpath so they narrow naturally
-- Layer a bright highlight path (opacity 0.25, strokeWidth 1) on filled shapes for depth
-- Glow layered on signal paths shows electrical or chemical activity
-- Labels go OUTSIDE shapes pointing inward
-- 5-6 steps, 6-10 elements per step
-- narration: vivid, 1-2 sentences — make the student feel like they are seeing it for the first time`;
 
 async function _vtAskAI(q) {
-  if (_vtAbort) _vtAbort.abort();
-  _vtAbort = new AbortController();
-
-  const dot     = document.getElementById('vt-canvas-dot');
-  const topicEl = document.getElementById('vt-canvas-topic');
-  const area    = document.getElementById('vt-canvas-area');
-
+  const dot = document.getElementById('vt-canvas-dot');
   if (dot) dot.style.background = '#facc15';
 
-  // Show loading state on canvas
-  if (area) {
-    area.innerHTML =
-      '<svg id="vt-svg-gen" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">' +
-      '<rect width="440" height="340" fill="var(--surface-1,#13161b)"/>' +
-      '<text x="220" y="155" text-anchor="middle" font-size="13" fill="var(--text-3,#c8d6e5)" font-family="var(--font-body,sans-serif)">Building diagram for:</text>' +
-      '<text x="220" y="180" text-anchor="middle" font-size="14" fill="#60a5fa" font-family="var(--font-body,sans-serif)" font-weight="600">' + q + '</text>' +
-      '<text x="220" y="205" text-anchor="middle" font-size="10" fill="var(--text-4,rgba(200,214,229,0.5))" font-family="var(--font-body,sans-serif)">Generating detailed animation...</text>' +
-      '</svg>';
-  }
-
   try {
-    // Step 1: generate diagram JSON
-    const res = await fetch(`${window.API_BASE}/ask`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: _vtAbort.signal,
-      body: JSON.stringify({
-        question: VT_DIAGRAM_PROMPT + '\n\nTopic: "' + q + '"\n\nOutput the JSON now:',
-        mode: 'study',
-        complexity: 8,
-        language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
-        safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
-      }),
-    });
-
-    const data    = await res.json();
-    const rawJson = data.answer || data.response || '';
-    if (!rawJson) throw new Error('Empty response from backend');
-
-    // Strip any accidental markdown fences then parse
-    let cleaned = rawJson.trim();
-    const fence = cleaned.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
-    if (fence) cleaned = fence[1];
-    const brace = cleaned.indexOf('{');
-    const last  = cleaned.lastIndexOf('}');
-    if (brace >= 0 && last > brace) cleaned = cleaned.slice(brace, last + 1);
-
-    let concept;
-    try {
-      concept = JSON.parse(cleaned);
-    } catch (_e) {
-      const match = cleaned.match(/\{[\s\S]*\}/);
-      if (!match) throw new Error('No valid JSON in response');
-      concept = JSON.parse(match[0]);
-    }
-
-    concept = _vtSanitiseConcept(concept);
-    if (!concept) throw new Error('Invalid concept structure');
-
-    // Step 2: get a short intro narration
-    let intro = "Here's a detailed diagram of " + q + ". I'll draw it step by step.";
-    try {
-      const introRes  = await fetch(`${window.API_BASE}/ask`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: 'In 2-3 vivid sentences introduce "' + q + '" to a student. End with: I will draw it step by step. Max 50 words.',
-          mode: 'study',
-          complexity: 4,
-          language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
-        }),
-      });
-      const introData = await introRes.json();
-      intro = introData.answer || introData.response || intro;
-    } catch (_e) { /* use default */ }
-
-    _vtAddMsg(intro, 'ai');
-
-    // Step 3: run WhiteboardEngine
-    const WhiteboardEngine = await _getWhiteboardEngine();
-    if (!area) return;
-
-    const topicName = q
-      .replace(/^(explain|show me|describe|what is|how does|how do)\s+/i, '')
-      .replace(/\b\w/g, c => c.toUpperCase());
-
-    if (topicEl) topicEl.textContent = topicName;
-    if (window._vtWhiteboard) { window._vtWhiteboard.stop(); window._vtWhiteboard = null; }
-
-    window._vtWhiteboard = new WhiteboardEngine(
-      area,
-      concept,
-      (idx, narration) => {
-        if (topicEl) topicEl.textContent = topicName + ' — Step ' + (idx + 1) + ' of ' + concept.steps.length;
-        if (narration) _vtAddMsg(narration, 'ai');
-      },
-      () => {
-        if (dot)     dot.style.background = '#4ade80';
-        if (topicEl) topicEl.textContent  = topicName + ' — complete';
-        _vtAddMsg('Diagram complete! Ask me anything about it to go deeper.', 'ai');
-      }
-    );
-    window._vtWhiteboard.start();
-    if (dot) dot.style.background = '#60a5fa';
-
+    const renderer = await _getRenderer();
+    // Update the container reference in case the DOM was rebuilt (e.g. after _vtClear)
+    renderer._container = document.getElementById('vt-canvas-area');
+    await renderer.ask(q);
   } catch (e) {
     if (e.name === 'AbortError') return;
-    console.error('[VT AI Diagram]', e);
-    // Graceful fallback — plain text explanation
-    try {
-      const fb  = await fetch(`${window.API_BASE}/ask`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          question: 'Explain "' + q + '" in 3-4 sentences. Be concrete and vivid. No bullet points.',
-          mode: 'study',
-          complexity: 5,
-          language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
-        }),
-      });
-      const fd = await fb.json();
-      const fa = fd.answer || fd.response || '';
-      if (fa) _vtAddMsg(fa, 'ai');
-      else    _vtAddMsg("Sorry, I couldn't generate a diagram right now. Try one of the pre-built topics!", 'ai');
-    } catch (_e) {
-      _vtAddMsg("Sorry, I couldn't generate a diagram right now. Try one of the pre-built topics!", 'ai');
-    }
+    _vtAddMsg("Sorry, I couldn\'t generate a diagram right now. Try one of the pre-built topics!", 'ai');
     if (dot) dot.style.background = '#f87171';
   }
 }
+
+// Stop any running animation when clearing the canvas
+const _vtOrigClear = window._vtClear;
+window._vtClear = function() {
+  _vtRenderer?.stop();
+  _vtOrigClear?.();
+};
+
 // ── Public API ─────────────────────────────────────────────────────────────
 
 window._vtAsk = function(q) {
