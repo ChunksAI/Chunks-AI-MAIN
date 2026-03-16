@@ -62,8 +62,7 @@ function _applyUI(user) {
   document.querySelectorAll('.profile-plan').forEach(el => { el.textContent = planLabel; });
   document.querySelectorAll('.avatar').forEach(el => {
     if (user.avatar) {
-      el.style.backgroundImage = `url(${user.avatar})`;
-      el.style.backgroundSize = 'cover';
+      el.style.cssText += `background: url(${user.avatar}) center/cover no-repeat !important;`;
       el.textContent = '';
     } else {
       el.style.backgroundImage = '';
@@ -76,8 +75,7 @@ function _applyUI(user) {
   document.querySelectorAll('.pd-handle').forEach(el => { el.textContent = user.email || ''; });
   document.querySelectorAll('.pd-avatar').forEach(el => {
     if (user.avatar) {
-      el.style.backgroundImage = `url(${user.avatar})`;
-      el.style.backgroundSize = 'cover';
+      el.style.cssText += `background: url(${user.avatar}) center/cover no-repeat !important;`;
       el.textContent = '';
     } else {
       el.style.backgroundImage = '';
@@ -88,8 +86,7 @@ function _applyUI(user) {
   // Mobile topbar avatars
   document.querySelectorAll('.mht-avatar, .mwt-avatar').forEach(el => {
     if (user.avatar) {
-      el.style.backgroundImage = `url(${user.avatar})`;
-      el.style.backgroundSize = 'cover';
+      el.style.cssText += `background: url(${user.avatar}) center/cover no-repeat !important;`;
       el.textContent = '';
     } else {
       el.style.backgroundImage = '';
@@ -102,8 +99,7 @@ function _applyUI(user) {
   document.querySelectorAll('.md-profile-plan').forEach(el => { el.textContent = planLabel; });
   document.querySelectorAll('.md-avatar').forEach(el => {
     if (user.avatar) {
-      el.style.backgroundImage = `url(${user.avatar})`;
-      el.style.backgroundSize = 'cover';
+      el.style.cssText += `background: url(${user.avatar}) center/cover no-repeat !important;`;
       el.textContent = '';
     } else {
       el.style.backgroundImage = '';
