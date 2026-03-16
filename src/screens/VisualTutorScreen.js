@@ -8,6 +8,7 @@
  *   • 50 pre-built SVG animations for common topics (zero cost)
  *   • AI fallback via /ask endpoint for unknown topics
  *   • Accessible from flashcard Hard rating and sidebar
+ *   • Image Occlusion mode: upload image, draw boxes, quiz yourself
  */
 
 // ── HTML ──────────────────────────────────────────────────────────────────────
@@ -27,12 +28,27 @@ const VT_HTML = `
         <div class="vt-canvas-dot" id="vt-canvas-dot"></div>
         <span id="vt-canvas-topic">Waiting for a concept...</span>
       </div>
+      <div class="vt-topbar-actions">
+        <button class="vt-mode-btn" id="vt-mode-whiteboard" title="Whiteboard mode">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+          Whiteboard
+        </button>
+        <button class="vt-mode-btn" id="vt-mode-occlusion" title="Image occlusion mode">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>
+          Occlusion
+        </button>
+        <div class="vt-title-divider"></div>
+        <button class="vt-clear-btn" id="vt-clear-btn" title="Clear canvas">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+          Clear
+        </button>
+      </div>
     </div>
 
     <div class="vt-body">
 
-      <!-- LEFT: Live canvas -->
-      <div class="vt-canvas-panel">
+      <!-- LEFT: Live canvas (whiteboard mode) -->
+      <div class="vt-canvas-panel" id="vt-whiteboard-panel">
         <div class="vt-canvas-area" id="vt-canvas-area">
           <svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
             <text x="220" y="155" text-anchor="middle" font-size="14" fill="var(--text-4)" font-family="var(--font-body)">Ask me to explain anything</text>
@@ -54,17 +70,59 @@ const VT_HTML = `
         </div>
       </div>
 
+      <!-- LEFT: Image occlusion panel -->
+      <div class="vt-canvas-panel vt-occlusion-panel" id="vt-occlusion-panel" style="display:none;">
+        <div class="vt-occ-toolbar">
+          <label class="vt-occ-upload-btn" id="vt-occ-upload-btn" title="Upload image">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Upload Image
+            <input type="file" id="vt-occ-file" accept="image/*" style="display:none;"/>
+          </label>
+          <div class="vt-occ-divider"></div>
+          <button class="vt-occ-tool-btn active" id="vt-occ-tool-draw" title="Draw occlusion box">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            Draw Box
+          </button>
+          <button class="vt-occ-tool-btn" id="vt-occ-tool-erase" title="Erase box">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16l9-9 8 8z"/><path d="M6.5 17.5l5-5"/></svg>
+            Erase
+          </button>
+          <div class="vt-occ-divider"></div>
+          <button class="vt-occ-action-btn" id="vt-occ-quiz-btn" title="Start quiz">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+            Quiz Me
+          </button>
+          <button class="vt-occ-action-btn vt-occ-reveal-btn" id="vt-occ-reveal-btn" title="Reveal all" style="display:none;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Reveal All
+          </button>
+          <button class="vt-occ-action-btn" id="vt-occ-clear-boxes-btn" title="Clear all boxes">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+            Clear Boxes
+          </button>
+        </div>
+        <div class="vt-occ-canvas-wrap" id="vt-occ-canvas-wrap">
+          <div class="vt-occ-empty" id="vt-occ-empty">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-4)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <p>Upload an image to start.<br/><span>Draw boxes over parts you want to hide, then hit Quiz Me.</span></p>
+          </div>
+          <canvas id="vt-occ-canvas" style="display:none;"></canvas>
+          <canvas id="vt-occ-overlay" style="display:none; position:absolute; top:0; left:0; cursor:crosshair;"></canvas>
+        </div>
+        <div class="vt-occ-status" id="vt-occ-status">Upload an image to begin image occlusion</div>
+      </div>
+
       <!-- RIGHT: Chat panel -->
       <div class="vt-chat-panel">
         <div class="vt-chat-msgs" id="vt-chat-msgs">
           <div class="vt-msg vt-msg-ai">
             <div class="vt-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><defs><linearGradient id="vt-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient><linearGradient id="vt-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient></defs><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" opacity="0.95"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg></div>
-            <div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Try "explain osmosis" or tap a concept on the left.</div>
+            <div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Or switch to <strong>Occlusion</strong> mode to upload a diagram and quiz yourself.</div>
           </div>
         </div>
         <div class="vt-chat-input-row">
           <input class="vt-input" id="vt-input" placeholder="Ask me to explain anything..." />
-          <button class="vt-send-btn" id="vt-send-btn" data-action="_vtSendInput">
+          <button class="vt-send-btn" id="vt-send-btn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
@@ -88,9 +146,10 @@ const VT_ANIMS = `
 @keyframes vt-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 @keyframes vt-grow { from{transform:scaleY(0)} to{transform:scaleY(1)} }
 @keyframes vt-dash { to{stroke-dashoffset:0} }
+@keyframes vt-occ-reveal { from{opacity:1} to{opacity:0} }
 `;
 
-// ── Scene library — 50 concepts ──────────────────────────────────────────────
+// ── Scene library ─────────────────────────────────────────────────────────────
 
 const VT_SCENES = [
 
@@ -316,7 +375,6 @@ ${Array.from({length:10},(_,i)=>{
 <text x="220" y="76" text-anchor="middle" font-size="11" fill="#412402" font-family="var(--font-body)" font-weight="500">Battery (V)</text>
 <rect x="188" y="192" width="64" height="32" rx="6" fill="#AFA9EC" opacity="0.85"/>
 <text x="220" y="212" text-anchor="middle" font-size="11" fill="#26215C" font-family="var(--font-body)" font-weight="500">Resistor (R)</text>
-<path d="M220 88 L220 220" stroke="var(--text-4)" stroke-width="0" fill="none"/>
 <path d="M80 140 L80 88 L188 88" stroke="#e74c3c" stroke-width="3" fill="none" stroke-linecap="round" style="stroke-dasharray:50;animation:vt-flow 1.5s linear infinite"/>
 <path d="M252 88 L360 88 L360 140" stroke="#e74c3c" stroke-width="3" fill="none" stroke-linecap="round" style="stroke-dasharray:50;animation:vt-flow 1.5s linear 0.5s infinite"/>
 <path d="M360 140 L360 212 L252 212" stroke="#3498db" stroke-width="3" fill="none" stroke-linecap="round" style="stroke-dasharray:50;animation:vt-flow 1.5s linear 1s infinite"/>
@@ -424,7 +482,7 @@ ${hot ? `<ellipse cx="220" cy="235" rx="68" ry="10" fill="#e67e22" opacity="0.3"
 
 let _vtPrevScreen = 'flash';
 let _vtAbort = null;
-let _vtSessionId = null;   // tracks current recent-item id for save/restore
+let _vtSessionId = null;
 
 // ── Session persistence helpers ────────────────────────────────────────────
 
@@ -434,7 +492,6 @@ function _vtSaveSession() {
   if (!msgs) return;
   const html  = msgs.innerHTML;
   const topic = document.getElementById('vt-canvas-topic')?.textContent || '';
-  // Save the inner SVG content (the <g> fragments), not the outer <svg> wrapper
   const svg   = document.getElementById('vt-svg')?.innerHTML || '';
   try {
     if (typeof localStorage === 'undefined') return;
@@ -462,21 +519,31 @@ function _vtMatchScene(q) {
   return null;
 }
 
-// ── Render scene ───────────────────────────────────────────────────────────
+// ── Canvas helpers — always rebuild #vt-svg inside vt-canvas-area ──────────
+// WhiteboardEngine wipes container.innerHTML, so we never assume #vt-svg exists.
 
-function _vtRenderScene(scene, q) {
-  const result = scene.render(q);
-
-  // WhiteboardEngine wipes vt-canvas-area on every AI call, so always
-  // rebuild #vt-svg from scratch inside the container.
+function _vtSetCanvas(innerSVG) {
   const area = document.getElementById('vt-canvas-area');
   if (area) {
     area.innerHTML =
       `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-      result.svg +
+      innerSVG +
       `</svg>`;
   }
+}
 
+function _vtResetCanvas() {
+  _vtSetCanvas(
+    `<text x="220" y="155" text-anchor="middle" font-size="14" fill="var(--text-4)" font-family="var(--font-body)">Ask me to explain anything</text>` +
+    `<text x="220" y="178" text-anchor="middle" font-size="12" fill="var(--text-4)" font-family="var(--font-body)" opacity="0.6">I'll draw it here as I explain</text>`
+  );
+}
+
+// ── Render scene ───────────────────────────────────────────────────────────
+
+function _vtRenderScene(scene, q) {
+  const result = scene.render(q);
+  _vtSetCanvas(result.svg);
   const topicEl = document.getElementById('vt-canvas-topic');
   if (topicEl) topicEl.textContent = scene.topic;
   const dot = document.getElementById('vt-canvas-dot');
@@ -495,17 +562,13 @@ function _vtAddMsg(text, role) {
     div.innerHTML = `<div class="vt-bubble">${text}</div>`;
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
-    // Only create a new sidebar entry on the FIRST message of a session
-    // Subsequent messages just update the label and save
     if (!_vtSessionId && window.recentAdd) {
       window.recentAdd(text, null, 'visual');
-      // Grab the session id from the item recentAdd just created
       if (window._recentItems && window._recentItems.length) {
         const latest = window._recentItems[0];
         if (latest.source === 'visual') _vtSessionId = latest.id;
       }
     } else if (_vtSessionId && window._recentItems) {
-      // Update the existing entry's label to reflect the latest question
       const existing = window._recentItems.find(r => r.id === _vtSessionId);
       if (existing) {
         existing.label = text.length > 32 ? text.slice(0, 32).trimEnd() + '…' : text;
@@ -517,7 +580,8 @@ function _vtAddMsg(text, role) {
     _vtSaveSession();
     return;
   } else {
-    div.innerHTML = `<div class="vt-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><defs><linearGradient id="vt-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient><linearGradient id="vt-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient></defs><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" opacity="0.95"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg></div><div class="vt-bubble"></div>`;
+    const AVATAR_SVG = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><defs><linearGradient id="vt-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient><linearGradient id="vt-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient></defs><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" opacity="0.95"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg>`;
+    div.innerHTML = `<div class="vt-avatar">${AVATAR_SVG}</div><div class="vt-bubble"></div>`;
     msgs.appendChild(div);
     msgs.scrollTop = msgs.scrollHeight;
     const bubble = div.querySelector('.vt-bubble');
@@ -526,7 +590,7 @@ function _vtAddMsg(text, role) {
     const iv = setInterval(() => {
       if (i >= words.length) {
         clearInterval(iv);
-        _vtSaveSession(); // save after AI finishes typing
+        _vtSaveSession();
         return;
       }
       bubble.textContent += (i > 0 ? ' ' : '') + words[i++];
@@ -549,28 +613,21 @@ async function _getRenderer() {
       apiBase:      window.API_BASE,
       getLanguage:  () => localStorage.getItem('chunks_setting_language') || 'Auto-detect',
       getSafeMode:  () => localStorage.getItem('chunks_setting_safe-content') === '1',
-
-      onNarration: (text, stepIdx, total) => {
-        if (text) _vtAddMsg(text, 'ai');
-      },
-
+      onNarration: (text) => { if (text) _vtAddMsg(text, 'ai'); },
       onTopic: (name) => {
         const topicEl = document.getElementById('vt-canvas-topic');
         if (topicEl) topicEl.textContent = name;
       },
-
       onComplete: () => {
         const dot = document.getElementById('vt-canvas-dot');
         if (dot) dot.style.background = '#4ade80';
         _vtAddMsg('Diagram complete! Ask me anything about it to go deeper.', 'ai');
       },
-
       onError: (err) => {
         const dot = document.getElementById('vt-canvas-dot');
         if (dot) dot.style.background = '#f87171';
         console.error('[VisualTutor]', err);
       },
-
       onModeChange: (mode) => {
         const dot = document.getElementById('vt-canvas-dot');
         if (!dot) return;
@@ -586,20 +643,281 @@ async function _getRenderer() {
 async function _vtAskAI(q) {
   const dot = document.getElementById('vt-canvas-dot');
   if (dot) dot.style.background = '#facc15';
-
   try {
     const renderer = await _getRenderer();
-    // Update the container reference in case the DOM was rebuilt (e.g. after _vtClear)
     renderer._container = document.getElementById('vt-canvas-area');
     await renderer.ask(q);
   } catch (e) {
     if (e.name === 'AbortError') return;
-    _vtAddMsg("Sorry, I couldn\'t generate a diagram right now. Try one of the pre-built topics!", 'ai');
+    _vtAddMsg("Sorry, I couldn't generate a diagram right now. Try one of the pre-built topics!", 'ai');
     if (dot) dot.style.background = '#f87171';
   }
 }
 
-// Stop any running animation when clearing the canvas
+// ── Image Occlusion Engine ─────────────────────────────────────────────────
+
+const _occ = {
+  boxes:     [],       // [{x,y,w,h,revealed}]
+  img:       null,     // HTMLImageElement
+  tool:      'draw',   // 'draw' | 'erase'
+  quizMode:  false,
+  dragging:  false,
+  startX:    0,
+  startY:    0,
+  scale:     1,
+  offsetX:   0,
+  offsetY:   0,
+
+  get canvas()  { return document.getElementById('vt-occ-canvas');  },
+  get overlay() { return document.getElementById('vt-occ-overlay'); },
+  get status()  { return document.getElementById('vt-occ-status');  },
+  get empty()   { return document.getElementById('vt-occ-empty');   },
+  get wrap()    { return document.getElementById('vt-occ-canvas-wrap'); },
+
+  load(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        this.img    = img;
+        this.boxes  = [];
+        this.quizMode = false;
+        this._resize();
+        this.redraw();
+        this.canvas.style.display  = 'block';
+        this.overlay.style.display = 'block';
+        this.empty.style.display   = 'none';
+        this._updateStatus();
+        document.getElementById('vt-occ-reveal-btn').style.display = 'none';
+        document.getElementById('vt-occ-quiz-btn').style.display   = '';
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  },
+
+  _resize() {
+    if (!this.img) return;
+    const wrap = this.wrap;
+    const maxW = wrap.clientWidth  - 24;
+    const maxH = wrap.clientHeight - 24;
+    this.scale   = Math.min(maxW / this.img.width, maxH / this.img.height, 1);
+    const w      = Math.round(this.img.width  * this.scale);
+    const h      = Math.round(this.img.height * this.scale);
+    this.offsetX = Math.round((maxW - w) / 2);
+    this.offsetY = Math.round((maxH - h) / 2);
+    [this.canvas, this.overlay].forEach(c => {
+      c.width  = maxW;
+      c.height = maxH;
+      c.style.width  = maxW + 'px';
+      c.style.height = maxH + 'px';
+    });
+  },
+
+  redraw() {
+    if (!this.img) return;
+    const ctx = this.canvas.getContext('2d');
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    const w = Math.round(this.img.width  * this.scale);
+    const h = Math.round(this.img.height * this.scale);
+    ctx.drawImage(this.img, this.offsetX, this.offsetY, w, h);
+
+    // Draw occlusion boxes
+    this.boxes.forEach(b => {
+      if (this.quizMode && !b.revealed) {
+        // Solid gold box hiding content
+        ctx.fillStyle = 'rgba(232,172,46,0.92)';
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+        ctx.strokeStyle = 'rgba(232,172,46,1)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(b.x, b.y, b.w, b.h);
+        // Question mark
+        ctx.fillStyle = '#0a0900';
+        ctx.font = `bold ${Math.min(b.w, b.h) * 0.5}px var(--font-body, sans-serif)`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('?', b.x + b.w / 2, b.y + b.h / 2);
+      } else if (!this.quizMode) {
+        // Edit mode: semi-transparent gold outline
+        ctx.fillStyle   = 'rgba(232,172,46,0.25)';
+        ctx.strokeStyle = 'rgba(232,172,46,0.85)';
+        ctx.lineWidth   = 2;
+        ctx.fillRect(b.x, b.y, b.w, b.h);
+        ctx.strokeRect(b.x, b.y, b.w, b.h);
+      } else if (b.revealed) {
+        // Revealed: green outline
+        ctx.strokeStyle = 'rgba(52,211,153,0.8)';
+        ctx.lineWidth   = 2;
+        ctx.strokeRect(b.x, b.y, b.w, b.h);
+      }
+    });
+  },
+
+  drawOverlay(rx, ry, rw, rh) {
+    const ctx = this.overlay.getContext('2d');
+    ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
+    if (rw === 0 || rh === 0) return;
+    ctx.strokeStyle = 'rgba(232,172,46,0.9)';
+    ctx.lineWidth   = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.strokeRect(rx, ry, rw, rh);
+    ctx.fillStyle = 'rgba(232,172,46,0.15)';
+    ctx.fillRect(rx, ry, rw, rh);
+    ctx.setLineDash([]);
+  },
+
+  _pos(e) {
+    const rect = this.overlay.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return { x: clientX - rect.left, y: clientY - rect.top };
+  },
+
+  onDown(e) {
+    if (!this.img) return;
+    e.preventDefault();
+    const p = this._pos(e);
+
+    if (this.tool === 'erase') {
+      // Remove box under cursor
+      const idx = this.boxes.findIndex(b =>
+        p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h
+      );
+      if (idx !== -1) {
+        this.boxes.splice(idx, 1);
+        this.redraw();
+        this._updateStatus();
+      }
+      return;
+    }
+
+    if (this.quizMode) {
+      // Quiz mode: click box to reveal
+      const box = this.boxes.find(b =>
+        p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h
+      );
+      if (box) {
+        box.revealed = true;
+        this.redraw();
+        const hidden = this.boxes.filter(b => !b.revealed).length;
+        this._updateStatus(hidden);
+        if (hidden === 0) {
+          this.status.textContent = '🎉 All revealed! Great work. Click Reveal All to reset or draw more boxes.';
+        }
+      }
+      return;
+    }
+
+    this.dragging = true;
+    this.startX   = p.x;
+    this.startY   = p.y;
+  },
+
+  onMove(e) {
+    if (!this.dragging || this.tool !== 'draw' || this.quizMode) return;
+    e.preventDefault();
+    const p  = this._pos(e);
+    const rx = Math.min(p.x, this.startX);
+    const ry = Math.min(p.y, this.startY);
+    const rw = Math.abs(p.x - this.startX);
+    const rh = Math.abs(p.y - this.startY);
+    this.drawOverlay(rx, ry, rw, rh);
+  },
+
+  onUp(e) {
+    if (!this.dragging) return;
+    e.preventDefault();
+    this.dragging = false;
+    const ctx = this.overlay.getContext('2d');
+    ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
+
+    const p  = this._pos(e);
+    const rx = Math.min(p.x, this.startX);
+    const ry = Math.min(p.y, this.startY);
+    const rw = Math.abs(p.x - this.startX);
+    const rh = Math.abs(p.y - this.startY);
+
+    if (rw > 8 && rh > 8) {
+      this.boxes.push({ x: rx, y: ry, w: rw, h: rh, revealed: false });
+      this.redraw();
+      this._updateStatus();
+    }
+  },
+
+  startQuiz() {
+    if (!this.img) return;
+    if (this.boxes.length === 0) {
+      this.status.textContent = '⚠️ Draw at least one box first, then hit Quiz Me.';
+      return;
+    }
+    this.quizMode = true;
+    this.boxes.forEach(b => b.revealed = false);
+    this.redraw();
+    document.getElementById('vt-occ-quiz-btn').style.display   = 'none';
+    document.getElementById('vt-occ-reveal-btn').style.display = '';
+    this._updateStatus(this.boxes.length);
+    _vtAddMsg(`Quiz started! ${this.boxes.length} area${this.boxes.length > 1 ? 's' : ''} hidden. Click each gold box to reveal it.`, 'ai');
+  },
+
+  revealAll() {
+    this.quizMode = false;
+    this.boxes.forEach(b => b.revealed = false);
+    this.redraw();
+    document.getElementById('vt-occ-reveal-btn').style.display = 'none';
+    document.getElementById('vt-occ-quiz-btn').style.display   = '';
+    this._updateStatus();
+  },
+
+  clearBoxes() {
+    this.boxes    = [];
+    this.quizMode = false;
+    this.redraw();
+    document.getElementById('vt-occ-reveal-btn').style.display = 'none';
+    document.getElementById('vt-occ-quiz-btn').style.display   = '';
+    this._updateStatus();
+  },
+
+  _updateStatus(hidden) {
+    if (!this.img) { this.status.textContent = 'Upload an image to begin image occlusion'; return; }
+    if (this.quizMode) {
+      const h = hidden ?? this.boxes.filter(b => !b.revealed).length;
+      this.status.textContent = `Quiz mode — ${h} of ${this.boxes.length} box${this.boxes.length !== 1 ? 'es' : ''} hidden. Click a gold box to reveal.`;
+    } else {
+      this.status.textContent = this.boxes.length === 0
+        ? 'Draw boxes over areas to hide, then click Quiz Me'
+        : `${this.boxes.length} box${this.boxes.length !== 1 ? 'es' : ''} drawn. Click Quiz Me when ready.`;
+    }
+  },
+};
+
+// ── Mode switching ─────────────────────────────────────────────────────────
+
+let _vtCurrentMode = 'whiteboard'; // 'whiteboard' | 'occlusion'
+
+function _vtSwitchMode(mode) {
+  _vtCurrentMode = mode;
+  const wb  = document.getElementById('vt-whiteboard-panel');
+  const occ = document.getElementById('vt-occlusion-panel');
+  const btnWb  = document.getElementById('vt-mode-whiteboard');
+  const btnOcc = document.getElementById('vt-mode-occlusion');
+  if (mode === 'whiteboard') {
+    if (wb)  wb.style.display  = '';
+    if (occ) occ.style.display = 'none';
+    btnWb?.classList.add('active');
+    btnOcc?.classList.remove('active');
+  } else {
+    if (wb)  wb.style.display  = 'none';
+    if (occ) occ.style.display = '';
+    btnOcc?.classList.add('active');
+    btnWb?.classList.remove('active');
+    // Resize occlusion canvas in case panel just became visible
+    setTimeout(() => { _occ._resize(); _occ.redraw(); }, 50);
+  }
+}
+
+// ── Public API ─────────────────────────────────────────────────────────────
+
+// Stop animation when clearing
 if (typeof window !== 'undefined') {
   const _vtOrigClear = window._vtClear;
   window._vtClear = function() {
@@ -607,8 +925,6 @@ if (typeof window !== 'undefined') {
     _vtOrigClear?.();
   };
 }
-
-// ── Public API ─────────────────────────────────────────────────────────────
 
 if (typeof window !== 'undefined') window._vtAsk = function(q) {
   if (!q.trim()) return;
@@ -621,13 +937,7 @@ if (typeof window !== 'undefined') window._vtAsk = function(q) {
     const text = _vtRenderScene(scene, q);
     setTimeout(() => _vtAddMsg(text, 'ai'), 200);
   } else {
-    const area = document.getElementById('vt-canvas-area');
-    if (area) {
-      area.innerHTML =
-        `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-        `<text x="220" y="165" text-anchor="middle" font-size="13" fill="var(--text-4)" font-family="var(--font-body)">Thinking about ${q}...</text>` +
-        `</svg>`;
-    }
+    _vtSetCanvas(`<text x="220" y="165" text-anchor="middle" font-size="13" fill="var(--text-4)" font-family="var(--font-body)">Thinking about ${q}...</text>`);
     _vtAddMsg("Let me think about that for you...", 'ai');
     _vtAskAI(q);
   }
@@ -643,63 +953,50 @@ if (typeof window !== 'undefined') window._vtBack = function() {
 };
 
 if (typeof window !== 'undefined') window._vtClear = function() {
-  const area = document.getElementById('vt-canvas-area');
-  if (area) {
-    area.innerHTML =
-      `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-      `<text x="220" y="155" text-anchor="middle" font-size="14" fill="var(--text-4)" font-family="var(--font-body)">Ask me to explain anything</text>` +
-      `<text x="220" y="178" text-anchor="middle" font-size="12" fill="var(--text-4)" font-family="var(--font-body)" opacity="0.6">I'll draw it here as I explain</text>` +
-      `</svg>`;
-  }
+  _vtRenderer?.stop();
+  _vtResetCanvas();
   const dot = document.getElementById('vt-canvas-dot');
   if (dot) dot.style.background = '#4ade80';
   const topicEl = document.getElementById('vt-canvas-topic');
   if (topicEl) topicEl.textContent = 'Waiting for a concept...';
   const msgs = document.getElementById('vt-chat-msgs');
+  const AVATAR_SVG = `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><defs><linearGradient id="vt-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient><linearGradient id="vt-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient></defs><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" opacity="0.95"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg>`;
   if (msgs) {
-    msgs.innerHTML = `<div class="vt-msg vt-msg-ai"><div class="vt-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><defs><linearGradient id="vt-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient><linearGradient id="vt-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient></defs><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" opacity="0.95"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#vt-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg></div><div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Try "explain osmosis" or tap a concept on the left.</div></div>`;
+    msgs.innerHTML = `<div class="vt-msg vt-msg-ai"><div class="vt-avatar">${AVATAR_SVG}</div><div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Or switch to <strong>Occlusion</strong> mode to upload a diagram and quiz yourself.</div></div>`;
   }
-  // Clear session so next message starts a fresh recent entry
   _vtSessionId = null;
   if (typeof localStorage !== 'undefined') localStorage.removeItem('chunks_active_vt_session');
 };
 
-// Called from flashcard Hard rating to open tutor on a specific concept
 if (typeof window !== 'undefined') window._vtOpenForConcept = function(front, back) {
   _vtPrevScreen = 'flash';
-  _vtSessionId = null; // fresh session for each flashcard concept
-  window._navFromHistory = true; // skip showScreen reset — we set state ourselves
+  _vtSessionId  = null;
+  window._navFromHistory = true;
   if (window.showScreen) window.showScreen('visual');
   setTimeout(() => {
-    const q = front || 'this concept';
-    window._vtAsk(`explain ${q}`);
+    _vtSwitchMode('whiteboard');
+    window._vtAsk(`explain ${front || 'this concept'}`);
   }, 300);
 };
 
-// Called when user clicks a recent item that was saved from Visual Tutor
 if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId, question) {
   _vtSessionId = sessionId;
-
-  // Mark item active in sidebar
   if (window._setActiveRecent) window._setActiveRecent(sessionId);
 
   const session = _vtLoadSession(sessionId);
-  const msgs = document.getElementById('vt-chat-msgs');
+  const msgs    = document.getElementById('vt-chat-msgs');
 
   if (session && session.html && msgs) {
-    // Restore chat messages
     msgs.innerHTML = typeof window.sanitize === 'function'
       ? window.sanitize(session.html)
       : session.html;
     msgs.scrollTop = msgs.scrollHeight;
 
-    // Restore topic label
     if (session.topic) {
       const topicEl = document.getElementById('vt-canvas-topic');
       if (topicEl) topicEl.textContent = session.topic;
     }
 
-    // Restore SVG canvas — use saved SVG if available, else re-render from scene library
     const area = document.getElementById('vt-canvas-area');
     if (area) {
       if (session.svg) {
@@ -717,16 +1014,14 @@ if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId
           const dot = document.getElementById('vt-canvas-dot');
           if (dot) dot.style.background = '#4ade80';
         } else {
-          area.innerHTML =
-            `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
+          _vtSetCanvas(
             `<text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>` +
-            `<text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>` +
-            `</svg>`;
+            `<text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>`
+          );
         }
       }
     }
   } else if (question) {
-    // No saved HTML — pre-fill input so user can re-ask
     const input = document.getElementById('vt-input');
     if (input) { input.value = question; input.focus(); }
   }
@@ -737,13 +1032,13 @@ if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId
 let _vtMounted = false;
 
 export function mountVisualTutorScreen() {
-  if (_vtMounted) return;   // prevent double-mount / duplicate event listeners
+  if (_vtMounted) return;
   _vtMounted = true;
+
   const sp = document.querySelector('[data-visual-screen]');
   if (sp) {
     sp.outerHTML = VT_HTML;
   } else {
-    // Fallback: append to body
     const div = document.createElement('div');
     div.innerHTML = VT_HTML;
     document.body.appendChild(div.firstElementChild);
@@ -757,8 +1052,8 @@ export function mountVisualTutorScreen() {
     document.head.appendChild(style);
   }
 
-  // Wire input enter key
   setTimeout(() => {
+    // Input enter key
     const input = document.getElementById('vt-input');
     if (input) {
       input.addEventListener('keydown', e => {
@@ -766,24 +1061,77 @@ export function mountVisualTutorScreen() {
       });
     }
 
-    // Wire pill buttons directly — avoids double-fire from global data-action delegation
+    // Send button
+    document.getElementById('vt-send-btn')?.addEventListener('click', () => window._vtSendInput());
+
+    // Pill buttons
     document.querySelectorAll('#vt-quick-pills .vt-pill').forEach(btn => {
       btn.addEventListener('click', () => {
         const q = btn.getAttribute('data-query');
         if (q && window._vtAsk) window._vtAsk(q);
       });
     });
+
+    // Clear button
+    document.getElementById('vt-clear-btn')?.addEventListener('click', () => window._vtClear());
+
+    // Mode buttons
+    document.getElementById('vt-mode-whiteboard')?.addEventListener('click', () => _vtSwitchMode('whiteboard'));
+    document.getElementById('vt-mode-occlusion')?.addEventListener('click',  () => _vtSwitchMode('occlusion'));
+
+    // ── Occlusion wiring ──────────────────────────────────────────────────
+    document.getElementById('vt-occ-file')?.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) _occ.load(file);
+      e.target.value = ''; // allow re-uploading same file
+    });
+
+    document.getElementById('vt-occ-tool-draw')?.addEventListener('click', () => {
+      _occ.tool = 'draw';
+      document.getElementById('vt-occ-tool-draw')?.classList.add('active');
+      document.getElementById('vt-occ-tool-erase')?.classList.remove('active');
+    });
+
+    document.getElementById('vt-occ-tool-erase')?.addEventListener('click', () => {
+      _occ.tool = 'erase';
+      document.getElementById('vt-occ-tool-erase')?.classList.add('active');
+      document.getElementById('vt-occ-tool-draw')?.classList.remove('active');
+    });
+
+    document.getElementById('vt-occ-quiz-btn')?.addEventListener('click',        () => _occ.startQuiz());
+    document.getElementById('vt-occ-reveal-btn')?.addEventListener('click',      () => _occ.revealAll());
+    document.getElementById('vt-occ-clear-boxes-btn')?.addEventListener('click', () => _occ.clearBoxes());
+
+    // Canvas mouse/touch events
+    const overlay = document.getElementById('vt-occ-overlay');
+    if (overlay) {
+      overlay.addEventListener('mousedown',  e => _occ.onDown(e));
+      overlay.addEventListener('mousemove',  e => _occ.onMove(e));
+      overlay.addEventListener('mouseup',    e => _occ.onUp(e));
+      overlay.addEventListener('mouseleave', e => { if (_occ.dragging) _occ.onUp(e); });
+      overlay.addEventListener('touchstart', e => _occ.onDown(e), { passive: false });
+      overlay.addEventListener('touchmove',  e => _occ.onMove(e), { passive: false });
+      overlay.addEventListener('touchend',   e => _occ.onUp(e),   { passive: false });
+    }
+
+    // Resize occlusion canvas when window resizes
+    window.addEventListener('resize', () => {
+      if (_vtCurrentMode === 'occlusion') {
+        _occ._resize();
+        _occ.redraw();
+      }
+    });
   }, 100);
 
   // ── Restore last visual session on page refresh ──
   (function _restoreVtSession() {
+    if (typeof localStorage === 'undefined') return;
     const savedId = localStorage.getItem('chunks_active_vt_session');
     if (!savedId) return;
 
     const lastScreen = (() => {
       try { return (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('chunks_last_screen') : null; } catch(e) { return null; }
     })();
-    // Only auto-restore if we were on the visual screen
     if (lastScreen !== 'visual') return;
 
     const session = _vtLoadSession(savedId);
@@ -800,10 +1148,10 @@ export function mountVisualTutorScreen() {
     if (session.topic) {
       const topicEl = document.getElementById('vt-canvas-topic');
       if (topicEl) topicEl.textContent = session.topic;
-      const area2 = document.getElementById('vt-canvas-area');
-      if (area2) {
+      const area = document.getElementById('vt-canvas-area');
+      if (area) {
         if (session.svg) {
-          area2.innerHTML =
+          area.innerHTML =
             `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
             session.svg + `</svg>`;
           const dot = document.getElementById('vt-canvas-dot');
@@ -811,17 +1159,11 @@ export function mountVisualTutorScreen() {
         } else {
           const scene = _vtMatchScene(session.topic);
           if (scene) {
-            area2.innerHTML =
+            area.innerHTML =
               `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
               scene.render(session.topic).svg + `</svg>`;
             const dot = document.getElementById('vt-canvas-dot');
             if (dot) dot.style.background = '#4ade80';
-          } else {
-            area2.innerHTML =
-              `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-              `<text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>` +
-              `<text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>` +
-              `</svg>`;
           }
         }
       }
