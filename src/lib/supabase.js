@@ -102,7 +102,7 @@ export async function getSupabaseClient() {
     // NOTE: no AbortSignal here — it cannot be cloned via postMessage (used by
     // PDF.js worker) and causes console warnings on every PDF load.
     if (!url || !anon) {
-      const backends = [API_BASE, 'https://chemistry-app-production.up.railway.app'];
+      const backends = [API_BASE];
       for (const base of backends) {
         try {
           const fetchP   = fetch(`${base}/api/config`).then(r => r.json());

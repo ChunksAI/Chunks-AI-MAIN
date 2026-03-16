@@ -24,7 +24,7 @@
 // Override at deploy time by setting window.CHUNKS_BACKEND_URL before this
 // module is imported (e.g. via a tiny inline <script> in index.html).
 export const API_BASE = (
-  window.CHUNKS_BACKEND_URL || 'https://chunks-ai-main-production.up.railway.app'
+  window.CHUNKS_BACKEND_URL || 'https://api.chunks.online'
 ).replace(/\/$/, '');
 
 // Expose on window so legacy inline script blocks can still read it until
@@ -256,7 +256,7 @@ export function streamLayer(payload, onToken, onDone, onError) {
  * @returns {Promise<{ supabaseUrl: string, supabaseAnonKey: string } | null>}
  */
 export async function fetchConfig() {
-  const backends = [API_BASE, 'https://chemistry-app-production.up.railway.app'];
+  const backends = [API_BASE];
   for (const base of backends) {
     try {
       const fetchPromise   = fetch(`${base}/api/config`).then(r => r.json());
