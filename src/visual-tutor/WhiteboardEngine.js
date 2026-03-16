@@ -51,8 +51,6 @@ const el = (tag, attrs = {}) => {
 };
 
 // ── WhiteboardEngine ──────────────────────────────────────────────────────────
-
-export class WhiteboardEngine {
   /**
    * @param {HTMLElement} container   — the vt-canvas-area div
    * @param {object}      concept     — { steps: [...] }
