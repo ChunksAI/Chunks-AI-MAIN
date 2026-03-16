@@ -50,8 +50,10 @@ const el = (tag, attrs = {}) => {
   return e;
 };
 
+  export class WhiteboardEngine {
 // ── WhiteboardEngine ──────────────────────────────────────────────────────────
   /**
+  
    * @param {HTMLElement} container   — the vt-canvas-area div
    * @param {object}      concept     — { steps: [...] }
    * @param {function}    onStep      — (stepIndex, narration, totalSteps)
