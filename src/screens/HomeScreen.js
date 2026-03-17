@@ -43,13 +43,10 @@ const HOME_HTML = /* html */`
     <!-- Mobile topbar: logo + avatar (hidden on desktop via CSS) -->
     <div class="mobile-home-topbar" style="display:none;">
       <div class="mht-logo-row">
-        <svg width="26" height="26" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="mht-lg1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
-          </defs>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#mht-lg1)" stroke-width="7" opacity="0.95"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#mht-lg1)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#mht-lg1)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+        <svg width="26" height="26" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="overflow:hidden;display:block;">
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="7" opacity="0.95"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#8b7cf8" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
           <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
         </svg>
         <span class="mht-logo-text">Chunks</span>
@@ -69,13 +66,9 @@ const HOME_HTML = /* html */`
       <div class="home-hero">
         <div class="eyebrow-pill">
           <svg class="eyebrow-dot" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="eg-gv" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
-              <linearGradient id="eg-vg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient>
-            </defs>
-            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#eg-gv)" stroke-width="7" opacity="0.95"/>
-            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#eg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
-            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#eg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="7" opacity="0.95"/>
+            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#8b7cf8" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
             <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
           </svg>
           AI Study Assistant
@@ -354,13 +347,9 @@ function _incogAppendThinking() {
     <div class="incognito-ai-row">
       <div class="incognito-ai-ava" aria-hidden="true">
         <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14">
-          <defs>
-            <linearGradient id="ig-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
-            <linearGradient id="ig-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient>
-          </defs>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-av-gv)" stroke-width="8" opacity="0.95"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="8" opacity="0.95"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#8b7cf8" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/>
           <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
         </svg>
       </div>
@@ -383,13 +372,9 @@ function _incogAppendAI(text) {
     <div class="incognito-ai-row">
       <div class="incognito-ai-ava" aria-hidden="true">
         <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14">
-          <defs>
-            <linearGradient id="ig-av-gv" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
-            <linearGradient id="ig-av-vg" x1="100%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient>
-          </defs>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-av-gv)" stroke-width="8" opacity="0.95"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-av-vg)" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#ig-av-gv)" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="8" opacity="0.95"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#8b7cf8" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/>
           <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
         </svg>
       </div>

@@ -21,13 +21,7 @@
 // share the same ID, browsers resolve url(#id) against the first definition
 // found in the DOM, making every other screen's logo render as a bare dot.
 const _logoSvg = (screen) => {
-  const id = `sb-lg-${screen}`;
   return `
-  <defs>
-    <linearGradient id="${id}" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/>
-    </linearGradient>
-  </defs>
   <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="7" opacity="0.95"/>
   <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#8b7cf8" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
   <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
