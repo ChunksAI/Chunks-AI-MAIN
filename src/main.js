@@ -66,12 +66,18 @@ import { mountStudyPlanScreen }  from './screens/StudyPlanScreen.js';  // Task 3
 import { mountVisualTutorScreen } from './screens/VisualTutorScreen.js'; // Visual Tutor ✓
 
 // ── Components (added task-by-task) ───────────────────────────────────────
-import './components/Sidebar.js';                       // Task 19 ✓ — mounts all 6 sidebar placeholders
+import { mountSidebars }           from './components/Sidebar.js';          // Task 19 ✓ — mounts all 6 sidebar placeholders
 import './components/Toast.js';                         // Task 20 ✓ — sets window._showToast, window.wsShowToast
 import './components/ConfirmModal.js';                  // Task 21 ✓ — sets window.showConfirmModal, closeConfirmModal, showSimpleNotif
 import './components/ProfileDropdown.js';               // Task 22 ✓ — sets window.toggleProfileDropdown, pdAction, pdOpenHelp, etc.
 import './components/LibraryModal.js';                  // Task 23 ✓ — sets window.openLibraryModal, closeLibraryModal
 import './components/SettingsModal.js';                 // Task 24 ✓ — sets window.openSettings, closeSettings, settingsNav, etc.
+
+// ── Explicit sidebar mount ────────────────────────────────────────────────────
+// All screen modules have run synchronously above — every <aside.sidebar>
+// placeholder is now in the DOM. Mount here as the definitive call.
+mountSidebars();
+window._renderAllRecent?.();
 
 // ── App bootstrap ──────────────────────────────────────────────────────────
 // _navInit runs HERE — after ALL screen modules have mounted synchronously above.
