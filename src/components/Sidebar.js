@@ -73,7 +73,6 @@ const NAV_ITEMS = [
     label:  'Visual Tutor',
     action: 'showScreen',
     screen: 'visual',
-    locked: true,
     svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M8 21h8m-4-4v4"/></svg>`,
   },
   {
@@ -132,14 +131,6 @@ export function buildSidebar(screen) {
         ? `onkeydown="if(event.key==='Enter'||event.key===' ')openLibraryModal()"`
         : `onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('${item.screen}')"`;
     const idAttr = (item.id === 'home' && screen === 'home') ? ' id="sidebar-home-btn"' : '';
-
-    if (item.locked) {
-      return `      <div class="sidebar-item sidebar-item-locked" role="button" tabindex="-1" aria-label="${item.label} (coming soon)" aria-disabled="true" style="cursor:default;pointer-events:none;">
-        ${item.svg}
-        <span>${item.label}</span>
-        <span class="sidebar-lock-badge"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
-      </div>`;
-    }
 
     return `      <div class="sidebar-item${activeAttr}"${idAttr} role="button" tabindex="0" aria-label="${item.label}"${ariaCurrent} ${dataAction} ${onclickExtra} ${onkeydown} style="cursor:pointer;">
         ${item.svg}
@@ -258,9 +249,16 @@ export function mountSidebars() {
 
 // Auto-mount
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', mountSidebars);
+  document.addEventListener('DOMContentLoaded', () => {
+    mountSidebars();
+    window._renderAllRecent?.();
+  });
 } else {
   mountSidebars();
+  // Re-run after mount — index.html's inline _renderAllRecent() fires before
+  // Sidebar.js injects the DOM, so all getElementById() calls return null.
+  // Running it again here populates the now-existing list elements.
+  window._renderAllRecent?.();
 }
 
 // Legacy global
