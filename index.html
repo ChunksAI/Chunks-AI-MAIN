@@ -166,6 +166,26 @@
 // animateOrbits/toggleSidebar/showScreen/flipCard/mobileNav → src/state/navigation.js (Task 15)
 </script>
 
+<script>
+/* ── _aiParams — inline fallback ─────────────────────────────────────────────
+   The canonical definition lives in src/state/flashState.js and is exposed
+   as window._aiParams once that module loads. This inline version runs first
+   so index.html inline scripts (research outline, exam, study-plan fallback)
+   that call _aiParams() before module evaluation never throw ReferenceError.
+   Once flashState.js loads it overwrites this with the identical logic.
+──────────────────────────────────────────────────────────────────────────── */
+function _aiParams(base) {
+  const m = (typeof window._getStudyMode === 'function' ? window._getStudyMode() : null)
+            || localStorage.getItem('chunks_study_mode') || 'balanced';
+  const complexity  = m === 'concise'  ? Math.max(2, base - 2)
+                    : m === 'detailed' ? Math.min(9, base + 2)
+                    : base;
+  const language    = localStorage.getItem('chunks_setting_language') || 'Auto-detect';
+  const safeContent = localStorage.getItem('chunks_setting_safe-content') === '1';
+  return { complexity, language, safe_content: safeContent };
+}
+</script>
+
 
 <!-- #library-modal → src/components/LibraryModal.js (Task 23) -->
 
