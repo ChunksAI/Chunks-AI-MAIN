@@ -891,6 +891,65 @@ def _cache_set(key: str, value) -> None:
     with _material_cache_lock:
         _material_cache[key] = value
 
+
+# ── Redis query cache for /ask ─────────────────────────────────────────────────
+# Caches deterministic AI answers to avoid redundant (and costly) model calls.
+# Only applies when the request is stateless: no history, no web search,
+# no thinking mode, and the mode is not exam/practice (which should be fresh).
+#
+# Key format:  ask:v1:<16-char hex of SHA-256(canonical_input)>
+# TTL:         3600 s (1 hour) — refreshed on each write
+# Storage:     Redis (falls back to _material_cache TTLCache if Redis unavailable)
+
+_ASK_CACHE_TTL      = 3600          # seconds
+_ASK_CACHEABLE_MODES = frozenset(['study', 'summary', 'general', 'concise', 'detailed', 'generate'])
+
+def _ask_cache_key(book_id: str, task_type: str | None, mode: str,
+                   complexity: int, question: str) -> str:
+    """Stable, collision-resistant cache key for a /ask request."""
+    canonical = f"{book_id}|{task_type or mode}|{complexity}|{question.strip().lower()}"
+    digest    = hashlib.sha256(canonical.encode()).hexdigest()[:16]
+    return f"ask:v1:{digest}"
+
+def _ask_cache_get(key: str) -> dict | None:
+    """Return cached /ask payload or None. Tries Redis first, then in-memory."""
+    # 1. Redis
+    if _redis:
+        try:
+            raw = _redis.get(key)
+            if raw:
+                logger.debug("ask_cache HIT (redis) key=%s", key)
+                return json.loads(raw)
+        except Exception as e:
+            logger.warning("ask_cache redis GET error: %s", e)
+    # 2. In-memory TTLCache fallback
+    hit = _cache_get(key)
+    if hit:
+        logger.debug("ask_cache HIT (memory) key=%s", key)
+    return hit
+
+def _ask_cache_set(key: str, payload: dict) -> None:
+    """Store /ask payload. Writes to Redis (with TTL) and in-memory cache."""
+    # 1. Redis (primary, survives dyno restarts and is shared across workers)
+    if _redis:
+        try:
+            _redis.setex(key, _ASK_CACHE_TTL, json.dumps(payload, default=str))
+        except Exception as e:
+            logger.warning("ask_cache redis SET error: %s", e)
+    # 2. In-memory TTLCache (ensures fast local hits even without Redis)
+    _cache_set(key, payload)
+
+def _ask_is_cacheable(mode: str, history: list, web_search: bool,
+                      thinking_mode: str | None) -> bool:
+    """Return True if this /ask request can be served from / stored in cache."""
+    return (
+        mode in _ASK_CACHEABLE_MODES
+        and not history          # stateful conversations must always be fresh
+        and not web_search       # live web results must never be cached
+        and not thinking_mode    # reasoning chains vary per call
+    )
+
+
 # Per-book index cache — each book_id maps to its own TextbookSearch instance.
 _book_cache: dict[str, TextbookSearch] = {}
 # Lock protecting _book_cache writes. Prevents duplicate R2 downloads when
@@ -1332,6 +1391,17 @@ def ask():
         # task_type from frontend (optional — falls back to mode-based routing)
         task_type     = data.get('task_type', None)
 
+        # ── Redis query cache — check BEFORE auth/model to short-circuit cost ──
+        # Cache hits skip the AI call entirely (and don't count against daily limit).
+        _cache_eligible = _ask_is_cacheable(mode, history, web_search, thinking_mode)
+        _cache_key      = _ask_cache_key(book_id, task_type, mode, complexity, question) \
+                          if _cache_eligible else None
+        if _cache_eligible:
+            cached_payload = _ask_cache_get(_cache_key)
+            if cached_payload:
+                cached_payload['cached'] = True
+                return jsonify(cached_payload)
+
         # ── Server-side tier + daily limit enforcement ───────────────────────
         # _extract_verified_user verifies the JWT, looks up the real tier in DB,
         # and atomically enforces the free-tier daily limit via Redis.
@@ -1626,7 +1696,7 @@ Include these sections:
 Keep the summary focused, clear, and easy to review before an exam."""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history)
-            return jsonify({
+            _resp = {
                 'success': True,
                 'mode': 'summary',
                 'answer': answer,
@@ -1635,7 +1705,10 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 'source': source,
                 'sources': all_sources,
                 'complexity_used': complexity
-            })
+            }
+            if _cache_eligible and _cache_key:
+                _ask_cache_set(_cache_key, _resp)
+            return jsonify(_resp)
 
         # ── MODE: GENERATE ─────────────────────────────────────────────
         # Structured JSON generation — used internally for exam/quiz builders.
@@ -1712,7 +1785,10 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     'raw': raw_json,
                 }), 502
 
-            return jsonify({'success': True, 'mode': 'generate', 'answer': parsed})
+            _gen_resp = {'success': True, 'mode': 'generate', 'answer': parsed}
+            if _cache_eligible and _cache_key:
+                _ask_cache_set(_cache_key, _gen_resp)
+            return jsonify(_gen_resp)
 
         # ── MODE: STUDY (default) ─────────────────────────────────────────
 
@@ -1774,7 +1850,7 @@ FORMATTING: {latex_instruction}
 Answer helpfully and clearly."""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history)
-            return jsonify({
+            _resp = {
                 'success': True,
                 'mode': 'study',
                 'answer': answer,
@@ -1784,7 +1860,10 @@ Answer helpfully and clearly."""
                 'source': source,
                 'sources': all_sources,   # FIX: frontend uses data.sources for badge row
                 'complexity_used': complexity
-            })
+            }
+            if _cache_eligible and _cache_key:
+                _ask_cache_set(_cache_key, _resp)
+            return jsonify(_resp)
 
     except Exception as e:
         logger.exception("Unhandled error")
