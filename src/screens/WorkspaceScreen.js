@@ -72,6 +72,7 @@ const WORKSPACE_HTML = /* html */`
       <!-- Zoom group -->
       <div style="display:flex;align-items:center;gap:2px;">
         <button class="icon-btn" id="btn-zoom-out" data-action="wsZoomOut" title="Zoom out"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><line x1="8" x2="14" y1="11" y2="11"/></svg></button>
+        <span id="ws-zoom-badge" style="font-size:10px;font-family:var(--font-mono);color:var(--text-4);min-width:32px;text-align:center;user-select:none;">100%</span>
         <button class="icon-btn" id="btn-zoom-in"  data-action="wsZoomIn"  title="Zoom in"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></svg></button>
       </div>
 
