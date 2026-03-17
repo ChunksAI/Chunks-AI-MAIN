@@ -657,19 +657,25 @@ export function wsAppendThinking() {
     <div class="ai-row">
       <div class="ai-ava">${_wsAvatarSvg()}</div>
       <div class="ai-body">
-        <div style="display:flex;align-items:center;gap:9px;padding:3px 0;">
-          <div class="hc-thinking"><span></span><span></span><span></span><span></span><span></span></div>
-          <span id="ws-thinking-label" style="font-size:11px;color:var(--text-3);font-family:var(--font-mono);letter-spacing:0.04em;">Thinking…</span>
+        <div style="display:flex;align-items:center;gap:10px;padding:3px 0;">
+          <div class="hc-thinking"><span></span><span></span><span></span></div>
+          <span id="ws-thinking-label" class="hc-thinking-label">Thinking…</span>
         </div>
       </div>
     </div>`;
   msgs.appendChild(d); wsScrollBottom();
-  const labels = ['Thinking…', 'Searching book…', 'Reading context…', 'Composing answer…'];
+  const labels = ['Thinking…', 'Analyzing concept…', 'Reading context…', 'Generating explanation…'];
   let li = 0;
   d._labelTimer = setInterval(() => {
     const el = document.getElementById('ws-thinking-label');
-    if (el) { li = (li + 1) % labels.length; el.textContent = labels[li]; }
-  }, 1800);
+    if (!el) return;
+    el.style.opacity = '0';
+    setTimeout(() => {
+      li = (li + 1) % labels.length;
+      el.textContent = labels[li];
+      el.style.opacity = '';
+    }, 280);
+  }, 2400);
 }
 
 export function wsRemoveThinking() {
