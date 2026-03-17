@@ -657,58 +657,6 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
     <!-- Footer -->
     <p class="login-footer">Access restricted to authorized administrators only.<br>By signing in you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.</p>
 
-    <!-- ── PIN Hash Generator (shown only when _LOCAL_PIN_HASHES is empty) ── -->
-    <div id="pin-hash-gen" style="width:100%;margin-top:20px;padding-top:18px;border-top:1px solid var(--border-xs);">
-      <div style="font-family:var(--font-mono);font-size:10px;color:var(--text3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        PIN Hash Generator
-      </div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <div style="display:flex;gap:8px;align-items:center;">
-          <div style="flex:1;">
-            <div style="font-family:var(--font-mono);font-size:10px;color:var(--text4);margin-bottom:4px;">OWNER PIN (contridascharles91)</div>
-            <input id="gen-pin-owner" type="password" maxlength="6" placeholder="6-digit PIN"
-              style="width:100%;padding:8px 11px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-sm);color:var(--text);font-size:13px;font-family:var(--font-mono);outline:none;letter-spacing:.15em;"
-              oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
-          </div>
-          <button onclick="genHash('owner')"
-            style="margin-top:18px;padding:8px 14px;border-radius:var(--r-sm);background:rgba(200,20,20,0.10);border:1px solid rgba(220,40,40,0.28);color:#ff6b6b;font-size:12px;font-weight:600;font-family:var(--font-body);cursor:pointer;white-space:nowrap;">
-            Generate
-          </button>
-        </div>
-        <div id="gen-result-owner" style="display:none;background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:10px 12px;">
-          <div style="font-family:var(--font-mono);font-size:9px;color:var(--text4);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;">Owner Hash — paste into _LOCAL_PIN_HASHES & Railway ADMIN_PIN_HASH_OWNER</div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <code id="gen-hash-owner" style="font-family:var(--font-mono);font-size:11px;color:#ff8080;word-break:break-all;flex:1;"></code>
-            <button onclick="copyHash('owner')" style="flex-shrink:0;padding:4px 10px;border-radius:var(--r-pill);background:transparent;border:1px solid var(--border-sm);color:var(--text3);font-size:11px;font-family:var(--font-body);cursor:pointer;" id="copy-btn-owner">Copy</button>
-          </div>
-        </div>
-
-        <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
-          <div style="flex:1;">
-            <div style="font-family:var(--font-mono);font-size:10px;color:var(--text4);margin-bottom:4px;">ADMIN PIN (deffmichaeldawang)</div>
-            <input id="gen-pin-admin" type="password" maxlength="6" placeholder="6-digit PIN"
-              style="width:100%;padding:8px 11px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-sm);color:var(--text);font-size:13px;font-family:var(--font-mono);outline:none;letter-spacing:.15em;"
-              oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
-          </div>
-          <button onclick="genHash('admin')"
-            style="margin-top:18px;padding:8px 14px;border-radius:var(--r-sm);background:rgba(139,124,248,0.10);border:1px solid rgba(139,124,248,0.28);color:var(--violet);font-size:12px;font-weight:600;font-family:var(--font-body);cursor:pointer;white-space:nowrap;">
-            Generate
-          </button>
-        </div>
-        <div id="gen-result-admin" style="display:none;background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:10px 12px;">
-          <div style="font-family:var(--font-mono);font-size:9px;color:var(--text4);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px;">Admin Hash — paste into _LOCAL_PIN_HASHES & Railway ADMIN_PIN_HASH_ADMIN</div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <code id="gen-hash-admin" style="font-family:var(--font-mono);font-size:11px;color:var(--violet);word-break:break-all;flex:1;"></code>
-            <button onclick="copyHash('admin')" style="flex-shrink:0;padding:4px 10px;border-radius:var(--r-pill);background:transparent;border:1px solid var(--border-sm);color:var(--text3);font-size:11px;font-family:var(--font-body);cursor:pointer;" id="copy-btn-admin">Copy</button>
-          </div>
-        </div>
-        <p style="font-family:var(--font-mono);font-size:10px;color:var(--text4);margin-top:4px;line-height:1.6;">
-          After generating, paste each hash into <code style="color:var(--text3);">_LOCAL_PIN_HASHES</code> in admin.html <em>and</em> set the Railway env vars.<br>Both must use the same PIN.
-        </p>
-      </div>
-    </div>
-
   </div>
 </div>
 
@@ -878,6 +826,92 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
         </div>
         <!-- Log output -->
         <div id="paev-log" style="display:none;background:rgba(0,0,0,0.3);border:1px solid var(--border-xs);border-radius:var(--rs);padding:14px 16px;font-family:var(--font-mono);font-size:12px;color:var(--text2);max-height:160px;overflow-y:auto;white-space:pre-wrap;margin-top:12px;"></div>
+      </div>
+    </div>
+
+    <div class="section-label">Security</div>
+    <div class="mgmt-card" style="margin-bottom:28px;">
+      <div class="mgmt-head">
+        <div>
+          <div class="mgmt-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            PIN Hash Generator
+          </div>
+          <div class="mgmt-subtitle">Generate SHA-256 hashes to set or update admin PINs</div>
+        </div>
+      </div>
+      <div style="padding:20px 22px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+
+        <!-- Owner -->
+        <div style="background:var(--surface-2);border:1px solid rgba(220,40,40,0.18);border-radius:var(--r-md);padding:18px 20px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+            <span style="font-size:14px;">👑</span>
+            <div>
+              <div style="font-family:var(--font-head);font-size:13px;font-weight:700;color:var(--text);">Owner PIN</div>
+              <div style="font-family:var(--font-mono);font-size:10px;color:var(--text3);">contridascharles91@gmail.com</div>
+            </div>
+          </div>
+          <div class="inp-group" style="margin-bottom:10px;">
+            <label class="inp-label">New 6-digit PIN</label>
+            <input id="gen-pin-owner" type="password" maxlength="6" placeholder="••••••" class="inp"
+              style="font-family:var(--font-mono);letter-spacing:.25em;font-size:16px;"
+              oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
+          </div>
+          <button onclick="genHash('owner')" class="btn-primary" style="width:100%;justify-content:center;margin-bottom:10px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Generate Hash
+          </button>
+          <div id="gen-result-owner" style="display:none;background:var(--surface-3);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:10px 12px;">
+            <div style="font-family:var(--font-mono);font-size:9px;color:var(--text4);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">
+              SHA-256 Hash — set as <span style="color:#ff8080;">ADMIN_PIN_HASH_OWNER</span> in Railway
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <code id="gen-hash-owner" style="font-family:var(--font-mono);font-size:10px;color:#ff8080;word-break:break-all;flex:1;line-height:1.5;"></code>
+              <button onclick="copyHash('owner')" id="copy-btn-owner"
+                style="flex-shrink:0;padding:5px 12px;border-radius:var(--r-pill);background:rgba(200,20,20,0.10);border:1px solid rgba(220,40,40,0.28);color:#ff6b6b;font-size:11px;font-weight:600;font-family:var(--font-body);cursor:pointer;white-space:nowrap;">
+                Copy
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Admin -->
+        <div style="background:var(--surface-2);border:1px solid rgba(139,124,248,0.18);border-radius:var(--r-md);padding:18px 20px;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+            <span style="font-size:14px;">🛡</span>
+            <div>
+              <div style="font-family:var(--font-head);font-size:13px;font-weight:700;color:var(--text);">Admin PIN</div>
+              <div style="font-family:var(--font-mono);font-size:10px;color:var(--text3);">deffmichaeldawang@gmail.com</div>
+            </div>
+          </div>
+          <div class="inp-group" style="margin-bottom:10px;">
+            <label class="inp-label">New 6-digit PIN</label>
+            <input id="gen-pin-admin" type="password" maxlength="6" placeholder="••••••" class="inp"
+              style="font-family:var(--font-mono);letter-spacing:.25em;font-size:16px;"
+              oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
+          </div>
+          <button onclick="genHash('admin')" class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg,#6b5de8,#8b7cf8);box-shadow:0 2px 12px rgba(139,124,248,0.25);margin-bottom:10px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Generate Hash
+          </button>
+          <div id="gen-result-admin" style="display:none;background:var(--surface-3);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:10px 12px;">
+            <div style="font-family:var(--font-mono);font-size:9px;color:var(--text4);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">
+              SHA-256 Hash — set as <span style="color:var(--violet);">ADMIN_PIN_HASH_ADMIN</span> in Railway
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <code id="gen-hash-admin" style="font-family:var(--font-mono);font-size:10px;color:var(--violet);word-break:break-all;flex:1;line-height:1.5;"></code>
+              <button onclick="copyHash('admin')" id="copy-btn-admin"
+                style="flex-shrink:0;padding:5px 12px;border-radius:var(--r-pill);background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);font-size:11px;font-weight:600;font-family:var(--font-body);cursor:pointer;white-space:nowrap;">
+                Copy
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+      <div style="padding:0 22px 16px;font-family:var(--font-mono);font-size:11px;color:var(--text4);line-height:1.7;">
+        ① Enter a new PIN → Generate Hash → Copy → paste into Railway env vars <code style="color:var(--text3);">ADMIN_PIN_HASH_OWNER</code> / <code style="color:var(--text3);">ADMIN_PIN_HASH_ADMIN</code><br>
+        ② Redeploy Railway after updating env vars. Hashes are never stored in client-side code.
       </div>
     </div>
 
@@ -1245,24 +1279,10 @@ function _updatePinDots() {
   }
 }
 
-// ── Local PIN fallback — used when server returns 500/403 or is unreachable ───
-// SHA-256 of "chunks_admin_salt_" + PIN, computed via Web Crypto.
-// This mirrors the exact same hash logic in backend/routes/admin.py.
-//
-// HOW TO GENERATE YOUR HASH — open browser console and run:
-//   (async (pin) => {
-//     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('chunks_admin_salt_' + pin));
-//     console.log(Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join(''));
-//   })('YOUR_6_DIGIT_PIN');
-//
-// OR Python: python3 -c "import hashlib; print(hashlib.sha256(b'chunks_admin_salt_YOUR_PIN').hexdigest())"
-//
-// PASTE YOUR HASH below and uncomment the line.
-// Also set ADMIN_PIN_HASH_OWNER in Railway env vars with the same hash.
-const _LOCAL_PIN_HASHES = {
-  'contridascharles91@gmail.com': '30e148ac88a2d339557400d87ee5d5465f8029d2b85c8879f7479d13b058fe2c',
-  'deffmichaeldawang@gmail.com':  'edff7ae4448250954c034b82e30a7923e3d4fb474442d31bb864539c0269d3c6',
-};
+// PIN verification is handled exclusively server-side via /api/admin/verify-access.
+// No hashes are stored client-side — Railway env vars ADMIN_PIN_HASH_OWNER and
+// ADMIN_PIN_HASH_ADMIN are the only source of truth.
+const _LOCAL_PIN_HASHES = {};
 
 async function _sha256Hex(str) {
   const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
@@ -1270,10 +1290,9 @@ async function _sha256Hex(str) {
 }
 
 async function _localPinCheck(email, pin) {
-  const expectedHash = _LOCAL_PIN_HASHES[(email || '').toLowerCase().trim()];
-  if (!expectedHash) return null; // no local hash configured → can't check locally
-  const computed = await _sha256Hex('chunks_admin_salt_' + pin);
-  return computed === expectedHash.toLowerCase();
+  // Client-side PIN checking is intentionally disabled for security.
+  // All PIN verification is handled server-side only.
+  return null;
 }
 
 async function _pinSubmit() {
@@ -1285,7 +1304,6 @@ async function _pinSubmit() {
 
   let pinCorrect  = false;
   let serverError = null;
-  let usedFallback = false;
 
   try {
     const { data: { session } } = await sb.auth.getSession();
@@ -1329,43 +1347,17 @@ async function _pinSubmit() {
 
       if (!serverError) {
         if (res.status >= 500) {
-          // ── 500: try local PIN fallback before giving up ───────────────────
-          console.warn('[Admin] Server returned 500 — trying local PIN fallback');
-          const localResult = await _localPinCheck(_pendingEmail, _pinEntry);
-          if (localResult === true) {
-            usedFallback = true;
-            pinCorrect   = true;
-            _adminEmail  = _pendingEmail;
-            const roleMap = {'contridascharles91@gmail.com':'owner','deffmichaeldawang@gmail.com':'admin'};
-            _adminRole = roleMap[_pendingEmail.toLowerCase()] || 'admin';
-          } else if (localResult === false) {
+          const detail = json?.error || json?.hint || `HTTP ${res.status}`;
+          serverError = `Server error (${res.status}): ${detail}. Check Railway logs.`;
+        } else if (res.status === 401 || res.status === 403) {
+          if (json?.error === 'Incorrect PIN') {
             pinCorrect = false;
           } else {
-            // No local hash — show the server error with a retry button
-            const detail = json?.error || json?.hint || `HTTP ${res.status}`;
-            serverError = `Server error (${res.status}): ${detail}`;
-          }
-        } else if (res.status === 401 || res.status === 403) {
-          // 403 means either wrong PIN OR not an admin email at all
-          if (json?.error === 'Incorrect PIN') {
-            // Server explicitly confirmed PIN is wrong — also try local fallback
-            const localResult = await _localPinCheck(_pendingEmail, _pinEntry);
-            if (localResult === true) {
-              // Local hash says PIN is correct — trust it (server hash may be misconfigured)
-              usedFallback = true;
-              pinCorrect   = true;
-              _adminEmail  = _pendingEmail;
-              const roleMap = {'contridascharles91@gmail.com':'owner','deffmichaeldawang@gmail.com':'admin'};
-              _adminRole = roleMap[_pendingEmail.toLowerCase()] || 'admin';
-            } else {
-              pinCorrect = false;
-            }
-          } else {
-            // Not an admin email at all — hard deny, don't count as PIN attempt
+            // Not an admin email — hard deny
             serverError = json?.error || 'Access denied — not an admin account';
           }
         } else {
-          // 200 / 2xx — normal success path
+          // 200 / 2xx — success
           pinCorrect = json?.success === true && !json?.pin_required;
           if (pinCorrect) {
             _adminEmail = json.email || _pendingEmail;
@@ -1376,19 +1368,8 @@ async function _pinSubmit() {
         }
       }
     } else if (fetchFailed) {
-      // Network failure — try local fallback
-      const localResult = await _localPinCheck(_pendingEmail, _pinEntry);
-      if (localResult === true) {
-        usedFallback = true;
-        pinCorrect   = true;
-        _adminEmail  = _pendingEmail;
-        const roleMap = {'contridascharles91@gmail.com':'owner','deffmichaeldawang@gmail.com':'admin'};
-        _adminRole = roleMap[_pendingEmail.toLowerCase()] || 'admin';
-      } else if (localResult === false) {
-        pinCorrect  = false;
-        serverError = null; // treat as wrong PIN, not server error
-      }
-      // If localResult === null (no local hash) leave serverError set → shows retry
+      // Network failure — server is unreachable, do NOT grant access
+      // PIN cannot be verified without the server
     }
   } catch (e) {
     serverError = `Unexpected error: ${e.message}`;
@@ -1415,9 +1396,6 @@ async function _pinSubmit() {
     window.removeEventListener('keydown', _pinKeyHandler);
     sessionStorage.setItem('chunks_pin_ok', _pendingEmail);
     document.getElementById('pin-screen').style.display = 'none';
-    if (usedFallback) {
-      console.info('[Admin] Logged in via local PIN fallback (server was unavailable).');
-    }
     _finalizeAdmin(_pendingEmail);
   } else {
     // ❌ Wrong PIN
