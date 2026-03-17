@@ -33,11 +33,38 @@ window.API_BASE = API_BASE;
 
 // ── Internal helpers ───────────────────────────────────────────────────────
 
+/**
+ * _getAuthHeader — return { Authorization: 'Bearer <token>' } if a valid
+ * Supabase session exists, or {} if the user is not signed in.
+ *
+ * Reads the session from the Supabase client (window._getChunksSb) so the
+ * token is always fresh — Supabase auto-refreshes expiring tokens and this
+ * call picks up the new one without any extra work from callers.
+ *
+ * Never throws: auth failures degrade gracefully to an unauthenticated
+ * request rather than breaking the UI.
+ *
+ * Exported so that state modules with direct fetch() calls can also attach
+ * the token without duplicating this logic.
+ */
+export async function _getAuthHeader() {
+  try {
+    const sb = await window._getChunksSb?.();
+    if (!sb) return {};
+    const { data: { session } } = await sb.auth.getSession();
+    if (session?.access_token) {
+      return { Authorization: `Bearer ${session.access_token}` };
+    }
+  } catch (_) { /* silent — auth is best-effort */ }
+  return {};
+}
+
 /** Shared JSON POST — throws on non-ok status. */
 async function _post(path, body, signal) {
+  const authHeader = await _getAuthHeader();
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader },
     body: JSON.stringify(body),
     ...(signal ? { signal } : {}),
   });
@@ -117,9 +144,10 @@ export async function askWithRetry(prompt, {
 } = {}) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
+      const authHeader = await _getAuthHeader();
       const resp = await fetch(`${API_BASE}/ask`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHeader },
         body: JSON.stringify({ question: prompt, mode, complexity, bookId, history: [] }),
       });
 
@@ -178,7 +206,8 @@ export async function generateFlashcards({ topic, bookId = null, count = 10 } = 
  */
 export async function fetchPdf(bookId, onProgress) {
   const url = `${API_BASE}/pdf/${bookId}`;
-  const response = await fetch(url);
+  const authHeader = await _getAuthHeader();
+  const response = await fetch(url, { headers: authHeader });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
   const contentLength = response.headers.get('Content-Length');
@@ -210,9 +239,10 @@ export async function fetchPdf(bookId, onProgress) {
  * @param {function} [onError]    - Called on error (receives Error)
  */
 export function streamLayer(payload, onToken, onDone, onError) {
+  _getAuthHeader().then(authHeader => {
   fetch(`${API_BASE}/api/stream-layer`, {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader },
     body:    JSON.stringify(payload),
   })
   .then(resp => {
@@ -247,6 +277,7 @@ export function streamLayer(payload, onToken, onDone, onError) {
   .catch(err => {
     if (onError) onError(err);
   });
+  }); // _getAuthHeader
 }
 
 /**
@@ -281,9 +312,10 @@ export async function fetchConfig() {
  * @returns {Promise<void>}
  */
 export async function submitBugReport({ category, description, user, signal } = {}) {
+  const authHeader = await _getAuthHeader();
   const res = await fetch(`${API_BASE}/api/bug-report`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeader },
     body: JSON.stringify({ category, description, user }),
     ...(signal ? { signal } : {}),
   });
@@ -313,3 +345,8 @@ export async function searchPapers(query, signal) {
 
 // ── Utility ────────────────────────────────────────────────────────────────
 function _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Expose _getAuthHeader on window so state modules that use window.API_BASE
+// and direct fetch() calls (flashState, studyPlanState) can attach the JWT
+// without importing this module a second time.
+window._getAuthHeader = _getAuthHeader;
