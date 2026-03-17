@@ -1131,6 +1131,7 @@ Be warm, encouraging, and concise. No bullet points — write naturally like a t
       body: JSON.stringify({
         question:   prompt,
         mode:       'study',
+        task_type:  'flashcard_tutor',
         ...(() => { const p = _aiParams(5); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(),
         bookId:     'netter',
       }),
