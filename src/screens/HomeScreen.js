@@ -428,11 +428,12 @@ export async function incognitoSendMessage() {
   try {
     const res = await fetch(`${API_BASE}/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
       body: JSON.stringify({
         question,
         bookId: '',
         mode: 'general',
+        task_type: 'home_general',
         complexity: (() => { const m = window._getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
         language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
         safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
@@ -676,11 +677,12 @@ export async function homeSendMessage() {
   try {
     const res = await fetch(`${API_BASE}/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
       body: JSON.stringify({
         question,
         bookId: '',
         mode: 'general',
+        task_type: 'home_general',
         complexity: (() => { const m = window._getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
         language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
         safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
