@@ -546,28 +546,12 @@ const LIBRARY_SCREEN_HTML = /* html */`
 // ── Mount ─────────────────────────────────────────────────────────────────────
 
 export function mountLibraryScreen() {
-  // Guard: don't double-mount
-  if (document.getElementById('screen-library')) return;
-
-  // Prefer the placeholder if it exists (matches the pattern of other screens),
-  // otherwise fall back to appending directly to body (like LibraryModal.js).
   const placeholder = document.querySelector('[data-library-screen]');
-  if (placeholder) {
-    placeholder.outerHTML = LIBRARY_SCREEN_HTML;
-  } else {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = LIBRARY_SCREEN_HTML;
-    document.body.appendChild(tmp.firstElementChild);
+  if (!placeholder) {
+    console.warn('[LibraryScreen] placeholder [data-library-screen] not found');
+    return;
   }
-
-  // Compute available book counts for the page header
-  try {
-    const screen = document.getElementById('screen-library');
-    if (!screen) return;
-    const available = screen.querySelectorAll('.library-book-card:not(.lib-coming-soon)').length;
-    const totalEl = document.getElementById('lib-page-total-count');
-    if (totalEl) totalEl.textContent = `· ${available} book${available !== 1 ? 's' : ''}`;
-  } catch (e) { /* non-critical */ }
+  placeholder.outerHTML = LIBRARY_SCREEN_HTML;
 }
 
 // ── Auto-mount (synchronous) ──────────────────────────────────────────────────
