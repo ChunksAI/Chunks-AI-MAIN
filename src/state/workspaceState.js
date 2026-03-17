@@ -574,21 +574,10 @@ export function wsAppendUser(text) {
 }
 
 export function _wsAvatarSvg() {
-  const id = 'av' + Math.random().toString(36).slice(2, 6);
   return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="13" height="13">
-    <defs>
-      <linearGradient id="${id}a" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#c8a84b"/>
-        <stop offset="100%" stop-color="#a855f7"/>
-      </linearGradient>
-      <linearGradient id="${id}b" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#a855f7"/>
-        <stop offset="100%" stop-color="#c8a84b"/>
-      </linearGradient>
-    </defs>
-    <ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="url(#${id}a)" stroke-width="9" opacity="0.95"/>
-    <ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="url(#${id}b)" stroke-width="9" transform="rotate(60 50 50)" opacity="0.85"/>
-    <ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="url(#${id}a)" stroke-width="9" transform="rotate(120 50 50)" opacity="0.75"/>
+    <ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#c8a84b" stroke-width="9" opacity="0.95"/>
+    <ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#a855f7" stroke-width="9" transform="rotate(60 50 50)" opacity="0.85"/>
+    <ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#c8a84b" stroke-width="9" transform="rotate(120 50 50)" opacity="0.75"/>
     <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
   </svg>`;
 }

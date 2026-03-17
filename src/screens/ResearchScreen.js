@@ -55,7 +55,7 @@ const RESEARCH_HTML = /* html */`
     <!-- SETUP VIEW -->
     <div class="research-setup" id="research-setup-view">
       <div class="research-setup-icon">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="url(#lg-gv)" stroke-width="1.5" stroke-linecap="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#e8ac2e" stroke-width="1.5" stroke-linecap="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
       </div>
       <h2>Start Your Research Paper</h2>
       <p>Enter your topic and research problem. The AI will generate a structured outline with sections and layers — then guide you step-by-step using real academic sources.</p>
