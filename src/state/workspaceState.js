@@ -1424,6 +1424,12 @@ export function _homeRenderPreview() {
 // ── Legacy global bridges ─────────────────────────────────────────────────
 window.wsBookMeta          = wsBookMeta;
 window.selectBook          = selectBook;
+// Live getter so index.html's recentAdd() always reads the current value
+Object.defineProperty(window, '_wsBookId', {
+  get: () => _wsBookId,
+  set: v  => { _wsBookId = v; },
+  configurable: true,
+});
 window.wsPrevPage          = wsPrevPage;
 window.wsNextPage          = wsNextPage;
 window.wsGoToPage          = wsGoToPage;
