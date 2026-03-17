@@ -85,6 +85,7 @@
 .eyebrow-dot {
   width: 14px; height: 14px;
   flex-shrink: 0;
+  overflow: hidden;
   animation: blink 2.4s ease-in-out infinite;
 }
 
