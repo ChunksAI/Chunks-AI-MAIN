@@ -25,7 +25,14 @@ logger = logging.getLogger(__name__)
 admin_bp = Blueprint('admin', __name__, url_prefix='/api/admin')
 
 
-# ── PIN helpers ───────────────────────────────────────────────────────────────
+# ── Hardcoded admin email → role map (fallback when DB lookup fails) ──────────
+# These emails are also validated by the PIN hash check, so listing them here
+# is safe — an attacker still needs Google OAuth + correct PIN to get in.
+_ADMIN_EMAILS: dict[str, str] = {
+    'contridascharles91@gmail.com': 'owner',
+    'deffmichaeldawang@gmail.com':  'admin',
+}
+
 
 def _get_pin_hash_for_email(email: str) -> str:
     mapping = {
@@ -44,52 +51,57 @@ def _verify_admin_pin(email: str, pin: str) -> bool:
 
 
 def _check_admin_role(jwt_token: str) -> tuple:
-    """Verify JWT and check admin role via Supabase users table."""
+    """Verify JWT and check admin role via Supabase users table, with hardcoded fallback."""
     verified = ctx.verify_supabase_jwt(jwt_token)
     if not verified:
         logger.warning('Admin check: JWT verification failed')
         return None, None
 
-    email = verified.get('email', '')
+    email = (verified.get('email', '') or '').strip().lower()
     if not email:
         logger.warning('Admin check: no email in JWT')
         return None, None
 
-    if not ctx.SUPABASE_URL or not ctx.SUPABASE_SERVICE_KEY:
-        logger.warning('Admin check: Supabase config missing')
-        return None, None
-
-    try:
-        url = (
-            f"{ctx.SUPABASE_URL}/rest/v1/users"
-            f"?email=eq.{quote(email, safe='@')}"
-            f"&select=email,role,plan"
-        )
-        resp = ctx.session.get(
-            url,
-            headers={
-                "Authorization": f"Bearer {ctx.SUPABASE_SERVICE_KEY}",
-                "apikey":        ctx.SUPABASE_SERVICE_KEY,
-            },
-            timeout=5,
-        )
-        logger.info(f'Admin DB lookup for {email}: status={resp.status_code}')
-        if resp.status_code == 200:
-            rows = resp.json()
-            if rows:
-                role = (rows[0].get('role') or '').strip().lower()
-                if role in ('admin', 'owner', 'superadmin'):
-                    logger.info(f'Admin verified via DB role: {email} ({role})')
-                    return verified, role
+    # ── Try DB role lookup first ──────────────────────────────────────────────
+    if ctx.SUPABASE_URL and ctx.SUPABASE_SERVICE_KEY:
+        try:
+            url = (
+                f"{ctx.SUPABASE_URL}/rest/v1/users"
+                f"?email=eq.{quote(email, safe='@')}"
+                f"&select=email,role,plan"
+            )
+            resp = ctx.session.get(
+                url,
+                headers={
+                    "Authorization": f"Bearer {ctx.SUPABASE_SERVICE_KEY}",
+                    "apikey":        ctx.SUPABASE_SERVICE_KEY,
+                },
+                timeout=5,
+            )
+            logger.info(f'Admin DB lookup for {email}: status={resp.status_code}')
+            if resp.status_code == 200:
+                rows = resp.json()
+                if rows:
+                    role = (rows[0].get('role') or '').strip().lower()
+                    if role in ('admin', 'owner', 'superadmin'):
+                        logger.info(f'Admin verified via DB role: {email} ({role})')
+                        return verified, role
+                    else:
+                        logger.warning(f'Admin check: DB role="{role}" not in allowed list for {email}')
                 else:
-                    logger.warning(f'Admin check: role="{role}" not in allowed list for {email}')
+                    logger.warning(f'Admin check: no DB row found for {email} — trying hardcoded fallback')
             else:
-                logger.warning(f'Admin check: no row found for {email}')
-        else:
-            logger.warning(f'Admin DB lookup failed: {resp.status_code} {resp.text[:200]}')
-    except Exception as e:
-        logger.warning(f'Admin role check exception: {e}')
+                logger.warning(f'Admin DB lookup failed: {resp.status_code} — trying hardcoded fallback')
+        except Exception as e:
+            logger.warning(f'Admin role check DB exception: {e} — trying hardcoded fallback')
 
+    # ── Hardcoded fallback ────────────────────────────────────────────────────
+    fallback_role = _ADMIN_EMAILS.get(email)
+    if fallback_role:
+        logger.info(f'Admin verified via hardcoded fallback: {email} ({fallback_role})')
+        return verified, fallback_role
+
+    logger.warning(f'Admin check: {email} not in DB or hardcoded list — access denied')
     return None, None
 
 
