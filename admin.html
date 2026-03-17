@@ -1153,8 +1153,11 @@ async function _enterAdmin(email) {
           serverPhase1Failed = true;
           console.warn('[Admin] Phase-1 returned 500 — will show PIN screen with local fallback');
         } else if (!phase1Json.success) {
-          // Explicitly denied (403/401) — this email is not an admin
-          await _denyUser(email); return;
+          // 403/401 — server says this email is not an admin
+          // Show access denied instead of silently signing out
+          const err = phase1Json.error || 'Not an admin account';
+          console.warn('[Admin] Phase-1 denied:', err, 'email:', email);
+          showAccessDenied(email); return;
         } else {
           // Success path
           _adminEmail = phase1Json.email || email;
