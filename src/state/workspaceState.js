@@ -14,7 +14,9 @@
  *   Chat / toast      → lines 3571–4318
  */
 
-import { API_BASE } from '../lib/api.js';
+import { API_BASE }       from '../lib/api.js';
+import { showToast }      from '../components/Toast.js';
+import { _getAuthHeader } from '../lib/api.js';
 
 // ── Book metadata ──────────────────────────────────────────────────────────
 
@@ -41,6 +43,7 @@ export const ZOOM_STEP = 0.2, ZOOM_MIN = 0.6, ZOOM_MAX = 3.0;
 
 export let _wsBookId      = localStorage.getItem('chunks_default_book') || 'atkins';
 export let _wsChatHistory = [];
+export let _newChatIsIncognito = false;
 export let _wsTyping      = false;
 
 // ── Per-book fallback outlines ─────────────────────────────────────────────
@@ -91,18 +94,10 @@ export const _wsBookOutlines = {
 
 export let _wsOutlineFlat = [];
 
-// ── Toast ─────────────────────────────────────────────────────────────────
-
-let _wsToastTimer = null;
+// ── Toast (delegated to Toast.js — Task 20) ───────────────────────────────
 
 export function wsShowToast(icon, text, color) {
-  const t = document.getElementById('ws-toast');
-  if (!t) return;
-  t.innerHTML = `<span style="font-size:14px;">${icon}</span><span>${text}</span>`;
-  t.style.borderColor = color || '';
-  t.classList.add('show');
-  clearTimeout(_wsToastTimer);
-  _wsToastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+  showToast(icon, text, color);
 }
 
 // ── PDF badge ─────────────────────────────────────────────────────────────
@@ -246,7 +241,8 @@ export async function selectBook(bookId) {
   const coverWrap = document.getElementById('ws-outline-cover');
   const coverImg  = document.getElementById('ws-outline-cover-img');
   if (coverWrap && coverImg) {
-    coverImg.src = '/public/covers/' + bookId + '.jpg';
+    // Cover images not deployed — hide the img element silently
+    coverImg.style.display = 'none';
     coverWrap.style.display = 'block';
   }
 
@@ -425,7 +421,7 @@ export function _wsShowWelcome(meta) {
   msgs.innerHTML = `
     <div style="display:flex;flex-direction:column;gap:14px;padding:20px 16px 8px;">
       <div class="hc-ai" style="align-items:flex-start;">
-        <div class="hc-ai-avatar" style="background:linear-gradient(135deg,#1a1508,#231538);border:1px solid rgba(200,168,75,0.3);overflow:visible;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#c8a84b" stroke-width="9" opacity="0.95"/><ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#a855f7" stroke-width="9" transform="rotate(60 50 50)" opacity="0.85"/><ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#c8a84b" stroke-width="9" transform="rotate(120 50 50)" opacity="0.75"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg></div>
+        <div class="hc-ai-avatar" style="background:var(--gold-muted);border:1px solid var(--gold-border);color:var(--gold);font-size:13px;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">✦</div>
         <div style="background:var(--surface-1);border:1px solid var(--border-sm);border-radius:4px 14px 14px 14px;padding:13px 15px;font-size:13px;color:var(--text-1);line-height:1.65;flex:1;">
           <p style="margin:0 0 8px;"><strong>${meta.name}</strong> is ready! I've indexed the full textbook — ask me anything about it.</p>
           <p style="margin:0;color:var(--text-2);">Here are a few things you could ask:</p>
@@ -755,9 +751,10 @@ export async function _wsAsk(question) {
   try {
     const mode = typeof _getStudyMode === 'function' ? _getStudyMode() : 'study';
     const complexity = mode === 'concise' ? 3 : mode === 'detailed' ? 8 : 5;
+    const authHeader = await _getAuthHeader();
     const res = await fetch(`${API_BASE}/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeader },
       body: JSON.stringify({ question, bookId: _wsBookId || 'atkins', mode, complexity, language: localStorage.getItem('chunks_setting_language') || 'Auto-detect', safe_content: localStorage.getItem('chunks_setting_safe-content') === '1', history: _wsChatHistory.slice(-10) }),
     });
     wsRemoveThinking();
