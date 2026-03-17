@@ -420,16 +420,17 @@
 /* ── Help / Terms submenu ─────────────────────────────────── */
 .pd-submenu {
   position: fixed;
-  top: 0; left: 0;
+  top: 0; left: -9999px;
   background: var(--surface-2);
   border: 1px solid var(--border-md);
   border-radius: var(--r-lg);
   box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
   z-index: 10001;
   opacity: 0;
+  visibility: hidden;
   transform: translateX(-6px) scale(0.97);
   pointer-events: none;
-  transition: opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring);
+  transition: opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring), visibility 0s linear var(--t-mid);
   min-width: 190px;
 }
 .pd-submenu::before {
@@ -440,9 +441,12 @@
   width: 20px;
 }
 .pd-submenu.open {
+  left: auto;
   opacity: 1;
+  visibility: visible;
   transform: translateX(0) scale(1);
   pointer-events: all;
+  transition: opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring), visibility 0s linear 0s;
 }
 .pd-submenu .pd-menu { border-radius: var(--r-lg); overflow: hidden; padding: 4px; }
 .pd-submenu .pd-item { padding: 8px 12px; font-size: 13px; border-radius: var(--r-sm); margin: 0; }
