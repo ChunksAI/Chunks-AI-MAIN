@@ -690,9 +690,7 @@ async function _wsRenderPptSlides(meta) {
     card.style.cssText = 'width:100%;max-width:760px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-lg);padding:28px 32px;box-shadow:0 4px 24px rgba(0,0,0,0.4);flex-shrink:0;';
     const num = slide.slide_number ?? (idx + 1);
     const title = slide.title || `Slide ${num}`;
-    const body = (slide.content || []).join('
-
-');
+    const body = (slide.content || []).join('\n\n');
     const notes = slide.notes ? `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-xs);font-size:11px;color:var(--text-4);font-style:italic;">${slide.notes}</div>` : '';
     card.innerHTML = `
       <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-4);margin-bottom:10px;letter-spacing:0.08em;">SLIDE ${num}</div>
