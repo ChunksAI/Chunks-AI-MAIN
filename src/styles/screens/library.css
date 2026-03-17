@@ -479,3 +479,87 @@
 #screen-library .lib-search-wrap {
   max-width: 420px;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   MY DOCUMENTS — Upload card, user doc cards, delete button
+═══════════════════════════════════════════════════════════ */
+
+/* Upload card */
+.lib-upload-card {
+  border: 1.5px dashed var(--violet-border) !important;
+  background: var(--violet-muted) !important;
+  cursor: pointer;
+  position: relative;
+  transition: border-color 140ms, background 140ms, transform 100ms;
+}
+.lib-upload-card:hover {
+  border-color: var(--violet) !important;
+  background: rgba(139,124,248,0.14) !important;
+  transform: translateY(-1px);
+}
+.lib-upload-card:active { transform: scale(0.98); }
+
+/* Drag-over state */
+.lib-upload-card.lib-upload-drag {
+  border-color: var(--violet) !important;
+  background: rgba(139,124,248,0.18) !important;
+  box-shadow: 0 0 0 3px var(--violet-muted);
+}
+
+/* Upload icon circle */
+.lib-upload-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: var(--violet-muted);
+  border: 1px solid var(--violet-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--violet);
+  flex-shrink: 0;
+}
+
+/* Progress bar — shown during file upload */
+.lib-upload-progress {
+  display: none;
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--surface-4);
+  border-radius: 0 0 var(--r-md) var(--r-md);
+  overflow: hidden;
+}
+.lib-upload-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--violet), #b89cf8);
+  border-radius: inherit;
+  transition: width 0.3s ease;
+}
+
+/* Delete button on user doc cards */
+.lib-doc-delete-btn {
+  position: absolute;
+  top: 5px; right: 5px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--surface-4);
+  border: 1px solid var(--border-sm);
+  color: var(--text-3);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 120ms, color 120ms;
+  z-index: 2;
+}
+.lib-user-doc-card:hover .lib-doc-delete-btn {
+  display: flex;
+}
+.lib-doc-delete-btn:hover {
+  background: rgba(248,113,113,0.15);
+  color: var(--red);
+  border-color: rgba(248,113,113,0.3);
+}
