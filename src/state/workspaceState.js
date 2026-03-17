@@ -14,9 +14,8 @@
  *   Chat / toast      → lines 3571–4318
  */
 
-import { API_BASE }       from '../lib/api.js';
-import { showToast }      from '../components/Toast.js';
-import { _getAuthHeader } from '../lib/api.js';
+import { API_BASE }    from '../lib/api.js';
+import { showToast }   from '../components/Toast.js';
 
 // ── Book metadata ──────────────────────────────────────────────────────────
 
@@ -38,11 +37,6 @@ export let _wsCurrentPage   = 1;
 export let _wsTotalPages    = 0;
 export let _wsPageContainers = [];
 export const ZOOM_STEP = 0.2, ZOOM_MIN = 0.6, ZOOM_MAX = 3.0;
-
-// Stored references so we can remove them before attaching new ones on book reload.
-// Without these, every selectBook() call stacks another listener on the same element.
-let _wsPdfScrollHandler  = null;   // current scroll listener on #ws-pdf-canvas-wrap
-let _wsPdfObserver       = null;   // current IntersectionObserver for lazy page rendering
 
 // ── Chat state ─────────────────────────────────────────────────────────────
 
@@ -142,49 +136,17 @@ export function wsJumpToPage() {
 export async function wsZoomIn()  { await _wsRescale(_wsScale + ZOOM_STEP); }
 export async function wsZoomOut() { await _wsRescale(_wsScale - ZOOM_STEP); }
 
-// Debounce state — rapid zoom clicks accumulate scale changes but only
-// trigger one full re-render after the user pauses for 150 ms.
-let _wsRescaleTimer    = null;
-let _wsRescalePending  = null;   // the target scale to render when timer fires
-
 export async function _wsRescale(newScale) {
   if (!_wsPdfDoc) return;
   newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newScale));
   if (Math.abs(newScale - _wsScale) < 0.01) return;
-
-  // Update scale immediately so the next wsZoomIn/Out call computes
-  // relative to the latest value, not the pre-debounce value.
-  _wsScale          = newScale;
-  _wsRescalePending = newScale;
-
-  // Update zoom badge instantly so UI feels responsive
-  _wsUpdateZoomBadge(newScale);
-
-  // Debounce the expensive re-render
-  clearTimeout(_wsRescaleTimer);
-  _wsRescaleTimer = setTimeout(async () => {
-    const scale = _wsRescalePending;
-    _wsRescalePending = null;
-    _wsRescaleTimer   = null;
-    await _wsDoRescale(scale);
-  }, 150);
-}
-
-/** Perform the actual canvas re-render for all rendered pages. */
-async function _wsDoRescale(scale) {
-  _wsScale = scale;
+  _wsScale = newScale;
   for (let i = 0; i < _wsPageContainers.length; i++) {
     const c = _wsPageContainers[i];
     if (!c.dataset.rendered) continue;
     c.dataset.rendered = '';
     await _wsRenderPage(i + 1, c);
   }
-}
-
-/** Update the zoom % badge without triggering a re-render. */
-function _wsUpdateZoomBadge(scale) {
-  const badge = document.getElementById('ws-zoom-badge');
-  if (badge) badge.textContent = Math.round(scale * 100) + '%';
 }
 
 // ── PDF.js lazy loader ────────────────────────────────────────────────────
@@ -369,7 +331,6 @@ export async function selectBook(bookId) {
         _wsScale = Math.min(Math.max(_availW / _naturalW, ZOOM_MIN), ZOOM_MAX);
       }
     } catch (_) { /* keep default scale */ }
-    _wsUpdateZoomBadge(_wsScale);
 
     for (let i = 1; i <= _wsTotalPages; i++) {
       const pageWrap = document.createElement('div');
@@ -396,30 +357,18 @@ export async function selectBook(bookId) {
       }
     });
 
-    // ── Teardown previous listeners before attaching new ones ─────────────
-    // Without this, every book load stacks another scroll handler and
-    // IntersectionObserver on the same #ws-pdf-canvas-wrap element.
-    if (_wsPdfScrollHandler) {
-      wrap.removeEventListener('scroll', _wsPdfScrollHandler);
-      _wsPdfScrollHandler = null;
-    }
-    if (_wsPdfObserver) {
-      _wsPdfObserver.disconnect();
-      _wsPdfObserver = null;
-    }
-
-    _wsPdfObserver = new IntersectionObserver(entries => {
+    const observer = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           const num = parseInt(entry.target.dataset.pageNum);
           _wsRenderPage(num, entry.target);
-          _wsPdfObserver.unobserve(entry.target);
+          observer.unobserve(entry.target);
         }
       });
     }, { root: wrap, rootMargin: '300px' });
-    _wsPageContainers.slice(2).forEach(c => _wsPdfObserver.observe(c));
+    _wsPageContainers.slice(2).forEach(c => observer.observe(c));
 
-    _wsPdfScrollHandler = () => {
+    wrap.addEventListener('scroll', () => {
       const scrollMid = wrap.scrollTop + wrap.clientHeight / 2;
       let closest = 1;
       for (let i = 0; i < _wsPageContainers.length; i++) {
@@ -432,8 +381,7 @@ export async function selectBook(bookId) {
         _wsUpdateBadge(closest);
         _wsUpdateOutlineActive(closest);
       }
-    };
-    wrap.addEventListener('scroll', _wsPdfScrollHandler);
+    });
 
     document.getElementById('ws-pdf-loading').style.display    = 'none';
     document.getElementById('ws-default-content').style.display = 'none';
@@ -477,25 +425,16 @@ export function _wsShowWelcome(meta) {
           <p style="margin:0 0 8px;"><strong>${meta.name}</strong> is ready! I've indexed the full textbook — ask me anything about it.</p>
           <p style="margin:0;color:var(--text-2);">Here are a few things you could ask:</p>
           <div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;">
-            ${chips.map((q, i) => `
-              <div class="ws-chip-item" data-chip-idx="${i}"
+            ${chips.map(q => `
+              <div class="ws-chip-item" onclick="wsSetInput('${q.replace(/'/g, "\\'")}');document.getElementById('ws-chat-input').focus();"
                 style="display:flex;align-items:center;justify-content:space-between;padding:7px 11px;border:1px solid var(--border-xs);border-radius:8px;background:var(--surface-2);cursor:pointer;font-size:12px;color:var(--text-2);transition:all 120ms;">
-                ${q.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+                ${q}
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
               </div>`).join('')}
           </div>
         </div>
       </div>
     </div>`;
-
-  // Attach chip listeners after innerHTML is set — questions stored in closure
-  msgs.querySelectorAll('.ws-chip-item[data-chip-idx]').forEach(el => {
-    const idx = parseInt(el.dataset.chipIdx, 10);
-    el.addEventListener('click', () => {
-      wsSetInput(chips[idx]);
-      document.getElementById('ws-chat-input')?.focus();
-    });
-  });
 }
 
 // ── Outline panel ─────────────────────────────────────────────────────────
@@ -698,7 +637,7 @@ export function wsAppendAI(answer, sources, question) {
     const items = sources.map(s => {
       const preview = (s.text || '').trim().slice(0, 55).replace(/&/g,'&amp;').replace(/</g,'&lt;');
       return `
-        <div class="source-item" data-page="${s.page}" title="Jump to page ${s.page}" style="cursor:pointer;">
+        <div class="source-item" onclick="wsGoToPage(${s.page})" title="Jump to page ${s.page}" style="cursor:pointer;">
           <div class="source-icon">📘</div>
           <div style="flex:1;min-width:0;">
             <div class="source-name">${bookName}</div>
@@ -715,13 +654,13 @@ export function wsAppendAI(answer, sources, question) {
       <div class="source-list">${items}</div>`;
   }
 
-  const followups = (typeof _isFollowupsEnabled === 'function' && _isFollowupsEnabled()) ? _wsFollowups(answer, question) : [];
+  const followups    = (typeof _isFollowupsEnabled === 'function' && _isFollowupsEnabled()) ? _wsFollowups(answer, question) : [];
   const followupHtml = followups.length ? `
     <div class="followups" style="margin-top:10px;">
       <div class="followup-head">Follow-up questions</div>
       <div class="followup-list">
-        ${followups.map((q, i) => `
-          <div class="followup-item" data-followup-idx="${i}">
+        ${followups.map(q => `
+          <div class="followup-item" onclick="wsSetInput('${q.replace(/'/g, "\\'")}')">
             ${q.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
           </div>`).join('')}
@@ -731,7 +670,7 @@ export function wsAppendAI(answer, sources, question) {
   const autoFlashHtml = (typeof _isAutoFlashEnabled === 'function' && _isAutoFlashEnabled()) ? `
     <div style="margin-top:8px;padding:8px 10px;background:var(--violet-muted);border:1px solid var(--violet-border);border-radius:var(--r-md);display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <span style="font-size:11px;color:var(--text-2);">💡 Save this as a flashcard?</span>
-      <button class="ws-auto-flash-btn" style="font-size:11px;padding:4px 10px;border-radius:var(--r-pill);background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);cursor:pointer;font-family:var(--font-body);">Save flashcard</button>
+      <button onclick="wsMakeFlashcard(this,'${msgId}',\`${(question||'').replace(/`/g,"'").replace(/\n/g,' ').slice(0,120)}\`)" style="font-size:11px;padding:4px 10px;border-radius:var(--r-pill);background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);cursor:pointer;font-family:var(--font-body);">Save flashcard</button>
     </div>` : '';
 
   const d = document.createElement('div');
@@ -743,13 +682,13 @@ export function wsAppendAI(answer, sources, question) {
         <div class="ai-text">${wsRender(answer)}</div>
         ${sourcesHtml}
         <div class="msg-acts" style="margin-top:10px;">
-          <button class="msg-act ws-copy-btn">
+          <button class="msg-act" onclick="wsCopyMsg(this, '${msgId}')">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
           </button>
-          <button class="msg-act ws-flash-btn">
+          <button class="msg-act" onclick="wsMakeFlashcard(this, '${msgId}', \`${(question||'').replace(/`/g,"'").replace(/\n/g,' ').slice(0,120)}\`)">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg> Make Flashcard
           </button>
-          <button class="msg-act ws-regen-btn">
+          <button class="msg-act" onclick="_wsRegenerate('${msgId}', \`${(question||'').replace(/`/g,"'").replace(/\n/g,' ')}\`)">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.67"/></svg> Regenerate
           </button>
         </div>
@@ -757,37 +696,6 @@ export function wsAppendAI(answer, sources, question) {
         ${autoFlashHtml}
       </div>
     </div>`;
-
-  // ── Attach event listeners (never inject user/AI data into HTML attributes) ──
-  // Store question safely in a closure; msgId is a timestamp-based safe string.
-  const safeQuestion = question || '';
-
-  d.querySelector('.ws-copy-btn')
-    ?.addEventListener('click', function() { wsCopyMsg(this, msgId); });
-
-  d.querySelector('.ws-flash-btn')
-    ?.addEventListener('click', function() { window.wsMakeFlashcard(this, msgId, safeQuestion.slice(0, 120)); });
-
-  d.querySelector('.ws-regen-btn')
-    ?.addEventListener('click', () => { _wsRegenerate(msgId, safeQuestion); });
-
-  d.querySelector('.ws-auto-flash-btn')
-    ?.addEventListener('click', function() { window.wsMakeFlashcard(this, msgId, safeQuestion.slice(0, 120)); });
-
-  // Follow-up chips — store questions in closure array, index via data attribute
-  if (followups.length) {
-    d.querySelectorAll('.followup-item').forEach(el => {
-      const idx = parseInt(el.dataset.followupIdx, 10);
-      el.addEventListener('click', () => { wsSetInput(followups[idx]); });
-    });
-  }
-
-  // Source page links
-  d.querySelectorAll('.source-item[data-page]').forEach(el => {
-    const page = parseInt(el.dataset.page, 10);
-    el.addEventListener('click', () => { wsGoToPage(page); });
-  });
-
   msgs.appendChild(d); wsScrollBottom();
 }
 
@@ -837,12 +745,6 @@ export async function wsChatSend() {
   wsAppendUser(question);
   inp.value = ''; wsAutoResize(inp); inp.focus();
   _wsChatHistory.push({ role: 'user', content: question });
-  // Save immediately so refresh before AI responds still restores the chat
-  if (_wsBookId && typeof window._saveWsSession === 'function') {
-    window._saveWsSession(_wsBookId, _wsChatHistory);
-    localStorage.setItem('chunks_active_ws_book', _wsBookId);
-    window._renderAllRecent?.();
-  }
   await _wsAsk(question);
 }
 
@@ -853,12 +755,10 @@ export async function _wsAsk(question) {
   try {
     const mode = typeof _getStudyMode === 'function' ? _getStudyMode() : 'study';
     const complexity = mode === 'concise' ? 3 : mode === 'detailed' ? 8 : 5;
-    const taskType = `workspace_${mode}`;   // concise|study|detailed|practice|summary etc.
-    const authHeader = await _getAuthHeader();
     const res = await fetch(`${API_BASE}/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader },
-      body: JSON.stringify({ question, bookId: _wsBookId || 'atkins', mode, complexity, task_type: taskType, language: localStorage.getItem('chunks_setting_language') || 'Auto-detect', safe_content: localStorage.getItem('chunks_setting_safe-content') === '1', history: _wsChatHistory.slice(-10) }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, bookId: _wsBookId || 'atkins', mode, complexity, history: _wsChatHistory.slice(-10) }),
     });
     wsRemoveThinking();
     if (!res.ok) {
@@ -870,8 +770,7 @@ export async function _wsAsk(question) {
       const answer = data.answer || 'No response.';
       wsAppendAI(answer, data.sources || [], question);
       _wsChatHistory.push({ role: 'assistant', content: answer });
-      // Overwrite with full exchange (user + AI)
-      if (typeof window._saveWsSession === 'function') window._saveWsSession(_wsBookId, _wsChatHistory);
+      if (typeof _saveWsSession === 'function') _saveWsSession(_wsBookId, _wsChatHistory);
     }
   } catch (e) {
     wsRemoveThinking();
@@ -991,12 +890,6 @@ window.wsChatSend = async function() {
   inp.value = ''; wsAutoResize(inp); inp.focus();
   _wsChatHistory.push({ role: 'user', content: fullQuestion });
   _wsAttachments = []; _wsRenderPreview();
-  // Save immediately (same as wsChatSend)
-  if (_wsBookId && typeof window._saveWsSession === 'function') {
-    window._saveWsSession(_wsBookId, _wsChatHistory);
-    localStorage.setItem('chunks_active_ws_book', _wsBookId);
-    window._renderAllRecent?.();
-  }
   await _wsAsk(fullQuestion);
 };
 
@@ -1077,15 +970,3 @@ window.homeHandleAttach    = homeHandleAttach;
 window._wsRenderPage          = _wsRenderPage;
 window._wsUpdateOutlineActive = _wsUpdateOutlineActive;
 window._loadPdfJs             = _loadPdfJs;   // used by studyPlanState.js PDF extraction
-
-// Live-binding bridges for mutable state read by non-module scripts (e.g. recentAdd in index.html)
-Object.defineProperty(window, '_wsBookId', {
-  get: () => _wsBookId,
-  set: (v) => { _wsBookId = v; },
-  configurable: true,
-});
-Object.defineProperty(window, '_wsChatHistory', {
-  get: () => _wsChatHistory,
-  set: (v) => { _wsChatHistory = v; },
-  configurable: true,
-});
