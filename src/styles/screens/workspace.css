@@ -641,22 +641,27 @@
   user-select: text;
   -webkit-user-select: text;
   cursor: text;
+  /* Must sit above the canvas — canvas has pointer-events:none so clicks reach here */
+  z-index: 2;
+  position: absolute;
 }
-.ws-text-layer span,
-.ws-text-layer br {
+.ws-text-layer span {
   color: transparent;
   position: absolute;
   white-space: pre;
   transform-origin: 0% 0%;
   cursor: text;
-  /* Suppress PDF.js default blue highlight — we use the browser's own */
+  pointer-events: auto;
+  /* Prevent PDF.js default blue background on its own highlight marks */
+  background: transparent !important;
 }
-.ws-text-layer ::selection {
-  background: rgba(232, 172, 46, 0.35);  /* gold tint matching app palette */
+/* Gold selection highlight — color:transparent keeps the glyph invisible */
+.ws-text-layer span::selection {
+  background: rgba(232, 172, 46, 0.40);
   color: transparent;
 }
-.ws-text-layer ::-moz-selection {
-  background: rgba(232, 172, 46, 0.35);
+.ws-text-layer span::-moz-selection {
+  background: rgba(232, 172, 46, 0.40);
   color: transparent;
 }
 
