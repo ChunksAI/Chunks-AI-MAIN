@@ -486,9 +486,44 @@ def _get_and_increment_daily_count(user_id: str, date_str: str) -> int:
     return count
 
 
-# ============================================
-# BOOK LIBRARY - R2 URLs
-# ============================================
+def _extract_verified_user(enforce_daily_limit: bool = True):
+    """
+    Extract and verify the Supabase JWT from the current request's
+    Authorization header, look up the user's tier, and optionally
+    enforce the free-tier daily message limit.
+
+    Returns (verified_user_id: str, server_tier: Tier).
+    Never raises — on any failure it returns an IP-based fallback ID
+    and Tier.FREE so callers can decide whether to block or allow.
+
+    Usage in any endpoint::
+
+        user_id, tier = _extract_verified_user()
+        if not tier.is_paid:
+            return jsonify({'success': False, 'error': 'Upgrade required'}), 403
+    """
+    auth_header      = request.headers.get('Authorization', '')
+    jwt_token        = auth_header[7:] if auth_header.startswith('Bearer ') else ''
+    verified_user    = _verify_supabase_jwt(jwt_token) if jwt_token else None
+    verified_user_id = verified_user.get('id') if verified_user else None
+
+    if verified_user_id:
+        server_tier = _get_user_tier_from_db(verified_user_id)
+    else:
+        server_tier      = Tier.FREE
+        verified_user_id = f'ip:{get_remote_address()}'
+
+    if enforce_daily_limit and not server_tier.is_paid:
+        day_key = datetime.utcnow().strftime('%Y-%m-%d')
+        count   = _get_and_increment_daily_count(verified_user_id, day_key)
+        if count > FREE_TIER_DAILY_LIMIT:
+            from flask import abort
+            abort(429, description='Daily message limit reached. Upgrade to Pro for unlimited messages.')
+
+    return verified_user_id, server_tier
+
+
+
 
 BOOK_LIBRARY = {
     'zumdahl': {
@@ -1294,40 +1329,11 @@ def ask():
         history       = data.get('history', [])
         user_memory   = sanitize_user_memory(data.get('user_memory', ''))
 
-        # ── Server-side tier verification (fixes Blocker 2) ──────────────────
-        # NEVER trust the client-sent user_tier — always verify via Supabase JWT.
-        # Flow:
-        #   1. Extract Bearer token from Authorization header
-        #   2. Verify token with Supabase → get user_id
-        #   3. Look up tier in DB (not from client)
-        #   4. If free tier: atomically increment daily counter in Supabase
-        #      → enforce 20 msg/day limit server-side
-        #
-        # Fallback: if Supabase is not configured (local dev), fall back to
-        # IP-based in-memory counter so development still works.
-        auth_header = request.headers.get('Authorization', '')
-        jwt_token   = auth_header[7:] if auth_header.startswith('Bearer ') else ''
-
-        verified_user = _verify_supabase_jwt(jwt_token) if jwt_token else None
-        verified_user_id = verified_user.get('id') if verified_user else None
-
-        if verified_user_id:
-            # Authenticated user — look up real tier from DB
-            server_tier = _get_user_tier_from_db(verified_user_id)
-        else:
-            # No valid JWT → treat as free/guest regardless of what client sent
-            server_tier = Tier.FREE
-            # Use IP as fallback identifier for unauthenticated requests
-            verified_user_id = f'ip:{get_remote_address()}'
-
-        if not server_tier.is_paid:
-            day_key = datetime.utcnow().strftime('%Y-%m-%d')
-            _count  = _get_and_increment_daily_count(verified_user_id, day_key)
-            if _count > FREE_TIER_DAILY_LIMIT:
-                return jsonify({'success': False, 'error': 'Daily message limit reached. Upgrade to Pro for unlimited messages.'}), 429
-
-        # Keep user_tier for any downstream logging / prompt hints
-        user_tier = server_tier
+        # ── Server-side tier + daily limit enforcement ───────────────────────
+        # _extract_verified_user verifies the JWT, looks up the real tier in DB,
+        # and atomically enforces the free-tier daily limit via Redis.
+        # It aborts with 429 if the limit is exceeded.
+        verified_user_id, user_tier = _extract_verified_user(enforce_daily_limit=True)
 
         # Parse injected token flags from legacy frontend path
         token_flags = []
@@ -1881,6 +1887,9 @@ def generate_flashcards():
         count   = min(int(data.get('count', 10)), 20)
         book_id = data.get('bookId', 'zumdahl')
 
+        # Verify JWT and enforce daily limit (shared across all AI endpoints)
+        _extract_verified_user(enforce_daily_limit=True)
+
         # ── Cache check: return instantly if already generated ────────────────
         cache_k = _cache_key(book_id, topic, 'flashcards', count)
         cached  = _cache_get(cache_k)
@@ -1961,6 +1970,9 @@ def upload_document():
     if request.method == 'OPTIONS':
         return jsonify({'ok': True})
     try:
+        # Verify JWT and enforce daily limit before doing any file I/O
+        _extract_verified_user(enforce_daily_limit=True)
+
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file uploaded'}), 400
 
@@ -2089,6 +2101,9 @@ def generate_study_materials():
         data          = request.json
         slides        = data.get('slides', [])
         material_type = data.get('type', 'notes')
+
+        # Verify JWT and enforce daily limit
+        _extract_verified_user(enforce_daily_limit=True)
 
         # ── Cache check ───────────────────────────────────────────────────────
         _sm_hash = hashlib.md5(str(slides).encode()).hexdigest()[:16]
@@ -2330,6 +2345,9 @@ def generate_quiz():
         quiz_mode  = data.get('mode', 'standard').lower().strip()
         existing_questions = data.get('existingQuestions', [])
 
+        # Verify JWT and enforce daily limit
+        _extract_verified_user(enforce_daily_limit=True)
+
         if not slides:
             return jsonify({'success': False, 'error': 'No slide content provided'}), 400
 
@@ -2506,6 +2524,9 @@ def ask_image():
             data.get('question', 'Describe what you see and explain any chemistry concepts visible.'),
             max_len=1000,
         )
+
+        # Verify JWT and enforce daily limit
+        _extract_verified_user(enforce_daily_limit=True)
 
         # ── Input validation ───────────────────────────────────────────────────
         if not image_b64:
