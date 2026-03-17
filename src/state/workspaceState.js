@@ -446,7 +446,6 @@ export function _wsShowWelcome(meta) {
     });
   });
 }
-}
 
 // ── Outline panel ─────────────────────────────────────────────────────────
 
