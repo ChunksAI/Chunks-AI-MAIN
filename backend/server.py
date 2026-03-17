@@ -912,8 +912,8 @@ def _ask_cache_key(book_id: str, task_type: str | None, mode: str,
     return f"ask:v1:{digest}"
 
 def _ask_cache_get(key: str) -> dict | None:
-    """Return cached /ask payload or None. Tries Redis first, then in-memory."""
-    # 1. Redis
+    """Return cached /ask payload or None. Tries Redis → memory → Supabase."""
+    # 1. Redis (fastest, shared across workers)
     if _redis:
         try:
             raw = _redis.get(key)
@@ -922,22 +922,39 @@ def _ask_cache_get(key: str) -> dict | None:
                 return json.loads(raw)
         except Exception as e:
             logger.warning("ask_cache redis GET error: %s", e)
-    # 2. In-memory TTLCache fallback
+    # 2. In-memory TTLCache
     hit = _cache_get(key)
     if hit:
         logger.debug("ask_cache HIT (memory) key=%s", key)
-    return hit
+        return hit
+    # 3. Supabase (long-term backing store — warms faster tiers on hit)
+    sb_hit = _sb_cache_get(key)
+    if sb_hit:
+        # Warm Redis and memory so the next hit is fast
+        if _redis:
+            try:
+                _redis.setex(key, _ASK_CACHE_TTL, json.dumps(sb_hit, default=str))
+            except Exception:
+                pass
+        _cache_set(key, sb_hit)
+        return sb_hit
+    return None
 
-def _ask_cache_set(key: str, payload: dict) -> None:
-    """Store /ask payload. Writes to Redis (with TTL) and in-memory cache."""
-    # 1. Redis (primary, survives dyno restarts and is shared across workers)
+def _ask_cache_set(key: str, payload: dict, *,
+                   task_type: str | None = None, mode: str = '',
+                   book_id: str = '', model_used: str = '') -> None:
+    """Store /ask payload in all three cache tiers: Redis, memory, Supabase."""
+    # 1. Redis (primary — fast, shared, 1h TTL)
     if _redis:
         try:
             _redis.setex(key, _ASK_CACHE_TTL, json.dumps(payload, default=str))
         except Exception as e:
             logger.warning("ask_cache redis SET error: %s", e)
-    # 2. In-memory TTLCache (ensures fast local hits even without Redis)
+    # 2. In-memory TTLCache (process-local fast path)
     _cache_set(key, payload)
+    # 3. Supabase (7-day persistent backing store — fire-and-forget)
+    _sb_cache_set(key, payload, task_type=task_type, mode=mode,
+                  book_id=book_id, model_used=model_used)
 
 def _ask_is_cacheable(mode: str, history: list, web_search: bool,
                       thinking_mode: str | None) -> bool:
@@ -948,6 +965,86 @@ def _ask_is_cacheable(mode: str, history: list, web_search: bool,
         and not web_search       # live web results must never be cached
         and not thinking_mode    # reasoning chains vary per call
     )
+
+
+# ── Supabase persistent cache tier (7-day backing store) ──────────────────────
+# Tier order:  Redis (1h, shared across workers)
+#              → in-memory TTLCache (process-local, fast)
+#              → Supabase query_cache table (7-day, survives Redis flushes)
+#
+# On cache miss in Redis+memory, we check Supabase and warm the faster tiers.
+# On cache write, we write to all three tiers.
+
+_SB_CACHE_TTL_DAYS = 7
+
+def _sb_headers() -> dict:
+    return {
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "apikey":        SUPABASE_SERVICE_KEY,
+        "Content-Type":  "application/json",
+        "Prefer":        "return=minimal",
+    }
+
+def _sb_cache_get(key: str) -> dict | None:
+    """Fetch a cached payload from Supabase query_cache. Returns None on miss or error."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return None
+    try:
+        resp = _session.get(
+            f"{SUPABASE_URL}/rest/v1/query_cache",
+            params={
+                "cache_key": f"eq.{key}",
+                "expires_at": f"gt.{__import__('datetime').datetime.utcnow().isoformat()}",
+                "select":    "answer",
+                "limit":     "1",
+            },
+            headers=_sb_headers(),
+            timeout=3,
+        )
+        if resp.status_code == 200:
+            rows = resp.json()
+            if rows:
+                # Fire-and-forget hit-count increment via RPC
+                try:
+                    _session.post(
+                        f"{SUPABASE_URL}/rest/v1/rpc/increment_cache_hit",
+                        json={"p_cache_key": key},
+                        headers=_sb_headers(),
+                        timeout=2,
+                    )
+                except Exception:
+                    pass
+                logger.debug("ask_cache HIT (supabase) key=%s", key)
+                return rows[0]["answer"]
+    except Exception as e:
+        logger.warning("sb_cache GET error: %s", e)
+    return None
+
+def _sb_cache_set(key: str, payload: dict, task_type: str | None,
+                  mode: str, book_id: str, model_used: str) -> None:
+    """Upsert a payload into Supabase query_cache. Fire-and-forget."""
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
+        return
+    try:
+        import datetime
+        expires = (datetime.datetime.utcnow() +
+                   datetime.timedelta(days=_SB_CACHE_TTL_DAYS)).isoformat()
+        _session.post(
+            f"{SUPABASE_URL}/rest/v1/query_cache",
+            json={
+                "cache_key":  key,
+                "answer":     payload,
+                "task_type":  task_type,
+                "mode":       mode,
+                "book_id":    book_id,
+                "model_used": model_used,
+                "expires_at": expires,
+            },
+            headers={**_sb_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"},
+            timeout=4,
+        )
+    except Exception as e:
+        logger.warning("sb_cache SET error: %s", e)
 
 
 # Per-book index cache — each book_id maps to its own TextbookSearch instance.
@@ -1707,7 +1804,9 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 'complexity_used': complexity
             }
             if _cache_eligible and _cache_key:
-                _ask_cache_set(_cache_key, _resp)
+                _ask_cache_set(_cache_key, _resp,
+                               task_type=task_type, mode=mode,
+                               book_id=book_id, model_used=selected_model)
             return jsonify(_resp)
 
         # ── MODE: GENERATE ─────────────────────────────────────────────
@@ -1787,7 +1886,9 @@ Keep the summary focused, clear, and easy to review before an exam."""
 
             _gen_resp = {'success': True, 'mode': 'generate', 'answer': parsed}
             if _cache_eligible and _cache_key:
-                _ask_cache_set(_cache_key, _gen_resp)
+                _ask_cache_set(_cache_key, _gen_resp,
+                               task_type=task_type, mode=mode,
+                               book_id=book_id, model_used=selected_model)
             return jsonify(_gen_resp)
 
         # ── MODE: STUDY (default) ─────────────────────────────────────────
@@ -1862,7 +1963,9 @@ Answer helpfully and clearly."""
                 'complexity_used': complexity
             }
             if _cache_eligible and _cache_key:
-                _ask_cache_set(_cache_key, _resp)
+                _ask_cache_set(_cache_key, _resp,
+                               task_type=task_type, mode=mode,
+                               book_id=book_id, model_used=selected_model)
             return jsonify(_resp)
 
     except Exception as e:
