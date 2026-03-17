@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://api.chunks.online https://chunks-ai-main-production.up.railway.app https://*.supabase.co wss://*.supabase.co https://openrouter.ai https://cdnjs.cloudflare.com; worker-src 'self' blob:; frame-ancestors 'none';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://chunks.online https://*.chunks.online; script-src-elem 'self' 'unsafe-inline' blob: https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://chunks.online https://*.chunks.online; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' blob: https://api.chunks.online https://chunks-ai-main-production.up.railway.app https://*.supabase.co wss://*.supabase.co https://openrouter.ai https://cdnjs.cloudflare.com; worker-src 'self' blob:; frame-ancestors 'none';">
 <title>Admin — Chunks</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1027,33 +1027,90 @@ async function _enterAdmin(email) {
   }
   // Ensure config (and active backend URL) is loaded before calling verify-access
   const cfgOk = await loadConfig();
-  if (!cfgOk) {
-    showLogin('Could not reach server — please refresh and try again.');
-    return;
-  }
-  // Ask server if PIN is required for this account
-  try {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session) { showLogin('Session lost — please sign in again.'); return; }
-    const res = await fetch(`${getBackend()}/api/admin/verify-access`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({})
-    });
-    const json = await res.json();
-    if (!json.success) {
-      await _denyUser(email); return;
+
+  // ── Phase 1: ask server if this email is an admin and if PIN is required ────
+  let serverPhase1Failed = false;
+  let phase1Json = null;
+
+  if (cfgOk) {
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      if (!session) { showLogin('Session lost — please sign in again.'); return; }
+
+      const ctrl = new AbortController();
+      const tid  = setTimeout(() => ctrl.abort(), 12000);
+      let res;
+      try {
+        res = await fetch(`${getBackend()}/api/admin/verify-access`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body:    JSON.stringify({}),
+          signal:  ctrl.signal,
+        });
+        clearTimeout(tid);
+      } catch (fetchErr) {
+        clearTimeout(tid);
+        serverPhase1Failed = true;
+        console.warn('[Admin] Phase-1 verify-access failed:', fetchErr.message);
+      }
+
+      if (!serverPhase1Failed) {
+        try { phase1Json = await res.json(); } catch(e) {
+          serverPhase1Failed = true;
+          console.warn('[Admin] Phase-1 response unreadable:', res.status);
+        }
+      }
+
+      if (!serverPhase1Failed && phase1Json) {
+        if (res.status >= 500) {
+          // Server error — fall back to showing PIN screen with local fallback support
+          serverPhase1Failed = true;
+          console.warn('[Admin] Phase-1 returned 500 — will show PIN screen with local fallback');
+        } else if (!phase1Json.success) {
+          // Explicitly denied (403/401) — this email is not an admin
+          await _denyUser(email); return;
+        } else {
+          // Success path
+          _adminEmail = phase1Json.email || email;
+          _adminRole  = phase1Json.role  || 'admin';
+          if (!phase1Json.pin_required) {
+            // No PIN needed — go straight in
+            _finalizeAdmin(email); return;
+          }
+          // PIN required → fall through to show PIN screen
+        }
+      }
+    } catch(e) {
+      serverPhase1Failed = true;
+      console.warn('[Admin] Phase-1 unexpected error:', e.message);
     }
-    // Cache role from server response
-    _adminEmail = json.email;
-    _adminRole  = json.role;
-    if (!json.pin_required) {
-      // No PIN configured — go straight in
-      _finalizeAdmin(email); return;
-    }
-  } catch(e) {
-    showLogin('Could not reach server — please refresh.'); return;
+  } else {
+    serverPhase1Failed = true;
+    console.warn('[Admin] Config not loaded — falling back to PIN screen');
   }
+
+  // ── If server failed: check if this email is in the known admin list ─────────
+  // Only show PIN screen for known admins — unknown emails still get denied.
+  if (serverPhase1Failed) {
+    const knownAdmins = ['contridascharles91@gmail.com', 'deffmichaeldawang@gmail.com'];
+    if (!knownAdmins.includes((email || '').toLowerCase().trim())) {
+      // Unknown email + server down — deny to be safe
+      showLogin('Could not verify admin access. Please try again.');
+      return;
+    }
+    console.info('[Admin] Server unavailable but email is a known admin — showing PIN screen with local fallback');
+    const roleMap = {'contridascharles91@gmail.com':'owner','deffmichaeldawang@gmail.com':'admin'};
+    _adminRole = roleMap[email.toLowerCase()] || 'admin';
+    _adminEmail = email;
+    // Check if local PIN hashes are configured
+    const hasLocalHash = Boolean(_LOCAL_PIN_HASHES && _LOCAL_PIN_HASHES[email.toLowerCase()]);
+    if (!hasLocalHash) {
+      // No local hash AND server is down → show a clearer error
+      console.warn('[Admin] No local PIN hash configured. Set _LOCAL_PIN_HASHES in admin.html or fix server.');
+      // Still show PIN screen so user can retry (server might recover)
+    }
+  }
+
   _pinEntry = '';
   _pinAttempts = 0;
   _showPinScreen(email);
@@ -1136,58 +1193,168 @@ function _updatePinDots() {
   }
 }
 
+// ── Local PIN fallback — used ONLY when server returns 500 / is unreachable ───
+// SHA-256 of "chunks_admin_salt_" + PIN, computed client-side via Web Crypto.
+// This mirrors the exact same hash logic in backend/routes/admin.py.
+// Store the hash here so the admin can still log in if Railway env vars are
+// not yet configured.  To generate: sha256("chunks_admin_salt_YOURPIN").
+// Leave _LOCAL_PIN_HASHES empty to disable client-side fallback entirely.
+const _LOCAL_PIN_HASHES = {
+  // 'contridascharles91@gmail.com': 'YOUR_SHA256_HASH_HERE',
+  // 'deffmichaeldawang@gmail.com':  'YOUR_SHA256_HASH_HERE',
+};
+
+async function _sha256Hex(str) {
+  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+
+async function _localPinCheck(email, pin) {
+  const expectedHash = _LOCAL_PIN_HASHES[(email || '').toLowerCase().trim()];
+  if (!expectedHash) return null; // no local hash configured → can't check locally
+  const computed = await _sha256Hex('chunks_admin_salt_' + pin);
+  return computed === expectedHash.toLowerCase();
+}
+
 async function _pinSubmit() {
   if (!_pendingEmail) return;
-  // Submit PIN to server — no hash comparison on client
-  let pinCorrect = false;
+
+  // Disable pad while verifying
+  const padEl = document.getElementById('pin-pad');
+  if (padEl) { padEl.style.pointerEvents = 'none'; padEl.style.opacity = '.55'; }
+
+  let pinCorrect  = false;
   let serverError = null;
+  let usedFallback = false;
+
   try {
     const { data: { session } } = await sb.auth.getSession();
-    if (!session) { showLogin('Session expired — please sign in again.'); return; }
-    const res = await fetch(`${getBackend()}/api/admin/verify-access`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-      body: JSON.stringify({ pin: _pinEntry })
-    });
-    let json;
-    try { json = await res.json(); } catch(e) { serverError = `Server error (${res.status})`; }
-    if (!serverError) {
-      if (res.status >= 500) {
-        serverError = json?.error || `Server error (${res.status})`;
+    if (!session) {
+      if (padEl) { padEl.style.pointerEvents = ''; padEl.style.opacity = ''; }
+      showLogin('Session expired — please sign in again.');
+      return;
+    }
+
+    const backend = getBackend();
+    let res = null;
+    let fetchFailed = false;
+
+    try {
+      const ctrl = new AbortController();
+      const tid  = setTimeout(() => ctrl.abort(), 12000);
+      res = await fetch(`${backend}/api/admin/verify-access`, {
+        method:  'POST',
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body:   JSON.stringify({ pin: _pinEntry }),
+        signal: ctrl.signal,
+      });
+      clearTimeout(tid);
+    } catch (fetchErr) {
+      fetchFailed = true;
+      if (fetchErr.name === 'AbortError') {
+        serverError = 'Request timed out (server cold-starting)';
       } else {
-        pinCorrect = json.success && !json.pin_required;
-        if (pinCorrect) {
-          _adminEmail = json.email;
-          _adminRole  = json.role;
-        }
+        serverError = `Network error: ${fetchErr.message}`;
       }
     }
-  } catch(e) {
-    serverError = 'Network error — check your connection';
+
+    if (!fetchFailed && res !== null) {
+      let json;
+      try { json = await res.json(); } catch (e) {
+        serverError = `Server returned an unreadable response (HTTP ${res.status})`;
+      }
+
+      if (!serverError) {
+        if (res.status >= 500) {
+          // ── 500: try local PIN fallback before giving up ───────────────────
+          console.warn('[Admin] Server returned 500 — trying local PIN fallback');
+          const localResult = await _localPinCheck(_pendingEmail, _pinEntry);
+          if (localResult === true) {
+            // Local hash matched — grant access with known role
+            usedFallback = true;
+            pinCorrect   = true;
+            _adminEmail  = _pendingEmail;
+            _adminRole   = _LOCAL_PIN_HASHES[_pendingEmail.toLowerCase()] ? 'owner' : 'admin';
+            const roleMap = {'contridascharles91@gmail.com':'owner','deffmichaeldawang@gmail.com':'admin'};
+            _adminRole = roleMap[_pendingEmail.toLowerCase()] || 'admin';
+          } else if (localResult === false) {
+            // Local hash present but PIN was wrong
+            pinCorrect = false;
+          } else {
+            // No local hash — show the server error with a retry button
+            const detail = json?.error || json?.hint || `HTTP ${res.status}`;
+            serverError = `Server error (${res.status}): ${detail}`;
+          }
+        } else if (res.status === 401 || res.status === 403) {
+          if (json?.error === 'Incorrect PIN') {
+            pinCorrect = false;
+          } else {
+            serverError = json?.error || 'Access denied';
+          }
+        } else {
+          // 200 / 2xx — normal success path
+          pinCorrect = json?.success && !json?.pin_required;
+          if (pinCorrect) {
+            _adminEmail = json.email || _pendingEmail;
+            _adminRole  = json.role  || 'admin';
+          } else if (json?.success === false && !json?.pin_required) {
+            // Server returned success:false without a pin_required flag → wrong PIN
+            pinCorrect = false;
+          }
+        }
+      }
+    } else if (fetchFailed) {
+      // Network failure — try local fallback
+      const localResult = await _localPinCheck(_pendingEmail, _pinEntry);
+      if (localResult === true) {
+        usedFallback = true;
+        pinCorrect   = true;
+        _adminEmail  = _pendingEmail;
+        const roleMap = {'contridascharles91@gmail.com':'owner','deffmichaeldawang@gmail.com':'admin'};
+        _adminRole = roleMap[_pendingEmail.toLowerCase()] || 'admin';
+      } else if (localResult === false) {
+        pinCorrect  = false;
+        serverError = null; // treat as wrong PIN, not server error
+      }
+      // If localResult === null (no local hash) leave serverError set → shows retry
+    }
+  } catch (e) {
+    serverError = `Unexpected error: ${e.message}`;
+  } finally {
+    if (padEl) { padEl.style.pointerEvents = ''; padEl.style.opacity = ''; }
   }
 
-  // Show server error on attempts line without counting as a failed attempt
+  // ── Server error → show message + retry hint (don't count as failed attempt) ─
   if (serverError) {
     const attEl = document.getElementById('pin-attempts');
-    attEl.textContent = '⚠ ' + serverError;
+    attEl.innerHTML =
+      `<span style="color:var(--red);">⚠ ${serverError}</span>` +
+      `<button onclick="_pinRetrySubmit()" style="margin-left:8px;background:transparent;` +
+      `border:1px solid rgba(248,113,113,.35);color:var(--red);border-radius:20px;` +
+      `padding:2px 10px;font-size:11px;cursor:pointer;font-family:var(--font-body);">Retry</button>` +
+      `<div style="margin-top:6px;font-size:10px;color:var(--text3);font-family:var(--font-mono);">` +
+      `Set ADMIN_PIN_HASH_OWNER in Railway env vars to fix this permanently.</div>`;
     attEl.className = 'pin-attempts warn';
-    _pinEntry = '';
-    _updatePinDots();
     return;
   }
 
   if (pinCorrect) {
-    // ✅ Correct
+    // ✅ Correct PIN
     window.removeEventListener('keydown', _pinKeyHandler);
     sessionStorage.setItem('chunks_pin_ok', _pendingEmail);
     document.getElementById('pin-screen').style.display = 'none';
+    if (usedFallback) {
+      console.info('[Admin] Logged in via local PIN fallback (server was unavailable).');
+    }
     _finalizeAdmin(_pendingEmail);
   } else {
-    // ❌ Wrong
+    // ❌ Wrong PIN
     _pinAttempts++;
     _pinEntry = '';
 
-    // Flash dots red
     for (let i = 0; i < PIN_LENGTH; i++) {
       const d = document.getElementById('pd' + i);
       if (d) { d.classList.remove('filled'); d.classList.add('error'); }
@@ -1207,15 +1374,22 @@ async function _pinSubmit() {
 
     if (_pinAttempts >= MAX_ATTEMPTS) {
       _pinLockUntil = Date.now() + LOCKOUT_MS;
-      // Persist lockout in sessionStorage so page refresh doesn't bypass it
       try { sessionStorage.setItem('chunks_pin_lock_until', String(_pinLockUntil)); } catch(e) {}
       attEl.textContent = '🔒 Too many attempts — locked for 60s';
-      attEl.className = 'pin-attempts warn';
+      attEl.className   = 'pin-attempts warn';
       _pinCheckLockout();
     } else {
       attEl.textContent = `Incorrect PIN — ${rem} attempt${rem !== 1 ? 's' : ''} remaining`;
-      attEl.className = rem <= 2 ? 'pin-attempts warn' : 'pin-attempts';
+      attEl.className   = rem <= 2 ? 'pin-attempts warn' : 'pin-attempts';
     }
+  }
+}
+
+function _pinRetrySubmit() {
+  if (_pinEntry.length === PIN_LENGTH) {
+    const attEl = document.getElementById('pin-attempts');
+    if (attEl) { attEl.textContent = 'Retrying…'; attEl.className = 'pin-attempts'; }
+    _pinSubmit();
   }
 }
 
