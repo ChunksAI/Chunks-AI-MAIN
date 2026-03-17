@@ -12,6 +12,7 @@ All endpoints require a valid Supabase JWT from an admin-role user.
 from __future__ import annotations
 
 import hashlib as _hashlib
+import hmac as _hmac
 import logging
 import os
 
@@ -106,7 +107,7 @@ def _verify_admin_pin(email: str, pin: str) -> bool:
             )
             return False
 
-        result = _hashlib.compare_digest(computed, expected_norm)
+        result = _hmac.compare_digest(computed, expected_norm)
         logger.info(f'PIN: verification result={result} for {email}')
         return result
 
