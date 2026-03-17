@@ -1385,8 +1385,11 @@ async function _pinSubmit() {
       `<button onclick="_pinRetrySubmit()" style="margin-left:8px;background:transparent;` +
       `border:1px solid rgba(248,113,113,.35);color:var(--red);border-radius:20px;` +
       `padding:2px 10px;font-size:11px;cursor:pointer;font-family:var(--font-body);">Retry</button>` +
-      `<div style="margin-top:6px;font-size:10px;color:var(--text3);font-family:var(--font-mono);">` +
-      `Set ADMIN_PIN_HASH_OWNER in Railway env vars to fix this permanently.</div>`;
+      `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">` +
+      `<button onclick="_debugPin()" style="background:rgba(139,124,248,0.10);border:1px solid rgba(139,124,248,0.28);` +
+      `color:var(--violet);border-radius:20px;padding:3px 10px;font-size:10px;cursor:pointer;font-family:var(--font-mono);">` +
+      `🔍 Debug PIN</button>` +
+      `</div>`;
     attEl.className = 'pin-attempts warn';
     return;
   }
@@ -1426,8 +1429,10 @@ async function _pinSubmit() {
       attEl.className   = 'pin-attempts warn';
       _pinCheckLockout();
     } else {
-      attEl.textContent = `Incorrect PIN — ${rem} attempt${rem !== 1 ? 's' : ''} remaining`;
-      attEl.className   = rem <= 2 ? 'pin-attempts warn' : 'pin-attempts';
+      attEl.innerHTML = `Incorrect PIN — ${rem} attempt${rem !== 1 ? 's' : ''} remaining` +
+        `<button onclick="_debugPin()" style="margin-left:8px;background:rgba(139,124,248,0.10);border:1px solid rgba(139,124,248,0.28);` +
+        `color:var(--violet);border-radius:20px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:var(--font-mono);">🔍 Debug</button>`;
+      attEl.className = rem <= 2 ? 'pin-attempts warn' : 'pin-attempts';
     }
   }
 }
@@ -1437,6 +1442,41 @@ function _pinRetrySubmit() {
     const attEl = document.getElementById('pin-attempts');
     if (attEl) { attEl.textContent = 'Retrying…'; attEl.className = 'pin-attempts'; }
     _pinSubmit();
+  }
+}
+
+async function _debugPin() {
+  const attEl = document.getElementById('pin-attempts');
+  if (!_pendingEmail || !_pinEntry) {
+    if (attEl) attEl.innerHTML += '<br><span style="color:var(--text4);font-size:10px;">Enter PIN first, then Debug.</span>';
+    return;
+  }
+  if (attEl) attEl.innerHTML += '<br><span style="color:var(--violet);font-size:10px;font-family:var(--font-mono);">Debugging…</span>';
+  try {
+    const res  = await fetch(`${getBackend()}/api/admin/debug-pin`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: _pendingEmail, pin: _pinEntry }),
+    });
+    const data = await res.json();
+    const lines = [
+      `email: ${data.email}`,
+      `in_admin_list: ${data.email_in_admin_list}`,
+      `hash_configured: ${data.hash_configured}`,
+      `stored_prefix: ${data.stored_prefix || 'none'}`,
+      `computed_prefix: ${data.computed_prefix || 'none'}`,
+      `pin_length: ${data.pin_length}`,
+      `match: ${data.match}`,
+    ].join(' · ');
+    const color = data.match ? 'var(--green)' : 'var(--red)';
+    if (attEl) attEl.innerHTML += `<div style="margin-top:6px;font-size:10px;font-family:var(--font-mono);color:${color};">${lines}</div>`;
+    if (!data.hash_configured) {
+      if (attEl) attEl.innerHTML += `<div style="margin-top:4px;font-size:10px;color:var(--red);font-family:var(--font-mono);">⚠ ADMIN_PIN_HASH_OWNER / ADMIN_PIN_HASH_ADMIN not set in Railway env vars.</div>`;
+    } else if (!data.match && data.stored_prefix !== data.computed_prefix) {
+      if (attEl) attEl.innerHTML += `<div style="margin-top:4px;font-size:10px;color:var(--red);font-family:var(--font-mono);">⚠ Hash mismatch — the PIN you entered does not match what was hashed in Railway.</div>`;
+    }
+  } catch(e) {
+    if (attEl) attEl.innerHTML += `<div style="color:var(--red);font-size:10px;">Debug failed: ${e.message}</div>`;
   }
 }
 
