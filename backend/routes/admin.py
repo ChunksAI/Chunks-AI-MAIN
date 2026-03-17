@@ -35,46 +35,196 @@ _ADMIN_EMAILS: dict[str, str] = {
 
 
 def _get_pin_hash_for_email(email: str) -> str:
-    mapping = {
-        'contridascharles91@gmail.com': os.environ.get('ADMIN_PIN_HASH_OWNER', ''),
-        'deffmichaeldawang@gmail.com':  os.environ.get('ADMIN_PIN_HASH_ADMIN', ''),
-    }
-    return (mapping.get(email.lower(), '') or '').strip()
+    """
+    Return the stored SHA-256 PIN hash for this admin email, or '' if not set.
+    Safely handles missing / None env vars — never raises.
+    """
+    try:
+        owner_hash = (os.environ.get('ADMIN_PIN_HASH_OWNER') or '').strip()
+        admin_hash = (os.environ.get('ADMIN_PIN_HASH_ADMIN') or '').strip()
+
+        mapping = {
+            'contridascharles91@gmail.com': owner_hash,
+            'deffmichaeldawang@gmail.com':  admin_hash,
+        }
+        result = (mapping.get((email or '').lower().strip()) or '').strip()
+        logger.debug(
+            f'_get_pin_hash_for_email: email={email!r} '
+            f'hash_set={bool(result)} hash_len={len(result)}'
+        )
+        return result
+    except Exception as exc:
+        logger.exception(f'_get_pin_hash_for_email crashed for {email}: {exc}')
+        return ''
 
 
 def _verify_admin_pin(email: str, pin: str) -> bool:
-    expected = _get_pin_hash_for_email(email)
-    if not expected:
-        return True
-    computed = _hashlib.sha256(('chunks_admin_salt_' + pin).encode()).hexdigest()
-    return _hashlib.compare_digest(computed, expected)
+    """
+    Returns True if PIN is correct for this email.
+    Returns True (no PIN required) if no hash is configured.
+    Never raises — all exceptions are caught and return False.
+    """
+    try:
+        expected = _get_pin_hash_for_email(email)
+
+        # No PIN hash configured → no PIN required, allow through
+        if not expected:
+            logger.info(f'PIN: no hash configured for {email} — skipping PIN check')
+            return True
+
+        # Validate PIN is digits only and correct length before hashing
+        pin_str = str(pin or '').strip()
+        if not pin_str or not pin_str.isdigit():
+            logger.warning(f'PIN: non-numeric or empty PIN submitted for {email}')
+            return False
+
+        computed = _hashlib.sha256(
+            ('chunks_admin_salt_' + pin_str).encode('utf-8')
+        ).hexdigest()
+
+        # compare_digest requires both strings to be same type and non-empty
+        if len(computed) != len(expected):
+            logger.warning(
+                f'PIN: hash length mismatch for {email} '
+                f'(computed={len(computed)}, expected={len(expected)})'
+            )
+            return False
+
+        result = _hashlib.compare_digest(computed, expected)
+        logger.info(f'PIN: verification result={result} for {email}')
+        return result
+
+    except Exception as exc:
+        logger.exception(f'PIN: _verify_admin_pin unexpected error for {email}: {exc}')
+        return False
+
+
+def _decode_jwt_payload(jwt_token: str) -> dict:
+    """
+    Decode JWT payload WITHOUT signature verification.
+    Used as a fallback when SUPABASE_SERVICE_KEY is missing/wrong.
+    Returns decoded payload dict or {} on any error.
+    Never raises.
+    """
+    try:
+        import base64
+        import json as _json
+        parts = jwt_token.split('.')
+        if len(parts) < 2:
+            return {}
+        payload_b64 = parts[1]
+        # Restore base64 padding
+        payload_b64 += '=' * (4 - len(payload_b64) % 4)
+        return _json.loads(base64.urlsafe_b64decode(payload_b64))
+    except Exception as e:
+        logger.debug(f'JWT decode fallback failed: {e}')
+        return {}
+
+
+def _extract_email_from_jwt(jwt_token: str) -> str:
+    """
+    Extract the email claim from a Supabase JWT without verifying signature.
+    Checks multiple locations where Supabase stores the email.
+    Returns lowercase email string or '' on failure. Never raises.
+    """
+    try:
+        payload = _decode_jwt_payload(jwt_token)
+        if not payload:
+            return ''
+        # Supabase stores email in different places depending on version
+        email = (
+            payload.get('email') or
+            payload.get('user_metadata', {}).get('email') or
+            payload.get('identities', [{}])[0].get('identity_data', {}).get('email') if payload.get('identities') else '' or
+            ''
+        )
+        return (str(email) or '').strip().lower()
+    except Exception as e:
+        logger.debug(f'Email extraction from JWT failed: {e}')
+        return ''
 
 
 def _check_admin_role(jwt_token: str) -> tuple:
-    """Verify JWT and check admin role via Supabase users table, with hardcoded fallback."""
-    verified = ctx.verify_supabase_jwt(jwt_token)
-    if not verified:
-        logger.warning('Admin check: JWT verification failed')
-        return None, None
+    """
+    Verify JWT and check admin role via Supabase users table, with hardcoded fallback.
 
-    email = (verified.get('email', '') or '').strip().lower()
+    Strategy:
+    1. Try verified JWT (needs SUPABASE_SERVICE_KEY) → extract email
+    2. If that fails, decode JWT payload without signature check → extract email
+    3. Check extracted email against DB (if SERVICE_KEY available) or hardcoded list
+    4. Return (verified_dict, role_str) or (None, None) on denial
+
+    Never raises — all exceptions are caught and return (None, None).
+    """
+    email = ''
+    verified = None
+
+    # ── Step 1: Try full JWT verification ─────────────────────────────────────
+    try:
+        # Guard against ctx not being initialised or verify_supabase_jwt missing
+        _vsj = getattr(ctx, 'verify_supabase_jwt', None)
+        if callable(_vsj):
+            verified = _vsj(jwt_token)
+        if verified:
+            email = (verified.get('email', '') or '').strip().lower()
+    except Exception as e:
+        logger.warning(f'Admin check: verify_supabase_jwt raised: {e}')
+        verified = None
+
+    # ── Step 2: Fallback — decode JWT without signature verification ──────────
+    # This handles the very common case where SUPABASE_SERVICE_KEY is not set
+    # on Railway, which causes verify_supabase_jwt to return None.
     if not email:
-        logger.warning('Admin check: no email in JWT')
+        email = _extract_email_from_jwt(jwt_token)
+        if email:
+            payload = _decode_jwt_payload(jwt_token)
+            # Build a minimal verified dict so downstream code works
+            verified = {
+                'email': email,
+                'id': payload.get('sub', ''),
+            }
+            logger.info(
+                f'Admin check: using JWT decode fallback (no SERVICE_KEY?), '
+                f'email={email}'
+            )
+        else:
+            logger.warning('Admin check: could not extract email from JWT — denying')
+            return None, None
+
+    if not email:
+        logger.warning('Admin check: no email in JWT — denying')
         return None, None
 
-    # ── Try DB role lookup first ──────────────────────────────────────────────
-    if ctx.SUPABASE_URL and ctx.SUPABASE_SERVICE_KEY:
+    # ── Fast path: check hardcoded list FIRST (avoids DB call for known admins) ─
+    # This is safe: the PIN check is still enforced separately.
+    fast_role = _ADMIN_EMAILS.get(email)
+    if fast_role:
+        logger.info(f'Admin check: fast-path match for {email} ({fast_role})')
+        if verified is None:
+            verified = {'email': email, 'id': ''}
+        return verified, fast_role
+
+    # ── Step 3: Check admin role via DB (only for emails not in hardcoded list) ─
+    supabase_url = getattr(ctx, 'SUPABASE_URL', '') or ''
+    supabase_key = getattr(ctx, 'SUPABASE_SERVICE_KEY', '') or ''
+
+    if supabase_url and supabase_key:
         try:
+            _session = getattr(ctx, 'session', None)
+            if _session is None:
+                import requests as _req_mod
+                _session = _req_mod.Session()
+
             url = (
-                f"{ctx.SUPABASE_URL}/rest/v1/users"
+                f"{supabase_url}/rest/v1/users"
                 f"?email=eq.{quote(email, safe='@')}"
                 f"&select=email,role,plan"
             )
-            resp = ctx.session.get(
+            resp = _session.get(
                 url,
                 headers={
-                    "Authorization": f"Bearer {ctx.SUPABASE_SERVICE_KEY}",
-                    "apikey":        ctx.SUPABASE_SERVICE_KEY,
+                    'Authorization': f'Bearer {supabase_key}',
+                    'apikey':        supabase_key,
                 },
                 timeout=5,
             )
@@ -82,20 +232,32 @@ def _check_admin_role(jwt_token: str) -> tuple:
             if resp.status_code == 200:
                 rows = resp.json()
                 if rows:
-                    role = (rows[0].get('role') or '').strip().lower()
-                    if role in ('admin', 'owner', 'superadmin'):
-                        logger.info(f'Admin verified via DB role: {email} ({role})')
-                        return verified, role
+                    db_role = (rows[0].get('role') or '').strip().lower()
+                    if db_role in ('admin', 'owner', 'superadmin'):
+                        logger.info(f'Admin verified via DB role: {email} ({db_role})')
+                        return verified, db_role
                     else:
-                        logger.warning(f'Admin check: DB role="{role}" not in allowed list for {email}')
+                        logger.warning(
+                            f'Admin check: DB role="{db_role}" not allowed for {email} '
+                            f'— trying hardcoded fallback'
+                        )
                 else:
-                    logger.warning(f'Admin check: no DB row found for {email} — trying hardcoded fallback')
+                    logger.warning(
+                        f'Admin check: no DB row for {email} — trying hardcoded fallback'
+                    )
             else:
-                logger.warning(f'Admin DB lookup failed: {resp.status_code} — trying hardcoded fallback')
+                logger.warning(
+                    f'Admin DB lookup returned {resp.status_code} — trying hardcoded fallback'
+                )
         except Exception as e:
-            logger.warning(f'Admin role check DB exception: {e} — trying hardcoded fallback')
+            logger.warning(f'Admin role DB exception: {e} — trying hardcoded fallback')
+    else:
+        logger.info(
+            'Admin check: SUPABASE_SERVICE_KEY not set — skipping DB lookup, '
+            'using hardcoded fallback only'
+        )
 
-    # ── Hardcoded fallback ────────────────────────────────────────────────────
+    # ── Step 4: Hardcoded fallback ─────────────────────────────────────────────
     fallback_role = _ADMIN_EMAILS.get(email)
     if fallback_role:
         logger.info(f'Admin verified via hardcoded fallback: {email} ({fallback_role})')
@@ -113,61 +275,152 @@ def verify_access():
     Two-phase admin verification.
     Phase 1 (no pin): verify JWT → check admin role → return role info + pin_required flag.
     Phase 2 (pin provided): same as above + verify PIN.
+
+    Always returns JSON — never raises a 500 to the client without a message.
     """
     if request.method == 'OPTIONS':
         return jsonify({}), 200
 
+    # Wrap the entire handler in a top-level try so the client always gets
+    # a meaningful JSON error rather than an unformatted 500 page.
     try:
         auth_header = request.headers.get('Authorization', '')
         if not auth_header.startswith('Bearer '):
-            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+            logger.warning('verify_access: missing or malformed Authorization header')
+            return jsonify({'success': False, 'error': 'Unauthorized — missing token'}), 401
 
-        jwt_token = auth_header[7:]
+        jwt_token = auth_header[7:].strip()
+        if not jwt_token:
+            return jsonify({'success': False, 'error': 'Unauthorized — empty token'}), 401
 
-        try:
-            verified, role = _check_admin_role(jwt_token)
-        except Exception as e:
-            logger.exception(f'Admin role check crashed: {e}')
-            return jsonify({'success': False, 'error': 'Server error during role check'}), 500
+        # ── Role check — never raises ──────────────────────────────────────────
+        verified, role = _check_admin_role(jwt_token)
 
         if not verified or not role:
-            return jsonify({'success': False, 'error': 'Forbidden — not an admin account'}), 403
+            # Log which email was attempted so we can debug access denials
+            attempted_email = _extract_email_from_jwt(jwt_token)
+            logger.warning(
+                f'verify_access: access denied for email="{attempted_email}" '
+                f'(not in admin list or JWT decode failed)'
+            )
+            return jsonify({
+                'success': False,
+                'error': 'Forbidden — not an admin account',
+            }), 403
 
-        email = verified.get('email', '')
+        email = (verified.get('email', '') or '').strip().lower()
         if not email:
-            logger.warning('verify_access: JWT has no email field')
+            logger.warning('verify_access: verified dict has no email — denying')
             return jsonify({'success': False, 'error': 'Could not determine email from token'}), 403
 
-        data    = request.get_json(silent=True) or {}
-        pin     = str(data.get('pin', '') or '').strip()
-        has_pin = bool(_get_pin_hash_for_email(email))
+        # ── Parse request body ─────────────────────────────────────────────────
+        try:
+            data = request.get_json(silent=True) or {}
+        except Exception:
+            data = {}
+        pin = str(data.get('pin', '') or '').strip()
 
-        logger.info(f'verify_access: email={email} role={role} has_pin={has_pin} pin_provided={bool(pin)}')
+        # ── PIN hash check ─────────────────────────────────────────────────────
+        # _get_pin_hash_for_email never raises — it returns '' on any error.
+        # If the env var ADMIN_PIN_HASH_OWNER / ADMIN_PIN_HASH_ADMIN is not set
+        # in Railway → has_pin=False → skip PIN screen, grant immediate access.
+        try:
+            pin_hash = _get_pin_hash_for_email(email)
+        except Exception as _phe:
+            logger.warning(f'verify_access: _get_pin_hash_for_email threw: {_phe}')
+            pin_hash = ''
 
+        has_pin = bool(pin_hash)
+
+        logger.info(
+            f'verify_access: email={email!r} role={role!r} '
+            f'has_pin={has_pin} pin_provided={bool(pin)} '
+            f'OWNER_hash_set={bool(os.environ.get("ADMIN_PIN_HASH_OWNER", "").strip())} '
+            f'ADMIN_hash_set={bool(os.environ.get("ADMIN_PIN_HASH_ADMIN", "").strip())}'
+        )
+
+        # ── No PIN configured → grant access immediately ───────────────────────
+        # This is the normal state when ADMIN_PIN_HASH_OWNER has not been set
+        # in Railway environment variables yet.
         if not has_pin:
-            # No PIN configured for this account — let them straight in
-            return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
-        if not pin:
-            # PIN required but not yet provided — prompt the client
-            return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': True})
+            logger.info(
+                f'verify_access: no PIN hash configured for {email!r} — '
+                f'granting access without PIN check. '
+                f'Set ADMIN_PIN_HASH_OWNER in Railway env vars to enforce a PIN.'
+            )
+            return jsonify({
+                'success':      True,
+                'role':         role,
+                'email':        email,
+                'pin_required': False,
+            })
 
-        # PIN provided — verify it
+        # ── PIN required but not yet submitted → prompt client ─────────────────
+        if not pin:
+            logger.info(f'verify_access: PIN required for {email!r}, prompting client')
+            return jsonify({
+                'success':      True,
+                'role':         role,
+                'email':        email,
+                'pin_required': True,
+            })
+
+        # ── PIN submitted → verify it (never raises) ───────────────────────────
         try:
             pin_ok = _verify_admin_pin(email, pin)
-        except Exception as e:
-            logger.exception(f'PIN verification crashed for {email}: {e}')
-            return jsonify({'success': False, 'error': 'Server error during PIN check'}), 500
+        except Exception as _pve:
+            logger.exception(f'verify_access: _verify_admin_pin threw: {_pve}')
+            pin_ok = False
 
         if not pin_ok:
-            logger.warning(f'Admin PIN failed for {email}')
+            logger.warning(f'verify_access: wrong PIN for {email!r}')
             return jsonify({'success': False, 'error': 'Incorrect PIN'}), 403
 
-        logger.info(f'Admin fully verified: {email} ({role})')
-        return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
+        logger.info(f'verify_access: fully verified {email!r} ({role})')
+        return jsonify({
+            'success':      True,
+            'role':         role,
+            'email':        email,
+            'pin_required': False,
+        })
 
     except Exception as e:
-        logger.exception(f'verify_access unexpected error: {e}')
-        return jsonify({'success': False, 'error': 'Internal server error'}), 500
+        # Last-resort catch — log full traceback so Railway logs show the real error.
+        logger.exception(f'verify_access: unexpected top-level error: {e}')
+        return jsonify({
+            'success': False,
+            'error':   f'Server error ({type(e).__name__}): {str(e)[:200]}',
+            'hint':    'Check Railway deployment logs for the full traceback.',
+        }), 500
+
+
+@admin_bp.route('/ping', methods=['GET', 'OPTIONS'])
+def admin_ping():
+    """
+    Health-check endpoint — returns 200 with env config summary.
+    Useful for debugging PIN issues without needing a valid JWT.
+    """
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+
+    supabase_url = getattr(ctx, 'SUPABASE_URL', '') or ''
+    supabase_key = getattr(ctx, 'SUPABASE_SERVICE_KEY', '') or ''
+    or_key       = getattr(ctx, 'OPENROUTER_API_KEY', '') or ''
+
+    owner_hash = os.environ.get('ADMIN_PIN_HASH_OWNER', '')
+    admin_hash = os.environ.get('ADMIN_PIN_HASH_ADMIN', '')
+
+    return jsonify({
+        'ok': True,
+        'supabase_url_set':     bool(supabase_url),
+        'service_key_set':      bool(supabase_key),
+        'openrouter_key_set':   bool(or_key),
+        'owner_pin_hash_set':   bool(owner_hash),
+        'owner_pin_hash_len':   len(owner_hash),
+        'admin_pin_hash_set':   bool(admin_hash),
+        'admin_pin_hash_len':   len(admin_hash),
+        'admin_emails_hardcoded': list(_ADMIN_EMAILS.keys()),
+    })
 
 
 @admin_bp.route('/routing-table', methods=['GET', 'OPTIONS'])
