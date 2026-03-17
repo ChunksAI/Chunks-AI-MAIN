@@ -97,16 +97,14 @@ function _applyUI(user) {
   function _setAvatar(el, avatar, fallbackText) {
     if (avatar) {
       el.classList.remove('has-initials');
-      el.style.backgroundImage = `url(${avatar})`;
-      el.style.backgroundSize = 'cover';
-      el.style.backgroundPosition = 'center';
-      el.style.background = '';
       el.textContent = '';
+      // Set background as shorthand so all sub-properties are consistent
+      el.style.cssText += ';background:url(' + avatar + ') center/cover no-repeat;';
     } else {
-      // Add class so CSS gradient applies, remove inline overrides so class wins
+      // Remove ALL inline background overrides so .has-initials CSS gradient shows
       el.classList.add('has-initials');
-      el.style.removeProperty('background-image');
       el.style.removeProperty('background');
+      el.style.removeProperty('background-image');
       el.style.removeProperty('background-size');
       el.style.removeProperty('background-position');
       el.textContent = fallbackText;
