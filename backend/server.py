@@ -27,6 +27,7 @@ import threading
 from enum import Enum
 from cachetools import TTLCache
 import redis as redis_lib
+from ai_router import route, route_for_mode
 
 
 # ── Tier enum ─────────────────────────────────────────────────────────────────
@@ -1350,12 +1351,15 @@ def ask():
 
         logger.info(f"[{mode.upper()}] Q: {question[:80]} | complexity: {complexity}")
 
-        # Select model
-        selected_model = MODEL
+        # ── Model selection via ai_router ────────────────────────────────────
+        # Thinking-mode tokens override the router (explicit user request).
+        # Otherwise route() picks the cheapest model that fits the task.
         if thinking_mode == 'deep':
             selected_model = os.environ.get('DEEP_MODEL', 'deepseek/deepseek-r1:free')
         elif thinking_mode == 'thinking':
             selected_model = os.environ.get('THINK_MODEL', 'deepseek/deepseek-r1-distill-llama-70b:free')
+        else:
+            selected_model = route_for_mode(mode, complexity)
 
         # Use per-book cached index (no global state race condition)
         searcher = get_book_index(book_id)
@@ -1923,7 +1927,7 @@ Rules:
         raw = call_ai(prompt, system_prompt=(
             "You are a chemistry flashcard generator. Output ONLY the CARD blocks in the exact format requested. "
             "No preamble, no extra commentary, no numbering outside the format."
-        ), model=MODEL)
+        ), model=route('flashcard_complex' if count > 10 else 'flashcard_simple', complexity=5))
 
         flashcards = []
         blocks = re.split(r'\bCARD\b', raw, flags=re.IGNORECASE)
@@ -2317,7 +2321,7 @@ SLIDE CONTENT:
             "For exam reviewers, you think like a professor writing the exam: you identify what is most testable, "
             "what students most commonly get wrong, and what concepts are foundational vs peripheral. "
             "You write in a clear, structured format that students can scan quickly under exam pressure."
-        ), max_tokens_override=8000)
+        ), model=route('study_plan', complexity=6), max_tokens_override=8000)
 
         sm_payload = {'success': True, 'materials': {material_type: result}}
         _cache_set(_sm_cache_k, sm_payload)  # FIX: actually store result in cache
@@ -2468,6 +2472,11 @@ Generate the quiz:"""
             "You strictly use only information from the provided source material — never add external knowledge. "
             "You always follow the exact output format with no deviations. "
             "You write thorough, educational explanations that help students learn from both correct and incorrect answers."
+        ), model=route(
+            'exam_hard'   if difficulty == 'hard'   else
+            'exam_easy'   if difficulty == 'easy'   else
+            'exam_medium',
+            complexity=8 if difficulty == 'hard' else 4 if difficulty == 'easy' else 6
         ), max_tokens_override=12000)
 
         questions = _parse_mcq(raw)
@@ -2769,6 +2778,31 @@ def admin_verify_access():
 # ============================================
 # ADMIN: OPENROUTER CREDIT USAGE
 # ============================================
+
+# ============================================
+
+@app.route('/api/admin/routing-table', methods=['GET', 'OPTIONS'])
+def admin_routing_table():
+    """Return the full AI routing table for the admin dashboard.
+    Shows which model each task_type resolves to given current env vars.
+    Requires admin JWT.
+    """
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    jwt_token = auth_header[7:]
+    verified, role = _check_admin_role(jwt_token)
+    if not verified:
+        return jsonify({'success': False, 'error': 'Unauthorized — admin required'}), 401
+    from ai_router import routing_table, _get_models
+    return jsonify({
+        'success': True,
+        'models':  _get_models(),
+        'routes':  routing_table(),
+    })
+
 
 @app.route('/api/admin/openrouter-credits', methods=['GET', 'OPTIONS'])
 def openrouter_credits():
