@@ -192,53 +192,71 @@ def _extract_email_from_jwt(jwt_token: str) -> str:
 
 def _check_admin_role(jwt_token: str) -> tuple:
     """
-    Verify JWT and check admin role via Supabase users table, with hardcoded fallback.
-
-    Strategy:
-    1. Try verified JWT (needs SUPABASE_SERVICE_KEY) → extract email
-    2. If that fails, decode JWT payload without signature check → extract email
-    3. Check extracted email against DB (if SERVICE_KEY available) or hardcoded list
-    4. Return (verified_dict, role_str) or (None, None) on denial
-
-    Never raises — all exceptions are caught and return (None, None).
+    Verify JWT and check admin role. Strategy:
+    1. Call Supabase /auth/v1/user with the user's token + anon key (correct approach)
+    2. Fallback: decode JWT payload without signature check
+    3. Check email against hardcoded admin list (fast path) or DB
+    Never raises — all exceptions return (None, None).
     """
-    email = ''
+    email    = ''
     verified = None
 
-    # ── Step 1: Try full JWT verification ─────────────────────────────────────
-    try:
-        # Guard against ctx not being initialised or verify_supabase_jwt missing
-        _vsj = getattr(ctx, 'verify_supabase_jwt', None)
-        if callable(_vsj):
-            verified = _vsj(jwt_token)
-        if verified:
-            email = (verified.get('email', '') or '').strip().lower()
-    except Exception as e:
-        logger.warning(f'Admin check: verify_supabase_jwt raised: {e}')
-        verified = None
+    supabase_url  = getattr(ctx, 'SUPABASE_URL',      '') or ''
+    anon_key      = getattr(ctx, 'SUPABASE_ANON_KEY',  '') or ''
+    service_key   = getattr(ctx, 'SUPABASE_SERVICE_KEY', '') or ''
+    _session_obj  = getattr(ctx, 'session', None)
 
-    # ── Step 2: Fallback — decode JWT without signature verification ──────────
-    # This handles the very common case where SUPABASE_SERVICE_KEY is not set
-    # on Railway, which causes verify_supabase_jwt to return None.
+    # ── Step 1: Verify JWT via Supabase /auth/v1/user ─────────────────────────
+    # Must use ANON KEY as apikey header (not service key).
+    # The user's bearer token authenticates; apikey identifies the project.
+    if supabase_url and (anon_key or service_key) and _session_obj:
+        try:
+            api_key_to_use = anon_key or service_key   # prefer anon key
+            resp = _session_obj.get(
+                f'{supabase_url}/auth/v1/user',
+                headers={
+                    'Authorization': f'Bearer {jwt_token}',
+                    'apikey':        api_key_to_use,
+                },
+                timeout=6,
+            )
+            logger.info(
+                f'Admin check: /auth/v1/user status={resp.status_code} '
+                f'anon_key_used={bool(anon_key)} service_key_used={not bool(anon_key)}'
+            )
+            if resp.status_code == 200:
+                user_data = resp.json()
+                # Supabase returns email at top level for most providers
+                email = (
+                    user_data.get('email') or
+                    (user_data.get('user_metadata') or {}).get('email') or
+                    ''
+                ).strip().lower()
+                if email:
+                    verified = {'email': email, 'id': user_data.get('id', '')}
+                    logger.info(f'Admin check: JWT verified via Supabase, email={email}')
+            else:
+                logger.warning(
+                    f'Admin check: /auth/v1/user returned {resp.status_code} — '
+                    f'falling back to JWT decode. Body: {resp.text[:200]}'
+                )
+        except Exception as e:
+            logger.warning(f'Admin check: /auth/v1/user request failed: {e}')
+
+    # ── Step 2: Fallback — decode JWT payload without signature check ─────────
+    # Handles: SUPABASE_URL not set, network error, or non-200 from Supabase.
     if not email:
         email = _extract_email_from_jwt(jwt_token)
         if email:
-            payload = _decode_jwt_payload(jwt_token)
-            # Build a minimal verified dict so downstream code works
-            verified = {
-                'email': email,
-                'id': payload.get('sub', ''),
-            }
-            logger.info(
-                f'Admin check: using JWT decode fallback (no SERVICE_KEY?), '
-                f'email={email}'
-            )
+            payload  = _decode_jwt_payload(jwt_token)
+            verified = {'email': email, 'id': payload.get('sub', '')}
+            logger.info(f'Admin check: JWT decode fallback, email={email}')
         else:
             logger.warning('Admin check: could not extract email from JWT — denying')
             return None, None
 
     if not email:
-        logger.warning('Admin check: no email in JWT — denying')
+        logger.warning('Admin check: no email found — denying')
         return None, None
 
     # ── Fast path: check hardcoded list FIRST (avoids DB call for known admins) ─
