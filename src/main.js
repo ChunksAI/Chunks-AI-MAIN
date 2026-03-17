@@ -77,6 +77,7 @@ import './components/SettingsModal.js';                 // Task 24 ✓ — sets 
 // ── Explicit sidebar mount ────────────────────────────────────────────────────
 // All screen modules have run synchronously above — every <aside.sidebar>
 // placeholder is now in the DOM. Mount here as the definitive call.
+mountLibraryScreen();
 mountSidebars();
 window._renderAllRecent?.();
 
