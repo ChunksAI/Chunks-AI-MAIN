@@ -8,7 +8,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap&font-display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════════════
    DESIGN TOKENS — matches index.html exactly
@@ -97,7 +97,7 @@ body {
   background-attachment: fixed;
   color: var(--text);
   min-height: 100vh;
-  overflow-y: auto;
+  overflow-y: scroll;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -243,7 +243,7 @@ body::after {
 #login-error{font-family:var(--font-body);font-size:13px;color:var(--red);text-align:center;display:none;margin-top:8px;}
 
 /* MAIN */
-#admin-app{display:none;position:relative;z-index:1;}
+#admin-app{display:none;position:relative;z-index:1;min-height:100vh;}
 .page{max-width:1360px;margin:0 auto;padding:28px 28px 60px;}
 .page-header{margin-bottom:26px;}
 .page-title{font-family:var(--font-head);font-size:24px;font-weight:800;letter-spacing:-.5px;color:var(--text);}
@@ -270,7 +270,7 @@ body::after {
 .sc-accent{position:absolute;top:0;left:0;right:0;height:2px;border-radius:var(--r-md) var(--r-md) 0 0;}
 .sc-icon{width:30px;height:30px;border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
 .sc-label{font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;gap:5px;}
-.sc-value{font-family:var(--font-head);font-size:26px;font-weight:800;letter-spacing:-1px;color:var(--text);line-height:1;}
+.sc-value{font-family:var(--font-head);font-size:26px;font-weight:800;letter-spacing:-1px;color:var(--text);line-height:1;font-display:swap;}
 .live-dot{width:5px;height:5px;border-radius:50%;display:inline-block;animation:pulse 1.3s ease-in-out infinite;}
 
 /* OR PANEL */
@@ -465,10 +465,16 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
    PIN SCREEN
 ══════════════════════════════════════ */
 #pin-screen{
-  display:none;min-height:100vh;
+  display:none;
+  position:fixed;inset:0;
   align-items:center;justify-content:center;
-  position:relative;z-index:1;
-  padding:16px;overflow-y:auto;
+  z-index:10;
+  padding:16px;
+  overflow-y:auto;
+  background:
+    radial-gradient(ellipse 55% 45% at 18% 22%, rgba(180,20,20,0.07) 0%, transparent 65%),
+    radial-gradient(ellipse 45% 55% at 82% 75%, rgba(140,10,10,0.06) 0%, transparent 60%),
+    linear-gradient(160deg,#0d0808 0%,#090606 45%,#0b0606 100%);
 }
 .pin-card{
   width:min(380px,100%);
@@ -479,6 +485,7 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
   display:flex;flex-direction:column;align-items:center;
   box-shadow:0 0 0 1px var(--border-xs),0 40px 80px rgba(0,0,0,.75),0 0 80px rgba(139,124,248,0.06);
   animation:fadeIn .35s ease both;
+  margin:auto;
 }
 .pin-lock-icon{
   width:52px;height:52px;border-radius:var(--r-lg);
@@ -886,7 +893,6 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
         <table>
           <thead>
             <tr>
-              <th class="ns" style="width:38px;"></th>
               <th onclick="sortBy('email')">User ↕</th>
               <th onclick="sortBy('plan')">Plan ↕</th>
               <th onclick="sortBy('subscription_end')">Subscription ↕</th>
@@ -895,7 +901,7 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
             </tr>
           </thead>
           <tbody id="users-tbody">
-            <tr><td colspan="6" class="empty-state loading-dots">Loading</td></tr>
+            <tr><td colspan="5" class="empty-state loading-dots">Loading</td></tr>
           </tbody>
         </table>
       </div>
@@ -1576,7 +1582,7 @@ async function loadUsers(){
   }
   if(error){
     console.error('[Admin] loadUsers error:', error);
-    tbody.innerHTML=`<tr><td colspan="6" class="empty-state" style="color:var(--red);">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="5" class="empty-state" style="color:var(--red);">Error: ${error.message}</td></tr>`;
     return;
   }
   allUsers=data||[];
@@ -1599,6 +1605,9 @@ function updateStats(){
   document.getElementById('stat-free').textContent=reg.filter(u=>!u.plan||u.plan==='free').length;
   document.getElementById('stat-pro').textContent=reg.filter(u=>u.plan==='pro').length;
   document.getElementById('stat-ultra').textContent=reg.filter(u=>u.plan==='ultra').length;
+  // Also keep online stats fresh
+  document.getElementById('stat-online').textContent=onlineEmails.size;
+  document.getElementById('stat-guests').textContent=onlineGuestCount;
 }
 
 function setFilter(f){
@@ -1627,7 +1636,7 @@ function renderTable(){
     return sortAsc?cmp:-cmp;
   });
   const tbody=document.getElementById('users-tbody');
-  if(!rows.length){tbody.innerHTML='<tr><td colspan="6" class="empty-state">No users found.</td></tr>';return;}
+  if(!rows.length){tbody.innerHTML='<tr><td colspan="5" class="empty-state">No users found.</td></tr>';return;}
   tbody.innerHTML=rows.map(u=>{
     const plan=u.plan||'free',role=(u.role==='owner'||u.role==='admin'||u.role==='superadmin')?u.role:null;
     const[c1,c2]=avatarColor(u.email||'');
@@ -1646,12 +1655,12 @@ function renderTable(){
     }
     const rb=role==='owner'?`<span class="badge b-owner">👑 Owner</span>`:role==='admin'?`<span class="badge b-admin">🛡 Admin</span>`:'';
     return `<tr>
-      <td style="padding:12px 6px 12px 16px;width:38px;">
-        <div class="odot ${isOn?'on':'off'}" title="${isOn?'Online':'Offline'}"></div>
-      </td>
       <td>
         <div class="user-cell">
-          <div class="user-avatar" style="background:linear-gradient(135deg,${c1},${c2});">${ini}</div>
+          <div style="position:relative;flex-shrink:0;">
+            <div class="user-avatar" style="background:linear-gradient(135deg,${c1},${c2});">${ini}</div>
+            <div class="odot ${isOn?'on':'off'}" title="${isOn?'Online':'Offline'}" style="position:absolute;bottom:0;right:0;width:8px;height:8px;border:2px solid var(--surface-1);box-sizing:content-box;"></div>
+          </div>
           <div>
             <div class="user-email">${escHtml(u.email||'')}</div>
             ${u.name&&u.name!==u.email?`<div class="user-name">${escHtml(u.name)}</div>`:''}
@@ -1806,7 +1815,7 @@ function startRealtimeSync(){
       }
       document.getElementById('stat-online').textContent=onlineEmails.size;
       document.getElementById('stat-guests').textContent=onlineGuestCount;
-      renderTable();
+      updateStats();renderTable();
     })
     .on('presence',{event:'join'},({newPresences})=>{
       for(const p of newPresences){
@@ -1815,7 +1824,7 @@ function startRealtimeSync(){
       }
       document.getElementById('stat-online').textContent=onlineEmails.size;
       document.getElementById('stat-guests').textContent=onlineGuestCount;
-      renderTable();
+      updateStats();renderTable();
     })
     .on('presence',{event:'leave'},({leftPresences})=>{
       for(const p of leftPresences){
@@ -1828,7 +1837,7 @@ function startRealtimeSync(){
       }
       document.getElementById('stat-online').textContent=onlineEmails.size;
       document.getElementById('stat-guests').textContent=onlineGuestCount;
-      renderTable();
+      updateStats();renderTable();
     })
     .subscribe((status,err)=>{
       console.log('[Admin] Presence status:',status,err||'');
@@ -1837,6 +1846,11 @@ function startRealtimeSync(){
         setTimeout(()=>startRealtimeSync(),5000);
       }
     });
+  // Periodic refresh every 30s to keep stats fresh
+  if(window._statsRefreshInterval) clearInterval(window._statsRefreshInterval);
+  window._statsRefreshInterval = setInterval(()=>{
+    loadUsers();
+  }, 30000);
 }
 
 window.addEventListener('load',checkAdminSession);
