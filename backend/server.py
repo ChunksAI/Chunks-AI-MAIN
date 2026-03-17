@@ -1485,6 +1485,7 @@ def ask():
         web_search    = data.get('web_search', False)
         history       = data.get('history', [])
         selected_text = data.get('selected_text', '').strip()[:2000]  # passage highlighted in PDF
+        doc_context   = data.get('doc_context', '').strip()[:80000]  # user-uploaded document text
         user_memory   = sanitize_user_memory(data.get('user_memory', ''))
         # task_type from frontend (optional — falls back to mode-based routing)
         task_type     = data.get('task_type', None)
@@ -1534,21 +1535,25 @@ def ask():
         else:
             selected_model = route_for_mode(mode, complexity)
 
-        # Use per-book cached index (no global state race condition)
-        searcher = get_book_index(book_id)
-
-        # NEW: subject-agnostic — searches whenever a book is loaded,
-        # regardless of whether the question sounds like "chemistry".
-        # Works correctly for nursing, biology, physics, etc.
-        use_textbook = should_search_textbook(question, chunks_loaded=bool(searcher.chunks))
-        logger.info(f"Search textbook: {use_textbook} | book: {book_id}")
-
-        if use_textbook:
-            context, similarity, is_relevant, source, all_sources = searcher.smart_search(question, top_k=5)
-            logger.debug(f"Score: {similarity:.4f} | Relevant: {is_relevant}")
+        # User-uploaded document: skip textbook index entirely, use doc_context
+        if doc_context:
+            context, similarity, is_relevant, source, all_sources = doc_context, 1.0, True, None, []
+            logger.info(f"User doc mode — context length: {len(doc_context)}")
         else:
-            context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
-            logger.info("Chit-chat / no book loaded")
+            # Use per-book cached index (no global state race condition)
+            searcher = get_book_index(book_id)
+
+            # Subject-agnostic — searches whenever a book is loaded,
+            # regardless of whether the question sounds like "chemistry".
+            use_textbook = should_search_textbook(question, chunks_loaded=bool(searcher.chunks))
+            logger.info(f"Search textbook: {use_textbook} | book: {book_id}")
+
+            if use_textbook:
+                context, similarity, is_relevant, source, all_sources = searcher.smart_search(question, top_k=5)
+                logger.debug(f"Score: {similarity:.4f} | Relevant: {is_relevant}")
+            else:
+                context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
+                logger.info("Chit-chat / no book loaded")
 
         # ── Shared prompt helpers ─────────────────────────────────────────
 
@@ -1566,7 +1571,12 @@ def ask():
         }
         complexity_instruction = complexity_levels[complexity]
 
-        ctx_block = f"TEXTBOOK CONTEXT (from {BOOK_LIBRARY.get(book_id, {}).get('name', 'textbook')}):\n{context}\n\n" if is_relevant else ""
+        if doc_context and is_relevant:
+            ctx_block = f"DOCUMENT CONTENT (uploaded by the student — answer based on this):\n{context}\n\n"
+        elif is_relevant:
+            ctx_block = f"TEXTBOOK CONTEXT (from {BOOK_LIBRARY.get(book_id, {}).get('name', 'textbook')}):\n{context}\n\n"
+        else:
+            ctx_block = ""
         sel_block = f"SELECTED PASSAGE (highlighted by the student in the PDF — answer with this as primary focus):\n\"{selected_text}\"\n\n" if selected_text else ""
 
         # Build user memory block (already sanitized + injection-checked at read time)
