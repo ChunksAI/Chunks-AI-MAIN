@@ -378,11 +378,7 @@ Rules:
 
   let _authHeaders = { 'Content-Type': 'application/json' };
   try {
-    const _sb = await (window._getChunksSb?.() ?? Promise.resolve(null));
-    if (_sb) {
-      const { data: _sess } = await _sb.auth.getSession();
-      if (_sess?.session?.access_token) _authHeaders['Authorization'] = 'Bearer ' + _sess.session.access_token;
-    }
+    _authHeaders = { ..._authHeaders, ...await window._getAuthHeader?.() ?? {} };
   } catch (_) {}
 
   let _spAttempt = 0;
@@ -674,7 +670,7 @@ Use **bold** for key terms. Use ### headings to separate sections. Use bullet li
   try {
     const resp = await fetch(API_BASE + '/ask', {
       method: 'POST', signal: _explainAbortCtrl.signal,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
       body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }),
     });
     if (!resp.ok) throw new Error('API error ' + resp.status);
@@ -732,7 +728,7 @@ export async function spFcGenerate() {
   try {
     const concept = _spDrawerConcept;
     const res = await fetch(API_BASE + '/generate-flashcards', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
       body: JSON.stringify({ topic: concept.title + (concept.description ? ': ' + concept.description : ''), bookId: null, count: 8 }),
     });
     if (!res.ok) throw new Error('Server error ' + res.status);
@@ -927,7 +923,7 @@ export async function spPqGenerate() {
   const concept = _spDrawerConcept;
   const prompt  = `Generate exactly 5 short-answer practice questions about: "${concept.title}".\n${concept.description ? 'Context: ' + concept.description : ''}\n${concept.keyTerms?.length ? 'Key terms: ' + concept.keyTerms.join(', ') : ''}\n\nRules:\n- Questions should test understanding, not just recall\n- Each should be answerable in 1-3 sentences\n- Vary difficulty: 2 easy, 2 medium, 1 hard\n- Output ONLY a raw JSON array, no markdown:\n[{"question":"...","ideal_answer":"...","key_points":["point1","point2"]}]`;
   try {
-    const res  = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(6); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
+    const res  = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} }, body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(6); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
     if (!res.ok) throw new Error('Server error ' + res.status);
     const data = await res.json();
     _spPqQuestions = JSON.parse((data.answer || data.response || data.text || '').trim().replace(/```(?:json)?/g,'').trim());
@@ -967,7 +963,7 @@ export async function spPqSubmit() {
   const q = _spPqQuestions[_spPqIndex];
   const prompt = `You are a tutor grading a student's short-answer response.\n\nQuestion: ${q.question}\nIdeal answer covers: ${q.ideal_answer}\nKey points to check: ${(q.key_points || []).join('; ')}\n\nStudent's answer: "${answer}"\n\nGrade the answer and respond ONLY as raw JSON (no markdown):\n{"correct": true/false, "score": 0-100, "feedback": "1-2 sentence explanation of what was right/wrong and the correct answer"}`;
   try {
-    const res    = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(5); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
+    const res    = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} }, body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(5); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
     const data   = await res.json();
     const result = JSON.parse((data.answer || data.response || data.text || '').trim().replace(/```(?:json)?/g,'').trim());
     if (result.correct || result.score >= 60) _spPqScore++;
@@ -1020,7 +1016,7 @@ export async function spExamGenerate() {
   const concept = _spDrawerConcept;
   const prompt  = `Generate exactly 10 multiple-choice exam questions about: "${concept.title}".\n${concept.description ? 'Context: ' + concept.description : ''}\n${concept.keyTerms?.length ? 'Key terms: ' + concept.keyTerms.join(', ') : ''}\n\nRules:\n- 4 options labeled A-D, one correct answer\n- Mix of easy, medium, and hard questions\n- Test understanding and application, not just definitions\n- Output ONLY a raw JSON array, no markdown:\n[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"1 sentence why this is correct"}]`;
   try {
-    const res  = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
+    const res  = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} }, body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
     if (!res.ok) throw new Error('Server error ' + res.status);
     const data = await res.json();
     _spExamQuestions = JSON.parse((data.answer || data.response || data.text || '').trim().replace(/```(?:json)?/g,'').trim());
