@@ -941,7 +941,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-export { _wsSelectedText };
+
 
 // ── Attachment system ─────────────────────────────────────────────────────
 
