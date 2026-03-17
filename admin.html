@@ -678,6 +678,10 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
         <div class="nav-live"></div>
         Admin Panel
       </div>
+      <div id="realtime-status-badge" style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:var(--r-pill);background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.2);font-family:var(--font-mono);font-size:10px;color:var(--green);margin-left:6px;">
+        <span id="realtime-status-dot" style="width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);display:inline-block;animation:pulse 1.4s ease-in-out infinite;"></span>
+        <span id="realtime-status-label">Connecting…</span>
+      </div>
     </div>
   </div>
   <div class="nav-right">
@@ -1587,7 +1591,8 @@ async function _adminFetch(path, opts={}) {
 // LOAD USERS
 async function loadUsers(){
   const tbody=document.getElementById('users-tbody');
-  tbody.innerHTML='<tr><td colspan="6" class="empty-state loading-dots">Loading</td></tr>';
+  // Only show loading state on first load (table is empty)
+  if(!allUsers.length) tbody.innerHTML='<tr><td colspan="5" class="empty-state loading-dots">Loading</td></tr>';
   let data, error;
   try {
     const json = await _adminFetch('/api/admin/users');
@@ -1601,13 +1606,13 @@ async function loadUsers(){
   }
   if(error){
     console.error('[Admin] loadUsers error:', error);
-    tbody.innerHTML=`<tr><td colspan="5" class="empty-state" style="color:var(--red);">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="5" class="empty-state" style="color:var(--red);">Error loading users: ${error.message}</td></tr>`;
     return;
   }
   allUsers=data||[];
   const now=new Date();
   for(const u of allUsers){
-    if(u.role==='owner'||u.role==='admin'||u.role==='superadmin')continue;  // skip admin users in auto-revoke
+    if(u.role==='owner'||u.role==='admin'||u.role==='superadmin')continue;
     if(u.paid&&u.subscription_end&&new Date(u.subscription_end)<now){
       console.log('⏰ Auto-revoking:',u.email);
       await sb.from('users').update({plan:'free',approved:true,paid:false,subscription_start:null,subscription_end:null}).eq('email',u.email);
@@ -1808,68 +1813,105 @@ function toast(msg,isError){
 }
 
 function startRealtimeSync(){
-  if(window._adminChannel){try{sb.removeChannel(window._adminChannel);}catch(e){}}
-  window._adminChannel=sb.channel('admin-users-watch')
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'users'},(payload)=>{
-      toast('🔔 New signup: '+(payload.new.email||'unknown'));
-      if(payload.new?.email){if(!allUsers.some(u=>u.email===payload.new.email))allUsers.push(payload.new);updateStats();renderTable();}
-      loadUsers();
-    })
-    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'users'},(payload)=>{
-      if(payload.new?.email){const idx=allUsers.findIndex(u=>u.email===payload.new.email);if(idx!==-1)allUsers[idx]=Object.assign({},allUsers[idx],payload.new);else allUsers.push(payload.new);updateStats();renderTable();}
-      loadUsers();
-    })
-    .subscribe(s=>console.log('Admin Realtime:',s));
-  if(window._presenceChannel){try{sb.removeChannel(window._presenceChannel);}catch(e){}}
-  window._presenceChannel=sb.channel('app-presence');
-  window._presenceChannel
-    .on('presence',{event:'sync'},()=>{
-      const state=window._presenceChannel.presenceState();
-      onlineEmails=new Set();onlineGuestCount=0;
-      for(const ps of Object.values(state)){
-        for(const p of ps){
-          if(p.type==='guest') onlineGuestCount++;
-          else if(p.type==='user' && p.email) onlineEmails.add(p.email.toLowerCase());
-        }
+  // ── Status indicator ────────────────────────────────────────────────────
+  function setRealtimeStatus(ok, msg) {
+    const dot = document.getElementById('realtime-status-dot');
+    const lbl = document.getElementById('realtime-status-label');
+    if (dot) { dot.style.background = ok ? 'var(--green)' : 'var(--amber)'; dot.style.boxShadow = ok ? '0 0 6px var(--green)' : '0 0 6px var(--amber)'; }
+    if (lbl) lbl.textContent = msg || (ok ? 'Live' : 'Reconnecting…');
+  }
+
+  // ── DB Changes channel (INSERT/UPDATE/DELETE on users table) ────────────
+  if(window._adminChannel){ try{sb.removeChannel(window._adminChannel);}catch(e){} }
+  window._adminChannel = sb
+    .channel('admin-users-watch', { config: { broadcast: { self: false } } })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'users' }, (payload) => {
+      console.log('[Admin] DB INSERT:', payload.new?.email);
+      toast('🔔 New signup: ' + (payload.new?.email || 'unknown'));
+      if (payload.new?.email && !allUsers.some(u => u.email === payload.new.email)) {
+        allUsers.unshift(payload.new);
       }
-      document.getElementById('stat-online').textContent=onlineEmails.size;
-      document.getElementById('stat-guests').textContent=onlineGuestCount;
-      updateStats();renderTable();
+      updateStats(); renderTable();
     })
-    .on('presence',{event:'join'},({newPresences})=>{
-      for(const p of newPresences){
-        if(p.type==='guest') onlineGuestCount++;
-        else if(p.type==='user' && p.email) onlineEmails.add(p.email.toLowerCase());
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'users' }, (payload) => {
+      console.log('[Admin] DB UPDATE:', payload.new?.email);
+      if (payload.new?.email) {
+        const idx = allUsers.findIndex(u => u.email === payload.new.email);
+        if (idx !== -1) allUsers[idx] = { ...allUsers[idx], ...payload.new };
+        else allUsers.unshift(payload.new);
       }
-      document.getElementById('stat-online').textContent=onlineEmails.size;
-      document.getElementById('stat-guests').textContent=onlineGuestCount;
-      updateStats();renderTable();
+      updateStats(); renderTable();
     })
-    .on('presence',{event:'leave'},({leftPresences})=>{
-      for(const p of leftPresences){
-        if(p.type==='guest') onlineGuestCount=Math.max(0,onlineGuestCount-1);
-        else if(p.type==='user' && p.email){
-          const state=window._presenceChannel.presenceState();
-          const still=Object.values(state).flat().some(x=>x.type==='user'&&x.email&&x.email.toLowerCase()===p.email.toLowerCase());
-          if(!still) onlineEmails.delete(p.email.toLowerCase());
-        }
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'users' }, (payload) => {
+      console.log('[Admin] DB DELETE:', payload.old?.email);
+      if (payload.old?.email) {
+        allUsers = allUsers.filter(u => u.email !== payload.old.email);
       }
-      document.getElementById('stat-online').textContent=onlineEmails.size;
-      document.getElementById('stat-guests').textContent=onlineGuestCount;
-      updateStats();renderTable();
+      updateStats(); renderTable();
     })
-    .subscribe((status,err)=>{
-      console.log('[Admin] Presence status:',status,err||'');
-      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
-        console.warn('[Admin] Presence error — retrying in 5s');
-        setTimeout(()=>startRealtimeSync(),5000);
+    .subscribe((status, err) => {
+      console.log('[Admin] DB channel status:', status, err || '');
+      if (status === 'SUBSCRIBED') {
+        setRealtimeStatus(true, 'Live');
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        setRealtimeStatus(false, 'Reconnecting…');
+        setTimeout(() => startRealtimeSync(), 5000);
       }
     });
-  // Periodic refresh every 30s to keep stats fresh
-  if(window._statsRefreshInterval) clearInterval(window._statsRefreshInterval);
-  window._statsRefreshInterval = setInterval(()=>{
-    loadUsers();
-  }, 30000);
+
+  // ── Presence channel (who's online right now) ────────────────────────────
+  if(window._presenceChannel){ try{sb.removeChannel(window._presenceChannel);}catch(e){} }
+  window._presenceChannel = sb.channel('app-presence', {
+    config: { presence: { key: 'admin-observer' } }
+  });
+  window._presenceChannel
+    .on('presence', { event: 'sync' }, () => {
+      const state = window._presenceChannel.presenceState();
+      onlineEmails = new Set(); onlineGuestCount = 0;
+      for (const presences of Object.values(state)) {
+        for (const p of presences) {
+          if (p.type === 'guest') onlineGuestCount++;
+          else if (p.type === 'user' && p.email) onlineEmails.add(p.email.toLowerCase());
+        }
+      }
+      document.getElementById('stat-online').textContent = onlineEmails.size;
+      document.getElementById('stat-guests').textContent = onlineGuestCount;
+      updateStats(); renderTable();
+    })
+    .on('presence', { event: 'join' }, ({ newPresences }) => {
+      for (const p of newPresences) {
+        if (p.type === 'guest') onlineGuestCount++;
+        else if (p.type === 'user' && p.email) onlineEmails.add(p.email.toLowerCase());
+      }
+      document.getElementById('stat-online').textContent = onlineEmails.size;
+      document.getElementById('stat-guests').textContent = onlineGuestCount;
+      updateStats(); renderTable();
+    })
+    .on('presence', { event: 'leave' }, ({ leftPresences }) => {
+      // Re-sync full state on leave to avoid stale counts
+      const state = window._presenceChannel.presenceState();
+      onlineEmails = new Set(); onlineGuestCount = 0;
+      for (const presences of Object.values(state)) {
+        for (const p of presences) {
+          if (p.type === 'guest') onlineGuestCount++;
+          else if (p.type === 'user' && p.email) onlineEmails.add(p.email.toLowerCase());
+        }
+      }
+      document.getElementById('stat-online').textContent = onlineEmails.size;
+      document.getElementById('stat-guests').textContent = onlineGuestCount;
+      updateStats(); renderTable();
+    })
+    .subscribe((status, err) => {
+      console.log('[Admin] Presence status:', status, err || '');
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.warn('[Admin] Presence error — retrying in 5s');
+        setTimeout(() => startRealtimeSync(), 5000);
+      }
+    });
+
+  // ── Periodic full refresh every 20s as fallback ──────────────────────────
+  if (window._statsRefreshInterval) clearInterval(window._statsRefreshInterval);
+  window._statsRefreshInterval = setInterval(() => { loadUsers(); }, 20000);
 }
 
 window.addEventListener('load',checkAdminSession);
