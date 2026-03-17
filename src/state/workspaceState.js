@@ -568,21 +568,26 @@ export function _wsUpdateOutlineActive(currentPage) {
 // ── Library search filters ────────────────────────────────────────────────
 
 export function filterLibrary(q) {
+  const modal = document.getElementById('library-modal');
+  if (!modal) return;
   const query = q.toLowerCase();
-  document.querySelectorAll('.library-book-card').forEach(card => {
+  modal.querySelectorAll('.library-book-card').forEach(card => {
     card.style.display = card.textContent.toLowerCase().includes(query) ? '' : 'none';
   });
-  document.querySelectorAll('.lib-section').forEach(sec => {
+  modal.querySelectorAll('.lib-section').forEach(sec => {
     sec.style.display = [...sec.querySelectorAll('.library-book-card')].some(c => c.style.display !== 'none') ? '' : 'none';
   });
-  document.getElementById('lib-empty-state').style.display =
-    [...document.querySelectorAll('.library-book-card')].every(c => c.style.display === 'none') ? 'flex' : 'none';
+  const emptyEl = document.getElementById('lib-empty-state');
+  if (emptyEl) emptyEl.style.display =
+    [...modal.querySelectorAll('.library-book-card')].every(c => c.style.display === 'none') ? 'flex' : 'none';
 }
 
 export function filterLibSection(section, btn) {
-  document.querySelectorAll('.lib-pill').forEach(p => p.classList.remove('active'));
+  const modal = document.getElementById('library-modal');
+  if (!modal) return;
+  modal.querySelectorAll('.lib-pill').forEach(p => p.classList.remove('active'));
   btn.classList.add('active');
-  document.querySelectorAll('.lib-section').forEach(sec => {
+  modal.querySelectorAll('.lib-section').forEach(sec => {
     sec.style.display = (section === 'all' || sec.dataset.section === section) ? '' : 'none';
   });
 }
