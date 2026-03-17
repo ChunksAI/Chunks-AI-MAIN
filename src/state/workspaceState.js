@@ -616,7 +616,7 @@ export function wsRemoveThinking() {
   if (el) { clearInterval(el._labelTimer); el.remove(); }
 }
 
-export function wsAppendAI(answer, sources, question) {
+export function wsAppendAI(answer, sources, question, searchMode) {
   const msgs     = document.getElementById('ws-messages');
   const bookName = document.getElementById('ws-book-name')?.textContent || '';
   const msgId    = 'ws-msg-' + Date.now();
@@ -662,6 +662,14 @@ export function wsAppendAI(answer, sources, question) {
       <button onclick="wsMakeFlashcard(this,'${msgId}',\`${(question||'').replace(/`/g,"'").replace(/\n/g,' ').slice(0,120)}\`)" style="font-size:11px;padding:4px 10px;border-radius:var(--r-pill);background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);cursor:pointer;font-family:var(--font-body);">Save flashcard</button>
     </div>` : '';
 
+  const isHybrid = searchMode === 'hybrid';
+  const searchModeBadge = searchMode ? `
+    <span title="${isHybrid ? 'Semantic search active: 70% vector similarity + 30% keyword (TF-IDF)' : 'Keyword search only — semantic embeddings not available'}"
+      style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-family:var(--font-mono);padding:2px 7px;border-radius:var(--r-pill);border:1px solid ${isHybrid ? 'var(--gold-border)' : 'var(--border-sm)'};color:${isHybrid ? 'var(--gold)' : 'var(--text-4)'};background:${isHybrid ? 'var(--gold-muted)' : 'var(--surface-2)'};cursor:default;user-select:none;">
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      ${isHybrid ? 'semantic' : 'keyword'}
+    </span>` : '';
+
   const d = document.createElement('div');
   d.className = 'msg msg-ai'; d.id = msgId;
   d.innerHTML = `
@@ -680,6 +688,7 @@ export function wsAppendAI(answer, sources, question) {
           <button class="msg-act" onclick="_wsRegenerate('${msgId}', \`${(question||'').replace(/`/g,"'").replace(/\n/g,' ')}\`)">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.67"/></svg> Regenerate
           </button>
+          ${searchModeBadge}
         </div>
         ${followupHtml}
         ${autoFlashHtml}
@@ -757,7 +766,7 @@ export async function _wsAsk(question) {
     } else {
       const data   = await res.json();
       const answer = data.answer || 'No response.';
-      wsAppendAI(answer, data.sources || [], question);
+      wsAppendAI(answer, data.sources || [], question, data.search_mode);
       _wsChatHistory.push({ role: 'assistant', content: answer });
       if (typeof _saveWsSession === 'function') _saveWsSession(_wsBookId, _wsChatHistory);
     }
