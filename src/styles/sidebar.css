@@ -303,21 +303,6 @@
 
 .sidebar-divider { height: 1px; background: var(--border-xs); margin: 4px 16px; }
 
-/* ── Locked nav item (in development) ──────────────────────────────────── */
-.sidebar-item-locked {
-  opacity: 0.38;
-  position: relative;
-}
-.sidebar-item-locked:hover { background: transparent !important; color: inherit !important; }
-.sidebar-item-locked svg   { opacity: 0.38 !important; }
-
-.sidebar-lock-badge {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  opacity: 0.6;
-}
-
 /* ── Footer / profile row ─────────────────────────────────── */
 .sidebar-footer { flex-shrink: 0; border-top: 1px solid var(--border-xs); padding: 10px; }
 
