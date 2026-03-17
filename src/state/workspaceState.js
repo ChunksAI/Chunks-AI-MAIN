@@ -39,6 +39,11 @@ export let _wsTotalPages    = 0;
 export let _wsPageContainers = [];
 export const ZOOM_STEP = 0.2, ZOOM_MIN = 0.6, ZOOM_MAX = 3.0;
 
+// Stored references so we can remove them before attaching new ones on book reload.
+// Without these, every selectBook() call stacks another listener on the same element.
+let _wsPdfScrollHandler  = null;   // current scroll listener on #ws-pdf-canvas-wrap
+let _wsPdfObserver       = null;   // current IntersectionObserver for lazy page rendering
+
 // ── Chat state ─────────────────────────────────────────────────────────────
 
 export let _wsBookId      = localStorage.getItem('chunks_default_book') || 'atkins';
@@ -358,18 +363,30 @@ export async function selectBook(bookId) {
       }
     });
 
-    const observer = new IntersectionObserver(entries => {
+    // ── Teardown previous listeners before attaching new ones ─────────────
+    // Without this, every book load stacks another scroll handler and
+    // IntersectionObserver on the same #ws-pdf-canvas-wrap element.
+    if (_wsPdfScrollHandler) {
+      wrap.removeEventListener('scroll', _wsPdfScrollHandler);
+      _wsPdfScrollHandler = null;
+    }
+    if (_wsPdfObserver) {
+      _wsPdfObserver.disconnect();
+      _wsPdfObserver = null;
+    }
+
+    _wsPdfObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           const num = parseInt(entry.target.dataset.pageNum);
           _wsRenderPage(num, entry.target);
-          observer.unobserve(entry.target);
+          _wsPdfObserver.unobserve(entry.target);
         }
       });
     }, { root: wrap, rootMargin: '300px' });
-    _wsPageContainers.slice(2).forEach(c => observer.observe(c));
+    _wsPageContainers.slice(2).forEach(c => _wsPdfObserver.observe(c));
 
-    wrap.addEventListener('scroll', () => {
+    _wsPdfScrollHandler = () => {
       const scrollMid = wrap.scrollTop + wrap.clientHeight / 2;
       let closest = 1;
       for (let i = 0; i < _wsPageContainers.length; i++) {
@@ -382,7 +399,8 @@ export async function selectBook(bookId) {
         _wsUpdateBadge(closest);
         _wsUpdateOutlineActive(closest);
       }
-    });
+    };
+    wrap.addEventListener('scroll', _wsPdfScrollHandler);
 
     document.getElementById('ws-pdf-loading').style.display    = 'none';
     document.getElementById('ws-default-content').style.display = 'none';
