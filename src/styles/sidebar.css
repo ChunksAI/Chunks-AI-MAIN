@@ -338,10 +338,12 @@
 .profile-plan { font-size: 11px; color: var(--text-3); }
 
 /* ── Profile dropdown menu ────────────────────────────────── */
+/* ── Profile dropdown ─────────────────────────────────────── */
 .profile-dropdown {
+  display: none;
   position: fixed;
   bottom: 60px;
-  left: -9999px;
+  left: 10px;
   width: 230px;
   background: var(--surface-2);
   border: 1px solid var(--border-md);
@@ -350,18 +352,15 @@
   z-index: 10000;
   overflow: hidden;
   opacity: 0;
-  visibility: hidden;
   transform: translateY(8px) scale(0.97);
   pointer-events: none;
-  transition: opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring), visibility 0s linear var(--t-mid);
+  transition: opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring);
 }
 .profile-dropdown.open {
-  left: 10px;
+  display: block;
   opacity: 1;
-  visibility: visible;
   transform: translateY(0) scale(1);
   pointer-events: all;
-  transition: left 0s, opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring), visibility 0s linear 0s;
 }
 
 /* Header inside dropdown */
@@ -419,18 +418,18 @@
 
 /* ── Help / Terms submenu ─────────────────────────────────── */
 .pd-submenu {
+  display: none;
   position: fixed;
-  top: 0; left: -9999px;
+  top: 0; left: 0;
   background: var(--surface-2);
   border: 1px solid var(--border-md);
   border-radius: var(--r-lg);
   box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
   z-index: 10001;
   opacity: 0;
-  visibility: hidden;
   transform: translateX(-6px) scale(0.97);
   pointer-events: none;
-  transition: opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring), visibility 0s linear var(--t-mid);
+  transition: opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring);
   min-width: 190px;
 }
 .pd-submenu::before {
@@ -441,12 +440,10 @@
   width: 20px;
 }
 .pd-submenu.open {
-  left: auto;
+  display: block;
   opacity: 1;
-  visibility: visible;
   transform: translateX(0) scale(1);
   pointer-events: all;
-  transition: opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring), visibility 0s linear 0s;
 }
 .pd-submenu .pd-menu { border-radius: var(--r-lg); overflow: hidden; padding: 4px; }
 .pd-submenu .pd-item { padding: 8px 12px; font-size: 13px; border-radius: var(--r-sm); margin: 0; }
