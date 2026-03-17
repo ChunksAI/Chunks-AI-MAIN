@@ -26,6 +26,7 @@ import time
 import threading
 from enum import Enum
 from cachetools import TTLCache
+import redis as redis_lib
 
 
 # ── Tier enum ─────────────────────────────────────────────────────────────────
@@ -306,14 +307,33 @@ def after_request(response):
     return response
 
 
-# ── Rate Limiting ─────────────────────────────────────────────────────────────
-# Use Redis when REDIS_URL is set (production) — survives restarts and is shared
-# across all Gunicorn workers/dynos so limits are enforced globally.
-# Falls back to in-memory when REDIS_URL is absent (local dev) with a warning.
+# ── Redis client + Rate Limiting ──────────────────────────────────────────────
+# A single Redis connection is shared by:
+#   1. flask-limiter  — endpoint rate limits (requests/minute, requests/hour)
+#   2. _get_and_increment_daily_count — free-tier daily message counter
+#
+# In production: set REDIS_URL to your Railway Redis URL, e.g.
+#   redis://default:<password>@<host>:<port>
+# In local dev: leave REDIS_URL unset — falls back to in-memory (limits reset
+# on restart and are NOT shared across workers, so use only for dev).
 _REDIS_URL = os.environ.get('REDIS_URL', '')
+
+_redis: redis_lib.Redis | None = None
 if _REDIS_URL:
-    _limiter_storage = _REDIS_URL          # e.g. redis://localhost:6379/0
-    logger.info("Rate limiter: Redis backend (%s)", _REDIS_URL.split("@")[-1])
+    try:
+        _redis = redis_lib.from_url(
+            _REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=3,
+            socket_timeout=3,
+        )
+        _redis.ping()                        # fail fast if URL is wrong
+        _limiter_storage = _REDIS_URL
+        logger.info("Redis connected: %s", _REDIS_URL.split("@")[-1])
+    except Exception as _redis_err:
+        logger.warning("⚠️  Redis connection failed (%s) — falling back to in-memory.", _redis_err)
+        _redis = None
+        _limiter_storage = "memory://"
 else:
     _limiter_storage = "memory://"
     logger.warning(
@@ -411,43 +431,56 @@ def _get_user_tier_from_db(user_id: str) -> Tier:
 
 def _get_and_increment_daily_count(user_id: str, date_str: str) -> int:
     """
-    Atomically read + increment a daily message counter for a user in Supabase.
-    Table: free_tier_usage (user_id uuid, date date, count int)
+    Atomically increment a daily message counter for a user.
     Returns the NEW count after incrementing.
-    Falls back to in-memory counter if Supabase is unavailable.
+
+    Priority:
+      1. Redis  — atomic INCR + EXPIRE; shared across all Gunicorn workers;
+                  survives deploys as long as Redis persists.
+      2. Supabase RPC — cross-deploy persistence; used to sync popular counts.
+      3. In-memory dict — local dev / last resort; not shared across workers.
     """
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        # Fallback: in-memory counter keyed by user_id (or IP) + date
-        key = f"freetier:{user_id}:{date_str}"
-        count = _free_tier_counters.get(key, 0) + 1
-        _free_tier_counters[key] = count
-        return count
-
-    try:
-        # Upsert: increment count or insert 1 if no row yet.
-        # Uses Supabase RPC for atomic increment to avoid race conditions.
-        resp = _session.post(
-            f"{SUPABASE_URL}/rest/v1/rpc/increment_free_tier_usage",
-            json={"p_user_id": user_id, "p_date": date_str},
-            headers={
-                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                "apikey": SUPABASE_SERVICE_KEY,
-                "Content-Type": "application/json",
-            },
-            timeout=5
-        )
-        if resp.status_code == 200:
-            result = resp.json()
-            # RPC returns the new count as an integer
-            if isinstance(result, int):
-                return result
-            if isinstance(result, dict):
-                return result.get('count', 1)
-    except Exception as e:
-        logger.warning(f"Supabase daily count error: {e}")
-
-    # Fallback to in-memory on any Supabase failure
     key = f"freetier:{user_id}:{date_str}"
+
+    # ── 1. Redis (production path) ────────────────────────────────────────────
+    if _redis is not None:
+        try:
+            count = _redis.incr(key)          # atomic: creates key at 1 if absent
+            if count == 1:
+                _redis.expire(key, 86400)     # expire after 24 h on first write
+            return count
+        except Exception as e:
+            logger.warning("Redis counter error (falling through): %s", e)
+
+    # ── 2. Supabase RPC ───────────────────────────────────────────────────────
+    if SUPABASE_URL and SUPABASE_SERVICE_KEY:
+        try:
+            resp = _session.post(
+                f"{SUPABASE_URL}/rest/v1/rpc/increment_free_tier_usage",
+                json={"p_user_id": user_id, "p_date": date_str},
+                headers={
+                    "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+                    "apikey": SUPABASE_SERVICE_KEY,
+                    "Content-Type": "application/json",
+                },
+                timeout=5
+            )
+            if resp.status_code == 200:
+                result = resp.json()
+                if isinstance(result, int):
+                    return result
+                if isinstance(result, dict):
+                    return result.get('count', 1)
+        except Exception as e:
+            logger.warning("Supabase daily count error (falling through): %s", e)
+
+    # ── 3. In-memory fallback (dev / last resort) ─────────────────────────────
+    # Prune stale keys to prevent unbounded growth (only relevant in this path)
+    if len(_free_tier_counters) > 50000:
+        _old_day = (datetime.utcnow() - timedelta(days=2)).strftime('%Y-%m-%d')
+        for k in list(_free_tier_counters.keys()):
+            if _old_day in k:
+                del _free_tier_counters[k]
     count = _free_tier_counters.get(key, 0) + 1
     _free_tier_counters[key] = count
     return count
@@ -1286,14 +1319,6 @@ def ask():
             server_tier = Tier.FREE
             # Use IP as fallback identifier for unauthenticated requests
             verified_user_id = f'ip:{get_remote_address()}'
-
-        # Prune old in-memory keys to prevent unbounded growth
-        if len(_free_tier_counters) > 50000:
-            # FIX: use timedelta for correct date arithmetic (replace(day=...) breaks at month boundaries)
-            _old_day = (datetime.utcnow() - timedelta(days=2)).strftime('%Y-%m-%d')
-            for k in list(_free_tier_counters.keys()):
-                if _old_day in k:
-                    del _free_tier_counters[k]
 
         if not server_tier.is_paid:
             day_key = datetime.utcnow().strftime('%Y-%m-%d')
