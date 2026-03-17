@@ -193,26 +193,25 @@ export async function _wsRenderPage(pageNum, container) {
     if (textDiv) textDiv.remove();
     textDiv = document.createElement('div');
     textDiv.className = 'ws-text-layer';
-    // Must match canvas exactly and sit above it (later in DOM = higher stacking)
+    // PDF.js 3.x requires --scale-factor CSS var on the container
     textDiv.style.cssText = [
-      `position:absolute`,
-      `top:0`,
-      `left:0`,
+      'position:absolute',
+      'top:0',
+      'left:0',
       `width:${viewport.width}px`,
       `height:${viewport.height}px`,
-      `overflow:hidden`,
-      `line-height:1`,
-      `pointer-events:auto`,
-      `user-select:text`,
-      `-webkit-user-select:text`,
+      'overflow:hidden',
+      'line-height:1',
+      'pointer-events:auto',
+      'user-select:text',
+      '-webkit-user-select:text',
+      `--scale-factor:${viewport.scale}`,
     ].join(';');
     container.appendChild(textDiv);
 
     const pdfjsLib = window.pdfjsLib;
     if (!pdfjsLib) return;
 
-    // PDF.js 3.x: use streamTextContent for renderTextLayer
-    // renderTextLayer returns a task with a .promise
     try {
       const textStream = page.streamTextContent({ includeMarkedContent: false });
       const textDivs   = [];
@@ -224,20 +223,14 @@ export async function _wsRenderPage(pageNum, container) {
       });
       await task.promise;
 
-      // Apply transform to each span so text lines up with the canvas glyphs
+      // PDF.js positions each span — just make them transparent + selectable
       textDivs.forEach(el => {
-        if (!el.style.transform) return;
-        // PDF.js already sets transform — just ensure the element is visible for selection
-        el.style.color          = 'transparent';
-        el.style.position       = 'absolute';
-        el.style.whiteSpace     = 'pre';
-        el.style.cursor         = 'text';
-        el.style.transformOrigin = '0% 0%';
-        el.style.pointerEvents  = 'auto';
+        el.style.color         = 'transparent';
+        el.style.cursor        = 'text';
+        el.style.pointerEvents = 'auto';
       });
     } catch (layerErr) {
-      // Fallback for PDF.js builds where renderTextLayer signature differs
-      console.warn('[ws] Text layer render failed, falling back:', layerErr.message);
+      console.warn('[ws] renderTextLayer failed, manual fallback:', layerErr.message);
       try {
         const textContent = await page.getTextContent();
         _wsManualTextLayer(textDiv, textContent, viewport);
