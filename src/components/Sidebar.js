@@ -17,19 +17,26 @@
 
 // ── SVG constants ──────────────────────────────────────────────────────────
 
-const LOGO_SVG = `
+// Gradient IDs must be unique per sidebar instance — if multiple sidebars
+// share the same ID, browsers resolve url(#id) against the first definition
+// found in the DOM, making every other screen's logo render as a bare dot.
+const _logoSvg = (screen) => {
+  const a = `sb-gv-${screen}`;
+  const b = `sb-vg-${screen}`;
+  return `
   <defs>
-    <linearGradient id="sb-lg-gv" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="${a}" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/>
     </linearGradient>
-    <linearGradient id="sb-lg-vg" x1="100%" y1="0%" x2="0%" y2="100%">
+    <linearGradient id="${b}" x1="100%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/>
     </linearGradient>
   </defs>
-  <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#sb-lg-gv)" stroke-width="7" opacity="0.95"/>
-  <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#sb-lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
-  <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#sb-lg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+  <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#${a})" stroke-width="7" opacity="0.95"/>
+  <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#${b})" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+  <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#${a})" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
   <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>`;
+};
 
 const PANEL_ICON = `<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
   <rect x="1.5" y="1.5" width="17" height="17" rx="3.5" stroke="currentColor" stroke-width="1.6"/>
@@ -163,7 +170,7 @@ export function buildSidebar(screen) {
   return `
     <div class="sidebar-header">
       <div class="logo-link" data-action="handleLogoClick-self" title="Go to home / expand">
-        <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">${LOGO_SVG}
+        <svg class="logo-mark" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">${_logoSvg(screen)}
         </svg>
         <span class="logo-text">Chunks</span>
         <div class="sidebar-expand-btn" title="Expand sidebar">${PANEL_ICON}</div>
