@@ -642,6 +642,7 @@ async function _fcProcessUploadedFile(file) {
 
     const uploadRes = await fetch(`${window.API_BASE}/upload-document`, {
       method: 'POST',
+      headers: { ...await window._getAuthHeader?.() ?? {} },
       body:   formData,
     });
     const uploadData = await uploadRes.json();
@@ -658,7 +659,7 @@ async function _fcProcessUploadedFile(file) {
 
     const matRes = await fetch(`${window.API_BASE}/generate-study-materials`, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
       body:    JSON.stringify({ slides, type: 'flashcards' }),
     });
     const matData = await matRes.json();
@@ -751,7 +752,7 @@ async function _fcGenerateFromBar() {
   try {
     const res  = await fetch(`${window.API_BASE}/generate-flashcards`, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
       body:    JSON.stringify({ topic, count }),
     });
     const data = await res.json();
@@ -1068,7 +1069,7 @@ Be warm, encouraging, and concise. No bullet points — write naturally like a t
 
     const res = await fetch(`${window.API_BASE}/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
       signal: window._fcTutorAbort.signal,
       body: JSON.stringify({
         question:   prompt,
