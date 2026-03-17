@@ -98,15 +98,20 @@ function _applyUI(user) {
     if (avatar) {
       el.classList.remove('has-initials');
       el.textContent = '';
-      // Set background as shorthand so all sub-properties are consistent
-      el.style.cssText += ';background:url(' + avatar + ') center/cover no-repeat;';
+      el.style.setProperty('background-image', 'url(' + avatar + ')');
+      el.style.setProperty('background-size', 'cover');
+      el.style.setProperty('background-position', 'center');
+      el.style.setProperty('background-color', 'transparent');
+      el.style.setProperty('background-repeat', 'no-repeat');
     } else {
       // Remove ALL inline background overrides so .has-initials CSS gradient shows
       el.classList.add('has-initials');
-      el.style.removeProperty('background');
       el.style.removeProperty('background-image');
       el.style.removeProperty('background-size');
       el.style.removeProperty('background-position');
+      el.style.removeProperty('background-color');
+      el.style.removeProperty('background-repeat');
+      el.style.removeProperty('background');
       el.textContent = fallbackText;
     }
   }
