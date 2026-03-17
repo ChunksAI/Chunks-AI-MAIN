@@ -126,23 +126,53 @@ def _extract_email_from_jwt(jwt_token: str) -> str:
     Extract the email claim from a Supabase JWT without verifying signature.
     Checks multiple locations where Supabase stores the email.
     Returns lowercase email string or '' on failure. Never raises.
+
+    CRITICAL: Each candidate is checked separately — never chain 'or' with
+    a ternary operator. Python parses:
+        A or B or C if D else ''
+    as:
+        (A or B or C) if D else ''
+    which returns '' even when A is truthy if D is falsy.
     """
     try:
         payload = _decode_jwt_payload(jwt_token)
         if not payload:
             return ''
-        # Supabase stores email in different places depending on version
-        email = (
-            payload.get('email') or
-            payload.get('user_metadata', {}).get('email') or
-            payload.get('identities', [{}])[0].get('identity_data', {}).get('email') if payload.get('identities') else '' or
-            ''
+
+        # 1. Top-level 'email' claim (most common in Supabase access tokens)
+        email = (payload.get('email') or '').strip()
+        if email:
+            return email.lower()
+
+        # 2. user_metadata.email (Google OAuth provider, Supabase v2)
+        user_meta = payload.get('user_metadata') or {}
+        email = (user_meta.get('email') or '').strip()
+        if email:
+            return email.lower()
+
+        # 3. identities[0].identity_data.email (older Supabase versions)
+        identities = payload.get('identities') or []
+        if identities and isinstance(identities, list):
+            identity_data = (identities[0] or {}).get('identity_data') or {}
+            email = (identity_data.get('email') or '').strip()
+            if email:
+                return email.lower()
+
+        # 4. app_metadata.email (rare fallback)
+        app_meta = payload.get('app_metadata') or {}
+        email = (app_meta.get('email') or '').strip()
+        if email:
+            return email.lower()
+
+        logger.debug(
+            f'JWT email extraction: no email found. '
+            f'Payload keys: {list(payload.keys())}'
         )
-        return (str(email) or '').strip().lower()
+        return ''
+
     except Exception as e:
         logger.debug(f'Email extraction from JWT failed: {e}')
         return ''
-
 
 def _check_admin_role(jwt_token: str) -> tuple:
     """
