@@ -64,6 +64,7 @@ import { mountResearchScreen }   from './screens/ResearchScreen.js';   // Task 2
 import { mountExamScreen }       from './screens/ExamScreen.js';       // Task 29 ✓
 import { mountStudyPlanScreen }  from './screens/StudyPlanScreen.js';  // Task 30 ✓
 import { mountVisualTutorScreen } from './screens/VisualTutorScreen.js'; // Visual Tutor ✓
+import { mountLibraryScreen }    from './screens/LibraryScreen.js';    // Library page ✓
 
 // ── Components (added task-by-task) ───────────────────────────────────────
 import { mountSidebars }           from './components/Sidebar.js';          // Task 19 ✓ — mounts all 6 sidebar placeholders
