@@ -1573,7 +1573,11 @@ def ask():
         }
         complexity_instruction = complexity_levels[complexity]
 
-        if doc_context and is_relevant:
+        # When the student highlighted a passage, that IS the context.
+        # Don't bury it under 5 pages of semantic-search chunks — suppress ctx_block.
+        if selected_text:
+            ctx_block = ""
+        elif doc_context and is_relevant:
             ctx_block = f"DOCUMENT CONTENT (uploaded by the student — answer based on this):\n{context}\n\n"
         elif is_relevant:
             ctx_block = f"TEXTBOOK CONTEXT (from {BOOK_LIBRARY.get(book_id, {}).get('name', 'textbook')}):\n{context}\n\n"
@@ -1947,7 +1951,21 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 })
 
             # ── Normal textbook / general mode ────────────────────────────
-            if is_relevant:
+            if selected_text:
+                # Student highlighted a passage — answer ONLY about that passage
+                prompt = f"""You are a tutor for {book_label}.
+
+The student highlighted this passage from the textbook:
+"{selected_text}"
+
+STUDENT QUESTION: {question}
+
+COMPLEXITY LEVEL {complexity}/10: {complexity_instruction}
+
+FORMATTING: {latex_instruction}
+
+Explain and answer based strictly on the highlighted passage above. Do not bring in unrelated content."""
+            elif is_relevant:
                 prompt = f"""You are a tutor for {book_label}.
 
 {sel_block}TEXTBOOK CONTEXT (cite pages using 📖 Page N):
