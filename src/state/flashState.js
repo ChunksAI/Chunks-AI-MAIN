@@ -169,7 +169,7 @@ function _fcOpenAccentPicker() {
   picker.innerHTML = `
     <div class="fc-accent-picker-header">
       <span>Card accent color</span>
-      <button onclick="document.getElementById('fc-accent-picker').remove()" style="background:none;border:none;color:var(--text-4);cursor:pointer;padding:2px;line-height:0;">
+      <button class="fc-accent-close" style="background:none;border:none;color:var(--text-4);cursor:pointer;padding:2px;line-height:0;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
@@ -181,7 +181,8 @@ function _fcOpenAccentPicker() {
         <button
           class="fc-accent-swatch ${isActive ? 'active' : ''} ${!isUnlocked ? 'locked' : ''}"
           style="--swatch-color:${a.color};"
-          onclick="${isUnlocked ? `window._fcSelectAccent('${a.id}')` : ''}"
+          data-accent-id="${a.id}"
+          data-accent-locked="${isUnlocked ? '0' : '1'}"
           title="${isUnlocked ? a.name : 'Locked — ' + a.label}"
         >
           <div class="fc-accent-dot" style="background:${a.color};"></div>
@@ -191,6 +192,15 @@ function _fcOpenAccentPicker() {
       }).join('')}
     </div>
   `;
+
+  // Attach listeners after innerHTML is set — no onclick attributes needed
+  picker.querySelector('.fc-accent-close')
+    ?.addEventListener('click', () => picker.remove());
+
+  picker.querySelectorAll('.fc-accent-swatch[data-accent-id]').forEach(btn => {
+    if (btn.dataset.accentLocked === '1') return; // locked — no action
+    btn.addEventListener('click', () => _fcSelectAccent(btn.dataset.accentId));
+  });
 
   // Insert after streak widget
   const widget = _el('fc-streak-widget');
@@ -491,7 +501,7 @@ async function _fcRenderDeckList() {
       const sysId  = 'fc-sys-' + system.replace(/\s+/g, '-').toLowerCase();
       const isOpen = sysIdx === 0;
       html += '<div class="fc-system-group">';
-      html += '<button class="fc-system-toggle ' + (isOpen ? 'open' : '') + '" onclick="var el=document.getElementById(\'' + sysId + '\');var open=el.style.display!==\'none\';el.style.display=open?\'none\':\'grid\';this.classList.toggle(\'open\',!open);">';
+      html += '<button class="fc-system-toggle ' + (isOpen ? 'open' : '') + '" data-sys-id="' + sysId + '">';
       html += '<span class="fc-system-toggle-name">' + system + '</span>';
       html += '<span class="fc-system-toggle-meta">' + decks.length + ' deck' + (decks.length !== 1 ? 's' : '') + '</span>';
       html += '<svg class="fc-system-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>';
@@ -506,6 +516,53 @@ async function _fcRenderDeckList() {
   }
 
   grid.innerHTML = html;
+
+  // ── Event delegation: handle all deck card interactions without onclick attrs ──
+  // Data flows through data-deck-idx/data-deck-cache, never through HTML attributes.
+  grid.addEventListener('click', function _deckGridClick(e) {
+    // System section toggle
+    const toggleBtn = e.target.closest('.fc-system-toggle[data-sys-id]');
+    if (toggleBtn) {
+      const sysId = toggleBtn.dataset.sysId;
+      const el    = document.getElementById(sysId);
+      if (el) {
+        const isOpen = el.style.display !== 'none';
+        el.style.display = isOpen ? 'none' : 'grid';
+        toggleBtn.classList.toggle('open', !isOpen);
+      }
+      return;
+    }
+    // Delete button
+    const deleteBtn = e.target.closest('.fc-deck-delete[data-deck-id]');
+    if (deleteBtn) {
+      e.stopPropagation();
+      const deckId    = deleteBtn.dataset.deckId;
+      const cacheKey  = deleteBtn.dataset.deckCache;
+      const idx       = parseInt(deleteBtn.dataset.deckIdx, 10);
+      const deck      = window[cacheKey]?.[idx];
+      const deckName  = deck?.name || deckId;
+      _fcDeleteDeck(deckId, deckName);
+      return;
+    }
+    // Start button (stopPropagation so card click doesn't also fire)
+    const startBtn = e.target.closest('.fc-deck-start[data-deck-cache]');
+    if (startBtn) {
+      e.stopPropagation();
+      const cacheKey = startBtn.dataset.deckCache;
+      const idx      = parseInt(startBtn.dataset.deckIdx, 10);
+      const deck     = window[cacheKey]?.[idx];
+      if (deck) _fcStartDeck(deck);
+      return;
+    }
+    // Card click (anywhere on the card not caught above)
+    const card = e.target.closest('.fc-deck-card[data-deck-cache]');
+    if (card) {
+      const cacheKey = card.dataset.deckCache;
+      const idx      = parseInt(card.dataset.deckIdx, 10);
+      const deck     = window[cacheKey]?.[idx];
+      if (deck) _fcStartDeck(deck);
+    }
+  }, { once: false });
 }
 
 function _fcDeckCardHTML(d, i, cacheKey, mastery) {
@@ -530,7 +587,7 @@ function _fcDeckCardHTML(d, i, cacheKey, mastery) {
   ) : '';
 
   const deleteBtn = isLibrary ? '' : (
-    '<button class="fc-deck-delete" title="Delete deck" onclick="event.stopPropagation();_fcDeleteDeck(\'' + d.id + '\',\'' + d.name.replace(/'/g, "\'") + '\')">' +
+    '<button class="fc-deck-delete" title="Delete deck" data-deck-id="' + d.id + '" data-deck-idx="' + i + '" data-deck-cache="' + cacheKey + '">' +
     '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>' +
     '</button>'
   );
@@ -542,7 +599,7 @@ function _fcDeckCardHTML(d, i, cacheKey, mastery) {
   const iconStyle = pct === 100 ? 'background:rgba(45,212,191,0.15);border-color:rgba(45,212,191,0.3);color:var(--teal);' : '';
 
   return (
-    '<div class="fc-deck-card' + (isLibrary ? ' library' : '') + '" onclick="_fcStartDeck(window.' + cacheKey + '[' + i + '])">' +
+    '<div class="fc-deck-card' + (isLibrary ? ' library' : '') + '" data-deck-idx="' + i + '" data-deck-cache="' + cacheKey + '">' +
     '<div class="fc-deck-card-inner">' +
     '<div class="fc-deck-icon" style="' + iconStyle + '">' + iconHtml + '</div>' +
     '<div class="fc-deck-info">' +
@@ -553,7 +610,7 @@ function _fcDeckCardHTML(d, i, cacheKey, mastery) {
     '</div>' +
     masteryBar +
     '</div>' +
-    '<button class="fc-deck-start" onclick="event.stopPropagation();_fcStartDeck(window.' + cacheKey + '[' + i + '])">' +
+    '<button class="fc-deck-start" data-deck-idx="' + i + '" data-deck-cache="' + cacheKey + '">' +
     (pct === 100 ? 'Review' : 'Study') +
     '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>' +
     '</button>' +
