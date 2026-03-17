@@ -43,69 +43,92 @@ function _initials(name, email) {
 /** Update every piece of user-facing UI with the current user state. */
 function _applyUI(user) {
   if (!user) {
-    // Signed out — reset to defaults
     document.querySelectorAll('.profile-name').forEach(el => { el.textContent = 'Guest'; });
     document.querySelectorAll('.profile-plan').forEach(el => { el.textContent = 'Free Plan'; });
-    document.querySelectorAll('.avatar').forEach(el => { el.textContent = '?'; });
+    // Clear avatar photo — force neutral grey so no gradient/logo bleed-through
+    document.querySelectorAll('.avatar').forEach(el => {
+      el.textContent = '?';
+      el.classList.remove('has-initials');
+      el.style.backgroundImage = 'none';
+      el.style.backgroundSize = '';
+      el.style.backgroundPosition = '';
+      el.style.background = 'var(--surface-3)';
+    });
     document.querySelectorAll('.pd-name').forEach(el => { el.textContent = ''; });
     document.querySelectorAll('.pd-handle').forEach(el => { el.textContent = ''; });
-    document.querySelectorAll('.pd-avatar').forEach(el => { el.textContent = '?'; el.style.backgroundImage = ''; });
-    document.querySelectorAll('.mht-avatar, .mwt-avatar').forEach(el => { el.textContent = '?'; el.style.backgroundImage = ''; });
+    document.querySelectorAll('.pd-avatar').forEach(el => {
+      el.textContent = '?';
+      el.classList.remove('has-initials');
+      el.style.backgroundImage = 'none';
+      el.style.backgroundSize = '';
+      el.style.background = 'var(--surface-3)';
+    });
+    document.querySelectorAll('.mht-avatar, .mwt-avatar').forEach(el => {
+      el.textContent = '?';
+      el.classList.remove('has-initials');
+      el.style.backgroundImage = 'none';
+      el.style.background = 'var(--surface-3)';
+    });
+    document.querySelectorAll('.md-profile-name').forEach(el => { el.textContent = 'Guest'; });
+    document.querySelectorAll('.md-profile-plan').forEach(el => { el.textContent = 'Free Plan'; });
+    document.querySelectorAll('.md-avatar').forEach(el => {
+      el.textContent = '?';
+      el.classList.remove('has-initials');
+      el.style.backgroundImage = 'none';
+      el.style.background = 'var(--surface-3)';
+    });
+    // Hide the "..." dots — no profile menu for unauthenticated guests
+    document.querySelectorAll('.profile-dots').forEach(el => { el.style.display = 'none'; });
+    const adminBtn = document.getElementById('pd-admin-btn');
+    if (adminBtn) adminBtn.style.display = 'none';
     return;
   }
 
   const initials = _initials(user.name, user.email);
-  const planLabel = user.plan === 'pro' ? 'Pro Plan' : user.plan === 'team' ? 'Team Plan' : 'Free Plan';
+  const planLabel = user.plan === 'ultra' ? 'Ultra Plan'
+                  : user.plan === 'pro'   ? 'Pro Plan'
+                  : user.plan === 'team'  ? 'Team Plan'
+                  : 'Free Plan';
+
+  // Restore dots (may have been hidden on sign-out)
+  document.querySelectorAll('.profile-dots').forEach(el => { el.style.display = ''; });
+
+  // Helper — sets avatar element to photo or initials, fully overriding any prior state
+  function _setAvatar(el, avatar, fallbackText) {
+    if (avatar) {
+      el.classList.remove('has-initials');
+      el.style.backgroundImage = `url(${avatar})`;
+      el.style.backgroundSize = 'cover';
+      el.style.backgroundPosition = 'center';
+      el.style.background = '';
+      el.textContent = '';
+    } else {
+      el.classList.add('has-initials');
+      el.style.backgroundImage = 'none';
+      el.style.backgroundSize = '';
+      el.style.backgroundPosition = '';
+      el.style.background = '';
+      el.textContent = fallbackText;
+    }
+  }
 
   // Sidebar footer
   document.querySelectorAll('.profile-name').forEach(el => { el.textContent = user.name || user.email || 'User'; });
   document.querySelectorAll('.profile-plan').forEach(el => { el.textContent = planLabel; });
-  document.querySelectorAll('.avatar').forEach(el => {
-    if (user.avatar) {
-      el.style.cssText += `background: url(${user.avatar}) center/cover no-repeat !important;`;
-      el.textContent = '';
-    } else {
-      el.style.backgroundImage = '';
-      el.textContent = initials;
-    }
-  });
+  document.querySelectorAll('.avatar').forEach(el => _setAvatar(el, user.avatar, initials));
 
   // Profile dropdown header
   document.querySelectorAll('.pd-name').forEach(el => { el.textContent = user.name || user.email || 'User'; });
   document.querySelectorAll('.pd-handle').forEach(el => { el.textContent = user.email || ''; });
-  document.querySelectorAll('.pd-avatar').forEach(el => {
-    if (user.avatar) {
-      el.style.cssText += `background: url(${user.avatar}) center/cover no-repeat !important;`;
-      el.textContent = '';
-    } else {
-      el.style.backgroundImage = '';
-      el.textContent = initials;
-    }
-  });
+  document.querySelectorAll('.pd-avatar').forEach(el => _setAvatar(el, user.avatar, initials));
 
   // Mobile topbar avatars
-  document.querySelectorAll('.mht-avatar, .mwt-avatar').forEach(el => {
-    if (user.avatar) {
-      el.style.cssText += `background: url(${user.avatar}) center/cover no-repeat !important;`;
-      el.textContent = '';
-    } else {
-      el.style.backgroundImage = '';
-      el.textContent = initials;
-    }
-  });
+  document.querySelectorAll('.mht-avatar, .mwt-avatar').forEach(el => _setAvatar(el, user.avatar, initials));
 
   // Mobile drawer profile
   document.querySelectorAll('.md-profile-name').forEach(el => { el.textContent = user.name || user.email || 'User'; });
   document.querySelectorAll('.md-profile-plan').forEach(el => { el.textContent = planLabel; });
-  document.querySelectorAll('.md-avatar').forEach(el => {
-    if (user.avatar) {
-      el.style.cssText += `background: url(${user.avatar}) center/cover no-repeat !important;`;
-      el.textContent = '';
-    } else {
-      el.style.backgroundImage = '';
-      el.textContent = initials;
-    }
-  });
+  document.querySelectorAll('.md-avatar').forEach(el => _setAvatar(el, user.avatar, initials));
 
   // Show/hide the admin button in ProfileDropdown if applicable
   const adminBtn = document.getElementById('pd-admin-btn');
