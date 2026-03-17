@@ -655,7 +655,7 @@ function _renderAllRecent() {
   const generalIds = [
     'recent-list-general', 'recent-list-general-ws', 'recent-list-general-flash',
     'recent-list-general-research', 'recent-list-general-exam', 'recent-list-general-studyplan',
-    'recent-list-general-visual',
+    'recent-list-general-visual', 'recent-list-general-lib',
   ];
   generalIds.forEach(id => {
     const el = document.getElementById(id);
@@ -670,7 +670,7 @@ function _renderAllRecent() {
   const workspaceIds = [
     'recent-list-home', 'recent-list-workspace', 'recent-list-flash',
     'recent-list-ws-research', 'recent-list-ws-exam', 'recent-list-ws-studyplan',
-    'recent-list-ws-visual',
+    'recent-list-ws-visual', 'recent-list-ws-lib',
   ];
   workspaceIds.forEach(id => {
     const el = document.getElementById(id);
@@ -685,7 +685,7 @@ function _renderAllRecent() {
   const visualIds = [
     'recent-list-vt-home', 'recent-list-vt-ws', 'recent-list-vt-flash',
     'recent-list-vt-research', 'recent-list-vt-exam', 'recent-list-vt-studyplan',
-    'recent-list-vt-visual',
+    'recent-list-vt-visual', 'recent-list-vt-lib',
   ];
   visualIds.forEach(id => {
     const el = document.getElementById(id);
@@ -700,7 +700,7 @@ function _renderAllRecent() {
   const examIds = [
     'recent-list-exam-home', 'recent-list-exam-ws', 'recent-list-exam-flash',
     'recent-list-exam-research', 'recent-list-exam-exam', 'recent-list-exam-studyplan',
-    'recent-list-exam-visual',
+    'recent-list-exam-visual', 'recent-list-exam-lib',
   ];
   examIds.forEach(id => {
     const el = document.getElementById(id);
@@ -5008,7 +5008,6 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 ══════════════════════════════════════════════════════ -->
 <!-- #screen-studyplan → src/screens/StudyPlanScreen.js (Task 30) -->
 <div data-studyplan-screen></div>
-
 
 <!-- ══════════════════════════════════════════════════════
      SCREEN: LIBRARY PAGE
