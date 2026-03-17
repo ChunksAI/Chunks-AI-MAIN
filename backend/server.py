@@ -1484,6 +1484,7 @@ def ask():
         thinking_mode = data.get('thinking', None)
         web_search    = data.get('web_search', False)
         history       = data.get('history', [])
+        selected_text = data.get('selected_text', '').strip()[:2000]  # passage highlighted in PDF
         user_memory   = sanitize_user_memory(data.get('user_memory', ''))
         # task_type from frontend (optional — falls back to mode-based routing)
         task_type     = data.get('task_type', None)
@@ -1566,6 +1567,7 @@ def ask():
         complexity_instruction = complexity_levels[complexity]
 
         ctx_block = f"TEXTBOOK CONTEXT (from {BOOK_LIBRARY.get(book_id, {}).get('name', 'textbook')}):\n{context}\n\n" if is_relevant else ""
+        sel_block = f"SELECTED PASSAGE (highlighted by the student in the PDF — answer with this as primary focus):\n\"{selected_text}\"\n\n" if selected_text else ""
 
         # Build user memory block (already sanitized + injection-checked at read time)
         memory_block = ""
@@ -1748,7 +1750,7 @@ Rules:
         elif mode == 'practice':
             prompt = f"""You are a problem-solving tutor for {book_label}.
 
-{ctx_block}TOPIC / QUESTION: {question}
+{sel_block}{ctx_block}TOPIC / QUESTION: {question}
 
 Create a step-by-step problem-solving session at COMPLEXITY LEVEL {complexity}/10: {complexity_instruction}
 
@@ -1780,7 +1782,7 @@ Structure your response like this:
         elif mode == 'summary':
             prompt = f"""You are a tutor creating a study summary for {book_label}.
 
-{ctx_block}TOPIC: {question}
+{sel_block}{ctx_block}TOPIC: {question}
 
 Write a structured summary at COMPLEXITY LEVEL {complexity}/10: {complexity_instruction}
 
@@ -1932,7 +1934,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
             if is_relevant:
                 prompt = f"""You are a tutor for {book_label}.
 
-TEXTBOOK CONTEXT (cite pages using 📖 Page N):
+{sel_block}TEXTBOOK CONTEXT (cite pages using 📖 Page N):
 {context}
 
 STUDENT QUESTION: {question}
@@ -1945,7 +1947,7 @@ Answer based on the textbook context. Be helpful and clear. Cite the page number
             else:
                 prompt = f"""You are a knowledgeable tutor.
 
-STUDENT QUESTION: {question}
+{sel_block}STUDENT QUESTION: {question}
 
 COMPLEXITY LEVEL {complexity}/10: {complexity_instruction}
 
