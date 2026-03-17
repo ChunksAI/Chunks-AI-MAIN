@@ -2834,6 +2834,7 @@ _ctx._init(
     session              = _session,
     SUPABASE_URL         = SUPABASE_URL,
     SUPABASE_SERVICE_KEY = SUPABASE_SERVICE_KEY,
+    SUPABASE_ANON_KEY    = SUPABASE_ANON_KEY,
     OPENROUTER_API_KEY   = OPENROUTER_API_KEY,
     verify_supabase_jwt  = _verify_supabase_jwt,
     call_ai              = call_ai,
