@@ -546,12 +546,19 @@ const LIBRARY_SCREEN_HTML = /* html */`
 // ── Mount ─────────────────────────────────────────────────────────────────────
 
 export function mountLibraryScreen() {
+  // Guard: don't double-mount
+  if (document.getElementById('screen-library')) return;
+
+  // Prefer the placeholder if it exists (matches the pattern of other screens),
+  // otherwise fall back to appending directly to body (like LibraryModal.js).
   const placeholder = document.querySelector('[data-library-screen]');
-  if (!placeholder) {
-    console.warn('[LibraryScreen] placeholder [data-library-screen] not found');
-    return;
+  if (placeholder) {
+    placeholder.outerHTML = LIBRARY_SCREEN_HTML;
+  } else {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = LIBRARY_SCREEN_HTML;
+    document.body.appendChild(tmp.firstElementChild);
   }
-  placeholder.outerHTML = LIBRARY_SCREEN_HTML;
 
   // Compute available book counts for the page header
   try {
