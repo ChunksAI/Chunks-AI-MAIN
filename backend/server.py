@@ -1739,7 +1739,8 @@ Rules:
                 'is_relevant': is_relevant,
                 'source': source,
                 'sources': all_sources,
-                'complexity_used': complexity
+                'complexity_used': complexity,
+                'search_mode': 'hybrid' if searcher.has_embeddings else 'tfidf'
             })
 
         # ── MODE: PRACTICE ────────────────────────────────────────────────
@@ -1770,7 +1771,8 @@ Structure your response like this:
                 'is_relevant': is_relevant,
                 'source': source,
                 'sources': all_sources,
-                'complexity_used': complexity
+                'complexity_used': complexity,
+                'search_mode': 'hybrid' if searcher.has_embeddings else 'tfidf'
             })
 
         # ── MODE: SUMMARY ─────────────────────────────────────────────────
@@ -1801,7 +1803,8 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 'is_relevant': is_relevant,
                 'source': source,
                 'sources': all_sources,
-                'complexity_used': complexity
+                'complexity_used': complexity,
+                'search_mode': 'hybrid' if searcher.has_embeddings else 'tfidf'
             }
             if _cache_eligible and _cache_key:
                 _ask_cache_set(_cache_key, _resp,
@@ -1960,7 +1963,8 @@ Answer helpfully and clearly."""
                 'is_relevant': is_relevant,
                 'source': source,
                 'sources': all_sources,   # FIX: frontend uses data.sources for badge row
-                'complexity_used': complexity
+                'complexity_used': complexity,
+                'search_mode': 'hybrid' if searcher.has_embeddings else 'tfidf'
             }
             if _cache_eligible and _cache_key:
                 _ask_cache_set(_cache_key, _resp,
