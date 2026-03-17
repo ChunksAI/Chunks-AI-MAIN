@@ -5,8 +5,8 @@
 ═══════════════════════════════════════════════════════════ */
 
 /* ── Screen system ────────────────────────────────────────── */
-.screen { display: none; height: 100vh; }
-.screen.active { display: flex; flex-direction: column; animation: screenIn var(--t-mid) var(--ease-snap) both; }
+.screen { display: none; height: 100vh; overflow: hidden; }
+.screen.active { display: flex; flex-direction: column; overflow: hidden; animation: screenIn var(--t-mid) var(--ease-snap) both; }
 
 /* ── Skeleton / shimmer loading utilities ─────────────────── */
 @keyframes shimmer {
