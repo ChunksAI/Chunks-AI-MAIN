@@ -412,11 +412,8 @@
 ══════════════════════════════════════════════════════════ */
 
 #screen-library {
-  display: flex;
-  width: 100%;
-  height: 100vh;
+  flex-direction: row;
   overflow: hidden;
-  background: var(--bg);
 }
 
 .lib-page-main {
