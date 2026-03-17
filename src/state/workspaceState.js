@@ -142,17 +142,49 @@ export function wsJumpToPage() {
 export async function wsZoomIn()  { await _wsRescale(_wsScale + ZOOM_STEP); }
 export async function wsZoomOut() { await _wsRescale(_wsScale - ZOOM_STEP); }
 
+// Debounce state — rapid zoom clicks accumulate scale changes but only
+// trigger one full re-render after the user pauses for 150 ms.
+let _wsRescaleTimer    = null;
+let _wsRescalePending  = null;   // the target scale to render when timer fires
+
 export async function _wsRescale(newScale) {
   if (!_wsPdfDoc) return;
   newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newScale));
   if (Math.abs(newScale - _wsScale) < 0.01) return;
-  _wsScale = newScale;
+
+  // Update scale immediately so the next wsZoomIn/Out call computes
+  // relative to the latest value, not the pre-debounce value.
+  _wsScale          = newScale;
+  _wsRescalePending = newScale;
+
+  // Update zoom badge instantly so UI feels responsive
+  _wsUpdateZoomBadge(newScale);
+
+  // Debounce the expensive re-render
+  clearTimeout(_wsRescaleTimer);
+  _wsRescaleTimer = setTimeout(async () => {
+    const scale = _wsRescalePending;
+    _wsRescalePending = null;
+    _wsRescaleTimer   = null;
+    await _wsDoRescale(scale);
+  }, 150);
+}
+
+/** Perform the actual canvas re-render for all rendered pages. */
+async function _wsDoRescale(scale) {
+  _wsScale = scale;
   for (let i = 0; i < _wsPageContainers.length; i++) {
     const c = _wsPageContainers[i];
     if (!c.dataset.rendered) continue;
     c.dataset.rendered = '';
     await _wsRenderPage(i + 1, c);
   }
+}
+
+/** Update the zoom % badge without triggering a re-render. */
+function _wsUpdateZoomBadge(scale) {
+  const badge = document.getElementById('ws-zoom-badge');
+  if (badge) badge.textContent = Math.round(scale * 100) + '%';
 }
 
 // ── PDF.js lazy loader ────────────────────────────────────────────────────
@@ -337,6 +369,7 @@ export async function selectBook(bookId) {
         _wsScale = Math.min(Math.max(_availW / _naturalW, ZOOM_MIN), ZOOM_MAX);
       }
     } catch (_) { /* keep default scale */ }
+    _wsUpdateZoomBadge(_wsScale);
 
     for (let i = 1; i <= _wsTotalPages; i++) {
       const pageWrap = document.createElement('div');
