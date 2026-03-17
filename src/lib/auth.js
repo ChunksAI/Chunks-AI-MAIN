@@ -43,14 +43,19 @@ function _initials(name, email) {
 /** Update every piece of user-facing UI with the current user state. */
 function _applyUI(user) {
   if (!user) {
-    // Signed out — reset to defaults
-    document.querySelectorAll('.profile-name').forEach(el => { el.textContent = 'Guest'; });
-    document.querySelectorAll('.profile-plan').forEach(el => { el.textContent = 'Free Plan'; });
-    document.querySelectorAll('.avatar').forEach(el => { el.textContent = '?'; });
+    // Signed out — if we are actively signing out, skip UI updates entirely
+    // (redirect is already in progress, no need to flash "Guest / Free Plan")
+    if (window._signingOut) return;
+    // Reset to blank/defaults (not "Guest") for genuine unauthenticated state
+    document.querySelectorAll('.profile-name').forEach(el => { el.textContent = ''; });
+    document.querySelectorAll('.profile-plan').forEach(el => { el.textContent = ''; });
+    document.querySelectorAll('.avatar').forEach(el => { el.textContent = ''; el.style.backgroundImage = ''; });
     document.querySelectorAll('.pd-name').forEach(el => { el.textContent = ''; });
     document.querySelectorAll('.pd-handle').forEach(el => { el.textContent = ''; });
-    document.querySelectorAll('.pd-avatar').forEach(el => { el.textContent = '?'; el.style.backgroundImage = ''; });
-    document.querySelectorAll('.mht-avatar, .mwt-avatar').forEach(el => { el.textContent = '?'; el.style.backgroundImage = ''; });
+    document.querySelectorAll('.pd-avatar').forEach(el => { el.textContent = ''; el.style.backgroundImage = ''; });
+    document.querySelectorAll('.mht-avatar, .mwt-avatar').forEach(el => { el.textContent = ''; el.style.backgroundImage = ''; });
+    document.querySelectorAll('.md-profile-name').forEach(el => { el.textContent = ''; });
+    document.querySelectorAll('.md-profile-plan').forEach(el => { el.textContent = ''; });
     return;
   }
 
@@ -407,26 +412,26 @@ async function _trackPresence(sb) {
 // ── Sign out ──────────────────────────────────────────────────────────────────
 
 window.chunksSignOut = async function chunksSignOut() {
-  // Always clear state and redirect — never let a Supabase failure block logout
-  function _doRedirect() {
-    window._currentUser = null;
-    _applyUI(null);
-    // Clear localStorage session state
-    localStorage.removeItem('chunks_active_home_session');
-    localStorage.removeItem('chunks_active_ws_book');
-    localStorage.removeItem('chunks_active_recent_id');
-    localStorage.removeItem('chunks_admin_email');
-    // Clear sessionStorage so auth gate redirects to login on next load
-    sessionStorage.setItem('chunks_signing_out', '1');
-    sessionStorage.removeItem('chunks_was_here');
-    sessionStorage.removeItem('chunks_active_screen');
-    sessionStorage.removeItem('chunks_is_refresh');
-    sessionStorage.removeItem('chunks_guest_mode');
-    // Hard redirect to login
-    window.location.replace('login.html');
-  }
+  // Set flag immediately so _applyUI(null) calls during signOut are no-ops
+  window._signingOut = true;
 
-  // Try to sign out from Supabase, but redirect regardless of result
+  // Hide body instantly — prevents any UI flash during the async signOut + redirect
+  document.body.style.opacity = '0';
+  document.body.style.transition = 'opacity 0.15s ease';
+
+  // Clear all local state immediately
+  window._currentUser = null;
+  localStorage.removeItem('chunks_active_home_session');
+  localStorage.removeItem('chunks_active_ws_book');
+  localStorage.removeItem('chunks_active_recent_id');
+  localStorage.removeItem('chunks_admin_email');
+  sessionStorage.setItem('chunks_signing_out', '1');
+  sessionStorage.removeItem('chunks_was_here');
+  sessionStorage.removeItem('chunks_active_screen');
+  sessionStorage.removeItem('chunks_is_refresh');
+  sessionStorage.removeItem('chunks_guest_mode');
+
+  // Try to sign out from Supabase — redirect regardless of result
   try {
     const sb = await getSupabaseClient();
     if (sb) await sb.auth.signOut();
@@ -434,7 +439,8 @@ window.chunksSignOut = async function chunksSignOut() {
     console.warn('[auth] signOut error (continuing with redirect):', e.message);
   }
 
-  _doRedirect();
+  // Hard redirect to login
+  window.location.replace('login.html');
 };
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
