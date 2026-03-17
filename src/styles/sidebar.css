@@ -341,7 +341,7 @@
 .profile-dropdown {
   position: fixed;
   bottom: 60px;
-  left: 10px;
+  left: -9999px;
   width: 230px;
   background: var(--surface-2);
   border: 1px solid var(--border-md);
@@ -356,11 +356,12 @@
   transition: opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring), visibility 0s linear var(--t-mid);
 }
 .profile-dropdown.open {
+  left: 10px;
   opacity: 1;
   visibility: visible;
   transform: translateY(0) scale(1);
   pointer-events: all;
-  transition: opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring), visibility 0s linear 0s;
+  transition: left 0s, opacity var(--t-mid) var(--ease-snap), transform var(--t-mid) var(--ease-spring), visibility 0s linear 0s;
 }
 
 /* Header inside dropdown */
