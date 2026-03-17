@@ -364,7 +364,7 @@ function _incogAppendThinking() {
           <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
         </svg>
       </div>
-      <div class="hc-thinking"><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="hc-thinking"><span></span><span></span><span></span></div>
     </div>`;
   inner.appendChild(d);
   _incogScrollBottom();
@@ -558,19 +558,25 @@ export function homeAppendThinking() {
   wrap.innerHTML = `
     ${_HOME_AI_AVATAR}
     <div class="hc-ai-body">
-      <div style="display:flex;align-items:center;gap:9px;padding:2px 0;">
-        <div class="hc-thinking"><span></span><span></span><span></span><span></span><span></span></div>
-        <span id="home-thinking-label" style="font-size:11px;color:rgba(255,255,255,0.35);font-family:monospace;letter-spacing:0.04em;">Thinking…</span>
+      <div style="display:flex;align-items:center;gap:10px;padding:3px 0;">
+        <div class="hc-thinking"><span></span><span></span><span></span></div>
+        <span id="home-thinking-label" class="hc-thinking-label">Thinking…</span>
       </div>
     </div>`;
   document.getElementById('home-chat-history').appendChild(wrap);
   homeScrollBottom();
-  const labels = ['Thinking…', 'Searching book…', 'Reading context…', 'Composing answer…'];
+  const labels = ['Thinking…', 'Analyzing concept…', 'Reading context…', 'Generating explanation…'];
   let li = 0;
   wrap._labelTimer = setInterval(() => {
     const el = document.getElementById('home-thinking-label');
-    if (el) { li = (li + 1) % labels.length; el.textContent = labels[li]; }
-  }, 1800);
+    if (!el) return;
+    el.style.opacity = '0';
+    setTimeout(() => {
+      li = (li + 1) % labels.length;
+      el.textContent = labels[li];
+      el.style.opacity = '';
+    }, 280);
+  }, 2400);
 }
 
 export function homeRemoveThinking() {
