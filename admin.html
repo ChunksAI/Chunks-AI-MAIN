@@ -88,7 +88,7 @@
   --t-slow: 380ms;
 }
 /* ── Layout base — defined AFTER :root so vars resolve ── */
-html { height: 100%; }
+html { min-height: 100%; }
 body {
   font-family: var(--font-body);
   background:
@@ -99,13 +99,13 @@ body {
   background-attachment: fixed;
   color: var(--text);
   min-height: 100vh;
-  overflow-y: auto;
+  overflow-y: scroll;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-#page-root { position: relative; z-index: 1; }
+#page-root { position: relative; z-index: 1; min-height: 100vh; overflow: visible; }
 /* Static dot-grid overlay */
 body::before {
   content: '';
@@ -124,10 +124,19 @@ body::after {
   pointer-events: none;
   z-index: 0;
 }
-::-webkit-scrollbar{width:6px;height:6px;}
-::-webkit-scrollbar-track{background:rgba(255,255,255,0.03);}
-::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:3px;}
-::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,0.22);}
+/* ── Scrollbar — page navigation scrollbar ── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); border-radius: 4px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.18);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.35); background-clip: padding-box; border: 2px solid transparent; }
+::-webkit-scrollbar-corner { background: transparent; }
+/* Firefox */
+html { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.18) rgba(255,255,255,0.03); }
 @keyframes spin{to{transform:rotate(360deg);}}
 @keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
