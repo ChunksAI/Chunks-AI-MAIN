@@ -8,7 +8,16 @@
    Depends on: tokens.css
 ═══════════════════════════════════════════════════════════ */
 
-/* ── Bottom nav: hidden on desktop, flex on mobile ───────── */
+/* ── Mobile topbar: hidden by default, shown in @media below ── */
+.mobile-home-topbar {
+  display: none;
+  overflow: hidden;
+}
+.mht-logo-row svg {
+  display: block;
+  overflow: hidden;
+  flex-shrink: 0;
+}
 .mobile-bottom-nav {
   display: none;
   position: fixed;

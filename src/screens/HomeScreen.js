@@ -43,11 +43,11 @@ const HOME_HTML = /* html */`
     <!-- Mobile topbar: logo + avatar (hidden on desktop via CSS) -->
     <div class="mobile-home-topbar" style="display:none;">
       <div class="mht-logo-row">
-        <svg width="26" height="26" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="overflow:hidden;display:block;">
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="7" opacity="0.95"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#8b7cf8" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
-          <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+        <svg width="26" height="26" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="display:block;flex-shrink:0;overflow:hidden;">
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/>
+          <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
         </svg>
         <span class="mht-logo-text">Chunks</span>
       </div>
@@ -66,10 +66,10 @@ const HOME_HTML = /* html */`
       <div class="home-hero">
         <div class="eyebrow-pill">
           <svg class="eyebrow-dot" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="7" opacity="0.95"/>
-            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#8b7cf8" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
-            <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
-            <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+            <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/>
+            <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/>
+            <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/>
+            <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
           </svg>
           AI Study Assistant
         </div>
@@ -252,7 +252,7 @@ const HERO_PHRASES = [
 // ── State ─────────────────────────────────────────────────────────────────────
 
 // Shared Chunks orbital logo avatar — used in all AI message bubbles
-const _HOME_AI_AVATAR = `<div class="hc-ai-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#c8a84b" stroke-width="9" opacity="0.95"/><ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#a855f7" stroke-width="9" transform="rotate(60 50 50)" opacity="0.85"/><ellipse cx="50" cy="50" rx="38" ry="13" fill="none" stroke="#c8a84b" stroke-width="9" transform="rotate(120 50 50)" opacity="0.75"/><circle cx="50" cy="50" r="7" fill="#e8ac2e"/></svg></div>`;
+const _HOME_AI_AVATAR = `<div class="hc-ai-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#c8a84b" stroke-width="7" opacity="0.95"/><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#a855f7" stroke-width="7" transform="rotate(60 50 50)" opacity="0.85"/><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#c8a84b" stroke-width="7" transform="rotate(120 50 50)" opacity="0.75"/><circle cx="50" cy="50" r="6" fill="#e8ac2e"/></svg></div>`;
 
 export let homeMode      = 'general';
 export let homeHistory   = [];
@@ -347,10 +347,10 @@ function _incogAppendThinking() {
     <div class="incognito-ai-row">
       <div class="incognito-ai-ava" aria-hidden="true">
         <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14">
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="8" opacity="0.95"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#8b7cf8" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/>
-          <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/>
+          <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
         </svg>
       </div>
       <div class="hc-thinking"><span></span><span></span><span></span></div>
@@ -372,10 +372,10 @@ function _incogAppendAI(text) {
     <div class="incognito-ai-row">
       <div class="incognito-ai-ava" aria-hidden="true">
         <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14">
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="8" opacity="0.95"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#8b7cf8" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/>
-          <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/>
-          <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/>
+          <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
         </svg>
       </div>
       <div class="incognito-ai-body">${window.homeMarkdown?.(text) ?? text.replace(/</g,'&lt;')}</div>

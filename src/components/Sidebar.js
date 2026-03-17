@@ -22,10 +22,10 @@
 // found in the DOM, making every other screen's logo render as a bare dot.
 const _logoSvg = (screen) => {
   return `
-  <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="7" opacity="0.95"/>
-  <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#8b7cf8" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
-  <ellipse cx="50" cy="50" rx="40" ry="14" fill="none" stroke="#e8ac2e" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
-  <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>`;
+  <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/>
+  <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/>
+  <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/>
+  <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>`;
 };
 
 const PANEL_ICON = `<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
