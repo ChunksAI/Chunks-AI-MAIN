@@ -6,13 +6,6 @@
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests;">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Chunks AI — Sign in</title>
-  <meta name="description" content="Sign in to Chunks AI — Study smarter with AI-powered flashcards, study plans, visual tutor, and exam prep.">
-  <meta property="og:title" content="Chunks AI — Sign in">
-  <meta property="og:image" content="https://chunks.online/favicon-192x192.png">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://wiwbfspsrgayvquzfryl.supabase.co">
@@ -214,6 +207,40 @@
     return { getItem:function(k){return _mem[k]||null;}, setItem:function(k,v){_mem[k]=String(v);}, removeItem:function(k){delete _mem[k];} };
   })();
 
+  // ── Sync user into public users table ─────────────────────────────────────
+  // Called immediately after OAuth sign-in completes.
+  // Step 1: INSERT if not exists (ignoreDuplicates:true — safe no-op for returning users)
+  // Step 2: UPDATE display fields only (never touches plan/approved/paid for existing users)
+  function _syncUserRow(sb, session) {
+    try {
+      var u    = session.user;
+      var meta = u.user_metadata || {};
+      var name = meta.full_name || meta.name || meta.display_name
+                 || (u.email ? u.email.split('@')[0] : 'User');
+      var avatar = (meta.avatar_url || meta.picture || '').replace(/^http:\/\//i, 'https://');
+      var now  = new Date().toISOString();
+
+      sb.from('users').upsert(
+        { email: u.email, full_name: name, avatar: avatar,
+          plan: 'free', approved: true, paid: false, created_at: u.created_at || now },
+        { onConflict: 'email', ignoreDuplicates: true }
+      ).then(function(r1) {
+        if (r1.error) console.warn('[login] insert user row failed:', r1.error.message);
+        // Always update display fields so name/avatar stays fresh
+        return sb.from('users')
+          .update({ full_name: name, avatar: avatar })
+          .eq('email', u.email);
+      }).then(function(r2) {
+        if (r2 && r2.error) console.warn('[login] update display fields failed:', r2.error.message);
+        else console.log('[login] user row synced:', u.email);
+      }).catch(function(e) {
+        console.warn('[login] _syncUserRow error:', e.message);
+      });
+    } catch(e) {
+      console.warn('[login] _syncUserRow crashed:', e.message);
+    }
+  }
+
   // Load Supabase SDK — sync on callback (fast exchange), async otherwise
   var _sdkEl = document.createElement('script');
   _sdkEl.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
@@ -233,11 +260,17 @@
       try {
         var result = await sb.auth.getSession();
         var session = result.data && result.data.session;
-        if (session) { location.replace('index.html'); return; }
+        if (session) {
+          // ── Write user row immediately on sign-in ──────────────────────
+          _syncUserRow(sb, session);
+          location.replace('index.html'); return;
+        }
         // Not ready — wait for auth state change
         sb.auth.onAuthStateChange(function(event, session) {
-          if (event === 'SIGNED_IN' && session) location.replace('index.html');
-          else if (event === 'SIGNED_IN' && !session) showError('Sign-in failed. Please try again.');
+          if (event === 'SIGNED_IN' && session) {
+            _syncUserRow(sb, session);
+            location.replace('index.html');
+          } else if (event === 'SIGNED_IN' && !session) showError('Sign-in failed. Please try again.');
         });
       } catch(err) {
         showError(err.message || 'Sign-in failed. Please try again.');

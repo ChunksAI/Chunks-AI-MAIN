@@ -43,19 +43,14 @@ function _initials(name, email) {
 /** Update every piece of user-facing UI with the current user state. */
 function _applyUI(user) {
   if (!user) {
-    // Signed out — if we are actively signing out, skip UI updates entirely
-    // (redirect is already in progress, no need to flash "Guest / Free Plan")
-    if (window._signingOut) return;
-    // Reset to blank/defaults (not "Guest") for genuine unauthenticated state
-    document.querySelectorAll('.profile-name').forEach(el => { el.textContent = ''; });
-    document.querySelectorAll('.profile-plan').forEach(el => { el.textContent = ''; });
-    document.querySelectorAll('.avatar').forEach(el => { el.textContent = ''; el.style.backgroundImage = ''; });
+    // Signed out — reset to defaults
+    document.querySelectorAll('.profile-name').forEach(el => { el.textContent = 'Guest'; });
+    document.querySelectorAll('.profile-plan').forEach(el => { el.textContent = 'Free Plan'; });
+    document.querySelectorAll('.avatar').forEach(el => { el.textContent = '?'; });
     document.querySelectorAll('.pd-name').forEach(el => { el.textContent = ''; });
     document.querySelectorAll('.pd-handle').forEach(el => { el.textContent = ''; });
-    document.querySelectorAll('.pd-avatar').forEach(el => { el.textContent = ''; el.style.backgroundImage = ''; });
-    document.querySelectorAll('.mht-avatar, .mwt-avatar').forEach(el => { el.textContent = ''; el.style.backgroundImage = ''; });
-    document.querySelectorAll('.md-profile-name').forEach(el => { el.textContent = ''; });
-    document.querySelectorAll('.md-profile-plan').forEach(el => { el.textContent = ''; });
+    document.querySelectorAll('.pd-avatar').forEach(el => { el.textContent = '?'; el.style.backgroundImage = ''; });
+    document.querySelectorAll('.mht-avatar, .mwt-avatar').forEach(el => { el.textContent = '?'; el.style.backgroundImage = ''; });
     return;
   }
 
@@ -301,6 +296,30 @@ window._initAuth = async function _initAuth() {
     const { data: { session } } = await sb.auth.getSession();
     window._applyUserProfile(session);
 
+    // ── Sync user row on session restore (returning user / page refresh) ──
+    if (session?.user) {
+      const u    = session.user;
+      const meta = u.user_metadata || {};
+      const name = meta.full_name || meta.name || meta.display_name
+                   || u.email?.split('@')[0] || 'User';
+      const avatar = (meta.avatar_url || meta.picture || '').replace(/^http:\/\//i, 'https://');
+      // Step 1: INSERT new user row if not exists (ignoreDuplicates:true = skip if email exists)
+      sb.from('users').upsert(
+        { email: u.email, full_name: name, avatar, plan: 'free', approved: true, paid: false,
+          created_at: u.created_at || new Date().toISOString() },
+        { onConflict: 'email', ignoreDuplicates: true }
+      ).then(({ error: e1 }) => {
+        if (e1) console.warn('[auth] insert new user failed:', e1.message);
+        // Step 2: UPDATE display fields only (never touches plan/approved/paid)
+        return sb.from('users').update({ full_name: name, avatar })
+          .eq('email', u.email);
+      }).then(({ error: e2 }) => {
+        if (e2) console.warn('[auth] update display fields failed:', e2.message);
+        else console.log('[auth] users row synced:', u.email);
+      }).catch(() => {});
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     // Apply default settings for users who haven't been initialized yet
     if (session?.user) _applyDefaultSettings();
 
@@ -325,7 +344,35 @@ window._initAuth = async function _initAuth() {
   sb.auth.onAuthStateChange((_event, session) => {
     window._applyUserProfile(session);
 
-    // ── FIX 2: After Google OAuth redirect back, send user to returnTo ──
+    // ── Register / sync user row in public users table ────────────────────
+    // Every sign-in (new or returning) upserts a row so the admin panel
+    // always has an up-to-date record. ignoreDuplicates:false so name/avatar
+    // updates from Google are reflected, but plan/approved are never
+    // overwritten (onConflict only touches the columns we specify).
+    if ((_event === 'SIGNED_IN' || _event === 'TOKEN_REFRESHED') && session?.user) {
+      const u    = session.user;
+      const meta = u.user_metadata || {};
+      const name = meta.full_name || meta.name || meta.display_name
+                   || u.email?.split('@')[0] || 'User';
+      const avatar = (meta.avatar_url || meta.picture || '').replace(/^http:\/\//i, 'https://');
+      // Step 1: INSERT if new user (ignoreDuplicates:true = safe no-op for existing)
+      sb.from('users').upsert(
+        { email: u.email, full_name: name, avatar, plan: 'free', approved: true, paid: false,
+          created_at: u.created_at || new Date().toISOString() },
+        { onConflict: 'email', ignoreDuplicates: true }
+      ).then(({ error: e1 }) => {
+        if (e1) console.warn('[auth] insert new user failed:', e1.message);
+        // Step 2: UPDATE only display fields (never overwrites plan/approved/paid)
+        return sb.from('users').update({ full_name: name, avatar })
+          .eq('email', u.email);
+      }).then(({ error: e2 }) => {
+        if (e2) console.warn('[auth] users upsert failed:', e2.message);
+        else console.log('[auth] users row synced for', u.email);
+      }).catch(e => console.warn('[auth] users upsert error:', e.message));
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
+    // ── After Google OAuth redirect back, send user to index ─────────────
     if (_event === 'SIGNED_IN') {
       // Apply default settings for new users (no-op if already initialized)
       _applyDefaultSettings();
@@ -412,26 +459,26 @@ async function _trackPresence(sb) {
 // ── Sign out ──────────────────────────────────────────────────────────────────
 
 window.chunksSignOut = async function chunksSignOut() {
-  // Set flag immediately so _applyUI(null) calls during signOut are no-ops
-  window._signingOut = true;
+  // Always clear state and redirect — never let a Supabase failure block logout
+  function _doRedirect() {
+    window._currentUser = null;
+    _applyUI(null);
+    // Clear localStorage session state
+    localStorage.removeItem('chunks_active_home_session');
+    localStorage.removeItem('chunks_active_ws_book');
+    localStorage.removeItem('chunks_active_recent_id');
+    localStorage.removeItem('chunks_admin_email');
+    // Clear sessionStorage so auth gate redirects to login on next load
+    sessionStorage.setItem('chunks_signing_out', '1');
+    sessionStorage.removeItem('chunks_was_here');
+    sessionStorage.removeItem('chunks_active_screen');
+    sessionStorage.removeItem('chunks_is_refresh');
+    sessionStorage.removeItem('chunks_guest_mode');
+    // Hard redirect to login
+    window.location.replace('login.html');
+  }
 
-  // Hide body instantly — prevents any UI flash during the async signOut + redirect
-  document.body.style.opacity = '0';
-  document.body.style.transition = 'opacity 0.15s ease';
-
-  // Clear all local state immediately
-  window._currentUser = null;
-  localStorage.removeItem('chunks_active_home_session');
-  localStorage.removeItem('chunks_active_ws_book');
-  localStorage.removeItem('chunks_active_recent_id');
-  localStorage.removeItem('chunks_admin_email');
-  sessionStorage.setItem('chunks_signing_out', '1');
-  sessionStorage.removeItem('chunks_was_here');
-  sessionStorage.removeItem('chunks_active_screen');
-  sessionStorage.removeItem('chunks_is_refresh');
-  sessionStorage.removeItem('chunks_guest_mode');
-
-  // Try to sign out from Supabase — redirect regardless of result
+  // Try to sign out from Supabase, but redirect regardless of result
   try {
     const sb = await getSupabaseClient();
     if (sb) await sb.auth.signOut();
@@ -439,8 +486,7 @@ window.chunksSignOut = async function chunksSignOut() {
     console.warn('[auth] signOut error (continuing with redirect):', e.message);
   }
 
-  // Hard redirect to login
-  window.location.replace('login.html');
+  _doRedirect();
 };
 
 // ── Boot ──────────────────────────────────────────────────────────────────────

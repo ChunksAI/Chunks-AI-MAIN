@@ -1415,9 +1415,12 @@ function _finalizeAdmin(email) {
 }
 
 async function _ensureAdminApproved(email){
-  const role=ROLES[email]||'admin',plan=role==='owner'?'ultra':'pro';
-  const{error}=await sb.from('users').upsert({email,approved:true,plan,name:role==='owner'?'Owner':'Admin'},{onConflict:'email',ignoreDuplicates:false});
-  if(error)console.warn('Could not auto-approve:',error.message);
+  const role=ROLES[email.toLowerCase()]||'admin', plan=role==='owner'?'ultra':'pro';
+  const{error}=await sb.from('users').upsert(
+    {email, approved:true, plan, full_name:role==='owner'?'Owner':'Admin', role},
+    {onConflict:'email', ignoreDuplicates:false}
+  );
+  if(error) console.warn('Could not auto-approve:',error.message);
   else console.log(`✅ ${role} ensured approved: ${email}`);
 }
 
@@ -1591,47 +1594,52 @@ async function _adminFetch(path, opts={}) {
 // LOAD USERS
 async function loadUsers(){
   const tbody=document.getElementById('users-tbody');
-  // Only show loading state on first load (table is empty)
   if(!allUsers.length) tbody.innerHTML='<tr><td colspan="5" class="empty-state loading-dots">Loading</td></tr>';
   let data, error;
   try {
     const json = await _adminFetch('/api/admin/users');
     data = json.users || [];
+    console.log('[Admin] loadUsers via backend:', data.length, 'users');
   } catch(e) {
-    // Fallback to direct Supabase if backend endpoint not deployed yet
     console.warn('[Admin] Backend users endpoint failed, trying direct Supabase:', e.message);
-    const res = await sb.from('users').select('*').order('created_at',{ascending:false});
+    // Direct Supabase fallback — requires RLS policy allowing admin reads
+    const res = await sb.from('users')
+      .select('*')
+      .order('created_at', {ascending: false});
     data  = res.data  || [];
     error = res.error;
+    if (!error) console.log('[Admin] loadUsers via Supabase direct:', data.length, 'users');
   }
   if(error){
     console.error('[Admin] loadUsers error:', error);
     tbody.innerHTML=`<tr><td colspan="5" class="empty-state" style="color:var(--red);">Error loading users: ${error.message}</td></tr>`;
     return;
   }
-  allUsers=data||[];
-  const now=new Date();
+  allUsers = data || [];
+  const now = new Date();
   for(const u of allUsers){
-    if(u.role==='owner'||u.role==='admin'||u.role==='superadmin')continue;
-    if(u.paid&&u.subscription_end&&new Date(u.subscription_end)<now){
-      console.log('⏰ Auto-revoking:',u.email);
+    if(u.role==='owner'||u.role==='admin'||u.role==='superadmin') continue;
+    if(u.paid && u.subscription_end && new Date(u.subscription_end) < now){
+      console.log('⏰ Auto-revoking:', u.email);
       await sb.from('users').update({plan:'free',approved:true,paid:false,subscription_start:null,subscription_end:null}).eq('email',u.email);
       toast('⏰ Expired — downgraded: '+u.email);
-      u.plan='free';u.approved=true;u.paid=false;u.subscription_start=null;u.subscription_end=null;
+      u.plan='free'; u.approved=true; u.paid=false; u.subscription_start=null; u.subscription_end=null;
     }
   }
-  updateStats();renderTable();
+  updateStats(); renderTable();
 }
 
 function updateStats(){
-  const reg=allUsers.filter(u=>u.role!=='owner'&&u.role!=='admin'&&u.role!=='superadmin');
-  document.getElementById('stat-total').textContent=reg.length;
-  document.getElementById('stat-free').textContent=reg.filter(u=>!u.plan||u.plan==='free').length;
-  document.getElementById('stat-pro').textContent=reg.filter(u=>u.plan==='pro').length;
-  document.getElementById('stat-ultra').textContent=reg.filter(u=>u.plan==='ultra').length;
-  // Also keep online stats fresh
-  document.getElementById('stat-online').textContent=onlineEmails.size;
-  document.getElementById('stat-guests').textContent=onlineGuestCount;
+  // Regular users: anyone whose role is null/undefined/empty (not owner/admin/superadmin)
+  const adminRoles = new Set(['owner','admin','superadmin']);
+  const reg = allUsers.filter(u => !u.role || !adminRoles.has(u.role));
+  document.getElementById('stat-total').textContent = reg.length;
+  document.getElementById('stat-free').textContent  = reg.filter(u => !u.plan || u.plan === 'free').length;
+  document.getElementById('stat-pro').textContent   = reg.filter(u => u.plan === 'pro').length;
+  document.getElementById('stat-ultra').textContent = reg.filter(u => u.plan === 'ultra').length;
+  // Keep live online counts fresh
+  document.getElementById('stat-online').textContent = onlineEmails.size;
+  document.getElementById('stat-guests').textContent = onlineGuestCount;
 }
 
 function setFilter(f){
@@ -1647,7 +1655,7 @@ function renderTable(){
   let rows=allUsers.filter(u=>{
     const plan=u.plan||'free';
     const mf=currentFilter==='all'||plan===currentFilter;
-    const ms=!q||u.email?.toLowerCase().includes(q)||u.name?.toLowerCase().includes(q);
+    const ms=!q||u.email?.toLowerCase().includes(q)||(u.full_name||u.name)?.toLowerCase().includes(q);
     return mf&&ms;
   });
   const rp={owner:2,admin:1};
@@ -1662,9 +1670,12 @@ function renderTable(){
   const tbody=document.getElementById('users-tbody');
   if(!rows.length){tbody.innerHTML='<tr><td colspan="5" class="empty-state">No users found.</td></tr>';return;}
   tbody.innerHTML=rows.map(u=>{
-    const plan=u.plan||'free',role=(u.role==='owner'||u.role==='admin'||u.role==='superadmin')?u.role:null;
+    const adminRoles = new Set(['owner','admin','superadmin']);
+    const plan=u.plan||'free';
+    const role = u.role && adminRoles.has(u.role) ? u.role : null;
     const[c1,c2]=avatarColor(u.email||'');
-    const ini=avatarInit(u.email||'',u.name||'');
+    const displayName = u.full_name || u.name || '';
+    const ini=avatarInit(u.email||'',displayName);
     const isOn=onlineEmails.has((u.email||'').toLowerCase());
     const pb=plan==='ultra'?`<span class="badge b-ultra"><span class="bd"></span>Ultra</span>`:plan==='pro'?`<span class="badge b-pro"><span class="bd"></span>Pro</span>`:`<span class="badge b-free"><span class="bd"></span>Free</span>`;
     const ds=u.created_at?new Date(u.created_at).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'—';
@@ -1687,7 +1698,7 @@ function renderTable(){
           </div>
           <div>
             <div class="user-email">${escHtml(u.email||'')}</div>
-            ${u.name&&u.name!==u.email?`<div class="user-name">${escHtml(u.name)}</div>`:''}
+            ${displayName&&displayName!==u.email?`<div class="user-name">${escHtml(displayName)}</div>`:''}
           </div>
         </div>
       </td>
@@ -1782,11 +1793,11 @@ async function addAndApproveUser(){
   try {
     await _adminFetch(`/api/admin/users/${encodeURIComponent(email)}`, {
       method:'PATCH',
-      body: JSON.stringify({email, name:name||email, plan:'free', approved:true, created_at:new Date().toISOString()})
+      body: JSON.stringify({email, full_name:name||email, plan:'free', approved:true, paid:false, created_at:new Date().toISOString()})
     });
   } catch(e) {
     // Fallback: direct upsert
-    const res = await sb.from('users').upsert({email,name:name||email,plan:'free',approved:true,created_at:new Date().toISOString()},{onConflict:'email'});
+    const res = await sb.from('users').upsert({email,full_name:name||email,plan:'free',approved:true,paid:false,created_at:new Date().toISOString()},{onConflict:'email'});
     addError = res.error;
   }
   btn.disabled=false;
