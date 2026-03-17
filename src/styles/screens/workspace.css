@@ -633,3 +633,43 @@
 }
 #home-ask-input { max-height: 160px; overflow-y: auto; }
 #screen-home main { overflow-y: auto; scrollbar-width: thin; }
+
+/* ── PDF text layer — enables text selection for "Ask AI" ─────────────────
+   PDF.js renders invisible spans that sit on top of the canvas.
+   We make them transparent but selectable, and style the selection highlight. */
+.ws-text-layer {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+.ws-text-layer span,
+.ws-text-layer br {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  transform-origin: 0% 0%;
+  cursor: text;
+  /* Suppress PDF.js default blue highlight — we use the browser's own */
+}
+.ws-text-layer ::selection {
+  background: rgba(232, 172, 46, 0.35);  /* gold tint matching app palette */
+  color: transparent;
+}
+.ws-text-layer ::-moz-selection {
+  background: rgba(232, 172, 46, 0.35);
+  color: transparent;
+}
+
+/* ── "Ask AI" floating button ─────────────────────────────────────────────
+   Injected via JS (_wsCreateAskBtn). Styled inline for position;
+   these rules handle hover + transition. */
+#ws-ask-ai-btn {
+  transition: transform 80ms ease, box-shadow 80ms ease;
+}
+#ws-ask-ai-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6) !important;
+}
+#ws-ask-ai-btn:active {
+  transform: scale(0.97);
+}
