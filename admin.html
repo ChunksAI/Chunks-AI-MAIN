@@ -835,91 +835,7 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
       </div>
     </div>
 
-    <div class="section-label">Security</div>
-    <div class="mgmt-card" style="margin-bottom:28px;">
-      <div class="mgmt-head">
-        <div>
-          <div class="mgmt-title">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            PIN Hash Generator
-          </div>
-          <div class="mgmt-subtitle">Generate SHA-256 hashes to set or update admin PINs</div>
-        </div>
-      </div>
-      <div style="padding:20px 22px;display:grid;grid-template-columns:1fr 1fr;gap:16px;">
 
-        <!-- Owner -->
-        <div style="background:var(--surface-2);border:1px solid rgba(220,40,40,0.18);border-radius:var(--r-md);padding:18px 20px;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-            <span style="font-size:14px;">👑</span>
-            <div>
-              <div style="font-family:var(--font-head);font-size:13px;font-weight:700;color:var(--text);">Owner PIN</div>
-              <div style="font-family:var(--font-mono);font-size:10px;color:var(--text3);">contridascharles91@gmail.com</div>
-            </div>
-          </div>
-          <div class="inp-group" style="margin-bottom:10px;">
-            <label class="inp-label">New 6-digit PIN</label>
-            <input id="gen-pin-owner" type="password" maxlength="6" placeholder="••••••" class="inp"
-              style="font-family:var(--font-mono);letter-spacing:.25em;font-size:16px;"
-              oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
-          </div>
-          <button onclick="genHash('owner')" class="btn-primary" style="width:100%;justify-content:center;margin-bottom:10px;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            Generate Hash
-          </button>
-          <div id="gen-result-owner" style="display:none;background:var(--surface-3);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:10px 12px;">
-            <div style="font-family:var(--font-mono);font-size:9px;color:var(--text4);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">
-              SHA-256 Hash — set as <span style="color:#ff8080;">ADMIN_PIN_HASH_OWNER</span> in Railway
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <code id="gen-hash-owner" style="font-family:var(--font-mono);font-size:10px;color:#ff8080;word-break:break-all;flex:1;line-height:1.5;"></code>
-              <button onclick="copyHash('owner')" id="copy-btn-owner"
-                style="flex-shrink:0;padding:5px 12px;border-radius:var(--r-pill);background:rgba(200,20,20,0.10);border:1px solid rgba(220,40,40,0.28);color:#ff6b6b;font-size:11px;font-weight:600;font-family:var(--font-body);cursor:pointer;white-space:nowrap;">
-                Copy
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Admin -->
-        <div style="background:var(--surface-2);border:1px solid rgba(139,124,248,0.18);border-radius:var(--r-md);padding:18px 20px;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
-            <span style="font-size:14px;">🛡</span>
-            <div>
-              <div style="font-family:var(--font-head);font-size:13px;font-weight:700;color:var(--text);">Admin PIN</div>
-              <div style="font-family:var(--font-mono);font-size:10px;color:var(--text3);">deffmichaeldawang@gmail.com</div>
-            </div>
-          </div>
-          <div class="inp-group" style="margin-bottom:10px;">
-            <label class="inp-label">New 6-digit PIN</label>
-            <input id="gen-pin-admin" type="password" maxlength="6" placeholder="••••••" class="inp"
-              style="font-family:var(--font-mono);letter-spacing:.25em;font-size:16px;"
-              oninput="this.value=this.value.replace(/[^0-9]/g,'')" />
-          </div>
-          <button onclick="genHash('admin')" class="btn-primary" style="width:100%;justify-content:center;background:linear-gradient(135deg,#6b5de8,#8b7cf8);box-shadow:0 2px 12px rgba(139,124,248,0.25);margin-bottom:10px;">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            Generate Hash
-          </button>
-          <div id="gen-result-admin" style="display:none;background:var(--surface-3);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:10px 12px;">
-            <div style="font-family:var(--font-mono);font-size:9px;color:var(--text4);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px;">
-              SHA-256 Hash — set as <span style="color:var(--violet);">ADMIN_PIN_HASH_ADMIN</span> in Railway
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <code id="gen-hash-admin" style="font-family:var(--font-mono);font-size:10px;color:var(--violet);word-break:break-all;flex:1;line-height:1.5;"></code>
-              <button onclick="copyHash('admin')" id="copy-btn-admin"
-                style="flex-shrink:0;padding:5px 12px;border-radius:var(--r-pill);background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);font-size:11px;font-weight:600;font-family:var(--font-body);cursor:pointer;white-space:nowrap;">
-                Copy
-              </button>
-            </div>
-          </div>
-        </div>
-
-      </div>
-      <div style="padding:0 22px 16px;font-family:var(--font-mono);font-size:11px;color:var(--text4);line-height:1.7;">
-        ① Enter a new PIN → Generate Hash → Copy → paste into Railway env vars <code style="color:var(--text3);">ADMIN_PIN_HASH_OWNER</code> / <code style="color:var(--text3);">ADMIN_PIN_HASH_ADMIN</code><br>
-        ② Redeploy Railway after updating env vars. Hashes are never stored in client-side code.
-      </div>
-    </div>
 
     <div class="section-label">User Management</div>
     <div class="mgmt-card">
@@ -1362,12 +1278,9 @@ async function _pinSubmit() {
           const errMsg = json?.error || '';
           if (errMsg === 'Incorrect PIN') {
             pinCorrect = false;
-          } else if (errMsg === 'Forbidden — not an admin account' || res.status === 403) {
-            // Old backend couldn't extract email from JWT — treat as server-side issue
-            // not as a user error. Show actionable message.
-            serverError = `Server rejected JWT (${res.status}). This usually means the backend needs redeployment with the latest admin.py fix. Error: ${errMsg || 'Forbidden'}`;
           } else {
-            serverError = errMsg || `Auth failed (${res.status})`;
+            // Any other 403/401 — not an admin account
+            serverError = errMsg || `Access denied (${res.status})`;
           }
         } else {
           // 200 / 2xx — success
@@ -1397,12 +1310,7 @@ async function _pinSubmit() {
       `<span style="color:var(--red);">⚠ ${serverError}</span>` +
       `<button onclick="_pinRetrySubmit()" style="margin-left:8px;background:transparent;` +
       `border:1px solid rgba(248,113,113,.35);color:var(--red);border-radius:20px;` +
-      `padding:2px 10px;font-size:11px;cursor:pointer;font-family:var(--font-body);">Retry</button>` +
-      `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap;">` +
-      `<button onclick="_debugPin()" style="background:rgba(139,124,248,0.10);border:1px solid rgba(139,124,248,0.28);` +
-      `color:var(--violet);border-radius:20px;padding:3px 10px;font-size:10px;cursor:pointer;font-family:var(--font-mono);">` +
-      `🔍 Debug PIN</button>` +
-      `</div>`;
+      `padding:2px 10px;font-size:11px;cursor:pointer;font-family:var(--font-body);">Retry</button>`;
     attEl.className = 'pin-attempts warn';
     return;
   }
@@ -1442,9 +1350,7 @@ async function _pinSubmit() {
       attEl.className   = 'pin-attempts warn';
       _pinCheckLockout();
     } else {
-      attEl.innerHTML = `Incorrect PIN — ${rem} attempt${rem !== 1 ? 's' : ''} remaining` +
-        `<button onclick="_debugPin()" style="margin-left:8px;background:rgba(139,124,248,0.10);border:1px solid rgba(139,124,248,0.28);` +
-        `color:var(--violet);border-radius:20px;padding:2px 8px;font-size:10px;cursor:pointer;font-family:var(--font-mono);">🔍 Debug</button>`;
+      attEl.textContent = `Incorrect PIN — ${rem} attempt${rem !== 1 ? 's' : ''} remaining`;
       attEl.className = rem <= 2 ? 'pin-attempts warn' : 'pin-attempts';
     }
   }
@@ -1458,75 +1364,6 @@ function _pinRetrySubmit() {
   }
 }
 
-async function _debugPin() {
-  const attEl = document.getElementById('pin-attempts');
-  if (!_pendingEmail) {
-    if (attEl) attEl.innerHTML += '<br><span style="color:var(--text4);font-size:10px;">No email — please sign in first.</span>';
-    return;
-  }
-  if (!_pinEntry || _pinEntry.length < 1) {
-    if (attEl) attEl.innerHTML += '<br><span style="color:var(--text4);font-size:10px;">Enter your PIN first, then click Debug.</span>';
-    return;
-  }
-
-  if (attEl) attEl.innerHTML += '<br><span style="color:var(--violet);font-size:10px;font-family:var(--font-mono);">Debugging…</span>';
-
-  // ── Try server debug-pin endpoint first ──────────────────────────────────
-  try {
-    const res  = await fetch(`${getBackend()}/api/admin/debug-pin`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: _pendingEmail, pin: _pinEntry }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.email !== undefined) {
-        // New endpoint responded — show full server-side result
-        const color = data.match ? 'var(--green)' : 'var(--red)';
-        const lines = [
-          `email: ${data.email}`,
-          `in_admin_list: ${data.email_in_admin_list}`,
-          `hash_configured: ${data.hash_configured}`,
-          `stored_prefix: ${data.stored_prefix || 'none'}`,
-          `computed_prefix: ${data.computed_prefix || 'none'}`,
-          `pin_length: ${data.pin_length}`,
-          `match: ${data.match}`,
-        ].join(' · ');
-        if (attEl) attEl.innerHTML += `<div style="margin-top:6px;font-size:10px;font-family:var(--font-mono);color:${color};">${lines}</div>`;
-        if (!data.hash_configured)
-          if (attEl) attEl.innerHTML += `<div style="font-size:10px;color:var(--red);font-family:var(--font-mono);">⚠ Hash not set in Railway env vars.</div>`;
-        return;
-      }
-    }
-  } catch(_) { /* fall through to client-side debug */ }
-
-  // ── Client-side debug (works even on old backend) ─────────────────────────
-  // Compute the hash locally and show what the server SHOULD be comparing.
-  try {
-    const pin    = _pinEntry;
-    const salted = 'chunks_admin_salt_' + pin;
-    const buf    = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salted));
-    const hash   = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-    const prefix = hash.slice(0, 8);
-
-    const roleMap = {'contridascharles91@gmail.com':'owner','deffmichaeldawang@gmail.com':'admin'};
-    const envVar  = roleMap[_pendingEmail.toLowerCase()] === 'owner'
-      ? 'ADMIN_PIN_HASH_OWNER' : 'ADMIN_PIN_HASH_ADMIN';
-
-    if (attEl) attEl.innerHTML +=
-      `<div style="margin-top:6px;font-size:10px;font-family:var(--font-mono);color:var(--gold);">` +
-      `CLIENT-SIDE DEBUG (server endpoint not yet deployed):<br>` +
-      `email: ${_pendingEmail}<br>` +
-      `pin_length: ${pin.length}<br>` +
-      `computed_hash_prefix: <strong style="color:var(--teal)">${prefix}</strong><br>` +
-      `full_hash: <span style="word-break:break-all">${hash}</span><br><br>` +
-      `<strong>👉 Go to Railway → Variables → set ${envVar} = above full_hash</strong><br>` +
-      `Then redeploy. The PIN screen will disappear and you'll log in directly.` +
-      `</div>`;
-  } catch(e) {
-    if (attEl) attEl.innerHTML += `<div style="color:var(--red);font-size:10px;">Debug error: ${e.message}</div>`;
-  }
-}
 
 function _finalizeAdmin(email) {
   if (_adminActive && document.getElementById('admin-app').style.display === 'block') return;
@@ -1918,40 +1755,6 @@ function startRealtimeSync(){
         setTimeout(()=>startRealtimeSync(),5000);
       }
     });
-}
-
-// ── PIN Hash Generator functions ─────────────────────────────────────────────
-async function genHash(role) {
-  const pinEl  = document.getElementById('gen-pin-' + role);
-  const resEl  = document.getElementById('gen-result-' + role);
-  const hashEl = document.getElementById('gen-hash-' + role);
-  const pin    = (pinEl?.value || '').trim();
-  if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
-    pinEl.style.borderColor = 'rgba(248,113,113,0.6)';
-    setTimeout(() => pinEl.style.borderColor = '', 1500);
-    return;
-  }
-  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('chunks_admin_salt_' + pin));
-  const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-  hashEl.textContent = hash;
-  resEl.style.display = 'block';
-  // Reset copy button
-  const copyBtn = document.getElementById('copy-btn-' + role);
-  if (copyBtn) { copyBtn.textContent = 'Copy'; copyBtn.style.color = ''; }
-}
-
-async function copyHash(role) {
-  const hash = document.getElementById('gen-hash-' + role)?.textContent || '';
-  if (!hash) return;
-  try {
-    await navigator.clipboard.writeText(hash);
-    const btn = document.getElementById('copy-btn-' + role);
-    if (btn) { btn.textContent = '✓ Copied'; btn.style.color = 'var(--green)'; setTimeout(() => { btn.textContent = 'Copy'; btn.style.color = ''; }, 2000); }
-  } catch(e) {
-    // Fallback: select the text
-    const el = document.getElementById('gen-hash-' + role);
-    if (el) { const r = document.createRange(); r.selectNode(el); window.getSelection().removeAllRanges(); window.getSelection().addRange(r); }
-  }
 }
 
 window.addEventListener('load',checkAdminSession);
