@@ -45,13 +45,13 @@ function _applyUI(user) {
   if (!user) {
     document.querySelectorAll('.profile-name').forEach(el => { el.textContent = 'Guest'; });
     document.querySelectorAll('.profile-plan').forEach(el => { el.textContent = 'Free Plan'; });
-    // Clear avatar photo — force neutral grey so no gradient/logo bleed-through
+    // Clear avatar photo — neutral grey, no gradient bleed
     document.querySelectorAll('.avatar').forEach(el => {
       el.textContent = '?';
       el.classList.remove('has-initials');
-      el.style.backgroundImage = 'none';
-      el.style.backgroundSize = '';
-      el.style.backgroundPosition = '';
+      el.style.removeProperty('background-image');
+      el.style.removeProperty('background-size');
+      el.style.removeProperty('background-position');
       el.style.background = 'var(--surface-3)';
     });
     document.querySelectorAll('.pd-name').forEach(el => { el.textContent = ''; });
@@ -59,14 +59,14 @@ function _applyUI(user) {
     document.querySelectorAll('.pd-avatar').forEach(el => {
       el.textContent = '?';
       el.classList.remove('has-initials');
-      el.style.backgroundImage = 'none';
-      el.style.backgroundSize = '';
+      el.style.removeProperty('background-image');
+      el.style.removeProperty('background-size');
       el.style.background = 'var(--surface-3)';
     });
     document.querySelectorAll('.mht-avatar, .mwt-avatar').forEach(el => {
       el.textContent = '?';
       el.classList.remove('has-initials');
-      el.style.backgroundImage = 'none';
+      el.style.removeProperty('background-image');
       el.style.background = 'var(--surface-3)';
     });
     document.querySelectorAll('.md-profile-name').forEach(el => { el.textContent = 'Guest'; });
@@ -74,7 +74,7 @@ function _applyUI(user) {
     document.querySelectorAll('.md-avatar').forEach(el => {
       el.textContent = '?';
       el.classList.remove('has-initials');
-      el.style.backgroundImage = 'none';
+      el.style.removeProperty('background-image');
       el.style.background = 'var(--surface-3)';
     });
     // Hide the "..." dots — no profile menu for unauthenticated guests
@@ -103,11 +103,12 @@ function _applyUI(user) {
       el.style.background = '';
       el.textContent = '';
     } else {
+      // Add class so CSS gradient applies, remove inline overrides so class wins
       el.classList.add('has-initials');
-      el.style.backgroundImage = 'none';
-      el.style.backgroundSize = '';
-      el.style.backgroundPosition = '';
-      el.style.background = '';
+      el.style.removeProperty('background-image');
+      el.style.removeProperty('background');
+      el.style.removeProperty('background-size');
+      el.style.removeProperty('background-position');
       el.textContent = fallbackText;
     }
   }
