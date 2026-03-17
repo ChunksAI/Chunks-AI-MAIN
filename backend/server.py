@@ -1538,6 +1538,8 @@ def ask():
         # User-uploaded document: skip textbook index entirely, use doc_context
         if doc_context:
             context, similarity, is_relevant, source, all_sources = doc_context, 1.0, True, None, []
+            searcher     = TextbookSearch()  # empty sentinel — .chunks is [] so downstream guards work
+            use_textbook = False             # exam mode re-search guard
             logger.info(f"User doc mode — context length: {len(doc_context)}")
         else:
             # Use per-book cached index (no global state race condition)
@@ -1585,10 +1587,14 @@ def ask():
             memory_block = f"\n\nUSER PROFILE (remember this about the student):\n{user_memory}"
 
         # Book-aware system prompt — works for chemistry, nursing, biology, physics, etc.
-        book_info   = BOOK_LIBRARY.get(book_id, {})
-        book_name   = book_info.get('name', 'the textbook')
-        book_author = book_info.get('author', '')
-        book_label  = f"{book_name} by {book_author}" if book_author else book_name
+        if doc_context:
+            book_name  = 'the uploaded document'
+            book_label = 'the student\'s uploaded document'
+        else:
+            book_info   = BOOK_LIBRARY.get(book_id, {})
+            book_name   = book_info.get('name', 'the textbook')
+            book_author = book_info.get('author', '')
+            book_label  = f"{book_name} by {book_author}" if book_author else book_name
 
         # Only inject LaTeX instruction for science/math books where equations appear.
         # For a nursing or law book it's irrelevant noise in the prompt.
