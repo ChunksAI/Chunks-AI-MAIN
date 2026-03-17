@@ -106,7 +106,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 #page-root { position: relative; z-index: 1; min-height: 100vh; overflow: visible; }
-/* Static dot-grid overlay */
+/* Static dot-grid overlay — z-index:-1 so it never intercepts scroll/pointer */
 body::before {
   content: '';
   position: fixed;
@@ -114,7 +114,7 @@ body::before {
   background-image: radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px);
   background-size: 28px 28px;
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
 }
 body::after {
   content: '';
@@ -122,7 +122,7 @@ body::after {
   inset: 0;
   background: radial-gradient(ellipse 100% 100% at 50% 50%, transparent 38%, rgba(0,0,0,0.55) 100%);
   pointer-events: none;
-  z-index: 0;
+  z-index: -1;
 }
 /* ── Scrollbar — page navigation scrollbar ── */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -1873,6 +1873,20 @@ function startRealtimeSync(){
 }
 
 window.addEventListener('load',checkAdminSession);
+
+// ── Scroll enforcer — guarantees body is always scrollable ──
+(function enforceScroll() {
+  function _fix() {
+    document.documentElement.style.height = 'auto';
+    document.documentElement.style.overflow = 'visible';
+    document.body.style.overflowY = 'scroll';
+    document.body.style.height = 'auto';
+    document.body.style.minHeight = '100vh';
+  }
+  _fix();
+  document.addEventListener('DOMContentLoaded', _fix);
+  window.addEventListener('load', _fix);
+})();
 
 
 // ── PAEV Index Builder ────────────────────────────────────────────────────────
