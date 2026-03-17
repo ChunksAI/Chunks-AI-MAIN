@@ -1329,6 +1329,8 @@ def ask():
         web_search    = data.get('web_search', False)
         history       = data.get('history', [])
         user_memory   = sanitize_user_memory(data.get('user_memory', ''))
+        # task_type from frontend (optional — falls back to mode-based routing)
+        task_type     = data.get('task_type', None)
 
         # ── Server-side tier + daily limit enforcement ───────────────────────
         # _extract_verified_user verifies the JWT, looks up the real tier in DB,
@@ -1349,15 +1351,18 @@ def ask():
         if 'THINKING_MODE'       in token_flags: thinking_mode = 'thinking'
         if 'DEEP_THINKING_MODE'  in token_flags: thinking_mode = 'deep'
 
-        logger.info(f"[{mode.upper()}] Q: {question[:80]} | complexity: {complexity}")
+        logger.info(f"[{mode.upper()}] task={task_type or 'auto'} Q: {question[:80]} | complexity: {complexity}")
 
         # ── Model selection via ai_router ────────────────────────────────────
         # Thinking-mode tokens override the router (explicit user request).
-        # Otherwise route() picks the cheapest model that fits the task.
+        # Otherwise: use task_type from frontend if provided (precise),
+        # fall back to route_for_mode(mode) for legacy/untagged calls.
         if thinking_mode == 'deep':
             selected_model = os.environ.get('DEEP_MODEL', 'deepseek/deepseek-r1:free')
         elif thinking_mode == 'thinking':
             selected_model = os.environ.get('THINK_MODEL', 'deepseek/deepseek-r1-distill-llama-70b:free')
+        elif task_type:
+            selected_model = route(task_type, complexity)
         else:
             selected_model = route_for_mode(mode, complexity)
 
