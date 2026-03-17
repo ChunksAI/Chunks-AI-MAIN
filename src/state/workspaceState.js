@@ -792,11 +792,12 @@ export async function _wsAsk(question) {
   try {
     const mode = typeof _getStudyMode === 'function' ? _getStudyMode() : 'study';
     const complexity = mode === 'concise' ? 3 : mode === 'detailed' ? 8 : 5;
+    const taskType = `workspace_${mode}`;   // concise|study|detailed|practice|summary etc.
     const authHeader = await _getAuthHeader();
     const res = await fetch(`${API_BASE}/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader },
-      body: JSON.stringify({ question, bookId: _wsBookId || 'atkins', mode, complexity, language: localStorage.getItem('chunks_setting_language') || 'Auto-detect', safe_content: localStorage.getItem('chunks_setting_safe-content') === '1', history: _wsChatHistory.slice(-10) }),
+      body: JSON.stringify({ question, bookId: _wsBookId || 'atkins', mode, complexity, task_type: taskType, language: localStorage.getItem('chunks_setting_language') || 'Auto-detect', safe_content: localStorage.getItem('chunks_setting_safe-content') === '1', history: _wsChatHistory.slice(-10) }),
     });
     wsRemoveThinking();
     if (!res.ok) {
