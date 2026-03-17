@@ -65,7 +65,8 @@ const NAV_ITEMS = [
   {
     id:     'library',
     label:  'Library',
-    action: 'openLibraryModal',
+    action: 'showScreen',
+    screen: 'library',
     svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>`,
   },
   {
@@ -111,6 +112,7 @@ const NAV_ITEMS = [
 const RECENT_IDS = {
   home:      { general: 'recent-list-general',           workspace: 'recent-list-home',          visual: 'recent-list-vt-home',          exam: 'recent-list-exam-home' },
   workspace: { general: 'recent-list-general-ws',        workspace: 'recent-list-workspace',      visual: 'recent-list-vt-ws',            exam: 'recent-list-exam-ws' },
+  library:   { general: 'recent-list-general-lib',       workspace: 'recent-list-ws-lib',         visual: 'recent-list-vt-lib',           exam: 'recent-list-exam-lib' },
   flash:     { general: 'recent-list-general-flash',     workspace: 'recent-list-flash',          visual: 'recent-list-vt-flash',         exam: 'recent-list-exam-flash' },
   research:  { general: 'recent-list-general-research',  workspace: 'recent-list-ws-research',    visual: 'recent-list-vt-research',      exam: 'recent-list-exam-research' },
   exam:      { general: 'recent-list-general-exam',      workspace: 'recent-list-ws-exam',        visual: 'recent-list-vt-exam',          exam: 'recent-list-exam-exam' },
