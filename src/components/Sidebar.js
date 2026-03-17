@@ -18,9 +18,17 @@
 // ── SVG constants ──────────────────────────────────────────────────────────
 
 const LOGO_SVG = `
-  <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" opacity="0.95"/>
-  <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
-  <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#lg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
+  <defs>
+    <linearGradient id="sb-lg-gv" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/>
+    </linearGradient>
+    <linearGradient id="sb-lg-vg" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/>
+    </linearGradient>
+  </defs>
+  <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#sb-lg-gv)" stroke-width="7" opacity="0.95"/>
+  <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#sb-lg-vg)" stroke-width="7" transform="rotate(60 50 50)" opacity="0.88"/>
+  <ellipse class="orbit" cx="50" cy="50" rx="40" ry="14" fill="none" stroke="url(#sb-lg-gv)" stroke-width="7" transform="rotate(120 50 50)" opacity="0.80"/>
   <circle cx="50" cy="50" r="7" fill="#e8ac2e"/>`;
 
 const PANEL_ICON = `<svg width="16" height="16" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -260,6 +268,17 @@ if (document.readyState === 'loading') {
   // Running it again here populates the now-existing list elements.
   window._renderAllRecent?.();
 }
+
+// Safety net: if screens mount asynchronously (e.g. code-split chunks),
+// re-run mountSidebars on the next tick so any <aside> elements that
+// weren't in the DOM yet get populated.
+setTimeout(() => {
+  const unmounted = document.querySelectorAll('aside.sidebar[data-sidebar-screen]:empty');
+  if (unmounted.length) {
+    mountSidebars();
+    window._renderAllRecent?.();
+  }
+}, 0);
 
 // Legacy global
 window.buildSidebar  = buildSidebar;
