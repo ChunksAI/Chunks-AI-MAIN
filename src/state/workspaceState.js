@@ -16,6 +16,7 @@
 
 import { API_BASE }    from '../lib/api.js';
 import { showToast }   from '../components/Toast.js';
+import { getDocBlob, getDocMeta, deleteDoc } from '../lib/userDocDb.js';
 
 // ── Book metadata ──────────────────────────────────────────────────────────
 
@@ -45,6 +46,8 @@ export let _wsChatHistory = [];
 export let _newChatIsIncognito = false;
 export let _wsTyping      = false;
 export let _wsSelectedText = '';  // text highlighted in PDF — sent as context with next question
+export let _wsUserDocId   = null;  // id of user-uploaded doc currently open (null = textbook mode)
+export let _wsUserDocText = '';    // full extracted text of user doc — sent to /ask as doc_context
 
 // ── Per-book fallback outlines ─────────────────────────────────────────────
 
@@ -276,6 +279,9 @@ export async function selectBook(bookId) {
   const meta = wsBookMeta[bookId];
   if (!meta) return;
 
+  // Leave user-doc mode
+  _wsUserDocId   = null;
+  _wsUserDocText = '';
   _wsBookId = bookId;
   _wsChatHistory = [];
   const short  = meta.name.split(' ').slice(0, 2).join(' ');
@@ -485,6 +491,260 @@ export async function selectBook(bookId) {
         <button onclick="selectBook('${bookId}')" style="padding:7px 18px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-family:var(--font-body);cursor:pointer;">Retry</button>
       </div>`;
   }
+}
+
+// ── User document loader ─────────────────────────────────────────────────
+// Mirrors selectBook() but loads from IndexedDB instead of R2.
+// Sets _wsUserDocId and _wsUserDocText so _wsAsk sends doc_context.
+
+export async function selectUserDoc(docId) {
+  if (typeof closeLibraryModal === 'function') closeLibraryModal();
+
+  const { data: meta, error: metaErr } = await getDocMeta(docId);
+  if (!meta || metaErr) {
+    wsShowToast('⚠', 'Could not load document', 'var(--red)');
+    return;
+  }
+
+  // Switch workspace into user-doc mode
+  _wsUserDocId   = docId;
+  _wsUserDocText = meta.extractedText || '';
+  _wsBookId      = '__user_doc__';  // sentinel — prevents textbook index lookups
+  _wsChatHistory = [];
+
+  const shortName = meta.name.replace(/\.[^.]+$/, '').slice(0, 30);
+  const ctag   = document.getElementById('ws-context-tag');
+  const ctitle = document.getElementById('ws-chat-title');
+  if (ctag)   ctag.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> ${shortName}`;
+  if (ctitle) ctitle.textContent = meta.name.replace(/\.[^.]+$/, '');
+
+  // Show loading state in chat
+  const msgs = document.getElementById('ws-messages');
+  if (msgs) {
+    msgs.innerHTML = `
+      <div id="ws-download-banner" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:18px;text-align:center;padding:40px;">
+        <div style="width:56px;height:56px;border-radius:16px;background:var(--violet-muted);border:1px solid var(--violet-border);display:flex;align-items:center;justify-content:center;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+        </div>
+        <div>
+          <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);margin-bottom:5px;">Opening document…</div>
+          <div style="font-size:12px;color:var(--text-3);line-height:1.6;max-width:220px;">Loading <strong style="color:var(--text-2);">${meta.name}</strong></div>
+        </div>
+      </div>`;
+  }
+
+  if (typeof showScreen === 'function') showScreen('workspace');
+
+  document.getElementById('ws-book-name').textContent   = meta.name.replace(/\.[^.]+$/, '');
+  document.getElementById('ws-book-author').textContent = `${meta.pageCount} pages · Uploaded by you`;
+
+  const mwtTitle = document.getElementById('mwt-book-name');
+  const mwtSub   = document.getElementById('mwt-book-sub');
+  if (mwtTitle) mwtTitle.textContent = meta.name.replace(/\.[^.]+$/, '');
+  if (mwtSub)   mwtSub.textContent   = 'Your document';
+
+  document.getElementById('ws-default-content').style.display = 'none';
+  document.getElementById('ws-pdf-canvas-wrap').style.display = 'none';
+  document.getElementById('ws-pdf-loading').style.display     = 'flex';
+  document.getElementById('ws-loading-text').textContent      = 'Opening ' + meta.name + '…';
+  document.getElementById('ws-loading-progress').textContent  = 'Reading from storage…';
+
+  const isPpt = meta.name.match(/\.(pptx?|ppt)$/i);
+
+  try {
+    if (isPpt) {
+      // PPT: render as slide text cards (no PDF.js needed)
+      await _wsRenderPptSlides(meta);
+    } else {
+      // PDF: load bytes from IndexedDB → PDF.js
+      const { data: buf, error: blobErr } = await getDocBlob(docId);
+      if (!buf || blobErr) throw new Error(blobErr || 'Blob not found');
+
+      const pdfjsLib = await _loadPdfJs();
+      const loadingTask = pdfjsLib.getDocument({ data: buf });
+      _wsPdfDoc      = await loadingTask.promise;
+      _wsTotalPages  = _wsPdfDoc.numPages;
+      _wsCurrentPage = 1;
+      _wsPageContainers = [];
+
+      document.getElementById('ws-loading-progress').textContent = `${_wsTotalPages} pages — rendering…`;
+      _wsUpdateBadge(1);
+
+      const wrap = document.getElementById('ws-pdf-canvas-wrap');
+      wrap.innerHTML = '';
+
+      // Auto-fit scale
+      try {
+        const _fitPage  = await _wsPdfDoc.getPage(1);
+        const _naturalW = _fitPage.getViewport({ scale: 1 }).width;
+        const _availW   = wrap.clientWidth - 40;
+        if (_naturalW > 0 && _availW > 100) {
+          _wsScale = Math.min(Math.max(_availW / _naturalW, ZOOM_MIN), ZOOM_MAX);
+        }
+      } catch (_) {}
+
+      for (let i = 1; i <= _wsTotalPages; i++) {
+        const pageWrap = document.createElement('div');
+        pageWrap.style.cssText = 'position:relative;box-shadow:0 4px 24px rgba(0,0,0,0.6);flex-shrink:0;';
+        pageWrap.dataset.pageNum = i;
+        const canvas = document.createElement('canvas');
+        canvas.style.display = 'block';
+        pageWrap.appendChild(canvas);
+        wrap.appendChild(pageWrap);
+        _wsPageContainers.push(pageWrap);
+      }
+
+      for (let i = 0; i < Math.min(2, _wsPageContainers.length); i++) {
+        await _wsRenderPage(i + 1, _wsPageContainers[i]);
+      }
+
+      _wsPageContainers.forEach(c => {
+        if (!c.dataset.rendered) {
+          const cv = c.querySelector('canvas');
+          cv.width = 850; cv.height = 1100;
+          c.style.width = '850px'; c.style.height = '1100px';
+          cv.getContext('2d').fillStyle = '#1e1e24';
+          cv.getContext('2d').fillRect(0, 0, 850, 1100);
+        }
+      });
+
+      const observer = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const num = parseInt(entry.target.dataset.pageNum);
+            _wsRenderPage(num, entry.target);
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { root: wrap, rootMargin: '300px' });
+      _wsPageContainers.slice(2).forEach(c => observer.observe(c));
+
+      wrap.addEventListener('scroll', () => {
+        const scrollMid = wrap.scrollTop + wrap.clientHeight / 2;
+        let closest = 1;
+        for (let i = 0; i < _wsPageContainers.length; i++) {
+          const c = _wsPageContainers[i];
+          if (c.offsetTop <= scrollMid) closest = i + 1;
+          else break;
+        }
+        if (closest !== _wsCurrentPage) {
+          _wsCurrentPage = closest;
+          _wsUpdateBadge(closest);
+        }
+      });
+
+      document.getElementById('ws-pdf-loading').style.display    = 'none';
+      document.getElementById('ws-default-content').style.display = 'none';
+      wrap.style.display = 'flex';
+    }
+
+    // Welcome message for user docs
+    _wsShowUserDocWelcome(meta);
+
+    // Clear outline panel — user docs don't have a textbook outline
+    const outlineItems = document.getElementById('ws-outline-items');
+    if (outlineItems) {
+      outlineItems.innerHTML = `
+        <div style="padding:20px 16px;text-align:center;color:var(--text-4);font-size:12px;line-height:1.6;">
+          <div style="margin-bottom:8px;opacity:0.5;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+          </div>
+          Your document
+        </div>`;
+    }
+
+  } catch (err) {
+    console.error('[selectUserDoc] error:', err);
+    document.getElementById('ws-pdf-loading').style.display     = 'none';
+    document.getElementById('ws-default-content').style.display = 'flex';
+    wsShowToast('⚠', 'Could not open document: ' + err.message, 'var(--red)');
+  }
+}
+
+// Render a PPT as styled text slide cards (no PDF.js)
+async function _wsRenderPptSlides(meta) {
+  const wrap = document.getElementById('ws-pdf-canvas-wrap');
+  wrap.innerHTML = '';
+
+  let slides = [];
+  try { slides = JSON.parse(meta.extractedText || '[]'); } catch (_) {}
+  if (!Array.isArray(slides) || !slides.length) {
+    // Fall back: show raw text
+    slides = [{ slide_number: 1, title: meta.name, content: [meta.extractedText || 'No content'], notes: '' }];
+  }
+
+  _wsTotalPages  = slides.length;
+  _wsCurrentPage = 1;
+  _wsPageContainers = [];
+  _wsUpdateBadge(1);
+
+  slides.forEach((slide, idx) => {
+    const card = document.createElement('div');
+    card.dataset.pageNum = idx + 1;
+    card.style.cssText = 'width:100%;max-width:760px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-lg);padding:28px 32px;box-shadow:0 4px 24px rgba(0,0,0,0.4);flex-shrink:0;';
+    const num = slide.slide_number ?? (idx + 1);
+    const title = slide.title || `Slide ${num}`;
+    const body = (slide.content || []).join('
+
+');
+    const notes = slide.notes ? `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-xs);font-size:11px;color:var(--text-4);font-style:italic;">${slide.notes}</div>` : '';
+    card.innerHTML = `
+      <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-4);margin-bottom:10px;letter-spacing:0.08em;">SLIDE ${num}</div>
+      <div style="font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text-1);margin-bottom:14px;line-height:1.3;">${title}</div>
+      <div style="font-size:13px;color:var(--text-2);line-height:1.7;white-space:pre-wrap;">${body}</div>
+      ${notes}`;
+    wrap.appendChild(card);
+    _wsPageContainers.push(card);
+  });
+
+  wrap.addEventListener('scroll', () => {
+    const scrollMid = wrap.scrollTop + wrap.clientHeight / 2;
+    let closest = 1;
+    for (let i = 0; i < _wsPageContainers.length; i++) {
+      if (_wsPageContainers[i].offsetTop <= scrollMid) closest = i + 1;
+      else break;
+    }
+    if (closest !== _wsCurrentPage) {
+      _wsCurrentPage = closest;
+      _wsUpdateBadge(closest);
+    }
+  });
+
+  document.getElementById('ws-pdf-loading').style.display    = 'none';
+  document.getElementById('ws-default-content').style.display = 'none';
+  wrap.style.display = 'flex';
+}
+
+function _wsShowUserDocWelcome(meta) {
+  const msgs = document.getElementById('ws-messages');
+  if (!msgs) return;
+  const name = meta.name.replace(/\.[^.]+$/, '');
+  const isPpt = meta.name.match(/\.(pptx?|ppt)$/i);
+  const icon = isPpt ? '📊' : '📄';
+  msgs.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:14px;padding:20px 16px 8px;">
+      <div class="hc-ai" style="align-items:flex-start;">
+        <div class="hc-ai-avatar" style="background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);font-size:13px;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">✦</div>
+        <div style="background:var(--surface-1);border:1px solid var(--border-sm);border-radius:4px 14px 14px 14px;padding:13px 15px;font-size:13px;color:var(--text-1);line-height:1.65;flex:1;">
+          <p style="margin:0 0 8px;">${icon} <strong>${name}</strong> is open. I've read the full document — ask me anything about it.</p>
+          <p style="margin:0;color:var(--text-2);">Some things you could ask:</p>
+          <div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;">
+            ${['Summarize the key points', 'What are the main topics covered?', 'Explain the most important concept'].map(q => `
+              <div class="ws-chip-item" onclick="wsSetInput('${q}');document.getElementById('ws-chat-input').focus();"
+                style="display:flex;align-items:center;justify-content:space-between;padding:7px 11px;border:1px solid var(--border-xs);border-radius:8px;background:var(--surface-2);cursor:pointer;font-size:12px;color:var(--text-2);transition:all 120ms;">
+                ${q}
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`;
 }
 
 // ── Welcome message ───────────────────────────────────────────────────────
@@ -846,6 +1106,11 @@ export async function _wsAsk(question) {
     const complexity = mode === 'concise' ? 3 : mode === 'detailed' ? 8 : 5;
     const body = { question, bookId: _wsBookId || 'atkins', mode, complexity, history: _wsChatHistory.slice(-10) };
     if (capturedSelection) body.selected_text = capturedSelection;
+    // User-uploaded doc: send extracted text as context instead of textbook index
+    if (_wsUserDocId && _wsUserDocText) {
+      body.doc_context = _wsUserDocText.slice(0, 80000); // ~80k chars fits comfortably in context
+      body.bookId = '__user_doc__';
+    }
     const res = await fetch(`${API_BASE}/ask`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1197,3 +1462,4 @@ window.homeHandleAttach    = homeHandleAttach;
 window._wsRenderPage          = _wsRenderPage;
 window._wsUpdateOutlineActive = _wsUpdateOutlineActive;
 window._loadPdfJs             = _loadPdfJs;   // used by studyPlanState.js PDF extraction
+window.selectUserDoc          = selectUserDoc;
