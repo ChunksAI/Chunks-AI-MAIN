@@ -1,6 +1,13 @@
 /**
  * src/state/navigation.js — Task 15
  * Implements: showScreen, drawerNav, mobileNav, toggleSidebar, closeMobileDrawer
+ *
+ * Task 11 addition: URL hash routing.
+ * • showScreen() writes  location.hash = '#screen-NAME'
+ * • _navInit()   reads   location.hash on load (falls back to sessionStorage)
+ * • hashchange   listener handles browser back/forward
+ * • OAuth hashes (containing 'access_token' or 'error_description') are
+ *   never overwritten and never parsed as screen names.
  */
 
 const SCREEN_MAP = {
@@ -13,6 +20,35 @@ const SCREEN_MAP = {
   research:  'screen-research',
   visual:    'screen-visual',
 };
+
+// ── Hash helpers ──────────────────────────────────────────────────────────────
+
+/** Return true if the current hash is an OAuth callback — never touch these. */
+function _isOAuthHash() {
+  const h = window.location.hash;
+  return h.includes('access_token') || h.includes('error_description');
+}
+
+/** Write the screen name into location.hash (no-op during OAuth flow). */
+function _setHash(name) {
+  if (_isOAuthHash()) return;
+  try {
+    const desired = `#screen-${name}`;
+    if (window.location.hash !== desired) {
+      window.history.replaceState(null, '', desired);
+    }
+  } catch (e) { /* sandboxed iframe — ignore */ }
+}
+
+/** Parse a valid screen name from location.hash, or return null. */
+function _screenFromHash() {
+  if (_isOAuthHash()) return null;
+  const m = window.location.hash.match(/^#screen-([a-z]+)$/);
+  if (!m) return null;
+  return SCREEN_MAP[m[1]] ? m[1] : null;
+}
+
+// ── Core navigation ───────────────────────────────────────────────────────────
 
 function showScreen(name) {
   if (!name) return;
@@ -75,6 +111,7 @@ function showScreen(name) {
     el.classList.toggle('active', el.dataset.screen === name);
   });
   try { sessionStorage.setItem('chunks_last_screen', name); } catch(e) {}
+  _setHash(name);
 }
 
 function drawerNav(name) {
@@ -137,15 +174,40 @@ function toggleSidebar(el) {
 function handleLogoClick() { showScreen('home'); }
 
 export function _navInit() {
-  const last = (() => { try { return sessionStorage.getItem('chunks_last_screen'); } catch(e) { return null; } })();
-  const start = last && SCREEN_MAP[last] ? last : 'home';
+  // Priority: URL hash → sessionStorage → 'home'
+  const fromHash    = _screenFromHash();
+  const fromSession = (() => { try { return sessionStorage.getItem('chunks_last_screen'); } catch(e) { return null; } })();
+  const start       = (fromHash && SCREEN_MAP[fromHash])    ? fromHash
+                    : (fromSession && SCREEN_MAP[fromSession]) ? fromSession
+                    : 'home';
+
   document.querySelectorAll('.screen').forEach(s => { s.style.display = 'none'; s.classList.remove('active'); });
   // On refresh, preserve the state of whatever screen was active —
   // set the flag so showScreen skips its fresh-nav reset logic
-  if (last && SCREEN_MAP[last]) window._navFromHistory = true;
+  if (start !== 'home') window._navFromHistory = true;
   showScreen(start);
+
   const overlay = document.getElementById('mobile-drawer-overlay');
   if (overlay) overlay.addEventListener('click', closeMobileDrawer);
+
+  // ── Browser back/forward (hashchange) ────────────────────────────────────
+  window.addEventListener('hashchange', () => {
+    const name = _screenFromHash();
+    if (name && name !== _currentScreen()) {
+      window._navFromHistory = true;  // treat as history navigation, not fresh click
+      showScreen(name);
+    }
+  });
+}
+
+/** Return the name of the currently active screen, or null. */
+function _currentScreen() {
+  const active = document.querySelector('.screen.active');
+  if (!active) return null;
+  for (const [name, id] of Object.entries(SCREEN_MAP)) {
+    if (active.id === id) return name;
+  }
+  return null;
 }
 
 // _navInit is now called from main.js after all screens are mounted
