@@ -105,31 +105,57 @@ def verify_access():
     if request.method == 'OPTIONS':
         return jsonify({}), 200
 
-    auth_header = request.headers.get('Authorization', '')
-    if not auth_header.startswith('Bearer '):
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    try:
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
 
-    jwt_token = auth_header[7:]
-    verified, role = _check_admin_role(jwt_token)
+        jwt_token = auth_header[7:]
 
-    if not verified or not role:
-        return jsonify({'success': False, 'error': 'Forbidden — not an admin account'}), 403
+        try:
+            verified, role = _check_admin_role(jwt_token)
+        except Exception as e:
+            logger.exception(f'Admin role check crashed: {e}')
+            return jsonify({'success': False, 'error': 'Server error during role check'}), 500
 
-    email    = verified.get('email', '')
-    data     = request.get_json(silent=True) or {}
-    pin      = data.get('pin', '').strip()
-    has_pin  = bool(_get_pin_hash_for_email(email))
+        if not verified or not role:
+            return jsonify({'success': False, 'error': 'Forbidden — not an admin account'}), 403
 
-    if not has_pin:
+        email = verified.get('email', '')
+        if not email:
+            logger.warning('verify_access: JWT has no email field')
+            return jsonify({'success': False, 'error': 'Could not determine email from token'}), 403
+
+        data    = request.get_json(silent=True) or {}
+        pin     = str(data.get('pin', '') or '').strip()
+        has_pin = bool(_get_pin_hash_for_email(email))
+
+        logger.info(f'verify_access: email={email} role={role} has_pin={has_pin} pin_provided={bool(pin)}')
+
+        if not has_pin:
+            # No PIN configured for this account — let them straight in
+            return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
+        if not pin:
+            # PIN required but not yet provided — prompt the client
+            return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': True})
+
+        # PIN provided — verify it
+        try:
+            pin_ok = _verify_admin_pin(email, pin)
+        except Exception as e:
+            logger.exception(f'PIN verification crashed for {email}: {e}')
+            return jsonify({'success': False, 'error': 'Server error during PIN check'}), 500
+
+        if not pin_ok:
+            logger.warning(f'Admin PIN failed for {email}')
+            return jsonify({'success': False, 'error': 'Incorrect PIN'}), 403
+
+        logger.info(f'Admin fully verified: {email} ({role})')
         return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
-    if not pin:
-        return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': True})
-    if not _verify_admin_pin(email, pin):
-        logger.warning(f'Admin PIN failed for {email}')
-        return jsonify({'success': False, 'error': 'Incorrect PIN'}), 403
 
-    logger.info(f'Admin verified: {email} ({role})')
-    return jsonify({'success': True, 'role': role, 'email': email, 'pin_required': False})
+    except Exception as e:
+        logger.exception(f'verify_access unexpected error: {e}')
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 
 @admin_bp.route('/routing-table', methods=['GET', 'OPTIONS'])

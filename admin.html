@@ -953,6 +953,12 @@ function loadConfig() {
 // ── Admin emails, roles, and PIN hashes are NEVER stored client-side ─────────
 // The backend /api/admin/verify-access endpoint handles all authentication.
 // After successful verification, the server returns the email + role.
+// ── Admin role map — used by renderTable() and _ensureAdminApproved() ─────────
+const ROLES = {
+  'contridascharles91@gmail.com': 'owner',
+  'deffmichaeldawang@gmail.com':  'admin',
+};
+
 let _adminEmail = '';   // set by server response after verify-access
 let _adminRole  = '';   // 'owner' | 'admin' — set by server response
 
@@ -1133,6 +1139,7 @@ async function _pinSubmit() {
   if (!_pendingEmail) return;
   // Submit PIN to server — no hash comparison on client
   let pinCorrect = false;
+  let serverError = null;
   try {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) { showLogin('Session expired — please sign in again.'); return; }
@@ -1141,14 +1148,31 @@ async function _pinSubmit() {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
       body: JSON.stringify({ pin: _pinEntry })
     });
-    const json = await res.json();
-    pinCorrect = json.success && !json.pin_required;
-    if (pinCorrect) {
-      _adminEmail = json.email;
-      _adminRole  = json.role;
+    let json;
+    try { json = await res.json(); } catch(e) { serverError = `Server error (${res.status})`; }
+    if (!serverError) {
+      if (res.status >= 500) {
+        serverError = json?.error || `Server error (${res.status})`;
+      } else {
+        pinCorrect = json.success && !json.pin_required;
+        if (pinCorrect) {
+          _adminEmail = json.email;
+          _adminRole  = json.role;
+        }
+      }
     }
   } catch(e) {
-    // Network error — treat as wrong PIN, let user retry
+    serverError = 'Network error — check your connection';
+  }
+
+  // Show server error on attempts line without counting as a failed attempt
+  if (serverError) {
+    const attEl = document.getElementById('pin-attempts');
+    attEl.textContent = '⚠ ' + serverError;
+    attEl.className = 'pin-attempts warn';
+    _pinEntry = '';
+    _updatePinDots();
+    return;
   }
 
   if (pinCorrect) {
