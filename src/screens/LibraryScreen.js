@@ -563,7 +563,12 @@ export function mountLibraryScreen() {
   } catch (e) { /* non-critical */ }
 }
 
-mountLibraryScreen();
+// Safe self-mount — mirrors the pattern used by LibraryModal.js
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', mountLibraryScreen);
+} else {
+  mountLibraryScreen();
+}
 
 // ── Search & filter (page-scoped, separate from modal's filterLibrary) ────────
 
