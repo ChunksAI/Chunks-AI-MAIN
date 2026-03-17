@@ -182,21 +182,98 @@ export async function _wsRenderPage(pageNum, container) {
     canvas.height  = viewport.height;
     container.style.width  = viewport.width  + 'px';
     container.style.height = viewport.height + 'px';
+
+    // Canvas must NOT capture pointer events — text layer sits on top and needs them
+    canvas.style.pointerEvents = 'none';
+
     await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
 
-    // ── Text layer — makes PDF text selectable for "Ask AI" feature ──────
+    // ── Text layer — transparent selectable text over the canvas ──────────
     let textDiv = container.querySelector('.ws-text-layer');
     if (textDiv) textDiv.remove();
     textDiv = document.createElement('div');
     textDiv.className = 'ws-text-layer';
-    textDiv.style.cssText = `position:absolute;top:0;left:0;width:${viewport.width}px;height:${viewport.height}px;overflow:hidden;pointer-events:auto;line-height:1;`;
+    // Must match canvas exactly and sit above it (later in DOM = higher stacking)
+    textDiv.style.cssText = [
+      `position:absolute`,
+      `top:0`,
+      `left:0`,
+      `width:${viewport.width}px`,
+      `height:${viewport.height}px`,
+      `overflow:hidden`,
+      `line-height:1`,
+      `pointer-events:auto`,
+      `user-select:text`,
+      `-webkit-user-select:text`,
+    ].join(';');
     container.appendChild(textDiv);
-    const textContent = await page.getTextContent();
+
     const pdfjsLib = window.pdfjsLib;
-    if (pdfjsLib?.renderTextLayer) {
-      pdfjsLib.renderTextLayer({ textContentSource: textContent, container: textDiv, viewport, textDivs: [] });
+    if (!pdfjsLib) return;
+
+    // PDF.js 3.x: use streamTextContent for renderTextLayer
+    // renderTextLayer returns a task with a .promise
+    try {
+      const textStream = page.streamTextContent({ includeMarkedContent: false });
+      const textDivs   = [];
+      const task = pdfjsLib.renderTextLayer({
+        textContentSource: textStream,
+        container:         textDiv,
+        viewport,
+        textDivs,
+      });
+      await task.promise;
+
+      // Apply transform to each span so text lines up with the canvas glyphs
+      textDivs.forEach(el => {
+        if (!el.style.transform) return;
+        // PDF.js already sets transform — just ensure the element is visible for selection
+        el.style.color          = 'transparent';
+        el.style.position       = 'absolute';
+        el.style.whiteSpace     = 'pre';
+        el.style.cursor         = 'text';
+        el.style.transformOrigin = '0% 0%';
+        el.style.pointerEvents  = 'auto';
+      });
+    } catch (layerErr) {
+      // Fallback for PDF.js builds where renderTextLayer signature differs
+      console.warn('[ws] Text layer render failed, falling back:', layerErr.message);
+      try {
+        const textContent = await page.getTextContent();
+        _wsManualTextLayer(textDiv, textContent, viewport);
+      } catch (_) { /* text selection unavailable for this page */ }
     }
   } catch (e) { console.warn('Page render error', pageNum, e); }
+}
+
+// Fallback: manually position text spans when PDF.js renderTextLayer is unavailable
+function _wsManualTextLayer(container, textContent, viewport) {
+  const { width: vw, height: vh } = viewport;
+  textContent.items.forEach(item => {
+    if (!item.str || !item.transform) return;
+    const [a, b, c, d, e, f] = item.transform;
+    const span = document.createElement('span');
+    span.textContent = item.str;
+    // Convert PDF transform to CSS — PDF coords have y flipped
+    const scaleX = Math.sqrt(a * a + b * b);
+    const scaleY = Math.sqrt(c * c + d * d);
+    const angle  = Math.atan2(b, a);
+    const tx = e * (vw / viewport.viewBox[2]);
+    const ty = (viewport.viewBox[3] - f) * (vh / viewport.viewBox[3]);
+    span.style.cssText = [
+      `position:absolute`,
+      `left:${tx}px`,
+      `top:${ty}px`,
+      `font-size:${Math.abs(d * (vh / viewport.viewBox[3]))}px`,
+      `transform:scaleX(${item.width ? (item.width * (vw / viewport.viewBox[2])) / (span.textContent.length * Math.abs(d * (vh / viewport.viewBox[3])) * 0.6) : 1})`,
+      `transform-origin:0% 0%`,
+      `color:transparent`,
+      `white-space:pre`,
+      `cursor:text`,
+      `pointer-events:auto`,
+    ].join(';');
+    container.appendChild(span);
+  });
 }
 
 // ── Book loader ───────────────────────────────────────────────────────────
