@@ -340,9 +340,69 @@ window._initAuth = async function _initAuth() {
 
     if (_event === 'SIGNED_OUT') {
       window._currentUser = null;
+      // Leave presence channel on sign out
+      if (window._presenceChannel) {
+        try { sb.removeChannel(window._presenceChannel); } catch(_) {}
+        window._presenceChannel = null;
+      }
     }
   });
+
+  // ── Presence tracking — broadcasts this user to admin panel ──────────────
+  // Runs after auth is confirmed. Tracks both signed-in users and guests.
+  _trackPresence(sb);
 };
+
+async function _trackPresence(sb) {
+  try {
+    const isGuest = sessionStorage.getItem('chunks_guest_mode') === '1';
+    const isLoginPage = window.location.pathname.endsWith('login.html');
+    if (isLoginPage) return; // don't track on login page
+
+    // Clean up any existing presence channel
+    if (window._presenceChannel) {
+      try { sb.removeChannel(window._presenceChannel); } catch(_) {}
+    }
+
+    const channel = sb.channel('app-presence', {
+      config: { presence: { key: Math.random().toString(36).slice(2) } }
+    });
+
+    const presenceData = isGuest
+      ? { type: 'guest', ts: Date.now() }
+      : {
+          type:  'user',
+          email: window._currentUser?.email || '',
+          plan:  window._currentUser?.plan  || 'free',
+          ts:    Date.now(),
+        };
+
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track(presenceData);
+      }
+    });
+
+    window._presenceChannel = channel;
+
+    // Re-track every 4 minutes to keep presence fresh (Supabase presence
+    // entries expire after ~5 minutes without a heartbeat)
+    if (window._presenceHeartbeat) clearInterval(window._presenceHeartbeat);
+    window._presenceHeartbeat = setInterval(async () => {
+      try {
+        if (window._presenceChannel) {
+          await window._presenceChannel.track({
+            ...presenceData,
+            ts: Date.now(),
+          });
+        }
+      } catch(_) {}
+    }, 4 * 60 * 1000);
+
+  } catch(e) {
+    console.warn('[auth] Presence tracking failed:', e.message);
+  }
+}
 
 // ── Sign out ──────────────────────────────────────────────────────────────────
 

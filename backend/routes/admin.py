@@ -514,6 +514,132 @@ def routing_table_endpoint():
     })
 
 
+
+@admin_bp.route('/users', methods=['GET', 'OPTIONS'])
+def get_users():
+    """Return all users from Supabase using service key (bypasses RLS)."""
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    jwt_token = auth_header[7:]
+    verified, role = _check_admin_role(jwt_token)
+    if not verified or not role:
+        return jsonify({'success': False, 'error': 'Forbidden — admin required'}), 403
+
+    supabase_url = getattr(ctx, 'SUPABASE_URL', '') or ''
+    service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '') or ''
+    _sess        = getattr(ctx, 'session', None)
+
+    if not supabase_url or not service_key or not _sess:
+        return jsonify({'success': False, 'error': 'Server not configured'}), 500
+
+    try:
+        resp = _sess.get(
+            f'{supabase_url}/rest/v1/users',
+            params={'select': '*', 'order': 'created_at.desc'},
+            headers={
+                'Authorization': f'Bearer {service_key}',
+                'apikey':        service_key,
+            },
+            timeout=10,
+        )
+        if resp.status_code != 200:
+            return jsonify({'success': False, 'error': f'Supabase returned {resp.status_code}'}), 502
+        return jsonify({'success': True, 'users': resp.json()})
+    except Exception as e:
+        logger.exception('get_users error')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/users/<email>', methods=['PATCH', 'OPTIONS'])
+def update_user(email):
+    """Update a user row using service key (bypasses RLS)."""
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    jwt_token = auth_header[7:]
+    verified, role = _check_admin_role(jwt_token)
+    if not verified or not role:
+        return jsonify({'success': False, 'error': 'Forbidden — admin required'}), 403
+
+    supabase_url = getattr(ctx, 'SUPABASE_URL', '') or ''
+    service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '') or ''
+    _sess        = getattr(ctx, 'session', None)
+
+    if not supabase_url or not service_key or not _sess:
+        return jsonify({'success': False, 'error': 'Server not configured'}), 500
+
+    try:
+        data = request.get_json(silent=True) or {}
+        from urllib.parse import quote as _quote
+        resp = _sess.patch(
+            f'{supabase_url}/rest/v1/users',
+            params={'email': f'eq.{email}'},
+            json=data,
+            headers={
+                'Authorization': f'Bearer {service_key}',
+                'apikey':        service_key,
+                'Content-Type':  'application/json',
+                'Prefer':        'return=representation',
+            },
+            timeout=10,
+        )
+        if resp.status_code not in (200, 204):
+            return jsonify({'success': False, 'error': f'Supabase returned {resp.status_code}: {resp.text[:200]}'}), 502
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.exception('update_user error')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/users/<email>', methods=['DELETE', 'OPTIONS'])
+def delete_user(email):
+    """Delete a user row using service key (bypasses RLS)."""
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    jwt_token = auth_header[7:]
+    verified, role = _check_admin_role(jwt_token)
+    if not verified or not role:
+        return jsonify({'success': False, 'error': 'Forbidden — admin required'}), 403
+
+    supabase_url = getattr(ctx, 'SUPABASE_URL', '') or ''
+    service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '') or ''
+    _sess        = getattr(ctx, 'session', None)
+
+    if not supabase_url or not service_key or not _sess:
+        return jsonify({'success': False, 'error': 'Server not configured'}), 500
+
+    try:
+        resp = _sess.delete(
+            f'{supabase_url}/rest/v1/users',
+            params={'email': f'eq.{email}'},
+            headers={
+                'Authorization': f'Bearer {service_key}',
+                'apikey':        service_key,
+            },
+            timeout=10,
+        )
+        if resp.status_code not in (200, 204):
+            return jsonify({'success': False, 'error': f'Supabase returned {resp.status_code}'}), 502
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.exception('delete_user error')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @admin_bp.route('/openrouter-credits', methods=['GET', 'OPTIONS'])
 def openrouter_credits():
     """OpenRouter key usage + per-model spend breakdown. Requires admin JWT."""
@@ -524,33 +650,11 @@ def openrouter_credits():
     if not auth_header.startswith('Bearer '):
         return jsonify({'success': False, 'error': 'Unauthorized'}), 401
 
-    jwt_token    = auth_header[7:]
-    verified_admin = ctx.verify_supabase_jwt(jwt_token)
-    if not verified_admin:
-        logger.warning('Admin endpoint: invalid or expired JWT')
-        return jsonify({'success': False, 'error': 'Unauthorized — invalid token'}), 401
-
-    admin_user_id = verified_admin.get('id', '')
-    if ctx.SUPABASE_URL and ctx.SUPABASE_SERVICE_KEY and admin_user_id:
-        try:
-            resp = ctx.session.get(
-                f"{ctx.SUPABASE_URL}/rest/v1/users",
-                params={"id": f"eq.{admin_user_id}", "select": "role,tier"},
-                headers={
-                    "Authorization": f"Bearer {ctx.SUPABASE_SERVICE_KEY}",
-                    "apikey":        ctx.SUPABASE_SERVICE_KEY,
-                },
-                timeout=5,
-            )
-            if resp.status_code == 200:
-                rows     = resp.json()
-                user_role = rows[0].get('role', '') if rows else ''
-                if user_role not in ('admin', 'superadmin'):
-                    logger.warning(f'Admin endpoint: non-admin user {admin_user_id} attempted access')
-                    return jsonify({'success': False, 'error': 'Forbidden — admin role required'}), 403
-        except Exception as e:
-            logger.warning(f'Admin role check failed: {e}')
-            return jsonify({'success': False, 'error': 'Could not verify admin role'}), 500
+    jwt_token      = auth_header[7:]
+    verified_admin, role = _check_admin_role(jwt_token)
+    if not verified_admin or not role:
+        logger.warning('Admin openrouter-credits: JWT check failed')
+        return jsonify({'success': False, 'error': 'Unauthorized — admin required'}), 401
 
     try:
         key_resp = ctx.session.get(
