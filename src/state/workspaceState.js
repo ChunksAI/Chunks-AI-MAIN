@@ -426,16 +426,26 @@ export function _wsShowWelcome(meta) {
           <p style="margin:0 0 8px;"><strong>${meta.name}</strong> is ready! I've indexed the full textbook — ask me anything about it.</p>
           <p style="margin:0;color:var(--text-2);">Here are a few things you could ask:</p>
           <div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;">
-            ${chips.map(q => `
-              <div class="ws-chip-item" onclick="wsSetInput('${q.replace(/'/g, "\\'")}');document.getElementById('ws-chat-input').focus();"
+            ${chips.map((q, i) => `
+              <div class="ws-chip-item" data-chip-idx="${i}"
                 style="display:flex;align-items:center;justify-content:space-between;padding:7px 11px;border:1px solid var(--border-xs);border-radius:8px;background:var(--surface-2);cursor:pointer;font-size:12px;color:var(--text-2);transition:all 120ms;">
-                ${q}
+                ${q.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
               </div>`).join('')}
           </div>
         </div>
       </div>
     </div>`;
+
+  // Attach chip listeners after innerHTML is set — questions stored in closure
+  msgs.querySelectorAll('.ws-chip-item[data-chip-idx]').forEach(el => {
+    const idx = parseInt(el.dataset.chipIdx, 10);
+    el.addEventListener('click', () => {
+      wsSetInput(chips[idx]);
+      document.getElementById('ws-chat-input')?.focus();
+    });
+  });
+}
 }
 
 // ── Outline panel ─────────────────────────────────────────────────────────
@@ -627,7 +637,7 @@ export function wsAppendAI(answer, sources, question) {
     const items = sources.map(s => {
       const preview = (s.text || '').trim().slice(0, 55).replace(/&/g,'&amp;').replace(/</g,'&lt;');
       return `
-        <div class="source-item" onclick="wsGoToPage(${s.page})" title="Jump to page ${s.page}" style="cursor:pointer;">
+        <div class="source-item" data-page="${s.page}" title="Jump to page ${s.page}" style="cursor:pointer;">
           <div class="source-icon">📘</div>
           <div style="flex:1;min-width:0;">
             <div class="source-name">${bookName}</div>
@@ -644,13 +654,13 @@ export function wsAppendAI(answer, sources, question) {
       <div class="source-list">${items}</div>`;
   }
 
-  const followups    = (typeof _isFollowupsEnabled === 'function' && _isFollowupsEnabled()) ? _wsFollowups(answer, question) : [];
+  const followups = (typeof _isFollowupsEnabled === 'function' && _isFollowupsEnabled()) ? _wsFollowups(answer, question) : [];
   const followupHtml = followups.length ? `
     <div class="followups" style="margin-top:10px;">
       <div class="followup-head">Follow-up questions</div>
       <div class="followup-list">
-        ${followups.map(q => `
-          <div class="followup-item" onclick="wsSetInput('${q.replace(/'/g, "\\'")}')">
+        ${followups.map((q, i) => `
+          <div class="followup-item" data-followup-idx="${i}">
             ${q.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
           </div>`).join('')}
@@ -660,7 +670,7 @@ export function wsAppendAI(answer, sources, question) {
   const autoFlashHtml = (typeof _isAutoFlashEnabled === 'function' && _isAutoFlashEnabled()) ? `
     <div style="margin-top:8px;padding:8px 10px;background:var(--violet-muted);border:1px solid var(--violet-border);border-radius:var(--r-md);display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <span style="font-size:11px;color:var(--text-2);">💡 Save this as a flashcard?</span>
-      <button onclick="wsMakeFlashcard(this,'${msgId}',\`${(question||'').replace(/`/g,"'").replace(/\n/g,' ').slice(0,120)}\`)" style="font-size:11px;padding:4px 10px;border-radius:var(--r-pill);background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);cursor:pointer;font-family:var(--font-body);">Save flashcard</button>
+      <button class="ws-auto-flash-btn" style="font-size:11px;padding:4px 10px;border-radius:var(--r-pill);background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);cursor:pointer;font-family:var(--font-body);">Save flashcard</button>
     </div>` : '';
 
   const d = document.createElement('div');
@@ -672,13 +682,13 @@ export function wsAppendAI(answer, sources, question) {
         <div class="ai-text">${wsRender(answer)}</div>
         ${sourcesHtml}
         <div class="msg-acts" style="margin-top:10px;">
-          <button class="msg-act" onclick="wsCopyMsg(this, '${msgId}')">
+          <button class="msg-act ws-copy-btn">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
           </button>
-          <button class="msg-act" onclick="wsMakeFlashcard(this, '${msgId}', \`${(question||'').replace(/`/g,"'").replace(/\n/g,' ').slice(0,120)}\`)">
+          <button class="msg-act ws-flash-btn">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg> Make Flashcard
           </button>
-          <button class="msg-act" onclick="_wsRegenerate('${msgId}', \`${(question||'').replace(/`/g,"'").replace(/\n/g,' ')}\`)">
+          <button class="msg-act ws-regen-btn">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.67"/></svg> Regenerate
           </button>
         </div>
@@ -686,6 +696,37 @@ export function wsAppendAI(answer, sources, question) {
         ${autoFlashHtml}
       </div>
     </div>`;
+
+  // ── Attach event listeners (never inject user/AI data into HTML attributes) ──
+  // Store question safely in a closure; msgId is a timestamp-based safe string.
+  const safeQuestion = question || '';
+
+  d.querySelector('.ws-copy-btn')
+    ?.addEventListener('click', function() { wsCopyMsg(this, msgId); });
+
+  d.querySelector('.ws-flash-btn')
+    ?.addEventListener('click', function() { window.wsMakeFlashcard(this, msgId, safeQuestion.slice(0, 120)); });
+
+  d.querySelector('.ws-regen-btn')
+    ?.addEventListener('click', () => { _wsRegenerate(msgId, safeQuestion); });
+
+  d.querySelector('.ws-auto-flash-btn')
+    ?.addEventListener('click', function() { window.wsMakeFlashcard(this, msgId, safeQuestion.slice(0, 120)); });
+
+  // Follow-up chips — store questions in closure array, index via data attribute
+  if (followups.length) {
+    d.querySelectorAll('.followup-item').forEach(el => {
+      const idx = parseInt(el.dataset.followupIdx, 10);
+      el.addEventListener('click', () => { wsSetInput(followups[idx]); });
+    });
+  }
+
+  // Source page links
+  d.querySelectorAll('.source-item[data-page]').forEach(el => {
+    const page = parseInt(el.dataset.page, 10);
+    el.addEventListener('click', () => { wsGoToPage(page); });
+  });
+
   msgs.appendChild(d); wsScrollBottom();
 }
 
