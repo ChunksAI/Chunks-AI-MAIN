@@ -1434,5 +1434,6 @@ window._fcCloseCompleteModal = _fcCloseCompleteModal;
 window._fcStartDeck          = _fcStartDeck;
 window._fcRenderDeckList     = _fcRenderDeckList;
 window.wsMakeFlashcard       = wsMakeFlashcard;
+window._aiParams             = _aiParams;   // used by index.html inline scripts (research, exam)
 
 console.log('[flashState] state engine ready ✦');
