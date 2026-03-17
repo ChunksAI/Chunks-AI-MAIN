@@ -72,25 +72,41 @@ def _verify_admin_pin(email: str, pin: str) -> bool:
             logger.info(f'PIN: no hash configured for {email} — skipping PIN check')
             return True
 
-        # Validate PIN is digits only and correct length before hashing
-        pin_str = str(pin or '').strip()
-        if not pin_str or not pin_str.isdigit():
-            logger.warning(f'PIN: non-numeric or empty PIN submitted for {email}')
+        # Coerce pin to string — may arrive as int from some JSON parsers
+        pin_str    = str(pin if pin is not None else '').strip()
+        # Strip any non-digit characters (spaces, dashes, etc.)
+        pin_digits = ''.join(c for c in pin_str if c.isdigit())
+
+        if not pin_digits:
+            logger.warning(f'PIN: empty or non-numeric PIN for {email} (raw={pin_str!r})')
             return False
 
-        computed = _hashlib.sha256(
-            ('chunks_admin_salt_' + pin_str).encode('utf-8')
+        if len(pin_digits) != 6:
+            logger.warning(f'PIN: wrong length {len(pin_digits)} for {email}')
+            return False
+
+        computed      = _hashlib.sha256(
+            ('chunks_admin_salt_' + pin_digits).encode('utf-8')
         ).hexdigest()
+        expected_norm = expected.lower().strip()
+
+        # Log hash prefixes so Railway logs reveal mismatches without exposing the full hash
+        logger.info(
+            f'PIN: email={email!r} computed_prefix={computed[:8]} '
+            f'expected_prefix={expected_norm[:8]} '
+            f'ADMIN_PIN_HASH_OWNER_set={bool(os.environ.get("ADMIN_PIN_HASH_OWNER","").strip())} '
+            f'ADMIN_PIN_HASH_ADMIN_set={bool(os.environ.get("ADMIN_PIN_HASH_ADMIN","").strip())}'
+        )
 
         # compare_digest requires both strings to be same type and non-empty
-        if len(computed) != len(expected):
+        if len(computed) != len(expected_norm):
             logger.warning(
                 f'PIN: hash length mismatch for {email} '
-                f'(computed={len(computed)}, expected={len(expected)})'
+                f'(computed={len(computed)}, expected={len(expected_norm)})'
             )
             return False
 
-        result = _hashlib.compare_digest(computed, expected)
+        result = _hashlib.compare_digest(computed, expected_norm)
         logger.info(f'PIN: verification result={result} for {email}')
         return result
 
@@ -404,7 +420,11 @@ def verify_access():
 
         if not pin_ok:
             logger.warning(f'verify_access: wrong PIN for {email!r}')
-            return jsonify({'success': False, 'error': 'Incorrect PIN'}), 403
+            return jsonify({
+                'success': False,
+                'error':   'Incorrect PIN',
+                'hint':    f'Hash mismatch for {email}. Check Railway ADMIN_PIN_HASH_OWNER / ADMIN_PIN_HASH_ADMIN match the hash generated for your PIN. Call /api/admin/debug-pin to diagnose.',
+            }), 403
 
         logger.info(f'verify_access: fully verified {email!r} ({role})')
         return jsonify({
@@ -422,6 +442,44 @@ def verify_access():
             'error':   f'Server error ({type(e).__name__}): {str(e)[:200]}',
             'hint':    'Check Railway deployment logs for the full traceback.',
         }), 500
+
+
+@admin_bp.route('/debug-pin', methods=['POST', 'OPTIONS'])
+def debug_pin():
+    """
+    Debug-only: test a PIN against the stored hash WITHOUT a JWT.
+    POST { email, pin } → returns match result + hash prefixes.
+    Call from browser console: fetch('/api/admin/debug-pin', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({email:'you@gmail.com', pin:'123456'})
+    }).then(r=>r.json()).then(console.log)
+    """
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+    try:
+        data        = request.get_json(silent=True) or {}
+        email       = (data.get('email') or '').strip().lower()
+        pin         = str(data.get('pin') or '').strip()
+        pin_digits  = ''.join(c for c in pin if c.isdigit())
+        stored_hash = _get_pin_hash_for_email(email)
+        computed    = _hashlib.sha256(
+            ('chunks_admin_salt_' + pin_digits).encode()
+        ).hexdigest() if pin_digits else ''
+        match = bool(
+            computed and stored_hash and
+            _hashlib.compare_digest(computed, stored_hash.lower().strip())
+        )
+        return jsonify({
+            'email':               email,
+            'email_in_admin_list': email in _ADMIN_EMAILS,
+            'hash_configured':     bool(stored_hash),
+            'stored_prefix':       stored_hash[:8] if stored_hash else None,
+            'computed_prefix':     computed[:8]    if computed    else None,
+            'pin_length':          len(pin_digits),
+            'match':               match,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @admin_bp.route('/ping', methods=['GET', 'OPTIONS'])
