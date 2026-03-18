@@ -3932,6 +3932,12 @@ let _examStreakBest  = 0;
 let _examStreakCur   = 0;
 let _activeExamRecentId = null; // tracks sidebar entry for current exam session — retakes update it
 
+// ── Task 5: Adaptive difficulty ramp state ────────────────────────────────
+let _examAdaptiveDiff    = 'medium'; // current live difficulty level
+let _examAdaptivePools   = null;     // { easy:[], medium:[], hard:[] } — pre-generated pools
+let _examAdaptiveEnabled = false;    // true when adaptive ramp is active
+const DIFF_ORDER = ['easy','medium','hard'];
+
 function examSelectType(btn) {
   document.querySelectorAll('#exam-type-grid .exam-type-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -3940,16 +3946,20 @@ function examSelectType(btn) {
   if (sitHint) sitHint.style.display = _examType === 'situational' ? '' : 'none';
   const cblHint = document.getElementById('exam-cbl-hint');
   if (cblHint) cblHint.style.display = _examType === 'cbl' ? '' : 'none';
+  const oeHint = document.getElementById('exam-openended-hint');
+  if (oeHint) oeHint.style.display = _examType === 'openended' ? '' : 'none';
 }
 
 function examSelectDiff(btn) {
   btn.closest('div').querySelectorAll('.exam-type-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   _examDiff = btn.dataset.diff;
+  const hint = document.getElementById('exam-adaptive-diff-hint');
+  if (hint) hint.style.display = _examDiff === 'adaptive' ? '' : 'none';
 }
 
 function _examShow(view) {
-  ['exam-setup','exam-loading','exam-quiz','exam-results'].forEach(id => {
+  ['exam-setup','exam-loading','exam-quiz','exam-results','exam-history-view'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = id === view ? 'block' : 'none';
   });
@@ -4165,7 +4175,73 @@ async function _examBatchedGenerate(prompt, totalCount) {
   return all;
 }
 
-async function _examRunQuick(topic, sourceText, count, typeLabel) {
+/* ═══════════════════════════════════════════════════════════════
+   ADAPTIVE QUESTION WEIGHTING — Task 3
+   Reads exam history to find concepts the student consistently
+   gets wrong, then injects them into the generation prompt so
+   the AI prioritises those weak areas.
+═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Returns a weak-context object for the given topic based on history.
+ * { concepts: string[], missRate: number, attempts: number } or null if no data.
+ */
+function _examGetWeakContext(topic) {
+  const history = _examHistoryLoad();
+  if (!history.length) return null;
+
+  // Find attempts on the same topic (fuzzy match — topic words overlap)
+  const topicWords = (topic || '').toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  const related = history.filter(r => {
+    if (!r.topic) return false;
+    const rt = r.topic.toLowerCase();
+    return topicWords.some(w => rt.includes(w)) || rt.includes((topic||'').toLowerCase().slice(0,12));
+  });
+
+  if (!related.length) return null;
+
+  // Build a map of missed question texts → miss count
+  const missMap = {};
+  related.forEach(r => {
+    if (!r.wrongConcepts) return;
+    r.wrongConcepts.forEach(c => {
+      missMap[c] = (missMap[c] || 0) + 1;
+    });
+  });
+
+  // Sort by miss frequency, take top 6
+  const concepts = Object.entries(missMap)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([c]) => c);
+
+  if (!concepts.length) return null;
+
+  const avgScore = Math.round(related.reduce((s, r) => s + r.score, 0) / related.length);
+  return { concepts, attempts: related.length, avgScore };
+}
+
+/**
+ * Injects the adaptive weak-concept instruction into a prompt BEFORE
+ * the "Output ONLY" line, so it doesn't appear after the JSON example
+ * and confuse the model.
+ */
+function _examWeakClause(weakContext) {
+  if (!weakContext || !weakContext.concepts.length) return '';
+  return `\nADAPTIVE FOCUS: This student has taken this exam ${weakContext.attempts} time(s) and repeatedly misses these concepts: ${weakContext.concepts.map(c => `"${c}"`).join(', ')}. Weight at least 60% of questions toward these weak areas.\n`;
+}
+
+function _examInjectWeak(prompt, weakContext) {
+  const clause = _examWeakClause(weakContext);
+  if (!clause) return prompt;
+  // Insert just before the first "Output ONLY" instruction
+  const marker = 'Output ONLY';
+  const idx = prompt.indexOf(marker);
+  if (idx === -1) return prompt + clause;
+  return prompt.slice(0, idx) + clause + prompt.slice(idx);
+}
+
+async function _examRunQuick(topic, sourceText, count, typeLabel, weakContext) {
   let prompt;
   if (sourceText) {
     const topicClause = topic ? ` Focus specifically on: "${topic}".` : '';
@@ -4202,6 +4278,18 @@ DIFFICULTY RULES — apply strictly based on: ${_examDiff}
 Each question MUST include a "ref" field citing the block it came from.
 Output ONLY a raw JSON array — no markdown:
 [{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]
+
+SOURCE MATERIAL (labeled by block):
+---
+${_labeledSrc.slice(0, 55000)}
+---`;
+    } else if (typeLabel === 'open-ended') {
+      prompt = `You are creating open-ended short-answer exam questions from the following source material.${topicClause}
+Generate exactly ${count} open-ended questions. Difficulty: ${_examDiff}.
+Base questions ONLY on the source content. Each requires a written answer (2-5 sentences) demonstrating real understanding.
+Include ideal_answer (2-4 sentences of a complete correct response), rubric (3-4 bullet points of what a full answer must cover), and a ref field citing the block.
+Output ONLY a raw JSON array with no markdown:
+[{"q":"...","ideal_answer":"...","rubric":["point 1","point 2","point 3"],"explanation":"...","ref":"Block X"}]
 
 SOURCE MATERIAL (labeled by block):
 ---
@@ -4244,6 +4332,12 @@ DIFFICULTY RULES — apply strictly based on: ${_examDiff}
     • Explanation must cite the KEY distinguishing feature that rules out the distractors
 Output ONLY a raw JSON array — no markdown, no extra fields:
 [{"case":{"patient":"...","chief_complaint":"...","history":"...","vitals":{"BP":"...","HR":"...","RR":"...","Temp":"...","SpO2":"..."},"findings":"...","tag":"Diagnosis|Next Best Step|Treatment|Mechanism"},"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
+    } else if (typeLabel === 'open-ended') {
+      prompt = `Generate exactly ${count} open-ended short-answer questions about: "${topic}". Difficulty: ${_examDiff}.
+Each question requires a written answer (2-5 sentences) demonstrating real understanding.
+Include ideal_answer (2-4 sentences of a complete correct response) and rubric (3-4 bullet points of what a full answer must cover).
+Output ONLY a raw JSON array with no markdown:
+[{"q":"...","ideal_answer":"...","rubric":["point 1","point 2","point 3"],"explanation":"..."}]`;
     } else {
       prompt = `Generate exactly ${count} ${typeLabel} exam questions about: "${topic}". Difficulty: ${_examDiff}.
 Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
@@ -4251,13 +4345,13 @@ Output ONLY a raw JSON array with no markdown:
 [{"q":"SCENARIO: ...\n\nQuestion: What should you do?","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
     }
   }
-  return await _examBatchedGenerate(prompt, count);
+  return await _examBatchedGenerate(_examInjectWeak(prompt, weakContext), count);
 }
 
 /* ─────────────────────────────────────────────────────────────
    PIPELINE B — SMART (1 call, full-coverage prompt)
 ───────────────────────────────────────────────────────────── */
-async function _examRunSmart(topic, sourceText, count, typeLabel) {
+async function _examRunSmart(topic, sourceText, count, typeLabel, weakContext) {
   let prompt;
   if (sourceText) {
     const topicClause = topic ? ` Topic focus: "${topic}".` : '';
@@ -4325,13 +4419,13 @@ Output ONLY a raw JSON array with no markdown:
 [{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
     }
   }
-  return await _examBatchedGenerate(prompt, count);
+  return await _examBatchedGenerate(_examInjectWeak(prompt, weakContext), count);
 }
 
 /* ─────────────────────────────────────────────────────────────
    PIPELINE C — DEEP SCAN (multi-call: chunk → concepts → questions)
 ───────────────────────────────────────────────────────────── */
-async function _examRunDeepScan(topic, sourceText, maxCount, typeLabel) {
+async function _examRunDeepScan(topic, sourceText, maxCount, typeLabel, weakContext) {
   const deepProg = document.getElementById('exam-deep-progress');
   if (deepProg) deepProg.style.display = '';
 
@@ -4474,7 +4568,7 @@ CONCEPTS:
 ${batchList}`;
     }
 
-    const batchRaw = await _examCallAPI(batchPrompt);
+    const batchRaw = await _examCallAPI(_examInjectWeak(batchPrompt, weakContext));
     const batchQs  = _examParseQuestions(batchRaw);
     allQuestions   = allQuestions.concat(batchQs);
 
@@ -4493,6 +4587,120 @@ ${batchList}`;
 /* ─────────────────────────────────────────────────────────────
    MAIN ENTRY POINT
 ───────────────────────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   ADAPTIVE DIFFICULTY RAMP — Task 5
+   Pre-generates 3 pools (easy/medium/hard). After each answer,
+   picks the next question from the appropriate pool based on
+   running performance.
+═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Generates all 3 difficulty pools in parallel.
+ * Each pool gets ceil(count/2) questions so we never run dry.
+ */
+async function _examGenerateAdaptivePools(topic, sourceText, typeLabel, count, weakContext) {
+  const poolSize = Math.max(5, Math.ceil(count * 0.8));
+  const savedDiff = _examDiff;
+
+  const generate = async (diff) => {
+    _examDiff = diff;
+    let qs;
+    if (_examScanMode === 'deep' && sourceText) {
+      qs = await _examRunDeepScan(topic, sourceText, poolSize, typeLabel, weakContext);
+    } else if (_examScanMode === 'smart') {
+      qs = await _examRunSmart(topic, sourceText, poolSize, typeLabel, weakContext);
+    } else {
+      qs = await _examRunQuick(topic, sourceText, poolSize, typeLabel, weakContext);
+    }
+    // Tag each question with its difficulty
+    return qs.map(q => ({ ...q, _diff: diff }));
+  };
+
+  // Generate all 3 pools — medium first (fastest feedback), then easy/hard
+  const [medium, easy, hard] = await Promise.all([
+    generate('medium'),
+    generate('easy'),
+    generate('hard'),
+  ]);
+
+  _examDiff = savedDiff; // restore original setting
+  return { easy, medium, hard };
+}
+
+/**
+ * Pick the next question from the adaptive pool based on current performance.
+ * Updates _examAdaptiveDiff based on recent correct/wrong answers.
+ */
+function _examAdaptivePick() {
+  const answered  = _examAnswers.filter(a => a !== null);
+  const recentN   = Math.min(answered.length, 3);
+  const recent    = answered.slice(-recentN);
+  const recentCorrect = recent.filter(a => a.correct).length;
+
+  // Escalate if last 2 were correct, drop if last 2 were wrong
+  const diffIdx = DIFF_ORDER.indexOf(_examAdaptiveDiff);
+  if (recentN >= 2 && recentCorrect === recentN && diffIdx < 2) {
+    _examAdaptiveDiff = DIFF_ORDER[diffIdx + 1]; // harder
+  } else if (recentN >= 2 && recentCorrect === 0 && diffIdx > 0) {
+    _examAdaptiveDiff = DIFF_ORDER[diffIdx - 1]; // easier
+  }
+
+  // Pick from current pool, fall back to adjacent if empty
+  const pools = _examAdaptivePools;
+  const tryDiffs = [_examAdaptiveDiff,
+    DIFF_ORDER[DIFF_ORDER.indexOf(_examAdaptiveDiff) + 1] || 'hard',
+    DIFF_ORDER[DIFF_ORDER.indexOf(_examAdaptiveDiff) - 1] || 'easy'];
+
+  for (const d of tryDiffs) {
+    if (pools[d] && pools[d].length > 0) {
+      return pools[d].shift(); // consume from pool
+    }
+  }
+  return null; // all pools exhausted
+}
+
+/** Update the difficulty badge in the quiz topbar */
+function _examUpdateDiffBadge() {
+  const badge = document.getElementById('exam-adaptive-diff-badge');
+  if (!badge) return;
+  if (!_examAdaptiveEnabled) { badge.style.display = 'none'; return; }
+  const labels = { easy: '🟢 Easy', medium: '🟡 Medium', hard: '🔴 Hard' };
+  badge.textContent = labels[_examAdaptiveDiff] || _examAdaptiveDiff;
+  badge.style.display = '';
+}
+
+/**
+ * After an answer, determine the new difficulty and replace the NEXT
+ * unanswered question with one from the appropriate pool if available.
+ */
+function _examAdaptiveReorder() {
+  const nextIdx = _examIdx + 1;
+  if (nextIdx >= _examQuestions.length) return;
+  if (!_examAdaptivePools) return;
+
+  // Re-evaluate current difficulty
+  const answered = _examAnswers.filter(a => a !== null);
+  const recentN  = Math.min(answered.length, 3);
+  const recent   = answered.slice(-recentN);
+  const recentCorrect = recent.filter(a => a.correct).length;
+  const diffIdx  = DIFF_ORDER.indexOf(_examAdaptiveDiff);
+
+  if (recentN >= 2 && recentCorrect === recentN && diffIdx < 2) {
+    _examAdaptiveDiff = DIFF_ORDER[diffIdx + 1];
+  } else if (recentN >= 2 && recentCorrect === 0 && diffIdx > 0) {
+    _examAdaptiveDiff = DIFF_ORDER[diffIdx - 1];
+  }
+
+  // Swap in a question at the right difficulty for the next slot
+  const nextQ = _examAdaptivePick();
+  if (nextQ) {
+    _examQuestions[nextIdx] = nextQ;
+    // Extend answers array if needed
+    if (_examAnswers.length <= nextIdx) _examAnswers.push(null);
+    else _examAnswers[nextIdx] = null;
+  }
+}
+
 async function examStart() {
   const topic = document.getElementById('exam-topic-input').value.trim();
   const errEl = document.getElementById('exam-error');
@@ -4523,6 +4731,18 @@ async function examStart() {
     _examScanMode === 'smart' ? 'Analyzing full content…' :
     'Generating your exam…';
 
+  // ── Task 3: Show adaptive note if weak context exists ────────────────────
+  const _weakCtxPreview = _examGetWeakContext(_examTopic);
+  const adaptiveNoteEl  = document.getElementById('exam-loading-adaptive');
+  if (adaptiveNoteEl) {
+    if (_weakCtxPreview) {
+      adaptiveNoteEl.textContent = `⚡ Adaptive: focusing on ${_weakCtxPreview.concepts.slice(0,2).join(', ')}${_weakCtxPreview.concepts.length > 2 ? ' + more' : ''}`;
+      adaptiveNoteEl.style.display = '';
+    } else {
+      adaptiveNoteEl.style.display = 'none';
+    }
+  }
+
   // Show/hide deep progress panel
   const deepProg = document.getElementById('exam-deep-progress');
   if (deepProg) deepProg.style.display = 'none';
@@ -4534,17 +4754,50 @@ async function examStart() {
 
   _examShow('exam-loading');
 
-  const typeLabel = {mcq:'multiple-choice',truefalse:'true/false',situational:'situational',cbl:'case-based-learning',mixed:'mixed (include a variety: multiple-choice, true/false, and situational)'}[_examType];
+  const typeLabel = {mcq:'multiple-choice',truefalse:'true/false',situational:'situational',cbl:'case-based-learning',mixed:'mixed (include a variety: multiple-choice, true/false, and situational)',openended:'open-ended'}[_examType];
+
+  // ── Task 3: Build adaptive weak context from history ─────────────────────
+  const _weakContext = _examGetWeakContext(_examTopic);
 
   try {
     let questions;
 
-    if (_examScanMode === 'deep' && _examSourceText) {
-      questions = await _examRunDeepScan(topic, _examSourceText, count, typeLabel);
+    if (_examType === 'openended') {
+      questions = await _examRunOpenEnded(topic, _examSourceText, count);
+      _examAdaptiveEnabled = false;
+    } else if (_examDiff === 'adaptive') {
+      // ── Task 5: adaptive difficulty ramp ─────────────────
+      _examAdaptiveDiff  = 'medium'; // start at medium
+      document.getElementById('exam-loading-text').textContent = 'Generating adaptive exam pools…';
+      _examAdaptivePools = await _examGenerateAdaptivePools(topic, _examSourceText, typeLabel, count, _weakContext);
+      // Build initial question sequence from pools
+      questions = [];
+      let diff = 'medium';
+      for (let i = 0; i < count; i++) {
+        const tryDiffs = [diff,
+          DIFF_ORDER[DIFF_ORDER.indexOf(diff)+1] || 'hard',
+          DIFF_ORDER[DIFF_ORDER.indexOf(diff)-1] || 'easy'];
+        let q = null;
+        for (const d of tryDiffs) {
+          if (_examAdaptivePools[d] && _examAdaptivePools[d].length > 0) {
+            q = _examAdaptivePools[d].shift();
+            break;
+          }
+        }
+        if (q) questions.push(q);
+      }
+      // Replenish pools for mid-exam adaptive swaps
+      _examAdaptivePools = await _examGenerateAdaptivePools(topic, _examSourceText, typeLabel, count, _weakContext);
+      _examAdaptiveEnabled = true;
+    } else if (_examScanMode === 'deep' && _examSourceText) {
+      questions = await _examRunDeepScan(topic, _examSourceText, count, typeLabel, _weakContext);
+      _examAdaptiveEnabled = false;
     } else if (_examScanMode === 'smart') {
-      questions = await _examRunSmart(topic, _examSourceText, count, typeLabel);
+      questions = await _examRunSmart(topic, _examSourceText, count, typeLabel, _weakContext);
+      _examAdaptiveEnabled = false;
     } else {
-      questions = await _examRunQuick(topic, _examSourceText, count, typeLabel);
+      questions = await _examRunQuick(topic, _examSourceText, count, typeLabel, _weakContext);
+      _examAdaptiveEnabled = false;
     }
 
     _examQuestions  = questions;
@@ -4568,8 +4821,115 @@ async function examStart() {
 }
 
 
+/* ═══════════════════════════════════════════════════════════════
+   OPEN-ENDED QUESTION ENGINE — Task 4
+═══════════════════════════════════════════════════════════════ */
+
+/**
+ * Generate open-ended questions. Returns array of:
+ * { q, sampleAnswer, rubric, explanation, openended: true }
+ */
+async function _examRunOpenEnded(topic, sourceText, count) {
+  let prompt;
+  if (sourceText) {
+    const labeled = _examLabeledSource(sourceText);
+    prompt = `You are creating open-ended short-answer exam questions from the following source material.
+Topic focus: "${topic || 'the document'}". Difficulty: ${_examDiff}.
+Generate exactly ${count} open-ended questions that require a written response of 2–5 sentences.
+Each question should test understanding, not just recall — ask students to explain, compare, analyse, or apply concepts.
+
+For each question provide:
+- "q": the question text
+- "sampleAnswer": a model answer (3–6 sentences) the student should aim for
+- "rubric": 3 bullet points describing what a good answer must include
+- "explanation": 1–2 sentences of teaching context
+
+Output ONLY a raw JSON array with no markdown:
+[{"q":"...","sampleAnswer":"...","rubric":["point 1","point 2","point 3"],"explanation":"...","openended":true}]
+
+SOURCE MATERIAL:
+---
+${labeled.slice(0, 50000)}
+---`;
+  } else {
+    prompt = `You are a rigorous exam writer creating open-ended short-answer questions about: "${topic}". Difficulty: ${_examDiff}.
+Generate exactly ${count} open-ended questions that require written responses of 2–5 sentences.
+Each question should test understanding — ask students to explain, compare, analyse, or apply concepts. Avoid simple yes/no questions.
+
+For each question provide:
+- "q": the question text
+- "sampleAnswer": a model answer (3–6 sentences)
+- "rubric": 3 bullet points describing what a good answer must include
+- "explanation": 1–2 sentences of teaching context
+
+Output ONLY a raw JSON array with no markdown:
+[{"q":"...","sampleAnswer":"...","rubric":["point 1","point 2","point 3"],"explanation":"...","openended":true}]`;
+  }
+  const raw = await _examCallAPI(prompt);
+  return _examParseQuestions(raw);
+}
+
+/**
+ * Grade a student's open-ended response using the AI.
+ * Returns { score: 0-100, feedback, correct: bool }
+ */
+async function _examGradeOpenEnded(question, studentAnswer) {
+  if (!studentAnswer || !studentAnswer.trim()) {
+    return { score: 0, feedback: 'No answer was provided.', correct: false };
+  }
+  const rubricText = Array.isArray(question.rubric)
+    ? question.rubric.map((r,i) => `${i+1}. ${r}`).join('\n')
+    : '';
+  const prompt = `You are grading a student's short-answer exam response. Be fair but rigorous.
+
+QUESTION: ${question.q}
+
+SAMPLE ANSWER: ${question.sampleAnswer}
+
+GRADING RUBRIC:
+${rubricText}
+
+STUDENT'S ANSWER: ${studentAnswer}
+
+Grade the student's answer. Give a score from 0–100 based on accuracy, completeness, and understanding.
+- 90–100: Covers all key points clearly and accurately
+- 70–89: Covers most key points with minor gaps
+- 50–69: Partially correct but missing important elements
+- 0–49: Incorrect, incomplete, or off-topic
+
+Output ONLY a raw JSON object with no markdown:
+{"score":85,"feedback":"Your explanation of X was strong. However, you missed Y and Z. The key insight is...","correct":true}
+
+Set "correct" to true if score >= 70.`;
+
+  try {
+    const raw  = await _examCallAPI(prompt);
+    const s = raw.indexOf('{'), e = raw.lastIndexOf('}');
+    if (s >= 0 && e >= 0) {
+      const obj = JSON.parse(raw.slice(s, e + 1));
+      return {
+        score:    Math.min(100, Math.max(0, parseInt(obj.score) || 0)),
+        feedback: obj.feedback || 'Graded.',
+        correct:  !!obj.correct
+      };
+    }
+  } catch(err) {}
+  return { score: 0, feedback: 'Could not grade response. Please try again.', correct: false };
+}
+
+/** char counter for open-ended textarea */
+function examOpenEndedInput(el) {
+  const countEl = document.getElementById('exam-oe-char-count');
+  if (countEl) countEl.textContent = el.value.length + ' chars';
+  // Enable Next once they've typed something meaningful (≥20 chars)
+  const nextBtn = document.getElementById('exam-next-btn');
+  if (nextBtn) nextBtn.disabled = el.value.trim().length < 20;
+}
+
+
 function _examRenderQuestion() {
   const q = _examQuestions[_examIdx], total = _examQuestions.length;
+  _examUpdateDiffBadge();
   document.getElementById('exam-q-label').textContent = `Question ${_examIdx+1} of ${total}`;
   document.getElementById('exam-q-num').textContent   = `QUESTION ${_examIdx+1}`;
 
@@ -4659,7 +5019,33 @@ function _examRenderQuestion() {
   document.getElementById('exam-score-live').textContent  = _examAnswers.filter(a=>a&&a.correct).length+' correct';
 
   const optEl = document.getElementById('exam-options');
+  const oeArea = document.getElementById('exam-openended-area');
+  const oeInput = document.getElementById('exam-openended-input');
   optEl.innerHTML = '';
+
+  if (q.openended) {
+    // ── Open-ended: show textarea instead of option buttons ──
+    if (optEl) optEl.style.display = 'none';
+    if (oeArea) oeArea.style.display = '';
+    if (oeInput) {
+      const prev = _examAnswers[_examIdx];
+      if (prev && prev.openendedText) {
+        oeInput.value = prev.openendedText;
+        oeInput.disabled = true;
+      } else {
+        oeInput.value = '';
+        oeInput.disabled = false;
+      }
+      const countEl = document.getElementById('exam-oe-char-count');
+      if (countEl) countEl.textContent = oeInput.value.length + ' chars';
+    }
+    const hintEl = document.getElementById('exam-oe-hint');
+    const prev = _examAnswers[_examIdx];
+    if (hintEl) hintEl.textContent = prev ? '' : 'Press Next to submit for AI grading';
+  } else {
+    // ── MCQ / T-F / Situational / CBL ─────────────────────
+    if (optEl) optEl.style.display = '';
+    if (oeArea) oeArea.style.display = 'none';
   const letters = ['A','B','C','D','E'];
   q.options.forEach((opt, i) => {
     const letter = q.options.length === 2 ? (i===0?'T':'F') : letters[i];
@@ -4677,11 +5063,12 @@ function _examRenderQuestion() {
     }
     optEl.appendChild(btn);
   });
+  } // end else (MCQ/T-F/etc.)
 
   const fb = document.getElementById('exam-feedback');
   fb.className = 'exam-feedback'; fb.innerHTML = '';
   const prev = _examAnswers[_examIdx];
-  if (prev !== null) _examShowFeedback(prev.correct, q.explanation);
+  if (prev !== null) _examShowFeedback(prev.correct, prev.openendedFeedback || q.explanation, prev.openendedScore);
 
   const nextBtn = document.getElementById('exam-next-btn');
   const skipBtn = document.getElementById('exam-skip-btn');
@@ -4707,6 +5094,10 @@ function _examSelect(idx, btn) {
   if (isCorrect) { _examStreakCur++; _examStreakBest = Math.max(_examStreakBest,_examStreakCur); }
   else _examStreakCur = 0;
 
+  // ── Task 5: swap remaining unanswered questions if adaptive ───────────────
+  if (_examAdaptiveEnabled) _examAdaptiveReorder();
+  _examUpdateDiffBadge();
+
   document.querySelectorAll('#exam-options .exam-option').forEach((o,i) => {
     o.disabled = true;
     if (i===idx) o.classList.add(isCorrect?'correct':'wrong');
@@ -4719,10 +5110,11 @@ function _examSelect(idx, btn) {
   document.getElementById('exam-score-live').textContent = _examAnswers.filter(a=>a&&a.correct).length+' correct';
 }
 
-function _examShowFeedback(ok, explanation) {
+function _examShowFeedback(ok, explanation, score) {
   const fb = document.getElementById('exam-feedback');
   fb.className = 'exam-feedback show '+(ok?'correct-fb':'wrong-fb');
-  fb.innerHTML = sanitize('<strong>'+(ok?'✓ Correct!':'✗ Incorrect')+'</strong>'+(explanation?' — '+explanation:''));
+  const scoreTag = (score !== undefined) ? ` <span style="font-size:11px;opacity:0.75;">(${score}/100)</span>` : '';
+  fb.innerHTML = sanitize('<strong>'+(ok?'✓ Correct!':'✗ Incorrect')+'</strong>'+scoreTag+(explanation?' — '+explanation:''));
 }
 
 function examSkip() {
@@ -4731,7 +5123,43 @@ function examSkip() {
   examNext();
 }
 
-function examNext() {
+async function examNext() {
+  const q = _examQuestions[_examIdx];
+
+  // ── Open-ended: grade before advancing ───────────────────
+  if (q && q.openended && _examAnswers[_examIdx] === null) {
+    const oeInput = document.getElementById('exam-openended-input');
+    const studentAnswer = oeInput ? oeInput.value.trim() : '';
+    if (studentAnswer.length < 20) return; // guard — button should already be disabled
+
+    // Disable UI while grading
+    const nextBtn = document.getElementById('exam-next-btn');
+    if (nextBtn) { nextBtn.disabled = true; nextBtn.textContent = 'Grading…'; }
+    if (oeInput) oeInput.disabled = true;
+    const hintEl = document.getElementById('exam-oe-hint');
+    if (hintEl) hintEl.textContent = '⏳ AI is evaluating your answer…';
+
+    const result = await _examGradeOpenEnded(q, studentAnswer);
+
+    _examAnswers[_examIdx] = {
+      selected: -1,
+      correct: result.correct,
+      skipped: false,
+      openendedText: studentAnswer,
+      openendedScore: result.score,
+      openendedFeedback: result.feedback
+    };
+
+    if (result.correct) { _examStreakCur++; _examStreakBest = Math.max(_examStreakBest, _examStreakCur); }
+    else _examStreakCur = 0;
+
+    _examShowFeedback(result.correct, result.feedback, result.score);
+    document.getElementById('exam-score-live').textContent = _examAnswers.filter(a=>a&&a.correct).length+' correct';
+    if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = _examIdx === _examQuestions.length-1 ? 'Finish' : 'Next →'; }
+    if (hintEl) hintEl.textContent = '';
+    return;
+  }
+
   if (_examAnswers[_examIdx]===null) return;
   if (_examIdx < _examQuestions.length-1) {
     _examIdx++;
@@ -4797,6 +5225,24 @@ function _examFinish() {
     const correctDisplay = correctLetter + '. ' + correctText;
 
     const border = ok?'border-color:rgba(45,212,191,0.3)':'border-color:rgba(248,113,113,0.2)';
+
+    // ── Open-ended review ────────────────────────────────────────────────────
+    if (q.openended) {
+      const studentText = ans && ans.openendedText ? ans.openendedText : (skip ? 'Skipped' : '—');
+      const score       = ans && ans.openendedScore !== undefined ? ans.openendedScore : null;
+      const feedback    = ans && ans.openendedFeedback ? ans.openendedFeedback : q.explanation || '';
+      const scoreTag    = score !== null ? ' <span style="font-size:11px;opacity:0.8;">(' + score + '/100)</span>' : '';
+      return '<div class="exam-review-item" style="'+border+'">'+
+        '<div style="font-size:10px;font-weight:700;color:var(--violet);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;">✍️ Open-Ended</div>'+
+        '<div class="exam-review-q">'+(i+1)+'. '+q.q+'</div>'+
+        '<div class="exam-review-answer" style="flex-direction:column;gap:4px;">'+
+          '<div><span class="exam-review-label">Your answer:</span> <span class="exam-review-val '+(ok?'c':'w')+'">'+scoreTag+' '+sanitize(studentText)+'</span></div>'+
+          (!ok ? '<div style="margin-top:6px;"><span class="exam-review-label">Sample answer:</span> <span class="exam-review-val c">'+sanitize(q.sampleAnswer||q.ideal_answer||'—')+'</span></div>' : '')+
+        '</div>'+
+        (feedback?'<div class="exam-review-explanation">'+sanitize(feedback)+'</div>':'')+
+      '</div>';
+    }
+
     return '<div class="exam-review-item" style="'+border+'">'+
       '<div class="exam-review-q">'+(i+1)+'. '+q.q+'</div>'+
       '<div class="exam-review-answer">'+
@@ -4807,7 +5253,29 @@ function _examFinish() {
     '</div>';
   }).join('');
 
+  // ── Weak Concepts Panel ────────────────────────────────────────────────────
+  _examBuildWeakPanel();
+
   const _snapId = Date.now();
+
+  // ── Save to full persistent history (Task 2) ──────────────────────────────
+  const wrongConcepts = _examQuestions
+    .filter((q, i) => !_examAnswers[i] || !_examAnswers[i].correct)
+    .map(q => _examExtractConcept(q))
+    .filter(Boolean);
+
+  _examHistoryAppend({
+    timestamp: _snapId,
+    topic:     _examTopic,
+    score:     pct,
+    date:      new Date().toLocaleDateString(),
+    count:     total,
+    correct:   correct,
+    type:      _examType,
+    diff:      _examDiff,
+    timeTaken: mm+':'+ss,
+    wrongConcepts
+  });
   const recent = JSON.parse(localStorage.getItem('exam_recent')||'[]');
   recent.unshift({
     id: _snapId,
@@ -4915,16 +5383,32 @@ function _examShowResults() {
     const correctText    = correctOpt ? correctOpt.replace(/^[A-DF]\.\s*/,'') : q.answer;
     const correctDisplay = correctLetter + '. ' + correctText;
     const border = ok?'border-color:rgba(45,212,191,0.3)':'border-color:rgba(248,113,113,0.2)';
-    return '<div class="exam-review-item" style="'+border+'">'+
-      '<div class="exam-review-q">'+(i+1)+'. '+q.q+'</div>'+
-      '<div class="exam-review-answer">'+
-        '<span class="exam-review-label">Your answer:</span> <span class="exam-review-val '+(ok?'c':'w')+'">'+(skip?'Skipped':chosenDisplay)+'</span>'+
-        (!ok?'<span class="exam-review-label" style="margin-left:8px;">Correct:</span> <span class="exam-review-val c">'+correctDisplay+'</span>':'')+
+    if (q.openended) {
+      const studentText = ans && ans.openendedText ? ans.openendedText : (skip ? 'Skipped' : '—');
+      const score       = ans && ans.openendedScore !== undefined ? ans.openendedScore : null;
+      const feedback    = ans && ans.openendedFeedback ? ans.openendedFeedback : q.explanation || '';
+      const scoreTag    = score !== null ? ' <span style=\"font-size:11px;opacity:0.8;\">('+score+'/100)</span>' : '';
+      return '<div class=\"exam-review-item\" style=\"'+border+'\">'+
+        '<div style=\"font-size:10px;font-weight:700;color:var(--violet);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;\">✍️ Open-Ended</div>'+
+        '<div class=\"exam-review-q\">'+(i+1)+'. '+q.q+'</div>'+
+        '<div class=\"exam-review-answer\" style=\"flex-direction:column;gap:4px;\">'+
+          '<div><span class=\"exam-review-label\">Your answer:</span> <span class=\"exam-review-val '+(ok?'c':'w')+'\">'+scoreTag+' '+sanitize(studentText)+'</span></div>'+
+          (!ok ? '<div style=\"margin-top:6px;\"><span class=\"exam-review-label\">Sample answer:</span> <span class=\"exam-review-val c\">'+sanitize(q.sampleAnswer||q.ideal_answer||'—')+'</span></div>' : '')+
+        '</div>'+
+        (feedback?'<div class=\"exam-review-explanation\">'+sanitize(feedback)+'</div>':'')+
+      '</div>';
+    }
+    return '<div class=\"exam-review-item\" style=\"'+border+'\">'+
+      '<div class=\"exam-review-q\">'+(i+1)+'. '+q.q+'</div>'+
+      '<div class=\"exam-review-answer\">'+
+        '<span class=\"exam-review-label\">Your answer:</span> <span class=\"exam-review-val '+(ok?'c':'w')+'">'+(skip?'Skipped':chosenDisplay)+'</span>'+
+        (!ok?'<span class=\"exam-review-label\" style=\"margin-left:8px;\">Correct:</span> <span class=\"exam-review-val c\">'+correctDisplay+'</span>':'')+
       '</div>'+
-      (q.explanation?'<div class="exam-review-explanation">'+q.explanation+'</div>':'')+
+      (q.explanation?'<div class=\"exam-review-explanation\">'+q.explanation+'</div>':'')+
     '</div>';
   }).join('');
 
+  _examBuildWeakPanel();
   _examShow('exam-results');
 }
 
@@ -4952,6 +5436,269 @@ function _examLoadSnap(id, recentItemId) {
     _examShowResults();
   } catch(e) { _examShow('exam-setup'); }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   EXAM HISTORY SYSTEM — Task 2
+   Stores every completed exam in localStorage under 'exam_history'.
+   No cap — full persistent history with per-topic progress tracking.
+═══════════════════════════════════════════════════════════════ */
+
+const EXAM_HISTORY_KEY = 'exam_history_v2';
+
+function _examHistoryLoad() {
+  try { return JSON.parse(localStorage.getItem(EXAM_HISTORY_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+
+function _examHistorySave(entries) {
+  try { localStorage.setItem(EXAM_HISTORY_KEY, JSON.stringify(entries)); }
+  catch(e) {}
+}
+
+/** Append a new entry; called from _examFinish */
+function _examHistoryAppend(entry) {
+  const history = _examHistoryLoad();
+  history.push(entry);
+  _examHistorySave(history);
+}
+
+/** Show the history view, render everything */
+function examShowHistory() {
+  ['exam-setup','exam-loading','exam-quiz','exam-results'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  const histView = document.getElementById('exam-history-view');
+  if (histView) histView.style.display = '';
+  _examRenderHistory();
+}
+
+function examHideHistory() {
+  const histView = document.getElementById('exam-history-view');
+  if (histView) histView.style.display = 'none';
+  _examShow('exam-setup');
+}
+
+function examClearHistory() {
+  if (!confirm('Clear all exam history? This cannot be undone.')) return;
+  localStorage.removeItem(EXAM_HISTORY_KEY);
+  _examRenderHistory();
+}
+
+function _examRenderHistory() {
+  const history = _examHistoryLoad();
+  _examRenderSummary(history);
+  _examRenderTopics(history);
+  _examRenderTable(history);
+}
+
+function _examRenderSummary(history) {
+  const el = document.getElementById('exam-hist-summary');
+  if (!el) return;
+  if (!history.length) {
+    el.innerHTML = '<div style="grid-column:1/-1;font-size:12px;color:var(--text-4);padding:20px 0;text-align:center;">No exams completed yet. Take your first exam to start tracking progress.</div>';
+    return;
+  }
+  const total   = history.length;
+  const avg     = Math.round(history.reduce((s,r) => s + r.score, 0) / total);
+  const best    = Math.max(...history.map(r => r.score));
+  const passing = history.filter(r => r.score >= 60).length;
+  const passRate = Math.round(passing / total * 100);
+  const stats = [
+    { label: 'Exams Taken',   value: total,        color: 'var(--teal)' },
+    { label: 'Average Score', value: avg + '%',     color: avg >= 60 ? 'var(--teal)' : '#f87171' },
+    { label: 'Best Score',    value: best + '%',    color: 'var(--gold)' },
+    { label: 'Pass Rate',     value: passRate + '%',color: passRate >= 60 ? 'var(--teal)' : '#f87171' },
+  ];
+  el.innerHTML = stats.map(s => `
+    <div style="background:var(--surface-1);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:14px 16px;text-align:center;">
+      <div style="font-family:var(--font-head);font-size:22px;font-weight:800;color:${s.color};margin-bottom:4px;">${s.value}</div>
+      <div style="font-size:10px;color:var(--text-4);letter-spacing:0.05em;text-transform:uppercase;">${s.label}</div>
+    </div>`).join('');
+}
+
+function _examRenderTopics(history) {
+  const el = document.getElementById('exam-hist-topics');
+  if (!el) return;
+  if (!history.length) { el.innerHTML = ''; return; }
+
+  // Group by topic (case-insensitive)
+  const topicMap = {};
+  history.forEach(r => {
+    const key = (r.topic || 'Unknown').toLowerCase().trim();
+    if (!topicMap[key]) topicMap[key] = { label: r.topic, entries: [] };
+    topicMap[key].entries.push(r);
+  });
+
+  // Sort topics by most recent attempt
+  const topics = Object.values(topicMap).sort((a, b) => {
+    const aLast = Math.max(...a.entries.map(e => e.timestamp || 0));
+    const bLast = Math.max(...b.entries.map(e => e.timestamp || 0));
+    return bLast - aLast;
+  });
+
+  el.innerHTML = topics.map(t => {
+    const sorted   = [...t.entries].sort((a,b) => (a.timestamp||0) - (b.timestamp||0));
+    const scores   = sorted.map(e => e.score);
+    const first    = scores[0];
+    const last     = scores[scores.length - 1];
+    const trend    = last - first;
+    const trendStr = trend > 0 ? `+${trend}%` : trend < 0 ? `${trend}%` : '—';
+    const trendCol = trend > 0 ? 'var(--teal)' : trend < 0 ? '#f87171' : 'var(--text-4)';
+    const attempts = sorted.length;
+
+    // Mini sparkline bars
+    const maxScore = 100;
+    const bars = scores.slice(-10).map(s => {
+      const h   = Math.max(4, Math.round((s / maxScore) * 36));
+      const col = s >= 60 ? 'var(--teal)' : '#f87171';
+      return `<div style="width:6px;height:${h}px;background:${col};border-radius:2px;flex-shrink:0;align-self:flex-end;" title="${s}%"></div>`;
+    }).join('');
+
+    return `
+      <div style="background:var(--surface-1);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:14px 18px;display:flex;align-items:center;gap:16px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;color:var(--text-1);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${t.label}</div>
+          <div style="font-size:11px;color:var(--text-4);">${attempts} attempt${attempts>1?'s':''} · Latest: <span style="color:${last>=60?'var(--teal)':'#f87171'};font-weight:600;">${last}%</span></div>
+        </div>
+        <div style="display:flex;align-items:flex-end;gap:3px;height:40px;">${bars}</div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-size:13px;font-weight:700;color:${trendCol};">${trendStr}</div>
+          <div style="font-size:10px;color:var(--text-4);">trend</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function _examRenderTable(history) {
+  const el = document.getElementById('exam-hist-table');
+  if (!el) return;
+  if (!history.length) { el.innerHTML = ''; return; }
+
+  // Most recent first
+  const sorted = [...history].sort((a,b) => (b.timestamp||0) - (a.timestamp||0));
+
+  el.innerHTML = sorted.map(r => {
+    const scoreCol  = r.score >= 60 ? 'var(--teal)' : '#f87171';
+    const diffLabel = { easy:'Easy', medium:'Medium', hard:'Hard' }[r.diff] || r.diff || '—';
+    const typeLabel = { mcq:'MCQ', truefalse:'T/F', situational:'Situational', cbl:'Case-Based', mixed:'Mixed' }[r.type] || r.type || '—';
+    const date      = r.date || '—';
+    const time      = r.timeTaken || '—';
+    return `
+      <div style="background:var(--surface-1);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:11px 16px;display:flex;align-items:center;gap:12px;font-size:12px;">
+        <div style="font-size:16px;font-weight:800;color:${scoreCol};font-family:var(--font-head);width:42px;flex-shrink:0;">${r.score}%</div>
+        <div style="flex:1;min-width:0;">
+          <div style="color:var(--text-1);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${r.topic || '—'}</div>
+          <div style="color:var(--text-4);font-size:11px;margin-top:2px;">${typeLabel} · ${diffLabel} · ${r.correct ?? '?'}/${r.count ?? '?'} correct</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;color:var(--text-4);font-size:11px;line-height:1.6;">
+          <div>${date}</div>
+          <div>${time}</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+
+
+/**
+ * Extracts a short concept label from a question that was answered wrong.
+ * Uses the question text to derive a 2–5 word concept name.
+ */
+function _examExtractConcept(q) {
+  const text = q.q || '';
+  // Strip common question prefixes to get the core concept
+  const cleaned = text
+    .replace(/^(which of the following|what is|what are|define|explain|describe|identify|in the context of|according to|which|what)\s+/i, '')
+    .replace(/\?.*$/, '')
+    .trim();
+  // Take first 6 words max
+  const words = cleaned.split(/\s+/).slice(0, 6).join(' ');
+  // Capitalise first letter
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * Builds / refreshes the weak concepts panel based on current _examAnswers.
+ */
+function _examBuildWeakPanel() {
+  const panel    = document.getElementById('exam-weak-panel');
+  const chipsEl  = document.getElementById('exam-weak-chips');
+  const countEl  = document.getElementById('exam-weak-count');
+  if (!panel || !chipsEl) return;
+
+  // Collect wrong/skipped questions
+  const wrongQs = _examQuestions.filter((q, i) => {
+    const a = _examAnswers[i];
+    return !a || !a.correct;
+  });
+
+  if (!wrongQs.length) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  // Deduplicate concepts
+  const seen = new Set();
+  const concepts = [];
+  wrongQs.forEach(q => {
+    const c = _examExtractConcept(q);
+    if (c && !seen.has(c.toLowerCase())) {
+      seen.add(c.toLowerCase());
+      concepts.push({ label: c, q });
+    }
+  });
+
+  // Store globally so nav functions can read them
+  window._examWeakConcepts = concepts;
+  window._examWeakTopic    = _examTopic;
+
+  countEl.textContent = wrongQs.length + ' missed';
+  chipsEl.innerHTML = concepts.slice(0, 8).map(c =>
+    `<span style="
+      display:inline-flex;align-items:center;gap:4px;
+      padding:3px 9px;border-radius:20px;font-size:11px;
+      background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);
+      color:#f87171;font-weight:500;cursor:default;">
+      ${c.label}
+    </span>`
+  ).join('');
+
+  panel.style.display = '';
+}
+
+/**
+ * Navigate to Flashcards screen, pre-seeding the topic with weak concepts.
+ */
+function examGoToFlashcards() {
+  const concepts = (window._examWeakConcepts || []).map(c => c.label).join(', ');
+  const topic    = window._examWeakTopic || _examTopic;
+  // Try to pre-fill the flashcard topic input if it exists
+  const fcTopic = document.getElementById('fc-topic-input') || document.getElementById('flash-topic-input');
+  if (fcTopic) fcTopic.value = concepts || topic;
+  // Store in sessionStorage so FlashScreen can pick it up on mount
+  try {
+    sessionStorage.setItem('exam_weak_prefill', JSON.stringify({ topic, concepts }));
+  } catch(e) {}
+  showScreen('flash');
+}
+
+/**
+ * Navigate to Visual Tutor screen, pre-seeding the query with weak concepts.
+ */
+function examGoToVisualTutor() {
+  const concepts = (window._examWeakConcepts || []).map(c => c.label).slice(0, 3).join(', ');
+  const topic    = window._examWeakTopic || _examTopic;
+  const query    = concepts ? `Explain ${concepts} from ${topic}` : `Explain ${topic}`;
+  // Try to pre-fill the visual tutor input
+  const vtInput = document.getElementById('vt-input') || document.getElementById('visual-tutor-input');
+  if (vtInput) vtInput.value = query;
+  try {
+    sessionStorage.setItem('exam_weak_prefill', JSON.stringify({ topic, concepts, vtQuery: query }));
+  } catch(e) {}
+  showScreen('visual');
+}
+
 
 function examRetry() {
   const topicEl = document.getElementById('exam-topic-input');
@@ -4985,6 +5732,12 @@ window.examDrop           = examDrop;
 window.examClearSource    = examClearSource;
 window.examClearNotes     = examClearNotes;
 window._examToggleScanMode = _examToggleScanMode;
+window.examGoToFlashcards  = examGoToFlashcards;
+window.examGoToVisualTutor = examGoToVisualTutor;
+window.examShowHistory     = examShowHistory;
+window.examHideHistory     = examHideHistory;
+window.examClearHistory    = examClearHistory;
+window._examGetWeakContext = _examGetWeakContext;
 
 // Expose mutable exam source state so ExamScreen.js module can write to them
 Object.defineProperty(window, '_examSourceText',  { get: () => _examSourceText,  set: v => { _examSourceText  = v; }, configurable: true });
