@@ -1644,21 +1644,20 @@ def ask():
 
         # ── MODE: VISUAL_TUTOR ────────────────────────────────────────────
         # Used exclusively by the Visual Tutor whiteboard renderer.
-        # Must NEVER inject textbook RAG context or page citations —
-        # the AI returns a raw JSON blueprint or plain narration only.
+        # The question is already a complete self-contained prompt built by
+        # DiagramBlueprintGenerator.js (JSON blueprint spec or narration request).
+        # Pass it STRAIGHT through — no RAG, no extra wrapping, no citations.
+        # Any extra prompt wrapping breaks the JSON the frontend parser expects.
 
         if mode == 'visual_tutor':
-            prompt = f"""You are an expert visual educator. Answer the following request concisely and accurately.
-Do NOT reference any textbook, page number, or external source.
-Do NOT add citations, footnotes, or book references of any kind.
-Respond only with the content requested — nothing else.
-
-REQUEST: {question}
-
-COMPLEXITY LEVEL {complexity}/10: {complexity_instruction}
-
-FORMATTING: {latex_instruction}"""
-            answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history)
+            vt_system = (
+                "You are the visual drawing engine of Chunks AI, an AI tutoring app. "
+                "Follow the instructions in the user message exactly. "
+                "Never reference textbooks, page numbers, or external sources. "
+                "Never add citations, footnotes, or preamble. "
+                "Output only what the user message asks for."
+            )
+            answer = call_ai(question, system_prompt=vt_system, model=selected_model, history=history)
             return jsonify({
                 'success':        True,
                 'mode':           'visual_tutor',
