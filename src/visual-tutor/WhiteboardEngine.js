@@ -74,6 +74,11 @@ export class WhiteboardEngine {
     this.jitterAmt    = options.jitterAmount !== undefined ? options.jitterAmount : 2.8;
     this._gradientIdx = 0;
 
+    // Pause-mode: stop after each step and wait for advance() call
+    this._pauseMode       = options.pauseMode === true;
+    this._pausedAfterStep = false;
+    this.onStepComplete   = options.onStepComplete || null; // (idx, total) => void
+
     // v3 feature flags (all on by default)
     this._penCursor      = options.penCursor      !== false;
     this._pressureStroke = options.pressureStroke !== false;
@@ -210,8 +215,74 @@ export class WhiteboardEngine {
     const step = steps[this.stepIdx];
     this.onStep && this.onStep(this.stepIdx, step.narration, steps.length);
     this._animElements(step.elements || [], 0, () => {
-      setTimeout(() => { this.stepIdx++; this._runStep(); }, step.pauseAfter !== undefined ? step.pauseAfter : 700);
+      if (this._pauseMode) {
+        // Stop here — wait for advance() call
+        this._hidePen();
+        this._pausedAfterStep = true;
+        this.onStepComplete && this.onStepComplete(this.stepIdx, steps.length);
+      } else {
+        setTimeout(() => { this.stepIdx++; this._runStep(); }, step.pauseAfter !== undefined ? step.pauseAfter : 700);
+      }
     });
+  }
+
+  /** Move to the next step (only meaningful in pauseMode) */
+  advance() {
+    if (!this._pauseMode) return;
+    this._pausedAfterStep = false;
+    this._stopped = false;
+    this.stepIdx++;
+    this._runStep();
+  }
+
+  /** Replay from step 0 up to (and including) targetIdx — for Back navigation */
+  goToStep(targetIdx) {
+    if (!this._pauseMode) return;
+    const steps = this.concept.steps;
+    if (targetIdx < 0) targetIdx = 0;
+    if (targetIdx >= steps.length) targetIdx = steps.length - 1;
+
+    // Wipe canvas back to blank (keep defs/grid)
+    const keep = new Set(['defs', 'rect', 'marker', 'filter', 'lineargradient', 'radialgradient', 'fegaussianblur']);
+    Array.from(this.svg.childNodes).forEach(n => {
+      if (n.nodeType === 1 && !keep.has(n.tagName.toLowerCase())) n.remove();
+    });
+    if (this._penCursor) this._buildPenCursor();
+
+    // Replay steps 0..targetIdx in sequence
+    this._stopped = false;
+    this._pausedAfterStep = false;
+    this.stepIdx = 0;
+    this._replayUpTo(targetIdx);
+  }
+
+  _replayUpTo(targetIdx) {
+    if (this._stopped) return;
+    const steps = this.concept.steps;
+    if (this.stepIdx > targetIdx) {
+      // Reached target — pause here
+      this._hidePen();
+      this._pausedAfterStep = true;
+      this.onStep && this.onStep(targetIdx, steps[targetIdx].narration, steps.length);
+      this.onStepComplete && this.onStepComplete(targetIdx, steps.length);
+      return;
+    }
+    const step = steps[this.stepIdx];
+    // Replay earlier steps silently (no narration callback), final step fires normally
+    if (this.stepIdx < targetIdx) {
+      this._animElements(step.elements || [], 0, () => {
+        this.stepIdx++;
+        this._replayUpTo(targetIdx);
+      });
+    } else {
+      // This IS the target step — fire narration and pause
+      this.onStep && this.onStep(this.stepIdx, step.narration, steps.length);
+      this._animElements(step.elements || [], 0, () => {
+        this._hidePen();
+        this._pausedAfterStep = true;
+        this.onStepComplete && this.onStepComplete(this.stepIdx, steps.length);
+      });
+    }
   }
 
   _animElements(elements, idx, onAllDone) {
