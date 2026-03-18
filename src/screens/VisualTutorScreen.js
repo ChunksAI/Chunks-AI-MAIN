@@ -1238,6 +1238,19 @@ export function mountVisualTutorScreen() {
       input.addEventListener('keydown', e => {
         if (e.key === 'Enter') window._vtSendInput();
       });
+
+      // ── Pick up weak-concept prefill from Exam results (Task 1) ──
+      try {
+        const raw = sessionStorage.getItem('exam_weak_prefill');
+        if (raw) {
+          const { vtQuery } = JSON.parse(raw);
+          if (vtQuery) {
+            input.value = vtQuery;
+            setTimeout(() => input.focus(), 150);
+          }
+          sessionStorage.removeItem('exam_weak_prefill');
+        }
+      } catch(e) {}
     }
 
     // Wire pill buttons directly — avoids double-fire from global data-action delegation
