@@ -56,6 +56,16 @@ const FLASH_HTML = `
                   <div class="fc-streak-stat-val" id="fc-streak-freeze">—</div>
                   <div class="fc-streak-stat-lbl">freeze</div>
                 </div>
+                <div class="fc-streak-stat-divider"></div>
+                <div class="fc-streak-stat">
+                  <div class="fc-streak-stat-val" id="fc-streak-xp">0</div>
+                  <div class="fc-streak-stat-lbl">total XP</div>
+                </div>
+              </div>
+              <!-- Legend badge — hidden until day 100 -->
+              <div class="fc-legend-badge" id="fc-legend-badge" style="display:none;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                Legend
               </div>
             </div>
           </div>
@@ -296,6 +306,16 @@ const FC_COMPLETE_HTML = `
         <div class="fc-modal-stat-label">Skipped</div>
       </div>
     </div>
+    <!-- XP earned this session -->
+    <div class="fc-modal-xp-block" id="fc-modal-xp-block" style="display:none;">
+      <div class="fc-modal-xp-row">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <span class="fc-modal-xp-earned" id="fc-modal-xp-earned">+0 XP</span>
+        <span class="fc-modal-xp-bonus" id="fc-modal-xp-bonus" style="display:none;"></span>
+      </div>
+      <div class="fc-modal-xp-total" id="fc-modal-xp-total">0 total XP</div>
+    </div>
+
     <div class="fc-modal-srs-note" id="fc-modal-srs-note" style="display:none;">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
       <span id="fc-srs-message"></span>
