@@ -24,16 +24,30 @@ const EXAM_HTML = /* html */`
 
       <!-- SETUP VIEW -->
       <div id="exam-setup">
-        <div style="margin-bottom:24px;">
-          <div style="font-family:var(--font-mono);font-size:10px;color:var(--gold);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Exam Mode</div>
-          <h1 style="font-family:var(--font-head);font-size:24px;font-weight:800;color:var(--text-1);margin-bottom:6px;">Test Your Knowledge</h1>
-          <p style="font-size:13px;color:var(--text-4);line-height:1.6;">Generate a timed exam from any topic or textbook chapter. The AI will create questions, grade your answers, and explain what you got wrong.</p>
+        <div style="margin-bottom:24px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--gold);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Exam Mode</div>
+            <h1 style="font-family:var(--font-head);font-size:24px;font-weight:800;color:var(--text-1);margin-bottom:6px;">Test Your Knowledge</h1>
+            <p style="font-size:13px;color:var(--text-4);line-height:1.6;">Generate a timed exam from any topic or textbook chapter. The AI will create questions, grade your answers, and explain what you got wrong.</p>
+          </div>
+          <button onclick="examShowHistory()" style="flex-shrink:0;display:flex;align-items:center;gap:6px;padding:7px 13px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-sm);color:var(--text-3);font-size:11px;font-family:var(--font-body);cursor:pointer;white-space:nowrap;transition:background 0.15s;" onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='var(--surface-2)'">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            History
+          </button>
         </div>
 
         <div class="exam-setup-card">
           <div class="exam-setup-header">
-            <h2>Configure Your Exam</h2>
-            <p>Choose your topic, format, and difficulty — the AI does the rest.</p>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+              <div>
+                <h2>Configure Your Exam</h2>
+                <p>Choose your topic, format, and difficulty — the AI does the rest.</p>
+              </div>
+              <div id="exam-adaptive-badge" style="display:none;flex-shrink:0;display:flex;align-items:center;gap:5px;padding:4px 10px;background:rgba(139,124,248,0.12);border:1px solid rgba(139,124,248,0.3);border-radius:20px;font-size:10px;color:var(--violet);font-weight:600;letter-spacing:0.04em;">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                ADAPTIVE ON
+              </div>
+            </div>
           </div>
           <div class="exam-setup-body">
 
@@ -176,6 +190,9 @@ const EXAM_HTML = /* html */`
                 <button class="exam-type-btn" data-type="mixed" data-action="examSelectType-self">
                   <span class="etb-icon">🎲</span>Mixed
                 </button>
+                <button class="exam-type-btn" data-type="openended" data-action="examSelectType-self">
+                  <span class="etb-icon">✍️</span>Open-Ended
+                </button>
               </div>
               <!-- CBL hint -->
               <div id="exam-cbl-hint" style="display:none;margin-top:8px;font-size:12px;color:#e0c4c4;padding:10px 14px;background:rgba(220,38,38,0.13);border:1px solid rgba(220,38,38,0.35);border-radius:var(--r-sm);line-height:1.6;">
@@ -185,14 +202,24 @@ const EXAM_HTML = /* html */`
               <div id="exam-situational-hint" style="display:none;margin-top:8px;font-size:12px;color:#c8c0e0;padding:10px 14px;background:rgba(139,92,246,0.13);border:1px solid rgba(139,92,246,0.35);border-radius:var(--r-sm);line-height:1.6;">
                 📋 Situational questions present a real-world scenario (patient case, workplace event, academic problem) and ask what the <strong style="color:#b899ff;font-weight:700;">best course of action</strong> is. Great for clinical, professional, or applied exams.
               </div>
+              <!-- Open-Ended hint -->
+              <div id="exam-openended-hint" style="display:none;margin-top:8px;font-size:12px;color:#c0d8c0;padding:10px 14px;background:rgba(45,212,191,0.08);border:1px solid rgba(45,212,191,0.25);border-radius:var(--r-sm);line-height:1.6;">
+                ✍️ Open-ended questions require a written response. The AI will read your answer and score it based on accuracy, completeness, and understanding — giving you detailed feedback on what you got right and what to improve.
+              </div>
             </div>
 
             <div class="exam-field">
               <label>Difficulty</label>
-              <div style="display:flex;gap:8px;">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 <button class="exam-type-btn" data-diff="easy" data-action="examSelectDiff-self" style="flex:1;">Easy</button>
                 <button class="exam-type-btn active" data-diff="medium" data-action="examSelectDiff-self" style="flex:1;">Medium</button>
                 <button class="exam-type-btn" data-diff="hard" data-action="examSelectDiff-self" style="flex:1;">Hard</button>
+                <button class="exam-type-btn" data-diff="adaptive" data-action="examSelectDiff-self" style="flex:1;border-color:rgba(139,124,248,0.4);color:var(--violet);">
+                  ⚡ Adaptive
+                </button>
+              </div>
+              <div id="exam-adaptive-diff-hint" style="display:none;margin-top:8px;font-size:11px;color:var(--violet);padding:8px 12px;background:rgba(139,124,248,0.08);border:1px solid rgba(139,124,248,0.25);border-radius:var(--r-sm);line-height:1.6;">
+                ⚡ <strong>Adaptive mode</strong> generates 3 difficulty pools and dynamically escalates or drops difficulty based on your answers — get 2 right in a row and it gets harder, miss 2 and it eases up.
               </div>
             </div>
 
@@ -215,6 +242,7 @@ const EXAM_HTML = /* html */`
         </div>
         <div style="font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);margin-bottom:6px;" id="exam-loading-text">Generating your exam…</div>
         <div style="font-size:12px;color:var(--text-4);">Writing questions on <span id="exam-loading-topic" style="color:var(--gold);"></span></div>
+        <div id="exam-loading-adaptive" style="display:none;margin-top:8px;font-size:11px;color:var(--violet);font-weight:500;"></div>
 
         <!-- Deep scan progress (hidden for quick/smart) -->
         <div id="exam-deep-progress" style="display:none;margin-top:28px;max-width:400px;margin-left:auto;margin-right:auto;">
@@ -264,6 +292,7 @@ const EXAM_HTML = /* html */`
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <span id="exam-timer-text">--:--</span>
           </div>
+          <div id="exam-adaptive-diff-badge" style="display:none;font-size:10px;font-weight:600;padding:3px 9px;background:rgba(139,124,248,0.12);border:1px solid rgba(139,124,248,0.3);border-radius:20px;color:var(--violet);white-space:nowrap;"></div>
         </div>
 
         <div id="exam-q-card" class="exam-q-card">
@@ -286,6 +315,17 @@ const EXAM_HTML = /* html */`
             <div class="exam-q-text" id="exam-q-text">Loading…</div>
           </div>
           <div class="exam-options" id="exam-options"></div>
+          <!-- Open-ended answer area (shown instead of options for open-ended questions) -->
+          <div id="exam-openended-area" style="display:none;padding:0 0 8px;">
+            <textarea id="exam-openended-input"
+              placeholder="Type your answer here… Aim for 2–5 sentences. The AI will evaluate your response for accuracy and completeness."
+              style="width:100%;min-height:110px;padding:12px 14px;background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);color:var(--text-1);font-size:13px;font-family:var(--font-body);line-height:1.6;resize:vertical;box-sizing:border-box;"
+              oninput="examOpenEndedInput(this)"></textarea>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
+              <span id="exam-oe-char-count" style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);">0 chars</span>
+              <span id="exam-oe-hint" style="font-size:10px;color:var(--text-4);">Press Next to submit for AI grading</span>
+            </div>
+          </div>
           <div class="exam-feedback" id="exam-feedback"></div>
         </div>
 
@@ -305,6 +345,10 @@ const EXAM_HTML = /* html */`
             <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-4);letter-spacing:0.06em;margin-bottom:4px;">EXAM COMPLETE</div>
             <div style="font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text-1);" id="results-topic-title"></div>
           </div>
+          <button onclick="examShowHistory()" style="display:flex;align-items:center;gap:5px;padding:6px 12px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-sm);color:var(--text-3);font-size:11px;font-family:var(--font-body);cursor:pointer;" onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='var(--surface-2)'">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            View History
+          </button>
         </div>
         <div class="exam-results-card">
           <div class="exam-results-header">
@@ -331,6 +375,27 @@ const EXAM_HTML = /* html */`
             </div>
           </div>
           <div class="exam-review" id="exam-review-list"></div>
+
+          <!-- ── Weak Concepts Panel (shown when student got questions wrong) ── -->
+          <div id="exam-weak-panel" style="display:none; margin:0 24px 4px; padding:16px 18px; background:rgba(248,113,113,0.06); border:1px solid rgba(248,113,113,0.18); border-radius:var(--r-sm);">
+            <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span style="font-size:11px;font-weight:700;color:#f87171;letter-spacing:0.06em;text-transform:uppercase;">Concepts to Review</span>
+              <span id="exam-weak-count" style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);margin-left:auto;"></span>
+            </div>
+            <div id="exam-weak-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="exam-nav-btn secondary" id="exam-goto-flash-btn" onclick="examGoToFlashcards()" style="font-size:11px;padding:7px 14px;display:flex;align-items:center;gap:6px;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                Study with Flashcards
+              </button>
+              <button class="exam-nav-btn secondary" id="exam-goto-visual-btn" onclick="examGoToVisualTutor()" style="font-size:11px;padding:7px 14px;display:flex;align-items:center;gap:6px;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                Explain with Visual Tutor
+              </button>
+            </div>
+          </div>
+
           <div class="exam-actions">
             <button class="exam-nav-btn primary" data-action="examRetry" style="flex:1;">
               Retake Exam
@@ -341,6 +406,42 @@ const EXAM_HTML = /* html */`
           </div>
         </div>
       </div><!-- /exam-results -->
+
+      <!-- ══ HISTORY VIEW (Task 2) ══════════════════════════════════════ -->
+      <div id="exam-history-view" style="display:none;padding:0 0 40px;">
+
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+          <button onclick="examHideHistory()" style="display:flex;align-items:center;gap:5px;background:transparent;border:none;color:var(--text-4);cursor:pointer;font-size:12px;font-family:var(--font-body);padding:0;" onmouseenter="this.style.color='var(--text-2)'" onmouseleave="this.style.color='var(--text-4)'">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+            Back
+          </button>
+          <div>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--gold);letter-spacing:0.08em;text-transform:uppercase;">Exam History</div>
+            <div style="font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text-1);">Your Progress Over Time</div>
+          </div>
+          <button onclick="examClearHistory()" style="margin-left:auto;display:flex;align-items:center;gap:5px;padding:6px 11px;background:transparent;border:1px solid rgba(248,113,113,0.25);border-radius:var(--r-sm);color:#f87171;font-size:11px;font-family:var(--font-body);cursor:pointer;" onmouseenter="this.style.background='rgba(248,113,113,0.07)'" onmouseleave="this.style.background='transparent'">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+            Clear All
+          </button>
+        </div>
+
+        <!-- Summary stats -->
+        <div id="exam-hist-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;"></div>
+
+        <!-- Topic progress section -->
+        <div style="margin-bottom:24px;">
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px;">Progress by Topic</div>
+          <div id="exam-hist-topics" style="display:flex;flex-direction:column;gap:10px;"></div>
+        </div>
+
+        <!-- Full history table -->
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:12px;">All Attempts</div>
+          <div id="exam-hist-table" style="display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
+
+      </div><!-- /exam-history-view -->
 
     </div><!-- /exam-wrap -->
   </main>
@@ -357,7 +458,7 @@ export function mountExamScreen() {
   }
   placeholder.outerHTML = EXAM_HTML;
 
-  // Wire notes textarea listener now that the DOM element exists
+  // ── Wire notes textarea listener now that the DOM element exists
   const notesEl = document.getElementById('exam-notes-input');
   if (notesEl) {
     notesEl.addEventListener('input', () => {
@@ -368,6 +469,24 @@ export function mountExamScreen() {
       window._examSourceLabel = 'your notes';
       if (typeof window._examToggleScanMode === 'function') window._examToggleScanMode(len > 0);
     });
+  }
+
+  // ── Task 3: Show adaptive badge when topic has history with weak concepts
+  const topicInput = document.getElementById('exam-topic-input');
+  const adaptiveBadge = document.getElementById('exam-adaptive-badge');
+  if (topicInput && adaptiveBadge) {
+    const updateBadge = () => {
+      const ctx = typeof window._examGetWeakContext === 'function'
+        ? window._examGetWeakContext(topicInput.value.trim())
+        : null;
+      adaptiveBadge.style.display = ctx ? 'flex' : 'none';
+      if (ctx) {
+        adaptiveBadge.title = `Focusing on: ${ctx.concepts.slice(0,3).join(', ')} (${ctx.attempts} past attempt${ctx.attempts>1?'s':''}, avg ${ctx.avgScore}%)`;
+      }
+    };
+    topicInput.addEventListener('input', updateBadge);
+    // Run once on mount in case topic was pre-filled
+    setTimeout(updateBadge, 300);
   }
 }
 
