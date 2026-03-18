@@ -16,10 +16,10 @@ Tier environment variables
   SMALL_MODEL   fast, cheap — definitions, simple recall, short answers
                 default: openai/gpt-4o-mini
   MODEL         medium — standard study questions, explanations, flashcards
-                default: arcee-ai/trinity-large-preview:free  (or whatever
+                default: openai/gpt-oss-20b:nitro  (or whatever
                          server.py sets as MODEL)
   LARGE_MODEL   large — research layers, complex derivations, exam writing
-                default: anthropic/claude-sonnet-4-5  (or whatever is set)
+                default: openai/gpt-4o-mini  (or whatever is set)
   THINK_MODEL   chain-of-thought — activated by [THINKING_MODE] token
                 default: deepseek/deepseek-r1-distill-llama-70b:free
   DEEP_MODEL    deep reasoning — activated by [DEEP_THINKING_MODE] token
@@ -51,7 +51,7 @@ def _get_models() -> dict:
     """
     # Import MODEL from server context — fall back to env directly if called
     # before server.py initialises the constant.
-    medium = os.environ.get('MODEL', 'arcee-ai/trinity-large-preview:free')
+    medium = os.environ.get('MODEL', 'openai/gpt-oss-20b:nitro')
     return {
         'small':  os.environ.get('SMALL_MODEL',  'openai/gpt-4o-mini'),
         'medium': medium,
