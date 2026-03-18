@@ -686,6 +686,98 @@
   font-family: var(--font-mono);
 }
 
+/* ── XP block in completion modal ──────────────────────────────────── */
+.fc-modal-xp-block {
+  background: rgba(232,172,46,0.06);
+  border: 1px solid rgba(232,172,46,0.18);
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.fc-modal-xp-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.fc-modal-xp-row svg {
+  color: var(--gold);
+  flex-shrink: 0;
+}
+
+.fc-modal-xp-earned {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--gold);
+  font-family: var(--font-head);
+  letter-spacing: -0.02em;
+}
+
+.fc-modal-xp-bonus {
+  font-size: 11px;
+  color: var(--fc-accent);
+  font-family: var(--font-mono);
+}
+
+.fc-modal-xp-total {
+  font-size: 11px;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  margin-left: 20px;
+}
+
+/* ── Legend badge on streak widget ─────────────────────────────────── */
+.fc-legend-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  align-self: center;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(232,172,46,0.1);
+  border: 1px solid rgba(232,172,46,0.3);
+  color: var(--gold);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.fc-legend-badge svg {
+  animation: fc-legend-spin 4s linear infinite;
+}
+
+@keyframes fc-legend-spin {
+  0%,100% { transform: rotate(0deg) scale(1); }
+  25%     { transform: rotate(10deg) scale(1.15); }
+  75%     { transform: rotate(-10deg) scale(1.15); }
+}
+
+/* Legend streak widget gets gold border + animated fire */
+.fc-streak-widget.fc-streak-legend {
+  border-color: rgba(232,172,46,0.4) !important;
+  box-shadow: 0 0 0 3px rgba(232,172,46,0.08) !important;
+}
+
+.fc-streak-widget.fc-streak-legend .fc-streak-fire {
+  animation: fc-fire-flicker 1.2s ease-in-out infinite, fc-legend-glow 2.5s ease-in-out infinite;
+}
+
+@keyframes fc-legend-glow {
+  0%,100% { filter: drop-shadow(0 0 4px rgba(232,172,46,0.4)); }
+  50%     { filter: drop-shadow(0 0 10px rgba(232,172,46,0.7)); }
+}
+
+/* XP multiplier active — subtle gold tint on streak widget stats */
+.fc-streak-widget.fc-streak-active .fc-streak-stat-val {
+  transition: color 0.3s;
+}
+
 .fc-modal-srs-note {
   display: flex;
   align-items: center;
