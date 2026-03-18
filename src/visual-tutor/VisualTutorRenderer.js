@@ -169,10 +169,29 @@ export class VisualTutorRenderer {
         this._opts.onTopic?.(`${topicName} — complete`);
         this._opts.onComplete?.();
       },
-      { jitter: true, jitterAmount: 0.8 }
+      {
+        jitter: true,
+        jitterAmount: 0.8,
+        pauseMode: true,
+        onStepComplete: (idx, total) => {
+          this._opts.onStepComplete?.(idx, total);
+        },
+      }
     );
     this._engine.start();
   }
+
+  /** Advance to the next whiteboard step */
+  nextStep() { this._engine?.advance(); }
+
+  /** Jump back to a specific step index (replays from 0) */
+  goToStep(idx) { this._engine?.goToStep(idx); }
+
+  /** Current step index (0-based) */
+  get currentStep() { return this._engine?.stepIdx ?? 0; }
+
+  /** Total steps in the current concept */
+  get totalSteps() { return this._lastConcept?.steps?.length ?? 0; }
 
   // ── Simulation rendering ───────────────────────────────────────────────────
 
