@@ -390,11 +390,15 @@ Rules:
       body: JSON.stringify({ question: fullPrompt, mode: 'generate', task_type: 'study_plan', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }),
     });
     if (response.status === 429) throw Object.assign(new Error('Server is busy — please wait a moment and try again.'), { noRetry: true });
-    if (response.status >= 500) throw new Error('Server error ' + response.status + ' — please retry.');
     if (!response.ok) {
       let errMsg = 'Server error ' + response.status;
       try { const e = await response.json(); errMsg = e.error || errMsg; } catch (_) {}
-      throw Object.assign(new Error(errMsg), { noRetry: response.status < 500 });
+      // 502 = model returned bad JSON (not transient — retrying won't help)
+      // 503 = upstream model unavailable (transient — worth retrying)
+      // 500 = unhandled server exception (retry may help)
+      // 4xx = client error (don't retry)
+      const noRetry = response.status === 502 || response.status < 500;
+      throw Object.assign(new Error(errMsg), { noRetry });
     }
     const data = await response.json();
     let plan;
@@ -417,7 +421,10 @@ Rules:
     try { await _spTryGenerate(); } catch (err) {
       if (!err.noRetry && _spAttempt < _spMaxAttempts) {
         _spAttempt++;
-        await new Promise(r => setTimeout(r, 1500 * _spAttempt));
+        // Exponential backoff with jitter: 1.5s, 3s, 4.5s (±300ms jitter)
+        const base = 1500 * _spAttempt;
+        const jitter = Math.random() * 600 - 300;
+        await new Promise(r => setTimeout(r, base + jitter));
         return _spRetry();
       }
       console.error('SP generation error:', err);
