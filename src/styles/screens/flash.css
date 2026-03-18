@@ -1056,13 +1056,12 @@
 .fc-streak-widget {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  gap: 10px;
   background: var(--surface-2);
   border: 1px solid var(--border-xs);
   border-radius: 16px;
-  padding: 20px 28px;
-  min-width: 120px;
+  padding: 16px 20px;
+  min-width: 200px;
   flex-shrink: 0;
   transition: border-color 0.2s, box-shadow 0.2s;
   cursor: default;
@@ -1084,21 +1083,34 @@
   50%      { box-shadow: 0 0 0 6px rgba(248,113,113,0.12); }
 }
 
+/* Top row: flame + number side by side */
+.fc-streak-top-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .fc-streak-fire {
-  font-size: 32px;
-  line-height: 1;
-  margin-bottom: 6px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex-shrink: 0;
   transition: opacity 0.3s;
-  filter: drop-shadow(0 2px 4px rgba(232,172,46,0.3));
 }
 
 .fc-streak-widget.fc-streak-active .fc-streak-fire {
-  animation: fc-fire-flicker 1.5s ease-in-out infinite;
+  animation: fc-fire-flicker 1.8s ease-in-out infinite;
 }
 
 @keyframes fc-fire-flicker {
-  0%,100% { transform: scale(1) rotate(-2deg); }
-  50%      { transform: scale(1.08) rotate(2deg); }
+  0%,100% { transform: scale(1) rotate(-1.5deg); }
+  50%      { transform: scale(1.07) rotate(1.5deg); }
+}
+
+.fc-streak-number-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
 }
 
 .fc-streak-count {
@@ -1107,22 +1119,19 @@
   font-weight: 800;
   color: var(--fc-accent);
   line-height: 1;
-  margin-bottom: 2px;
 }
 
 .fc-streak-label {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-4);
   font-family: var(--font-mono);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  margin-bottom: 8px;
 }
 
 .fc-streak-status {
   font-size: 11px;
   color: var(--text-4);
-  text-align: center;
   line-height: 1.4;
 }
 
@@ -1134,11 +1143,78 @@
   color: #f87171;
 }
 
+/* Progress bar to next milestone */
+.fc-streak-prog-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.fc-streak-prog-track {
+  height: 4px;
+  background: var(--surface-4);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.fc-streak-prog-bar {
+  height: 100%;
+  background: var(--fc-accent);
+  border-radius: 999px;
+  transition: width 0.5s ease;
+  min-width: 4px;
+}
+
+.fc-streak-next-label {
+  font-size: 10px;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+}
+
+/* Stats row */
+.fc-streak-stats {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-xs);
+}
+
+.fc-streak-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.fc-streak-stat-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  line-height: 1;
+  font-family: var(--font-head);
+}
+
+.fc-streak-stat-lbl {
+  font-size: 9px;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fc-streak-stat-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border-xs);
+  flex-shrink: 0;
+}
+
 @media (max-width: 640px) {
   .fc-hero-top      { flex-direction: column; }
-  .fc-streak-widget { flex-direction: row; gap: 16px; padding: 14px 20px; min-width: unset; width: 100%; }
-  .fc-streak-fire   { font-size: 24px; margin-bottom: 0; }
+  .fc-streak-widget { padding: 12px 14px; min-width: unset; width: 100%; gap: 8px; }
   .fc-streak-count  { font-size: 28px; }
+  .fc-streak-fire svg { width: 24px !important; height: 28px !important; }
 }
 
 /* ── Mastery bar on deck cards ──────────────────────────────────────────── */
@@ -1342,10 +1418,10 @@
     min-width: unset;
     border-radius: 10px;
   }
-  .fc-streak-fire   { font-size: 18px; margin-bottom: 0; }
-  .fc-streak-count  { font-size: 20px; margin-bottom: 0; line-height: 1; }
-  .fc-streak-label  { font-size: 10px; margin-bottom: 0; }
-  .fc-streak-status { font-size: 10px; margin-left: auto; }
+  .fc-streak-fire svg { width: 20px !important; height: 24px !important; }
+  .fc-streak-count  { font-size: 20px; line-height: 1; }
+  .fc-streak-label  { font-size: 9px; }
+  .fc-streak-status { font-size: 10px; }
 
   /* ── Generate card ──────────────────────────────────── */
   .fc-gen-header    { padding: 14px 14px 0; }
