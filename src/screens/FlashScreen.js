@@ -30,10 +30,33 @@ const FLASH_HTML = `
             </div>
             <!-- Streak widget -->
             <div class="fc-streak-widget" id="fc-streak-widget">
-              <div class="fc-streak-fire" id="fc-streak-fire">🔥</div>
-              <div class="fc-streak-count" id="fc-streak-count">0</div>
-              <div class="fc-streak-label">day streak</div>
+              <div class="fc-streak-top-row">
+                <div class="fc-streak-fire" id="fc-streak-fire"></div>
+                <div class="fc-streak-number-col">
+                  <div class="fc-streak-count" id="fc-streak-count">0</div>
+                  <div class="fc-streak-label">day streak</div>
+                </div>
+              </div>
               <div class="fc-streak-status" id="fc-streak-status"></div>
+              <!-- Progress to next milestone -->
+              <div class="fc-streak-prog-wrap">
+                <div class="fc-streak-prog-track">
+                  <div class="fc-streak-prog-bar" id="fc-streak-prog-bar" style="width:0%"></div>
+                </div>
+                <div class="fc-streak-next-label" id="fc-streak-next-label">3 days → Ocean theme</div>
+              </div>
+              <!-- Stats row -->
+              <div class="fc-streak-stats">
+                <div class="fc-streak-stat">
+                  <div class="fc-streak-stat-val" id="fc-streak-longest">0</div>
+                  <div class="fc-streak-stat-lbl">longest</div>
+                </div>
+                <div class="fc-streak-stat-divider"></div>
+                <div class="fc-streak-stat">
+                  <div class="fc-streak-stat-val" id="fc-streak-freeze">—</div>
+                  <div class="fc-streak-stat-lbl">freeze</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
