@@ -104,6 +104,7 @@ TASK_TIERS: dict[str, str] = {
     'visual_simple':       'small',    # pre-built scene chat
     'visual_medium':       'medium',   # custom diagram chat
     'visual_complex':      'large',    # multi-step visual derivation
+    'visual_tutor':        'large',    # blueprint generation — needs best spatial reasoning
 
     # ── Admin / internal ──────────────────────────────────────────────────
     'admin_bug_summary':   'small',
