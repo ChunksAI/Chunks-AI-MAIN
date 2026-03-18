@@ -75,6 +75,8 @@ export function spMasteryRecord(activityKey, score) {
   spMasteryUpdateNode(idx, total);
   if (total >= 80) spMasteryUnlockNext(idx);
   spUpdatePanel();
+  // Keep localStorage in sync so mastery survives a refresh
+  try { localStorage.setItem('sp_active_mastery', JSON.stringify(_spMastery)); } catch (_) {}
 }
 
 export function spMasteryUpdateNode(idx, masteryPct) {
@@ -576,6 +578,15 @@ export function spSavePlanToSidebar(topic) {
   plans = plans.slice(0, 6);
   localStorage.setItem('sp_recent_plans', JSON.stringify(plans));
   spRenderRecentPlansSidebar(plans);
+  // Persist the full plan + mastery so it survives a page refresh
+  if (_spCurrentPlan) {
+    try {
+      localStorage.setItem('sp_active_plan', JSON.stringify(_spCurrentPlan));
+      localStorage.setItem('sp_active_mastery', JSON.stringify(_spMastery));
+    } catch (e) {
+      console.warn('Could not persist study plan to localStorage:', e);
+    }
+  }
 }
 
 export function spRenderRecentPlansSidebar(plans) {
@@ -1133,7 +1144,26 @@ document.addEventListener('click', e => {
 // ── spInitScreen (called by showScreen) ───────────────────────────────────
 
 export function spInitScreen() {
-  // Nothing to init on first open; plan generation triggers from button click.
+  // Restore the last active plan + mastery from localStorage on page load / screen switch.
+  if (_spCurrentPlan) return; // already in memory (e.g. screen re-entered without refresh)
+  try {
+    const savedPlan    = localStorage.getItem('sp_active_plan');
+    const savedMastery = localStorage.getItem('sp_active_mastery');
+    if (savedPlan) {
+      const plan = JSON.parse(savedPlan);
+      if (plan && Array.isArray(plan.concepts) && plan.concepts.length > 0) {
+        _spCurrentPlan = plan;
+        _spMastery     = savedMastery ? (JSON.parse(savedMastery) || {}) : {};
+        spRenderPlan(plan, plan.topic || 'Saved Plan');
+        // Re-apply mastery visuals for each node
+        plan.concepts.forEach((_, idx) => {
+          spMasteryUpdateNode(idx, spMasteryScore(idx));
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('Could not restore study plan from localStorage:', e);
+  }
 }
 
 // ── Legacy global bridges ─────────────────────────────────────────────────
