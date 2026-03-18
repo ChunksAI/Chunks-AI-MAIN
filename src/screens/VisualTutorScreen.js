@@ -40,6 +40,7 @@ const VT_HTML = `
           </svg>
         </div>
         <div class="vt-canvas-footer">
+          <!-- Quick-topic pills (shown when idle) -->
           <div class="vt-quick-pills" id="vt-quick-pills">
             <span class="vt-pills-label">Try:</span>
             <button class="vt-pill" data-query="explain titration">Titration</button>
@@ -54,6 +55,20 @@ const VT_HTML = `
             <button class="vt-pill" data-query="explain enzymes active site lock and key">Enzymes</button>
             <button class="vt-pill" data-query="explain pH scale acids bases">pH Scale</button>
             <button class="vt-pill" data-query="explain how vaccines work">Vaccines</button>
+          </div>
+          <!-- Step nav bar (shown when whiteboard is drawing) -->
+          <div class="vt-step-nav" id="vt-step-nav" style="display:none;">
+            <div class="vt-step-dots" id="vt-step-dots"></div>
+            <div class="vt-step-btns">
+              <button class="vt-step-btn vt-step-back" id="vt-step-back" onclick="window._vtPrevStep()" title="Previous step">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                Back
+              </button>
+              <button class="vt-step-btn vt-step-next" id="vt-step-next" onclick="window._vtNextStep()">
+                Next step
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -933,12 +948,14 @@ async function _getRenderer() {
       onComplete: () => {
         const dot = document.getElementById('vt-canvas-dot');
         if (dot) dot.style.background = '#4ade80';
+        _vtShowStepNav(true);  // keep nav visible on complete, show replay
         _vtAddMsg('Diagram complete! Ask me anything about it to go deeper.', 'ai');
       },
 
       onError: (err) => {
         const dot = document.getElementById('vt-canvas-dot');
         if (dot) dot.style.background = '#f87171';
+        _vtHideStepNav();
         console.error('[VisualTutor]', err);
       },
 
@@ -946,13 +963,98 @@ async function _getRenderer() {
         const dot = document.getElementById('vt-canvas-dot');
         if (!dot) return;
         if (mode === 'whiteboard')  dot.style.background = '#60a5fa';
-        if (mode === 'simulation')  dot.style.background = '#a78bfa';
-        if (mode === 'idle')        dot.style.background = '#4ade80';
+        if (mode === 'simulation')  { dot.style.background = '#a78bfa'; _vtHideStepNav(); }
+        if (mode === 'idle')        { dot.style.background = '#4ade80'; _vtHideStepNav(); }
+      },
+
+      onStepComplete: (idx, total) => {
+        _vtUpdateStepNav(idx, total);
       },
     }
   );
   return _vtRenderer;
 }
+
+// ── Step nav helpers ──────────────────────────────────────────────────────────
+
+function _vtShowStepNav(isComplete) {
+  const nav   = document.getElementById('vt-step-nav');
+  const pills = document.getElementById('vt-quick-pills');
+  if (nav)   nav.style.display   = '';
+  if (pills) pills.style.display = 'none';
+
+  const nextBtn = document.getElementById('vt-step-next');
+  if (nextBtn) {
+    if (isComplete) {
+      nextBtn.textContent = 'Replay';
+      nextBtn.innerHTML = 'Replay <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.63"/></svg>';
+      nextBtn.onclick = () => { _vtRenderer && _vtRenderer.goToStep(0); };
+    } else {
+      nextBtn.innerHTML = 'Next step <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+      nextBtn.onclick = () => window._vtNextStep();
+    }
+  }
+}
+
+function _vtHideStepNav() {
+  const nav   = document.getElementById('vt-step-nav');
+  const pills = document.getElementById('vt-quick-pills');
+  if (nav)   nav.style.display   = 'none';
+  if (pills) pills.style.display = '';
+}
+
+function _vtUpdateStepNav(idx, total) {
+  _vtShowStepNav(false);
+
+  // Dots
+  const dotsEl = document.getElementById('vt-step-dots');
+  if (dotsEl) {
+    dotsEl.innerHTML = '';
+    const max = Math.min(total, 12); // cap at 12 dots
+    for (let i = 0; i < max; i++) {
+      const d = document.createElement('span');
+      d.className = 'vt-step-dot' + (i <= idx ? ' vt-step-dot-active' : '');
+      if (i === idx) d.className += ' vt-step-dot-current';
+      dotsEl.appendChild(d);
+    }
+  }
+
+  // Back button — disabled on first step
+  const backBtn = document.getElementById('vt-step-back');
+  if (backBtn) {
+    backBtn.disabled = (idx === 0);
+    backBtn.style.opacity = (idx === 0) ? '0.35' : '';
+  }
+
+  // Next button label — "Finish" on last step
+  const nextBtn = document.getElementById('vt-step-next');
+  if (nextBtn) {
+    const isLast = (idx >= total - 1);
+    nextBtn.innerHTML = isLast
+      ? 'Finish <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
+      : 'Next step <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+    nextBtn.onclick = () => window._vtNextStep();
+  }
+}
+
+if (typeof window !== 'undefined') window._vtNextStep = function() {
+  if (!_vtRenderer) return;
+  const idx   = _vtRenderer.currentStep;
+  const total = _vtRenderer.totalSteps;
+  if (idx >= total - 1) {
+    // Was on last step — trigger done
+    _vtShowStepNav(true);
+    return;
+  }
+  _vtRenderer.nextStep();
+};
+
+if (typeof window !== 'undefined') window._vtPrevStep = function() {
+  if (!_vtRenderer) return;
+  const idx = _vtRenderer.currentStep;
+  if (idx <= 0) return;
+  _vtRenderer.goToStep(idx - 1);
+};
 
 async function _vtAskAI(q) {
   const dot = document.getElementById('vt-canvas-dot');
@@ -1022,6 +1124,7 @@ if (typeof window !== 'undefined') window._vtClear = function() {
       `<text x="220" y="178" text-anchor="middle" font-size="12" fill="var(--text-4)" font-family="var(--font-body)" opacity="0.6">I'll draw it here as I explain</text>` +
       `</svg>`;
   }
+  _vtHideStepNav();
   const dot = document.getElementById('vt-canvas-dot');
   if (dot) dot.style.background = '#4ade80';
   const topicEl = document.getElementById('vt-canvas-topic');
