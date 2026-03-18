@@ -89,7 +89,10 @@ const LIBRARY_SCREEN_HTML = /* html */`
     <div class="lib-page-body" id="lib-page-body">
 
       <!-- ── MY DOCUMENTS ──────────────────────────────────── -->
-      <div class="lib-section lib-section--my-docs" data-page-section="my-docs" id="lib-my-docs-section">
+      <div class="lib-section lib-section--my-docs" data-page-section="my-docs" id="lib-my-docs-section"
+           ondragover="libDragOver(event)" ondrop="libDrop(event)" ondragleave="libDragLeave(event)">
+
+        <!-- Section header with inline Upload button -->
         <div class="lib-section-header">
           <div class="lib-section-icon" style="background:rgba(139,124,248,.1);color:#8b7cf8">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -101,35 +104,42 @@ const LIBRARY_SCREEN_HTML = /* html */`
           <span class="lib-section-name">My Documents</span>
           <span class="lib-section-count" id="lib-my-docs-count">0 files</span>
           <div class="lib-section-line"></div>
+          <!-- Upload button — lives in header, no wasted card slot -->
+          <button class="lib-upload-btn" id="lib-upload-btn" onclick="libTriggerUpload()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span id="lib-upload-btn-label">Upload</span>
+          </button>
         </div>
-        <div class="library-grid" id="lib-my-docs-grid">
 
-          <!-- Upload card — always present -->
-          <div class="library-book-card lib-upload-card" id="lib-upload-card"
-               onclick="libTriggerUpload()" ondragover="libDragOver(event)" ondrop="libDrop(event)" ondragleave="libDragLeave(event)">
-            <div class="lib-upload-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                   stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-            </div>
-            <div class="lib-book-info">
-              <div class="library-book-title" style="color:var(--violet);">Upload Document</div>
-              <div class="library-book-author">PDF or PowerPoint</div>
-              <div class="library-book-edition" id="lib-upload-hint">Drag & drop or click to browse</div>
-              <div class="library-book-meta">
-                <span class="library-book-badge" style="color:var(--violet);border-color:var(--violet-border);">+ Add file</span>
-              </div>
-            </div>
-            <!-- Hidden progress bar shown during upload -->
-            <div class="lib-upload-progress" id="lib-upload-progress">
-              <div class="lib-upload-progress-bar" id="lib-upload-progress-bar"></div>
-            </div>
-          </div>
-
+        <!-- Upload progress bar — full width, hidden until uploading -->
+        <div class="lib-upload-progress" id="lib-upload-progress" style="margin-bottom:0;border-radius:var(--r-pill);overflow:hidden;height:3px;background:var(--surface-4);display:none;">
+          <div class="lib-upload-progress-bar" id="lib-upload-progress-bar"></div>
         </div>
+
+        <!-- Drop zone hint — only visible while dragging over -->
+        <div class="lib-drop-zone" id="lib-drop-zone">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Drop PDF or PowerPoint here
+        </div>
+
+        <!-- Row list — populated by libRenderMyDocs() -->
+        <div class="lib-docs-list" id="lib-my-docs-list"></div>
+
+        <!-- Empty state — shown when no docs yet -->
+        <div class="lib-docs-empty" id="lib-docs-empty">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.25;color:var(--violet)">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <span>Upload a PDF or PowerPoint to study it with AI</span>
+        </div>
+
       </div><!-- /my-docs -->
 
       <!-- ── CHEMISTRY ────────────────────────────────────────── -->
@@ -682,14 +692,24 @@ window.libTriggerUpload = function() {
 
 window.libDragOver = function(e) {
   e.preventDefault();
-  document.getElementById('lib-upload-card')?.classList.add('lib-upload-drag');
+  document.getElementById('lib-my-docs-section')?.classList.add('lib-upload-drag');
+  const dz = document.getElementById('lib-drop-zone');
+  if (dz) dz.style.display = 'flex';
 };
-window.libDragLeave = function() {
-  document.getElementById('lib-upload-card')?.classList.remove('lib-upload-drag');
+window.libDragLeave = function(e) {
+  // Only hide if leaving the section entirely (not entering a child)
+  const section = document.getElementById('lib-my-docs-section');
+  if (section && !section.contains(e.relatedTarget)) {
+    section.classList.remove('lib-upload-drag');
+    const dz = document.getElementById('lib-drop-zone');
+    if (dz) dz.style.display = 'none';
+  }
 };
 window.libDrop = function(e) {
   e.preventDefault();
-  document.getElementById('lib-upload-card')?.classList.remove('lib-upload-drag');
+  document.getElementById('lib-my-docs-section')?.classList.remove('lib-upload-drag');
+  const dz = document.getElementById('lib-drop-zone');
+  if (dz) dz.style.display = 'none';
   const file = e.dataTransfer?.files?.[0];
   if (file) libHandleFile(file);
 };
@@ -706,15 +726,15 @@ async function libHandleFile(file) {
     return;
   }
 
-  // Show progress state on upload card
-  const hint = document.getElementById('lib-upload-hint');
+  // Show progress on the header button + progress bar
+  const btn  = document.getElementById('lib-upload-btn');
+  const lbl  = document.getElementById('lib-upload-btn-label');
   const prog = document.getElementById('lib-upload-progress');
   const bar  = document.getElementById('lib-upload-progress-bar');
-  const card = document.getElementById('lib-upload-card');
-  if (hint) hint.textContent = 'Reading file…';
+  if (lbl)  lbl.textContent = 'Reading…';
+  if (btn)  btn.disabled = true;
   if (prog) prog.style.display = 'block';
   if (bar)  bar.style.width = '15%';
-  if (card) card.style.pointerEvents = 'none';
 
   try {
     let extractedText = '';
@@ -764,8 +784,8 @@ async function libHandleFile(file) {
     setTimeout(() => {
       if (prog) prog.style.display = 'none';
       if (bar)  bar.style.width = '0%';
-      if (hint) hint.textContent = 'Drag & drop or click to browse';
-      if (card) card.style.pointerEvents = '';
+      if (lbl)  lbl.textContent = 'Upload';
+      if (btn)  btn.disabled = false;
     }, 600);
 
     // Re-render the doc list and open the new doc
@@ -779,8 +799,8 @@ async function libHandleFile(file) {
     wsShowToast?.('⚠', 'Upload failed: ' + err.message, 'var(--red)');
     if (prog) prog.style.display = 'none';
     if (bar)  bar.style.width = '0%';
-    if (hint) hint.textContent = 'Drag & drop or click to browse';
-    if (card) card.style.pointerEvents = '';
+    if (lbl)  lbl.textContent = 'Upload';
+    if (btn)  btn.disabled = false;
   }
 }
 
@@ -793,50 +813,58 @@ window.libDeleteDoc = async function(e, docId) {
 };
 
 async function libRenderMyDocs() {
-  const grid  = document.getElementById('lib-my-docs-grid');
+  const list  = document.getElementById('lib-my-docs-list');
   const count = document.getElementById('lib-my-docs-count');
-  if (!grid) return;
+  const empty = document.getElementById('lib-docs-empty');
+  if (!list) return;
 
   const { data: docs } = await listDocs();
 
   // Update count badge
   if (count) count.textContent = `${docs.length} file${docs.length !== 1 ? 's' : ''}`;
 
-  // Remove old user doc cards (keep upload card)
-  grid.querySelectorAll('.lib-user-doc-card').forEach(el => el.remove());
+  // Show/hide empty state
+  if (empty) empty.style.display = docs.length === 0 ? 'flex' : 'none';
 
-  // Insert user doc cards after the upload card
-  const uploadCard = document.getElementById('lib-upload-card');
+  // Re-render all rows
+  list.innerHTML = '';
   docs.forEach(doc => {
     const isPpt  = /\.(pptx?|ppt)$/i.test(doc.name);
     const ext    = doc.name.split('.').pop().toUpperCase();
     const sizeMb = (doc.size / 1048576).toFixed(1);
+    const pages  = doc.pageCount;
     const date   = new Date(doc.uploadedAt).toLocaleDateString(undefined, { month:'short', day:'numeric' });
-    const card   = document.createElement('div');
-    card.className = 'library-book-card lib-user-doc-card';
-    card.onclick   = () => { if (typeof selectUserDoc === 'function') selectUserDoc(doc.id); };
-    card.innerHTML = `
-      <div class="library-book-icon" style="background:${isPpt ? 'rgba(251,146,60,0.08)' : 'rgba(139,124,248,0.08)'};position:relative;">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="${isPpt ? '#fb923c' : '#8b7cf8'}"
-             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    const accentColor = isPpt ? '#fb923c' : '#8b7cf8';
+    const accentBorder = isPpt ? 'rgba(251,146,60,0.25)' : 'var(--violet-border)';
+    const accentBg     = isPpt ? 'rgba(251,146,60,0.08)' : 'rgba(139,124,248,0.08)';
+    const nameClean = doc.name.replace(/\.[^.]+$/, '');
+    const row = document.createElement('div');
+    row.className = 'lib-doc-row';
+    row.onclick   = () => { if (typeof selectUserDoc === 'function') selectUserDoc(doc.id); };
+    row.innerHTML = `
+      <div class="lib-doc-row-icon" style="background:${accentBg};border-color:${accentBorder};">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${accentColor}"
+             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
           <polyline points="14 2 14 8 20 8"/>
-          ${isPpt ? '<line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/>' : '<polyline points="10 9 9 9 8 9"/><polyline points="10 13 9 13 8 13"/><polyline points="10 17 9 17 8 17"/>'}
         </svg>
-        <button class="lib-doc-delete-btn" onclick="libDeleteDoc(event,'${doc.id}')" title="Remove">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
       </div>
-      <div class="lib-book-info">
-        <div class="library-book-title" style="font-size:12px;line-height:1.4;">${doc.name.replace(/\.[^.]+$/, '').slice(0, 40)}${doc.name.length > 40 ? '…' : ''}</div>
-        <div class="library-book-author" style="font-size:11px;">${doc.pageCount} ${isPpt ? 'slides' : 'pages'}</div>
-        <div class="library-book-edition">${date} · ${sizeMb} MB</div>
-        <div class="library-book-meta">
-          <span class="library-book-badge" style="color:${isPpt ? '#fb923c' : '#8b7cf8'};border-color:${isPpt ? 'rgba(251,146,60,0.25)' : 'var(--violet-border)'};">${ext}</span>
-          <span class="library-book-badge lib-badge-avail">✓ Your file</span>
+      <div class="lib-doc-row-info">
+        <div class="lib-doc-row-name">${nameClean}</div>
+        <div class="lib-doc-row-meta">
+          <span class="lib-doc-row-badge" style="color:${accentColor};border-color:${accentBorder};background:${accentBg};">${ext}</span>
+          <span>${pages} ${isPpt ? 'slides' : 'pages'}</span>
+          <span>·</span>
+          <span>${sizeMb} MB</span>
+          <span>·</span>
+          <span>${date}</span>
         </div>
-      </div>`;
-    uploadCard.after(card);
+      </div>
+      <button class="lib-doc-row-delete" onclick="libDeleteDoc(event,'${doc.id}')" title="Remove document">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+             stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>`;
+    list.appendChild(row);
   });
 }
 
