@@ -94,10 +94,15 @@ function showScreen(name) {
         _activeExamRecentId = null;
         if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
       }
+      // Also close history view if open
+      if (typeof examHideHistory === 'function') examHideHistory();
     }
     if (name === 'visual') {
-      // Reset canvas and chat to fresh state
-      if (typeof window._vtClear === 'function') window._vtClear();
+      // Skip reset if navigating from exam weak concepts panel (prefill is waiting)
+      const hasWeakPrefill = !!sessionStorage.getItem('exam_weak_prefill');
+      if (!hasWeakPrefill) {
+        if (typeof window._vtClear === 'function') window._vtClear();
+      }
       if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
     }
     if (name === 'studyplan') {
