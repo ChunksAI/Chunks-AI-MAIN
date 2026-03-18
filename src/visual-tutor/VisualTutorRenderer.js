@@ -221,16 +221,21 @@ export class VisualTutorRenderer {
 
   async _fetch(question, complexity = 5) {
     const apiBase = this._opts.apiBase || (typeof window !== 'undefined' ? window.API_BASE : undefined) || 'https://api.chunks.online';
+    const authHeader = (typeof window !== 'undefined' && window._getAuthHeader)
+      ? (await window._getAuthHeader().catch(() => ({})))
+      : {};
     const res = await fetch(`${apiBase}/ask`, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...authHeader },
       signal:  this._abort?.signal,
       body:    JSON.stringify({
         question,
-        mode:        'study',
+        mode:         'visual_tutor',   // skip RAG / textbook context entirely
+        task_type:    'visual_tutor',
+        bookId:       '',               // no book — pure AI, no page citations
         complexity,
-        language:    this._opts.getLanguage?.() || localStorage.getItem('chunks_setting_language') || 'Auto-detect',
-        safe_content:this._opts.getSafeMode?.() || localStorage.getItem('chunks_setting_safe-content') === '1',
+        language:    this._opts.getLanguage?.() || (typeof localStorage !== 'undefined' && localStorage.getItem('chunks_setting_language')) || 'Auto-detect',
+        safe_content:this._opts.getSafeMode?.() || (typeof localStorage !== 'undefined' && localStorage.getItem('chunks_setting_safe-content') === '1'),
       }),
     });
     if (!res.ok) throw new Error(`Backend ${res.status}`);
