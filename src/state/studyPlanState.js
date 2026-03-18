@@ -25,6 +25,8 @@ export let _spPdfText      = '';
 export let _spPdfFileName  = '';
 export let _spPdfPageCount = 0;
 export let _spCurrentPlan  = null;
+export let _spAllPlans     = {};   // { planId: { plan, mastery, savedAt, topic } }
+export let _spActivePlanId = null; // currently loaded plan id
 export let _spMastery      = {};
 export let _spGenTimer     = null;
 export let _spExplainFocusRelease = null;
@@ -44,6 +46,7 @@ export let _spExamTimerSec   = 300;
 export let _spExamTimerHandle = null;
 export let _spExamStarted    = false;
 export let _explainAbortCtrl = null;
+export let _spExamDate = null;  // ISO date string 'YYYY-MM-DD' or null
 
 export const SP_WEIGHTS = { explain: 10, flash: 20, pq: 35, exam: 35 };
 
@@ -414,9 +417,13 @@ Rules:
     if (!plan || !Array.isArray(plan.concepts) || plan.concepts.length === 0) throw new Error('Invalid plan structure returned. Please try again.');
     _spCurrentPlan = plan;
     _spMastery = {};
+    _spActivePlanId = _spGenPlanId(); // new ID for new plan
     spHideOverlay();
-    spRenderPlan(plan, sourceName);
-    spSavePlanToSidebar(plan.topic);
+    spRenderPlanPatched(plan, sourceName);
+    spSavePlanToSidebarAndLibrary(plan.topic);
+    // Show My Plans button
+    const switchBtn = document.getElementById('btn-switch-plan');
+    if (switchBtn) switchBtn.style.display = '';
   };
 
   const _spRetry = async () => {
@@ -1145,7 +1152,16 @@ document.addEventListener('click', e => {
 
 export function spInitScreen() {
   // Restore the last active plan + mastery from localStorage on page load / screen switch.
-  if (_spCurrentPlan) return; // already in memory (e.g. screen re-entered without refresh)
+  if (_spCurrentPlan) {
+    // Already in memory — still restore exam date UI
+    setTimeout(() => { spUpdateExamDateUI(); spUpdateDailySchedule(); }, 100);
+    return;
+  }
+  // Load multi-plan library
+  spLoadAllPlans();
+  // Show "My Plans" button if there are saved plans
+  const planBtn = document.getElementById('btn-switch-plan');
+  if (planBtn) planBtn.style.display = Object.keys(_spAllPlans).length > 0 ? '' : 'none';
   try {
     const savedPlan    = localStorage.getItem('sp_active_plan');
     const savedMastery = localStorage.getItem('sp_active_mastery');
@@ -1154,16 +1170,353 @@ export function spInitScreen() {
       if (plan && Array.isArray(plan.concepts) && plan.concepts.length > 0) {
         _spCurrentPlan = plan;
         _spMastery     = savedMastery ? (JSON.parse(savedMastery) || {}) : {};
-        spRenderPlan(plan, plan.topic || 'Saved Plan');
+        // Restore exam date for this plan
+        const storedDate = localStorage.getItem('sp_exam_date_' + (_spActivePlanId || 'default'));
+        if (storedDate) _spExamDate = storedDate;
+        spRenderPlanPatched(plan, plan.topic || 'Saved Plan');
         // Re-apply mastery visuals for each node
         plan.concepts.forEach((_, idx) => {
           spMasteryUpdateNode(idx, spMasteryScore(idx));
         });
+        // Inject daily schedule container
+        const detailCol = document.getElementById('sp-detail-col');
+        if (detailCol && !document.getElementById('sp-daily-schedule')) {
+          const schedDiv = document.createElement('div');
+          schedDiv.id = 'sp-daily-schedule';
+          schedDiv.style.display = 'none';
+          detailCol.appendChild(schedDiv);
+        }
+        setTimeout(() => { spUpdateExamDateUI(); spUpdateDailySchedule(); }, 200);
       }
     }
   } catch (e) {
     console.warn('Could not restore study plan from localStorage:', e);
   }
+}
+
+// ── FIX 1: Multi-plan management ──────────────────────────────────────────
+
+export function _spGenPlanId() {
+  return 'plan_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+}
+
+export function spSaveCurrentPlanToLibrary() {
+  if (!_spCurrentPlan) return;
+  const id = _spActivePlanId || _spGenPlanId();
+  _spActivePlanId = id;
+  _spAllPlans[id] = {
+    plan: _spCurrentPlan,
+    mastery: { ..._spMastery },
+    savedAt: Date.now(),
+    topic: _spCurrentPlan.topic,
+    examDate: _spExamDate || null,
+  };
+  try {
+    localStorage.setItem('sp_all_plans', JSON.stringify(_spAllPlans));
+    localStorage.setItem('sp_active_plan_id', id);
+    localStorage.setItem('sp_active_plan', JSON.stringify(_spCurrentPlan));
+    localStorage.setItem('sp_active_mastery', JSON.stringify(_spMastery));
+  } catch (e) { console.warn('Could not save plan library:', e); }
+}
+
+export function spLoadAllPlans() {
+  try {
+    const raw = localStorage.getItem('sp_all_plans');
+    if (raw) _spAllPlans = JSON.parse(raw);
+    _spActivePlanId = localStorage.getItem('sp_active_plan_id') || null;
+    const dateRaw = localStorage.getItem('sp_exam_date_' + _spActivePlanId);
+    if (dateRaw) _spExamDate = dateRaw;
+  } catch (e) {}
+}
+
+export function spShowPlansMenu() {
+  spLoadAllPlans();
+  const menu = document.getElementById('sp-plans-menu');
+  const list = document.getElementById('sp-plans-menu-list');
+  if (!menu || !list) return;
+  const entries = Object.entries(_spAllPlans).sort((a, b) => b[1].savedAt - a[1].savedAt);
+  if (entries.length === 0) {
+    list.innerHTML = '<div style="padding:8px 14px;font-size:12px;color:var(--text-4);">No saved plans yet.</div>';
+  } else {
+    list.innerHTML = entries.map(([id, entry]) => {
+      const isActive = id === _spActivePlanId;
+      const n = entry.plan?.concepts?.length || 0;
+      const mastered = Object.values(entry.mastery || {}).filter((m, i) => {
+        const score = Object.values(m || {}).reduce((s, v, idx) => {
+          const keys = ['explain','flash','pq','exam'];
+          const w = { explain:10, flash:20, pq:35, exam:35 };
+          return s + (v / 100) * (w[keys[idx]] || 0);
+        }, 0);
+        return score >= 80;
+      }).length;
+      const pct = n > 0 ? Math.round((mastered / n) * 100) : 0;
+      return `<button onclick="spSwitchToPlan('${id}');spHidePlansMenu();" style="width:100%;text-align:left;padding:8px 14px;background:${isActive ? 'var(--surface-3)' : 'none'};border:none;color:var(--text-1);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:10px;font-family:var(--font-body);border-left:2px solid ${isActive ? 'var(--gold)' : 'transparent'};" onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='${isActive ? 'var(--surface-3)' : 'none'}'">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${isActive ? 'var(--gold)' : 'var(--text-3)'}" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <div style="flex:1;overflow:hidden;">
+          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:${isActive ? '600' : '400'}">${entry.topic || 'Untitled'}</div>
+          <div style="font-size:10px;color:var(--text-4);">${n} concepts · ${pct}% mastery</div>
+        </div>
+        <button onclick="event.stopPropagation();spDeletePlan('${id}');" style="background:none;border:none;cursor:pointer;color:var(--text-4);padding:2px;display:flex;align-items:center;" title="Delete plan">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </button>`;
+    }).join('');
+  }
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+
+export function spHidePlansMenu() {
+  const menu = document.getElementById('sp-plans-menu');
+  if (menu) menu.style.display = 'none';
+}
+
+export function spSwitchToPlan(id) {
+  spLoadAllPlans();
+  const entry = _spAllPlans[id];
+  if (!entry || !entry.plan) return;
+  _spCurrentPlan = entry.plan;
+  _spMastery = entry.mastery || {};
+  _spActivePlanId = id;
+  _spExamDate = entry.examDate || null;
+  try {
+    localStorage.setItem('sp_active_plan_id', id);
+    localStorage.setItem('sp_active_plan', JSON.stringify(entry.plan));
+    localStorage.setItem('sp_active_mastery', JSON.stringify(_spMastery));
+  } catch (e) {}
+  spRenderPlan(entry.plan, entry.plan.topic || 'Plan');
+  entry.plan.concepts.forEach((_, idx) => spMasteryUpdateNode(idx, spMasteryScore(idx)));
+  spUpdateExamDateUI();
+  if (typeof wsShowToast === 'function') wsShowToast('📚', `Switched to "${entry.topic}"`, 'var(--gold-border)');
+}
+
+export function spDeletePlan(id) {
+  delete _spAllPlans[id];
+  try { localStorage.setItem('sp_all_plans', JSON.stringify(_spAllPlans)); } catch (e) {}
+  if (_spActivePlanId === id) {
+    _spActivePlanId = null;
+    _spCurrentPlan = null;
+    _spMastery = {};
+    localStorage.removeItem('sp_active_plan');
+    localStorage.removeItem('sp_active_mastery');
+    localStorage.removeItem('sp_active_plan_id');
+    spShowEmpty();
+  }
+  spShowPlansMenu(); // re-render menu
+}
+
+// ── FIX 2: Exam date + calendar ────────────────────────────────────────────
+
+export function spShowExamDatePicker() {
+  const picker = document.getElementById('sp-exam-date-picker');
+  const setBtn = document.getElementById('sp-set-exam-date-btn');
+  if (!picker) return;
+  picker.style.display = picker.style.display === 'flex' ? 'none' : 'flex';
+  if (setBtn) setBtn.style.display = picker.style.display === 'flex' ? 'none' : 'flex';
+  const input = document.getElementById('sp-exam-date-input');
+  if (input && _spExamDate) input.value = _spExamDate;
+}
+
+export function spSetExamDate(val) {
+  if (!val) return;
+  _spExamDate = val;
+  try { localStorage.setItem('sp_exam_date_' + (_spActivePlanId || 'default'), val); } catch (e) {}
+  // save into the plan entry
+  if (_spActivePlanId && _spAllPlans[_spActivePlanId]) {
+    _spAllPlans[_spActivePlanId].examDate = val;
+    try { localStorage.setItem('sp_all_plans', JSON.stringify(_spAllPlans)); } catch (e) {}
+  }
+  spUpdateExamDateUI();
+  // Hide picker
+  const picker = document.getElementById('sp-exam-date-picker');
+  if (picker) picker.style.display = 'none';
+  const setBtn = document.getElementById('sp-set-exam-date-btn');
+  if (setBtn) setBtn.style.display = 'flex';
+  // Regenerate daily schedule in detail panel
+  spUpdateDailySchedule();
+}
+
+export function spClearExamDate() {
+  _spExamDate = null;
+  try { localStorage.removeItem('sp_exam_date_' + (_spActivePlanId || 'default')); } catch (e) {}
+  if (_spActivePlanId && _spAllPlans[_spActivePlanId]) {
+    _spAllPlans[_spActivePlanId].examDate = null;
+    try { localStorage.setItem('sp_all_plans', JSON.stringify(_spAllPlans)); } catch (e) {}
+  }
+  spUpdateExamDateUI();
+}
+
+export function spUpdateExamDateUI() {
+  const display = document.getElementById('sp-exam-date-display');
+  const setBtn  = document.getElementById('sp-set-exam-date-btn');
+  const label   = document.getElementById('sp-exam-date-label');
+  const daysEl  = document.getElementById('sp-exam-days-left');
+  if (!display || !setBtn) return;
+  if (_spExamDate) {
+    const examMs = new Date(_spExamDate + 'T00:00:00').getTime();
+    const nowMs  = new Date().setHours(0,0,0,0);
+    const days   = Math.ceil((examMs - nowMs) / 86400000);
+    if (label) label.textContent = 'Exam: ' + new Date(_spExamDate + 'T00:00:00').toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+    if (daysEl) {
+      if (days < 0)      daysEl.textContent = '(past)';
+      else if (days === 0) daysEl.textContent = '(today!)';
+      else if (days === 1) daysEl.textContent = '(tomorrow)';
+      else                 daysEl.textContent = `(${days} days)`;
+    }
+    display.style.display = 'flex';
+    setBtn.style.display  = 'none';
+  } else {
+    display.style.display = 'none';
+    setBtn.style.display  = 'flex';
+  }
+}
+
+export function spUpdateDailySchedule() {
+  const el = document.getElementById('sp-daily-schedule');
+  if (!el || !_spCurrentPlan || !_spExamDate) {
+    if (el) el.style.display = 'none';
+    return;
+  }
+  const concepts = _spCurrentPlan.concepts;
+  const examMs   = new Date(_spExamDate + 'T00:00:00').getTime();
+  const nowMs    = new Date().setHours(0,0,0,0);
+  const daysLeft = Math.ceil((examMs - nowMs) / 86400000);
+  if (daysLeft <= 0) { el.style.display = 'none'; return; }
+
+  const remaining = concepts.filter((c, i) => spMasteryScore(i) < 80);
+  if (remaining.length === 0) { el.style.display = 'none'; return; }
+
+  const totalMins = remaining.reduce((s, c) => s + (c.estimatedMinutes || 30), 0);
+  const minsPerDay = Math.ceil(totalMins / daysLeft);
+
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="sp-detail-section-title" style="margin-top:16px;">Daily Schedule</div>
+    <div style="padding:12px 14px;background:var(--surface-1);border:1px solid var(--border-xs);border-radius:var(--r-md);">
+      <div style="font-size:12px;color:var(--text-2);line-height:1.6;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="color:var(--text-3);">Days until exam</span>
+          <span style="font-weight:600;color:var(--text-1);">${daysLeft}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="color:var(--text-3);">Concepts remaining</span>
+          <span style="font-weight:600;color:var(--text-1);">${remaining.length}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+          <span style="color:var(--text-3);">Study per day</span>
+          <span style="font-weight:600;color:var(--gold);">${minsPerDay >= 60 ? (minsPerDay/60).toFixed(1)+'h' : minsPerDay+'min'}</span>
+        </div>
+        <div style="border-top:1px solid var(--border-xs);padding-top:8px;display:flex;flex-direction:column;gap:4px;">
+          ${remaining.slice(0,4).map((c, i) => `
+            <div style="display:flex;align-items:center;gap:6px;font-size:11px;">
+              <div style="width:5px;height:5px;border-radius:50%;background:var(--gold);flex-shrink:0;"></div>
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2);">${c.title}</span>
+              <span style="color:var(--text-4);font-family:var(--font-mono);">${c.estimatedMinutes||30}m</span>
+            </div>`).join('')}
+          ${remaining.length > 4 ? `<div style="font-size:10px;color:var(--text-4);">+${remaining.length-4} more concepts</div>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── FIX 3: Adaptive concept ordering ──────────────────────────────────────
+
+export function spCheckAdaptiveReorder() {
+  // Called after exam results. If concept scored < 50 and it's not the last
+  // concept, surface it again after the next concept.
+  if (!_spCurrentPlan || !_spDrawerConcept) return;
+  const concepts = _spCurrentPlan.concepts;
+  const idx = concepts.indexOf(_spDrawerConcept);
+  if (idx < 0 || idx >= concepts.length - 2) return;
+  const examScore = spMasteryGet(idx)?.exam || 0;
+  if (examScore < 50 && examScore > 0) {
+    // Move concept to appear again after the next one (not the final exam)
+    const insertAt = Math.min(idx + 2, concepts.length - 1);
+    const clone = { ...concepts[idx], title: concepts[idx].title + ' (Review)', _isReview: true };
+    const alreadyQueued = concepts.some(c => c._isReview && c.title.startsWith(concepts[idx].title));
+    if (!alreadyQueued) {
+      concepts.splice(insertAt, 0, clone);
+      if (typeof wsShowToast === 'function') wsShowToast('🔁', `"${concepts[idx].title}" added for review after next concept`, 'var(--gold-border)');
+      spRenderPlan(_spCurrentPlan, _spCurrentPlan.topic);
+      _spCurrentPlan.concepts.forEach((_, i) => spMasteryUpdateNode(i, spMasteryScore(i)));
+    }
+  }
+}
+
+// ── FIX 4: Visual Tutor connection ─────────────────────────────────────────
+
+export function spOpenVisualTutor() {
+  if (!_spDrawerConcept) return;
+  spCloseExplainDrawer();
+  const q = _spDrawerConcept.title + (
+    _spDrawerConcept.description ? ' — ' + _spDrawerConcept.description.slice(0, 80) : ''
+  );
+  // Use the established VT bridge
+  if (typeof window._vtOpenForConcept === 'function') {
+    window._vtOpenForConcept(_spDrawerConcept.title, q);
+  } else if (typeof window.showScreen === 'function') {
+    window._navFromHistory = true;
+    window.showScreen('visual');
+    setTimeout(() => {
+      if (window._vtAsk) window._vtAsk('explain ' + q);
+    }, 400);
+  }
+}
+
+// ── FIX 5: Override spSavePlanToSidebar to also save to multi-plan library ─
+
+const _originalSpSavePlanToSidebar = spSavePlanToSidebar;
+
+export function spSavePlanToSidebarAndLibrary(topic) {
+  // Generate ID if first time
+  if (!_spActivePlanId) _spActivePlanId = _spGenPlanId();
+  spSaveCurrentPlanToLibrary();
+  // Original sidebar (recent plans list)
+  if (!topic) return;
+  let plans = [];
+  try { plans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]'); } catch (_) {}
+  plans = plans.filter(p => p !== topic);
+  plans.unshift(topic);
+  plans = plans.slice(0, 6);
+  localStorage.setItem('sp_recent_plans', JSON.stringify(plans));
+  spRenderRecentPlansSidebar(plans);
+  // Show My Plans button
+  const btn = document.getElementById('btn-switch-plan');
+  if (btn) btn.style.display = '';
+}
+
+// ── Exam date schedule hook in spUpdatePanel ────────────────────────────────
+
+const _originalSpUpdatePanel = spUpdatePanel;
+
+// Patch spRenderPlan to restore exam date + schedule after render
+const _originalSpRenderPlan = spRenderPlan;
+export function spRenderPlanPatched(plan, sourceName) {
+  _originalSpRenderPlan(plan, sourceName);
+  setTimeout(() => {
+    spUpdateExamDateUI();
+    spUpdateDailySchedule();
+    // Show My Plans button if multiple plans exist
+    spLoadAllPlans();
+    const btn = document.getElementById('btn-switch-plan');
+    if (btn) btn.style.display = Object.keys(_spAllPlans).length > 1 ? '' : 'none';
+    // Inject daily schedule container into detail panel if not present
+    const detailCol = document.getElementById('sp-detail-col');
+    if (detailCol && !document.getElementById('sp-daily-schedule')) {
+      const schedDiv = document.createElement('div');
+      schedDiv.id = 'sp-daily-schedule';
+      schedDiv.style.display = 'none';
+      detailCol.appendChild(schedDiv);
+      spUpdateDailySchedule();
+    }
+  }, 100);
+}
+
+// ── Patch spExamFinish to call adaptive reorder ─────────────────────────────
+
+const _originalSpExamFinish = spExamFinish;
+export function spExamFinishPatched() {
+  _originalSpExamFinish();
+  setTimeout(() => spCheckAdaptiveReorder(), 500);
 }
 
 // ── Legacy global bridges ─────────────────────────────────────────────────
@@ -1240,3 +1593,36 @@ window.spExamAnswer         = spExamAnswer;
 window.spExamFinish         = spExamFinish;
 window.spExamRestart        = spExamRestart;
 window.spInitScreen         = spInitScreen;
+
+// ── New function window bridges (Fixes 1-5) ──────────────────────────────
+window.spShowPlansMenu        = spShowPlansMenu;
+window.spHidePlansMenu        = spHidePlansMenu;
+window.spSwitchToPlan         = spSwitchToPlan;
+window.spDeletePlan           = spDeletePlan;
+window.spSaveCurrentPlanToLibrary = spSaveCurrentPlanToLibrary;
+window.spLoadAllPlans         = spLoadAllPlans;
+window.spShowExamDatePicker   = spShowExamDatePicker;
+window.spSetExamDate          = spSetExamDate;
+window.spClearExamDate        = spClearExamDate;
+window.spUpdateExamDateUI     = spUpdateExamDateUI;
+window.spUpdateDailySchedule  = spUpdateDailySchedule;
+window.spCheckAdaptiveReorder = spCheckAdaptiveReorder;
+window.spOpenVisualTutor      = spOpenVisualTutor;
+window.spRenderPlan           = spRenderPlanPatched;   // override with patched version
+window.spExamFinish           = spExamFinishPatched;   // override with patched version
+window.spSavePlanToSidebar    = spSavePlanToSidebarAndLibrary; // override
+
+// Close plans menu on outside click
+document.addEventListener('click', e => {
+  const menu = document.getElementById('sp-plans-menu');
+  const btn  = document.getElementById('btn-switch-plan');
+  if (menu && menu.style.display !== 'none' && !menu.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
+    menu.style.display = 'none';
+  }
+}, true);
+
+// Handle Visual Tutor tab click via data-action delegation
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action="spOpenVisualTutor"]');
+  if (el) spOpenVisualTutor();
+});

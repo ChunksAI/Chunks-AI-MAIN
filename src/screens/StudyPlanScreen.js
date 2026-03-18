@@ -31,6 +31,10 @@ const STUDYPLAN_HTML = /* html */`
       <span class="sp-topbar-title">Study Plan</span>
       <span class="sp-topbar-badge">CRITICAL PATH</span>
       <div class="sp-topbar-actions">
+        <button class="sp-topbar-btn" id="btn-switch-plan" data-action="spShowPlansMenu" style="display:none;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+          My Plans
+        </button>
         <button class="sp-topbar-btn" id="btn-new-plan" data-action="spShowEmpty">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           New Plan
@@ -39,6 +43,18 @@ const STUDYPLAN_HTML = /* html */`
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
           View Plan
         </button>
+      </div>
+
+      <!-- Plans switcher dropdown -->
+      <div id="sp-plans-menu" style="display:none;position:absolute;top:52px;right:16px;z-index:200;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-lg);box-shadow:0 8px 24px rgba(0,0,0,0.35);min-width:260px;padding:8px 0;">
+        <div style="padding:8px 14px 6px;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-4);">Saved Plans</div>
+        <div id="sp-plans-menu-list"></div>
+        <div style="border-top:1px solid var(--border-xs);margin-top:6px;padding-top:6px;">
+          <button onclick="spShowEmpty();spHidePlansMenu();" style="width:100%;text-align:left;padding:8px 14px;background:none;border:none;color:var(--text-2);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:var(--font-body);transition:background var(--t-fast);" onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='none'">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Create New Plan
+          </button>
+        </div>
       </div>
     </div>
 
@@ -184,7 +200,26 @@ const STUDYPLAN_HTML = /* html */`
                 <div class="sp-plan-header-eyebrow">Study Plan · Organic Chemistry</div>
                 <div class="sp-plan-header-title">Nucleophilic Substitution Reactions</div>
                 <div class="sp-plan-header-sub">6 core concepts · ~4 hrs to mastery · Based on Klein, Ch. 7</div>
+              <!-- Exam date row -->
+              <div id="sp-exam-date-row" style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap;">
+                <div id="sp-exam-date-display" style="display:none;align-items:center;gap:6px;padding:4px 10px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:var(--r-pill);font-size:11px;font-family:var(--font-mono);color:#f87171;">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <span id="sp-exam-date-label">Exam: —</span>
+                  <span id="sp-exam-days-left" style="font-size:10px;opacity:0.75;"></span>
+                  <button onclick="spClearExamDate()" style="background:none;border:none;cursor:pointer;color:#f87171;padding:0 0 0 2px;line-height:1;font-size:14px;" title="Remove exam date">×</button>
+                </div>
+                <button id="sp-set-exam-date-btn" onclick="spShowExamDatePicker()" style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-pill);font-size:11px;color:var(--text-3);cursor:pointer;font-family:var(--font-body);transition:color var(--t-fast),border-color var(--t-fast);">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  Set Exam Date
+                </button>
               </div>
+              <!-- Exam date picker (hidden) -->
+              <div id="sp-exam-date-picker" style="display:none;margin-top:8px;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-md);display:none;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-size:11px;color:var(--text-3);">Exam date:</span>
+                <input type="date" id="sp-exam-date-input" style="background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);padding:4px 8px;color:var(--text-1);font-size:12px;font-family:var(--font-mono);cursor:pointer;" oninput="spSetExamDate(this.value)">
+                <button onclick="document.getElementById('sp-exam-date-picker').style.display='none';" style="background:none;border:none;cursor:pointer;color:var(--text-4);font-size:18px;line-height:1;padding:0;">×</button>
+              </div>
+            </div>
               <div class="sp-overall-ring">
                 <svg width="60" height="60" viewBox="0 0 60 60">
                   <circle cx="30" cy="30" r="24" fill="none" stroke="var(--surface-3)" stroke-width="5"/>
@@ -450,6 +485,10 @@ const SP_EXPLAIN_DRAWER_HTML = /* html */`
     <button class="sp-drawer-tab" id="sp-tab-exam" role="tab" aria-selected="false" aria-controls="sp-panel-exam" data-action="spDrawerTab" data-tab="exam">
       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
       Mini Exam
+    </button>
+    <button class="sp-drawer-tab sp-drawer-tab-visual" id="sp-tab-visual" role="tab" aria-selected="false" aria-label="Explain Visually" data-action="spOpenVisualTutor" style="color:var(--teal);border-bottom-color:transparent;gap:4px;">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/><path d="M10 10l2-2 2 2" stroke-width="1.5"/></svg>
+      Visual
     </button>
   </div>
 

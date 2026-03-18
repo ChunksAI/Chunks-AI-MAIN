@@ -133,3 +133,21 @@
 .sp-shake { animation:sp-shake 0.35s ease; }
 
 </style>
+
+/* ── Fix 1: Multi-plan switcher ── */
+#sp-plans-menu button:focus { outline: none; }
+#sp-plans-menu { backdrop-filter: blur(8px); }
+
+/* ── Fix 2: Exam date row ── */
+#sp-exam-date-row { flex-wrap: wrap; }
+#sp-set-exam-date-btn:hover { color: var(--text-1) !important; border-color: var(--border-md) !important; }
+#sp-exam-date-picker { display: none; }
+#sp-exam-date-picker.open { display: flex !important; }
+
+/* ── Fix 4: Visual Tutor tab ── */
+.sp-drawer-tab-visual { color: var(--teal) !important; opacity: 0.7; }
+.sp-drawer-tab-visual:hover { opacity: 1; color: var(--teal) !important; }
+.sp-drawer-tab-visual svg { opacity: 0.8; }
+
+/* ── Daily schedule section ── */
+#sp-daily-schedule .sp-detail-section-title { margin-top: 16px; }
