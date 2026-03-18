@@ -347,6 +347,20 @@ export function mountFlashScreen() {
   const mp = document.querySelector('[data-fc-complete-modal]');
   if (mp) mp.outerHTML = FC_COMPLETE_HTML;
   else console.warn('[FlashScreen] [data-fc-complete-modal] not found');
+
+  // ── Pick up weak-concept prefill from Exam results (Task 1) ──
+  try {
+    const raw = sessionStorage.getItem('exam_weak_prefill');
+    if (raw) {
+      const { topic, concepts } = JSON.parse(raw);
+      const topicEl = document.getElementById('fc-topic-input');
+      if (topicEl && (concepts || topic)) {
+        topicEl.value = concepts || topic;
+        setTimeout(() => topicEl.focus(), 150);
+      }
+      sessionStorage.removeItem('exam_weak_prefill');
+    }
+  } catch(e) {}
 }
 
 mountFlashScreen();
