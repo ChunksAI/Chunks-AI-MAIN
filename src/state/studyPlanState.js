@@ -47,6 +47,9 @@ export let _spExamTimerHandle = null;
 export let _spExamStarted    = false;
 export let _explainAbortCtrl = null;
 export let _spExamDate = null;  // ISO date string 'YYYY-MM-DD' or null
+export let _spSrsSchedule = {}; // { conceptIdx: { nextReview: timestamp, interval: days, ease: float } }
+export const SRS_MIN_INTERVAL = 1;
+export const SRS_EASE_DEFAULT = 2.5;
 
 export const SP_WEIGHTS = { explain: 10, flash: 20, pq: 35, exam: 35 };
 
@@ -511,7 +514,10 @@ export function spBuildNode(concept, num, status, total) {
     <div class="sp-node-card ${(effectiveStatus === 'ready' || effectiveStatus === 'in-progress') ? 'active-card' : ''}">
       <div class="sp-node-card-top">
         <div class="sp-node-card-title">${num}. ${concept.title}</div>
-        <span class="sp-node-status-badge ${effectiveStatus}">${statusLabel}</span>
+        <div style="display:flex;align-items:center;gap:5px;">
+          ${spConfidenceBadge(num - 1)}
+          <span class="sp-node-status-badge ${effectiveStatus}">${statusLabel}</span>
+        </div>
       </div>
       <div class="sp-node-card-desc">${descText}</div>
       ${keyTermsHTML}
@@ -986,19 +992,27 @@ export async function spPqSubmit() {
   btn.textContent = 'Grading…'; btn.disabled = true;
   document.getElementById('sp-pq-answer-input').disabled = true;
   const q = _spPqQuestions[_spPqIndex];
-  const prompt = `You are a tutor grading a student's short-answer response.\n\nQuestion: ${q.question}\nIdeal answer covers: ${q.ideal_answer}\nKey points to check: ${(q.key_points || []).join('; ')}\n\nStudent's answer: "${answer}"\n\nGrade the answer and respond ONLY as raw JSON (no markdown):\n{"correct": true/false, "score": 0-100, "feedback": "1-2 sentence explanation of what was right/wrong and the correct answer"}`;
+  const prompt = `You are a tutor grading a student's short-answer response. Your job is to distinguish genuine understanding from guessing or pattern-matching.\n\nQuestion: ${q.question}\nIdeal answer covers: ${q.ideal_answer}\nKey points to check: ${(q.key_points || []).join('; ')}\n\nStudent's answer: "${answer}"\n\nEvaluate on these dimensions:\n1. Correctness — are the facts right?\n2. Understanding depth — does the student explain WHY, not just WHAT?\n3. Confidence signal — is the answer specific and assured, or vague/hedged?\n\nRespond ONLY as raw JSON (no markdown):\n{"correct": true/false, "score": 0-100, "understanding": "surface|partial|deep", "feedback": "1-2 sentences on what was right/wrong and the correct answer", "hint": "one specific thing they should review if understanding is surface or partial"}`;
   try {
     const res    = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} }, body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'study_plan_grade', ...(() => { const p = _aiParams(5); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
     const data   = await res.json();
     const result = JSON.parse((data.answer || data.response || data.text || '').trim().replace(/```(?:json)?/g,'').trim());
-    if (result.correct || result.score >= 60) _spPqScore++;
+    // Depth-adjusted scoring: surface understanding penalised even if factually correct
+    const depthMult = result.understanding === 'deep' ? 1.0 : result.understanding === 'partial' ? 0.75 : 0.5;
+    const adjustedScore = Math.round((result.score || 0) * depthMult);
+    if (adjustedScore >= 60) _spPqScore++;
     const verdictEl = document.getElementById('sp-pq-verdict');
-    const passed    = result.correct || result.score >= 60;
+    const passed    = adjustedScore >= 60;
+    const depthLabel = { deep: '🧠 Deep', partial: '📖 Partial', surface: '🔍 Surface' }[result.understanding || 'partial'];
     verdictEl.style.background = passed ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)';
     verdictEl.style.borderLeft = `3px solid ${passed ? 'var(--green)' : 'var(--red)'}`;
     verdictEl.style.color      = passed ? 'var(--green)' : 'var(--red)';
-    verdictEl.innerHTML = (passed ? '✓ Correct' : '✗ Incorrect') + `<span style="margin-left:auto;font-size:11px;font-family:var(--font-mono);opacity:0.8;">${result.score ?? (passed?100:0)}%</span>`;
-    document.getElementById('sp-pq-explanation').textContent = result.feedback || '';
+    verdictEl.innerHTML = (passed ? '✓ Correct' : '✗ Incorrect') +
+      `<span style="margin-left:8px;font-size:10px;padding:2px 7px;border-radius:var(--r-pill);background:var(--surface-3);color:var(--text-3);">${depthLabel}</span>` +
+      `<span style="margin-left:auto;font-size:11px;font-family:var(--font-mono);opacity:0.8;">${adjustedScore}%</span>`;
+    const feedbackEl = document.getElementById('sp-pq-explanation');
+    feedbackEl.innerHTML = `<div style="margin-bottom:6px;">${result.feedback || ''}</div>` +
+      (result.hint && result.understanding !== 'deep' ? `<div style="margin-top:6px;padding:7px 10px;background:rgba(232,172,46,0.08);border:1px solid rgba(232,172,46,0.2);border-radius:var(--r-sm);font-size:11px;color:var(--gold);"><strong>Review tip:</strong> ${result.hint}</div>` : '');
     document.getElementById('sp-pq-next-btn').textContent = _spPqIndex >= _spPqQuestions.length - 1 ? 'See Results' : 'Next Question →';
     document.getElementById('sp-pq-input-wrap').style.display = 'none';
     document.getElementById('sp-pq-result').style.display     = 'flex';
@@ -1128,6 +1142,11 @@ export function spExamFinish() {
     ? `You got ${correct}/${total} correct. The next concept is now unlocked!`
     : `You got ${correct}/${total} correct. You need 70% to pass. Review the concept and try again.`;
   spMasteryRecord('exam', pct);
+  // SRS: schedule next review based on exam performance
+  if (_spDrawerConcept && _spCurrentPlan) {
+    const idx = _spCurrentPlan.concepts.indexOf(_spDrawerConcept);
+    if (idx >= 0) spSrsUpdate(idx, pct);
+  }
 }
 
 export function spExamRestart() { spExamGenerate(); }
@@ -1186,7 +1205,24 @@ export function spInitScreen() {
           schedDiv.style.display = 'none';
           detailCol.appendChild(schedDiv);
         }
-        setTimeout(() => { spUpdateExamDateUI(); spUpdateDailySchedule(); }, 200);
+        if (detailCol && !document.getElementById('sp-srs-panel')) {
+          const srsDiv = document.createElement('div');
+          srsDiv.id = 'sp-srs-panel';
+          srsDiv.style.display = 'none';
+          detailCol.appendChild(srsDiv);
+        }
+        if (detailCol && !document.getElementById('sp-ical-btn')) {
+          const icalBtn = document.createElement('button');
+          icalBtn.id = 'sp-ical-btn';
+          icalBtn.onclick = () => spExportIcal();
+          icalBtn.style.cssText = 'width:100%;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface-1);border:1px solid var(--border-xs);border-radius:var(--r-md);color:var(--text-3);font-size:12px;cursor:pointer;font-family:var(--font-body);transition:color var(--t-fast),border-color var(--t-fast);margin-top:8px;';
+          icalBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Export to Calendar (.ics)';
+          icalBtn.onmouseenter = () => { icalBtn.style.color = 'var(--text-1)'; icalBtn.style.borderColor = 'var(--border-md)'; };
+          icalBtn.onmouseleave = () => { icalBtn.style.color = 'var(--text-3)'; icalBtn.style.borderColor = 'var(--border-xs)'; };
+          detailCol.appendChild(icalBtn);
+        }
+        spSrsLoad();
+        setTimeout(() => { spUpdateExamDateUI(); spUpdateDailySchedule(); spUpdateSrsPanel(); }, 200);
       }
     }
   } catch (e) {
@@ -1285,7 +1321,10 @@ export function spSwitchToPlan(id) {
   } catch (e) {}
   spRenderPlan(entry.plan, entry.plan.topic || 'Plan');
   entry.plan.concepts.forEach((_, idx) => spMasteryUpdateNode(idx, spMasteryScore(idx)));
+  spSrsLoad();
   spUpdateExamDateUI();
+  spUpdateDailySchedule();
+  setTimeout(() => spUpdateSrsPanel(), 200);
   if (typeof wsShowToast === 'function') wsShowToast('📚', `Switched to "${entry.topic}"`, 'var(--gold-border)');
 }
 
@@ -1508,6 +1547,27 @@ export function spRenderPlanPatched(plan, sourceName) {
       detailCol.appendChild(schedDiv);
       spUpdateDailySchedule();
     }
+    // Inject SRS review panel if not present
+    if (detailCol && !document.getElementById('sp-srs-panel')) {
+      const srsDiv = document.createElement('div');
+      srsDiv.id = 'sp-srs-panel';
+      srsDiv.style.display = 'none';
+      detailCol.appendChild(srsDiv);
+    }
+    // Inject iCal export button if not present
+    if (detailCol && !document.getElementById('sp-ical-btn')) {
+      const icalBtn = document.createElement('button');
+      icalBtn.id = 'sp-ical-btn';
+      icalBtn.onclick = () => spExportIcal();
+      icalBtn.style.cssText = 'width:100%;display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--surface-1);border:1px solid var(--border-xs);border-radius:var(--r-md);color:var(--text-3);font-size:12px;cursor:pointer;font-family:var(--font-body);transition:color var(--t-fast),border-color var(--t-fast);margin-top:8px;';
+      icalBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Export to Calendar (.ics)';
+      icalBtn.onmouseenter = () => { icalBtn.style.color = 'var(--text-1)'; icalBtn.style.borderColor = 'var(--border-md)'; };
+      icalBtn.onmouseleave = () => { icalBtn.style.color = 'var(--text-3)'; icalBtn.style.borderColor = 'var(--border-xs)'; };
+      detailCol.appendChild(icalBtn);
+    }
+    // Load SRS data and update review panel
+    spSrsLoad();
+    setTimeout(() => spUpdateSrsPanel(), 150);
   }, 100);
 }
 
@@ -1517,6 +1577,180 @@ const _originalSpExamFinish = spExamFinish;
 export function spExamFinishPatched() {
   _originalSpExamFinish();
   setTimeout(() => spCheckAdaptiveReorder(), 500);
+}
+
+// ── Spaced Repetition System (SM-2 variant) ───────────────────────────────
+
+export function spSrsUpdate(conceptIdx, examScore) {
+  // SM-2 algorithm: schedule next review based on performance
+  // examScore: 0-100
+  if (!_spSrsSchedule[conceptIdx]) {
+    _spSrsSchedule[conceptIdx] = { nextReview: Date.now(), interval: SRS_MIN_INTERVAL, ease: SRS_EASE_DEFAULT, reviews: 0 };
+  }
+  const s = _spSrsSchedule[conceptIdx];
+  const grade = examScore >= 90 ? 5 : examScore >= 80 ? 4 : examScore >= 70 ? 3 : examScore >= 60 ? 2 : 1;
+
+  if (grade >= 3) {
+    s.interval = s.reviews === 0 ? 1 : s.reviews === 1 ? 3 : Math.round(s.interval * s.ease);
+    s.ease = Math.max(1.3, s.ease + (0.1 - (5 - grade) * (0.08 + (5 - grade) * 0.02)));
+  } else {
+    s.interval = SRS_MIN_INTERVAL;
+    s.ease = Math.max(1.3, s.ease - 0.2);
+  }
+  s.nextReview = Date.now() + s.interval * 86400000;
+  s.reviews++;
+  s.lastScore = examScore;
+
+  try {
+    localStorage.setItem('sp_srs_' + (_spActivePlanId || 'default'), JSON.stringify(_spSrsSchedule));
+  } catch(e) {}
+  spUpdateSrsPanel();
+}
+
+export function spSrsLoad() {
+  try {
+    const raw = localStorage.getItem('sp_srs_' + (_spActivePlanId || 'default'));
+    if (raw) _spSrsSchedule = JSON.parse(raw);
+  } catch(e) {}
+}
+
+export function spSrsGetDueToday() {
+  if (!_spCurrentPlan) return [];
+  const now = Date.now();
+  return _spCurrentPlan.concepts.reduce((due, concept, idx) => {
+    const s = _spSrsSchedule[idx];
+    if (s && s.nextReview <= now + 86400000) { // due today or overdue
+      due.push({ idx, concept, overdue: s.nextReview < now, daysUntil: Math.ceil((s.nextReview - now) / 86400000) });
+    }
+    return due;
+  }, []);
+}
+
+export function spUpdateSrsPanel() {
+  const el = document.getElementById('sp-srs-panel');
+  if (!el || !_spCurrentPlan) return;
+  const due = spSrsGetDueToday();
+  if (due.length === 0) { el.style.display = 'none'; return; }
+  el.style.display = 'block';
+  el.innerHTML = `
+    <div class="sp-detail-section-title" style="margin-top:16px;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2" stroke-linecap="round" style="margin-right:4px;"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 0 0-18 0"/><path d="M12 8v4l3 3"/></svg>
+      Review Due (${due.length})
+    </div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      ${due.slice(0,3).map(d => `
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:${d.overdue ? 'rgba(139,124,248,0.07)' : 'var(--surface-1)'};border:1px solid ${d.overdue ? 'var(--violet-border)' : 'var(--border-xs)'};border-radius:var(--r-md);cursor:pointer;" onclick="spOpenExplainDrawer(_spCurrentPlan.concepts[${d.idx}],'exam')">
+          <div style="width:6px;height:6px;border-radius:50%;background:${d.overdue ? 'var(--violet)' : 'var(--text-4)'};flex-shrink:0;"></div>
+          <div style="flex:1;overflow:hidden;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.concept.title}</div>
+            <div style="font-size:10px;color:${d.overdue ? 'var(--violet)' : 'var(--text-4)'};">${d.overdue ? 'Overdue' : 'Due today'} · last ${_spSrsSchedule[d.idx]?.lastScore ?? '—'}%</div>
+          </div>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--text-4)" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>`).join('')}
+      ${due.length > 3 ? `<div style="font-size:10px;color:var(--text-4);padding:4px 0;">+${due.length-3} more due</div>` : ''}
+    </div>`;
+}
+
+// ── iCal / calendar export ─────────────────────────────────────────────────
+
+export function spExportIcal() {
+  if (!_spCurrentPlan || !_spExamDate) {
+    if (typeof wsShowToast === 'function') wsShowToast('📅', 'Set an exam date first to export calendar', 'var(--gold-border)');
+    return;
+  }
+  const concepts = _spCurrentPlan.concepts;
+  const examMs   = new Date(_spExamDate + 'T00:00:00').getTime();
+  const nowMs    = new Date().setHours(0,0,0,0);
+  const daysLeft = Math.max(1, Math.ceil((examMs - nowMs) / 86400000));
+  const remaining = concepts.filter((c, i) => spMasteryScore(i) < 80);
+  const totalMins = remaining.reduce((s, c) => s + (c.estimatedMinutes || 30), 0);
+  const minsPerDay = Math.ceil(totalMins / daysLeft);
+
+  const pad = n => String(n).padStart(2, '0');
+  const toIcalDate = (ms) => {
+    const d = new Date(ms);
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}`;
+  };
+  const toIcalDateTime = (ms) => {
+    const d = new Date(ms);
+    return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+  };
+  const uid = () => Math.random().toString(36).slice(2) + '@chunks-ai';
+
+  let events = [];
+
+  // One study session per remaining concept, spread over available days
+  let dayOffset = 0;
+  remaining.forEach((concept, i) => {
+    const sessionMs = nowMs + dayOffset * 86400000;
+    const startMs   = sessionMs + 9 * 3600000; // 9 AM
+    const endMs     = startMs + (concept.estimatedMinutes || 30) * 60000;
+    events.push([
+      'BEGIN:VEVENT',
+      `UID:${uid()}`,
+      `DTSTART:${toIcalDateTime(startMs)}`,
+      `DTEND:${toIcalDateTime(endMs)}`,
+      `SUMMARY:Study: ${concept.title}`,
+      `DESCRIPTION:Critical Path · ${_spCurrentPlan.topic}\nEstimated: ${concept.estimatedMinutes||30} min`,
+      `CATEGORIES:STUDY`,
+      'END:VEVENT',
+    ].join('
+'));
+    // advance day every ~minsPerDay minutes of content
+    if ((i + 1) % Math.max(1, Math.ceil(minsPerDay / (concept.estimatedMinutes || 30))) === 0) dayOffset++;
+  });
+
+  // Exam day event
+  events.push([
+    'BEGIN:VEVENT',
+    `UID:${uid()}`,
+    `DTSTART;VALUE=DATE:${toIcalDate(examMs)}`,
+    `DTEND;VALUE=DATE:${toIcalDate(examMs + 86400000)}`,
+    `SUMMARY:📝 EXAM: ${_spCurrentPlan.topic}`,
+    `DESCRIPTION:Final exam for ${_spCurrentPlan.topic}\nPrepared with Chunks AI Critical Path`,
+    `CATEGORIES:EXAM`,
+    'END:VEVENT',
+  ].join('
+'));
+
+  const ical = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Chunks AI//Study Plan//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${_spCurrentPlan.topic} Study Plan`,
+    ...events,
+    'END:VCALENDAR',
+  ].join('
+');
+
+  const blob = new Blob([ical], { type: 'text/calendar;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = (_spCurrentPlan.topic || 'study-plan').replace(/[^a-z0-9]/gi, '-').toLowerCase() + '.ics';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  if (typeof wsShowToast === 'function') wsShowToast('📅', 'Calendar exported — import into Google Calendar or Apple Calendar', 'var(--gold-border)');
+}
+
+// ── Confidence tracking across sessions ────────────────────────────────────
+
+export function spConfidenceGet(conceptIdx) {
+  // Returns rolling confidence: weighted avg of last 3 exam scores
+  const s = _spSrsSchedule[conceptIdx];
+  if (!s || !s.reviews) return null;
+  return s.lastScore || null;
+}
+
+export function spConfidenceBadge(conceptIdx) {
+  const score = spConfidenceGet(conceptIdx);
+  if (score === null) return '';
+  if (score >= 90) return '<span style="font-size:9px;padding:1px 6px;border-radius:var(--r-pill);background:rgba(52,211,153,0.12);color:var(--green);font-family:var(--font-mono);">confident</span>';
+  if (score >= 70) return '<span style="font-size:9px;padding:1px 6px;border-radius:var(--r-pill);background:rgba(232,172,46,0.12);color:var(--gold);font-family:var(--font-mono);">learning</span>';
+  return '<span style="font-size:9px;padding:1px 6px;border-radius:var(--r-pill);background:rgba(248,113,113,0.12);color:var(--red);font-family:var(--font-mono);">review</span>';
 }
 
 // ── Legacy global bridges ─────────────────────────────────────────────────
@@ -1611,6 +1845,14 @@ window.spOpenVisualTutor      = spOpenVisualTutor;
 window.spRenderPlan           = spRenderPlanPatched;   // override with patched version
 window.spExamFinish           = spExamFinishPatched;   // override with patched version
 window.spSavePlanToSidebar    = spSavePlanToSidebarAndLibrary; // override
+
+window.spSrsUpdate            = spSrsUpdate;
+window.spSrsLoad              = spSrsLoad;
+window.spSrsGetDueToday       = spSrsGetDueToday;
+window.spUpdateSrsPanel       = spUpdateSrsPanel;
+window.spExportIcal           = spExportIcal;
+window.spConfidenceGet        = spConfidenceGet;
+window.spConfidenceBadge      = spConfidenceBadge;
 
 // Close plans menu on outside click
 document.addEventListener('click', e => {
