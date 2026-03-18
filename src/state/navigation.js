@@ -100,6 +100,10 @@ function showScreen(name) {
       if (typeof window._vtClear === 'function') window._vtClear();
       if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
     }
+    if (name === 'studyplan') {
+      // Restore saved plan + mastery from localStorage on every visit
+      if (typeof window.spInitScreen === 'function') window.spInitScreen();
+    }
   }
   // Always reset the flag after consuming it
   window._navFromHistory = false;
@@ -186,6 +190,13 @@ export function _navInit() {
   // set the flag so showScreen skips its fresh-nav reset logic
   if (start !== 'home') window._navFromHistory = true;
   showScreen(start);
+  // If refreshing directly onto the study plan screen, restore the saved plan.
+  // showScreen runs synchronously but spInitScreen may not be registered yet
+  // (studyPlanState.js is a module — its window bridge runs after this iife).
+  // Defer one tick so the bridge is guaranteed to be in place.
+  if (start === 'studyplan') {
+    setTimeout(() => { if (typeof window.spInitScreen === 'function') window.spInitScreen(); }, 0);
+  }
 
   const overlay = document.getElementById('mobile-drawer-overlay');
   if (overlay) overlay.addEventListener('click', closeMobileDrawer);
