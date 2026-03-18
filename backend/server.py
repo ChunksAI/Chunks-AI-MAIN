@@ -1642,6 +1642,34 @@ def ask():
                 f"{latex_instruction}{memory_block}"
             )
 
+        # ── MODE: VISUAL_TUTOR ────────────────────────────────────────────
+        # Used exclusively by the Visual Tutor whiteboard renderer.
+        # Must NEVER inject textbook RAG context or page citations —
+        # the AI returns a raw JSON blueprint or plain narration only.
+
+        if mode == 'visual_tutor':
+            prompt = f"""You are an expert visual educator. Answer the following request concisely and accurately.
+Do NOT reference any textbook, page number, or external source.
+Do NOT add citations, footnotes, or book references of any kind.
+Respond only with the content requested — nothing else.
+
+REQUEST: {question}
+
+COMPLEXITY LEVEL {complexity}/10: {complexity_instruction}
+
+FORMATTING: {latex_instruction}"""
+            answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history)
+            return jsonify({
+                'success':        True,
+                'mode':           'visual_tutor',
+                'answer':         answer,
+                'similarity':     0.0,
+                'is_relevant':    False,
+                'source':         None,
+                'sources':        [],
+                'complexity_used': complexity,
+            })
+
         # ── MODE: EXAM ────────────────────────────────────────────────────
 
         if mode == 'exam':
