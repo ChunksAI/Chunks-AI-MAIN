@@ -256,6 +256,54 @@ window.FC_ACCENTS          = FC_ACCENTS;
 
 const STREAK_KEY  = 'chunks_fc_streak_v1';
 const FREEZE_KEY  = 'chunks_fc_freeze_v1'; // { tokens: N, lastEarned: YYYY-MM-DD }
+const XP_KEY      = 'chunks_fc_xp_v1';     // { total: N, allTime: N, lastSession: N }
+
+// XP per rating
+const XP_PER_RATING = { easy: 10, ok: 7, hard: 3, skipped: 0 };
+
+// Multiplier by streak milestone (streak >= threshold → multiplier)
+const XP_MULTIPLIERS = [
+  { streak: 30, mult: 1.5, label: '×1.5 streak bonus' },
+  { streak: 7,  mult: 1.2, label: '×1.2 streak bonus' },
+  { streak: 0,  mult: 1.0, label: '' },
+];
+
+function _fcGetXp() {
+  try { return JSON.parse(localStorage.getItem(XP_KEY) || '{"total":0,"allTime":0,"lastSession":0}'); }
+  catch (e) { return { total: 0, allTime: 0, lastSession: 0 }; }
+}
+function _fcSaveXp(data) {
+  try { localStorage.setItem(XP_KEY, JSON.stringify(data)); } catch (e) {}
+}
+
+// Returns the active XP multiplier based on current streak
+function _fcXpMultiplier() {
+  const streak = _fcGetStreak().current || 0;
+  for (const m of XP_MULTIPLIERS) {
+    if (streak >= m.streak) return m;
+  }
+  return XP_MULTIPLIERS[XP_MULTIPLIERS.length - 1];
+}
+
+// Calculate XP earned for a session's stats
+function _fcCalcSessionXp(stats) {
+  const base = (stats.easy || 0) * XP_PER_RATING.easy
+             + (stats.ok   || 0) * XP_PER_RATING.ok
+             + (stats.hard || 0) * XP_PER_RATING.hard;
+  const { mult } = _fcXpMultiplier();
+  return { base, bonus: Math.round(base * mult) - base, total: Math.round(base * mult), mult };
+}
+
+// Award XP after a session, return the breakdown
+function _fcAwardXp(stats) {
+  const { total: earned, base, bonus, mult } = _fcCalcSessionXp(stats);
+  const xp = _fcGetXp();
+  xp.lastSession = earned;
+  xp.total       = (xp.total || 0) + earned;
+  xp.allTime     = (xp.allTime || 0) + earned;
+  _fcSaveXp(xp);
+  return { earned, base, bonus, mult };
+}
 
 // Freeze token thresholds: earn 1 at day 14, earn another at day 30, max 2 held
 const FREEZE_EARN_AT = [14, 30];
@@ -515,6 +563,29 @@ function _fcRenderStreak() {
     freezeEl.style.color = freeze.tokens > 0 ? 'var(--violet)' : '';
   }
 
+  // Update XP stat
+  const xpEl = _el('fc-streak-xp');
+  if (xpEl) {
+    const xp = _fcGetXp();
+    xpEl.textContent = (xp.total || 0).toLocaleString();
+  }
+
+  // Restore legend badge + class if earned
+  if (_fcIsLegend()) {
+    if (widgetEl) widgetEl.classList.add('fc-streak-legend');
+    const badge = _el('fc-legend-badge');
+    if (badge) badge.style.display = '';
+  }
+
+  // Update XP multiplier label in next-milestone line if active
+  const { mult, label } = _fcXpMultiplier();
+  if (mult > 1 && progNext) {
+    const existing = progNext.textContent;
+    if (!existing.includes('XP')) {
+      progNext.textContent = label + (existing ? ' · ' + existing : '');
+    }
+  }
+
   // Update tooltip
   if (widgetEl && streak.longest > 0) {
     widgetEl.title = `Best streak: ${streak.longest} days`;
@@ -524,16 +595,42 @@ function _fcRenderStreak() {
 function _fcShowStreakMilestone(days) {
   const messages = {
     3:   "🔥 3-day streak! You're building a habit!",
-    7:   "🔥 One week streak! Incredible consistency!",
-    14:  "🔥 Two weeks! You're unstoppable!",
-    30:  "🏆 30-day streak! You are a studying machine!",
+    7:   "🔥 One week streak! Incredible consistency! XP multiplier ×1.2 unlocked!",
+    14:  "🔥 Two weeks! You're unstoppable! Streak freeze earned.",
+    30:  "🏆 30-day streak! You are a studying machine! XP multiplier ×1.5 + hard card boost unlocked!",
     60:  "🏆 60 days! Absolute legend!",
-    100: "🏆 100-DAY STREAK! Hall of fame!",
+    100: "🏆 100-DAY STREAK! Hall of fame! Legend badge earned!",
   };
   const msg = messages[days] || `🔥 ${days}-day streak!`;
   window._showToast?.('🔥', msg, 'var(--gold)');
-  // Also play a special sound
   setTimeout(() => window._fcSound?.combo(), 200);
+
+  // Day 100: award legend badge
+  if (days >= 100) {
+    _fcAwardLegendBadge();
+  }
+}
+
+// Legend badge — stored in localStorage, shown on streak widget
+const LEGEND_KEY = 'chunks_fc_legend_v1';
+
+function _fcIsLegend() {
+  return localStorage.getItem(LEGEND_KEY) === '1';
+}
+
+function _fcAwardLegendBadge() {
+  localStorage.setItem(LEGEND_KEY, '1');
+  // Add legend class to streak widget for gold animated flame
+  const widget = document.getElementById('fc-streak-widget');
+  if (widget) widget.classList.add('fc-streak-legend');
+  // Show legend badge element
+  const badge = document.getElementById('fc-legend-badge');
+  if (badge) badge.style.display = '';
+}
+
+// Returns true if hard-card interval boost is active (streak >= 30)
+function _fcHardBoostActive() {
+  return (_fcGetStreak().current || 0) >= 30;
 }
 
 window._fcRecordStudyDay  = _fcRecordStudyDay;
@@ -541,6 +638,11 @@ window._fcRenderStreak    = _fcRenderStreak;
 window._fcGetFreeze       = _fcGetFreeze;
 window._fcGetStreak       = _fcGetStreak;
 window._fcFlameSvg        = _fcFlameSvg;
+window._fcGetXp           = _fcGetXp;
+window._fcXpMultiplier    = _fcXpMultiplier;
+window._fcIsLegend        = _fcIsLegend;
+window._fcAwardLegendBadge = _fcAwardLegendBadge;
+window._fcHardBoostActive  = _fcHardBoostActive;
 
 // ── Medical library loader ────────────────────────────────────────────────────
 
@@ -1208,7 +1310,14 @@ function _fcNext(rating) {
   // Play sound for rating
   if (rating === 'easy')    _fcSound.easy();
   else if (rating === 'ok') _fcSound.ok();
-  else if (rating === 'hard') _fcSound.hard();
+  else if (rating === 'hard') {
+    _fcSound.hard();
+    // Hard boost: at day 30+ mark card for accelerated re-review in this session
+    if (_fcHardBoostActive() && card) {
+      // Push a second copy of this card to end of deck for immediate re-review
+      _fcDeck.push({ ...card, _boostedReview: true });
+    }
+  }
 
   // Combo sound every 5 rated cards
   const rated = (_fcStats.easy || 0) + (_fcStats.ok || 0) + (_fcStats.hard || 0);
@@ -1328,6 +1437,9 @@ async function _fcFinishSession() {
   // Record study day for streak
   _fcRecordStudyDay();
 
+  // Award XP for this session
+  const xpResult = _fcAwardXp(_fcStats);
+
   // Save mastery to localStorage immediately
   if (_fcCurrentDeckMeta?.id) {
     _fcSaveMastery(_fcCurrentDeckMeta.id, _fcStats, _fcDeck.length);
@@ -1376,12 +1488,31 @@ async function _fcFinishSession() {
     if (subEl)   subEl.textContent   = `${score}% — every pass through gets easier.`;
   }
 
-  // SRS note
+  // XP display
+  const xpEarnedEl  = _el('fc-modal-xp-earned');
+  const xpBonusEl   = _el('fc-modal-xp-bonus');
+  const xpTotalEl   = _el('fc-modal-xp-total');
+  const xpBlockEl   = _el('fc-modal-xp-block');
+  if (xpEarnedEl)  xpEarnedEl.textContent  = `+${xpResult.earned} XP`;
+  if (xpBonusEl) {
+    if (xpResult.bonus > 0) {
+      xpBonusEl.textContent = `(${_fcXpMultiplier().label} · +${xpResult.bonus} bonus)`;
+      xpBonusEl.style.display = '';
+    } else {
+      xpBonusEl.style.display = 'none';
+    }
+  }
+  const xpStore = _fcGetXp();
+  if (xpTotalEl)  xpTotalEl.textContent = `${xpStore.total.toLocaleString()} total XP`;
+  if (xpBlockEl)  xpBlockEl.style.display = xpResult.earned > 0 ? '' : 'none';
+
+  // SRS note — also mention hard boost if active
   const srsEl  = _el('fc-modal-srs-note');
   const srsMsg = _el('fc-srs-message');
   if (hard > 0 && srsEl && srsMsg) {
     srsEl.style.display = '';
-    srsMsg.textContent  = `${hard} hard card${hard !== 1 ? 's' : ''} will be prioritised in your next session.`;
+    const boostNote = _fcHardBoostActive() ? ' (boosted — due sooner)' : '';
+    srsMsg.textContent  = `${hard} hard card${hard !== 1 ? 's' : ''} will be prioritised in your next session${boostNote}.`;
   } else if (srsEl) {
     srsEl.style.display = 'none';
   }
