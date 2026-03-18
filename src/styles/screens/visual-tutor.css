@@ -558,4 +558,108 @@
     font-size: 10px;
     padding: 4px 8px;
   }
+
+  .vt-step-nav {
+    flex-direction: column;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .vt-step-btns {
+    justify-content: space-between;
+  }
+}
+
+/* ── Step nav bar ────────────────────────────────────────────────────────── */
+
+.vt-step-nav {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  animation: vt-stepnav-in 0.2s ease both;
+}
+
+@keyframes vt-stepnav-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Progress dots */
+.vt-step-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.vt-step-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-sm);
+  flex-shrink: 0;
+  transition: background 0.25s, transform 0.25s, width 0.25s;
+}
+
+.vt-step-dot-active {
+  background: rgba(139, 124, 248, 0.45);
+}
+
+.vt-step-dot-current {
+  background: #8b7cf8;
+  transform: scale(1.35);
+  width: 8px;
+  height: 8px;
+}
+
+/* Buttons row */
+.vt-step-btns {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.vt-step-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: var(--r-sm, 6px);
+  font-size: 12px;
+  font-family: var(--font-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  padding: 5px 12px;
+}
+
+.vt-step-back {
+  background: var(--surface-3, var(--surface-2));
+  border: 1px solid var(--border-xs);
+  color: var(--text-3);
+}
+
+.vt-step-back:hover:not(:disabled) {
+  background: var(--surface-4, var(--surface-3));
+  color: var(--text-2);
+}
+
+.vt-step-back:disabled {
+  cursor: default;
+  pointer-events: none;
+}
+
+.vt-step-next {
+  background: rgba(139, 124, 248, 0.15);
+  border: 1px solid rgba(139, 124, 248, 0.35);
+  color: #a99ef9;
+}
+
+.vt-step-next:hover {
+  background: rgba(139, 124, 248, 0.25);
+  border-color: rgba(139, 124, 248, 0.55);
+  color: #c4bafb;
 }
