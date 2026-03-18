@@ -1677,6 +1677,7 @@ export function spExportIcal() {
   };
   const uid = () => Math.random().toString(36).slice(2) + '@chunks-ai';
 
+  const CRLF = '\r\n';
   let events = [];
 
   // One study session per remaining concept, spread over available days
@@ -1694,8 +1695,7 @@ export function spExportIcal() {
       `DESCRIPTION:Critical Path · ${_spCurrentPlan.topic}\nEstimated: ${concept.estimatedMinutes||30} min`,
       `CATEGORIES:STUDY`,
       'END:VEVENT',
-    ].join('
-'));
+    ].join(CRLF));
     // advance day every ~minsPerDay minutes of content
     if ((i + 1) % Math.max(1, Math.ceil(minsPerDay / (concept.estimatedMinutes || 30))) === 0) dayOffset++;
   });
@@ -1710,20 +1710,18 @@ export function spExportIcal() {
     `DESCRIPTION:Final exam for ${_spCurrentPlan.topic}\nPrepared with Chunks AI Critical Path`,
     `CATEGORIES:EXAM`,
     'END:VEVENT',
-  ].join('
-'));
+  ].join(CRLF));
 
   const ical = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Chunks AI//Study Plan//EN',
+    "PRODID:-//Chunks AI//Study Plan//EN",
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     `X-WR-CALNAME:${_spCurrentPlan.topic} Study Plan`,
     ...events,
     'END:VCALENDAR',
-  ].join('
-');
+  ].join(CRLF);
 
   const blob = new Blob([ical], { type: 'text/calendar;charset=utf-8' });
   const url  = URL.createObjectURL(blob);
