@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests;">
   <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="robots" content="noindex, follow">
+  <meta name="description" content="Sign in to Chunks AI — AI-powered flashcards, study plans and exam prep.">
+  <link rel="canonical" href="https://chunks.online/login">
   <title>Chunks AI — Sign in</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -93,7 +96,7 @@
             // Give 60s buffer for clock skew
             if (expiresAt === 0 || expiresAt - nowSec > 60) {
               // Valid session — redirect instantly, no flash
-              location.replace('index.html');
+              location.replace('/');
               return;
             }
           }
@@ -102,7 +105,7 @@
 
       // Also check guest mode
       if (sessionStorage.getItem('chunks_guest_mode') === '1') {
-        location.replace('index.html');
+        location.replace('/');
         return;
       }
 
@@ -152,7 +155,7 @@
       <span class="feat-pill">Research</span>
     </div>
     <div class="auth-error" id="auth-error"></div>
-    <a class="btn-google" id="btn-google" href="https://wiwbfspsrgayvquzfryl.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://chunks.online/login.html">
+    <a class="btn-google" id="btn-google" href="https://wiwbfspsrgayvquzfryl.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://chunks.online/">
       <svg class="btn-google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
         <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
         <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -168,7 +171,7 @@
     </button>
     <div class="card-footer">
       By signing in you agree to our
-      <a href="terms.html">Terms of Service</a> and <a href="privacy.html">Privacy Policy</a>
+      <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>
     </div>
   </div>
 </div>
@@ -176,7 +179,7 @@
 <script>
   function continueAsGuest() {
     sessionStorage.setItem('chunks_guest_mode', '1');
-    window.location.href = 'index.html';
+    window.location.href = '/';
   }
   function showError(msg) {
     document.getElementById('auth-error').textContent = msg;
@@ -263,13 +266,13 @@
         if (session) {
           // ── Write user row immediately on sign-in ──────────────────────
           _syncUserRow(sb, session);
-          location.replace('index.html'); return;
+          location.replace('/'); return;
         }
         // Not ready — wait for auth state change
         sb.auth.onAuthStateChange(function(event, session) {
           if (event === 'SIGNED_IN' && session) {
             _syncUserRow(sb, session);
-            location.replace('index.html');
+            location.replace('/');
           } else if (event === 'SIGNED_IN' && !session) showError('Sign-in failed. Please try again.');
         });
       } catch(err) {
@@ -281,7 +284,7 @@
     // Normal load — check session (SDK path, for expired/refreshed tokens)
     var result2 = await sb.auth.getSession();
     var session2 = result2.data && result2.data.session;
-    if (session2) { location.replace('index.html'); return; }
+    if (session2) { location.replace('/'); return; }
     // No session — show login page
     document.body.classList.add('ready');
   };

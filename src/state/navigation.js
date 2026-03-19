@@ -1,14 +1,46 @@
 /**
- * src/state/navigation.js — Task 15
+ * src/state/navigation.js
  * Implements: showScreen, drawerNav, mobileNav, toggleSidebar, closeMobileDrawer
  *
- * Task 11 addition: URL hash routing.
- * • showScreen() writes  location.hash = '#screen-NAME'
- * • _navInit()   reads   location.hash on load (falls back to sessionStorage)
- * • hashchange   listener handles browser back/forward
- * • OAuth hashes (containing 'access_token' or 'error_description') are
- *   never overwritten and never parsed as screen names.
+ * URL routing — clean pathnames via history.pushState:
+ *   /          → home
+ *   /home      → home
+ *   /workspace → workspace
+ *   /library   → library
+ *   /flashcard → flash
+ *   /studyplan → studyplan
+ *   /visualtutor → visual
+ *   /research  → research
+ *   /exam      → exam
+ *
+ * OAuth hashes (containing 'access_token' or 'error_description') are
+ * never overwritten and never parsed as screen names.
  */
+
+// ── Screen map: pathname → screen name, and screen name → pathname ─────────
+
+const PATH_TO_SCREEN = {
+  '/':            'home',
+  '/home':        'home',
+  '/workspace':   'workspace',
+  '/library':     'library',
+  '/flashcard':   'flash',
+  '/studyplan':   'studyplan',
+  '/visualtutor': 'visual',
+  '/research':    'research',
+  '/exam':        'exam',
+};
+
+const SCREEN_TO_PATH = {
+  home:      '/home',
+  workspace: '/workspace',
+  library:   '/library',
+  flash:     '/flashcard',
+  studyplan: '/studyplan',
+  visual:    '/visualtutor',
+  research:  '/research',
+  exam:      '/exam',
+};
 
 const SCREEN_MAP = {
   home:      'screen-home',
@@ -21,31 +53,30 @@ const SCREEN_MAP = {
   visual:    'screen-visual',
 };
 
-// ── Hash helpers ──────────────────────────────────────────────────────────────
+// ── URL helpers ───────────────────────────────────────────────────────────────
 
-/** Return true if the current hash is an OAuth callback — never touch these. */
+/** True if the current URL is an OAuth callback — never touch these. */
 function _isOAuthHash() {
   const h = window.location.hash;
   return h.includes('access_token') || h.includes('error_description');
 }
 
-/** Write the screen name into location.hash (no-op during OAuth flow). */
-function _setHash(name) {
+/** Write the screen pathname via pushState. No-op during OAuth flow. */
+function _setPath(name) {
   if (_isOAuthHash()) return;
   try {
-    const desired = `#screen-${name}`;
-    if (window.location.hash !== desired) {
-      window.history.replaceState(null, '', desired);
+    const path = SCREEN_TO_PATH[name] || '/home';
+    if (window.location.pathname !== path) {
+      window.history.pushState({ screen: name }, '', path);
     }
   } catch (e) { /* sandboxed iframe — ignore */ }
 }
 
-/** Parse a valid screen name from location.hash, or return null. */
-function _screenFromHash() {
+/** Parse a valid screen name from the current pathname, or return null. */
+function _screenFromPath() {
   if (_isOAuthHash()) return null;
-  const m = window.location.hash.match(/^#screen-([a-z]+)$/);
-  if (!m) return null;
-  return SCREEN_MAP[m[1]] ? m[1] : null;
+  const path = window.location.pathname;
+  return PATH_TO_SCREEN[path] || null;
 }
 
 // ── Core navigation ───────────────────────────────────────────────────────────
@@ -68,10 +99,10 @@ function showScreen(name) {
       if (sb) sb.classList.toggle('compact', compact);
     } catch(e) {}
     // Restore collapsed state for history sections in this screen's sidebar
-    ['hist-section-general','hist-section-workspace','hist-section-visual','hist-section-exam'].forEach(id => {
+    ['hist-section-general','hist-section-workspace','hist-section-visual','hist-section-exam'].forEach(secId => {
       try {
-        const collapsed = sessionStorage.getItem('hist_collapsed_' + id) === '1';
-        target.querySelectorAll('#' + id).forEach(sec => sec.classList.toggle('collapsed', collapsed));
+        const collapsed = sessionStorage.getItem('hist_collapsed_' + secId) === '1';
+        target.querySelectorAll('#' + secId).forEach(sec => sec.classList.toggle('collapsed', collapsed));
       } catch(e) {}
     });
   } else {
@@ -81,36 +112,23 @@ function showScreen(name) {
     return;
   }
 
-  // ── Fresh navigation resets ───────────────────────────────
-  // When user clicks the nav button (not a sidebar history item), reset
-  // exam to setup view and visual tutor to a clean canvas.
-  // _clickRecent sets window._navFromHistory = true before calling showScreen
-  // to skip this reset when restoring a saved session.
+  // ── Fresh navigation resets ────────────────────────────────────────────────
   if (!window._navFromHistory) {
     if (name === 'exam') {
-      // Reset to setup view — don't show previous results/quiz
       if (typeof _examShow === 'function') {
         _examShow('exam-setup');
         _activeExamRecentId = null;
         if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
       }
-      // Also close history view if open
-      if (typeof examHideHistory === 'function') examHideHistory();
     }
     if (name === 'visual') {
-      // Skip reset if navigating from exam weak concepts panel (prefill is waiting)
-      const hasWeakPrefill = !!sessionStorage.getItem('exam_weak_prefill');
-      if (!hasWeakPrefill) {
-        if (typeof window._vtClear === 'function') window._vtClear();
-      }
+      if (typeof window._vtClear === 'function') window._vtClear();
       if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
     }
     if (name === 'studyplan') {
-      // Restore saved plan + mastery from localStorage on every visit
       if (typeof window.spInitScreen === 'function') window.spInitScreen();
     }
   }
-  // Always reset the flag after consuming it
   window._navFromHistory = false;
 
   document.querySelectorAll('.md-item').forEach(el => {
@@ -119,8 +137,9 @@ function showScreen(name) {
   document.querySelectorAll('.mobile-nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.screen === name);
   });
+
   try { sessionStorage.setItem('chunks_last_screen', name); } catch(e) {}
-  _setHash(name);
+  _setPath(name);
 }
 
 function drawerNav(name) {
@@ -128,7 +147,7 @@ function drawerNav(name) {
   showScreen(name);
 }
 
-function mobileNav(name, el) {
+function mobileNav(name) {
   if (name === 'more') { openMobileDrawer(); return; }
   showScreen(name);
 }
@@ -149,19 +168,13 @@ function closeMobileDrawer() {
   document.body.style.overflow = '';
 }
 
-function toggleSidebar(el) {
-  // Determine target sidebar — prefer the active screen's sidebar
+function toggleSidebar() {
   const activeSidebar = document.querySelector('.screen.active .sidebar');
   if (!activeSidebar) return;
-
   const willCollapse = !activeSidebar.classList.contains('compact');
-
-  // Apply to ALL sidebars so state is consistent when switching screens
   document.querySelectorAll('.sidebar').forEach(sb => {
     sb.classList.toggle('compact', willCollapse);
   });
-
-  // Persist so state survives screen switches
   try { sessionStorage.setItem('chunks_sidebar_compact', willCollapse ? '1' : '0'); } catch(e) {}
 }
 
@@ -170,7 +183,6 @@ function toggleSidebar(el) {
   try {
     const compact = sessionStorage.getItem('chunks_sidebar_compact') === '1';
     if (!compact) return;
-    // Run after DOM is ready — sidebars may not exist yet at parse time
     const apply = () => document.querySelectorAll('.sidebar').forEach(sb => sb.classList.add('compact'));
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', apply);
@@ -183,22 +195,17 @@ function toggleSidebar(el) {
 function handleLogoClick() { showScreen('home'); }
 
 export function _navInit() {
-  // Priority: URL hash → sessionStorage → 'home'
-  const fromHash    = _screenFromHash();
+  // Priority: current pathname → sessionStorage → 'home'
+  const fromPath    = _screenFromPath();
   const fromSession = (() => { try { return sessionStorage.getItem('chunks_last_screen'); } catch(e) { return null; } })();
-  const start       = (fromHash && SCREEN_MAP[fromHash])    ? fromHash
+  const start       = (fromPath && SCREEN_MAP[fromPath])    ? fromPath
                     : (fromSession && SCREEN_MAP[fromSession]) ? fromSession
                     : 'home';
 
   document.querySelectorAll('.screen').forEach(s => { s.style.display = 'none'; s.classList.remove('active'); });
-  // On refresh, preserve the state of whatever screen was active —
-  // set the flag so showScreen skips its fresh-nav reset logic
   if (start !== 'home') window._navFromHistory = true;
   showScreen(start);
-  // If refreshing directly onto the study plan screen, restore the saved plan.
-  // showScreen runs synchronously but spInitScreen may not be registered yet
-  // (studyPlanState.js is a module — its window bridge runs after this iife).
-  // Defer one tick so the bridge is guaranteed to be in place.
+
   if (start === 'studyplan') {
     setTimeout(() => { if (typeof window.spInitScreen === 'function') window.spInitScreen(); }, 0);
   }
@@ -206,17 +213,16 @@ export function _navInit() {
   const overlay = document.getElementById('mobile-drawer-overlay');
   if (overlay) overlay.addEventListener('click', closeMobileDrawer);
 
-  // ── Browser back/forward (hashchange) ────────────────────────────────────
-  window.addEventListener('hashchange', () => {
-    const name = _screenFromHash();
+  // ── Browser back/forward (popstate) ─────────────────────────────────────
+  window.addEventListener('popstate', (e) => {
+    const name = (e.state && e.state.screen) ? e.state.screen : _screenFromPath();
     if (name && name !== _currentScreen()) {
-      window._navFromHistory = true;  // treat as history navigation, not fresh click
+      window._navFromHistory = true;
       showScreen(name);
     }
   });
 }
 
-/** Return the name of the currently active screen, or null. */
 function _currentScreen() {
   const active = document.querySelector('.screen.active');
   if (!active) return null;
@@ -225,9 +231,6 @@ function _currentScreen() {
   }
   return null;
 }
-
-// _navInit is now called from main.js after all screens are mounted
-// so that screen elements exist when showScreen() runs
 
 window.showScreen        = showScreen;
 window.drawerNav         = drawerNav;

@@ -1,0 +1,43 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "redirects": [
+    { "source": "/index.html",  "destination": "/",       "permanent": true },
+    { "source": "/login.html",  "destination": "/login",  "permanent": true },
+    { "source": "/privacy.html","destination": "/privacy", "permanent": true },
+    { "source": "/terms.html",  "destination": "/terms",   "permanent": true }
+  ],
+  "rewrites": [
+    { "source": "/home",        "destination": "/index.html" },
+    { "source": "/workspace",   "destination": "/index.html" },
+    { "source": "/library",     "destination": "/index.html" },
+    { "source": "/flashcard",   "destination": "/index.html" },
+    { "source": "/studyplan",   "destination": "/index.html" },
+    { "source": "/visualtutor", "destination": "/index.html" },
+    { "source": "/research",    "destination": "/index.html" },
+    { "source": "/exam",        "destination": "/index.html" },
+    { "source": "/",            "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/sitemap.xml",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400" }
+      ]
+    }
+  ]
+}

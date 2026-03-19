@@ -281,7 +281,7 @@ window._initAuth = async function _initAuth() {
   // without waiting for Supabase SDK or getSession() network call.
   // This prevents the homepage from flashing for unauthenticated users.
   const isGuest_      = sessionStorage.getItem('chunks_guest_mode') === '1';
-  const isLoginPage_  = window.location.pathname.endsWith('login.html');
+  const isLoginPage_  = window.location.pathname === '/login';
   const hasOAuthCode_ = window.location.search.includes('code=');
   const hasOAuthHash_ = window.location.hash.includes('access_token');
 
@@ -290,7 +290,7 @@ window._initAuth = async function _initAuth() {
       const raw = localStorage.getItem('chunks-ai-auth');
       if (!raw) {
         // No session at all — redirect instantly, no network call needed
-        window.location.replace('login.html');
+        window.location.replace('/login');
         return;
       }
       // Check if token is expired
@@ -305,7 +305,7 @@ window._initAuth = async function _initAuth() {
           // Don't redirect yet — Supabase will auto-refresh
         }
       } else if (!session || !session.access_token) {
-        window.location.replace('login.html');
+        window.location.replace('/login');
         return;
       }
     } catch (e) {
@@ -353,13 +353,13 @@ window._initAuth = async function _initAuth() {
     // ── Auth gate ────────────────────────────────────────────────────────
     const isGuest      = sessionStorage.getItem('chunks_guest_mode') === '1';
     const isAuthed     = !!session?.user;
-    const isLoginPage  = window.location.pathname.endsWith('login.html');
+    const isLoginPage  = window.location.pathname === '/login';
     const hasOAuthCode = window.location.search.includes('code=');
     const hasOAuthHash = window.location.hash.includes('access_token') ||
                          window.location.hash.includes('error_description');
 
     if (!isAuthed && !isGuest && !isLoginPage && !hasOAuthCode && !hasOAuthHash) {
-      window.location.replace('login.html');
+      window.location.replace('/login');
       return;
     }
     // ────────────────────────────────────────────────────────────────────
@@ -404,9 +404,9 @@ window._initAuth = async function _initAuth() {
       // Apply default settings for new users (no-op if already initialized)
       _applyDefaultSettings();
 
-      const isLoginPage = window.location.pathname.endsWith('login.html');
+      const isLoginPage = window.location.pathname === '/login';
       if (isLoginPage) {
-        window.location.replace('index.html');
+        window.location.replace('/');
         return;
       }
 
@@ -435,7 +435,7 @@ window._initAuth = async function _initAuth() {
 async function _trackPresence(sb) {
   try {
     const isGuest = sessionStorage.getItem('chunks_guest_mode') === '1';
-    const isLoginPage = window.location.pathname.endsWith('login.html');
+    const isLoginPage = window.location.pathname === '/login';
     if (isLoginPage) return; // don't track on login page
 
     // Clean up any existing presence channel
@@ -502,7 +502,7 @@ window.chunksSignOut = async function chunksSignOut() {
     sessionStorage.removeItem('chunks_is_refresh');
     sessionStorage.removeItem('chunks_guest_mode');
     // Hard redirect to login
-    window.location.replace('login.html');
+    window.location.replace('/login');
   }
 
   // Try to sign out from Supabase, but redirect regardless of result
