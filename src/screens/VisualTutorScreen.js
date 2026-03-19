@@ -864,11 +864,13 @@ async function _vtpStartLesson() {
   _vtpShowScreen('screen-lesson');
 
   // ── Save to sidebar recent history ──────────────────────────────────────
-  // recentAdd deduplicates by question+source, sets active highlight,
-  // and re-renders all sidebar visual recent lists instantly.
   if (typeof window.recentAdd === 'function') {
     window.recentAdd(_vtpCurrentTopic, '', 'visual');
   }
+
+  // ── Persist lesson data so clicking history can restore it ───────────────
+  // Save lesson JSON keyed by the recent item id (set by recentAdd above)
+  _vtpSaveSession();
 
   setTimeout(() => { _vtpInitCanvas(); _vtpBuildDots(); _vtpRenderStep(0); }, 220);
 }
@@ -1572,16 +1574,67 @@ if (typeof window !== 'undefined') window._vtOpenForConcept = function(front /*,
  * The new step-based VT has no persistent chat/SVG state to restore,
  * so we pre-fill the topic and return to entry so they can restart.
  */
+// ── Session persistence helpers ─────────────────────────────────────────────
+function _vtpSaveSession() {
+  try {
+    // Get the id of the most-recent visual item just added by recentAdd
+    const raw = localStorage.getItem('chunks_recent');
+    if (!raw || !_vtpLesson || !_vtpCurrentTopic) return;
+    const items = JSON.parse(raw);
+    const match = items.find(r => r.source === 'visual' && r.question === _vtpCurrentTopic);
+    if (!match) return;
+    const session = { topic: _vtpCurrentTopic, lesson: _vtpLesson };
+    localStorage.setItem('chunks_vt_session_' + match.id, JSON.stringify(session));
+  } catch (_) {}
+}
+
 if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId, question) {
   if (window._setActiveRecent) window._setActiveRecent(sessionId);
-  // Set flag so navigation doesn't immediately call _vtClear over us
   window._navFromHistory = true;
   if (window.showScreen) window.showScreen('visual');
+
   setTimeout(() => {
+    // Try to restore saved lesson data
+    try {
+      const raw = localStorage.getItem('chunks_vt_session_' + sessionId);
+      if (raw) {
+        const session = JSON.parse(raw);
+        if (session.lesson && session.topic) {
+          _vtpCurrentTopic = session.topic;
+          _vtpLesson       = session.lesson;
+          _vtpStepIdx      = 0;
+          _vtpTotalSteps   = session.lesson.steps.length;
+          _vtpSimplifyCount = 0;
+          _vtpAskCount      = 0;
+          _vtpQuizPassed    = false;
+          _vtpQuizAnswered  = false;
+          _vtpWeakSteps     = [];
+          _vtpAskHistory    = [];
+
+          const topicLabel    = document.getElementById('lh-topic-label');
+          const completeTopic = document.getElementById('complete-topic');
+          if (topicLabel)    topicLabel.textContent    = _vtpCurrentTopic;
+          if (completeTopic) completeTopic.textContent = _vtpCurrentTopic;
+
+          const summaryEl = document.getElementById('summary-items');
+          if (summaryEl) {
+            summaryEl.innerHTML = (session.lesson.summary || [])
+              .map(s => '<div class="summary-item"><div class="summary-dot"></div>' + s + '</div>')
+              .join('');
+          }
+
+          _vtpShowScreen('screen-lesson');
+          setTimeout(() => { _vtpInitCanvas(); _vtpBuildDots(); _vtpRenderStep(0); }, 220);
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: pre-fill topic so user can re-run
     const inp = document.getElementById('vtp-entry-input');
     if (inp && question) inp.value = question;
     _vtpShowScreen('screen-entry');
-  }, 100);
+  }, 150);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
