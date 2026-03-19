@@ -24,11 +24,13 @@ const VT_HTML = `
   <div class="vtp-screen active" id="screen-entry">
     <div class="orb orb-g"></div>
     <div class="orb orb-v"></div>
+    <div class="orb orb-t"></div>
+    <canvas class="vtp-particles" id="vtp-particles"></canvas>
 
     <div class="entry-inner">
       <div class="entry-hook">
         <div class="entry-hook-dot"></div>
-        This confuses 90% of students — let's fix that in 5 steps
+        See it. Understand it. Remember it.
       </div>
 
       <div class="entry-badge">
@@ -40,26 +42,131 @@ const VT_HTML = `
         What do you want to<br><em>understand today?</em>
       </div>
       <div class="entry-s">
-        Pick a topic and I'll guide you through it — step by step,<br>
-        drawing it out as we go. <strong style="color:var(--t1-vt);">You'll get it in under 3 minutes.</strong>
+        Type any topic and watch it come to life — animated diagrams,<br>
+        interactive visuals, and bite-size explanations. <strong style="color:var(--t1-vt);">Under 3 minutes.</strong>
       </div>
 
       <div class="entry-input-wrap">
-        <input class="entry-input" id="vtp-entry-input"
-          placeholder='e.g. "How does osmosis work?"'>
-        <button class="entry-start" id="vtp-entry-start">Start Lesson →</button>
+        <input class="entry-input" id="vtp-entry-input" placeholder="">
+        <button class="entry-start" id="vtp-entry-start">Visualize →</button>
       </div>
 
-      <div class="entry-divider"><div class="entry-divider-text">or start with a topic</div></div>
+      <!-- Feature pills -->
+      <div class="vtp-feature-pills">
+        <div class="vtp-fpill">
+          <span class="vtp-fpill-icon" style="background:var(--gm);color:var(--gold);">✦</span>
+          Animated diagrams
+        </div>
+        <div class="vtp-fpill">
+          <span class="vtp-fpill-icon" style="background:var(--vm);color:var(--violet);">◉</span>
+          Quiz after each step
+        </div>
+        <div class="vtp-fpill">
+          <span class="vtp-fpill-icon" style="background:var(--tm);color:var(--teal);">≋</span>
+          Ask anything live
+        </div>
+      </div>
 
-      <div class="entry-chips" id="vtp-chips">
-        <div class="chip gold"   data-topic="pH Scale">⚗ pH Scale</div>
-        <div class="chip violet" data-topic="Newton's Laws">⚡ Newton's Laws</div>
-        <div class="chip"        data-topic="Cell Structure">🧬 Cell Structure</div>
-        <div class="chip"        data-topic="Photosynthesis">🌿 Photosynthesis</div>
-        <div class="chip"        data-topic="Osmosis">💧 Osmosis</div>
-        <div class="chip"        data-topic="Stoichiometry">🔢 Stoichiometry</div>
-        <div class="chip"        data-topic="Supply &amp; Demand">📈 Supply &amp; Demand</div>
+      <div class="entry-divider"><div class="entry-divider-text">or pick an example</div></div>
+
+      <!-- Animated example cards -->
+      <div class="vtp-example-cards" id="vtp-chips">
+
+        <div class="vtp-card gold" data-topic="pH Scale">
+          <div class="vtp-card-preview">
+            <div class="vtp-mini-bars" id="vtp-bars-ph"></div>
+          </div>
+          <div class="vtp-card-topic">⚗ pH Scale</div>
+          <div class="vtp-card-sub">acid · neutral · base</div>
+          <div class="vtp-card-tag">chemistry</div>
+        </div>
+
+        <div class="vtp-card violet" data-topic="Cell Structure">
+          <div class="vtp-card-preview">
+            <div class="vtp-mini-cell">
+              <div class="vtp-cell-membrane"></div>
+              <div class="vtp-cell-nucleus"></div>
+              <div class="vtp-cell-orb"></div>
+              <div class="vtp-cell-orb" style="animation-delay:-1.5s;width:6px;height:6px;"></div>
+              <div class="vtp-cell-orb" style="animation-delay:-3s;width:5px;height:5px;background:rgba(232,172,46,.6);border-color:rgba(232,172,46,.9);"></div>
+            </div>
+          </div>
+          <div class="vtp-card-topic">🧬 Cell Structure</div>
+          <div class="vtp-card-sub">nucleus · membrane · organelles</div>
+          <div class="vtp-card-tag">biology</div>
+        </div>
+
+        <div class="vtp-card teal" data-topic="Wave Motion">
+          <div class="vtp-card-preview">
+            <div class="vtp-mini-wave">
+              <svg id="vtp-wave-svg" width="100%" height="100%" viewBox="0 0 200 72" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="vtp-wg" x1="0" x2="1" y1="0" y2="0">
+                    <stop offset="0%" stop-color="rgba(45,212,191,0.1)"/>
+                    <stop offset="50%" stop-color="rgba(45,212,191,0.55)"/>
+                    <stop offset="100%" stop-color="rgba(45,212,191,0.1)"/>
+                  </linearGradient>
+                </defs>
+                <path id="vtp-wave1" fill="none" stroke="url(#vtp-wg)" stroke-width="2.5" stroke-linecap="round"/>
+                <path id="vtp-wave2" fill="none" stroke="rgba(139,124,248,0.35)" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="4 3"/>
+              </svg>
+            </div>
+          </div>
+          <div class="vtp-card-topic">〰 Wave Motion</div>
+          <div class="vtp-card-sub">frequency · amplitude · phase</div>
+          <div class="vtp-card-tag">physics</div>
+        </div>
+
+        <div class="vtp-card gold" data-topic="Supply &amp; Demand">
+          <div class="vtp-card-preview">
+            <svg viewBox="0 0 120 72" width="100%" height="100%" style="position:absolute;inset:0;">
+              <path d="M10,12 L110,62" stroke="var(--gold-vt)" stroke-width="2" stroke-linecap="round" fill="none" stroke-dasharray="140" stroke-dashoffset="140">
+                <animate attributeName="stroke-dashoffset" from="140" to="0" dur="1.2s" fill="freeze" begin="0.3s"/>
+              </path>
+              <path d="M10,62 L110,12" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" fill="none" stroke-dasharray="140" stroke-dashoffset="140">
+                <animate attributeName="stroke-dashoffset" from="140" to="0" dur="1.2s" fill="freeze" begin="0.6s"/>
+              </path>
+              <circle cx="60" cy="37" r="4" fill="var(--s2)" stroke="var(--gold-vt)" stroke-width="1.5" opacity="0">
+                <animate attributeName="opacity" from="0" to="1" dur="0.4s" fill="freeze" begin="1.5s"/>
+              </circle>
+              <text x="12" y="10" font-size="8" fill="var(--gold-vt)" font-family="DM Mono,monospace">D</text>
+              <text x="12" y="68" font-size="8" fill="var(--teal)" font-family="DM Mono,monospace">S</text>
+            </svg>
+          </div>
+          <div class="vtp-card-topic">📈 Supply &amp; Demand</div>
+          <div class="vtp-card-sub">equilibrium · price · market</div>
+          <div class="vtp-card-tag">economics</div>
+        </div>
+
+        <div class="vtp-card violet" data-topic="DNA Structure">
+          <div class="vtp-card-preview">
+            <svg id="vtp-dna-svg" viewBox="0 0 100 72" width="100%" height="100%" style="position:absolute;inset:0;"></svg>
+          </div>
+          <div class="vtp-card-topic">🧪 DNA Structure</div>
+          <div class="vtp-card-sub">helix · base pairs · genes</div>
+          <div class="vtp-card-tag">biology</div>
+        </div>
+
+        <div class="vtp-card" data-topic="Newton's Laws">
+          <div class="vtp-card-preview" style="display:flex;align-items:center;justify-content:center;gap:8px;">
+            <span class="vtp-force-arrow" style="color:var(--gold-vt);">→</span>
+            <span style="font-size:20px;color:var(--t3);">⚽</span>
+            <span class="vtp-force-arrow" style="color:var(--teal);animation-delay:.5s;">←</span>
+          </div>
+          <div class="vtp-card-topic">⚡ Newton's Laws</div>
+          <div class="vtp-card-sub">force · motion · reaction</div>
+          <div class="vtp-card-tag">physics</div>
+        </div>
+
+      </div>
+
+      <!-- Extra chips -->
+      <div class="entry-chips" style="margin-top:12px;" id="vtp-extra-chips">
+        <div class="chip" data-topic="Photosynthesis">🌿 Photosynthesis</div>
+        <div class="chip" data-topic="Osmosis">💧 Osmosis</div>
+        <div class="chip" data-topic="Stoichiometry">🔢 Stoichiometry</div>
+        <div class="chip" data-topic="Mitosis">🔬 Mitosis</div>
+        <div class="chip" data-topic="Electric Circuits">⚡ Electric Circuits</div>
       </div>
     </div>
   </div>
@@ -1513,7 +1620,7 @@ export function mountVisualTutorScreen() {
     const startBtn = document.getElementById('vtp-entry-start');
     if (startBtn) startBtn.addEventListener('click', _vtpStartLesson);
 
-    // Topic chips
+    // Topic chips (cards + extra chips rows)
     const chipsWrap = document.getElementById('vtp-chips');
     if (chipsWrap) {
       chipsWrap.querySelectorAll('[data-topic]').forEach(chip => {
@@ -1524,6 +1631,19 @@ export function mountVisualTutorScreen() {
         });
       });
     }
+    const extraChips = document.getElementById('vtp-extra-chips');
+    if (extraChips) {
+      extraChips.querySelectorAll('[data-topic]').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const inp = document.getElementById('vtp-entry-input');
+          if (inp) inp.value = chip.getAttribute('data-topic');
+          _vtpStartLesson();
+        });
+      });
+    }
+
+    // ── Entry screen animations ──────────────────────────────────────────────
+    _vtpInitEntryAnimations();
 
     // ── Lesson screen ────────────────────────────────────────────────────────
     const exitBtn = document.getElementById('vtp-exit-btn');
@@ -1600,6 +1720,163 @@ export function mountVisualTutorScreen() {
   }, 100);
 
   console.log('[VisualTutorScreen] mounted ✦');
+}
+
+// ── Entry Screen Animations ───────────────────────────────────────────────────
+
+function _vtpInitEntryAnimations() {
+  // ── Typing placeholder ──────────────────────────────────────────────────
+  const TOPICS = [
+    'How does osmosis work?',
+    'Explain Newton\'s 3rd Law',
+    'What is the pH scale?',
+    'Show me how DNA replication works',
+    'Explain supply and demand curves',
+    'How does photosynthesis happen?',
+    'Visualize electric circuits',
+    'What is cell division?',
+  ];
+  let _ti = 0, _ci = 0, _del = false, _ptimer = null;
+  const inp = document.getElementById('vtp-entry-input');
+  function _typeStep() {
+    if (!inp || document.activeElement === inp) { _ptimer = setTimeout(_typeStep, 500); return; }
+    const topic = TOPICS[_ti];
+    if (!_del) {
+      if (_ci < topic.length) {
+        inp.placeholder = topic.slice(0, ++_ci) + '|';
+        _ptimer = setTimeout(_typeStep, 55 + Math.random() * 30);
+      } else {
+        _ptimer = setTimeout(() => { _del = true; _typeStep(); }, 1800);
+      }
+    } else {
+      if (_ci > 0) {
+        inp.placeholder = topic.slice(0, --_ci) + '|';
+        _ptimer = setTimeout(_typeStep, 28);
+      } else {
+        _del = false; _ti = (_ti + 1) % TOPICS.length;
+        _ptimer = setTimeout(_typeStep, 400);
+      }
+    }
+  }
+  _typeStep();
+
+  // ── pH bar chart ────────────────────────────────────────────────────────
+  const PH_COLORS  = ['#f87171','#fb923c','#facc15','#a3e635','#4ade80','#34d399','#22d3ee','#60a5fa','#818cf8','#a78bfa','#c084fc','#e879f9','#f472b6','#fb7185'];
+  const PH_HEIGHTS = [90,82,74,65,56,50,44,44,50,56,65,74,82,90];
+  const barsEl = document.getElementById('vtp-bars-ph');
+  if (barsEl) {
+    PH_HEIGHTS.forEach((h, i) => {
+      const bar = document.createElement('div');
+      bar.className = 'vtp-mini-bar';
+      bar.style.cssText = `height:${h}%;background:${PH_COLORS[i]};opacity:0.85;animation-delay:${i * 0.04}s;`;
+      barsEl.appendChild(bar);
+    });
+  }
+
+  // ── Sine wave ───────────────────────────────────────────────────────────
+  let _wPhase = 0, _wActive = true;
+  function _drawWave(pathEl, amp, freq, phase, w=200, h=72) {
+    let d = '';
+    for (let x = 0; x <= w; x += 2) {
+      const y = h/2 + amp * Math.sin((x/w)*freq*Math.PI*2 + phase);
+      d += (x===0?'M':'L') + x + ',' + y;
+    }
+    pathEl.setAttribute('d', d);
+  }
+  function _animWave() {
+    if (!_wActive) return;
+    _wPhase += 0.04;
+    const w1 = document.getElementById('vtp-wave1');
+    const w2 = document.getElementById('vtp-wave2');
+    if (w1) _drawWave(w1, 18, 2, _wPhase);
+    if (w2) _drawWave(w2, 12, 3, -_wPhase*1.3);
+    requestAnimationFrame(_animWave);
+  }
+  _animWave();
+
+  // ── DNA helix ───────────────────────────────────────────────────────────
+  let _dnaPhase = 0, _dnaActive = true;
+  const DNA_COLORS = ['#e8ac2e','#2dd4bf','#8b7cf8','#f87171'];
+  function _drawDNA() {
+    if (!_dnaActive) return;
+    const svg = document.getElementById('vtp-dna-svg');
+    if (!svg) return;
+    const steps = 14, cx = 50, H = 72;
+    let html = '';
+    for (let i = 0; i <= steps; i++) {
+      const t   = i / steps;
+      const y   = 4 + t * (H - 8);
+      const ang = (t * Math.PI * 4) + _dnaPhase;
+      const x1  = cx + Math.sin(ang) * 20;
+      const x2  = cx - Math.sin(ang) * 20;
+      const r   = 2.5 + Math.abs(Math.sin(ang));
+      const col = DNA_COLORS[i % DNA_COLORS.length];
+      const op  = (0.3 + Math.abs(Math.cos(ang)) * 0.5).toFixed(2);
+      html += `<line x1="${x1.toFixed(1)}" y1="${y.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${col}" stroke-width="1.2" stroke-linecap="round" opacity="${op}"/>`;
+      html += `<circle cx="${x1.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${col}" opacity="0.9"/>`;
+      html += `<circle cx="${x2.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${col}" opacity="0.9"/>`;
+    }
+    svg.innerHTML = html;
+    _dnaPhase += 0.03;
+    requestAnimationFrame(_drawDNA);
+  }
+  _drawDNA();
+
+  // ── Particle network ────────────────────────────────────────────────────
+  const canvas = document.getElementById('vtp-particles');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const screen = document.getElementById('screen-entry');
+  function _resizeCanvas() {
+    canvas.width  = screen ? screen.offsetWidth  : window.innerWidth;
+    canvas.height = screen ? screen.offsetHeight : window.innerHeight;
+  }
+  _resizeCanvas();
+  window.addEventListener('resize', _resizeCanvas);
+
+  const PART_COLORS = ['rgba(232,172,46,','rgba(139,124,248,','rgba(45,212,191,'];
+  const _parts = Array.from({length: 55}, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    vx: (Math.random()-.5)*.3, vy: (Math.random()-.5)*.3,
+    r: Math.random()*1.4+.3,
+    a: Math.random()*.35+.05,
+    color: PART_COLORS[Math.floor(Math.random()*3)],
+  }));
+
+  let _pActive = true;
+  function _tickParticles() {
+    if (!_pActive) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    _parts.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = canvas.width;
+      if (p.x > canvas.width) p.x = 0;
+      if (p.y < 0) p.y = canvas.height;
+      if (p.y > canvas.height) p.y = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+      ctx.fillStyle = p.color + p.a + ')';
+      ctx.fill();
+    });
+    for (let i = 0; i < _parts.length; i++) {
+      for (let j = i+1; j < _parts.length; j++) {
+        const dx = _parts[i].x - _parts[j].x;
+        const dy = _parts[i].y - _parts[j].y;
+        const dist = Math.sqrt(dx*dx+dy*dy);
+        if (dist < 90) {
+          ctx.beginPath();
+          ctx.moveTo(_parts[i].x, _parts[i].y);
+          ctx.lineTo(_parts[j].x, _parts[j].y);
+          ctx.strokeStyle = `rgba(255,255,255,${0.02*(1-dist/90)})`;
+          ctx.lineWidth = 0.5;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(_tickParticles);
+  }
+  _tickParticles();
 }
 
 if (typeof document !== 'undefined') mountVisualTutorScreen();
