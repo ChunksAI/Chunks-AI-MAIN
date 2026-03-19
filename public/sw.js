@@ -67,38 +67,48 @@ self.addEventListener('message', event => {
     if (Array.isArray(event.data.schedule)) {
       _cachedSchedule = event.data.schedule;
     }
-    const fired = checkAndFireReminders(_cachedSchedule);
-    // Tell the page which entries fired so it can update localStorage
-    if (fired.length && event.source) {
-      event.source.postMessage({ type: 'REMINDER_FIRED', firedAt: fired });
-    }
+    const source = event.source;
+    // Use waitUntil so SW stays alive until all notifications are shown
+    event.waitUntil(
+      checkAndFireReminders(_cachedSchedule).then(fired => {
+        if (fired.length && source) {
+          source.postMessage({ type: 'REMINDER_FIRED', firedAt: fired });
+        }
+      })
+    );
   }
 });
 
 /**
  * @param {Array} schedule
- * @returns {number[]} fireAt values that were just fired
+ * @returns {Promise<number[]>} resolves with fireAt values that were just fired
  */
-function checkAndFireReminders(schedule) {
-  const now    = Date.now();
-  const fired  = [];
+async function checkAndFireReminders(schedule) {
+  const now   = Date.now();
+  const fired = [];
+  const notifPromises = [];
+
   (schedule || []).forEach(reminder => {
     if (reminder.fireAt <= now && !reminder.fired) {
-      self.registration.showNotification(reminder.title || 'Chunks AI – Study Reminder', {
-        body:     reminder.body  || "Time to study! Don't forget your critical path.",
-        icon:     '/favicon-192x192.png',
-        badge:    '/favicon-32x32.png',
-        tag:      'chunks-daily-reminder',
-        renotify: true,
-        data:     { url: '/studyplan' },
-        actions:  [
-          { action: 'open',    title: '📚 Open Study Plan' },
-          { action: 'dismiss', title: 'Dismiss' },
-        ],
-      });
+      notifPromises.push(
+        self.registration.showNotification(reminder.title || 'Chunks AI – Study Reminder', {
+          body:     reminder.body  || "Time to study! Don't forget your critical path.",
+          icon:     '/favicon-192x192.png',
+          badge:    '/favicon-32x32.png',
+          tag:      'chunks-daily-reminder',
+          renotify: true,
+          data:     { url: '/studyplan' },
+          actions:  [
+            { action: 'open',    title: '📚 Open Study Plan' },
+            { action: 'dismiss', title: 'Dismiss' },
+          ],
+        })
+      );
       reminder.fired = true;
       fired.push(reminder.fireAt);
     }
   });
+
+  await Promise.all(notifPromises);
   return fired;
 }

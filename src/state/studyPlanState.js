@@ -1899,15 +1899,29 @@ export function spConfidenceBadge(conceptIdx) {
       const schedule = JSON.parse(raw);
       const now = Date.now();
       let changed = false;
+      const notifPromises = [];
       (schedule || []).forEach(r => {
         if (r.fireAt <= now && !r.fired) {
           if (Notification.permission === 'granted') {
-            new Notification(r.title || 'Chunks AI – Study Reminder', {
-              body:  r.body  || "Time to study! Open your study plan.",
-              icon:  '/favicon-192x192.png',
-              badge: '/favicon-32x32.png',
-              tag:   'chunks-daily-reminder',
-            });
+            // Prefer SW registration.showNotification (works even when SW registered)
+            // Fall back to new Notification only if no SW registration available
+            const regPromise = navigator.serviceWorker?.ready
+              .then(reg => reg.showNotification(r.title || 'Chunks AI – Study Reminder', {
+                body:  r.body  || 'Time to study! Open your study plan.',
+                icon:  '/favicon-192x192.png',
+                badge: '/favicon-32x32.png',
+                tag:   'chunks-daily-reminder',
+                renotify: true,
+                data:  { url: '/studyplan' },
+              }))
+              .catch(() => {
+                // Last-resort fallback
+                new Notification(r.title || 'Chunks AI – Study Reminder', {
+                  body: r.body || 'Time to study! Open your study plan.',
+                  icon: '/favicon-192x192.png',
+                });
+              });
+            if (regPromise) notifPromises.push(regPromise);
           }
           r.fired = true;
           changed = true;
