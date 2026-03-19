@@ -241,6 +241,18 @@ export function mountSidebars() {
     const screen = el.dataset.sidebarScreen || 'home';
     el.innerHTML = buildSidebar(screen);
   });
+  // Default: all history sections expanded. Only collapse if user explicitly toggled.
+  // We use sessionStorage flag 'chunks_hist_initialized' to distinguish
+  // "first mount this session" from "user toggled and reloaded".
+  const _histInitialized = (() => { try { return sessionStorage.getItem('chunks_hist_initialized') === '1'; } catch(e) { return false; } })();
+  if (!_histInitialized) {
+    // First mount this session — clear any stale collapsed state so everything is expanded
+    ['hist-section-general','hist-section-workspace','hist-section-visual','hist-section-exam'].forEach(id => {
+      try { sessionStorage.removeItem('hist_collapsed_' + id); } catch(e) {}
+    });
+    try { sessionStorage.setItem('chunks_hist_initialized', '1'); } catch(e) {}
+  }
+
   // Restore persisted collapsed state for each history section
   ['hist-section-general','hist-section-workspace','hist-section-visual','hist-section-exam'].forEach(id => {
     try {

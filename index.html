@@ -972,7 +972,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <span class="kbd-combo"><kbd>Esc</kbd></span>
       </div>
       <div class="shortcuts-row">
-        <span class="shortcuts-row-label">Delete current chat</span>
+        <span class="shortcuts-row-label">Delete current chat / plan</span>
         <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>⇧</kbd><span class="kbd-sep">+</span><kbd>⌫</kbd></span>
       </div>
 
@@ -1064,11 +1064,30 @@ document.addEventListener('keydown', function(e) {
     return;
   }
 
-  // ── Ctrl+Shift+Backspace — delete current chat ────────────
-  // (before isTyping guard so it works regardless of focus)
+  // ── Ctrl+Shift+Backspace — delete current chat OR active study plan ────────
+  // (before isTyping guard so it works regardless of focus, from any screen)
   if (e.ctrlKey && e.shiftKey && e.key === 'Backspace') {
     e.preventDefault();
-    if (_activeRecentId) {
+
+    // Check if a study plan is currently loaded
+    const _activePlanId = (typeof window._spActivePlanId !== 'undefined') ? window._spActivePlanId : null;
+    const _activePlan   = (typeof window._spCurrentPlan  !== 'undefined') ? window._spCurrentPlan  : null;
+
+    if (_activePlanId && _activePlan) {
+      // Delete the active study plan (works from any screen)
+      const topic = _activePlan.topic || 'this plan';
+      showConfirmModal({
+        title: 'Delete this plan?',
+        desc: `"${topic}" will be permanently removed.`,
+        confirmLabel: 'Delete plan',
+        onConfirm: () => {
+          if (typeof window.spDeletePlan === 'function') window.spDeletePlan(_activePlanId);
+          if (typeof window._renderRecentPlansAllSidebars === 'function') window._renderRecentPlansAllSidebars();
+          wsShowToast('🗑️', `"${topic}" deleted`, '');
+        }
+      });
+    } else if (_activeRecentId) {
+      // Delete the active chat
       const item = _recentItems.find(r => r.id === _activeRecentId);
       showConfirmModal({
         title: 'Delete this chat?',
@@ -1080,7 +1099,7 @@ document.addEventListener('keydown', function(e) {
         }
       });
     } else {
-      wsShowToast('⚠', 'No active chat to delete', '');
+      wsShowToast('⚠', 'No active chat or plan to delete', '');
     }
     return;
   }
