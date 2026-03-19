@@ -88,6 +88,12 @@
   overflow: hidden;
 }
 
+/* Entry screen scrolls — overrides the base overflow:hidden above */
+#screen-visual #screen-entry.vtp-screen {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
 /* Compact sidebar — vtp-screens shift left */
 .sidebar.compact ~ * #screen-visual .vtp-screen,
 #screen-visual .sidebar.compact ~ .vtp-screen {
@@ -131,8 +137,6 @@
 #screen-entry {
   align-items: center;
   justify-content: flex-start;
-  overflow-y: auto;
-  overflow-x: hidden;
   background: var(--bg);
 }
 
