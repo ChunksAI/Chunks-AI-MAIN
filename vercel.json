@@ -1,4 +1,10 @@
 {
+  "redirects": [
+    { "source": "/login.html",   "destination": "/login",   "permanent": true },
+    { "source": "/privacy.html", "destination": "/privacy", "permanent": true },
+    { "source": "/terms.html",   "destination": "/terms",   "permanent": true },
+    { "source": "/admin.html",   "destination": "/admin",   "permanent": true }
+  ],
   "rewrites": [
     { "source": "/login",   "destination": "/login.html"   },
     { "source": "/privacy", "destination": "/privacy.html" },
