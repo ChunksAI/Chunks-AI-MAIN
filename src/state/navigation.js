@@ -129,26 +129,69 @@ function showScreen(name) {
       if (typeof window.spInitScreen === 'function') window.spInitScreen();
     }
 
-    // Clear active chat highlight when navigating to a screen that doesn't
-    // own the active session. Each screen only owns sessions by source type:
-    //   home → general | workspace → workspace | exam → exam | visual → visual
-    // All other screens (flash, research, library, studyplan) own nothing.
-    // This prevents a workspace highlight showing in the sidebar when on Home, etc.
-    if (typeof _setActiveRecent === 'function' && typeof _recentItems !== 'undefined') {
-      const _activeId = typeof _activeRecentId !== 'undefined' ? _activeRecentId : null;
-      if (_activeId) {
-        const _activeItem = _recentItems.find(r => r.id === _activeId);
-        const _src = _activeItem?.source || '';
-        const _owns = { home: 'general', workspace: 'workspace', exam: 'exam', visual: 'visual' };
-        // If the destination screen doesn't own the active session source → clear it
-        if (_owns[name] !== _src) {
-          _setActiveRecent(null);
-        }
+    // ── Fresh navigation: reset screen to empty state ───────────────────────
+    // When clicking a nav item (not a history item), start fresh — clear any
+    // active session so the user sees an empty/ready screen, not old content.
+    if (name === 'home') {
+      // Home: clear chat history and return to landing
+      if (typeof window.goHome === 'function') {
+        // goHome() calls showScreen internally, so we need to avoid double-call.
+        // Just clear state here; showScreen continues below.
+        const chatHist = document.getElementById('home-chat-history');
+        if (chatHist) chatHist.innerHTML = '';
+        const homeLanding = document.getElementById('home-landing');
+        const homeHero    = document.querySelector('.home-hero');
+        const homeBar     = document.getElementById('home-input-bar');
+        const homeScroll  = document.getElementById('home-scroll-area');
+        if (homeLanding) homeLanding.style.display = '';
+        if (homeHero)    homeHero.style.display = '';
+        if (homeBar)     homeBar.style.display = 'none';
+        if (homeScroll)  homeScroll.style.justifyContent = 'center';
+        if (typeof window._homeSessionId !== 'undefined') window._homeSessionId = null;
+        if (typeof window.homeHistory    !== 'undefined') window.homeHistory    = [];
+        try { localStorage.removeItem('chunks_active_home_session'); } catch(_) {}
       }
     }
-
-    // (plan highlight clearing moved outside this block — see below)
+    if (name === 'workspace') {
+      // Workspace: clear chat, show empty state
+      const msgs = document.getElementById('ws-messages');
+      if (msgs) msgs.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div></div>`;
+      if (typeof window._wsChatHistory !== 'undefined') window._wsChatHistory = [];
+      try { localStorage.removeItem('chunks_active_ws_book'); } catch(_) {}
+    }
+    if (name === 'flash') {
+      // Flashcards: reset to deck selection if function exists
+      if (typeof window._fcExitStudy === 'function') window._fcExitStudy();
+    }
+    if (name === 'research') {
+      // Research: back to setup if function exists
+      if (typeof window._researchBackToSetup === 'function') window._researchBackToSetup();
+    }
+    // Clear active chat highlight on fresh nav (no history item selected)
+    if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
   }
+
+  // ── Always enforce source ownership for chat highlights ───────────────────
+  // Runs for EVERY navigation (fresh or history) to ensure only the item
+  // matching the current screen's source type stays highlighted.
+  // Each screen owns one session source:
+  //   home → general | workspace → workspace | exam → exam | visual → visual
+  // All other screens (flash, research, library, studyplan) own nothing → clear.
+  if (typeof _setActiveRecent === 'function' && typeof _recentItems !== 'undefined') {
+    const _activeId = typeof _activeRecentId !== 'undefined' ? _activeRecentId : null;
+    if (_activeId) {
+      const _activeItem = _recentItems.find(r => r.id === _activeId);
+      // Handle old items without explicit source: if no bookId → treat as general
+      const _src = _activeItem
+        ? (_activeItem.source || (_activeItem.bookId ? 'workspace' : 'general'))
+        : '';
+      const _owns = { home: 'general', workspace: 'workspace', exam: 'exam', visual: 'visual' };
+      if (_owns[name] !== _src) {
+        _setActiveRecent(null);
+      }
+    }
+  }
+
   // ── Always clear plan highlight when not on studyplan ─────────────────────
   // Runs even for history navigation (_navFromHistory=true) so a plan item
   // never stays highlighted while viewing a different screen's content.
