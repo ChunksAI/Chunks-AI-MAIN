@@ -196,10 +196,18 @@ function handleLogoClick() { showScreen('home'); }
 
 export function _navInit() {
   // ── Strip OAuth hash and land on /home ──────────────────────────────────
-  // After Google/email login, Supabase redirects to / with #access_token=...
+  // After Google/email login, Supabase redirects to /home with #access_token=...
   // or /home?code=... in the URL. We need to clean this up immediately so
   // the user sees /home rather than /#access_token=... or /?code=...
-  if (_isOAuthHash() || window.location.search.includes('code=')) {
+  // IMPORTANT: Save the OAuth flag to sessionStorage BEFORE stripping the hash
+  // so that auth.js can still detect the OAuth flow after replaceState clears the URL.
+  const _hadOAuthHash = window.location.hash.includes('access_token') ||
+                        window.location.hash.includes('error_description');
+  const _hadOAuthCode = window.location.search.includes('code=');
+
+  if (_hadOAuthHash || _hadOAuthCode) {
+    // Signal to auth.js that this page load is an OAuth callback
+    try { sessionStorage.setItem('chunks_oauth_callback', '1'); } catch(e) {}
     try {
       window.history.replaceState({ screen: 'home' }, '', '/home');
     } catch(e) {}
