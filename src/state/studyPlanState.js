@@ -83,6 +83,13 @@ export function spMasteryRecord(activityKey, score) {
   spUpdatePanel();
   // Keep localStorage in sync so mastery survives a refresh
   try { localStorage.setItem('sp_active_mastery', JSON.stringify(_spMastery)); } catch (_) {}
+  // Also update sp_all_plans so clicking the plan from the sidebar loads current mastery
+  try {
+    if (_spActivePlanId && _spAllPlans[_spActivePlanId]) {
+      _spAllPlans[_spActivePlanId].mastery = { ..._spMastery };
+      localStorage.setItem('sp_all_plans', JSON.stringify(_spAllPlans));
+    }
+  } catch (_) {}
 }
 
 export function spMasteryUpdateNode(idx, masteryPct) {
@@ -1335,7 +1342,21 @@ export function spSwitchToPlan(id) {
   const entry = _spAllPlans[id];
   if (!entry || !entry.plan) return;
   _spCurrentPlan = entry.plan;
-  _spMastery = entry.mastery || {};
+  // Prefer sp_active_mastery from localStorage when loading the active plan,
+  // because spMasteryRecord writes there in real-time but sp_all_plans.mastery
+  // may be slightly stale (written on the same tick, but read from disk).
+  // For non-active plans, fall back to the entry mastery.
+  try {
+    const activeId = localStorage.getItem('sp_active_plan_id');
+    if (activeId === id) {
+      const raw = localStorage.getItem('sp_active_mastery');
+      _spMastery = raw ? (JSON.parse(raw) || {}) : (entry.mastery || {});
+    } else {
+      _spMastery = entry.mastery || {};
+    }
+  } catch (_) {
+    _spMastery = entry.mastery || {};
+  }
   _spActivePlanId = id;
   // Highlight the active plan in all sidebars
   if (typeof window.setActivePlan === 'function') window.setActivePlan(id);
