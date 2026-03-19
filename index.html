@@ -6056,6 +6056,64 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     'examSelectScanMode-self':(el)    => examSelectScanMode(el),
     'examSelectDiff-self':    (el)    => examSelectDiff(el),
 
+    /* ── Study Plan sidebar ─────────────────────────────── */
+    'spNavigateToPlan-self':  (el, ev) => {
+      // Ignore clicks that originate from the delete button
+      if (ev.target.closest('.sp-plan-delete-btn')) return;
+      const planId = el.dataset.planId;
+      if (typeof showScreen === 'function') showScreen('studyplan');
+      if (planId) {
+        setTimeout(() => {
+          if (typeof window.spSwitchToPlan === 'function') window.spSwitchToPlan(planId);
+        }, 120);
+      } else {
+        setTimeout(() => {
+          if (typeof window.spInitScreen === 'function') window.spInitScreen();
+        }, 120);
+      }
+    },
+    'spDeletePlanFromSidebar-self': (el, ev) => {
+      ev.stopPropagation();
+      const planId = el.dataset.planId;
+      const topic  = el.dataset.planTopic;
+      showConfirmModal({
+        title: 'Delete this plan?',
+        desc: `"${topic}" will be permanently removed.`,
+        confirmLabel: 'Delete plan',
+        onConfirm: () => {
+          // Remove from sp_recent_plans
+          try {
+            let plans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]');
+            plans = plans.filter(p => p !== topic);
+            localStorage.setItem('sp_recent_plans', JSON.stringify(plans));
+          } catch(_) {}
+          // Remove from sp_all_plans and call spDeletePlan if available
+          if (planId && typeof window.spDeletePlan === 'function') {
+            window.spDeletePlan(planId);
+          } else {
+            try {
+              const all = JSON.parse(localStorage.getItem('sp_all_plans') || '{}');
+              delete all[planId];
+              localStorage.setItem('sp_all_plans', JSON.stringify(all));
+            } catch(_) {}
+          }
+          // Re-render all sidebar recent plans
+          if (typeof window._renderRecentPlansAllSidebars === 'function') {
+            window._renderRecentPlansAllSidebars();
+          }
+          if (typeof wsShowToast === 'function') wsShowToast('🗑️', `"${topic}" deleted`, '');
+        }
+      });
+    },
+    'toggleRecentPlans-self': (el) => {
+      const sectionId = el.dataset.section;
+      document.querySelectorAll('#' + sectionId).forEach(sec => {
+        sec.classList.toggle('collapsed');
+      });
+      const isCollapsed = document.getElementById(sectionId)?.classList.contains('collapsed');
+      try { sessionStorage.setItem('sp_plans_collapsed_' + sectionId, isCollapsed ? '1' : '0'); } catch(e) {}
+    },
+
     /* ── Study Plan ─────────────────────────────────────── */
     'spDrawerTab':            (el)    => spDrawerTab(el.dataset.tab),
     'spCloseExplainDrawer':   ()      => spCloseExplainDrawer(),

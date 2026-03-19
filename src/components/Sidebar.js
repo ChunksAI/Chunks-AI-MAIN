@@ -145,21 +145,17 @@ export function buildSidebar(screen) {
       </div>`;
   }).join('\n');
 
-  // Recent Plans section — shown on ALL screens
-  const plansSectionId   = `sp-recent-plans-section-${screen}`;
-  const plansListId      = `sp-recent-plans-list-${screen}`;
-  const plansCollapseId  = `sp-recent-plans-collapse-${screen}`;
-  const extraSections = `
-    <div id="${plansSectionId}" class="sidebar-recent-plans-section" style="display:none;">
-      <div class="sidebar-divider"></div>
-      <div class="sidebar-section">
-        <div class="sidebar-section-label sidebar-section-toggle sp-plans-toggle" data-collapse-id="${plansCollapseId}" data-list-id="${plansListId}" style="cursor:pointer;">
+  // Recent Plans section — shown on ALL screens, inside the scroll area
+  const plansSectionId = `sp-recent-plans-section-${screen}`;
+  const plansListId    = `sp-recent-plans-list-${screen}`;
+  const recentPlansSection = `
+      <div class="sidebar-section sidebar-history-section sp-recent-plans-outer" id="${plansSectionId}" style="display:none;">
+        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleRecentPlans-self" data-section="${plansSectionId}">
           Recent Plans
-          <svg id="${plansCollapseId}" class="hist-chevron sp-plans-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
-        <div id="${plansListId}" class="sp-recent-plans-list"></div>
-      </div>
-    </div>`;
+        <div id="${plansListId}" class="sp-recent-plans-list hist-list"></div>
+      </div>`;
 
   return `
     <div class="sidebar-header">
@@ -217,8 +213,8 @@ ${navHTML}
         </div>
         <div id="${ids.exam}" class="recent-list hist-list"></div>
       </div>
+      ${recentPlansSection}
     </div>
-    ${extraSections}
 
     <div class="sidebar-footer">
       <div class="profile-row" role="button" tabindex="0" aria-label="Open profile menu" aria-haspopup="true" onclick="toggleProfileDropdown(event)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleProfileDropdown(event)">
@@ -254,19 +250,12 @@ export function mountSidebars() {
       }
     } catch(e) {}
   });
-
-  // Wire up Recent Plans collapse toggles on all sidebars
-  document.querySelectorAll('.sp-plans-toggle').forEach(toggle => {
-    toggle.addEventListener('click', () => {
-      const listId    = toggle.dataset.listId;
-      const chevronId = toggle.dataset.collapseId;
-      const list      = document.getElementById(listId);
-      const chevron   = document.getElementById(chevronId);
-      if (!list) return;
-      const collapsed = list.style.display === 'none';
-      list.style.display = collapsed ? '' : 'none';
-      if (chevron) chevron.style.transform = collapsed ? 'rotate(90deg)' : 'rotate(0deg)';
-    });
+  // Restore collapsed state for recent plans sections
+  document.querySelectorAll('.sp-recent-plans-outer').forEach(sec => {
+    try {
+      const key = 'sp_plans_collapsed_' + sec.id;
+      if (sessionStorage.getItem(key) === '1') sec.classList.add('collapsed');
+    } catch(e) {}
   });
 
   // Populate all recent-plans sections from localStorage
@@ -278,11 +267,10 @@ export function _renderRecentPlansAllSidebars() {
   let plans = [];
   try { plans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]'); } catch(_) {}
 
-  // Also pull full plan data so we can load by topic
   let allPlans = {};
   try { allPlans = JSON.parse(localStorage.getItem('sp_all_plans') || '{}'); } catch(_) {}
 
-  document.querySelectorAll('.sidebar-recent-plans-section').forEach(section => {
+  document.querySelectorAll('.sp-recent-plans-outer').forEach(section => {
     const listEl = section.querySelector('.sp-recent-plans-list');
     if (!listEl) return;
     if (!plans || plans.length === 0) {
@@ -290,39 +278,29 @@ export function _renderRecentPlansAllSidebars() {
       return;
     }
     section.style.display = '';
-    listEl.innerHTML = plans.map(topic => `
-      <div class="sidebar-item sp-plan-link" role="button" tabindex="0"
-           aria-label="${topic}"
-           data-plan-topic="${topic.replace(/"/g, '&quot;')}"
-           style="cursor:pointer;font-size:12px;padding:6px 16px;"
-           title="${topic}">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;opacity:0.6;"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${topic}</span>
-      </div>
-    `).join('');
 
-    // Click handler: navigate to studyplan and load the selected plan
-    listEl.querySelectorAll('.sp-plan-link').forEach(item => {
-      const handler = () => {
-        const topic = item.dataset.planTopic;
-        // Find the plan id matching this topic
-        const entry = Object.entries(allPlans).find(([, e]) => e.topic === topic);
-        if (typeof window.showScreen === 'function') window.showScreen('studyplan');
-        if (entry) {
-          const [id] = entry;
-          setTimeout(() => {
-            if (typeof window.spSwitchToPlan === 'function') window.spSwitchToPlan(id);
-          }, 120);
-        } else {
-          // Fallback: just navigate to studyplan screen
-          setTimeout(() => {
-            if (typeof window.spInitScreen === 'function') window.spInitScreen();
-          }, 120);
-        }
-      };
-      item.addEventListener('click', handler);
-      item.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') handler(); });
-    });
+    listEl.innerHTML = plans.map(topic => {
+      const entry = Object.entries(allPlans).find(([, e]) => e.topic === topic);
+      const planId = entry ? entry[0] : '';
+      const safeTopic = topic.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      return `
+        <div class="sidebar-item sp-plan-sidebar-item" role="button" tabindex="0"
+             aria-label="${safeTopic}"
+             data-action="spNavigateToPlan-self"
+             data-plan-id="${planId}"
+             data-plan-topic="${safeTopic}"
+             title="${safeTopic}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;opacity:0.55;"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:12px;">${topic}</span>
+          <button class="sp-plan-delete-btn" aria-label="Delete plan"
+                  data-action="spDeletePlanFromSidebar-self"
+                  data-plan-id="${planId}"
+                  data-plan-topic="${safeTopic}"
+                  title="Delete plan">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>`;
+    }).join('');
   });
 }
 
