@@ -224,9 +224,10 @@ const RECENT_MAX = 8;
 const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
 let _recentItems = JSON.parse(localStorage.getItem('chunks_recent') || 'null') || [];
-let _activeRecentId = (function() {
-  try { return localStorage.getItem('chunks_active_recent_id') || null; } catch(e) { return null; }
-})();
+// Never restore active highlight from localStorage on page load.
+// The highlight is a transient UI state — it only makes sense when the user
+// is actively inside that session. On fresh load/refresh, start with no highlight.
+let _activeRecentId = null;
 
 function _saveRecent() {
   localStorage.setItem('chunks_recent', JSON.stringify(_recentItems));
@@ -291,8 +292,8 @@ function goHome() {
   if (homeBar)     homeBar.style.display = 'none';
   if (homeScroll)  homeScroll.style.justifyContent = 'center';
 
-  // Clear sidebar active state
-  document.querySelectorAll('.recent-item').forEach(el => el.classList.remove('active'));
+  // Clear sidebar active state via _setActiveRecent so both DOM and localStorage are cleared
+  if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
 
   showScreen('home');
 }
@@ -310,9 +311,9 @@ function newChat() {
       <div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div>
     </div>`;
 
-  // Reset chat state
+  // Reset chat state — clear highlight properly via _setActiveRecent
   _wsChatHistory = [];
-  _activeRecentId = null;
+  if (typeof _setActiveRecent === 'function') _setActiveRecent(null); else _activeRecentId = null;
   homeHistory = [];
   _homeSessionId = null;
   localStorage.removeItem('chunks_active_home_session');
