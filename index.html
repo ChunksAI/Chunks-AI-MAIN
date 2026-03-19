@@ -6094,10 +6094,28 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
       // Ignore clicks that originate from the dots menu button
       if (ev.target.closest('.sp-plan-menu-btn')) return;
       const planId = el.dataset.planId;
+
+      // Write the active plan ID to localStorage FIRST — this is the ground
+      // truth read by _renderRecentPlansAllSidebars, so the highlight will be
+      // correct no matter when the re-render fires (spInitScreen, spSwitchToPlan, etc.)
+      if (planId) {
+        try { localStorage.setItem('sp_active_plan_id', planId); } catch(_) {}
+      }
+
+      // Update in-memory state and DOM highlights immediately
+      if (planId && typeof window.setActivePlan === 'function') window.setActivePlan(planId);
+
       if (typeof showScreen === 'function') showScreen('studyplan');
+
       if (planId) {
         setTimeout(() => {
+          // spSwitchToPlan loads the plan, updates _spActivePlanId, calls setActivePlan
           if (typeof window.spSwitchToPlan === 'function') window.spSwitchToPlan(planId);
+          // Re-render after switch — localStorage already has the correct planId
+          // so every plan item gets the right isActive class
+          if (typeof window._renderRecentPlansAllSidebars === 'function') {
+            window._renderRecentPlansAllSidebars();
+          }
         }, 120);
       } else {
         setTimeout(() => {

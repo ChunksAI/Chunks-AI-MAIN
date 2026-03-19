@@ -146,6 +146,12 @@ function showScreen(name) {
         }
       }
     }
+
+    // Clear active plan highlight when navigating away from studyplan screen.
+    // When navigating TO studyplan, spInitScreen re-highlights via setActivePlan.
+    if (name !== 'studyplan' && typeof window.setActivePlan === 'function') {
+      window.setActivePlan(null);
+    }
   }
   window._navFromHistory = false;
 

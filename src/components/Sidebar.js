@@ -236,6 +236,25 @@ ${navHTML}
  *
  * Call once on DOMContentLoaded (done automatically below).
  */
+// Active plan ID — tracks which plan is currently loaded, survives refresh
+let _activePlanId = (function() {
+  try { return localStorage.getItem('sp_active_plan_id') || null; } catch(e) { return null; }
+})();
+
+/** Set the active plan and update all sidebar highlights */
+export function setActivePlan(planId) {
+  _activePlanId = planId || null;
+  try {
+    if (_activePlanId) localStorage.setItem('sp_active_plan_id', _activePlanId);
+    else localStorage.removeItem('sp_active_plan_id');
+  } catch(e) {}
+  // Update active class on all plan items across all sidebars
+  document.querySelectorAll('.sp-plan-sidebar-item').forEach(el => {
+    el.classList.toggle('active', !!_activePlanId && el.dataset.planId === _activePlanId);
+  });
+}
+window.setActivePlan = setActivePlan;
+
 export function mountSidebars() {
   document.querySelectorAll('aside.sidebar[data-sidebar-screen]').forEach(el => {
     const screen = el.dataset.sidebarScreen || 'home';
@@ -294,12 +313,20 @@ export function _renderRecentPlansAllSidebars() {
       return;
     }
 
+    // Always read active plan ID from localStorage — ground truth that all
+    // callers (spSwitchToPlan, setActivePlan) write to. The in-memory
+    // _activePlanId can drift if setActivePlan is called with a stale value
+    // between the click and the re-render, so localStorage wins.
+    const _lsActivePlanId = (() => { try { return localStorage.getItem('sp_active_plan_id') || null; } catch(e) { return null; } })();
+    const _currentActivePlanId = _lsActivePlanId || _activePlanId;
+
     listEl.innerHTML = plans.map(topic => {
       const entry = Object.entries(allPlans).find(([, e]) => e.topic === topic);
       const planId = entry ? entry[0] : '';
       const safeTopic = topic.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+      const isActive = _currentActivePlanId && planId && planId === _currentActivePlanId;
       return `
-        <div class="sidebar-item sp-plan-sidebar-item" role="button" tabindex="0"
+        <div class="sidebar-item sp-plan-sidebar-item${isActive ? ' active' : ''}" role="button" tabindex="0"
              aria-label="${safeTopic}"
              data-action="spNavigateToPlan-self"
              data-plan-id="${planId}"
