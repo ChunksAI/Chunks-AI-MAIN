@@ -592,6 +592,8 @@ export function spShowEmpty() {
   if (btn) { btn.disabled = false; btn.style.opacity = ''; }
   // Deselect any active plan in the sidebar — we're starting a new session
   if (typeof window.setActivePlan === 'function') window.setActivePlan(null);
+  // Clear the PDF upload so a new plan always starts with an empty form
+  if (typeof spClearUpload === 'function') spClearUpload();
 }
 
 export function spShowPlan() {
