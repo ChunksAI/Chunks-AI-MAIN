@@ -17,11 +17,16 @@
 <meta property="og:url" content="https://chunks.online">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Chunks AI">
+<meta property="og:image" content="https://chunks.online/web-app-manifest-512x512.png">
+<meta property="og:image:width" content="512">
+<meta property="og:image:height" content="512">
+<meta property="og:image:alt" content="Chunks AI logo">
 
 <!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Chunks AI — Study Smarter with AI">
 <meta name="twitter:description" content="AI-powered flashcards, study plans, visual tutor, and exam prep.">
+<meta name="twitter:image" content="https://chunks.online/web-app-manifest-512x512.png">
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self';
   script-src 'self' blob: https://cdnjs.cloudflare.com https://fonts.googleapis.com 'unsafe-inline';
@@ -36,10 +41,23 @@
   upgrade-insecure-requests;
 ">
 <title>Chunks AI — Study Smarter</title>
-<link rel="icon" type="image/x-icon"  href="/favicon.ico">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="192x192" href="/favicon-192x192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<!-- JSON-LD: helps Google show logo in search results and Knowledge Panel -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Chunks AI",
+  "url": "https://chunks.online",
+  "logo": "https://chunks.online/web-app-manifest-512x512.png",
+  "description": "AI-powered study tool with flashcards, study plans, visual tutor, and exam prep.",
+  "sameAs": []
+}
+</script>
 <style>
   /* Hide page until auth check + screen restore complete */
   html { scroll-behavior: auto !important; }
