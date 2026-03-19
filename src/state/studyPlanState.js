@@ -1193,7 +1193,7 @@ export function spInitScreen() {
     if (_spActivePlanId && typeof window.setActivePlan === 'function') {
       window.setActivePlan(_spActivePlanId);
     }
-    setTimeout(() => { spUpdateExamDateUI(); spUpdateDailySchedule(); }, 100);
+    setTimeout(() => { spUpdateExamDateUI(); spUpdateDailySchedule(); spUpdateReminderUI(); }, 100);
     return;
   }
   // Load multi-plan library
@@ -1253,7 +1253,7 @@ export function spInitScreen() {
             window.setActivePlan(storedPlanId);
           }
         }
-        setTimeout(() => { spUpdateExamDateUI(); spUpdateDailySchedule(); spUpdateSrsPanel(); }, 200);
+        setTimeout(() => { spUpdateExamDateUI(); spUpdateDailySchedule(); spUpdateSrsPanel(); spUpdateReminderUI(); }, 200);
       }
     }
   } catch (e) {
@@ -1371,6 +1371,7 @@ export function spSwitchToPlan(id) {
   spSrsLoad();
   spUpdateExamDateUI();
   spUpdateDailySchedule();
+  spUpdateReminderUI();
   setTimeout(() => spUpdateSrsPanel(), 200);
   if (typeof wsShowToast === 'function') wsShowToast('📚', `Switched to "${entry.topic}"`, 'var(--gold-border)');
 }
@@ -1442,6 +1443,8 @@ export function spSetExamDate(val) {
   if (setBtn) setBtn.style.display = 'flex';
   // Regenerate daily schedule in detail panel
   spUpdateDailySchedule();
+  // Show reminder row now that an exam date is set
+  spUpdateReminderUI();
 }
 
 export function spClearExamDate() {
@@ -1455,6 +1458,9 @@ export function spClearExamDate() {
 }
 
 export function spUpdateExamDateUI() {
+  // Also update reminder row visibility whenever exam date UI updates
+  // Use setTimeout to avoid circular calls during initialization
+  setTimeout(() => { if (typeof spUpdateReminderUI === 'function') spUpdateReminderUI(); }, 0);
   const display = document.getElementById('sp-exam-date-display');
   const setBtn  = document.getElementById('sp-set-exam-date-btn');
   const label   = document.getElementById('sp-exam-date-label');
@@ -1821,6 +1827,92 @@ export function spConfidenceBadge(conceptIdx) {
   return '<span style="font-size:9px;padding:1px 6px;border-radius:var(--r-pill);background:rgba(248,113,113,0.12);color:var(--red);font-family:var(--font-mono);">review</span>';
 }
 
+
+// ── Daily reminder (push notifications) ──────────────────────────────────────
+
+export function spUpdateReminderUI() {
+  const row = document.getElementById('sp-reminder-row');
+  if (!row) return;
+  // Show row only when exam date is set
+  row.style.display = _spExamDate ? 'flex' : 'none';
+  if (!_spExamDate) return;
+
+  const enabled = window._chunksNotifications?.enabled?.() || false;
+  const btn     = document.getElementById('sp-reminder-btn');
+  const label   = document.getElementById('sp-reminder-btn-label');
+  const timeWrap = document.getElementById('sp-reminder-time-wrap');
+
+  if (btn) {
+    btn.style.borderColor = enabled ? 'var(--gold-border)' : 'var(--border-sm)';
+    btn.style.color       = enabled ? 'var(--gold)'        : 'var(--text-3)';
+    btn.style.background  = enabled ? 'var(--gold-muted)'  : 'var(--surface-2)';
+  }
+  if (label) label.textContent = enabled ? '🔔 Daily reminder on' : 'Enable daily reminder';
+  if (timeWrap) timeWrap.style.display = enabled ? 'flex' : 'none';
+
+  // Restore saved time
+  const prefs = window._chunksNotifications?.prefs?.();
+  if (prefs && document.getElementById('sp-reminder-time')) {
+    const h = String(prefs.hour   || 20).padStart(2,'0');
+    const m = String(prefs.minute || 0).padStart(2,'0');
+    document.getElementById('sp-reminder-time').value = h + ':' + m;
+  }
+}
+
+export async function spToggleReminder() {
+  if (!_spExamDate) {
+    if (typeof wsShowToast === 'function') wsShowToast('📅', 'Set an exam date first', 'var(--gold-border)');
+    return;
+  }
+  if (!window._chunksNotifications) {
+    if (typeof wsShowToast === 'function') wsShowToast('⚠', 'Notifications not available', '');
+    return;
+  }
+
+  const enabled = window._chunksNotifications.enabled();
+
+  if (enabled) {
+    // Turn off
+    window._chunksNotifications.cancel();
+    spUpdateReminderUI();
+    if (typeof wsShowToast === 'function') wsShowToast('🔕', 'Daily reminders turned off', '');
+    return;
+  }
+
+  // Request permission then enable
+  const perm = await window._chunksNotifications.request();
+  if (perm === 'denied') {
+    if (typeof wsShowToast === 'function') wsShowToast('🚫', 'Notifications blocked — enable in browser settings', 'rgba(248,113,113,0.3)');
+    return;
+  }
+  if (perm !== 'granted') return;
+
+  const timeInput = document.getElementById('sp-reminder-time');
+  const [h, m] = (timeInput?.value || '20:00').split(':').map(Number);
+
+  window._chunksNotifications.schedule({
+    examDate:  _spExamDate,
+    planTopic: _spCurrentPlan?.topic || 'your study plan',
+    hour:   isNaN(h) ? 20 : h,
+    minute: isNaN(m) ? 0  : m,
+  });
+
+  spUpdateReminderUI();
+  if (typeof wsShowToast === 'function') wsShowToast('🔔', 'Daily reminders enabled!', 'var(--gold-border)');
+}
+
+export function spUpdateReminderTime(timeVal) {
+  if (!timeVal || !window._chunksNotifications?.enabled?.()) return;
+  const [h, m] = timeVal.split(':').map(Number);
+  window._chunksNotifications.schedule({
+    examDate:  _spExamDate,
+    planTopic: _spCurrentPlan?.topic || 'your study plan',
+    hour:   isNaN(h) ? 20 : h,
+    minute: isNaN(m) ? 0  : m,
+  });
+  if (typeof wsShowToast === 'function') wsShowToast('🔔', `Reminder time updated to ${timeVal}`, 'var(--gold-border)');
+}
+
 // ── Legacy global bridges ─────────────────────────────────────────────────
 const _SP_FNS = {
   spSwitchTab, spSetDepth, spUpdateNotesCount, spShowValidationError, spHideValidationError,
@@ -1907,6 +1999,9 @@ window.spLoadAllPlans         = spLoadAllPlans;
 window.spShowExamDatePicker   = spShowExamDatePicker;
 window.spSetExamDate          = spSetExamDate;
 window.spClearExamDate        = spClearExamDate;
+window.spToggleReminder       = spToggleReminder;
+window.spUpdateReminderTime   = spUpdateReminderTime;
+window.spUpdateReminderUI     = spUpdateReminderUI;
 window.spUpdateExamDateUI     = spUpdateExamDateUI;
 window.spUpdateDailySchedule  = spUpdateDailySchedule;
 window.spCheckAdaptiveReorder = spCheckAdaptiveReorder;
