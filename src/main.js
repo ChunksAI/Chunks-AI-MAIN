@@ -129,4 +129,16 @@ setTimeout(_reapplyProfile, 1500);
   setTimeout(() => clearInterval(t), 10000);
 })();
 
+// ── Service Worker registration ───────────────────────────────────────────
+// Must be registered here so push notifications and local alarms work.
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js', { scope: '/' })
+    .then(reg => {
+      console.log('[Chunks AI] SW registered, scope:', reg.scope);
+    })
+    .catch(err => {
+      console.warn('[Chunks AI] SW registration failed:', err);
+    });
+}
+
 console.log('[Chunks AI] main.js loaded ✦');

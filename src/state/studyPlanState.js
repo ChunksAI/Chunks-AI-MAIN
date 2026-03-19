@@ -1922,6 +1922,31 @@ export function spConfidenceBadge(conceptIdx) {
     _checkAndFirePage();
   }
 
+  function _showNotification(title, body) {
+    if (Notification.permission !== 'granted') return;
+    // If SW is already controlling the page, use its registration (required in Chrome)
+    const ctrl = navigator.serviceWorker?.controller;
+    if (ctrl) {
+      navigator.serviceWorker.ready
+        .then(reg => reg.showNotification(title, {
+          body,
+          icon:     '/favicon-192x192.png',
+          badge:    '/favicon-32x32.png',
+          tag:      'chunks-daily-reminder',
+          renotify: true,
+          data:     { url: '/studyplan' },
+          actions:  [
+            { action: 'open',    title: 'Open Study Plan' },
+            { action: 'dismiss', title: 'Dismiss' },
+          ],
+        }))
+        .catch(() => new Notification(title, { body, icon: '/favicon-192x192.png' }));
+    } else {
+      // SW not yet controlling (first page load after registration) — use direct Notification
+      try { new Notification(title, { body, icon: '/favicon-192x192.png' }); } catch (_) {}
+    }
+  }
+
   function _checkAndFirePage() {
     try {
       const raw = localStorage.getItem(STORE_KEY);
@@ -1931,27 +1956,7 @@ export function spConfidenceBadge(conceptIdx) {
       let changed = false;
       (schedule || []).forEach(r => {
         if (r.fireAt <= now && !r.fired) {
-          if (Notification.permission === 'granted') {
-            navigator.serviceWorker?.ready
-              .then(reg => reg.showNotification(r.title || 'Chunks AI - Study Reminder', {
-                body:     r.body  || 'Time to study! Open your study plan.',
-                icon:     '/favicon-192x192.png',
-                badge:    '/favicon-32x32.png',
-                tag:      'chunks-daily-reminder',
-                renotify: true,
-                data:     { url: '/studyplan' },
-                actions:  [
-                  { action: 'open',    title: 'Open Study Plan' },
-                  { action: 'dismiss', title: 'Dismiss' },
-                ],
-              }))
-              .catch(() => {
-                new Notification(r.title || 'Chunks AI - Study Reminder', {
-                  body: r.body || 'Time to study! Open your study plan.',
-                  icon: '/favicon-192x192.png',
-                });
-              });
-          }
+          _showNotification(r.title || 'Chunks AI - Study Reminder', r.body || 'Time to study! Open your study plan.');
           r.fired = true;
           changed = true;
         }
