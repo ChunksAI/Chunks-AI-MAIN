@@ -207,6 +207,33 @@ const VT_HTML = `
         <button class="btn-review-weak hidden" id="btn-review-weak">📌 Review weak areas</button>
         <button class="btn-sec-action" id="vtp-new-btn">Learn Something New →</button>
       </div>
+
+  <!-- ── SCREEN: LOADING ─────────────────────────────────────────────── -->
+  <div class="vtp-screen" id="screen-loading">
+    <div class="orb orb-g" style="opacity:.05"></div>
+    <div class="vtp-loading-inner">
+      <div class="vtp-loading-logo">
+        <svg width="40" height="40" viewBox="0 0 100 100">
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity=".95"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity=".88"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity=".8"/>
+          <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
+        </svg>
+      </div>
+      <div class="vtp-loading-title">Building your lesson…</div>
+      <div class="vtp-loading-topic" id="vtp-loading-topic"></div>
+      <div class="vtp-loading-bar"><div class="vtp-loading-bar-fill" id="vtp-loading-bar-fill"></div></div>
+      <div class="vtp-loading-steps" id="vtp-loading-steps">
+        <div class="vtp-lstep" id="vtp-lstep-0">Analysing topic</div>
+        <div class="vtp-lstep" id="vtp-lstep-1">Structuring 5 steps</div>
+        <div class="vtp-lstep" id="vtp-lstep-2">Designing visuals</div>
+        <div class="vtp-lstep" id="vtp-lstep-3">Writing quiz question</div>
+      </div>
+      <button class="vtp-loading-cancel" id="vtp-loading-cancel">Cancel</button>
+      <div class="vtp-loading-error" id="vtp-loading-error" style="display:none">
+        <div class="vtp-loading-error-msg" id="vtp-loading-error-msg"></div>
+        <button class="vtp-loading-retry" id="vtp-loading-retry">Try again →</button>
+      </div>
     </div>
   </div>
 
@@ -214,153 +241,513 @@ const VT_HTML = `
 `;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// LESSON DATA  (2 built-in topics; all others fall through to buildDefault)
+// CANVAS COLOR PALETTE
 // ─────────────────────────────────────────────────────────────────────────────
 
-const VTP_LESSONS = {
-  'pH Scale': {
-    hook: "This confuses 90% of students — let's fix that in 5 steps",
-    summary: [
-      'pH scale: 0–14. Below 7 = acidic, above 7 = basic, 7 = neutral',
-      'More H⁺ ions in a solution = lower pH number',
-      'Common acids: lemon (pH 2), coffee (pH 5)',
-      'Buffers keep blood near pH 7.4 — vital for survival',
-    ],
-    quiz: {
-      onStep: 3,
-      q: 'Pure water has a pH of 7. This means it is…',
-      options: [
-        { text: 'Acidic — it has extra H⁺ ions',            correct: false },
-        { text: 'Neutral — equal H⁺ and OH⁻ ions',          correct: true  },
-        { text: 'Basic — it has extra OH⁻ ions',            correct: false },
-        { text: 'Impossible to classify on the pH scale',   correct: false },
-      ],
-      feedbackRight: '✓ Exactly right. pH 7 means the H⁺ and OH⁻ ions are perfectly balanced — that\'s neutral.',
-      feedbackWrong:  '✗ Not quite. pH 7 is where H⁺ and OH⁻ are balanced — that\'s neutral. Acids are below 7, bases above.',
-    },
-    steps: [
-      {
-        label: 'Step 1 — The Big Picture',
-        text: '<strong>Let\'s start simple.</strong> The pH scale is just a ruler from 0 to 14 that measures how acidic or basic something is. Lemon juice, your blood, bleach — everything liquid sits somewhere on it.',
-        simple: 'Think of it like a sourness-to-soapiness ruler. 0 = very sour (like battery acid). 14 = very soapy (like bleach). 7 = water.',
-        draw: 'ph_bar',
-        contextualReplies: [
-          'Great question. The "p" in pH stands for "potenz" (German for power) — it\'s basically the power of hydrogen. Don\'t worry about that, just remember: low = acidic, high = basic.',
-          'Think of pH 1 as being 10 times more acidic than pH 2. It\'s a logarithmic scale — each step is 10× stronger.',
-          'Yes, pH is measured in every liquid. Your blood is pH 7.4, stomach acid is pH 1.5, and baking soda solution is about pH 8.',
-        ],
-      },
-      {
-        label: 'Step 2 — What pH Actually Measures',
-        text: '<strong>Now watch this.</strong> pH measures the concentration of <em>hydrogen ions (H⁺)</em> dissolved in water. The more H⁺ ions, the more acidic, and the <em>lower</em> the pH number. It\'s counterintuitive — but that\'s chemistry.',
-        simple: 'More H⁺ ions = more acidic = lower pH number. Think of H⁺ ions as tiny bullies — the more of them, the more "aggressively acidic" the solution.',
-        draw: 'ph_ions',
-        contextualReplies: [
-          'Great question. OH⁻ ions (hydroxide) are the opposite — more OH⁻ means more basic and higher pH. Acids make H⁺, bases make OH⁻.',
-          'The equation is pH = -log[H⁺]. In plain English: as H⁺ doubles, pH drops by about 0.3. Don\'t stress the math — just remember more H⁺ = lower pH.',
-          'Water slightly ionizes into H⁺ and OH⁻. Pure water has exactly equal amounts, giving pH 7.',
-        ],
-      },
-      {
-        label: 'Step 3 — Real Examples You Know',
-        text: '<strong>Let\'s make it real.</strong> Lemon juice is pH 2 — very acidic. Your blood is pH 7.4 — slightly basic. Bleach is pH 12 — very basic. The scale is logarithmic: pH 2 is 100,000× more acidic than pH 7.',
-        simple: 'Remember these 3: lemon = 2 (sour, acidic). Water = 7 (neutral). Bleach = 12 (basic). Everything else falls between them.',
-        draw: 'ph_examples',
-        contextualReplies: [
-          'Yes! Stomach acid is pH 1–2, which is why it can digest tough foods. Your stomach lining is protected by a mucus layer that resists acid.',
-          'Coffee is about pH 5 — mildly acidic. That\'s why some people get heartburn from it. Tea is usually pH 5.5–6.',
-          'Rain is naturally pH 5.6 because CO₂ dissolves in it forming carbonic acid. "Acid rain" from pollution can be pH 4 or lower.',
-        ],
-      },
-      {
-        label: 'Step 4 — Buffers Keep You Alive',
-        text: '<strong>Here\'s the clever part.</strong> Your blood needs to stay near pH 7.4 to keep you alive. <em>Buffers</em> are chemicals that absorb extra H⁺ ions so your pH barely moves — even when you eat acidic food or exercise hard.',
-        simple: 'A buffer is like a pH bouncer. Extra acid? The buffer absorbs it. Extra base? It releases some acid back. Result: pH stays stable.',
-        draw: 'ph_buffer',
-        contextualReplies: [
-          'The main blood buffer is bicarbonate (HCO₃⁻). It pairs with carbonic acid (H₂CO₃) to catch or release H⁺ as needed.',
-          'If blood pH drops below 7.35 it\'s called acidosis — can cause confusion and breathing problems. Above 7.45 is alkalosis. Both are dangerous.',
-          'Your kidneys and lungs also help regulate blood pH. Kidneys adjust bicarbonate levels; lungs adjust CO₂ levels — CO₂ dissolves to form acid.',
-        ],
-      },
-      {
-        label: 'Step 5 — The Full Picture',
-        text: '<strong>You\'ve got it.</strong> pH is a 0–14 scale. Low = acidic (more H⁺). High = basic (more OH⁻). 7 = neutral. The scale is logarithmic — each step is 10× stronger. Buffers keep living systems at the right pH. That\'s the whole story.',
-        simple: 'The three numbers to remember: 0 (acid), 7 (neutral), 14 (base). Lower = more H⁺ ions = more acidic.',
-        draw: 'ph_summary',
-        contextualReplies: [
-          'You\'ve now understood what trips up most students: that lower pH = MORE acidic (not less). Great work.',
-          'Next level: try calculating pH from H⁺ concentration using pH = -log[H⁺]. If [H⁺] = 0.01 mol/L, then pH = 2.',
-          'Great question. Indicators like litmus turn red in acid, blue in base. Phenolphthalein is colorless in acid, pink in base.',
-        ],
-      },
-    ],
-  },
-
-  "Newton's Laws": {
-    hook: "You'll understand all 3 laws in under 3 minutes",
-    summary: [
-      'Law 1: Objects resist change in motion — inertia',
-      'Law 2: F = ma — force, mass, and acceleration are linked',
-      'Law 3: Every action has an equal and opposite reaction',
-      'All three laws work together in every motion you see',
-    ],
-    quiz: {
-      onStep: 3,
-      q: 'A heavier truck and a small car have the same engine force applied. Which accelerates faster?',
-      options: [
-        { text: 'The truck — more mass means more force',              correct: false },
-        { text: 'The car — less mass means more acceleration (F=ma)',  correct: true  },
-        { text: 'They accelerate equally — force is the same',        correct: false },
-        { text: 'Neither — they cancel each other out',               correct: false },
-      ],
-      feedbackRight: '✓ Correct! F=ma means a = F/m. Same force, less mass → more acceleration. The car wins.',
-      feedbackWrong:  '✗ Remember F=ma, so a = F/m. Same force but less mass means MORE acceleration. The lighter car accelerates faster.',
-    },
-    steps: [
-      { label:'Step 1 — Law of Inertia',          text:'<strong>Imagine this.</strong> A ball floating in deep space keeps floating forever — same speed, same direction. Nothing stops it. That\'s Newton\'s First Law: objects keep doing what they\'re doing unless a force pushes or pulls them.', simple:'Things are lazy. A still object stays still. A moving object keeps moving. Only a force can change that.', draw:'n_1', contextualReplies:['A seat belt works because of inertia. In a crash, your body wants to keep moving forward — the belt applies a force to stop you.','Friction is the hidden force that stops objects on Earth. In space, with no friction, the First Law plays out perfectly.','The fancy word for this property is "inertia". More mass = more inertia = harder to start or stop moving.'] },
-      { label:'Step 2 — F = ma',                  text:'<strong>Now the famous one.</strong> Force equals mass times acceleration. <em>F = ma.</em> Push a car vs push a bike with the same force — the bike accelerates much faster because it has less mass. Simple and powerful.', simple:'F = ma means: bigger force → more acceleration. But also: bigger mass → less acceleration. Same formula, two lessons.', draw:'n_2', contextualReplies:['In SI units: Force is in Newtons (N). 1 N = 1 kg·m/s². So pushing 1 kg with 1 N gives 1 m/s² acceleration.','Weight is actually a force: W = mg where g = 9.8 m/s². That\'s why heavier things need more force to lift.','This law lets engineers calculate exactly how much rocket thrust is needed to lift a specific mass off the ground.'] },
-      { label:'Step 3 — Action & Reaction',        text:'<strong>This one surprises people.</strong> Every force you exert creates an equal and opposite force coming back. When you jump, you push Earth down — Earth pushes you up with the same force. That push is what launches you into the air.', simple:'Forces always come in pairs. You push on something → it pushes back exactly as hard. Always. No exceptions.', draw:'n_3', contextualReplies:['A rocket works by throwing gas backwards (action) → gas pushes rocket forwards (reaction). No air needed.','The forces are equal but their effects aren\'t — if you push a wall, same force comes back, but the wall barely moves (much more mass).','Swimming uses this law: you push water backwards with your hands → water pushes you forwards.'] },
-      { label:'Step 4 — All Three Working Together', text:'<strong>Watch how they connect.</strong> A rocket on a launch pad: Law 1 — it stays still until thrust fires. Law 2 — thrust force accelerates its mass upward. Law 3 — exhaust pushes down, rocket is pushed up. Three laws, one launch.', simple:'Law 1: stays still until something happens. Law 2: force causes acceleration based on mass. Law 3: every push has a push-back.', draw:'n_all', contextualReplies:['Car safety systems use all three laws: airbags (Law 1 - inertia), seatbelts (Law 2 - deceleration force), crumple zones (Law 3 - reaction forces).','The ISS stays in orbit because of Law 1 — it\'s constantly falling around Earth but also moving forward fast enough to keep missing it.','Even walking uses Law 3: your foot pushes backward on the ground, ground pushes you forward.'] },
-      { label:'Step 5 — Complete Picture',          text:'<strong>You\'ve nailed it.</strong> Three laws. Objects resist change (1). F=ma means force, mass, and acceleration are linked (2). Every force has an equal opposite force (3). These three rules explain nearly every motion you\'ve ever seen.', simple:'Remember F=ma and "equal and opposite" and you\'ve got Newton. Everything else follows from those two ideas.', draw:'n_summary', contextualReplies:['These three laws were published in 1687 in Principia Mathematica — considered one of the greatest science books ever written.','Newton\'s Laws break down at very high speeds (you need Einstein\'s relativity) and at atomic scales (you need quantum mechanics). But for everyday life, they\'re perfect.','A fun test: think of any motion and try to identify all three laws in it. Kicking a ball involves all three.'] },
-    ],
-  },
+const VTP_COLORS = {
+  amber:  { fill: 'rgba(232,172,46,0.13)',  stroke: '#e8ac2e', text: '#e8ac2e',  bold: '#c49020' },
+  blue:   { fill: 'rgba(96,165,250,0.13)',  stroke: '#60a5fa', text: '#60a5fa',  bold: '#3b82f6' },
+  teal:   { fill: 'rgba(45,212,191,0.13)',  stroke: '#2dd4bf', text: '#2dd4bf',  bold: '#14b8a6' },
+  red:    { fill: 'rgba(248,113,113,0.13)', stroke: '#f87171', text: '#f87171',  bold: '#ef4444' },
+  green:  { fill: 'rgba(74,222,128,0.13)',  stroke: '#4ade80', text: '#4ade80',  bold: '#22c55e' },
+  purple: { fill: 'rgba(167,139,250,0.13)', stroke: '#a78bfa', text: '#a78bfa',  bold: '#8b5cf6' },
 };
+function _vtpCol(name) { return VTP_COLORS[name] || VTP_COLORS.amber; }
 
-function vtpBuildDefault(topic) {
-  return {
-    hook: `You'll understand ${topic} in under 3 minutes`,
-    summary: [
-      `Core concept of ${topic} established`,
-      'Visual understanding built step by step',
-      'Real-world examples connected',
-      'Practice confirms understanding',
+// ─────────────────────────────────────────────────────────────────────────────
+// AI LESSON GENERATION
+// ─────────────────────────────────────────────────────────────────────────────
+
+let _vtpLoadingAbort  = null;   // AbortController for in-flight fetch
+let _vtpLoadingTimer  = null;   // interval for loading animation
+let _vtpLessonCache   = {};     // topic → lesson (session memory, no re-fetch)
+
+const VTP_LESSON_PROMPT = (topic) =>
+`You are the lesson engine for Chunks AI, a visual tutoring app for students.
+Generate a complete 5-step lesson for the topic: "${topic}"
+
+Return ONLY valid JSON — no markdown fences, no explanation text, just the raw JSON object.
+
+{
+  "hook": "One punchy sentence — why this confuses students or why it matters",
+  "summary": ["takeaway 1", "takeaway 2", "takeaway 3", "takeaway 4"],
+  "quiz": {
+    "onStep": 3,
+    "q": "A specific multiple-choice question testing the core concept",
+    "options": [
+      {"text": "correct answer — specific and accurate", "correct": true},
+      {"text": "plausible wrong answer", "correct": false},
+      {"text": "plausible wrong answer", "correct": false},
+      {"text": "plausible wrong answer", "correct": false}
     ],
-    quiz: {
-      onStep: 3,
-      q: `Which best describes the key idea behind ${topic}?`,
-      options: [
-        { text: 'It involves a relationship between two changing quantities', correct: true  },
-        { text: 'It only applies in laboratory conditions',                  correct: false },
-        { text: 'It contradicts most other scientific principles',           correct: false },
-        { text: 'It was only discovered in the 20th century',               correct: false },
-      ],
-      feedbackRight: '✓ Correct! That\'s the core insight — most scientific concepts describe relationships between variables.',
-      feedbackWrong:  '✗ Actually, most concepts describe relationships between quantities. Keep that in mind as we go.',
-    },
-    steps: [
-      { label:'Step 1 — Foundation',      text:`<strong>Let's start simple.</strong> Every concept has a core idea. For ${topic}, that core idea is about understanding how one thing relates to another. Before the details, let's lock in the foundation.`, simple:`Think of ${topic} as a relationship. When one thing changes, something else responds predictably. That's the whole concept.`, draw:'generic', contextualReplies:[`Great question! The foundation of ${topic} comes down to the key variable that changes everything else. Watch how that plays out in the next step.`,`That's a common confusion. The key thing to remember is the direction of the relationship — which thing causes which.`] },
-      { label:'Step 2 — Core Mechanism',  text:`<strong>Now imagine this.</strong> The mechanism behind ${topic} is a cause-and-effect chain. One input changes → a predictable output follows. Understanding that chain is 80% of understanding the topic.`, simple:`Input changes → output changes in a predictable way. That's the mechanism. The rest is just knowing the specific inputs and outputs.`, draw:'generic', contextualReplies:[`The mechanism here is elegant because it works the same way in many contexts. Once you see the pattern, you'll spot it everywhere.`] },
-      { label:'Step 3 — Real Example',    text:`<strong>Let's ground it.</strong> The best way to lock in a concept is a concrete example. Here's one that shows exactly how ${topic} plays out in a real situation you can picture.`, simple:`Picture the simplest version: one thing goes up, another goes down (or up). That's all a real example shows.`, draw:'generic', contextualReplies:[`Yes, that's a great real-world application. You're already connecting the concept to your existing knowledge — that's how real understanding builds.`] },
-      { label:'Step 4 — Why It Matters',  text:`<strong>Here's why it sticks.</strong> ${topic} shows up in the real world in ways you encounter every day. Recognising it outside the classroom is what turns knowledge into understanding.`, simple:`Ask yourself: where do I see this in real life? The moment you find a personal example, the concept belongs to you.`, draw:'generic', contextualReplies:[`That's exactly the kind of connection that makes knowledge permanent. The more personal examples you find, the better it sticks.`] },
-      { label:'Step 5 — Summary',         text:`<strong>You've got it.</strong> You've walked through ${topic} from the core idea to real examples. The key pattern, the mechanism, and the real-world context — all in one session. Well done.`, simple:`Three things: the core idea, how it works, and where you see it. You've covered all three.`, draw:'generic', contextualReplies:[`You're now in the top 10% of students who can explain ${topic} clearly. Most people skip steps — you didn't.`] },
+    "feedbackRight": "✓ Why this answer is correct — 1 sentence",
+    "feedbackWrong": "✗ The common mistake and the right idea — 1 sentence"
+  },
+  "steps": [
+    {
+      "label": "Step 1 — Short Title",
+      "text": "<strong>Hook sentence.</strong> 2-3 clear educational sentences. Use <em>key terms</em>.",
+      "simple": "One plain-English sentence. No jargon.",
+      "draw": { ... see draw types below ... },
+      "contextualReplies": [
+        "Direct answer to likely student question about this step",
+        "Answer to another likely question",
+        "Answer to a third likely question"
+      ]
+    }
+  ]
+}
+
+For each step's "draw" field choose the best type:
+
+TYPE "flow" — sequences, processes, cause-and-effect:
+{"type":"flow","items":[{"label":"Name","sub":"1 detail","color":"amber"}],"note":"footer"}
+Use 2–5 items. Colors: amber, blue, teal, red, green, purple.
+
+TYPE "equation" — formulas with labeled parts:
+{"type":"equation","formula":"A = B × C","parts":[{"symbol":"A","name":"Full name","unit":"unit","color":"amber"},{"symbol":"B","name":"Full name","unit":"unit","color":"blue"},{"symbol":"C","name":"Full name","unit":"unit","color":"teal"}],"note":"plain-English meaning"}
+
+TYPE "compare" — two contrasting things side by side:
+{"type":"compare","leftLabel":"Left","leftPoints":["point 1","point 2","point 3"],"leftColor":"red","rightLabel":"Right","rightPoints":["point 1","point 2","point 3"],"rightColor":"teal","note":"footer"}
+
+TYPE "scale" — spectrum, range, gradient:
+{"type":"scale","lowLabel":"Low end","highLabel":"High end","lowColor":"red","highColor":"teal","markers":[{"label":"Name","value":0.15,"sub":"detail"},{"label":"Name","value":0.5,"sub":"detail"}],"note":"footer"}
+value is 0.0 (left edge) to 1.0 (right edge).
+
+TYPE "bullets" — key facts or summary points:
+{"type":"bullets","title":"Optional heading","items":[{"icon":"→","text":"Point one — keep under 55 chars"},{"icon":"→","text":"Point two"}],"color":"teal","note":"footer"}
+Max 5 items.
+
+Rules:
+- Generate exactly 5 steps.
+- Use a DIFFERENT draw type for each step where possible.
+- Make content specific and accurate for "${topic}" — NOT generic filler.
+- contextualReplies must be real, specific answers a tutor would give — not "great question!".
+- quiz options must be specific to the topic, not abstract.`;
+
+async function _vtpFetchLesson(topic) {
+  // Cache hit — instant
+  if (_vtpLessonCache[topic]) return _vtpLessonCache[topic];
+
+  _vtpLoadingAbort = new AbortController();
+  const authHeader = await window._getAuthHeader?.() ?? {};
+
+  const res = await fetch(`${API_BASE}/ask`, {
+    method:  'POST',
+    signal:  _vtpLoadingAbort.signal,
+    headers: { 'Content-Type': 'application/json', ...authHeader },
+    body: JSON.stringify({
+      question:   VTP_LESSON_PROMPT(topic),
+      mode:       'visual_tutor',
+      bookId:     'none',
+      complexity: 7,
+      history:    [],
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Server error ${res.status} — please try again`);
+
+  const data  = await res.json();
+  const raw   = (data.answer ?? data.response ?? data.text ?? '').trim();
+  const clean = raw
+    .replace(/^```json\s*/i, '').replace(/^```\s*/i, '')
+    .replace(/\s*```$/i, '').trim();
+
+  let lesson;
+  try {
+    lesson = JSON.parse(clean);
+  } catch (_) {
+    const m = clean.match(/\{[\s\S]*\}/);
+    if (m) {
+      try { lesson = JSON.parse(m[0]); }
+      catch (_2) { throw new Error('AI returned malformed JSON — please try again'); }
+    } else {
+      throw new Error('AI response was not valid JSON — please try again');
+    }
+  }
+
+  // Validate + fill any missing fields
+  if (!lesson.steps?.length) throw new Error('AI returned an incomplete lesson — please try again');
+
+  while (lesson.steps.length < 5) {
+    const i = lesson.steps.length + 1;
+    lesson.steps.push({
+      label: `Step ${i} — Summary`,
+      text:  `<strong>Wrapping up.</strong> Let's consolidate what you've learned about ${topic}.`,
+      simple: `Review the key ideas about ${topic}.`,
+      draw:  { type: 'bullets', items: [{ icon: '→', text: `Key idea about ${topic}` }], color: 'teal' },
+      contextualReplies: [`That's a great question about ${topic}.`],
+    });
+  }
+  lesson.hook    = lesson.hook    || `You'll understand ${topic} in under 3 minutes`;
+  lesson.summary = lesson.summary || [`${topic} explained`, 'Visual steps complete', 'Quiz passed', 'Ready to apply'];
+  lesson.quiz    = lesson.quiz    || {
+    onStep: 3,
+    q: `What is the core idea behind ${topic}?`,
+    options: [
+      { text: 'The relationship between its key variables', correct: true },
+      { text: 'When it was historically discovered', correct: false },
+      { text: 'The exceptions to the rule', correct: false },
+      { text: 'Its mathematical proof', correct: false },
     ],
+    feedbackRight: '✓ Correct — the core relationship is the key insight.',
+    feedbackWrong:  `✗ Focus on the core relationship in ${topic}.`,
   };
+
+  // Normalise every step's draw field — string keys from old lessons → object
+  lesson.steps.forEach(step => {
+    if (!step.draw || typeof step.draw === 'string') {
+      step.draw = { type: 'bullets', items: [{ icon: '→', text: step.label || 'Key idea' }], color: 'amber' };
+    }
+  });
+
+  _vtpLessonCache[topic] = lesson;
+  return lesson;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STATE
+// LOADING SCREEN HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpStartLoadingAnim() {
+  const steps   = document.querySelectorAll('#screen-loading .vtp-lstep');
+  const barFill = document.getElementById('vtp-loading-bar-fill');
+  const errEl   = document.getElementById('vtp-loading-error');
+  if (errEl)   errEl.style.display = 'none';
+  steps.forEach(s => s.classList.remove('active', 'done'));
+  if (steps[0]) steps[0].classList.add('active');
+  if (barFill)  barFill.style.width = '8%';
+  let cur = 0;
+  if (_vtpLoadingTimer) clearInterval(_vtpLoadingTimer);
+  _vtpLoadingTimer = setInterval(() => {
+    if (cur < steps.length - 1) {
+      steps[cur].classList.remove('active');
+      steps[cur].classList.add('done');
+      cur++;
+      steps[cur].classList.add('active');
+      const pct = 8 + Math.round((cur / steps.length) * 82);
+      if (barFill) barFill.style.width = pct + '%';
+    }
+  }, 950);
+}
+
+function _vtpStopLoadingAnim() {
+  if (_vtpLoadingTimer) { clearInterval(_vtpLoadingTimer); _vtpLoadingTimer = null; }
+  const barFill = document.getElementById('vtp-loading-bar-fill');
+  if (barFill) barFill.style.width = '100%';
+}
+
+function _vtpShowLoadingError(msg) {
+  _vtpStopLoadingAnim();
+  const errEl = document.getElementById('vtp-loading-error');
+  const msgEl = document.getElementById('vtp-loading-error-msg');
+  const steps = document.getElementById('vtp-loading-steps');
+  if (steps)  steps.style.display  = 'none';
+  if (msgEl)  msgEl.textContent    = msg || 'Something went wrong — please try again.';
+  if (errEl)  errEl.style.display  = 'block';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPEC-BASED CANVAS RENDERER
+// Five draw types: flow | equation | compare | scale | bullets
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpDrawSpec(spec) {
+  if (!_vtpCtx || !spec) return;
+  _vtpClearCanvas();
+  const ctx = _vtpCtx, W = _vtpW, H = _vtpH;
+  const cx = W / 2, cy = H / 2;
+  const draw = (fn, delay) => setTimeout(fn, delay);
+  const TEXT_PRI  = '#ededf0';
+  const TEXT_SEC  = '#9898ae';
+  const TEXT_MUT  = '#55556a';
+
+  // ── Shared helpers ──────────────────────────────────────────────────────
+  function roundRect(x, y, w, h, r, fillStyle, strokeStyle) {
+    ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
+    if (fillStyle)   { ctx.fillStyle   = fillStyle;   ctx.fill();   }
+    if (strokeStyle) { ctx.strokeStyle = strokeStyle; ctx.lineWidth = 1.5; ctx.stroke(); }
+  }
+  function label(text, x, y, size, color, align, weight) {
+    ctx.font = `${weight||'normal'} ${size}px sans-serif`;
+    ctx.fillStyle   = color;
+    ctx.textAlign   = align || 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
+  }
+  function note(text) {
+    if (!text) return;
+    ctx.font = '11px sans-serif'; ctx.fillStyle = TEXT_MUT;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, cx, H - 30);
+  }
+
+  // ── FLOW ────────────────────────────────────────────────────────────────
+  if (spec.type === 'flow') {
+    const items = (spec.items || []).slice(0, 5);
+    const n = items.length;
+    const BOX_W = Math.min(130, (W - 80) / n - 20);
+    const BOX_H = 64;
+    const GAP   = (W - 80 - n * BOX_W) / (n - 1 || 1);
+    const startX = 40;
+    const rowY  = cy - BOX_H / 2 - 10;
+
+    items.forEach((item, i) => {
+      const c = _vtpCol(item.color || 'amber');
+      const bx = startX + i * (BOX_W + GAP);
+      draw(() => {
+        // Arrow before box (except first)
+        if (i > 0) {
+          const ax = bx - GAP + 4;
+          ctx.strokeStyle = TEXT_MUT; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(ax, rowY + BOX_H / 2); ctx.lineTo(bx - 6, rowY + BOX_H / 2); ctx.stroke();
+          // arrowhead
+          ctx.fillStyle = TEXT_MUT; ctx.beginPath();
+          ctx.moveTo(bx - 4, rowY + BOX_H / 2);
+          ctx.lineTo(bx - 10, rowY + BOX_H / 2 - 5);
+          ctx.lineTo(bx - 10, rowY + BOX_H / 2 + 5);
+          ctx.fill();
+        }
+        roundRect(bx, rowY, BOX_W, BOX_H, 10, c.fill, c.stroke);
+        label(item.label || '', bx + BOX_W / 2, rowY + 22, 13, c.text, 'center', '600');
+        if (item.sub) label(item.sub, bx + BOX_W / 2, rowY + 42, 11, TEXT_SEC);
+      }, 80 + i * 130);
+    });
+    draw(() => note(spec.note), 80 + n * 130 + 200);
+    return;
+  }
+
+  // ── EQUATION ────────────────────────────────────────────────────────────
+  if (spec.type === 'equation') {
+    const parts  = (spec.parts || []).slice(0, 4);
+    const formula = spec.formula || '';
+    const BOX_W  = 120, BOX_H = 70;
+    const n      = parts.length;
+    const gap    = Math.min(30, (W - 80 - n * BOX_W) / (n - 1 || 1));
+    const startX = (W - (n * BOX_W + (n - 1) * gap)) / 2;
+
+    // Formula at top
+    draw(() => {
+      ctx.font = 'bold 28px sans-serif'; ctx.fillStyle = TEXT_PRI;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(formula, cx, cy - 70);
+    }, 80);
+
+    // Divider
+    draw(() => {
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(80, cy - 40); ctx.lineTo(W - 80, cy - 40); ctx.stroke();
+    }, 200);
+
+    parts.forEach((p, i) => {
+      const c  = _vtpCol(p.color || 'amber');
+      const bx = startX + i * (BOX_W + gap);
+      const by = cy - 20;
+      draw(() => {
+        roundRect(bx, by, BOX_W, BOX_H, 10, c.fill, c.stroke);
+        label(p.symbol || '', bx + BOX_W / 2, by + 18, 18, c.text, 'center', 'bold');
+        label(p.name   || '', bx + BOX_W / 2, by + 40, 11, TEXT_PRI);
+        if (p.unit) label(p.unit, bx + BOX_W / 2, by + 56, 10, TEXT_SEC);
+      }, 300 + i * 140);
+    });
+
+    draw(() => {
+      if (spec.note) label(spec.note, cx, cy + 80, 12, TEXT_SEC, 'center');
+    }, 300 + parts.length * 140 + 100);
+    return;
+  }
+
+  // ── COMPARE ─────────────────────────────────────────────────────────────
+  if (spec.type === 'compare') {
+    const lPts = (spec.leftPoints  || []).slice(0, 4);
+    const rPts = (spec.rightPoints || []).slice(0, 4);
+    const lCol = _vtpCol(spec.leftColor  || 'red');
+    const rCol = _vtpCol(spec.rightColor || 'teal');
+    const COL_W = W * 0.38, COL_X_L = W * 0.06, COL_X_R = W * 0.56;
+    const TOP_Y = cy - 110;
+
+    draw(() => {
+      // Left column
+      roundRect(COL_X_L, TOP_Y, COL_W, 220, 12, lCol.fill, lCol.stroke);
+      label(spec.leftLabel || 'Left', COL_X_L + COL_W / 2, TOP_Y + 22, 14, lCol.text, 'center', '600');
+      lPts.forEach((pt, i) => {
+        ctx.font = '12px sans-serif'; ctx.fillStyle = TEXT_PRI;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        const maxW = COL_W - 28;
+        // word-wrap simple
+        ctx.fillText('• ' + pt.slice(0, 38), COL_X_L + 14, TOP_Y + 52 + i * 36, maxW);
+      });
+    }, 80);
+
+    // VS badge
+    draw(() => {
+      roundRect(cx - 18, cy - 12, 36, 24, 12, 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0.15)');
+      label('VS', cx, cy, 12, TEXT_SEC, 'center', '600');
+    }, 180);
+
+    draw(() => {
+      // Right column
+      roundRect(COL_X_R, TOP_Y, COL_W, 220, 12, rCol.fill, rCol.stroke);
+      label(spec.rightLabel || 'Right', COL_X_R + COL_W / 2, TOP_Y + 22, 14, rCol.text, 'center', '600');
+      rPts.forEach((pt, i) => {
+        ctx.font = '12px sans-serif'; ctx.fillStyle = TEXT_PRI;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText('• ' + pt.slice(0, 38), COL_X_R + 14, TOP_Y + 52 + i * 36, COL_W - 28);
+      });
+    }, 280);
+
+    draw(() => note(spec.note), 480);
+    return;
+  }
+
+  // ── SCALE ───────────────────────────────────────────────────────────────
+  if (spec.type === 'scale') {
+    const markers  = (spec.markers || []).slice(0, 6);
+    const lCol = _vtpCol(spec.lowColor  || 'red');
+    const rCol = _vtpCol(spec.highColor || 'teal');
+    const BAR_X = 60, BAR_Y = cy - 16, BAR_W = W - 120, BAR_H = 28;
+
+    draw(() => {
+      // Gradient bar via steps
+      const steps = 20;
+      for (let i = 0; i < steps; i++) {
+        const t  = i / steps;
+        // blend two colors by drawing overlapping rects
+        const r1 = parseInt(lCol.stroke.slice(1,3)||'f8',16);
+        const g1 = parseInt(lCol.stroke.slice(3,5)||'71',16);
+        const b1 = parseInt(lCol.stroke.slice(5,7)||'71',16);
+        const r2 = parseInt(rCol.stroke.slice(1,3)||'2d',16);
+        const g2 = parseInt(rCol.stroke.slice(3,5)||'d4',16);
+        const b2 = parseInt(rCol.stroke.slice(5,7)||'bf',16);
+        const r  = Math.round(r1 + (r2-r1)*t);
+        const g  = Math.round(g1 + (g2-g1)*t);
+        const b  = Math.round(b1 + (b2-b1)*t);
+        ctx.fillStyle = `rgba(${r},${g},${b},0.22)`;
+        ctx.fillRect(BAR_X + i*(BAR_W/steps), BAR_Y, BAR_W/steps + 1, BAR_H);
+      }
+      // Bar border
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
+      ctx.strokeRect(BAR_X, BAR_Y, BAR_W, BAR_H);
+      // End labels
+      label(spec.lowLabel  || 'Low',  BAR_X + 4,          BAR_Y - 16, 11, lCol.text, 'left');
+      label(spec.highLabel || 'High', BAR_X + BAR_W - 4,  BAR_Y - 16, 11, rCol.text, 'right');
+    }, 80);
+
+    markers.forEach((m, i) => {
+      const x = BAR_X + (m.value || 0) * BAR_W;
+      const above = i % 2 === 0;
+      draw(() => {
+        // Tick
+        ctx.strokeStyle = TEXT_PRI; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x, BAR_Y); ctx.lineTo(x, BAR_Y + BAR_H); ctx.stroke();
+        // Marker dot
+        ctx.fillStyle = TEXT_PRI; ctx.beginPath(); ctx.arc(x, above ? BAR_Y - 18 : BAR_Y + BAR_H + 18, 3, 0, Math.PI*2); ctx.fill();
+        // Label
+        label(m.label || '', x, above ? BAR_Y - 34 : BAR_Y + BAR_H + 34, 12, TEXT_PRI, 'center', '600');
+        if (m.sub) label(m.sub, x, above ? BAR_Y - 18 : BAR_Y + BAR_H + 18, 10, TEXT_SEC);
+      }, 200 + i * 120);
+    });
+
+    draw(() => note(spec.note), 200 + markers.length * 120 + 150);
+    return;
+  }
+
+  // ── BULLETS ─────────────────────────────────────────────────────────────
+  if (spec.type === 'bullets') {
+    const items = (spec.items || []).slice(0, 5);
+    const c = _vtpCol(spec.color || 'teal');
+    const ITEM_H = 52, PAD = 18;
+    const BOX_W = Math.min(W - 120, 520);
+    const totalH = items.length * ITEM_H + (items.length - 1) * 8;
+    const startY = cy - totalH / 2 - 10;
+    const startX = (W - BOX_W) / 2;
+
+    if (spec.title) {
+      draw(() => label(spec.title, cx, startY - 28, 14, TEXT_PRI, 'center', '600'), 60);
+    }
+
+    items.forEach((item, i) => {
+      const by = startY + i * (ITEM_H + 8);
+      draw(() => {
+        roundRect(startX, by, BOX_W, ITEM_H, 10, c.fill, c.stroke + '50');
+        // Icon/bullet
+        label(item.icon || '→', startX + PAD + 6, by + ITEM_H / 2, 14, c.text, 'center', 'bold');
+        // Text — with simple overflow clip
+        ctx.font = '13px sans-serif'; ctx.fillStyle = TEXT_PRI;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        const text = (item.text || '').slice(0, 70);
+        ctx.fillText(text, startX + PAD + 22, by + ITEM_H / 2, BOX_W - PAD * 2 - 22);
+      }, 80 + i * 110);
+    });
+
+    draw(() => note(spec.note), 80 + items.length * 110 + 100);
+    return;
+  }
+
+  // ── GENERIC FALLBACK (shouldn't normally reach here) ───────────────────
+  draw(() => {
+    roundRect(cx - 140, cy - 52, 280, 104, 16, 'rgba(232,172,46,0.07)', 'rgba(232,172,46,0.18)');
+    label(_vtpCurrentTopic, cx, cy - 10, 18, TEXT_PRI, 'center', 'bold');
+    label(`Step ${_vtpStepIdx + 1} of ${_vtpTotalSteps}`, cx, cy + 16, 12, TEXT_SEC);
+  }, 160);
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LESSON LIFECYCLE
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function _vtpStartLesson() {
+  const inp = document.getElementById('vtp-entry-input');
+  const t   = (inp ? inp.value.trim() : '').replace(/^(explain|what is|what are|how does|how do|tell me about)\s+/i, '').trim() || 'Photosynthesis';
+  _vtpCurrentTopic  = t;
+  _vtpStepIdx       = 0;
+  _vtpSimplifyCount = 0;
+  _vtpAskCount      = 0;
+  _vtpQuizPassed    = false;
+  _vtpQuizAnswered  = false;
+  _vtpCtxReplyStep  = 0;
+  _vtpWeakSteps     = [];
+
+  // Show loading screen
+  const topicEl = document.getElementById('vtp-loading-topic');
+  if (topicEl) topicEl.textContent = t;
+  _vtpShowScreen('screen-loading');
+  _vtpStartLoadingAnim();
+
+  try {
+    _vtpLesson = await _vtpFetchLesson(t);
+  } catch (err) {
+    if (err.name === 'AbortError') return; // user cancelled
+    _vtpShowLoadingError(err.message || 'Could not generate lesson — please try again.');
+    return;
+  }
+
+  _vtpStopLoadingAnim();
+  _vtpTotalSteps = _vtpLesson.steps.length;
+
+  // Update entry screen hook for next open
+  const hookEl = document.querySelector('#screen-visual .entry-hook');
+  if (hookEl) {
+    const tn = hookEl.childNodes[hookEl.childNodes.length - 1];
+    if (tn) tn.textContent = ' ' + (_vtpLesson.hook || "You'll understand this in 5 steps");
+  }
+
+  const topicLabel   = document.getElementById('lh-topic-label');
+  const completeTopic = document.getElementById('complete-topic');
+  if (topicLabel)    topicLabel.textContent   = _vtpCurrentTopic;
+  if (completeTopic) completeTopic.textContent = _vtpCurrentTopic;
+
+  const summaryEl = document.getElementById('summary-items');
+  if (summaryEl) {
+    summaryEl.innerHTML = (_vtpLesson.summary || [])
+      .map(s => `<div class="summary-item"><div class="summary-dot"></div>${s}</div>`)
+      .join('');
+  }
+
+  _vtpShowScreen('screen-lesson');
+  setTimeout(() => { _vtpInitCanvas(); _vtpBuildDots(); _vtpRenderStep(0); }, 220);
+}
 
 let _vtpCurrentTopic = '';
 let _vtpLesson       = null;
@@ -433,45 +820,6 @@ function _vtpShowScreen(id) {
 // ─────────────────────────────────────────────────────────────────────────────
 // LESSON LIFECYCLE
 // ─────────────────────────────────────────────────────────────────────────────
-
-function _vtpStartLesson() {
-  const inp = document.getElementById('vtp-entry-input');
-  const t   = (inp ? inp.value.trim() : '') || 'pH Scale';
-  _vtpCurrentTopic  = t;
-  _vtpLesson        = VTP_LESSONS[t] || vtpBuildDefault(t);
-  _vtpTotalSteps    = _vtpLesson.steps.length;
-  _vtpStepIdx       = 0;
-  _vtpSimplifyCount = 0;
-  _vtpAskCount      = 0;
-  _vtpQuizPassed    = false;
-  _vtpQuizAnswered  = false;
-  _vtpCtxReplyStep  = 0;
-  _vtpWeakSteps     = [];
-
-  // Update hook text on entry screen for next open
-  const hookEl = document.querySelector('#screen-visual .entry-hook');
-  if (hookEl) {
-    const textNode = hookEl.childNodes[hookEl.childNodes.length - 1];
-    if (textNode) textNode.textContent = ' ' + (_vtpLesson.hook || "You'll understand this in 5 steps");
-  }
-
-  const topicLabel = document.getElementById('lh-topic-label');
-  if (topicLabel) topicLabel.textContent = _vtpCurrentTopic;
-
-  const completeTopic = document.getElementById('complete-topic');
-  if (completeTopic) completeTopic.textContent = _vtpCurrentTopic;
-
-  // Build summary
-  const summaryEl = document.getElementById('summary-items');
-  if (summaryEl) {
-    summaryEl.innerHTML = _vtpLesson.summary
-      .map(s => `<div class="summary-item"><div class="summary-dot"></div>${s}</div>`)
-      .join('');
-  }
-
-  _vtpShowScreen('screen-lesson');
-  setTimeout(() => { _vtpInitCanvas(); _vtpBuildDots(); _vtpRenderStep(0); }, 220);
-}
 
 function _vtpExitLesson() {
   if (_vtpTypeTimer) clearTimeout(_vtpTypeTimer);
@@ -607,7 +955,7 @@ function _vtpRenderStep(idx) {
   _vtpUpdateDots(idx);
   _vtpUpdateProgress(idx);
   _vtpSound('tick');
-  _vtpFadeAndDraw(step.draw || 'generic');
+  _vtpFadeAndDraw(step.draw || { type: 'bullets', items: [{ icon: '→', text: step.label || _vtpCurrentTopic }], color: 'amber' });
 
   _vtpTypeText(step.text, () => {
     _vtpStepBusy = false;
@@ -985,9 +1333,10 @@ function _vtpFinishLesson() {
 // CANVAS DRAWING
 // ─────────────────────────────────────────────────────────────────────────────
 
-function _vtpFadeAndDraw(key) {
-  setTimeout(() => { _vtpClearCanvas(); _vtpDrawScene(key); }, 100);
-}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CANVAS DRAWING  (spec-based — see _vtpDrawSpec above)
+// ─────────────────────────────────────────────────────────────────────────────
 
 function _vtpArrow(x1, y1, x2, y2, col, w) {
   _vtpCtx.strokeStyle = col; _vtpCtx.lineWidth = w; _vtpCtx.setLineDash([]);
@@ -1000,212 +1349,13 @@ function _vtpArrow(x1, y1, x2, y2, col, w) {
   _vtpCtx.fill();
 }
 
-function _vtpDrawScene(key) {
-  if (!_vtpCtx) return;
-  const cx = _vtpW / 2, cy = _vtpH / 2;
-  const draw = (fn, delay) => setTimeout(fn, delay);
-
-  if (key === 'ph_bar') {
-    const bw = Math.min(_vtpW * 0.72, 500), bx = cx - bw / 2, by = cy - 30;
-    draw(() => {
-      const g = _vtpCtx.createLinearGradient(bx, 0, bx + bw, 0);
-      g.addColorStop(0, '#e8433e'); g.addColorStop(0.45, '#f5c842'); g.addColorStop(1, '#4ade80');
-      _vtpCtx.beginPath(); _vtpCtx.roundRect(bx, by, bw, 26, 13);
-      _vtpCtx.fillStyle = g; _vtpCtx.fill();
-    }, 150);
-    [[0, '0'], [7, '7'], [14, '14']].forEach(([v, l], i) => draw(() => {
-      const x = bx + (v / 14) * bw;
-      _vtpCtx.strokeStyle = 'rgba(255,255,255,.3)'; _vtpCtx.lineWidth = 1.5;
-      _vtpCtx.beginPath(); _vtpCtx.moveTo(x, by + 26); _vtpCtx.lineTo(x, by + 36); _vtpCtx.stroke();
-      _vtpCtx.fillStyle = '#ededf0'; _vtpCtx.font = 'bold 13px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText(l, x, by + 50);
-    }, 400 + i * 160));
-    [['ACID', bx + bw * 0.1, '#f87171'], ['NEUTRAL', cx, '#2dd4bf'], ['BASE', bx + bw * 0.9, '#4ade80']].forEach(([l, x, c], i) => draw(() => {
-      _vtpCtx.fillStyle = c; _vtpCtx.font = '600 11px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText(l, x, by - 14);
-    }, 800 + i * 120));
-    draw(() => {
-      _vtpCtx.strokeStyle = 'rgba(45,212,191,.4)'; _vtpCtx.lineWidth = 1.5; _vtpCtx.setLineDash([4, 3]);
-      _vtpCtx.beginPath(); _vtpCtx.moveTo(cx, by - 4); _vtpCtx.lineTo(cx, by - 32); _vtpCtx.stroke();
-      _vtpCtx.setLineDash([]);
-      _vtpCtx.fillStyle = '#2dd4bf'; _vtpCtx.font = '12px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText('Pure water (pH 7)', cx, by - 42);
-    }, 1300);
-  }
-
-  else if (key === 'ph_ions') {
-    const bx = cx - 65, by = cy - 75, bw = 130, bh = 130;
-    draw(() => {
-      _vtpCtx.strokeStyle = 'rgba(255,255,255,.25)'; _vtpCtx.lineWidth = 2;
-      _vtpCtx.beginPath(); _vtpCtx.moveTo(bx, by); _vtpCtx.lineTo(bx, by + bh);
-      _vtpCtx.lineTo(bx + bw, by + bh); _vtpCtx.lineTo(bx + bw, by); _vtpCtx.stroke();
-      _vtpCtx.fillStyle = 'rgba(59,130,246,.1)'; _vtpCtx.fillRect(bx + 1, by + bh * 0.38, bw - 2, bh * 0.62 - 1);
-      _vtpCtx.strokeStyle = 'rgba(96,165,250,.35)'; _vtpCtx.lineWidth = 1.5;
-      _vtpCtx.beginPath(); _vtpCtx.moveTo(bx, by + bh * 0.38); _vtpCtx.lineTo(bx + bw, by + bh * 0.38); _vtpCtx.stroke();
-    }, 150);
-    [{ x: bx + 24, y: cy + 10 }, { x: bx + 64, y: cy + 20 }, { x: bx + 100, y: cy + 10 }, { x: bx + 44, y: cy + 38 }, { x: bx + 86, y: cy + 40 }].forEach(({ x, y }, i) => draw(() => {
-      _vtpCtx.beginPath(); _vtpCtx.arc(x, y, 14, 0, Math.PI * 2);
-      _vtpCtx.fillStyle = 'rgba(248,113,113,.18)'; _vtpCtx.fill();
-      _vtpCtx.strokeStyle = '#f87171'; _vtpCtx.lineWidth = 1.5; _vtpCtx.stroke();
-      _vtpCtx.fillStyle = '#f87171'; _vtpCtx.font = 'bold 11px sans-serif'; _vtpCtx.textAlign = 'center'; _vtpCtx.textBaseline = 'middle';
-      _vtpCtx.fillText('H⁺', x, y); _vtpCtx.textBaseline = 'alphabetic';
-    }, 450 + i * 150));
-    draw(() => {
-      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = 'bold 14px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText('More H⁺ ions → lower pH', cx, by - 18);
-    }, 1300);
-  }
-
-  else if (key === 'ph_examples') {
-    const items = [{ n: 'Battery\nAcid', ph: 1, c: '#e8433e' }, { n: 'Lemon\nJuice', ph: 2, c: '#f07038' }, { n: 'Coffee', ph: 5, c: '#f5c842' }, { n: 'Water', ph: 7, c: '#2dd4bf' }, { n: 'Baking\nSoda', ph: 9, c: '#82d94a' }, { n: 'Bleach', ph: 12, c: '#4ade80' }];
-    const cols = items.length, cw = _vtpW / (cols + 1);
-    draw(() => {
-      _vtpCtx.strokeStyle = 'rgba(255,255,255,.08)'; _vtpCtx.lineWidth = 1;
-      _vtpCtx.beginPath(); _vtpCtx.moveTo(cw * 0.5, cy + 48); _vtpCtx.lineTo(_vtpW - cw * 0.5, cy + 48); _vtpCtx.stroke();
-    }, 100);
-    items.forEach(({ n, ph, c }, i) => draw(() => {
-      const x = cw * (i + 1), maxH = 110, bh = 12 + (ph / 14) * maxH, bY = cy + 48 - bh;
-      _vtpCtx.fillStyle = c + '22'; _vtpCtx.strokeStyle = c + '70'; _vtpCtx.lineWidth = 1.5;
-      _vtpCtx.beginPath(); _vtpCtx.roundRect(x - 18, bY, 36, bh, 4); _vtpCtx.fill(); _vtpCtx.stroke();
-      _vtpCtx.fillStyle = c; _vtpCtx.font = 'bold 12px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText(ph, x, bY - 8);
-      _vtpCtx.fillStyle = '#9898ae'; _vtpCtx.font = '10px sans-serif';
-      n.split('\n').forEach((l, li) => _vtpCtx.fillText(l, x, cy + 62 + li * 13));
-    }, 200 + i * 130));
-  }
-
-  else if (key === 'ph_buffer') {
-    draw(() => {
-      _vtpCtx.fillStyle = 'rgba(248,113,113,.06)'; _vtpCtx.strokeStyle = 'rgba(248,113,113,.25)'; _vtpCtx.lineWidth = 1.5;
-      _vtpCtx.beginPath(); _vtpCtx.ellipse(cx, cy + 8, 155, 78, 0, 0, Math.PI * 2); _vtpCtx.fill(); _vtpCtx.stroke();
-      _vtpCtx.fillStyle = 'rgba(45,212,191,.12)'; _vtpCtx.strokeStyle = 'rgba(45,212,191,.3)'; _vtpCtx.lineWidth = 1;
-      _vtpCtx.beginPath(); _vtpCtx.ellipse(cx, cy + 8, 85, 42, 0, 0, Math.PI * 2); _vtpCtx.fill(); _vtpCtx.stroke();
-      _vtpCtx.fillStyle = '#2dd4bf'; _vtpCtx.font = 'bold 12px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText('BUFFER', cx, cy + 6);
-      _vtpCtx.fillStyle = '#9898ae'; _vtpCtx.font = '11px sans-serif'; _vtpCtx.fillText('HCO₃⁻ / H₂CO₃', cx, cy + 24);
-      _vtpCtx.fillText('Blood (pH 7.4)', cx, cy - 54);
-    }, 200);
-    draw(() => {
-      _vtpArrow(cx - 240, cy, cx - 160, cy, '#f87171', 2);
-      _vtpCtx.fillStyle = '#f87171'; _vtpCtx.font = '11px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText('acid in (H⁺)', cx - 205, cy - 14);
-    }, 700);
-    draw(() => {
-      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = 'bold 15px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText('pH stays ≈ 7.4 ✓', cx, cy + 112);
-      _vtpCtx.fillStyle = '#55556a'; _vtpCtx.font = '11px sans-serif';
-      _vtpCtx.fillText('Buffer absorbs the extra H⁺', cx, cy + 130);
-    }, 1300);
-  }
-
-  else if (key === 'ph_summary') {
-    const cards = [{ l: 'LOW pH (0–6)', s: 'Acidic · more H⁺', c: '#f87171', x: cx - 155 }, { l: 'pH 7', s: 'Neutral', c: '#2dd4bf', x: cx }, { l: 'HIGH pH (8–14)', s: 'Basic · more OH⁻', c: '#4ade80', x: cx + 155 }];
-    cards.forEach(({ l, s, c, x }, i) => draw(() => {
-      _vtpCtx.fillStyle = c + '15'; _vtpCtx.strokeStyle = c + '50'; _vtpCtx.lineWidth = 1.5;
-      _vtpCtx.beginPath(); _vtpCtx.roundRect(x - 62, cy - 54, 124, 108, 12); _vtpCtx.fill(); _vtpCtx.stroke();
-      _vtpCtx.fillStyle = c; _vtpCtx.font = 'bold 13px sans-serif'; _vtpCtx.textAlign = 'center'; _vtpCtx.fillText(l, x, cy - 16);
-      _vtpCtx.fillStyle = '#9898ae'; _vtpCtx.font = '11px sans-serif'; _vtpCtx.fillText(s, x, cy + 8);
-    }, 200 + i * 260));
-    draw(() => {
-      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = 'bold 13px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText('Buffers stabilize pH in living systems', cx, cy + 88);
-    }, 1100);
-  }
-
-  else if (key === 'n_1') {
-    draw(() => {
-      for (let i = 0; i < 50; i++) {
-        const sx = Math.random() * _vtpW, sy = Math.random() * _vtpH;
-        _vtpCtx.fillStyle = `rgba(255,255,255,${0.05 + Math.random() * 0.2})`;
-        _vtpCtx.beginPath(); _vtpCtx.arc(sx, sy, 0.8, 0, Math.PI * 2); _vtpCtx.fill();
-      }
-      _vtpCtx.beginPath(); _vtpCtx.arc(cx - 60, cy, 28, 0, Math.PI * 2);
-      _vtpCtx.fillStyle = 'rgba(96,165,250,.18)'; _vtpCtx.fill();
-      _vtpCtx.strokeStyle = '#60a5fa'; _vtpCtx.lineWidth = 2; _vtpCtx.stroke();
-      _vtpArrow(cx - 28, cy, cx + 120, cy, '#60a5fa', 2);
-      _vtpCtx.fillStyle = '#9898ae'; _vtpCtx.font = '12px sans-serif'; _vtpCtx.textAlign = 'left';
-      _vtpCtx.fillText('constant velocity', cx - 18, cy - 16);
-    }, 200);
-    draw(() => {
-      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = 'bold 14px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText('An object in motion stays in motion', cx, cy + 80);
-      _vtpCtx.fillStyle = '#55556a'; _vtpCtx.font = '12px sans-serif';
-      _vtpCtx.fillText('— unless a force acts on it', cx, cy + 100);
-    }, 900);
-  }
-
-  else if (key === 'n_2') {
-    draw(() => {
-      _vtpCtx.fillStyle = 'rgba(232,172,46,.07)'; _vtpCtx.strokeStyle = 'rgba(232,172,46,.22)'; _vtpCtx.lineWidth = 1.5;
-      _vtpCtx.beginPath(); _vtpCtx.roundRect(cx - 115, cy - 52, 230, 104, 14); _vtpCtx.fill(); _vtpCtx.stroke();
-      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = 'bold 44px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText('F = m × a', cx, cy + 18);
-    }, 200);
-    [['Force', cx - 85, '#f87171'], ['mass', cx + 5, '#60a5fa'], ['accel.', cx + 86, '#4ade80']].forEach(([l, x, c]) => draw(() => {
-      _vtpCtx.fillStyle = c; _vtpCtx.font = '11px sans-serif'; _vtpCtx.textAlign = 'center'; _vtpCtx.fillText(l, x, cy + 60);
-      _vtpCtx.strokeStyle = c + '60'; _vtpCtx.lineWidth = 1; _vtpCtx.setLineDash([2, 2]);
-      _vtpCtx.beginPath(); _vtpCtx.moveTo(x, cy + 26); _vtpCtx.lineTo(x, cy + 48); _vtpCtx.stroke(); _vtpCtx.setLineDash([]);
-    }, 500));
-    draw(() => {
-      _vtpCtx.fillStyle = '#9898ae'; _vtpCtx.font = '12px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText('More mass → need more force for same acceleration', cx, cy + 88);
-    }, 1000);
-  }
-
-  else if (key === 'n_3') {
-    draw(() => {
-      [cx - 115, cx + 115].forEach((x, i) => {
-        _vtpCtx.fillStyle = i === 0 ? 'rgba(248,113,113,.14)' : 'rgba(96,165,250,.14)';
-        _vtpCtx.strokeStyle = i === 0 ? '#f87171' : '#60a5fa'; _vtpCtx.lineWidth = 2;
-        _vtpCtx.beginPath(); _vtpCtx.roundRect(x - 22, cy - 42, 44, 84, 6); _vtpCtx.fill(); _vtpCtx.stroke();
-        _vtpCtx.fillStyle = i === 0 ? '#f87171' : '#60a5fa'; _vtpCtx.font = 'bold 13px sans-serif'; _vtpCtx.textAlign = 'center';
-        _vtpCtx.fillText(i === 0 ? 'YOU' : 'WALL', x, cy + 58);
-      });
-      _vtpArrow(cx - 90, cy, cx - 8, cy, '#e8ac2e', 2);
-    }, 200);
-    draw(() => {
-      _vtpArrow(cx + 90, cy - 10, cx + 8, cy - 10, '#2dd4bf', 2);
-      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = '11px sans-serif'; _vtpCtx.textAlign = 'center'; _vtpCtx.fillText('You push →', cx - 42, cy + 22);
-      _vtpCtx.fillStyle = '#2dd4bf'; _vtpCtx.fillText('← Equal push back', cx + 20, cy - 24);
-    }, 700);
-    draw(() => {
-      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = 'bold 14px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText('Equal & opposite — every single time', cx, cy + 96);
-    }, 1200);
-  }
-
-  else if (key === 'n_all' || key === 'n_summary') {
-    const laws = [{ n: 'Law 1', s: 'Inertia', c: '#60a5fa', x: cx - 140 }, { n: 'Law 2', s: 'F = ma', c: '#e8ac2e', x: cx }, { n: 'Law 3', s: 'Reaction', c: '#4ade80', x: cx + 140 }];
-    laws.forEach(({ n, s, c, x }, i) => draw(() => {
-      _vtpCtx.fillStyle = c + '14'; _vtpCtx.strokeStyle = c + '50'; _vtpCtx.lineWidth = 1.5;
-      _vtpCtx.beginPath(); _vtpCtx.roundRect(x - 55, cy - 52, 110, 104, 12); _vtpCtx.fill(); _vtpCtx.stroke();
-      _vtpCtx.fillStyle = c; _vtpCtx.font = 'bold 22px sans-serif'; _vtpCtx.textAlign = 'center'; _vtpCtx.fillText(n, x, cy - 10);
-      _vtpCtx.fillStyle = '#9898ae'; _vtpCtx.font = '500 13px sans-serif'; _vtpCtx.fillText(s, x, cy + 14);
-    }, 200 + i * 240));
-    draw(() => {
-      _vtpCtx.fillStyle = '#55556a'; _vtpCtx.font = '12px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText("Three laws explain almost every motion you've ever seen", cx, cy + 86);
-    }, 1100);
-  }
-
-  else { // generic fallback
-    draw(() => {
-      _vtpCtx.fillStyle = 'rgba(232,172,46,.06)'; _vtpCtx.strokeStyle = 'rgba(232,172,46,.16)'; _vtpCtx.lineWidth = 1.5;
-      _vtpCtx.beginPath(); _vtpCtx.roundRect(cx - 140, cy - 52, 280, 104, 16); _vtpCtx.fill(); _vtpCtx.stroke();
-      _vtpCtx.fillStyle = '#ededf0'; _vtpCtx.font = 'bold 20px sans-serif'; _vtpCtx.textAlign = 'center';
-      _vtpCtx.fillText(_vtpCurrentTopic, cx, cy - 10);
-      _vtpCtx.fillStyle = '#55556a'; _vtpCtx.font = '13px sans-serif';
-      _vtpCtx.fillText(`Step ${_vtpStepIdx + 1} of ${_vtpTotalSteps}`, cx, cy + 16);
-      for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * Math.PI * 2, dx = Math.cos(a) * 110, dy = Math.sin(a) * 55;
-        _vtpCtx.fillStyle = 'rgba(232,172,46,.12)';
-        _vtpCtx.beginPath(); _vtpCtx.arc(cx + dx, cy + dy - 2, 5, 0, Math.PI * 2); _vtpCtx.fill();
-      }
-    }, 200);
-  }
+function _vtpFadeAndDraw(spec) {
+  setTimeout(() => {
+    _vtpClearCanvas();
+    _vtpDrawSpec(spec);
+  }, 100);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // APP INTEGRATION POINTS
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1215,8 +1365,10 @@ function _vtpDrawScene(key) {
  * Must return the UI to the entry screen and stop anything running.
  */
 if (typeof window !== 'undefined') window._vtClear = function() {
-  if (_vtpTypeTimer) clearTimeout(_vtpTypeTimer);
-  if (_vtpAutoTimer)  clearTimeout(_vtpAutoTimer);
+  if (_vtpTypeTimer)    clearTimeout(_vtpTypeTimer);
+  if (_vtpAutoTimer)    clearTimeout(_vtpAutoTimer);
+  if (_vtpLoadingAbort) { _vtpLoadingAbort.abort(); _vtpLoadingAbort = null; }
+  _vtpStopLoadingAnim();
   _vtpLesson      = null;
   _vtpStepBusy    = false;
   _vtpAutoplay    = false;
@@ -1369,6 +1521,21 @@ export function mountVisualTutorScreen() {
     const reviewBtn = document.getElementById('btn-review-weak');
     if (reviewBtn) reviewBtn.addEventListener('click', _vtpReviewWeak);
 
+    // ── Loading screen ───────────────────────────────────────────────────
+    const cancelBtn = document.getElementById('vtp-loading-cancel');
+    if (cancelBtn) cancelBtn.addEventListener('click', () => {
+      if (_vtpLoadingAbort) { _vtpLoadingAbort.abort(); _vtpLoadingAbort = null; }
+      _vtpStopLoadingAnim();
+      _vtpShowScreen('screen-entry');
+    });
+
+    const retryBtn = document.getElementById('vtp-loading-retry');
+    if (retryBtn) retryBtn.addEventListener('click', () => {
+      // Clear cache for this topic so we re-fetch
+      if (_vtpCurrentTopic) delete _vtpLessonCache[_vtpCurrentTopic];
+      _vtpStartLesson();
+    });
+
     // ── Resize handler ───────────────────────────────────────────────────────
     window.addEventListener('resize', () => {
       clearTimeout(_vtpResizeTimer);
@@ -1379,7 +1546,7 @@ export function mountVisualTutorScreen() {
         _vtpW = area.offsetWidth; _vtpH = area.offsetHeight;
         _vtpCanvas.width = _vtpW; _vtpCanvas.height = _vtpH;
         _vtpClearCanvas();
-        if (_vtpLesson.steps[_vtpStepIdx]) _vtpDrawScene(_vtpLesson.steps[_vtpStepIdx].draw || 'generic');
+        if (_vtpLesson?.steps[_vtpStepIdx]) _vtpDrawSpec(_vtpLesson.steps[_vtpStepIdx].draw);
       }, 150);
     });
 
