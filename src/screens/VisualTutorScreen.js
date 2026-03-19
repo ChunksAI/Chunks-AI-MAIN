@@ -708,6 +708,7 @@ async function _vtpStartLesson() {
   _vtpQuizAnswered  = false;
   _vtpCtxReplyStep  = 0;
   _vtpWeakSteps     = [];
+  _vtpAskHistory    = [];
 
   // Show loading screen
   const topicEl = document.getElementById('vtp-loading-topic');
@@ -746,6 +747,14 @@ async function _vtpStartLesson() {
   }
 
   _vtpShowScreen('screen-lesson');
+
+  // ── Save to sidebar recent history ──────────────────────────────────────
+  // recentAdd deduplicates by question+source, sets active highlight,
+  // and re-renders all sidebar visual recent lists instantly.
+  if (typeof window.recentAdd === 'function') {
+    window.recentAdd(_vtpCurrentTopic, '', 'visual');
+  }
+
   setTimeout(() => { _vtpInitCanvas(); _vtpBuildDots(); _vtpRenderStep(0); }, 220);
 }
 
@@ -765,6 +774,7 @@ let _vtpQuizPassed   = false;
 let _vtpCtxReplyStep = 0;
 let _vtpWeakSteps    = [];
 let _vtpResizeTimer  = null;
+let _vtpAskHistory   = []; // [{q: string, a: string}] — in-lesson Q&A thread
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SOUND ENGINE  (Web Audio API — no file assets needed)
@@ -1150,8 +1160,10 @@ function _vtpSimplify() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ASK — sends student question to POST /ask (mode: visual_tutor)
-//        Falls back to built-in contextual replies if offline / unauthenticated
+// ASK — context-aware tutor replies
+//   • Includes all steps the student has already seen
+//   • Carries the full in-lesson Q&A thread so AI can say "as I mentioned…"
+//   • Falls back to built-in contextualReplies if offline / server error
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function _vtpSendAsk() {
@@ -1162,29 +1174,42 @@ async function _vtpSendAsk() {
   input.value = '';
   _vtpAskCount++;
 
-  // ── Offline / instant fallback (used if API call fails) ───────────────────
-  const step        = _vtpLesson.steps[_vtpStepIdx];
-  const stepTitle   = step.label.split('—')[1]?.trim() || _vtpCurrentTopic;
+  // ── Local fallback (used if API call fails) ───────────────────────────────
+  const step         = _vtpLesson.steps[_vtpStepIdx];
   const localReplies = step.contextualReplies || [];
   const localFallback = localReplies[_vtpCtxReplyStep % localReplies.length] ||
-    `That's a great question about ${stepTitle}. Focus on the key relationship shown in the diagram — that's where the answer lives.`;
+    `That relates to ${step.label.split('—')[1]?.trim() || _vtpCurrentTopic}. Focus on the key relationship shown in the diagram — that's where the answer lives.`;
   _vtpCtxReplyStep++;
 
-  // ── Show loading state immediately ────────────────────────────────────────
+  // ── Show loading state ─────────────────────────────────────────────────────
   const askEl   = document.getElementById('ask-input');
   const simpBtn = document.getElementById('btn-simplify');
   if (askEl)   { askEl.disabled = true; askEl.placeholder = 'Thinking…'; }
   if (simpBtn)  simpBtn.disabled = true;
   _vtpShowAskReply('<span class="ask-thinking">●●●</span>');
 
-  // ── Build the prompt — give the AI full context about the current step ─────
-  const contextPrompt =
-    `You are tutoring a student on "${_vtpCurrentTopic}". ` +
-    `They are currently on ${step.label} of a 5-step visual lesson. ` +
-    `The step just explained: "${step.text.replace(/<[^>]+>/g, '')}". ` +
-    `The student asks: "${q}". ` +
-    `Answer in 2–3 sentences max. Be direct, clear, and encouraging. ` +
-    `No preamble like "Great question!" — just the answer.`;
+  // ── Build steps-seen summary (all steps up to and including current) ───────
+  const stepsSeen = _vtpLesson.steps
+    .slice(0, _vtpStepIdx + 1)
+    .map((s, i) => `Step ${i + 1} (${s.label.split('—')[1]?.trim() || ''}): ${s.text.replace(/<[^>]+>/g, '').slice(0, 120)}`)
+    .join('\n');
+
+  // ── System prompt ──────────────────────────────────────────────────────────
+  const systemMsg =
+    `You are a friendly, direct tutor for Chunks AI helping a student understand "${_vtpCurrentTopic}". ` +
+    `The student is working through a 5-step visual lesson. ` +
+    `Answer in 2–3 sentences max. Be specific — use the exact concepts from the lesson. ` +
+    `Never say "Great question!" or add filler preamble. Just answer directly. ` +
+    `If referencing something from an earlier step, say "as we covered in step N…" ` +
+    `\n\nSteps the student has seen so far:\n${stepsSeen}`;
+
+  // ── Build history array for /ask endpoint ─────────────────────────────────
+  // Format: [{role:'user',content:'...'},{role:'assistant',content:'...'}]
+  // Keep last 4 exchanges max to stay within token budget
+  const historyForApi = _vtpAskHistory.slice(-4).flatMap(({ q: hq, a: ha }) => [
+    { role: 'user',      content: hq },
+    { role: 'assistant', content: ha },
+  ]);
 
   try {
     const authHeader = await window._getAuthHeader?.() ?? {};
@@ -1192,27 +1217,33 @@ async function _vtpSendAsk() {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader },
       body: JSON.stringify({
-        question:   contextPrompt,
-        mode:       'visual_tutor',
-        bookId:     'none',
-        complexity: 4,        // keep answers student-friendly
-        history:    [],
+        question:      q,
+        mode:          'visual_tutor',
+        bookId:        'none',
+        complexity:    4,
+        history:       historyForApi,
+        // system context is passed as the first user message so the backend
+        // visual_tutor mode picks it up without any server changes needed
+        _vtpSystemCtx: systemMsg,
       }),
     });
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data   = await res.json();
     const answer = (data.answer ?? data.response ?? data.text ?? '').trim();
+    const reply  = answer || localFallback;
 
-    _vtpShowAskReply(answer || localFallback);
+    // ── Append to in-lesson conversation thread ────────────────────────────
+    _vtpAskHistory.push({ q, a: reply });
+
+    _vtpShowAskReply(reply);
 
   } catch (err) {
-    // Network error, auth failure, server error — use local fallback silently
-    console.warn('[VTP] Ask API error, using local fallback:', err.message);
+    console.warn('[VTP] Ask error, using local fallback:', err.message);
+    _vtpAskHistory.push({ q, a: localFallback });
     _vtpShowAskReply(localFallback);
 
   } finally {
-    // Always re-enable the input
     if (askEl)   { askEl.disabled = false; askEl.placeholder = 'Ask anything…'; }
     if (simpBtn)  simpBtn.disabled = false;
   }
@@ -1320,6 +1351,22 @@ function _vtpFinishLesson() {
   if (reviewBtn) {
     reviewBtn.className = _vtpWeakSteps.length > 0 ? 'btn-review-weak' : 'btn-review-weak hidden';
   }
+
+  // ── Update sidebar recent item label to show completion ───────────────────
+  // Find the matching recent item and append ✓ so students can see what
+  // they've finished at a glance in the sidebar history.
+  try {
+    const raw = localStorage.getItem('chunks_recent');
+    if (raw) {
+      const items = JSON.parse(raw);
+      const match = items.find(r => r.source === 'visual' && r.question === _vtpCurrentTopic);
+      if (match && !match.label.endsWith(' ✓')) {
+        match.label = (match.label.length > 28 ? match.label.slice(0, 28).trimEnd() + '…' : match.label) + ' ✓';
+        localStorage.setItem('chunks_recent', JSON.stringify(items));
+        window._renderAllRecent?.();
+      }
+    }
+  } catch (_) {}
 
   _vtpShowScreen('screen-complete');
   setTimeout(() => {
