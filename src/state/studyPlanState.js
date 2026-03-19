@@ -1463,7 +1463,10 @@ export function spClearExamDate() {
     _spAllPlans[_spActivePlanId].examDate = null;
     try { localStorage.setItem('sp_all_plans', JSON.stringify(_spAllPlans)); } catch (e) {}
   }
+  // Cancel any active reminders and hide the reminder row immediately
+  window._chunksNotifications?.cancel?.();
   spUpdateExamDateUI();
+  spUpdateReminderUI();
 }
 
 export function spUpdateExamDateUI() {
@@ -1834,10 +1837,13 @@ export function spConfidenceBadge(conceptIdx) {
 }
 
 
-// ── Notifications helper — window._chunksNotifications ───────────────────────
+
+
+// ── Notifications helper — window._chunksNotifications ────────────────────────────────────────────
 // Provides a consistent API used by spToggleReminder / spUpdateReminderUI.
 // Uses the SW local-alarm approach: schedules next 30 days of reminders into
-// localStorage, then pings the SW every minute via a page-side setInterval.
+// localStorage, then pings the SW every 30s via a page-side setInterval.
+// The SW also runs its own 30s self-check while alive.
 (function _initChunksNotifications() {
   const STORE_KEY   = 'chunks_reminder_schedule';
   const PREFS_KEY   = 'chunks_reminder_prefs';
@@ -1857,7 +1863,7 @@ export function spConfidenceBadge(conceptIdx) {
     } catch (_) {}
   }
 
-  // Listen for fired confirmations from SW — mark those entries in localStorage
+  // Listen for fired confirmations from SW
   if (navigator.serviceWorker) {
     navigator.serviceWorker.addEventListener('message', e => {
       if (e.data?.type === 'REMINDER_FIRED' && Array.isArray(e.data.firedAt)) {
@@ -1873,14 +1879,11 @@ export function spConfidenceBadge(conceptIdx) {
     });
   }
 
-  // Start a per-minute tick that pings the SW and fires due reminders
-  // directly from the page if the SW is unavailable (e.g. HTTP dev server).
+  // Tick every 30s: ping SW AND run page-side check (both always run)
   let _tickHandle = null;
   function _startTick() {
     if (_tickHandle) return;
-    _tickHandle = setInterval(() => {
-      _pingSWAndCheckPage();
-    }, 60_000);
+    _tickHandle = setInterval(_pingSWAndCheckPage, 30_000);
   }
   function _stopTick() {
     if (_tickHandle) { clearInterval(_tickHandle); _tickHandle = null; }
@@ -1888,8 +1891,7 @@ export function spConfidenceBadge(conceptIdx) {
 
   function _pingSWAndCheckPage() {
     _pingSW();
-    // Fallback: fire directly from page if SW not controlling
-    if (!_swReg()) _checkAndFirePage();
+    _checkAndFirePage();
   }
 
   function _checkAndFirePage() {
@@ -1899,29 +1901,28 @@ export function spConfidenceBadge(conceptIdx) {
       const schedule = JSON.parse(raw);
       const now = Date.now();
       let changed = false;
-      const notifPromises = [];
       (schedule || []).forEach(r => {
         if (r.fireAt <= now && !r.fired) {
           if (Notification.permission === 'granted') {
-            // Prefer SW registration.showNotification (works even when SW registered)
-            // Fall back to new Notification only if no SW registration available
-            const regPromise = navigator.serviceWorker?.ready
-              .then(reg => reg.showNotification(r.title || 'Chunks AI – Study Reminder', {
-                body:  r.body  || 'Time to study! Open your study plan.',
-                icon:  '/favicon-192x192.png',
-                badge: '/favicon-32x32.png',
-                tag:   'chunks-daily-reminder',
+            navigator.serviceWorker?.ready
+              .then(reg => reg.showNotification(r.title || 'Chunks AI - Study Reminder', {
+                body:     r.body  || 'Time to study! Open your study plan.',
+                icon:     '/favicon-192x192.png',
+                badge:    '/favicon-32x32.png',
+                tag:      'chunks-daily-reminder',
                 renotify: true,
-                data:  { url: '/studyplan' },
+                data:     { url: '/studyplan' },
+                actions:  [
+                  { action: 'open',    title: 'Open Study Plan' },
+                  { action: 'dismiss', title: 'Dismiss' },
+                ],
               }))
               .catch(() => {
-                // Last-resort fallback
-                new Notification(r.title || 'Chunks AI – Study Reminder', {
+                new Notification(r.title || 'Chunks AI - Study Reminder', {
                   body: r.body || 'Time to study! Open your study plan.',
                   icon: '/favicon-192x192.png',
                 });
               });
-            if (regPromise) notifPromises.push(regPromise);
           }
           r.fired = true;
           changed = true;
@@ -1935,18 +1936,18 @@ export function spConfidenceBadge(conceptIdx) {
     const schedule = [];
     const now  = new Date();
     const exam = examDate ? new Date(examDate + 'T00:00:00') : null;
-    const days = 30;
-    for (let d = 0; d < days; d++) {
+    for (let d = 0; d <= 30; d++) {
       const day = new Date(now);
       day.setDate(day.getDate() + d);
       day.setHours(hour, minute, 0, 0);
-      if (day <= now) continue;          // already past today's time
-      if (exam && day > exam) continue;  // after exam date
+      // Skip if more than 1 min in the past (tolerance for clock skew)
+      if (day.getTime() < now.getTime() - 60_000) continue;
+      if (exam && day > exam) continue;
       const daysLeft = exam ? Math.ceil((exam - day) / 86400000) : null;
       const body = daysLeft != null
-        ? `${daysLeft} day${daysLeft !== 1 ? 's' : ''} until your exam — keep going! 📚`
+        ? `${daysLeft} day${daysLeft !== 1 ? 's' : ''} until your exam - keep going!`
         : `Time to study${planTopic ? ' ' + planTopic : ''}. Open your study plan.`;
-      schedule.push({ fireAt: day.getTime(), fired: false, title: 'Chunks AI – Daily Reminder', body });
+      schedule.push({ fireAt: day.getTime(), fired: false, title: 'Chunks AI - Daily Reminder', body });
     }
     return schedule;
   }
@@ -1978,6 +1979,7 @@ export function spConfidenceBadge(conceptIdx) {
         const schedule = _buildSchedule({ examDate, planTopic, hour, minute });
         localStorage.setItem(STORE_KEY, JSON.stringify(schedule));
         _startTick();
+        // Fire immediately in case the scheduled time is right now
         _pingSWAndCheckPage();
       } catch (_) {}
     },
@@ -1994,13 +1996,12 @@ export function spConfidenceBadge(conceptIdx) {
   // Auto-restart tick on page load if reminders were previously enabled
   if (localStorage.getItem(ENABLED_KEY) === '1') {
     _startTick();
-    // Immediately check in case a reminder fired while page was closed
+    // Check immediately in case reminders fired while page was closed
     setTimeout(_pingSWAndCheckPage, 2000);
   }
 })();
 
-// ── Daily reminder (push notifications) ──────────────────────────────────────
-
+// ── Daily reminder (push notifications) ────────────────────────────────────────────
 export function spUpdateReminderUI() {
   const row = document.getElementById('sp-reminder-row');
   if (!row) return;

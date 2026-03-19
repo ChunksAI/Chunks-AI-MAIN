@@ -59,6 +59,20 @@ self.addEventListener('notificationclick', event => {
 
 let _cachedSchedule = [];
 
+// SW-side self-check every 30s while the SW is alive.
+// This fires reminders even when the page is closed (SW can stay alive
+// in the background on Android Chrome and some desktop browsers).
+setInterval(() => {
+  if (_cachedSchedule.length) {
+    checkAndFireReminders(_cachedSchedule).then(fired => {
+      // No page to message — just update the in-memory cache
+      if (fired.length) {
+        _cachedSchedule.forEach(r => { if (fired.includes(r.fireAt)) r.fired = true; });
+      }
+    });
+  }
+}, 30_000);
+
 self.addEventListener('message', event => {
   if (!event.data) return;
 
