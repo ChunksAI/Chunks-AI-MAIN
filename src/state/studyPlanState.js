@@ -1879,14 +1879,42 @@ export function spConfidenceBadge(conceptIdx) {
     });
   }
 
-  // Tick every 30s: ping SW AND run page-side check (both always run)
-  let _tickHandle = null;
+  // Precise alarm: sets an exact setTimeout to fire at the next reminder's timestamp.
+  // Falls back to a 60s safety-net interval in case setTimeout drifts (tab throttling).
+  let _exactHandle  = null;  // setTimeout for next exact fire
+  let _safetyHandle = null;  // setInterval safety net
+
   function _startTick() {
-    if (_tickHandle) return;
-    _tickHandle = setInterval(_pingSWAndCheckPage, 30_000);
+    _armNextExact();
+    if (_safetyHandle) return;
+    _safetyHandle = setInterval(_pingSWAndCheckPage, 60_000);
   }
+
   function _stopTick() {
-    if (_tickHandle) { clearInterval(_tickHandle); _tickHandle = null; }
+    if (_exactHandle)  { clearTimeout(_exactHandle);   _exactHandle  = null; }
+    if (_safetyHandle) { clearInterval(_safetyHandle); _safetyHandle = null; }
+  }
+
+  // Arm a setTimeout that fires at exactly the next unfired reminder's timestamp
+  function _armNextExact() {
+    if (_exactHandle) { clearTimeout(_exactHandle); _exactHandle = null; }
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      const schedule = JSON.parse(raw);
+      const now = Date.now();
+      // Find the soonest unfired future (or overdue) reminder
+      const next = schedule
+        .filter(r => !r.fired)
+        .sort((a, b) => a.fireAt - b.fireAt)[0];
+      if (!next) return;
+      const delay = Math.max(0, next.fireAt - now);
+      _exactHandle = setTimeout(() => {
+        _pingSWAndCheckPage();
+        // Re-arm for the reminder after this one
+        _armNextExact();
+      }, delay);
+    } catch (_) {}
   }
 
   function _pingSWAndCheckPage() {
@@ -1976,11 +2004,12 @@ export function spConfidenceBadge(conceptIdx) {
         const prefs = { hour, minute, examDate, planTopic };
         localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
         localStorage.setItem(ENABLED_KEY, '1');
-        const schedule = _buildSchedule({ examDate, planTopic, hour, minute });
-        localStorage.setItem(STORE_KEY, JSON.stringify(schedule));
-        _startTick();
-        // Fire immediately in case the scheduled time is right now
+        const sched = _buildSchedule({ examDate, planTopic, hour, minute });
+        localStorage.setItem(STORE_KEY, JSON.stringify(sched));
+        // Check immediately (handles overdue entries on page load or time update)
         _pingSWAndCheckPage();
+        // Arm exact timeout for the next upcoming reminder
+        _startTick();
       } catch (_) {}
     },
 
@@ -1993,11 +2022,10 @@ export function spConfidenceBadge(conceptIdx) {
     },
   };
 
-  // Auto-restart tick on page load if reminders were previously enabled
+  // Auto-restart on page load if reminders were previously enabled
   if (localStorage.getItem(ENABLED_KEY) === '1') {
-    _startTick();
-    // Check immediately in case reminders fired while page was closed
-    setTimeout(_pingSWAndCheckPage, 2000);
+    // Check immediately in case a reminder fired while page was closed
+    setTimeout(() => { _pingSWAndCheckPage(); _startTick(); }, 2000);
   }
 })();
 
