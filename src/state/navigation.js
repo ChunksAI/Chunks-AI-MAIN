@@ -206,12 +206,11 @@ export function _navInit() {
   const _hadOAuthCode = window.location.search.includes('code=');
 
   if (_hadOAuthHash || _hadOAuthCode) {
-    // Signal to auth.js that this page load is an OAuth callback
+    // Signal to auth.js that this page load is an OAuth callback.
+    // DO NOT strip the hash/code here — Supabase needs it to complete the
+    // PKCE/implicit exchange. auth.js will clean the URL after exchanging.
     try { sessionStorage.setItem('chunks_oauth_callback', '1'); } catch(e) {}
-    try {
-      window.history.replaceState({ screen: 'home' }, '', '/home');
-    } catch(e) {}
-    // Show home screen and return — hash exchange is handled by auth.js
+    // Show home screen without touching the URL
     document.querySelectorAll('.screen').forEach(s => { s.style.display = 'none'; s.classList.remove('active'); });
     showScreen('home');
     const overlay = document.getElementById('mobile-drawer-overlay');

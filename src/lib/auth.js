@@ -416,7 +416,7 @@ window._initAuth = async function _initAuth() {
     }
     // ─────────────────────────────────────────────────────────────────────
 
-    // ── After OAuth/magic-link redirect back, clear flag and apply profile ──
+    // ── After OAuth/magic-link redirect back, clear flag and clean URL ─────
     if (_event === 'SIGNED_IN') {
       // Clear OAuth callback flag now that session is confirmed
       try { sessionStorage.removeItem('chunks_oauth_callback'); } catch(e) {}
@@ -428,6 +428,17 @@ window._initAuth = async function _initAuth() {
         window.location.replace('/home');
         return;
       }
+
+      // Clean up OAuth params from the URL now that exchange is complete.
+      // We deliberately did NOT strip these in navigation.js so Supabase could
+      // read them. Now that SIGNED_IN has fired, we can safely clean the URL.
+      try {
+        const hasOAuthInUrl = window.location.hash.includes('access_token') ||
+                              window.location.search.includes('code=');
+        if (hasOAuthInUrl) {
+          window.history.replaceState({ screen: 'home' }, '', '/home');
+        }
+      } catch(e) {}
 
       // Give ChunksDB's DOMContentLoaded patcher time to run first
       setTimeout(() => {
