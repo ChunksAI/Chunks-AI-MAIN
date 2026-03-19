@@ -125,49 +125,52 @@ function showScreen(name) {
       if (typeof window._vtClear === 'function') window._vtClear();
       if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
     }
-    if (name === 'studyplan') {
-      if (typeof window.spInitScreen === 'function') window.spInitScreen();
-    }
+    // studyplan init is handled unconditionally outside this block
 
-    // ── Fresh navigation: reset screen to empty state ───────────────────────
-    // When clicking a nav item (not a history item), start fresh — clear any
-    // active session so the user sees an empty/ready screen, not old content.
+    // ── Fresh navigation: reset each screen to its true empty/new state ───────
     if (name === 'home') {
-      // Home: clear chat history and return to landing
-      if (typeof window.goHome === 'function') {
-        // goHome() calls showScreen internally, so we need to avoid double-call.
-        // Just clear state here; showScreen continues below.
-        const chatHist = document.getElementById('home-chat-history');
-        if (chatHist) chatHist.innerHTML = '';
-        const homeLanding = document.getElementById('home-landing');
-        const homeHero    = document.querySelector('.home-hero');
-        const homeBar     = document.getElementById('home-input-bar');
-        const homeScroll  = document.getElementById('home-scroll-area');
-        if (homeLanding) homeLanding.style.display = '';
-        if (homeHero)    homeHero.style.display = '';
-        if (homeBar)     homeBar.style.display = 'none';
-        if (homeScroll)  homeScroll.style.justifyContent = 'center';
-        if (typeof window._homeSessionId !== 'undefined') window._homeSessionId = null;
-        if (typeof window.homeHistory    !== 'undefined') window.homeHistory    = [];
-        try { localStorage.removeItem('chunks_active_home_session'); } catch(_) {}
-      }
+      // Clear chat and return to the landing hero
+      const chatHist = document.getElementById('home-chat-history');
+      if (chatHist) chatHist.innerHTML = '';
+      const homeLanding = document.getElementById('home-landing');
+      const homeHero    = document.querySelector('.home-hero');
+      const homeBar     = document.getElementById('home-input-bar');
+      const homeScroll  = document.getElementById('home-scroll-area');
+      if (homeLanding) homeLanding.style.display = '';
+      if (homeHero)    homeHero.style.display = '';
+      if (homeBar)     homeBar.style.display = 'none';
+      if (homeScroll)  homeScroll.style.justifyContent = 'center';
+      if (typeof window._homeSessionId !== 'undefined') window._homeSessionId = null;
+      if (typeof window.homeHistory    !== 'undefined') window.homeHistory    = [];
+      try { localStorage.removeItem('chunks_active_home_session'); } catch(_) {}
     }
     if (name === 'workspace') {
-      // Workspace: clear chat, show empty state
-      const msgs = document.getElementById('ws-messages');
-      if (msgs) msgs.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div></div>`;
-      if (typeof window._wsChatHistory !== 'undefined') window._wsChatHistory = [];
+      // Full workspace reset: clear book selection + chat + active session
+      // Use wsClearChat for the chat part (properly clears module state)
+      if (typeof window.wsClearChat === 'function') {
+        window.wsClearChat();
+      } else {
+        // Fallback: clear DOM directly
+        const msgs = document.getElementById('ws-messages');
+        if (msgs) msgs.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div></div>';
+      }
+      // Reset book selection so the "No book loaded" empty state shows
       try { localStorage.removeItem('chunks_active_ws_book'); } catch(_) {}
+      // Reset the top bar context tag to "No book" state
+      const ctag   = document.getElementById('ws-context-tag');
+      const ctitle = document.getElementById('ws-chat-title');
+      const wsNoBook = document.getElementById('ws-no-book-bar');
+      if (wsNoBook) wsNoBook.style.display = '';
+      const wsBookBar = document.getElementById('ws-book-bar');
+      if (wsBookBar) wsBookBar.style.display = 'none';
     }
     if (name === 'flash') {
-      // Flashcards: reset to deck selection if function exists
       if (typeof window._fcExitStudy === 'function') window._fcExitStudy();
     }
     if (name === 'research') {
-      // Research: back to setup if function exists
       if (typeof window._researchBackToSetup === 'function') window._researchBackToSetup();
     }
-    // Clear active chat highlight on fresh nav (no history item selected)
+    // Clear active chat highlight — fresh nav means no session is selected
     if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
   }
 
@@ -197,6 +200,12 @@ function showScreen(name) {
   // never stays highlighted while viewing a different screen's content.
   if (name !== 'studyplan' && typeof window.setActivePlan === 'function') {
     window.setActivePlan(null);
+  }
+  // ── Always init studyplan screen when navigating to it ───────────────────
+  // Runs unconditionally (even for history nav) so the active plan is always
+  // restored and highlighted in the sidebar whenever studyplan is shown.
+  if (name === 'studyplan' && typeof window.spInitScreen === 'function') {
+    window.spInitScreen();
   }
   // ── Always clear chat highlight when on studyplan ──────────────────────────
   // studyplan owns no chat sessions — no chat item should be highlighted there.

@@ -574,6 +574,8 @@ export function spShowEmpty() {
   document.getElementById('toggle-plan')?.classList.remove('active-view');
   const btn = document.getElementById('sp-generate-btn');
   if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+  // Deselect any active plan in the sidebar — we're starting a new session
+  if (typeof window.setActivePlan === 'function') window.setActivePlan(null);
 }
 
 export function spShowPlan() {
@@ -1226,6 +1228,17 @@ export function spInitScreen() {
           detailCol.appendChild(icalBtn);
         }
         spSrsLoad();
+        // Highlight the active plan in all sidebar Recent Plans sections
+        if (_spActivePlanId && typeof window.setActivePlan === 'function') {
+          window.setActivePlan(_spActivePlanId);
+        } else {
+          // _spActivePlanId may not be set yet — read from localStorage
+          const storedPlanId = localStorage.getItem('sp_active_plan_id');
+          if (storedPlanId && typeof window.setActivePlan === 'function') {
+            _spActivePlanId = storedPlanId;
+            window.setActivePlan(storedPlanId);
+          }
+        }
         setTimeout(() => { spUpdateExamDateUI(); spUpdateDailySchedule(); spUpdateSrsPanel(); }, 200);
       }
     }
