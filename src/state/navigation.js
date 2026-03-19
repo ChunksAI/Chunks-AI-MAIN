@@ -147,11 +147,18 @@ function showScreen(name) {
       }
     }
 
-    // Clear active plan highlight when navigating away from studyplan screen.
-    // When navigating TO studyplan, spInitScreen re-highlights via setActivePlan.
-    if (name !== 'studyplan' && typeof window.setActivePlan === 'function') {
-      window.setActivePlan(null);
-    }
+    // (plan highlight clearing moved outside this block — see below)
+  }
+  // ── Always clear plan highlight when not on studyplan ─────────────────────
+  // Runs even for history navigation (_navFromHistory=true) so a plan item
+  // never stays highlighted while viewing a different screen's content.
+  if (name !== 'studyplan' && typeof window.setActivePlan === 'function') {
+    window.setActivePlan(null);
+  }
+  // ── Always clear chat highlight when on studyplan ──────────────────────────
+  // studyplan owns no chat sessions — no chat item should be highlighted there.
+  if (name === 'studyplan' && typeof _setActiveRecent === 'function') {
+    _setActiveRecent(null);
   }
   window._navFromHistory = false;
 
