@@ -383,6 +383,9 @@ window._initAuth = async function _initAuth() {
 
   // 2. Listen for future auth changes
   sb.auth.onAuthStateChange((_event, session) => {
+    // Skip applying null profile on SIGNED_OUT during a page that has a valid
+    // cached session — prevents "Guest" flash when Supabase fires intermediate events
+    if (!session?.user && _cachedSessionValid && _event !== 'SIGNED_OUT') return;
     window._applyUserProfile(session);
 
     // ── Register / sync user row in public users table ────────────────────

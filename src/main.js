@@ -95,23 +95,38 @@ window._renderAllRecent?.();
 _navInit();
 document.body.classList.add('chunks-ready');
 
-// Re-apply user profile AFTER all components (sidebar, dropdowns) have mounted
-// so .profile-name / .avatar / .pd-* elements exist in the DOM.
-setTimeout(() => {
-  if (window._currentUser) {
-    // _applyUserProfile expects a session — rebuild a minimal one
-    window._applyUserProfile({ user: {
-      id: window._currentUser.id,
-      email: window._currentUser.email,
-      user_metadata: {
-        full_name:  window._currentUser.name,
-        avatar_url: window._currentUser.avatar,
-        picture:    window._currentUser.avatar,
-        plan:       window._currentUser.plan,
-      },
-      app_metadata: { plan: window._currentUser.plan }
-    }});
-  }
-}, 300);
+// Re-apply user profile AFTER all components (sidebar, dropdowns) have mounted.
+// _initAuth() is async — getSession() may take >300ms on token refresh.
+// We poll until _currentUser is set rather than using a fixed timeout.
+// Also apply immediately at 100ms / 500ms / 1500ms as belt-and-suspenders.
+function _reapplyProfile() {
+  if (!window._currentUser) return;
+  window._applyUserProfile({ user: {
+    id: window._currentUser.id,
+    email: window._currentUser.email,
+    user_metadata: {
+      full_name:  window._currentUser.name,
+      avatar_url: window._currentUser.avatar,
+      picture:    window._currentUser.avatar,
+      plan:       window._currentUser.plan,
+    },
+    app_metadata: { plan: window._currentUser.plan }
+  }});
+}
+
+// Staggered re-applies: catches both fast (cached) and slow (token refresh) paths
+setTimeout(_reapplyProfile, 100);
+setTimeout(_reapplyProfile, 500);
+setTimeout(_reapplyProfile, 1500);
+
+// Poll until _currentUser is set — handles slow token refresh / network delays
+(function _pollProfile() {
+  if (window._currentUser) { _reapplyProfile(); return; }
+  const t = setInterval(() => {
+    if (window._currentUser) { clearInterval(t); _reapplyProfile(); }
+  }, 200);
+  // Stop polling after 10s to avoid memory leak if auth permanently fails
+  setTimeout(() => clearInterval(t), 10000);
+})();
 
 console.log('[Chunks AI] main.js loaded ✦');
