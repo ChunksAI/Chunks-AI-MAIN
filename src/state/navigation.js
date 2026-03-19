@@ -127,42 +127,16 @@ function showScreen(name) {
     }
     // studyplan init is handled unconditionally outside this block
 
-    // ── Fresh navigation: reset each screen to its true empty/new state ───────
+    // ── Fresh navigation: restore screen state, don't reset ──────────────────
     if (name === 'home') {
-      // Clear chat and return to the landing hero
-      const chatHist = document.getElementById('home-chat-history');
-      if (chatHist) chatHist.innerHTML = '';
-      const homeLanding = document.getElementById('home-landing');
-      const homeHero    = document.querySelector('.home-hero');
-      const homeBar     = document.getElementById('home-input-bar');
-      const homeScroll  = document.getElementById('home-scroll-area');
-      if (homeLanding) homeLanding.style.display = '';
-      if (homeHero)    homeHero.style.display = '';
-      if (homeBar)     homeBar.style.display = 'none';
-      if (homeScroll)  homeScroll.style.justifyContent = 'center';
-      if (typeof window._homeSessionId !== 'undefined') window._homeSessionId = null;
-      if (typeof window.homeHistory    !== 'undefined') window.homeHistory    = [];
-      try { localStorage.removeItem('chunks_active_home_session'); } catch(_) {}
+      // Do NOT clear home chat on nav click.
+      // Clicking "Home" restores the existing session — + New Chat handles reset.
     }
     if (name === 'workspace') {
-      // Full workspace reset: clear book selection + chat + active session
-      // Use wsClearChat for the chat part (properly clears module state)
-      if (typeof window.wsClearChat === 'function') {
-        window.wsClearChat();
-      } else {
-        // Fallback: clear DOM directly
-        const msgs = document.getElementById('ws-messages');
-        if (msgs) msgs.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div></div>';
-      }
-      // Reset book selection so the "No book loaded" empty state shows
-      try { localStorage.removeItem('chunks_active_ws_book'); } catch(_) {}
-      // Reset the top bar context tag to "No book" state
-      const ctag   = document.getElementById('ws-context-tag');
-      const ctitle = document.getElementById('ws-chat-title');
-      const wsNoBook = document.getElementById('ws-no-book-bar');
-      if (wsNoBook) wsNoBook.style.display = '';
-      const wsBookBar = document.getElementById('ws-book-bar');
-      if (wsBookBar) wsBookBar.style.display = 'none';
+      // Do NOT clear workspace chat or book on nav click.
+      // Clicking "Workspace" in the sidebar should restore the existing session,
+      // exactly like clicking a workspace history item does.
+      // The "+ New Chat" button (newChat()) handles full workspace reset.
     }
     if (name === 'flash') {
       if (typeof window._fcExitStudy === 'function') window._fcExitStudy();
