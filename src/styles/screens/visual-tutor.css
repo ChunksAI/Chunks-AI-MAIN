@@ -108,7 +108,9 @@
 
 #screen-entry {
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: var(--bg);
 }
 
@@ -117,6 +119,51 @@
   z-index: 1;
   width: min(560px, calc(100vw - 40px));
   text-align: center;
+  margin: auto;
+  padding: 40px 0 60px;
+}
+
+/* ── Scroll-down indicator ─────────────────────────────── */
+#screen-visual .vtp-scroll-hint {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s ease;
+}
+#screen-visual .vtp-scroll-hint.visible {
+  opacity: 1;
+  pointer-events: all;
+}
+#screen-visual .vtp-scroll-hint-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--rpill);
+  padding: 6px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--t3);
+  font-family: var(--fb);
+  transition: color var(--t-fast), border-color var(--t-fast);
+  animation: vtp-bounce 1.8s ease-in-out infinite;
+}
+#screen-visual .vtp-scroll-hint-btn:hover {
+  color: var(--t1);
+  border-color: var(--border-md);
+}
+@keyframes vtp-bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(4px); }
 }
 
 #screen-visual .entry-hook {

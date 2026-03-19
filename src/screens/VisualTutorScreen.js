@@ -27,6 +27,14 @@ const VT_HTML = `
     <div class="orb orb-t"></div>
     <canvas class="vtp-particles" id="vtp-particles"></canvas>
 
+    <!-- Scroll hint — shown when content overflows -->
+    <div class="vtp-scroll-hint" id="vtp-scroll-hint">
+      <button class="vtp-scroll-hint-btn" onclick="document.getElementById('screen-entry').scrollBy({top:200,behavior:'smooth'})">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        Scroll for examples
+      </button>
+    </div>
+
     <div class="entry-inner">
       <div class="entry-hook">
         <div class="entry-hook-dot"></div>
@@ -1644,6 +1652,24 @@ export function mountVisualTutorScreen() {
 
     // ── Entry screen animations ──────────────────────────────────────────────
     _vtpInitEntryAnimations();
+
+    // ── Scroll hint — show when entry content overflows viewport ────────────
+    (function _initScrollHint() {
+      const entryEl = document.getElementById('screen-entry');
+      const hintEl  = document.getElementById('vtp-scroll-hint');
+      if (!entryEl || !hintEl) return;
+
+      function _updateHint() {
+        const overflows = entryEl.scrollHeight > entryEl.clientHeight + 10;
+        const atBottom  = entryEl.scrollTop + entryEl.clientHeight >= entryEl.scrollHeight - 20;
+        hintEl.classList.toggle('visible', overflows && !atBottom);
+      }
+
+      entryEl.addEventListener('scroll', _updateHint, { passive: true });
+      window.addEventListener('resize', _updateHint);
+      // Check after a short delay to let layout settle
+      setTimeout(_updateHint, 400);
+    })();
 
     // ── Lesson screen ────────────────────────────────────────────────────────
     const exitBtn = document.getElementById('vtp-exit-btn');
