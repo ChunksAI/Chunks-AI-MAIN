@@ -16,7 +16,8 @@
     { "source": "/visualtutor", "destination": "/index.html" },
     { "source": "/research",    "destination": "/index.html" },
     { "source": "/exam",        "destination": "/index.html" },
-    { "source": "/",            "destination": "/index.html" }
+    { "source": "/",            "destination": "/index.html" },
+    { "source": "/(.*)",        "destination": "/index.html" }
   ],
   "headers": [
     {
