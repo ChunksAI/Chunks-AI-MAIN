@@ -276,44 +276,43 @@ window._applyUserProfile = function _applyUserProfile(session) {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 window._initAuth = async function _initAuth() {
-  // ── Instant gate: check localStorage BEFORE any network call ─────────────
-  const isGuest_      = sessionStorage.getItem('chunks_guest_mode') === '1';
-  const isLoginPage_  = window.location.pathname === '/login';
-  // Check BOTH the live URL params AND the sessionStorage flag set by navigation.js
-  // before it stripped the hash. This covers the case where _navInit ran first
-  // and cleared the hash via replaceState before we get here.
-  const hasOAuthCode_ = window.location.search.includes('code=');
-  const hasOAuthHash_ = window.location.hash.includes('access_token');
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const isGuest_         = sessionStorage.getItem('chunks_guest_mode') === '1';
+  const isLoginPage_     = window.location.pathname === '/login';
+  const hasOAuthCode_    = window.location.search.includes('code=');
+  const hasOAuthHash_    = window.location.hash.includes('access_token');
   const isOAuthCallback_ = hasOAuthCode_ || hasOAuthHash_ ||
                            sessionStorage.getItem('chunks_oauth_callback') === '1';
 
-  // IMPORTANT: Skip instant gate entirely during OAuth callback.
-  // The session hasn't been written to localStorage yet when Supabase
-  // redirects back — the async exchange happens below. Redirecting here
-  // would send the user back to login before the session is saved.
-  if (!isGuest_ && !isLoginPage_ && !isOAuthCallback_) {
-    try {
-      const raw = localStorage.getItem('chunks-ai-auth');
-      if (!raw) {
-        window.location.replace('/login');
-        return;
+  // ── Read cached session from localStorage ─────────────────────────────────
+  // Used both for the instant gate and as a fallback if getSession() fails.
+  let _cachedSession = null;
+  let _cachedSessionValid = false;
+  try {
+    const raw = localStorage.getItem('chunks-ai-auth');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      _cachedSession = parsed.access_token ? parsed
+                     : parsed.currentSession ? parsed.currentSession
+                     : null;
+      if (_cachedSession?.access_token) {
+        const nowSec    = Math.floor(Date.now() / 1000);
+        const expiresAt = _cachedSession.expires_at || 0;
+        // Valid if not expired (allow 60s clock-skew buffer)
+        _cachedSessionValid = expiresAt === 0 || (expiresAt - nowSec > 60);
       }
-      const parsed  = JSON.parse(raw);
-      const session = parsed.access_token ? parsed
-                    : parsed.currentSession ? parsed.currentSession
-                    : null;
-      if (session && session.expires_at) {
-        const nowSec = Math.floor(Date.now() / 1000);
-        if (session.expires_at - nowSec < 60) {
-          // Expiring soon — let getSession() refresh below
-        }
-      } else if (!session || !session.access_token) {
-        window.location.replace('/login');
-        return;
-      }
-    } catch (e) {
-      // localStorage parse failed — fall through to network check
     }
+  } catch (e) { /* storage blocked or corrupt — fall through */ }
+
+  // ── Instant gate: redirect to /login if definitely no session ────────────
+  // Skip during OAuth callback — session hasn't been written yet.
+  if (!isGuest_ && !isLoginPage_ && !isOAuthCallback_) {
+    if (!_cachedSession || !_cachedSession.access_token) {
+      window.location.replace('/login');
+      return;
+    }
+    // If session exists but is expired, fall through to let Supabase refresh it.
+    // Do NOT redirect — the refresh may succeed.
   }
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -354,15 +353,19 @@ window._initAuth = async function _initAuth() {
     if (session?.user) _applyDefaultSettings();
 
     // ── Auth gate ────────────────────────────────────────────────────────
-    const isGuest      = sessionStorage.getItem('chunks_guest_mode') === '1';
-    const isAuthed     = !!session?.user;
-    const isLoginPage  = window.location.pathname === '/login';
-    // Check sessionStorage flag set by navigation.js before it stripped the hash.
-    // This handles magic link / email OTP where the hash is gone by the time we run.
-    const isOAuthCb    = window.location.search.includes('code=') ||
-                         window.location.hash.includes('access_token') ||
-                         window.location.hash.includes('error_description') ||
-                         sessionStorage.getItem('chunks_oauth_callback') === '1';
+    const isGuest     = sessionStorage.getItem('chunks_guest_mode') === '1';
+    const isLoginPage = window.location.pathname === '/login';
+    const isOAuthCb   = window.location.search.includes('code=') ||
+                        window.location.hash.includes('access_token') ||
+                        window.location.hash.includes('error_description') ||
+                        sessionStorage.getItem('chunks_oauth_callback') === '1';
+
+    // Consider authenticated if:
+    //   a) getSession() returned a live session, OR
+    //   b) getSession() returned null but localStorage has a valid cached session
+    //      (this happens when /api/config fetch fails or takes too long and the
+    //      Supabase client is initialised with wrong/missing credentials)
+    const isAuthed = !!session?.user || _cachedSessionValid;
 
     if (!isAuthed && !isGuest && !isLoginPage && !isOAuthCb) {
       window.location.replace('/login');
@@ -370,7 +373,7 @@ window._initAuth = async function _initAuth() {
     }
 
     // Clear the OAuth callback flag once we have a confirmed session
-    if (isAuthed) {
+    if (session?.user || _cachedSessionValid) {
       try { sessionStorage.removeItem('chunks_oauth_callback'); } catch(e) {}
     }
     // ────────────────────────────────────────────────────────────────────
