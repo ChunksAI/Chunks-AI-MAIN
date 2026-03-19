@@ -1,1324 +1,1389 @@
 /**
  * src/screens/VisualTutorScreen.js
  *
- * Visual AI Tutor — a living whiteboard that draws concepts as it explains them.
- * Left: animated SVG canvas. Right: AI chat panel.
+ * Visual AI Tutor — step-based lesson player with canvas whiteboard.
+ * Entry → Lesson (5 steps + quiz) → Complete.
  *
  * Architecture:
- *   • 50 pre-built SVG animations for common topics (zero cost)
- *   • AI fallback via /ask endpoint for unknown topics
- *   • Accessible from flashcard Hard rating and sidebar
+ *   • 2 built-in lessons (pH Scale, Newton's Laws) + generic fallback
+ *   • Canvas2D drawing engine (no SVG library dependency)
+ *   • "Ask anything" wired to POST /ask with mode: visual_tutor
+ *   • Accessible from flashcard Hard rating, sidebar, and Exam weak-concept flow
  */
+
+import { API_BASE } from '../lib/api.js';
 
 // ── HTML ──────────────────────────────────────────────────────────────────────
 
 const VT_HTML = `
 <div class="screen" id="screen-visual" style="display:none;">
+
   <aside class="sidebar" data-sidebar-screen="visual"></aside>
-  <main class="vt-main">
 
-    <div class="vt-topbar">
-      <div class="vt-title">
-        <div class="vt-live-dot"></div>
-        Visual Tutor
+  <!-- ── SCREEN 1: ENTRY ─────────────────────────────────────────────── -->
+  <div class="vtp-screen active" id="screen-entry">
+    <div class="orb orb-g"></div>
+    <div class="orb orb-v"></div>
+
+    <div class="entry-inner">
+      <div class="entry-hook">
+        <div class="entry-hook-dot"></div>
+        This confuses 90% of students — let's fix that in 5 steps
       </div>
-      <div class="vt-title-divider"></div>
-      <div class="vt-topic-inline">
-        <div class="vt-canvas-dot" id="vt-canvas-dot"></div>
-        <span id="vt-canvas-topic">Waiting for a concept...</span>
+
+      <div class="entry-badge">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M8 21h8m-4-4v4"/></svg>
+        Visual Tutor · Chunks AI
+      </div>
+
+      <div class="entry-h">
+        What do you want to<br><em>understand today?</em>
+      </div>
+      <div class="entry-s">
+        Pick a topic and I'll guide you through it — step by step,<br>
+        drawing it out as we go. <strong style="color:var(--t1-vt);">You'll get it in under 3 minutes.</strong>
+      </div>
+
+      <div class="entry-input-wrap">
+        <input class="entry-input" id="vtp-entry-input"
+          placeholder='e.g. "How does osmosis work?"'>
+        <button class="entry-start" id="vtp-entry-start">Start Lesson →</button>
+      </div>
+
+      <div class="entry-divider"><div class="entry-divider-text">or start with a topic</div></div>
+
+      <div class="entry-chips" id="vtp-chips">
+        <div class="chip gold"   data-topic="pH Scale">⚗ pH Scale</div>
+        <div class="chip violet" data-topic="Newton's Laws">⚡ Newton's Laws</div>
+        <div class="chip"        data-topic="Cell Structure">🧬 Cell Structure</div>
+        <div class="chip"        data-topic="Photosynthesis">🌿 Photosynthesis</div>
+        <div class="chip"        data-topic="Osmosis">💧 Osmosis</div>
+        <div class="chip"        data-topic="Stoichiometry">🔢 Stoichiometry</div>
+        <div class="chip"        data-topic="Supply &amp; Demand">📈 Supply &amp; Demand</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SCREEN 2: LESSON ────────────────────────────────────────────── -->
+  <div class="vtp-screen" id="screen-lesson">
+
+    <!-- XP Toast -->
+    <div class="xp-toast" id="xp-toast">⚡ +10 XP</div>
+
+    <div class="lesson-header">
+      <div class="lh-logo">
+        <svg width="20" height="20" viewBox="0 0 100 100">
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity=".95"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity=".88"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity=".8"/>
+          <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
+        </svg>
+        Chunks <em>AI</em>
+      </div>
+      <div class="lh-topic" id="lh-topic-label">–</div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="lh-timer" id="lh-timer">⏱️ ~2 min</div>
+        <div class="lh-streak" id="lh-streak">🔥 3-day streak</div>
+        <button class="lh-exit" id="vtp-exit-btn">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Exit
+        </button>
       </div>
     </div>
 
-    <div class="vt-body">
+    <!-- Whiteboard -->
+    <div class="wb-area" id="wb-area">
+      <div class="step-prog"><div class="step-prog-fill" id="prog-fill" style="width:0%"></div></div>
+      <div class="step-dots" id="step-dots"></div>
+      <canvas id="wb-canvas" class="wb-canvas"></canvas>
 
-      <!-- LEFT: Live canvas -->
-      <div class="vt-canvas-panel">
-        <div class="vt-canvas-area" id="vt-canvas-area">
-          <svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
-            <text x="220" y="155" text-anchor="middle" font-size="14" fill="var(--text-4)" font-family="var(--font-body)">Ask me to explain anything</text>
-            <text x="220" y="178" text-anchor="middle" font-size="12" fill="var(--text-4)" font-family="var(--font-body)" opacity="0.6">I'll draw it here as I explain</text>
+      <!-- Quiz pre-announce -->
+      <div class="quiz-announce" id="quiz-announce">
+        <div class="quiz-announce-pill" id="quiz-announce-pill">⚡ Quick check before we continue…</div>
+      </div>
+
+      <!-- MCQ Quiz Overlay -->
+      <div class="quiz-overlay" id="quiz-overlay">
+        <div class="quiz-card">
+          <div class="quiz-badge">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Quick Check · Step <span id="quiz-step-num">3</span>
+          </div>
+          <div class="quiz-q" id="quiz-question">What is pH 7?</div>
+          <div class="quiz-options" id="quiz-options"></div>
+          <div class="quiz-xp-pop" id="quiz-xp-pop">⚡ +20 XP &nbsp;🔥 Nice!</div>
+          <div class="quiz-feedback" id="quiz-feedback"></div>
+          <button class="quiz-continue" id="quiz-continue">Continue Lesson →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom panel -->
+    <div class="bottom-panel">
+      <div class="exp-wrap">
+        <div class="exp-purpose" id="exp-purpose"></div>
+        <div class="exp-label" id="exp-label">Step 1 — Introduction</div>
+        <div class="exp-text" id="exp-text"><span class="cursor"></span></div>
+        <div class="simplified-wrap" id="simplified-wrap">
+          <div class="simplified-label">✦ Simplified version</div>
+          <span id="simplified-text"></span>
+        </div>
+      </div>
+
+      <!-- Got it? row — PRIMARY CTA -->
+      <div class="gotit-row" id="gotit-row">
+        <button class="gotit-yes" id="vtp-gotit-yes">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Got it!
+        </button>
+        <button class="gotit-no" id="vtp-gotit-no">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Not really
+        </button>
+        <button class="btn-skip" id="btn-skip">Skip → Quiz</button>
+      </div>
+
+      <!-- Controls bar -->
+      <div class="controls-bar">
+        <div class="ask-reply" id="ask-reply">
+          <span class="ask-reply-close" id="vtp-reply-close">✕</span>
+          <span id="ask-reply-text"></span>
+        </div>
+        <div class="step-counter"><span id="step-cur">1</span>/<span id="step-tot">5</span></div>
+        <input class="ask-input" id="ask-input" placeholder="Ask anything…">
+        <button class="btn-simplify" id="btn-simplify" title="Simplify this step">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Simpler
+        </button>
+        <div class="autoplay-toggle" id="autoplay-toggle" title="Auto-advance">
+          <div class="autoplay-track" id="autoplay-track">
+            <div class="autoplay-thumb"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SCREEN 3: COMPLETE ──────────────────────────────────────────── -->
+  <div class="vtp-screen" id="screen-complete">
+    <div class="orb orb-g" style="opacity:.08"></div>
+
+    <div class="complete-card">
+      <div class="complete-glow"></div>
+      <div class="complete-emoji">🎉</div>
+      <div class="complete-h">Lesson Complete!</div>
+      <div class="complete-sub">You understood <strong id="complete-topic">pH Scale</strong></div>
+      <div class="complete-confidence">
+        🧠 You now understand this better than <strong>80% of students</strong> who study this topic.
+      </div>
+
+      <div class="score-ring-wrap">
+        <div class="score-ring">
+          <svg width="110" height="110" viewBox="0 0 110 110">
+            <circle cx="55" cy="55" r="45" stroke="var(--s3)" stroke-width="8" fill="none"/>
+            <circle class="score-arc" id="score-arc" cx="55" cy="55" r="45" stroke="var(--teal)" stroke-width="8" fill="none"/>
           </svg>
+          <div class="score-num">
+            <strong id="score-val">5/5</strong>
+            <span>Steps</span>
+          </div>
         </div>
-        <div class="vt-canvas-footer">
-          <!-- Quick-topic pills (shown when idle) -->
-          <div class="vt-quick-pills" id="vt-quick-pills">
-            <span class="vt-pills-label">Try:</span>
-            <button class="vt-pill" data-query="explain titration">Titration</button>
-            <button class="vt-pill" data-query="show me the heart pumping blood">Heart</button>
-            <button class="vt-pill" data-query="explain action potential">Neuron</button>
-            <button class="vt-pill" data-query="explain cell structure organelles">Cell</button>
-            <button class="vt-pill" data-query="explain photosynthesis">Photosynthesis</button>
-            <button class="vt-pill" data-query="explain supply and demand equilibrium">Supply &amp; Demand</button>
-            <button class="vt-pill" data-query="explain newton laws of motion">Newton's Laws</button>
-            <button class="vt-pill" data-query="explain wave properties wavelength frequency">Waves</button>
-            <button class="vt-pill" data-query="explain the water cycle">Water Cycle</button>
-            <button class="vt-pill" data-query="explain enzymes active site lock and key">Enzymes</button>
-            <button class="vt-pill" data-query="explain pH scale acids bases">pH Scale</button>
-            <button class="vt-pill" data-query="explain how vaccines work">Vaccines</button>
-          </div>
-          <!-- Step nav bar (shown when whiteboard is drawing) -->
-          <div class="vt-step-nav" id="vt-step-nav" style="display:none;">
-            <div class="vt-step-dots" id="vt-step-dots"></div>
-            <div class="vt-step-btns">
-              <button class="vt-step-btn vt-step-back" id="vt-step-back" onclick="window._vtPrevStep()" title="Previous step">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                Back
-              </button>
-              <button class="vt-step-btn vt-step-next" id="vt-step-next" onclick="window._vtNextStep()">
-                Next step
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-              </button>
-            </div>
-          </div>
+        <div class="score-detail">
+          <div class="score-detail-h">Great session</div>
+          <div class="score-stat"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Quiz: <span id="score-quiz">Passed</span></div>
+          <div class="score-stat"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Simplify used: <span id="score-simplify">0×</span></div>
+          <div class="score-stat"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Questions asked: <span id="score-asks">0</span></div>
+          <div class="score-stat" style="color:var(--gold-vt);font-weight:600;margin-top:6px;">⚡ XP earned: <span id="score-xp">+50 XP</span></div>
         </div>
       </div>
 
-      <!-- RIGHT: Chat panel -->
-      <div class="vt-chat-panel">
-        <div class="vt-chat-msgs" id="vt-chat-msgs">
-          <div class="vt-msg vt-msg-ai">
-            <div class="vt-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/><ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="6" fill="#e8ac2e"/></svg></div>
-            <div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Try "explain osmosis" or tap a concept on the left.</div>
-          </div>
-        </div>
-        <div class="vt-chat-input-row">
-          <input class="vt-input" id="vt-input" placeholder="Ask me to explain anything..." />
-          <button class="vt-send-btn" id="vt-send-btn" data-action="_vtSendInput">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-          </button>
-        </div>
+      <div class="lesson-summary" id="lesson-summary">
+        <div class="summary-title">Key takeaways</div>
+        <div id="summary-items"></div>
       </div>
 
+      <div class="complete-actions">
+        <button class="btn-primary-action" id="vtp-again-btn">Practice Again ↺</button>
+        <button class="btn-review-weak hidden" id="btn-review-weak">📌 Review weak areas</button>
+        <button class="btn-sec-action" id="vtp-new-btn">Learn Something New →</button>
+      </div>
     </div>
-  </main>
+  </div>
+
 </div>
 `;
 
-// ── CSS animations shared across all scenes ────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// LESSON DATA  (2 built-in topics; all others fall through to buildDefault)
+// ─────────────────────────────────────────────────────────────────────────────
 
-const VT_ANIMS = `
-@keyframes vt-fi   { from{opacity:0;transform:scale(0.88)} to{opacity:1;transform:scale(1)} }
-@keyframes vt-steam{ 0%{opacity:0.7;transform:translateY(0) scaleX(1)} 100%{opacity:0;transform:translateY(-32px) scaleX(1.6)} }
-@keyframes vt-glow { 0%,100%{opacity:0.2} 50%{opacity:0.7} }
-@keyframes vt-flow { from{stroke-dashoffset:100} to{stroke-dashoffset:0} }
-@keyframes vt-bob  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
-@keyframes vt-pulse{ 0%,100%{transform:scale(1);opacity:0.5} 50%{transform:scale(1.18);opacity:1} }
-@keyframes vt-zap  { from{stroke-dashoffset:220} to{stroke-dashoffset:0} }
-@keyframes vt-spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-@keyframes vt-grow { from{transform:scaleY(0)} to{transform:scaleY(1)} }
-@keyframes vt-dash { to{stroke-dashoffset:0} }
-`;
-
-// ── Scene library — 50 concepts ──────────────────────────────────────────────
-
-const VT_SCENES = [
-
-  // ── BIOLOGY ──────────────────────────────────────────────────────────────
-
-  {
-    id: 'osmosis',
-    keywords: ['osmosis','membrane','diffusion','concentration','solute','water.*flow'],
-    topic: 'Osmosis',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<rect x="25" y="45" width="390" height="210" rx="12" fill="none" stroke="var(--border-xs)" stroke-width="1.5"/>
-<line x1="220" y1="45" x2="220" y2="255" stroke="var(--border-sm)" stroke-width="3" stroke-dasharray="8,5"/>
-<text x="122" y="38" text-anchor="middle" font-size="11" fill="#378ADD" font-family="var(--font-body)" font-weight="500">High water</text>
-<text x="318" y="38" text-anchor="middle" font-size="11" fill="#D85A30" font-family="var(--font-body)" font-weight="500">Low water</text>
-${[[55,75],[80,120],[55,168],[115,88],[95,145],[140,175],[70,198],[135,112]].map(([x,y],i)=>`<circle cx="${x}" cy="${y}" r="8" fill="#85B7EB" opacity="0.85" style="animation:vt-bob ${0.8+i*0.09}s ease-in-out ${i*0.07}s infinite"/>`).join('')}
-${[[248,72],[275,128],[305,172],[330,98],[255,198],[325,145]].map(([x,y],i)=>`<circle cx="${x}" cy="${y}" r="8" fill="#85B7EB" opacity="0.85" style="animation:vt-bob ${0.9+i*0.1}s ease-in-out ${i*0.1}s infinite"/>`).join('')}
-${[85,118,151,184].map((y,i)=>`<path d="M205 ${y} L235 ${y}" stroke="#378ADD" stroke-width="2" fill="none" style="stroke-dasharray:14,10;animation:vt-flow 1.3s linear ${i*0.28}s infinite" marker-end="url(#va1)"/>`).join('')}
-<defs><marker id="va1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#378ADD" stroke-width="2"/></marker></defs>
-<text x="220" y="282" text-anchor="middle" font-size="11" fill="var(--text-3)" font-family="var(--font-body)">Water moves: HIGH → LOW concentration</text>
-</g>`,
-        text: "Osmosis is the movement of water molecules across a semi-permeable membrane — from where there's MORE water to where there's LESS. The dashed line is the membrane. It lets tiny water molecules pass but blocks bigger dissolved molecules. Watch the arrows: water always flows down its concentration gradient. This is how plant roots absorb water, how your kidneys reabsorb fluid, and why salty food makes you thirsty."
-      };
-    }
-  },
-
-  {
-    id: 'heart',
-    keywords: ['heart','pump','blood','cardiac','circulation','ventricle','atrium','coronary'],
-    topic: 'Heart & Blood Circulation',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<path d="M220 88 Q185 70 162 98 Q139 126 162 154 L220 220 L278 154 Q301 126 278 98 Q255 70 220 88Z" fill="#c0392b" opacity="0.9"/>
-<line x1="202" y1="116" x2="202" y2="172" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
-<line x1="238" y1="116" x2="238" y2="172" stroke="rgba(255,255,255,0.3)" stroke-width="1.5"/>
-<text x="188" y="150" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.9)" font-family="var(--font-body)">L</text>
-<text x="252" y="150" text-anchor="middle" font-size="10" fill="rgba(255,255,255,0.9)" font-family="var(--font-body)">R</text>
-${[0,1,2].map(i=>`<circle cx="220" cy="154" r="${30+i*24}" fill="none" stroke="#e74c3c" stroke-width="0.8" opacity="${0.45-i*0.12}" style="animation:vt-pulse 1.1s ease-out ${i*0.28}s infinite"/>`).join('')}
-${[
-  {d:"M168 92 Q128 55 125 28",c:"#3498db",lx:108,ly:20,l:"→ Lungs"},
-  {d:"M272 92 Q312 55 315 28",c:"#e74c3c",lx:332,ly:20,l:"← Lungs"},
-  {d:"M175 218 Q142 255 142 282",c:"#3498db",lx:122,ly:290,l:"→ Body"},
-  {d:"M265 218 Q298 255 298 282",c:"#e74c3c",lx:318,ly:290,l:"← Body"},
-].map(({d,c,lx,ly,l})=>`<path d="${d}" stroke="${c}" stroke-width="5" fill="none" stroke-linecap="round" style="stroke-dasharray:65;animation:vt-flow 1.7s linear infinite"/><text x="${lx}" y="${ly}" text-anchor="middle" font-size="9" fill="${c}" font-family="var(--font-body)">${l}</text>`).join('')}
-</g>`,
-        text: "Your heart beats 100,000 times a day without stopping. The RIGHT side receives dark, oxygen-poor blood from the body and pumps it to the lungs. The LEFT side receives bright red, oxygen-rich blood back from the lungs and pumps it powerfully out to the whole body. The left side is thicker and stronger because it has to push blood all the way to your toes. The pulse rings show each heartbeat — lub (valves closing) then dub (valves closing again)."
-      };
-    }
-  },
-
-  {
-    id: 'neuron',
-    keywords: ['neuron','nerve','action.*potential','axon','synapse','fire','depolariz','signal.*brain'],
-    topic: 'Neuron & Action Potential',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<circle cx="78" cy="165" r="38" fill="#AFA9EC" opacity="0.85"/>
-<text x="78" y="169" text-anchor="middle" font-size="10" fill="#26215C" font-family="var(--font-body)" font-weight="500">Cell body</text>
-${[[40,130],[38,175],[45,215],[30,155]].map(([x,y])=>`<line x1="${78+Math.sign(x-78)*32}" y1="${y}" x2="${x}" y2="${y}" stroke="#AFA9EC" stroke-width="1.8" opacity="0.5"/>`).join('')}
-<path d="M116 165 L340 165" stroke="#7F77DD" stroke-width="6" fill="none" stroke-linecap="round"/>
-<path d="M116 165 L340 165" stroke="white" stroke-width="2" fill="none" style="stroke-dasharray:20,16;animation:vt-zap 0.65s linear infinite"/>
-<circle cx="365" cy="165" r="22" fill="#EF9F27" opacity="0.9"/>
-<text x="365" y="169" text-anchor="middle" font-size="9" fill="#412402" font-family="var(--font-body)" font-weight="500">Synapse</text>
-<text x="228" y="128" text-anchor="middle" font-size="10" fill="#534AB7" font-family="var(--font-body)">← Axon →</text>
-<text x="228" y="220" text-anchor="middle" font-size="11" fill="var(--text-3)" font-family="var(--font-body)">Signal speed: up to 120 m/s</text>
-<text x="228" y="240" text-anchor="middle" font-size="10" fill="var(--text-4)" font-family="var(--font-body)">Na⁺ rushes in → K⁺ flows out → wave moves</text>
-</g>`,
-        text: "An action potential is an electrical signal that fires along a neuron. Sodium ions (Na⁺) rush INTO the cell, making it briefly positive — this is depolarization. Then potassium (K⁺) rushes OUT to reset it — repolarization. This creates a domino wave traveling at up to 120 meters per second down the axon. When it hits the synapse, neurotransmitter chemicals are released to trigger the next neuron. Every thought, movement, and sensation you have right now is this happening millions of times simultaneously."
-      };
-    }
-  },
-
-  {
-    id: 'mitosis',
-    keywords: ['mitosis','cell.*divis','chromosome','replicate','daughter.*cell','prophase','metaphase','anaphase'],
-    topic: 'Mitosis — Cell Division',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-${[{x:75,n:'Prophase'},{x:220,n:'Metaphase'},{x:365,n:'Anaphase'}].map(({x,n},i)=>{
-  let inner = '';
-  if(i===0){
-    inner=`<ellipse cx="${x}" cy="130" rx="25" ry="25" fill="#9FE1CB" opacity="0.5"/><path d="M${x-14} 118 Q${x} 107 ${x+14} 118 Q${x} 128 ${x-14} 118Z" fill="#0F6E56" opacity="0.85"/><path d="M${x-14} 142 Q${x} 153 ${x+14} 142 Q${x} 132 ${x-14} 142Z" fill="#0F6E56" opacity="0.85"/>`;
-  } else if(i===1){
-    inner=`<line x1="${x-40}" y1="130" x2="${x+40}" y2="130" stroke="#ccc" stroke-width="0.8" stroke-dasharray="3,2"/>` + [-1,1].map(j=>`<ellipse cx="${x+j*14}" cy="130" rx="9" ry="17" fill="#0F6E56" opacity="0.85"/>`).join('');
-  } else {
-    inner=[-1,1].map(j=>`<ellipse cx="${x+j*24}" cy="${130+j*6}" rx="9" ry="15" fill="#0F6E56" opacity="0.85"/><line x1="${x}" y1="130" x2="${x+j*22}" y2="${130+j*5}" stroke="#bbb" stroke-width="1" stroke-dasharray="2,2"/>`).join('');
-  }
-  return `<ellipse cx="${x}" cy="130" rx="48" ry="58" fill="none" stroke="var(--border-sm)" stroke-width="1.5" style="animation:vt-fi 0.4s ease ${i*0.15}s both"/>${inner}<text x="${x}" y="210" text-anchor="middle" font-size="11" fill="var(--text-1)" font-family="var(--font-body)" font-weight="500">${n}</text>`;
-}).join('')}
-${[-1,1].map((j,i)=>`<ellipse cx="${60+i*320}" cy="272" rx="32" ry="27" fill="#9FE1CB" opacity="0.45" style="animation:vt-fi 0.5s ease 0.5s both"/><ellipse cx="${60+i*320}" cy="272" rx="11" ry="11" fill="#0F6E56" opacity="0.7" style="animation:vt-fi 0.5s ease 0.7s both"/>`).join('')}
-<text x="220" y="266" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">→  2 identical daughter cells</text>
-</g>`,
-        text: "Mitosis is how one cell becomes two perfect copies. In Prophase, the DNA coils into visible chromosomes. In Metaphase, they line up exactly at the cell's equator — like players lining up before a game. In Anaphase, the cell's machinery pulls them to opposite ends. Then the cell pinches in two. Each daughter cell gets a perfect, identical copy of every chromosome. Your body does this millions of times daily to grow, heal wounds, and replace old cells."
-      };
-    }
-  },
-
-  {
-    id: 'photosynthesis',
-    keywords: ['photosyn','chloro','plant.*food','leaf.*energy','sunlight.*plant','CO2.*plant'],
-    topic: 'Photosynthesis',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<ellipse cx="220" cy="165" rx="98" ry="72" fill="#5DCAA5" opacity="0.2"/>
-<ellipse cx="220" cy="165" rx="98" ry="72" fill="none" stroke="#1D9E75" stroke-width="1.5"/>
-<text x="220" y="122" text-anchor="middle" font-size="12" fill="#085041" font-family="var(--font-body)" font-weight="500">Leaf cell</text>
-<ellipse cx="220" cy="168" rx="30" ry="22" fill="#27ae60" opacity="0.85"/>
-<text x="220" y="172" text-anchor="middle" font-size="9" fill="white" font-family="var(--font-body)">Chloroplast</text>
-${[[95,42],[130,25],[165,14]].map(([x,y],i)=>`<line x1="${x}" y1="${y}" x2="${188-i*12}" y2="${135+i*6}" stroke="#f1c40f" stroke-width="2.5" stroke-linecap="round" style="stroke-dasharray:30,22;animation:vt-flow 1.5s linear ${i*0.3}s infinite"/>`).join('')}
-<text x="95" y="24" text-anchor="middle" font-size="10" fill="#BA7517" font-family="var(--font-body)" font-weight="500">Sunlight</text>
-<path d="M48 158 Q25 158 25 158" stroke="#378ADD" stroke-width="2.5" fill="none" style="stroke-dasharray:18;animation:vt-flow 1s linear infinite" marker-end="url(#vph1)"/>
-<text x="36" y="148" text-anchor="middle" font-size="9" fill="#378ADD" font-family="var(--font-body)">H₂O</text>
-<path d="M122 158 Q85 158 50 158" stroke="#378ADD" stroke-width="2.5" fill="none"/>
-<path d="M48 178 Q25 178 25 178" stroke="#888" stroke-width="2" fill="none" style="stroke-dasharray:18;animation:vt-flow 1s linear 0.3s infinite" marker-end="url(#vph2)"/>
-<text x="36" y="194" text-anchor="middle" font-size="9" fill="#888" font-family="var(--font-body)">CO₂</text>
-<path d="M122 178 Q85 180 50 178" stroke="#888" stroke-width="2" fill="none"/>
-<path d="M318 158 Q360 155 390 155" stroke="#639922" stroke-width="2.5" fill="none" style="stroke-dasharray:22;animation:vt-flow 1.1s linear infinite" marker-end="url(#vph3)"/>
-<text x="400" y="148" text-anchor="middle" font-size="9" fill="#3B6D11" font-family="var(--font-body)">O₂</text>
-<path d="M318 175 Q360 180 390 182" stroke="#EF9F27" stroke-width="2.5" fill="none" style="stroke-dasharray:22;animation:vt-flow 1.1s linear 0.35s infinite" marker-end="url(#vph4)"/>
-<text x="408" y="192" text-anchor="middle" font-size="9" fill="#854F0B" font-family="var(--font-body)">Glucose</text>
-<defs>
-  <marker id="vph1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#378ADD" stroke-width="2"/></marker>
-  <marker id="vph2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#888" stroke-width="2"/></marker>
-  <marker id="vph3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#639922" stroke-width="2"/></marker>
-  <marker id="vph4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#EF9F27" stroke-width="2"/></marker>
-</defs>
-<text x="220" y="268" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">6CO₂ + 6H₂O + light energy → C₆H₁₂O₆ + 6O₂</text>
-</g>`,
-        text: "Photosynthesis is how plants make food from sunlight. Water enters from the roots, carbon dioxide comes in through tiny pores called stomata. Inside the chloroplast — the green powerhouse — sunlight energy is absorbed by chlorophyll and used to bond CO₂ and H₂O into glucose sugar the plant uses as food and for growth. The byproduct is oxygen — the very air you breathe right now! Every breath you take exists because of photosynthesis."
-      };
-    }
-  },
-
-  {
-    id: 'dna',
-    keywords: ['dna','double helix','replication','base pair','nucleotide','adenine','guanine','thymine','cytosine'],
-    topic: 'DNA Double Helix',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.6s ease both">
-${Array.from({length:10},(_,i)=>{
-  const y = 40 + i*26;
-  const lx = 160 + Math.sin(i*0.7)*60;
-  const rx = 280 - Math.sin(i*0.7)*60;
-  const colors = [['#e74c3c','#3498db'],['#3498db','#e74c3c'],['#f39c12','#2ecc71'],['#2ecc71','#f39c12']];
-  const [lc,rc] = colors[i%4];
-  return `<circle cx="${lx}" cy="${y}" r="10" fill="${lc}" opacity="0.85" style="animation:vt-bob ${1.2}s ease-in-out ${i*0.08}s infinite"/>
-<circle cx="${rx}" cy="${y}" r="10" fill="${rc}" opacity="0.85" style="animation:vt-bob ${1.2}s ease-in-out ${i*0.08+0.6}s infinite"/>
-<line x1="${lx+10}" y1="${y}" x2="${rx-10}" y2="${y}" stroke="var(--border-sm)" stroke-width="1.5" stroke-dasharray="3,2"/>`;
-}).join('')}
-<path d="M160,40 ${Array.from({length:10},(_,i)=>`L${160+Math.sin(i*0.7)*60},${40+i*26}`).join(' ')}" stroke="#7F77DD" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-<path d="M280,40 ${Array.from({length:10},(_,i)=>`L${280-Math.sin(i*0.7)*60},${40+i*26}`).join(' ')}" stroke="#7F77DD" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="95" y="155" text-anchor="middle" font-size="10" fill="#e74c3c" font-family="var(--font-body)">A — T</text>
-<text x="95" y="172" text-anchor="middle" font-size="10" fill="#3498db" font-family="var(--font-body)">T — A</text>
-<text x="95" y="189" text-anchor="middle" font-size="10" fill="#f39c12" font-family="var(--font-body)">G — C</text>
-<text x="95" y="206" text-anchor="middle" font-size="10" fill="#2ecc71" font-family="var(--font-body)">C — G</text>
-<text x="345" y="155" font-size="10" fill="var(--text-4)" font-family="var(--font-body)">Base</text>
-<text x="345" y="172" font-size="10" fill="var(--text-4)" font-family="var(--font-body)">pairs</text>
-<text x="220" y="310" text-anchor="middle" font-size="11" fill="var(--text-3)" font-family="var(--font-body)">The two strands are complementary — A always pairs with T, G with C</text>
-</g>`,
-        text: "DNA is a double helix — two strands twisted around each other like a twisted ladder. The sides of the ladder are made of sugar and phosphate. The rungs are base pairs: Adenine always pairs with Thymine (A-T), and Guanine always pairs with Cytosine (G-C). This complementary pairing is why DNA can be copied perfectly — each strand is the template for the other. Your 3 billion base pairs are packed into 46 chromosomes inside almost every cell in your body."
-      };
-    }
-  },
-
-  {
-    id: 'vaccine',
-    keywords: ['vaccine','immun','antibody','antigen','memory cell','herd immunit'],
-    topic: 'How Vaccines Work',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<text x="80" y="30" text-anchor="middle" font-size="11" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">1. Vaccine</text>
-<rect x="42" y="42" width="76" height="44" rx="8" fill="#9FE1CB" opacity="0.5"/>
-<circle cx="65" cy="64" r="10" fill="#1D9E75" opacity="0.8"/>
-<text x="65" y="68" text-anchor="middle" font-size="8" fill="white" font-family="var(--font-body)">antigen</text>
-<circle cx="95" cy="58" r="7" fill="#1D9E75" opacity="0.6"/>
-<circle cx="100" cy="76" r="5" fill="#1D9E75" opacity="0.5"/>
-<path d="M118 64 L148 64" stroke="var(--text-4)" stroke-width="1.5" fill="none" marker-end="url(#vv1)"/>
-<text x="190" y="30" text-anchor="middle" font-size="11" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">2. Immune response</text>
-<rect x="148" y="42" width="84" height="44" rx="8" fill="#EEEDFE" opacity="0.7"/>
-<text x="190" y="68" text-anchor="middle" font-size="9" fill="#534AB7" font-family="var(--font-body)">B cells activated</text>
-<text x="190" y="80" text-anchor="middle" font-size="8" fill="#7F77DD" font-family="var(--font-body)">antibodies made</text>
-<path d="M232 64 L262 64" stroke="var(--text-4)" stroke-width="1.5" fill="none" marker-end="url(#vv1)"/>
-<text x="320" y="30" text-anchor="middle" font-size="11" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">3. Memory</text>
-<rect x="262" y="42" width="76" height="44" rx="8" fill="#FAEEDA" opacity="0.7"/>
-<text x="300" y="62" text-anchor="middle" font-size="9" fill="#854F0B" font-family="var(--font-body)">Memory cells</text>
-<text x="300" y="76" text-anchor="middle" font-size="8" fill="#BA7517" font-family="var(--font-body)">stored for years</text>
-<text x="220" y="118" text-anchor="middle" font-size="12" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">If the real virus arrives later:</text>
-<circle cx="80" cy="170" r="20" fill="#f39c12" opacity="0.8"/>
-<text x="80" y="174" text-anchor="middle" font-size="8" fill="white" font-family="var(--font-body)" font-weight="500">VIRUS</text>
-<text x="80" y="210" text-anchor="middle" font-size="9" fill="var(--text-3)" font-family="var(--font-body)">Real virus enters</text>
-<path d="M104 170 L148 170" stroke="var(--text-4)" stroke-width="1.5" fill="none" marker-end="url(#vv1)"/>
-<rect x="148" y="148" width="84" height="44" rx="8" fill="#EEEDFE" opacity="0.7"/>
-<text x="190" y="172" text-anchor="middle" font-size="9" fill="#534AB7" font-family="var(--font-body)">Memory cells</text>
-<text x="190" y="184" text-anchor="middle" font-size="8" fill="#7F77DD" font-family="var(--font-body)">recognize it fast!</text>
-<path d="M232 170 L262 170" stroke="var(--text-4)" stroke-width="1.5" fill="none" marker-end="url(#vv1)"/>
-<rect x="262" y="148" width="76" height="44" rx="8" fill="#E1F5EE" opacity="0.8"/>
-<text x="300" y="168" text-anchor="middle" font-size="9" fill="#0F6E56" font-family="var(--font-body)">Rapid antibody</text>
-<text x="300" y="181" text-anchor="middle" font-size="8" fill="#1D9E75" font-family="var(--font-body)">attack! Protected.</text>
-<defs><marker id="vv1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="var(--text-4)" stroke-width="2"/></marker></defs>
-<text x="220" y="235" text-anchor="middle" font-size="11" fill="var(--text-3)" font-family="var(--font-body)">Vaccine trains the immune system without causing disease</text>
-</g>`,
-        text: "A vaccine contains a harmless piece of the pathogen — an antigen. Your immune system sees this stranger, activates B cells, and produces antibodies that recognize and destroy it. Crucially, some B cells become memory cells that stick around for years. If the real virus ever enters your body, your immune system recognizes it instantly and launches a massive antibody response before you even feel sick. You're protected without ever having had the disease."
-      };
-    }
-  },
-
-  {
-    id: 'ohmslaw',
-    keywords: ["ohm", "voltage", "current", "resistance", "v=ir", "circuit.*basic", "electric.*law"],
-    topic: "Ohm's Law",
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<rect x="80" y="60" width="280" height="160" rx="12" fill="none" stroke="var(--border-sm)" stroke-width="2"/>
-<rect x="188" y="56" width="64" height="32" rx="6" fill="#EF9F27" opacity="0.85"/>
-<text x="220" y="76" text-anchor="middle" font-size="11" fill="#412402" font-family="var(--font-body)" font-weight="500">Battery (V)</text>
-<rect x="188" y="192" width="64" height="32" rx="6" fill="#AFA9EC" opacity="0.85"/>
-<text x="220" y="212" text-anchor="middle" font-size="11" fill="#26215C" font-family="var(--font-body)" font-weight="500">Resistor (R)</text>
-<path d="M220 88 L220 220" stroke="var(--text-4)" stroke-width="0" fill="none"/>
-<path d="M80 140 L80 88 L188 88" stroke="#e74c3c" stroke-width="3" fill="none" stroke-linecap="round" style="stroke-dasharray:50;animation:vt-flow 1.5s linear infinite"/>
-<path d="M252 88 L360 88 L360 140" stroke="#e74c3c" stroke-width="3" fill="none" stroke-linecap="round" style="stroke-dasharray:50;animation:vt-flow 1.5s linear 0.5s infinite"/>
-<path d="M360 140 L360 212 L252 212" stroke="#3498db" stroke-width="3" fill="none" stroke-linecap="round" style="stroke-dasharray:50;animation:vt-flow 1.5s linear 1s infinite"/>
-<path d="M188 212 L80 212 L80 140" stroke="#3498db" stroke-width="3" fill="none" stroke-linecap="round" style="stroke-dasharray:50;animation:vt-flow 1.5s linear 1.5s infinite"/>
-<text x="42" y="144" text-anchor="middle" font-size="10" fill="#e74c3c" font-family="var(--font-body)">current (I)</text>
-<rect x="152" y="116" width="136" height="88" rx="8" fill="var(--surface-2)" opacity="0.92"/>
-<text x="220" y="144" text-anchor="middle" font-size="22" fill="var(--text-1)" font-family="var(--font-body)" font-weight="700">V = I × R</text>
-<text x="220" y="168" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Voltage = Current × Resistance</text>
-<text x="220" y="185" text-anchor="middle" font-size="10" fill="var(--text-4)" font-family="var(--font-body)">Units: Volts = Amps × Ohms</text>
-<text x="220" y="290" text-anchor="middle" font-size="11" fill="var(--text-3)" font-family="var(--font-body)">Double the resistance → halve the current (same voltage)</text>
-</g>`,
-        text: "Ohm's Law is the fundamental rule of electricity: V = I × R. Voltage (V) is the electrical pressure — like water pressure in a pipe. Current (I) is how many electrons flow per second — like the flow rate of water. Resistance (R) is how much the circuit opposes the flow — like a narrow pipe section. If you increase resistance, current drops. If you increase voltage, current rises. This relationship governs every circuit in every device you use."
-      };
-    }
-  },
-
-  {
-    id: 'apple',
-    keywords: ['apple','fruit','heat.*apple','apple.*heat','cook','evapor','boil'],
-    topic: 'Apple being heated',
-    render(q) {
-      const hot = /heat|hot|cook|boil|warm|evapor/.test(q||'heat');
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<ellipse cx="220" cy="170" rx="65" ry="62" fill="#c0392b" opacity="0.9"/>
-<ellipse cx="209" cy="156" rx="11" ry="15" fill="rgba(255,255,255,0.13)" transform="rotate(-18,209,156)"/>
-<path d="M220 106 Q234 83 252 86 Q240 96 220 102Z" fill="#27ae60"/>
-<path d="M220 106 Q215 90 220 80" stroke="#7d5a3c" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-${hot ? [172,188,204,220].map((x,i)=>`<path d="M${x} 102 Q${x+5} 88 ${x} 74 Q${x-5} 60 ${x} 46" stroke="#aaa" stroke-width="2" fill="none" stroke-linecap="round" style="animation:vt-steam ${0.9+i*0.18}s ease-out ${i*0.18}s infinite"/>`).join('') : ''}
-${hot ? `<ellipse cx="220" cy="235" rx="68" ry="10" fill="#e67e22" opacity="0.3" style="animation:vt-glow 1.2s ease-in-out infinite"/>` : ''}
-<text x="220" y="268" text-anchor="middle" font-size="11" fill="var(--text-3)" font-family="var(--font-body)">${hot ? 'Heat energy → water molecules escape as steam' : 'An apple — full of water, sugars, and cells'}</text>
-</g>`,
-        text: hot
-          ? "Watch the steam rising! When heat is applied, the water molecules inside the apple gain kinetic energy and vibrate faster and faster. At the surface, some molecules have enough energy to break free and escape as water vapor — this is evaporation. The orange glow represents the heat source. This same principle explains cooking, sweating, the water cycle, and why wet clothes dry in the sun."
-          : "Here's your apple — simple on the outside but complex inside. It's mostly water molecules, along with sugars, cellulose, vitamins, and millions of living cells. Ask me to heat it and watch what happens to those molecules!"
-      };
-    }
-  },
-
-  {
-    id: 'respiration',
-    keywords: ['respiration','cellular.*respir','atp','krebs','glycolysis','mitochondria','energy.*cell'],
-    topic: 'Cellular Respiration',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<ellipse cx="220" cy="165" rx="110" ry="80" fill="#FAEEDA" opacity="0.4"/>
-<ellipse cx="220" cy="165" rx="110" ry="80" fill="none" stroke="#BA7517" stroke-width="1.5"/>
-<text x="220" y="118" text-anchor="middle" font-size="11" fill="#633806" font-family="var(--font-body)" font-weight="500">Mitochondria</text>
-<ellipse cx="220" cy="168" rx="55" ry="38" fill="#EF9F27" opacity="0.35"/>
-<text x="220" y="172" text-anchor="middle" font-size="10" fill="#412402" font-family="var(--font-body)">Inner matrix</text>
-<path d="M50 165 Q25 165 25 165" stroke="#e74c3c" stroke-width="2.5" fill="none" style="stroke-dasharray:20;animation:vt-flow 1s linear infinite" marker-end="url(#vr1)"/>
-<text x="38" y="155" text-anchor="middle" font-size="9" fill="#e74c3c" font-family="var(--font-body)">Glucose</text>
-<path d="M80 175 Q50 180 28 180" stroke="#3498db" stroke-width="2" fill="none" style="stroke-dasharray:18;animation:vt-flow 1s linear 0.2s infinite" marker-end="url(#vr2)"/>
-<text x="38" y="194" text-anchor="middle" font-size="9" fill="#3498db" font-family="var(--font-body)">O₂</text>
-<path d="M330 155 Q368 152 392 152" stroke="#f39c12" stroke-width="3" fill="none" style="stroke-dasharray:22;animation:vt-flow 1.1s linear infinite" marker-end="url(#vr3)"/>
-<text x="408" y="148" text-anchor="middle" font-size="10" fill="#854F0B" font-family="var(--font-body)" font-weight="600">ATP</text>
-<text x="408" y="161" text-anchor="middle" font-size="8" fill="#BA7517" font-family="var(--font-body)">(energy!)</text>
-<path d="M330 175 Q368 178 392 180" stroke="#888" stroke-width="2" fill="none" style="stroke-dasharray:18;animation:vt-flow 1.1s linear 0.3s infinite" marker-end="url(#vr4)"/>
-<text x="408" y="186" text-anchor="middle" font-size="9" fill="#888" font-family="var(--font-body)">CO₂ + H₂O</text>
-<defs>
-  <marker id="vr1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#e74c3c" stroke-width="2"/></marker>
-  <marker id="vr2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#3498db" stroke-width="2"/></marker>
-  <marker id="vr3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#f39c12" stroke-width="2"/></marker>
-  <marker id="vr4" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#888" stroke-width="2"/></marker>
-</defs>
-<text x="220" y="275" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + 36–38 ATP</text>
-</g>`,
-        text: "Cellular respiration is how your cells extract energy from glucose. Inside the mitochondria — the cell's powerhouse — glucose and oxygen are broken down through a series of reactions (glycolysis → Krebs cycle → electron transport chain). The end products are ATP (adenosine triphosphate), the energy currency your body uses for everything, plus carbon dioxide and water as waste products. Every movement, thought, and heartbeat is powered by ATP made this way."
-      };
-    }
-  },
-
-  {
-    id: 'digestive',
-    keywords: ['digest','stomach','intestin','enzyme.*food','absorption.*gut','small.*intestine','peristalsis'],
-    topic: 'Digestive System',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<circle cx="220" cy="55" r="28" fill="none" stroke="var(--border-sm)" stroke-width="2"/>
-<text x="220" y="59" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)">Mouth</text>
-<path d="M220 83 L220 105" stroke="var(--text-4)" stroke-width="2" fill="none" marker-end="url(#vd1)"/>
-<rect x="180" y="108" width="80" height="40" rx="8" fill="#AFA9EC" opacity="0.6"/>
-<text x="220" y="132" text-anchor="middle" font-size="10" fill="#26215C" font-family="var(--font-body)">Oesophagus</text>
-<path d="M220 148 L220 165" stroke="var(--text-4)" stroke-width="2" fill="none" marker-end="url(#vd1)"/>
-<path d="M175 180 Q155 168 160 195 Q165 222 200 222 Q235 222 240 195 Q245 168 225 180Z" fill="#EF9F27" opacity="0.7"/>
-<text x="200" y="198" text-anchor="middle" font-size="10" fill="#412402" font-family="var(--font-body)" font-weight="500">Stomach</text>
-<text x="200" y="210" text-anchor="middle" font-size="8" fill="#633806" font-family="var(--font-body)">acid + enzymes</text>
-<path d="M215 222 Q215 240 200 252 Q150 270 145 295 Q140 318 170 320 Q200 322 210 295 Q220 268 260 260 Q300 252 308 278 Q316 305 290 312 Q264 318 260 295" stroke="#5DCAA5" stroke-width="4" fill="none" stroke-linecap="round"/>
-<text x="300" y="268" font-size="9" fill="#085041" font-family="var(--font-body)">Small</text>
-<text x="300" y="280" font-size="9" fill="#085041" font-family="var(--font-body)">intestine</text>
-<text x="300" y="292" font-size="8" fill="#1D9E75" font-family="var(--font-body)">(absorption)</text>
-<text x="220" y="340" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Food → broken down → nutrients absorbed → waste out</text>
-<defs><marker id="vd1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="var(--text-4)" stroke-width="2"/></marker></defs>
-</g>`,
-        text: "Digestion starts in the mouth where teeth crush food and saliva begins breaking down carbohydrates. Food travels down the oesophagus to the stomach, where acid and enzymes break down proteins. The churned mixture (chyme) enters the small intestine — the real workhorse. Here, more enzymes from the pancreas and liver break down everything into tiny molecules: glucose, amino acids, fatty acids. These are absorbed through the intestinal wall into the bloodstream and carried to every cell in your body."
-      };
-    }
-  },
-
-  // ── CHEMISTRY ────────────────────────────────────────────────────────────
-
-  {
-    id: 'titration',
-    keywords: ['titration','titrate','burette','equivalence','neutrali','acid.*base.*reaction','pH.*curve','indicator.*color'],
-    topic: 'Acid-Base Titration',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<defs>
-  <marker id="vt1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#3498db" stroke-width="2"/></marker>
-  <linearGradient id="vtg1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3498db" stop-opacity="0.9"/><stop offset="100%" stop-color="#3498db" stop-opacity="0.3"/></linearGradient>
-  <linearGradient id="vtg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e74c3c" stop-opacity="0.7"/><stop offset="100%" stop-color="#e74c3c" stop-opacity="0.2"/></linearGradient>
-</defs>
-<rect x="178" y="22" width="28" height="7" rx="2" fill="#b0bec5"/>
-<rect x="180" y="29" width="24" height="115" rx="3" fill="none" stroke="#b0bec5" stroke-width="2"/>
-<rect x="182" y="31" width="20" height="80" rx="2" fill="url(#vtg1)" style="animation:vt-grow 1.5s ease both;transform-origin:182px 111px"/>
-${[0,1,2,3,4].map(i=>`<line x1="204" y1="${38+i*18}" x2="210" y2="${38+i*18}" stroke="#b0bec5" stroke-width="1"/><text x="213" y="${42+i*18}" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">${50-i*10} mL</text>`).join('')}
-<path d="M188 144 L188 155 L192 160 L188 165" stroke="#b0bec5" stroke-width="2" fill="none" stroke-linecap="round"/>
-<circle cx="192" cy="161" r="2.5" fill="#3498db" opacity="0.9" style="animation:vt-bob 0.9s ease-in-out infinite"/>
-<path d="M192 163 Q192 185 192 195" stroke="#3498db" stroke-width="1.5" fill="none" stroke-linecap="round" style="stroke-dasharray:6,4;animation:vt-flow 0.8s linear infinite" marker-end="url(#vt1)"/>
-<path d="M148 225 Q148 200 168 195 Q192 190 216 195 Q236 200 236 225 Q236 252 192 255 Q148 252 148 225Z" fill="url(#vtg2)" stroke="#e74c3c" stroke-width="1.5"/>
-<path d="M148 225 Q148 200 168 195 Q192 190 216 195 Q236 200 236 225" fill="none" stroke="#e74c3c" stroke-width="1.5"/>
-<text x="192" y="230" text-anchor="middle" font-size="10" fill="white" font-family="var(--font-body)" font-weight="500">HCl (acid)</text>
-<text x="192" y="244" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.75)" font-family="var(--font-body)">+ indicator</text>
-<line x1="152" y1="255" x2="232" y2="255" stroke="#e74c3c" stroke-width="1.5" opacity="0.4"/>
-<path d="M280 155 L380 155" stroke="var(--border-sm)" stroke-width="1" stroke-dasharray="3,3"/>
-<path d="M280 80 Q295 78 300 100 Q305 130 310 150 Q314 162 320 155 Q328 148 330 100 Q332 72 340 68 Q360 62 380 62" stroke="#8b7cf8" stroke-width="2.5" fill="none" stroke-linecap="round" style="stroke-dasharray:200;animation:vt-dash 2s ease both"/>
-<text x="270" y="80" text-anchor="middle" font-size="9" fill="var(--text-3)" font-family="var(--font-body)" transform="rotate(-90,270,120)">pH</text>
-<text x="330" y="175" text-anchor="middle" font-size="9" fill="var(--text-3)" font-family="var(--font-body)">Volume NaOH →</text>
-<circle cx="320" cy="155" r="4" fill="#e8ac2e" style="animation:vt-pulse 1.2s ease-in-out infinite"/>
-<text x="320" y="148" text-anchor="middle" font-size="8" fill="#e8ac2e" font-family="var(--font-body)" font-weight="600">Equiv.</text>
-<text x="192" y="295" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">At equivalence: moles acid = moles base → pH = 7</text>
-</g>`,
-        text: "Titration is the most elegant experiment in chemistry — you slowly add a known base (NaOH from the burette) into an unknown acid until they perfectly cancel each other out. The indicator dye changes color the moment that happens. On the right, watch the pH curve: it barely changes at first, then ROCKETS upward at the equivalence point — that sharp jump is where moles of acid exactly equal moles of base. By reading the burette, you can calculate the exact concentration of the unknown acid. Precise, beautiful, and absolutely fundamental to medicine, food science, and environmental testing."
-      };
-    }
-  },
-
-  {
-    id: 'atomstructure',
-    keywords: ['atom','proton','neutron','electron','nucleus','bohr','electron.*shell','atomic.*structure','periodic','element'],
-    topic: 'Atomic Structure',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<defs>
-  <radialGradient id="vag1"><stop offset="0%" stop-color="#e74c3c" stop-opacity="0.9"/><stop offset="100%" stop-color="#c0392b" stop-opacity="0.6"/></radialGradient>
-  <radialGradient id="vag2"><stop offset="0%" stop-color="#3498db" stop-opacity="0.9"/><stop offset="100%" stop-color="#2980b9" stop-opacity="0.6"/></radialGradient>
-</defs>
-${[0,1,2].map(i=>`<circle cx="192" cy="148" r="${42+i*38}" fill="none" stroke="var(--border-sm)" stroke-width="${1.2-i*0.2}" stroke-dasharray="${i===0?'none':'4,3'}"/>`).join('')}
-<circle cx="192" cy="148" r="22" fill="#1e1f29" stroke="#e74c3c" stroke-width="1.5"/>
-${[[183,143],[201,143],[192,156],[184,155],[200,155],[192,140]].map(([x,y],i)=>`<circle cx="${x}" cy="${y}" r="5.5" fill="${i%2===0?'url(#vag1)':'url(#vag2)'}" style="animation:vt-pulse ${1.2+i*0.1}s ease-in-out ${i*0.15}s infinite"/>`).join('')}
-<text x="192" y="183" text-anchor="middle" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">Nucleus</text>
-${[[192,106,0],[154,148,1],[192,190,2],[230,148,3],[160,120,0],[224,120,0]].slice(0,2).map(([x,y,sh],i)=>`<circle cx="${x}" cy="${y}" r="6" fill="#f1c40f" stroke="#e8ac2e" stroke-width="1" style="animation:vt-spin ${1.8+sh*0.6}s linear infinite;transform-origin:192px 148px"/>`).join('')}
-<circle cx="234" cy="148" r="6" fill="#f1c40f" stroke="#e8ac2e" stroke-width="1" style="animation:vt-spin 1.8s linear infinite;transform-origin:192px 148px"/>
-<circle cx="192" cy="110" r="6" fill="#f1c40f" stroke="#e8ac2e" stroke-width="1" style="animation:vt-spin 1.8s linear reverse infinite;transform-origin:192px 148px"/>
-<circle cx="175" cy="224" r="6" fill="#f1c40f" stroke="#e8ac2e" stroke-width="1" style="animation:vt-spin 3s linear infinite;transform-origin:192px 148px"/>
-<circle cx="209" cy="224" r="6" fill="#f1c40f" stroke="#e8ac2e" stroke-width="1" style="animation:vt-spin 3s linear 1.5s infinite;transform-origin:192px 148px"/>
-<text x="60" y="148" text-anchor="middle" font-size="9" fill="#e74c3c" font-family="var(--font-body)" font-weight="600">Proton +</text>
-<text x="60" y="162" text-anchor="middle" font-size="9" fill="#3498db" font-family="var(--font-body)" font-weight="600">Neutron 0</text>
-<text x="60" y="176" text-anchor="middle" font-size="9" fill="#f1c40f" font-family="var(--font-body)" font-weight="600">Electron –</text>
-<line x1="78" y1="148" x2="168" y2="150" stroke="var(--border-sm)" stroke-width="0.8"/>
-<text x="340" y="115" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">Shell K: 2e⁻</text>
-<text x="340" y="135" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">Shell L: 8e⁻</text>
-<text x="340" y="155" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">Shell M: 8e⁻</text>
-<text x="192" y="298" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Protons = atomic number. Electrons = protons (neutral atom).</text>
-</g>`,
-        text: "Every atom is mostly empty space — if the nucleus were the size of a marble in the center of a football stadium, the electrons would be orbiting at the stadium's outer walls. The nucleus holds protons (positive charge) and neutrons (no charge), packed tight together. Electrons whirl around in shells or energy levels — up to 2 in the first shell, 8 in the second and third. The number of protons defines the element: 6 protons = carbon, always. The electrons in the outer shell determine how the atom bonds with others — that's the entire basis of chemistry."
-      };
-    }
-  },
-
-  {
-    id: 'acidbase',
-    keywords: ['acid.*base','pH scale','pH.*neutral','hydrogen.*ion','hydroxide','strong acid','weak acid','buffer','pOH'],
-    topic: 'pH Scale & Acids/Bases',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<defs>
-  <linearGradient id="phg" x1="0" y1="0" x2="1" y2="0">
-    <stop offset="0%" stop-color="#e74c3c"/>
-    <stop offset="28%" stop-color="#f39c12"/>
-    <stop offset="50%" stop-color="#2ecc71"/>
-    <stop offset="72%" stop-color="#3498db"/>
-    <stop offset="100%" stop-color="#9b59b6"/>
-  </linearGradient>
-</defs>
-<rect x="30" y="95" width="380" height="32" rx="8" fill="url(#phg)" opacity="0.85"/>
-${Array.from({length:15},(_,i)=>`<line x1="${30+i*27}" y1="95" x2="${30+i*27}" y2="127" stroke="rgba(0,0,0,0.25)" stroke-width="1"/><text x="${30+i*27}" y="142" text-anchor="middle" font-size="9" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">${i}</text>`).join('')}
-<text x="30" y="162" font-size="9" fill="#e74c3c" font-family="var(--font-body)" font-weight="600">ACID</text>
-<text x="196" y="162" text-anchor="middle" font-size="9" fill="#2ecc71" font-family="var(--font-body)" font-weight="600">NEUTRAL</text>
-<text x="408" y="162" text-anchor="end" font-size="9" fill="#9b59b6" font-family="var(--font-body)" font-weight="600">BASE</text>
-${[
-  {x:57,y:185,label:'Battery acid',sub:'pH 1',c:'#e74c3c'},
-  {x:111,y:205,label:'Lemon juice',sub:'pH 3',c:'#e67e22'},
-  {x:165,y:185,label:'Coffee',sub:'pH 5',c:'#f39c12'},
-  {x:219,y:205,label:'Pure water',sub:'pH 7',c:'#2ecc71'},
-  {x:273,y:185,label:'Baking soda',sub:'pH 9',c:'#3498db'},
-  {x:354,y:205,label:'Bleach',sub:'pH 12',c:'#9b59b6'},
-].map(({x,y,label,sub,c})=>`<line x1="${x}" y1="127" x2="${x}" y2="${y-12}" stroke="${c}" stroke-width="1" stroke-dasharray="3,2" opacity="0.7"/><text x="${x}" y="${y}" text-anchor="middle" font-size="9" fill="${c}" font-family="var(--font-body)" font-weight="600">${label}</text><text x="${x}" y="${y+11}" text-anchor="middle" font-size="8" fill="${c}" font-family="var(--font-body)" opacity="0.8">${sub}</text>`).join('')}
-<text x="30" y="258" font-size="10" fill="#e74c3c" font-family="var(--font-body)">Acid: more H⁺ ions</text>
-<text x="30" y="272" font-size="10" fill="#9b59b6" font-family="var(--font-body)">Base: more OH⁻ ions</text>
-<text x="220" y="300" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Each pH unit = 10× change in H⁺ concentration</text>
-</g>`,
-        text: "The pH scale measures how acidic or basic a solution is, running from 0 to 14. Acids donate hydrogen ions (H⁺) — the more H⁺, the lower the pH, the stronger the acid. Bases accept H⁺ or donate OH⁻ ions. pH 7 is neutral — pure water at 25°C. Here's the critical part: the scale is logarithmic, meaning pH 4 is TEN TIMES more acidic than pH 5, and 100 times more acidic than pH 6. This is why a tiny shift in blood pH from 7.4 to 7.0 can be life-threatening — your body's enzymes only work in a very narrow pH window."
-      };
-    }
-  },
-
-  // ── PHYSICS ───────────────────────────────────────────────────────────────
-
-  {
-    id: 'newtonslaws',
-    keywords: ['newton','force','mass.*acceleration','inertia','F=ma','third.*law','action.*reaction','momentum','classical.*mechanics'],
-    topic: "Newton's Three Laws",
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<defs><marker id="vn1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#e8ac2e" stroke-width="2"/></marker>
-<marker id="vn2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#e74c3c" stroke-width="2"/></marker>
-<marker id="vn3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#3498db" stroke-width="2"/></marker></defs>
-<rect x="25" y="30" width="118" height="82" rx="8" fill="var(--surface-3)" stroke="var(--border-sm)" stroke-width="1"/>
-<text x="84" y="48" text-anchor="middle" font-size="9" fill="var(--gold)" font-family="var(--font-body)" font-weight="700">1st LAW</text>
-<text x="84" y="61" text-anchor="middle" font-size="8" fill="var(--text-2)" font-family="var(--font-body)">Inertia</text>
-<circle cx="68" cy="87" r="11" fill="#3498db" opacity="0.8" style="animation:vt-bob 2s ease-in-out infinite"/>
-<path d="M40 87 L56 87" stroke="#e8ac2e" stroke-width="2" fill="none" marker-end="url(#vn1)"/>
-<text x="84" y="102" text-anchor="middle" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">stays moving forever</text>
-<rect x="161" y="30" width="118" height="82" rx="8" fill="var(--surface-3)" stroke="var(--border-sm)" stroke-width="1"/>
-<text x="220" y="48" text-anchor="middle" font-size="9" fill="var(--gold)" font-family="var(--font-body)" font-weight="700">2nd LAW</text>
-<text x="220" y="61" text-anchor="middle" font-size="9" fill="var(--gold)" font-family="var(--font-body)" font-weight="700">F = ma</text>
-<circle cx="204" cy="87" r="8" fill="#2ecc71" opacity="0.8"/>
-<circle cx="236" cy="87" r="14" fill="#2ecc71" opacity="0.5"/>
-<path d="M178 87 L194 87" stroke="#e74c3c" stroke-width="2.5" fill="none" marker-end="url(#vn2)"/>
-<path d="M178 87 L214 87" stroke="#3498db" stroke-width="2.5" fill="none" marker-end="url(#vn3)" style="stroke-dasharray:30;animation:vt-flow 1s linear infinite"/>
-<text x="220" y="104" text-anchor="middle" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">bigger mass → less acc.</text>
-<rect x="297" y="30" width="118" height="82" rx="8" fill="var(--surface-3)" stroke="var(--border-sm)" stroke-width="1"/>
-<text x="356" y="48" text-anchor="middle" font-size="9" fill="var(--gold)" font-family="var(--font-body)" font-weight="700">3rd LAW</text>
-<text x="356" y="61" text-anchor="middle" font-size="8" fill="var(--text-2)" font-family="var(--font-body)">Action = Reaction</text>
-<circle cx="336" cy="87" r="11" fill="#e74c3c" opacity="0.8"/>
-<circle cx="376" cy="87" r="11" fill="#9b59b6" opacity="0.8"/>
-<path d="M348 84 L364 84" stroke="#e74c3c" stroke-width="2" fill="none" marker-end="url(#vn2)"/>
-<path d="M364 90 L348 90" stroke="#9b59b6" stroke-width="2" fill="none" marker-end="url(#vn3)"/>
-<path d="M55 155 Q110 130 165 155 Q220 180 275 155 Q330 130 385 155" stroke="#e8ac2e" stroke-width="2" fill="none" stroke-linecap="round" stroke-dasharray="180;animation:vt-dash 1.8s ease both"/>
-<circle cx="55" cy="155" r="10" fill="#3498db" opacity="0.85" style="animation:vt-bob 1.2s ease-in-out infinite"/>
-<text x="220" y="205" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Projectile path curves under gravity</text>
-<rect x="35" y="220" width="370" height="44" rx="8" fill="var(--surface-3)" stroke="var(--border-sm)" stroke-width="1"/>
-<text x="220" y="238" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)">F = ma    →    a = F/m    →    bigger force = bigger acceleration</text>
-<text x="220" y="254" text-anchor="middle" font-size="9" fill="var(--text-3)" font-family="var(--font-body)">Applies to everything from atoms to galaxies</text>
-</g>`,
-        text: "Newton gave us three laws that explain ALL motion in the universe. Law 1 (Inertia): objects keep doing what they're doing — moving or still — unless a force acts on them. That's why you lurch forward when a car brakes. Law 2 (F=ma): force equals mass times acceleration. Push harder → accelerate more. Push the same force on something heavier → less acceleration. Law 3: every action has an equal and opposite reaction. The rocket pushes gas backward, the gas pushes the rocket forward. You push Earth down with your weight, Earth pushes back up with exactly the same force. These three ideas built the entire field of classical mechanics."
-      };
-    }
-  },
-
-  {
-    id: 'waves',
-    keywords: ['wave','wavelength','frequency','amplitude','transverse','longitudinal','sound.*wave','light.*wave','oscillat','crest.*trough'],
-    topic: 'Wave Properties',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<defs><marker id="vw1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="var(--text-3)" stroke-width="2"/></marker></defs>
-<line x1="30" y1="140" x2="420" y2="140" stroke="var(--border-sm)" stroke-width="1" stroke-dasharray="4,3"/>
-<path d="M30 140 Q65 68 100 140 Q135 212 170 140 Q205 68 240 140 Q275 212 310 140 Q345 68 380 140" stroke="#8b7cf8" stroke-width="2.5" fill="none" stroke-linecap="round" style="stroke-dasharray:600;animation:vt-dash 2s ease both"/>
-<path d="M30 140 Q65 68 100 140 Q135 212 170 140 Q205 68 240 140 Q275 212 310 140 Q345 68 380 140" stroke="#8b7cf8" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.15" style="animation:vt-flow 2s linear infinite"/>
-<line x1="100" y1="68" x2="100" y2="140" stroke="#e8ac2e" stroke-width="1.5" stroke-dasharray="3,2"/>
-<text x="100" y="60" text-anchor="middle" font-size="9" fill="#e8ac2e" font-family="var(--font-body)" font-weight="600">Crest</text>
-<line x1="170" y1="212" x2="170" y2="140" stroke="#e74c3c" stroke-width="1.5" stroke-dasharray="3,2"/>
-<text x="170" y="226" text-anchor="middle" font-size="9" fill="#e74c3c" font-family="var(--font-body)" font-weight="600">Trough</text>
-<line x1="240" y1="95" x2="240" y2="140" stroke="#2ecc71" stroke-width="1.5" stroke-dasharray="3,2"/>
-<line x1="100" y1="95" x2="240" y2="95" stroke="#2ecc71" stroke-width="1.5" marker-end="url(#vw1)"/>
-<line x1="240" y1="95" x2="100" y2="95" stroke="#2ecc71" stroke-width="1.5" marker-end="url(#vw1)"/>
-<text x="170" y="89" text-anchor="middle" font-size="9" fill="#2ecc71" font-family="var(--font-body)" font-weight="600">λ wavelength</text>
-<line x1="52" y1="140" x2="52" y2="68" stroke="#3498db" stroke-width="1.5" marker-end="url(#vw1)"/>
-<line x1="52" y1="140" x2="52" y2="212" stroke="#3498db" stroke-width="1.5" marker-end="url(#vw1)"/>
-<text x="40" y="144" text-anchor="end" font-size="9" fill="#3498db" font-family="var(--font-body)" font-weight="600">A</text>
-<text x="22" y="136" text-anchor="middle" font-size="8" fill="#3498db" font-family="var(--font-body)">amp.</text>
-<rect x="30" y="250" width="380" height="52" rx="8" fill="var(--surface-3)" stroke="var(--border-sm)" stroke-width="1"/>
-<text x="220" y="268" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="500">v = f × λ</text>
-<text x="220" y="284" text-anchor="middle" font-size="9" fill="var(--text-3)" font-family="var(--font-body)">speed = frequency × wavelength</text>
-<text x="220" y="297" text-anchor="middle" font-size="8" fill="var(--text-4)" font-family="var(--font-body)">Higher frequency → shorter wavelength (same speed)</text>
-</g>`,
-        text: "A wave is a disturbance that transfers energy without transferring matter. The crest is the peak, the trough is the valley. Amplitude is the height from rest to crest — it determines the wave's energy and intensity. Wavelength is the distance from one crest to the next. Frequency is how many complete waves pass a point per second, measured in Hertz. The golden equation is v = f × λ: wave speed equals frequency times wavelength. For light in a vacuum the speed is fixed at 300,000 km/s — so higher frequency light (violet) must have shorter wavelengths, and lower frequency light (red) has longer ones. This is the entire electromagnetic spectrum in one equation."
-      };
-    }
-  },
-
-  // ── BIOLOGY continued ─────────────────────────────────────────────────────
-
-  {
-    id: 'cellstructure',
-    keywords: ['cell.*structur','eukaryot','organelle','mitochondr','nucleus.*cell','cell.*membrane','ribosome','golgi','endoplasmic'],
-    topic: 'Eukaryotic Cell Structure',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<defs>
-  <radialGradient id="vcg"><stop offset="0%" stop-color="#2ecc71" stop-opacity="0.08"/><stop offset="100%" stop-color="#27ae60" stop-opacity="0.18"/></radialGradient>
-</defs>
-<path d="M75 165 Q80 60 160 45 Q245 30 320 55 Q390 75 400 155 Q410 235 330 275 Q240 300 160 285 Q80 270 75 165Z" fill="url(#vcg)" stroke="#27ae60" stroke-width="1.8"/>
-<path d="M78 165 Q82 62 160 48 Q244 33 318 57 Q386 77 397 155" fill="none" stroke="#27ae60" stroke-width="0.8" opacity="0.4" stroke-dasharray="4,3"/>
-<ellipse cx="195" cy="155" rx="48" ry="38" fill="rgba(139,124,248,0.22)" stroke="#8b7cf8" stroke-width="2"/>
-<ellipse cx="195" cy="155" rx="40" ry="30" fill="rgba(139,124,248,0.12)" stroke="#8b7cf8" stroke-width="1" stroke-dasharray="3,2"/>
-<circle cx="195" cy="152" r="11" fill="#534AB7" opacity="0.7"/>
-<text x="195" y="193" text-anchor="middle" font-size="9" fill="#AFA9EC" font-family="var(--font-body)" font-weight="600">Nucleus</text>
-<ellipse cx="318" cy="135" rx="30" ry="18" fill="rgba(232,172,46,0.25)" stroke="#e8ac2e" stroke-width="1.5"/>
-<path d="M295 135 Q305 127 318 135 Q305 143 295 135Z" fill="#e8ac2e" opacity="0.5"/>
-<path d="M318 135 Q331 127 341 135 Q331 143 318 135Z" fill="#e8ac2e" opacity="0.5"/>
-<text x="318" y="162" text-anchor="middle" font-size="8" fill="#e8ac2e" font-family="var(--font-body)">Mitochondria</text>
-<path d="M268 205 Q285 195 302 205 Q285 215 268 205Z" fill="rgba(52,152,219,0.3)" stroke="#3498db" stroke-width="1"/>
-<path d="M268 218 Q285 208 302 218 Q285 228 268 218Z" fill="rgba(52,152,219,0.3)" stroke="#3498db" stroke-width="1"/>
-<path d="M268 231 Q285 221 302 231 Q285 241 268 231Z" fill="rgba(52,152,219,0.3)" stroke="#3498db" stroke-width="1"/>
-<text x="285" y="250" text-anchor="middle" font-size="8" fill="#3498db" font-family="var(--font-body)">Golgi</text>
-<path d="M130 218 Q128 200 140 190 Q155 182 165 192 Q168 205 158 215Z" fill="rgba(231,76,60,0.2)" stroke="#e74c3c" stroke-width="1.2"/>
-<text x="140" y="238" text-anchor="middle" font-size="8" fill="#e74c3c" font-family="var(--font-body)">Lysosome</text>
-${[[108,102],[118,120],[100,135]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="3" fill="#f1c40f" opacity="0.9"/>`).join('')}
-<text x="95" y="92" text-anchor="middle" font-size="8" fill="#f1c40f" font-family="var(--font-body)">Ribosomes</text>
-<path d="M355 195 Q368 190 375 200 Q370 215 355 215 Q342 215 340 200 Q345 188 355 195Z" fill="rgba(46,204,113,0.25)" stroke="#2ecc71" stroke-width="1.2"/>
-<text x="362" y="232" text-anchor="middle" font-size="8" fill="#2ecc71" font-family="var(--font-body)">Vacuole</text>
-<text x="220" y="322" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Every organelle has a specific job — like organs in a body</text>
-</g>`,
-        text: "A eukaryotic cell is a miniature city, and every organelle is a specialized department. The nucleus is city hall — it holds the DNA blueprints and controls everything. Mitochondria are the power plants — they take glucose and oxygen and produce ATP energy. The Golgi apparatus is the post office — it packages and ships proteins to the right addresses. Ribosomes are the factories — tiny machines that read RNA instructions and build proteins. Lysosomes are the recycling centers — they break down waste and old organelles. All of this packed into a space 10 micrometres wide, running 24/7 without stopping."
-      };
-    }
-  },
-
-  {
-    id: 'enzyme',
-    keywords: ['enzyme','substrate','active.*site','lock.*key','induced.*fit','catalyst','activation.*energy','inhibitor','denatured'],
-    topic: 'Enzymes & Active Sites',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<defs><marker id="ve1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="var(--text-3)" stroke-width="2"/></marker></defs>
-<text x="80" y="32" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="600">1. Substrate approaches</text>
-<path d="M35 75 Q38 55 60 52 Q95 48 110 58 Q125 68 118 85 Q108 105 85 108 Q55 110 42 95 Q32 85 35 75Z" fill="rgba(45,212,191,0.25)" stroke="#2dd4bf" stroke-width="2"/>
-<path d="M65 80 Q70 68 85 68 Q98 68 100 80 Q100 92 85 92 Q70 92 65 80Z" fill="rgba(45,212,191,0.15)" stroke="#2dd4bf" stroke-width="1.5" stroke-dasharray="3,2"/>
-<text x="75" y="128" text-anchor="middle" font-size="9" fill="#2dd4bf" font-family="var(--font-body)">Enzyme</text>
-<circle cx="128" cy="78" r="14" fill="rgba(232,172,46,0.7)" stroke="#e8ac2e" stroke-width="1.5" style="animation:vt-bob 1.2s ease-in-out infinite"/>
-<text x="128" y="103" text-anchor="middle" font-size="8" fill="#e8ac2e" font-family="var(--font-body)">Substrate</text>
-<text x="220" y="32" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="600">2. Lock & key fit</text>
-<path d="M175 75 Q178 55 200 52 Q235 48 250 58 Q265 68 258 85 Q248 105 225 108 Q195 110 182 95 Q172 85 175 75Z" fill="rgba(45,212,191,0.25)" stroke="#2dd4bf" stroke-width="2"/>
-<path d="M205 80 Q210 68 225 68 Q238 68 240 80 Q240 92 225 92 Q210 92 205 80Z" fill="rgba(232,172,46,0.45)" stroke="#e8ac2e" stroke-width="1.5"/>
-<text x="215" y="128" text-anchor="middle" font-size="9" fill="#2dd4bf" font-family="var(--font-body)">ES Complex</text>
-<text x="355" y="32" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="600">3. Products released</text>
-<path d="M305 75 Q308 55 330 52 Q365 48 380 58 Q395 68 388 85 Q378 105 355 108 Q325 110 312 95 Q302 85 305 75Z" fill="rgba(45,212,191,0.25)" stroke="#2dd4bf" stroke-width="2"/>
-<path d="M335 80 Q340 68 355 68 Q368 68 370 80 Q370 92 355 92 Q340 92 335 80Z" fill="rgba(45,212,191,0.15)" stroke="#2dd4bf" stroke-width="1.5" stroke-dasharray="3,2"/>
-<circle cx="385" cy="68" r="9" fill="rgba(52,211,153,0.7)" stroke="#34d399" stroke-width="1.5" style="animation:vt-bob 0.9s ease-in-out infinite"/>
-<circle cx="398" cy="85" r="8" fill="rgba(52,211,153,0.7)" stroke="#34d399" stroke-width="1.5" style="animation:vt-bob 0.9s ease-in-out 0.4s infinite"/>
-<text x="355" y="128" text-anchor="middle" font-size="9" fill="#34d399" font-family="var(--font-body)">Products</text>
-<path d="M140 82 L168 82" stroke="var(--text-3)" stroke-width="1.5" fill="none" marker-end="url(#ve1)"/>
-<path d="M272 82 L298 82" stroke="var(--text-3)" stroke-width="1.5" fill="none" marker-end="url(#ve1)"/>
-<rect x="55" y="155" width="330" height="55" rx="8" fill="var(--surface-3)" stroke="var(--border-sm)" stroke-width="1"/>
-<path d="M80 205 Q100 165 130 185 Q160 205 190 165 Q195 158 220 158" stroke="#8b7cf8" stroke-width="2" fill="none" stroke-linecap="round"/>
-<text x="232" y="162" font-size="8" fill="#8b7cf8" font-family="var(--font-body)">with enzyme</text>
-<path d="M80 205 Q120 205 150 195 Q185 182 220 175" stroke="var(--text-4)" stroke-width="1.5" fill="none" stroke-dasharray="4,3"/>
-<text x="232" y="178" font-size="8" fill="var(--text-4)" font-family="var(--font-body)">without</text>
-<text x="220" y="230" text-anchor="middle" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">Enzyme lowers activation energy needed</text>
-<text x="220" y="298" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Enzymes are reusable — released unchanged after each reaction</text>
-</g>`,
-        text: "Enzymes are proteins that act as biological catalysts — they speed up chemical reactions by a million times without being used up. Each enzyme has an active site — a precisely shaped pocket that fits one specific substrate like a lock and key. The substrate binds to the active site, gets transformed into products, and then releases. The enzyme is left unchanged, ready to do it again. Without enzymes, reactions like digesting food or copying DNA would take thousands of years. Temperature and pH affect enzyme shape — too hot or too acidic and the enzyme denatures (unfolds) and permanently loses its shape."
-      };
-    }
-  },
-
-  {
-    id: 'bloodcells',
-    keywords: ['blood.*cell','red blood','white blood','platelet','haemoglobin','hemoglobin','immune.*blood','RBC','WBC','plasma'],
-    topic: 'Blood Cells & Components',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<rect x="25" y="35" width="390" height="220" rx="12" fill="rgba(231,76,60,0.06)" stroke="rgba(231,76,60,0.2)" stroke-width="1.5"/>
-<text x="220" y="26" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Blood plasma (55%) — yellow liquid carrying nutrients, hormones, waste</text>
-${[
-  [65,95],[120,78],[175,98],[55,138],[105,155],[155,135],[68,175],[130,180],[175,160],[90,118],[148,108],
-].map(([x,y],i)=>`<ellipse cx="${x}" cy="${y}" rx="13" ry="9" fill="#e74c3c" opacity="${0.75+i*0.02}" style="animation:vt-bob ${1+i*0.08}s ease-in-out ${i*0.06}s infinite"/>`).join('')}
-<text x="115" y="210" text-anchor="middle" font-size="9" fill="#e74c3c" font-family="var(--font-body)" font-weight="600">Red blood cells (45%)</text>
-<text x="115" y="222" text-anchor="middle" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">carry O₂ via haemoglobin · no nucleus · biconcave disc</text>
-${[[280,90],[330,75],[375,95],[290,135],[348,148],[385,128]].map(([x,y],i)=>`<circle cx="${x}" cy="${y}" r="${10+i%2*3}" fill="rgba(139,124,248,${0.5+i*0.05})" stroke="#8b7cf8" stroke-width="1" style="animation:vt-pulse ${1.4+i*0.1}s ease-in-out ${i*0.15}s infinite"/>`).join('')}
-<text x="330" y="175" text-anchor="middle" font-size="9" fill="#8b7cf8" font-family="var(--font-body)" font-weight="600">White blood cells (&lt;1%)</text>
-<text x="330" y="187" text-anchor="middle" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">fight infection · larger · have nucleus</text>
-${[[268,218],[295,212],[322,220],[349,215],[376,222]].map(([x,y],i)=>`<ellipse cx="${x}" cy="${y}" rx="7" ry="4" fill="rgba(232,172,46,0.6)" stroke="#e8ac2e" stroke-width="0.8" style="animation:vt-bob ${0.9+i*0.05}s ease-in-out ${i*0.05}s infinite"/>`).join('')}
-<text x="330" y="238" text-anchor="middle" font-size="8" fill="#e8ac2e" font-family="var(--font-body)">Platelets — clot wounds</text>
-<text x="220" y="288" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">1 mm³ of blood: 5 million RBCs · 7,000 WBCs · 250,000 platelets</text>
-</g>`,
-        text: "Blood is a tissue — a liquid connective tissue carrying out life-critical jobs. Red blood cells are the most numerous: biconcave discs (like a squashed donut) packed with haemoglobin that grabs oxygen in the lungs and drops it off at every tissue. They have no nucleus, maximising space for haemoglobin. White blood cells are your immune army — they recognise pathogens and destroy them. Platelets are tiny fragments that clump together at a wound and release chemicals that trigger clotting to seal the damage. The yellowish plasma carries glucose, hormones, antibodies, and carries carbon dioxide back to the lungs. Every second, your bone marrow produces 3.5 million new red blood cells."
-      };
-    }
-  },
-
-  // ── ECONOMICS ─────────────────────────────────────────────────────────────
-
-  {
-    id: 'supplydemand',
-    keywords: ['supply.*demand','demand.*supply','equilibrium.*price','market.*price','price.*mechanism','consumer.*surplus','producer.*surplus','shift.*demand','shift.*supply'],
-    topic: 'Supply & Demand',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<defs>
-  <marker id="vsd1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="var(--text-3)" stroke-width="2"/></marker>
-</defs>
-<line x1="55" y1="25" x2="55" y2="265" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round" marker-end="url(#vsd1)"/>
-<line x1="45" y1="255" x2="400" y2="255" stroke="var(--text-3)" stroke-width="2" stroke-linecap="round" marker-end="url(#vsd1)"/>
-<text x="45" y="20" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="600">Price</text>
-<text x="400" y="268" text-anchor="middle" font-size="10" fill="var(--text-2)" font-family="var(--font-body)" font-weight="600">Quantity</text>
-<path d="M80 60 Q180 120 380 230" stroke="#e74c3c" stroke-width="2.5" fill="none" stroke-linecap="round" style="stroke-dasharray:380;animation:vt-dash 1.5s ease both"/>
-<text x="388" y="225" font-size="10" fill="#e74c3c" font-family="var(--font-body)" font-weight="700">D</text>
-<text x="330" y="82" font-size="9" fill="#e74c3c" font-family="var(--font-body)">Demand curve</text>
-<text x="330" y="94" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">(higher price → less bought)</text>
-<path d="M80 230 Q180 170 380 60" stroke="#2ecc71" stroke-width="2.5" fill="none" stroke-linecap="round" style="stroke-dasharray:380;animation:vt-dash 1.5s ease 0.4s both"/>
-<text x="388" y="56" font-size="10" fill="#2ecc71" font-family="var(--font-body)" font-weight="700">S</text>
-<text x="68" y="218" font-size="9" fill="#2ecc71" font-family="var(--font-body)">Supply curve</text>
-<text x="68" y="230" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">(higher price → more produced)</text>
-<circle cx="230" cy="145" r="7" fill="#e8ac2e" style="animation:vt-pulse 1.2s ease-in-out infinite"/>
-<line x1="230" y1="145" x2="230" y2="255" stroke="#e8ac2e" stroke-width="1" stroke-dasharray="4,3"/>
-<line x1="55" y1="145" x2="230" y2="145" stroke="#e8ac2e" stroke-width="1" stroke-dasharray="4,3"/>
-<text x="237" y="142" font-size="9" fill="#e8ac2e" font-family="var(--font-body)" font-weight="700">Equilibrium</text>
-<text x="237" y="154" font-size="8" fill="var(--text-3)" font-family="var(--font-body)">P* and Q*</text>
-<text x="220" y="290" text-anchor="middle" font-size="10" fill="var(--text-3)" font-family="var(--font-body)">Where curves cross: market clears — no surplus, no shortage</text>
-</g>`,
-        text: "Supply and demand is the engine of every market. The demand curve slopes downward — as price rises, buyers want less. The supply curve slopes upward — as price rises, producers make more. Where they intersect is the equilibrium: the price at which exactly the right amount is produced and consumed, with nothing left over and nobody going without. If something shifts — a drought cuts coffee supply, or a new study boosts demand for avocados — the curves shift and a new equilibrium forms at a different price and quantity. This model predicts how wages, rents, oil prices, and even taxi fares respond to the real world."
-      };
-    }
-  },
-
-  // ── EARTH SCIENCE ─────────────────────────────────────────────────────────
-
-  {
-    id: 'watercycle',
-    keywords: ['water cycle','hydrological','evaporation','condensation','precipitation','transpiration','runoff','groundwater'],
-    topic: 'The Water Cycle',
-    render() {
-      return {
-        svg: `<g style="animation:vt-fi 0.5s ease both">
-<defs>
-  <marker id="vwc1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#3498db" stroke-width="2"/></marker>
-  <marker id="vwc2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M1 1L8 5L1 9" fill="none" stroke="#7f8c8d" stroke-width="2"/></marker>
-  <linearGradient id="vwcg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3498db" stop-opacity="0.5"/><stop offset="100%" stop-color="#3498db" stop-opacity="0.15"/></linearGradient>
-</defs>
-<path d="M25 255 Q100 230 160 235 Q220 240 280 235 Q340 230 415 255 L415 310 L25 310Z" fill="url(#vwcg)" stroke="#3498db" stroke-width="1.5"/>
-<text x="220" y="278" text-anchor="middle" font-size="10" fill="#3498db" font-family="var(--font-body)" font-weight="500">Ocean / Sea</text>
-<path d="M310 255 Q315 200 325 160 Q340 120 360 100 Q380 82 415 75 L415 255Z" fill="rgba(101,131,91,0.35)" stroke="rgba(101,131,91,0.6)" stroke-width="1.5"/>
-<text x="372" y="175" text-anchor="middle" font-size="9" fill="#27ae60" font-family="var(--font-body)" font-weight="500">Mountain</text>
-<path d="M155 240 Q162 175 172 130" stroke="#3498db" stroke-width="1.5" fill="none" stroke-dasharray="5,4" style="animation:vt-flow 1.8s linear infinite" marker-end="url(#vwc1)"/>
-<text x="133" y="185" font-size="9" fill="#3498db" font-family="var(--font-body)" font-weight="500">Evaporation</text>
-<path d="M260 240 Q262 195 265 165" stroke="#3498db" stroke-width="1" fill="none" stroke-dasharray="5,4" style="animation:vt-flow 2.2s linear 0.4s infinite" marker-end="url(#vwc1)"/>
-<path d="M85 255 Q82 215 80 185" stroke="#2ecc71" stroke-width="1" fill="none" stroke-dasharray="4,4" style="animation:vt-flow 2s linear 0.8s infinite" marker-end="url(#vwc1)"/>
-<text x="60" y="215" font-size="8" fill="#2ecc71" font-family="var(--font-body)">Transpiration</text>
-<path d="M80 75 Q130 55 190 65 Q240 72 290 62 Q330 55 370 65" stroke="#7f8c8d" stroke-width="2" fill="none"/>
-<ellipse cx="100" cy="68" rx="42" ry="22" fill="rgba(127,140,141,0.35)" stroke="rgba(127,140,141,0.5)" stroke-width="1.5"/>
-<ellipse cx="175" cy="58" rx="55" ry="26" fill="rgba(127,140,141,0.4)" stroke="rgba(127,140,141,0.5)" stroke-width="1.5"/>
-<ellipse cx="280" cy="55" rx="60" ry="28" fill="rgba(127,140,141,0.45)" stroke="rgba(127,140,141,0.5)" stroke-width="1.5"/>
-<text x="280" y="59" text-anchor="middle" font-size="9" fill="white" font-family="var(--font-body)" font-weight="500">Cloud (condensation)</text>
-${[[240,95],[252,108],[228,112],[260,122],[235,130]].map(([x,y],i)=>`<path d="M${x} ${y} L${x-2} ${y+14}" stroke="#3498db" stroke-width="2" fill="none" stroke-linecap="round" style="animation:vt-flow 1s linear ${i*0.18}s infinite" marker-end="url(#vwc1)"/>`).join('')}
-<text x="270" y="145" font-size="9" fill="#3498db" font-family="var(--font-body)" font-weight="500">Precipitation</text>
-<path d="M230 230 Q290 248 355 252" stroke="#3498db" stroke-width="2" fill="none" stroke-linecap="round" style="stroke-dasharray:100;animation:vt-flow 1.5s linear infinite" marker-end="url(#vwc1)"/>
-<text x="295" y="245" text-anchor="middle" font-size="9" fill="#3498db" font-family="var(--font-body)">Runoff</text>
-</g>`,
-        text: "The water cycle is the planet's most important recycling system — every water molecule on Earth has been cycling for billions of years. Heat from the sun causes evaporation from oceans and lakes, sending water vapor upward. Plants add to this through transpiration — releasing water through their leaves. As vapor rises and cools, it condenses around tiny particles to form clouds. When droplets grow heavy enough, precipitation falls as rain or snow. On land, water runs off into rivers back to the sea, or soaks into the ground as groundwater. This continuous cycle distributes fresh water across the planet and drives weather patterns."
-      };
-    }
-  },
-
-];
-
-// ── State ──────────────────────────────────────────────────────────────────
-
-let _vtPrevScreen = 'flash';
-let _vtAbort = null;
-let _vtSessionId = null;   // tracks current recent-item id for save/restore
-
-// ── Session persistence helpers ────────────────────────────────────────────
-
-function _vtSaveSession() {
-  if (!_vtSessionId) return;
-  const msgs = document.getElementById('vt-chat-msgs');
-  if (!msgs) return;
-  const html  = msgs.innerHTML;
-  const topic = document.getElementById('vt-canvas-topic')?.textContent || '';
-  // Save the inner SVG content (the <g> fragments), not the outer <svg> wrapper
-  const svg   = document.getElementById('vt-svg')?.innerHTML || '';
-  try {
-    if (typeof localStorage === 'undefined') return;
-    localStorage.setItem('chunks_vt_session_' + _vtSessionId, JSON.stringify({ html, topic, svg }));
-    localStorage.setItem('chunks_active_vt_session', _vtSessionId);
-  } catch(e) {}
-}
-
-function _vtLoadSession(id) {
-  try {
-    if (typeof localStorage === 'undefined') return null;
-    const raw = localStorage.getItem('chunks_vt_session_' + id);
-    return raw ? JSON.parse(raw) : null;
-  } catch(e) { return null; }
-}
-
-// ── Scene matcher ──────────────────────────────────────────────────────────
-
-function _vtMatchScene(q) {
-  const lower = q.toLowerCase();
-  for (const scene of VT_SCENES) {
-    const match = scene.keywords.some(k => new RegExp(k, 'i').test(lower));
-    if (match) return scene;
-  }
-  return null;
-}
-
-// ── Render scene ───────────────────────────────────────────────────────────
-
-function _vtRenderScene(scene, q) {
-  const result = scene.render(q);
-
-  // WhiteboardEngine wipes vt-canvas-area on every AI call, so always
-  // rebuild #vt-svg from scratch inside the container.
-  const area = document.getElementById('vt-canvas-area');
-  if (area) {
-    area.innerHTML =
-      `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-      result.svg +
-      `</svg>`;
-  }
-
-  const topicEl = document.getElementById('vt-canvas-topic');
-  if (topicEl) topicEl.textContent = scene.topic;
-  const dot = document.getElementById('vt-canvas-dot');
-  if (dot) dot.style.background = '#4ade80';
-  return result.text;
-}
-
-// ── Add message ────────────────────────────────────────────────────────────
-
-function _vtAddMsg(text, role) {
-  const msgs = document.getElementById('vt-chat-msgs');
-  if (!msgs) return;
-  const div = document.createElement('div');
-  div.className = `vt-msg vt-msg-${role}`;
-  if (role === 'user') {
-    div.innerHTML = `<div class="vt-bubble">${text}</div>`;
-    msgs.appendChild(div);
-    msgs.scrollTop = msgs.scrollHeight;
-    // Only create a new sidebar entry on the FIRST message of a session
-    // Subsequent messages just update the label and save
-    if (!_vtSessionId && window.recentAdd) {
-      window.recentAdd(text, null, 'visual');
-      // Grab the session id from the item recentAdd just created
-      if (window._recentItems && window._recentItems.length) {
-        const latest = window._recentItems[0];
-        if (latest.source === 'visual') _vtSessionId = latest.id;
-      }
-    } else if (_vtSessionId && window._recentItems) {
-      // Update the existing entry's label to reflect the latest question
-      const existing = window._recentItems.find(r => r.id === _vtSessionId);
-      if (existing) {
-        existing.label = text.length > 32 ? text.slice(0, 32).trimEnd() + '…' : text;
-        existing.question = text;
-        if (typeof window._saveRecent === 'function') window._saveRecent();
-        window._renderAllRecent?.();
-      }
-    }
-    _vtSaveSession();
-    return;
-  } else {
-    div.innerHTML = `<div class="vt-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/><ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="6" fill="#e8ac2e"/></svg></div><div class="vt-bubble"></div>`;
-    msgs.appendChild(div);
-    msgs.scrollTop = msgs.scrollHeight;
-    const bubble = div.querySelector('.vt-bubble');
-    let i = 0;
-    const words = text.split(' ');
-    const iv = setInterval(() => {
-      if (i >= words.length) {
-        clearInterval(iv);
-        _vtSaveSession(); // save after AI finishes typing
-        return;
-      }
-      bubble.textContent += (i > 0 ? ' ' : '') + words[i++];
-      msgs.scrollTop = msgs.scrollHeight;
-    }, 22);
-    return;
-  }
-}
-
-// ── AI fallback — powered by VisualTutorRenderer ────────────────────────────
-
-let _vtRenderer = null;
-
-async function _getRenderer() {
-  if (_vtRenderer) return _vtRenderer;
-  const { VisualTutorRenderer } = await import(/* @vite-ignore */ '../visual-tutor/VisualTutorRenderer.js');
-  _vtRenderer = new VisualTutorRenderer(
-    document.getElementById('vt-canvas-area'),
-    {
-      apiBase:      window.API_BASE,
-      getLanguage:  () => localStorage.getItem('chunks_setting_language') || 'Auto-detect',
-      getSafeMode:  () => localStorage.getItem('chunks_setting_safe-content') === '1',
-
-      onNarration: (text, stepIdx, total) => {
-        if (text) _vtAddMsg(text, 'ai');
+const VTP_LESSONS = {
+  'pH Scale': {
+    hook: "This confuses 90% of students — let's fix that in 5 steps",
+    summary: [
+      'pH scale: 0–14. Below 7 = acidic, above 7 = basic, 7 = neutral',
+      'More H⁺ ions in a solution = lower pH number',
+      'Common acids: lemon (pH 2), coffee (pH 5)',
+      'Buffers keep blood near pH 7.4 — vital for survival',
+    ],
+    quiz: {
+      onStep: 3,
+      q: 'Pure water has a pH of 7. This means it is…',
+      options: [
+        { text: 'Acidic — it has extra H⁺ ions',            correct: false },
+        { text: 'Neutral — equal H⁺ and OH⁻ ions',          correct: true  },
+        { text: 'Basic — it has extra OH⁻ ions',            correct: false },
+        { text: 'Impossible to classify on the pH scale',   correct: false },
+      ],
+      feedbackRight: '✓ Exactly right. pH 7 means the H⁺ and OH⁻ ions are perfectly balanced — that\'s neutral.',
+      feedbackWrong:  '✗ Not quite. pH 7 is where H⁺ and OH⁻ are balanced — that\'s neutral. Acids are below 7, bases above.',
+    },
+    steps: [
+      {
+        label: 'Step 1 — The Big Picture',
+        text: '<strong>Let\'s start simple.</strong> The pH scale is just a ruler from 0 to 14 that measures how acidic or basic something is. Lemon juice, your blood, bleach — everything liquid sits somewhere on it.',
+        simple: 'Think of it like a sourness-to-soapiness ruler. 0 = very sour (like battery acid). 14 = very soapy (like bleach). 7 = water.',
+        draw: 'ph_bar',
+        contextualReplies: [
+          'Great question. The "p" in pH stands for "potenz" (German for power) — it\'s basically the power of hydrogen. Don\'t worry about that, just remember: low = acidic, high = basic.',
+          'Think of pH 1 as being 10 times more acidic than pH 2. It\'s a logarithmic scale — each step is 10× stronger.',
+          'Yes, pH is measured in every liquid. Your blood is pH 7.4, stomach acid is pH 1.5, and baking soda solution is about pH 8.',
+        ],
       },
-
-      onTopic: (name) => {
-        const topicEl = document.getElementById('vt-canvas-topic');
-        if (topicEl) topicEl.textContent = name;
+      {
+        label: 'Step 2 — What pH Actually Measures',
+        text: '<strong>Now watch this.</strong> pH measures the concentration of <em>hydrogen ions (H⁺)</em> dissolved in water. The more H⁺ ions, the more acidic, and the <em>lower</em> the pH number. It\'s counterintuitive — but that\'s chemistry.',
+        simple: 'More H⁺ ions = more acidic = lower pH number. Think of H⁺ ions as tiny bullies — the more of them, the more "aggressively acidic" the solution.',
+        draw: 'ph_ions',
+        contextualReplies: [
+          'Great question. OH⁻ ions (hydroxide) are the opposite — more OH⁻ means more basic and higher pH. Acids make H⁺, bases make OH⁻.',
+          'The equation is pH = -log[H⁺]. In plain English: as H⁺ doubles, pH drops by about 0.3. Don\'t stress the math — just remember more H⁺ = lower pH.',
+          'Water slightly ionizes into H⁺ and OH⁻. Pure water has exactly equal amounts, giving pH 7.',
+        ],
       },
-
-      onComplete: () => {
-        const dot = document.getElementById('vt-canvas-dot');
-        if (dot) dot.style.background = '#4ade80';
-        _vtShowStepNav(true);  // keep nav visible on complete, show replay
-        _vtAddMsg('Diagram complete! Ask me anything about it to go deeper.', 'ai');
+      {
+        label: 'Step 3 — Real Examples You Know',
+        text: '<strong>Let\'s make it real.</strong> Lemon juice is pH 2 — very acidic. Your blood is pH 7.4 — slightly basic. Bleach is pH 12 — very basic. The scale is logarithmic: pH 2 is 100,000× more acidic than pH 7.',
+        simple: 'Remember these 3: lemon = 2 (sour, acidic). Water = 7 (neutral). Bleach = 12 (basic). Everything else falls between them.',
+        draw: 'ph_examples',
+        contextualReplies: [
+          'Yes! Stomach acid is pH 1–2, which is why it can digest tough foods. Your stomach lining is protected by a mucus layer that resists acid.',
+          'Coffee is about pH 5 — mildly acidic. That\'s why some people get heartburn from it. Tea is usually pH 5.5–6.',
+          'Rain is naturally pH 5.6 because CO₂ dissolves in it forming carbonic acid. "Acid rain" from pollution can be pH 4 or lower.',
+        ],
       },
-
-      onError: (err) => {
-        const dot = document.getElementById('vt-canvas-dot');
-        if (dot) dot.style.background = '#f87171';
-        _vtHideStepNav();
-        console.error('[VisualTutor]', err);
+      {
+        label: 'Step 4 — Buffers Keep You Alive',
+        text: '<strong>Here\'s the clever part.</strong> Your blood needs to stay near pH 7.4 to keep you alive. <em>Buffers</em> are chemicals that absorb extra H⁺ ions so your pH barely moves — even when you eat acidic food or exercise hard.',
+        simple: 'A buffer is like a pH bouncer. Extra acid? The buffer absorbs it. Extra base? It releases some acid back. Result: pH stays stable.',
+        draw: 'ph_buffer',
+        contextualReplies: [
+          'The main blood buffer is bicarbonate (HCO₃⁻). It pairs with carbonic acid (H₂CO₃) to catch or release H⁺ as needed.',
+          'If blood pH drops below 7.35 it\'s called acidosis — can cause confusion and breathing problems. Above 7.45 is alkalosis. Both are dangerous.',
+          'Your kidneys and lungs also help regulate blood pH. Kidneys adjust bicarbonate levels; lungs adjust CO₂ levels — CO₂ dissolves to form acid.',
+        ],
       },
-
-      onModeChange: (mode) => {
-        const dot = document.getElementById('vt-canvas-dot');
-        if (!dot) return;
-        if (mode === 'whiteboard')  dot.style.background = '#60a5fa';
-        if (mode === 'simulation')  { dot.style.background = '#a78bfa'; _vtHideStepNav(); }
-        if (mode === 'idle')        { dot.style.background = '#4ade80'; _vtHideStepNav(); }
+      {
+        label: 'Step 5 — The Full Picture',
+        text: '<strong>You\'ve got it.</strong> pH is a 0–14 scale. Low = acidic (more H⁺). High = basic (more OH⁻). 7 = neutral. The scale is logarithmic — each step is 10× stronger. Buffers keep living systems at the right pH. That\'s the whole story.',
+        simple: 'The three numbers to remember: 0 (acid), 7 (neutral), 14 (base). Lower = more H⁺ ions = more acidic.',
+        draw: 'ph_summary',
+        contextualReplies: [
+          'You\'ve now understood what trips up most students: that lower pH = MORE acidic (not less). Great work.',
+          'Next level: try calculating pH from H⁺ concentration using pH = -log[H⁺]. If [H⁺] = 0.01 mol/L, then pH = 2.',
+          'Great question. Indicators like litmus turn red in acid, blue in base. Phenolphthalein is colorless in acid, pink in base.',
+        ],
       },
+    ],
+  },
 
-      onStepComplete: (idx, total) => {
-        _vtUpdateStepNav(idx, total);
-      },
-    }
-  );
-  return _vtRenderer;
-}
-
-// ── Step nav helpers ──────────────────────────────────────────────────────────
-
-function _vtShowStepNav(isComplete) {
-  const nav   = document.getElementById('vt-step-nav');
-  const pills = document.getElementById('vt-quick-pills');
-  if (nav)   nav.style.display   = '';
-  if (pills) pills.style.display = 'none';
-
-  const nextBtn = document.getElementById('vt-step-next');
-  if (nextBtn) {
-    if (isComplete) {
-      nextBtn.textContent = 'Replay';
-      nextBtn.innerHTML = 'Replay <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.63"/></svg>';
-      nextBtn.onclick = () => { _vtRenderer && _vtRenderer.goToStep(0); };
-    } else {
-      nextBtn.innerHTML = 'Next step <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
-      nextBtn.onclick = () => window._vtNextStep();
-    }
-  }
-}
-
-function _vtHideStepNav() {
-  const nav   = document.getElementById('vt-step-nav');
-  const pills = document.getElementById('vt-quick-pills');
-  if (nav)   nav.style.display   = 'none';
-  if (pills) pills.style.display = '';
-}
-
-function _vtUpdateStepNav(idx, total) {
-  _vtShowStepNav(false);
-
-  // Dots
-  const dotsEl = document.getElementById('vt-step-dots');
-  if (dotsEl) {
-    dotsEl.innerHTML = '';
-    const max = Math.min(total, 12); // cap at 12 dots
-    for (let i = 0; i < max; i++) {
-      const d = document.createElement('span');
-      d.className = 'vt-step-dot' + (i <= idx ? ' vt-step-dot-active' : '');
-      if (i === idx) d.className += ' vt-step-dot-current';
-      dotsEl.appendChild(d);
-    }
-  }
-
-  // Back button — disabled on first step
-  const backBtn = document.getElementById('vt-step-back');
-  if (backBtn) {
-    backBtn.disabled = (idx === 0);
-    backBtn.style.opacity = (idx === 0) ? '0.35' : '';
-  }
-
-  // Next button label — "Finish" on last step
-  const nextBtn = document.getElementById('vt-step-next');
-  if (nextBtn) {
-    const isLast = (idx >= total - 1);
-    nextBtn.innerHTML = isLast
-      ? 'Finish <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>'
-      : 'Next step <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
-    nextBtn.onclick = () => window._vtNextStep();
-  }
-}
-
-if (typeof window !== 'undefined') window._vtNextStep = function() {
-  if (!_vtRenderer) return;
-  const idx   = _vtRenderer.currentStep;
-  const total = _vtRenderer.totalSteps;
-  if (idx >= total - 1) {
-    // Was on last step — trigger done
-    _vtShowStepNav(true);
-    return;
-  }
-  _vtRenderer.nextStep();
+  "Newton's Laws": {
+    hook: "You'll understand all 3 laws in under 3 minutes",
+    summary: [
+      'Law 1: Objects resist change in motion — inertia',
+      'Law 2: F = ma — force, mass, and acceleration are linked',
+      'Law 3: Every action has an equal and opposite reaction',
+      'All three laws work together in every motion you see',
+    ],
+    quiz: {
+      onStep: 3,
+      q: 'A heavier truck and a small car have the same engine force applied. Which accelerates faster?',
+      options: [
+        { text: 'The truck — more mass means more force',              correct: false },
+        { text: 'The car — less mass means more acceleration (F=ma)',  correct: true  },
+        { text: 'They accelerate equally — force is the same',        correct: false },
+        { text: 'Neither — they cancel each other out',               correct: false },
+      ],
+      feedbackRight: '✓ Correct! F=ma means a = F/m. Same force, less mass → more acceleration. The car wins.',
+      feedbackWrong:  '✗ Remember F=ma, so a = F/m. Same force but less mass means MORE acceleration. The lighter car accelerates faster.',
+    },
+    steps: [
+      { label:'Step 1 — Law of Inertia',          text:'<strong>Imagine this.</strong> A ball floating in deep space keeps floating forever — same speed, same direction. Nothing stops it. That\'s Newton\'s First Law: objects keep doing what they\'re doing unless a force pushes or pulls them.', simple:'Things are lazy. A still object stays still. A moving object keeps moving. Only a force can change that.', draw:'n_1', contextualReplies:['A seat belt works because of inertia. In a crash, your body wants to keep moving forward — the belt applies a force to stop you.','Friction is the hidden force that stops objects on Earth. In space, with no friction, the First Law plays out perfectly.','The fancy word for this property is "inertia". More mass = more inertia = harder to start or stop moving.'] },
+      { label:'Step 2 — F = ma',                  text:'<strong>Now the famous one.</strong> Force equals mass times acceleration. <em>F = ma.</em> Push a car vs push a bike with the same force — the bike accelerates much faster because it has less mass. Simple and powerful.', simple:'F = ma means: bigger force → more acceleration. But also: bigger mass → less acceleration. Same formula, two lessons.', draw:'n_2', contextualReplies:['In SI units: Force is in Newtons (N). 1 N = 1 kg·m/s². So pushing 1 kg with 1 N gives 1 m/s² acceleration.','Weight is actually a force: W = mg where g = 9.8 m/s². That\'s why heavier things need more force to lift.','This law lets engineers calculate exactly how much rocket thrust is needed to lift a specific mass off the ground.'] },
+      { label:'Step 3 — Action & Reaction',        text:'<strong>This one surprises people.</strong> Every force you exert creates an equal and opposite force coming back. When you jump, you push Earth down — Earth pushes you up with the same force. That push is what launches you into the air.', simple:'Forces always come in pairs. You push on something → it pushes back exactly as hard. Always. No exceptions.', draw:'n_3', contextualReplies:['A rocket works by throwing gas backwards (action) → gas pushes rocket forwards (reaction). No air needed.','The forces are equal but their effects aren\'t — if you push a wall, same force comes back, but the wall barely moves (much more mass).','Swimming uses this law: you push water backwards with your hands → water pushes you forwards.'] },
+      { label:'Step 4 — All Three Working Together', text:'<strong>Watch how they connect.</strong> A rocket on a launch pad: Law 1 — it stays still until thrust fires. Law 2 — thrust force accelerates its mass upward. Law 3 — exhaust pushes down, rocket is pushed up. Three laws, one launch.', simple:'Law 1: stays still until something happens. Law 2: force causes acceleration based on mass. Law 3: every push has a push-back.', draw:'n_all', contextualReplies:['Car safety systems use all three laws: airbags (Law 1 - inertia), seatbelts (Law 2 - deceleration force), crumple zones (Law 3 - reaction forces).','The ISS stays in orbit because of Law 1 — it\'s constantly falling around Earth but also moving forward fast enough to keep missing it.','Even walking uses Law 3: your foot pushes backward on the ground, ground pushes you forward.'] },
+      { label:'Step 5 — Complete Picture',          text:'<strong>You\'ve nailed it.</strong> Three laws. Objects resist change (1). F=ma means force, mass, and acceleration are linked (2). Every force has an equal opposite force (3). These three rules explain nearly every motion you\'ve ever seen.', simple:'Remember F=ma and "equal and opposite" and you\'ve got Newton. Everything else follows from those two ideas.', draw:'n_summary', contextualReplies:['These three laws were published in 1687 in Principia Mathematica — considered one of the greatest science books ever written.','Newton\'s Laws break down at very high speeds (you need Einstein\'s relativity) and at atomic scales (you need quantum mechanics). But for everyday life, they\'re perfect.','A fun test: think of any motion and try to identify all three laws in it. Kicking a ball involves all three.'] },
+    ],
+  },
 };
 
-if (typeof window !== 'undefined') window._vtPrevStep = function() {
-  if (!_vtRenderer) return;
-  const idx = _vtRenderer.currentStep;
-  if (idx <= 0) return;
-  _vtRenderer.goToStep(idx - 1);
-};
-
-async function _vtAskAI(q) {
-  const dot = document.getElementById('vt-canvas-dot');
-  if (dot) dot.style.background = '#facc15';
-
-  try {
-    const renderer = await _getRenderer();
-    // Update the container reference in case the DOM was rebuilt (e.g. after _vtClear)
-    renderer._container = document.getElementById('vt-canvas-area');
-    await renderer.ask(q);
-  } catch (e) {
-    if (e.name === 'AbortError') return;
-    _vtAddMsg("Sorry, I couldn\'t generate a diagram right now. Try one of the pre-built topics!", 'ai');
-    if (dot) dot.style.background = '#f87171';
-  }
-}
-
-// Stop any running animation when clearing the canvas
-if (typeof window !== 'undefined') {
-  const _vtOrigClear = window._vtClear;
-  window._vtClear = function() {
-    _vtRenderer?.stop();
-    _vtOrigClear?.();
+function vtpBuildDefault(topic) {
+  return {
+    hook: `You'll understand ${topic} in under 3 minutes`,
+    summary: [
+      `Core concept of ${topic} established`,
+      'Visual understanding built step by step',
+      'Real-world examples connected',
+      'Practice confirms understanding',
+    ],
+    quiz: {
+      onStep: 3,
+      q: `Which best describes the key idea behind ${topic}?`,
+      options: [
+        { text: 'It involves a relationship between two changing quantities', correct: true  },
+        { text: 'It only applies in laboratory conditions',                  correct: false },
+        { text: 'It contradicts most other scientific principles',           correct: false },
+        { text: 'It was only discovered in the 20th century',               correct: false },
+      ],
+      feedbackRight: '✓ Correct! That\'s the core insight — most scientific concepts describe relationships between variables.',
+      feedbackWrong:  '✗ Actually, most concepts describe relationships between quantities. Keep that in mind as we go.',
+    },
+    steps: [
+      { label:'Step 1 — Foundation',      text:`<strong>Let's start simple.</strong> Every concept has a core idea. For ${topic}, that core idea is about understanding how one thing relates to another. Before the details, let's lock in the foundation.`, simple:`Think of ${topic} as a relationship. When one thing changes, something else responds predictably. That's the whole concept.`, draw:'generic', contextualReplies:[`Great question! The foundation of ${topic} comes down to the key variable that changes everything else. Watch how that plays out in the next step.`,`That's a common confusion. The key thing to remember is the direction of the relationship — which thing causes which.`] },
+      { label:'Step 2 — Core Mechanism',  text:`<strong>Now imagine this.</strong> The mechanism behind ${topic} is a cause-and-effect chain. One input changes → a predictable output follows. Understanding that chain is 80% of understanding the topic.`, simple:`Input changes → output changes in a predictable way. That's the mechanism. The rest is just knowing the specific inputs and outputs.`, draw:'generic', contextualReplies:[`The mechanism here is elegant because it works the same way in many contexts. Once you see the pattern, you'll spot it everywhere.`] },
+      { label:'Step 3 — Real Example',    text:`<strong>Let's ground it.</strong> The best way to lock in a concept is a concrete example. Here's one that shows exactly how ${topic} plays out in a real situation you can picture.`, simple:`Picture the simplest version: one thing goes up, another goes down (or up). That's all a real example shows.`, draw:'generic', contextualReplies:[`Yes, that's a great real-world application. You're already connecting the concept to your existing knowledge — that's how real understanding builds.`] },
+      { label:'Step 4 — Why It Matters',  text:`<strong>Here's why it sticks.</strong> ${topic} shows up in the real world in ways you encounter every day. Recognising it outside the classroom is what turns knowledge into understanding.`, simple:`Ask yourself: where do I see this in real life? The moment you find a personal example, the concept belongs to you.`, draw:'generic', contextualReplies:[`That's exactly the kind of connection that makes knowledge permanent. The more personal examples you find, the better it sticks.`] },
+      { label:'Step 5 — Summary',         text:`<strong>You've got it.</strong> You've walked through ${topic} from the core idea to real examples. The key pattern, the mechanism, and the real-world context — all in one session. Well done.`, simple:`Three things: the core idea, how it works, and where you see it. You've covered all three.`, draw:'generic', contextualReplies:[`You're now in the top 10% of students who can explain ${topic} clearly. Most people skip steps — you didn't.`] },
+    ],
   };
 }
 
-// ── Public API ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────────────────────────────────────
 
-if (typeof window !== 'undefined') window._vtAsk = function(q) {
-  if (!q.trim()) return;
-  const input = document.getElementById('vt-input');
-  if (input) input.value = '';
-  _vtAddMsg(q, 'user');
+let _vtpCurrentTopic = '';
+let _vtpLesson       = null;
+let _vtpStepIdx      = 0;
+let _vtpTotalSteps   = 5;
+let _vtpCanvas, _vtpCtx, _vtpW, _vtpH;
+let _vtpTypeTimer    = null;
+let _vtpStepBusy     = false;
+let _vtpQuizAnswered = false;
+let _vtpAutoplay     = false;
+let _vtpAutoTimer    = null;
+let _vtpSimplifyCount = 0;
+let _vtpAskCount     = 0;
+let _vtpQuizPassed   = false;
+let _vtpCtxReplyStep = 0;
+let _vtpWeakSteps    = [];
+let _vtpResizeTimer  = null;
 
-  const scene = _vtMatchScene(q);
-  if (scene) {
-    const text = _vtRenderScene(scene, q);
-    setTimeout(() => _vtAddMsg(text, 'ai'), 200);
-  } else {
-    const area = document.getElementById('vt-canvas-area');
-    if (area) {
-      area.innerHTML =
-        `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-        `<text x="220" y="165" text-anchor="middle" font-size="13" fill="var(--text-4)" font-family="var(--font-body)">Thinking about ${q}...</text>` +
-        `</svg>`;
+// ─────────────────────────────────────────────────────────────────────────────
+// SOUND ENGINE  (Web Audio API — no file assets needed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+let _vtpAudioCtx = null;
+function _vtpGetAudio() {
+  if (!_vtpAudioCtx) _vtpAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return _vtpAudioCtx;
+}
+function _vtpSound(type) {
+  try {
+    const ac = _vtpGetAudio();
+    const o  = ac.createOscillator();
+    const g  = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    const t = ac.currentTime;
+    if (type === 'tick') {
+      o.type = 'sine'; o.frequency.setValueAtTime(660, t);
+      g.gain.setValueAtTime(0.06, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+      o.start(t); o.stop(t + 0.08);
+    } else if (type === 'correct') {
+      o.type = 'triangle';
+      o.frequency.setValueAtTime(523, t);
+      o.frequency.setValueAtTime(659, t + 0.1);
+      o.frequency.setValueAtTime(784, t + 0.2);
+      g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+      o.start(t); o.stop(t + 0.45);
+    } else if (type === 'wrong') {
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(220, t);
+      o.frequency.exponentialRampToValueAtTime(180, t + 0.25);
+      g.gain.setValueAtTime(0.08, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+      o.start(t); o.stop(t + 0.28);
+    } else if (type === 'gotit') {
+      o.type = 'sine'; o.frequency.setValueAtTime(440, t);
+      o.frequency.setValueAtTime(528, t + 0.1);
+      g.gain.setValueAtTime(0.09, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      o.start(t); o.stop(t + 0.2);
     }
-    _vtAddMsg("Let me think about that for you...", 'ai');
-    _vtAskAI(q);
+  } catch(e) {}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SCREEN TRANSITIONS  (scoped to .vtp-screen only)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpShowScreen(id) {
+  document.querySelectorAll('.vtp-screen').forEach(s => s.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LESSON LIFECYCLE
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpStartLesson() {
+  const inp = document.getElementById('vtp-entry-input');
+  const t   = (inp ? inp.value.trim() : '') || 'pH Scale';
+  _vtpCurrentTopic  = t;
+  _vtpLesson        = VTP_LESSONS[t] || vtpBuildDefault(t);
+  _vtpTotalSteps    = _vtpLesson.steps.length;
+  _vtpStepIdx       = 0;
+  _vtpSimplifyCount = 0;
+  _vtpAskCount      = 0;
+  _vtpQuizPassed    = false;
+  _vtpQuizAnswered  = false;
+  _vtpCtxReplyStep  = 0;
+  _vtpWeakSteps     = [];
+
+  // Update hook text on entry screen for next open
+  const hookEl = document.querySelector('#screen-visual .entry-hook');
+  if (hookEl) {
+    const textNode = hookEl.childNodes[hookEl.childNodes.length - 1];
+    if (textNode) textNode.textContent = ' ' + (_vtpLesson.hook || "You'll understand this in 5 steps");
   }
-};
 
-if (typeof window !== 'undefined') window._vtSendInput = function() {
-  const input = document.getElementById('vt-input');
-  if (input) window._vtAsk(input.value);
-};
+  const topicLabel = document.getElementById('lh-topic-label');
+  if (topicLabel) topicLabel.textContent = _vtpCurrentTopic;
 
-if (typeof window !== 'undefined') window._vtBack = function() {
-  if (window.showScreen) window.showScreen(_vtPrevScreen || 'flash');
-};
+  const completeTopic = document.getElementById('complete-topic');
+  if (completeTopic) completeTopic.textContent = _vtpCurrentTopic;
 
+  // Build summary
+  const summaryEl = document.getElementById('summary-items');
+  if (summaryEl) {
+    summaryEl.innerHTML = _vtpLesson.summary
+      .map(s => `<div class="summary-item"><div class="summary-dot"></div>${s}</div>`)
+      .join('');
+  }
+
+  _vtpShowScreen('screen-lesson');
+  setTimeout(() => { _vtpInitCanvas(); _vtpBuildDots(); _vtpRenderStep(0); }, 220);
+}
+
+function _vtpExitLesson() {
+  if (_vtpTypeTimer) clearTimeout(_vtpTypeTimer);
+  if (_vtpAutoTimer) clearTimeout(_vtpAutoTimer);
+  _vtpClearCanvas();
+
+  const sw = document.getElementById('simplified-wrap');
+  if (sw) sw.style.display = 'none';
+  const gr = document.getElementById('gotit-row');
+  if (gr) gr.style.display = 'none';
+
+  const inp = document.getElementById('vtp-entry-input');
+  if (inp) inp.value = '';
+
+  _vtpShowScreen('screen-entry');
+}
+
+function _vtpDoAgain() {
+  const inp = document.getElementById('vtp-entry-input');
+  if (inp) inp.value = _vtpCurrentTopic;
+  _vtpStartLesson();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CANVAS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpInitCanvas() {
+  _vtpCanvas = document.getElementById('wb-canvas');
+  const area = document.getElementById('wb-area');
+  if (!_vtpCanvas || !area) return;
+  _vtpW = area.offsetWidth;
+  _vtpH = area.offsetHeight;
+  _vtpCanvas.width  = _vtpW;
+  _vtpCanvas.height = _vtpH;
+  _vtpCtx = _vtpCanvas.getContext('2d');
+  _vtpDrawDotGrid();
+}
+
+function _vtpDrawDotGrid() {
+  if (!_vtpCtx) return;
+  _vtpCtx.clearRect(0, 0, _vtpW, _vtpH);
+  _vtpCtx.fillStyle = 'rgba(255,255,255,0.03)';
+  for (let x = 44; x < _vtpW; x += 44)
+    for (let y = 44; y < _vtpH; y += 44) {
+      _vtpCtx.beginPath();
+      _vtpCtx.arc(x, y, 1.3, 0, Math.PI * 2);
+      _vtpCtx.fill();
+    }
+}
+
+function _vtpClearCanvas() {
+  if (!_vtpCtx) return;
+  _vtpCtx.clearRect(0, 0, _vtpW, _vtpH);
+  _vtpDrawDotGrid();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STEP SYSTEM
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpBuildDots() {
+  const c = document.getElementById('step-dots');
+  if (!c) return;
+  c.innerHTML = '';
+  for (let i = 0; i < _vtpTotalSteps; i++) {
+    const d = document.createElement('div');
+    d.className = 'sdot' + (i === 0 ? ' active' : '');
+    d.id = 'sd-' + i;
+    c.appendChild(d);
+  }
+}
+
+function _vtpUpdateDots(idx) {
+  for (let i = 0; i < _vtpTotalSteps; i++) {
+    const d = document.getElementById('sd-' + i);
+    if (!d) continue;
+    d.className = 'sdot' + (i < idx ? ' done' : i === idx ? ' active' : '');
+  }
+}
+
+function _vtpUpdateProgress(idx) {
+  const pct = idx === 0 ? 0 : (idx / (_vtpTotalSteps - 1)) * 100;
+  const fill = document.getElementById('prog-fill');
+  if (fill) fill.style.width = pct + '%';
+}
+
+function _vtpRenderStep(idx) {
+  _vtpStepBusy = true;
+  _vtpClearAskReply();
+
+  const sw = document.getElementById('simplified-wrap');
+  const gr = document.getElementById('gotit-row');
+  if (sw) sw.style.display = 'none';
+  if (gr) gr.style.display = 'none';
+
+  const step = _vtpLesson.steps[idx];
+
+  const cur = document.getElementById('step-cur');
+  const tot = document.getElementById('step-tot');
+  if (cur) cur.textContent = idx + 1;
+  if (tot) tot.textContent = _vtpTotalSteps;
+
+  // Split "Step N — Purpose text" label
+  const rawLabel  = step.label || '';
+  const dashIdx   = rawLabel.indexOf('—');
+  const stepTag   = dashIdx > -1 ? rawLabel.slice(0, dashIdx).trim() : rawLabel;
+  const purposeTxt = dashIdx > -1 ? rawLabel.slice(dashIdx + 1).trim() : '';
+
+  const purposeEl = document.getElementById('exp-purpose');
+  const lblEl     = document.getElementById('exp-label');
+  if (purposeEl) { purposeEl.classList.remove('vis'); }
+  if (lblEl)     { lblEl.classList.remove('vis'); }
+
+  if (purposeTxt) {
+    if (purposeEl) purposeEl.textContent = stepTag + ' of ' + _vtpTotalSteps;
+    if (lblEl)     lblEl.textContent     = purposeTxt;
+  } else {
+    if (purposeEl) purposeEl.textContent = '';
+    if (lblEl)     lblEl.textContent     = rawLabel;
+  }
+  setTimeout(() => {
+    if (purposeEl) purposeEl.classList.add('vis');
+    if (lblEl)     lblEl.classList.add('vis');
+  }, 100);
+
+  // Disable ask input while typing
+  const askEl = document.getElementById('ask-input');
+  const simpBtn = document.getElementById('btn-simplify');
+  if (askEl)   { askEl.disabled = true; askEl.placeholder = 'AI is explaining…'; }
+  if (simpBtn) simpBtn.disabled = true;
+
+  _vtpUpdateDots(idx);
+  _vtpUpdateProgress(idx);
+  _vtpSound('tick');
+  _vtpFadeAndDraw(step.draw || 'generic');
+
+  _vtpTypeText(step.text, () => {
+    _vtpStepBusy = false;
+    if (simpBtn) simpBtn.disabled = false;
+    if (askEl)   { askEl.disabled = false; askEl.placeholder = 'Ask anything…'; }
+    _vtpShowGotItRow();
+  });
+}
+
+function _vtpShowGotItRow() {
+  const row = document.getElementById('gotit-row');
+  if (row) row.style.display = 'flex';
+
+  const skipBtn = document.getElementById('btn-skip');
+  if (skipBtn) {
+    skipBtn.style.display = (_vtpLesson.quiz && !_vtpQuizAnswered) ? 'inline-block' : 'none';
+  }
+
+  if (_vtpAutoplay) {
+    if (_vtpAutoTimer) clearTimeout(_vtpAutoTimer);
+    _vtpAutoTimer = setTimeout(() => _vtpGotIt(true), 5000);
+  }
+}
+
+function _vtpGotIt(understood) {
+  if (_vtpAutoTimer) clearTimeout(_vtpAutoTimer);
+  const row = document.getElementById('gotit-row');
+  if (row) row.style.display = 'none';
+
+  if (understood) {
+    _vtpSpawnConfetti();
+    _vtpShowXpToast();
+    _vtpSound('gotit');
+    _vtpProceedFromStep();
+  } else {
+    if (!_vtpWeakSteps.includes(_vtpStepIdx)) _vtpWeakSteps.push(_vtpStepIdx);
+    _vtpSimplify();
+    setTimeout(() => {
+      const r = document.getElementById('gotit-row');
+      if (r) r.style.display = 'flex';
+    }, 400);
+  }
+}
+
+function _vtpReviewWeak() {
+  if (!_vtpWeakSteps.length) { _vtpDoAgain(); return; }
+  _vtpStepIdx   = _vtpWeakSteps[0];
+  _vtpWeakSteps = [];
+  _vtpShowScreen('screen-lesson');
+  setTimeout(() => { _vtpInitCanvas(); _vtpBuildDots(); _vtpRenderStep(_vtpStepIdx); }, 220);
+}
+
+function _vtpShowXpToast() {
+  const toast = document.getElementById('xp-toast');
+  if (!toast) return;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
+function _vtpSkipToQuiz() {
+  if (_vtpAutoTimer) clearTimeout(_vtpAutoTimer);
+  const row = document.getElementById('gotit-row');
+  if (row) row.style.display = 'none';
+  if (_vtpLesson.quiz && !_vtpQuizAnswered) {
+    _vtpOpenQuiz();
+  } else {
+    _vtpFinishLesson();
+  }
+}
+
+function _vtpProceedFromStep() {
+  const q = _vtpLesson.quiz;
+  if (q && q.onStep === _vtpStepIdx + 1 && !_vtpQuizAnswered) {
+    _vtpOpenQuiz();
+    return;
+  }
+  if (_vtpStepIdx >= _vtpTotalSteps - 1) {
+    _vtpFinishLesson();
+    return;
+  }
+  _vtpStepIdx++;
+  _vtpRenderStep(_vtpStepIdx);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// QUIZ
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpOpenQuiz() {
+  const q = _vtpLesson.quiz;
+  if (!q) { _vtpAdvanceAfterQuiz(); return; }
+
+  const pill = document.getElementById('quiz-announce-pill');
+  if (pill) {
+    pill.classList.add('show');
+    setTimeout(() => {
+      pill.classList.remove('show');
+      setTimeout(() => _vtpShowQuizOverlay(q), 200);
+    }, 900);
+  } else {
+    _vtpShowQuizOverlay(q);
+  }
+}
+
+function _vtpShowQuizOverlay(q) {
+  const stepNum = document.getElementById('quiz-step-num');
+  const questEl = document.getElementById('quiz-question');
+  const fbEl    = document.getElementById('quiz-feedback');
+  const contBtn = document.getElementById('quiz-continue');
+  if (stepNum) stepNum.textContent = q.onStep;
+  if (questEl) questEl.textContent = q.q;
+  if (fbEl)    fbEl.style.display  = 'none';
+  if (contBtn) contBtn.style.display = 'none';
+
+  const opts = document.getElementById('quiz-options');
+  if (!opts) return;
+  opts.innerHTML = '';
+  const letters = ['A', 'B', 'C', 'D'];
+  q.options.forEach((opt, i) => {
+    const el = document.createElement('div');
+    el.className = 'qopt';
+    el.innerHTML = `<div class="qopt-letter">${letters[i]}</div><span>${opt.text}</span>`;
+    el.addEventListener('click', () => _vtpAnswerQuiz(i, opt.correct));
+    opts.appendChild(el);
+  });
+
+  const overlay = document.getElementById('quiz-overlay');
+  if (overlay) overlay.classList.add('open');
+}
+
+function _vtpAnswerQuiz(idx, correct) {
+  if (_vtpQuizAnswered) return;
+  _vtpQuizAnswered = true;
+  _vtpQuizPassed   = correct;
+
+  const opts = document.querySelectorAll('#screen-visual .qopt');
+  const q    = _vtpLesson.quiz;
+
+  opts.forEach((el, i) => {
+    el.style.cursor = 'default';
+    el.onclick = null;
+    if (i === idx) el.classList.add(correct ? 'correct' : 'wrong');
+    if (!correct && q.options[i].correct) el.classList.add('reveal');
+  });
+
+  const xpPop = document.getElementById('quiz-xp-pop');
+  if (correct && xpPop) {
+    xpPop.classList.add('show');
+    _vtpSound('correct');
+    _vtpSpawnConfetti();
+  } else {
+    _vtpSound('wrong');
+  }
+
+  const fb    = document.getElementById('quiz-feedback');
+  const cont  = document.getElementById('quiz-continue');
+  if (fb) {
+    fb.textContent  = correct ? q.feedbackRight : q.feedbackWrong;
+    fb.className    = 'quiz-feedback ' + (correct ? 'correct' : 'wrong');
+    fb.style.display = 'block';
+  }
+  if (cont) cont.style.display = 'block';
+}
+
+function _vtpCloseQuiz() {
+  const overlay = document.getElementById('quiz-overlay');
+  if (overlay) overlay.classList.remove('open');
+  _vtpAdvanceAfterQuiz();
+}
+
+function _vtpAdvanceAfterQuiz() {
+  if (_vtpStepIdx >= _vtpTotalSteps - 1) {
+    _vtpFinishLesson();
+    return;
+  }
+  _vtpStepIdx++;
+  _vtpRenderStep(_vtpStepIdx);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SIMPLIFY
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpSimplify() {
+  _vtpSimplifyCount++;
+  const step = _vtpLesson.steps[_vtpStepIdx];
+  const text = step.simple || 'Think of it this way: ' + step.text.replace(/<[^>]+>/g, '').slice(0, 80) + '…';
+  const wrap = document.getElementById('simplified-wrap');
+  const txt  = document.getElementById('simplified-text');
+  if (txt)  txt.innerHTML  = text;
+  if (wrap) wrap.style.display = 'block';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ASK — sends student question to POST /ask (mode: visual_tutor)
+//        Falls back to built-in contextual replies if offline / unauthenticated
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function _vtpSendAsk() {
+  const input = document.getElementById('ask-input');
+  if (!input) return;
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+  _vtpAskCount++;
+
+  // ── Offline / instant fallback (used if API call fails) ───────────────────
+  const step        = _vtpLesson.steps[_vtpStepIdx];
+  const stepTitle   = step.label.split('—')[1]?.trim() || _vtpCurrentTopic;
+  const localReplies = step.contextualReplies || [];
+  const localFallback = localReplies[_vtpCtxReplyStep % localReplies.length] ||
+    `That's a great question about ${stepTitle}. Focus on the key relationship shown in the diagram — that's where the answer lives.`;
+  _vtpCtxReplyStep++;
+
+  // ── Show loading state immediately ────────────────────────────────────────
+  const askEl   = document.getElementById('ask-input');
+  const simpBtn = document.getElementById('btn-simplify');
+  if (askEl)   { askEl.disabled = true; askEl.placeholder = 'Thinking…'; }
+  if (simpBtn)  simpBtn.disabled = true;
+  _vtpShowAskReply('<span class="ask-thinking">●●●</span>');
+
+  // ── Build the prompt — give the AI full context about the current step ─────
+  const contextPrompt =
+    `You are tutoring a student on "${_vtpCurrentTopic}". ` +
+    `They are currently on ${step.label} of a 5-step visual lesson. ` +
+    `The step just explained: "${step.text.replace(/<[^>]+>/g, '')}". ` +
+    `The student asks: "${q}". ` +
+    `Answer in 2–3 sentences max. Be direct, clear, and encouraging. ` +
+    `No preamble like "Great question!" — just the answer.`;
+
+  try {
+    const authHeader = await window._getAuthHeader?.() ?? {};
+    const res = await fetch(`${API_BASE}/ask`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader },
+      body: JSON.stringify({
+        question:   contextPrompt,
+        mode:       'visual_tutor',
+        bookId:     'none',
+        complexity: 4,        // keep answers student-friendly
+        history:    [],
+      }),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data   = await res.json();
+    const answer = (data.answer ?? data.response ?? data.text ?? '').trim();
+
+    _vtpShowAskReply(answer || localFallback);
+
+  } catch (err) {
+    // Network error, auth failure, server error — use local fallback silently
+    console.warn('[VTP] Ask API error, using local fallback:', err.message);
+    _vtpShowAskReply(localFallback);
+
+  } finally {
+    // Always re-enable the input
+    if (askEl)   { askEl.disabled = false; askEl.placeholder = 'Ask anything…'; }
+    if (simpBtn)  simpBtn.disabled = false;
+  }
+}
+
+function _vtpShowAskReply(html) {
+  const el  = document.getElementById('ask-reply');
+  const txt = document.getElementById('ask-reply-text');
+  if (txt) txt.innerHTML = html;
+  if (el)  el.classList.add('open');
+}
+
+function _vtpCloseAskReply() {
+  const el = document.getElementById('ask-reply');
+  if (el) el.classList.remove('open');
+}
+function _vtpClearAskReply() { _vtpCloseAskReply(); }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUTOPLAY
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpToggleAutoplay() {
+  _vtpAutoplay = !_vtpAutoplay;
+  const track = document.getElementById('autoplay-track');
+  if (track) track.classList.toggle('on', _vtpAutoplay);
+
+  if (_vtpAutoplay && !_vtpStepBusy) {
+    const row = document.getElementById('gotit-row');
+    if (row && row.style.display !== 'none') {
+      if (_vtpAutoTimer) clearTimeout(_vtpAutoTimer);
+      _vtpAutoTimer = setTimeout(() => _vtpGotIt(true), 3000);
+    }
+  } else {
+    if (_vtpAutoTimer) clearTimeout(_vtpAutoTimer);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TYPEWRITER
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpTypeText(html, onDone) {
+  const el = document.getElementById('exp-text');
+  if (!el) { if (onDone) onDone(); return; }
+  el.innerHTML = '<span class="cursor"></span>';
+  const plain = html.replace(/<[^>]+>/g, '');
+  let i = 0;
+  const spd = plain.length > 130 ? 13 : 17;
+  if (_vtpTypeTimer) clearTimeout(_vtpTypeTimer);
+
+  function tick() {
+    i++;
+    el.textContent = plain.slice(0, i);
+    const c = document.createElement('span');
+    c.className = 'cursor';
+    el.appendChild(c);
+    if (i < plain.length) {
+      _vtpTypeTimer = setTimeout(tick, spd);
+    } else {
+      setTimeout(() => { el.innerHTML = html; if (onDone) onDone(); }, 60);
+    }
+  }
+  tick();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFETTI
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpSpawnConfetti() {
+  const area   = document.getElementById('wb-area');
+  if (!area) return;
+  const colors = ['#e8ac2e', '#4ade80', '#2dd4bf', '#8b7cf8', '#f87171'];
+  for (let i = 0; i < 14; i++) {
+    const d = document.createElement('div');
+    d.className = 'confetti-dot';
+    const x = 20 + Math.random() * 60;
+    const y = 20 + Math.random() * 60;
+    d.style.cssText = `left:${x}%;top:${y}%;background:${colors[i % colors.length]};animation-delay:${i * 40}ms;animation-duration:${500 + Math.random() * 400}ms;`;
+    area.appendChild(d);
+    setTimeout(() => d.remove(), 1200);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LESSON COMPLETE
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpFinishLesson() {
+  const xp = _vtpTotalSteps * 10 + (_vtpQuizPassed ? 20 : 0);
+
+  const scoreVal  = document.getElementById('score-val');
+  const scoreQuiz = document.getElementById('score-quiz');
+  const scoreSim  = document.getElementById('score-simplify');
+  const scoreAsk  = document.getElementById('score-asks');
+  const scoreXP   = document.getElementById('score-xp');
+  if (scoreVal)  scoreVal.textContent  = _vtpTotalSteps + '/' + _vtpTotalSteps;
+  if (scoreQuiz) scoreQuiz.textContent = _vtpLesson.quiz ? (_vtpQuizPassed ? 'Passed ✓' : 'Attempted') : 'N/A';
+  if (scoreSim)  scoreSim.textContent  = _vtpSimplifyCount + '×';
+  if (scoreAsk)  scoreAsk.textContent  = _vtpAskCount;
+  if (scoreXP)   scoreXP.textContent   = '+' + xp + ' XP';
+
+  const reviewBtn = document.getElementById('btn-review-weak');
+  if (reviewBtn) {
+    reviewBtn.className = _vtpWeakSteps.length > 0 ? 'btn-review-weak' : 'btn-review-weak hidden';
+  }
+
+  _vtpShowScreen('screen-complete');
+  setTimeout(() => {
+    const arc = document.getElementById('score-arc');
+    if (arc) arc.style.strokeDashoffset = '0';
+  }, 250);
+  _vtpSpawnConfetti();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CANVAS DRAWING
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpFadeAndDraw(key) {
+  setTimeout(() => { _vtpClearCanvas(); _vtpDrawScene(key); }, 100);
+}
+
+function _vtpArrow(x1, y1, x2, y2, col, w) {
+  _vtpCtx.strokeStyle = col; _vtpCtx.lineWidth = w; _vtpCtx.setLineDash([]);
+  _vtpCtx.beginPath(); _vtpCtx.moveTo(x1, y1); _vtpCtx.lineTo(x2, y2); _vtpCtx.stroke();
+  const a = Math.atan2(y2 - y1, x2 - x1);
+  _vtpCtx.fillStyle = col; _vtpCtx.beginPath();
+  _vtpCtx.moveTo(x2, y2);
+  _vtpCtx.lineTo(x2 - 11 * Math.cos(a - 0.38), y2 - 11 * Math.sin(a - 0.38));
+  _vtpCtx.lineTo(x2 - 11 * Math.cos(a + 0.38), y2 - 11 * Math.sin(a + 0.38));
+  _vtpCtx.fill();
+}
+
+function _vtpDrawScene(key) {
+  if (!_vtpCtx) return;
+  const cx = _vtpW / 2, cy = _vtpH / 2;
+  const draw = (fn, delay) => setTimeout(fn, delay);
+
+  if (key === 'ph_bar') {
+    const bw = Math.min(_vtpW * 0.72, 500), bx = cx - bw / 2, by = cy - 30;
+    draw(() => {
+      const g = _vtpCtx.createLinearGradient(bx, 0, bx + bw, 0);
+      g.addColorStop(0, '#e8433e'); g.addColorStop(0.45, '#f5c842'); g.addColorStop(1, '#4ade80');
+      _vtpCtx.beginPath(); _vtpCtx.roundRect(bx, by, bw, 26, 13);
+      _vtpCtx.fillStyle = g; _vtpCtx.fill();
+    }, 150);
+    [[0, '0'], [7, '7'], [14, '14']].forEach(([v, l], i) => draw(() => {
+      const x = bx + (v / 14) * bw;
+      _vtpCtx.strokeStyle = 'rgba(255,255,255,.3)'; _vtpCtx.lineWidth = 1.5;
+      _vtpCtx.beginPath(); _vtpCtx.moveTo(x, by + 26); _vtpCtx.lineTo(x, by + 36); _vtpCtx.stroke();
+      _vtpCtx.fillStyle = '#ededf0'; _vtpCtx.font = 'bold 13px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText(l, x, by + 50);
+    }, 400 + i * 160));
+    [['ACID', bx + bw * 0.1, '#f87171'], ['NEUTRAL', cx, '#2dd4bf'], ['BASE', bx + bw * 0.9, '#4ade80']].forEach(([l, x, c], i) => draw(() => {
+      _vtpCtx.fillStyle = c; _vtpCtx.font = '600 11px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText(l, x, by - 14);
+    }, 800 + i * 120));
+    draw(() => {
+      _vtpCtx.strokeStyle = 'rgba(45,212,191,.4)'; _vtpCtx.lineWidth = 1.5; _vtpCtx.setLineDash([4, 3]);
+      _vtpCtx.beginPath(); _vtpCtx.moveTo(cx, by - 4); _vtpCtx.lineTo(cx, by - 32); _vtpCtx.stroke();
+      _vtpCtx.setLineDash([]);
+      _vtpCtx.fillStyle = '#2dd4bf'; _vtpCtx.font = '12px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText('Pure water (pH 7)', cx, by - 42);
+    }, 1300);
+  }
+
+  else if (key === 'ph_ions') {
+    const bx = cx - 65, by = cy - 75, bw = 130, bh = 130;
+    draw(() => {
+      _vtpCtx.strokeStyle = 'rgba(255,255,255,.25)'; _vtpCtx.lineWidth = 2;
+      _vtpCtx.beginPath(); _vtpCtx.moveTo(bx, by); _vtpCtx.lineTo(bx, by + bh);
+      _vtpCtx.lineTo(bx + bw, by + bh); _vtpCtx.lineTo(bx + bw, by); _vtpCtx.stroke();
+      _vtpCtx.fillStyle = 'rgba(59,130,246,.1)'; _vtpCtx.fillRect(bx + 1, by + bh * 0.38, bw - 2, bh * 0.62 - 1);
+      _vtpCtx.strokeStyle = 'rgba(96,165,250,.35)'; _vtpCtx.lineWidth = 1.5;
+      _vtpCtx.beginPath(); _vtpCtx.moveTo(bx, by + bh * 0.38); _vtpCtx.lineTo(bx + bw, by + bh * 0.38); _vtpCtx.stroke();
+    }, 150);
+    [{ x: bx + 24, y: cy + 10 }, { x: bx + 64, y: cy + 20 }, { x: bx + 100, y: cy + 10 }, { x: bx + 44, y: cy + 38 }, { x: bx + 86, y: cy + 40 }].forEach(({ x, y }, i) => draw(() => {
+      _vtpCtx.beginPath(); _vtpCtx.arc(x, y, 14, 0, Math.PI * 2);
+      _vtpCtx.fillStyle = 'rgba(248,113,113,.18)'; _vtpCtx.fill();
+      _vtpCtx.strokeStyle = '#f87171'; _vtpCtx.lineWidth = 1.5; _vtpCtx.stroke();
+      _vtpCtx.fillStyle = '#f87171'; _vtpCtx.font = 'bold 11px sans-serif'; _vtpCtx.textAlign = 'center'; _vtpCtx.textBaseline = 'middle';
+      _vtpCtx.fillText('H⁺', x, y); _vtpCtx.textBaseline = 'alphabetic';
+    }, 450 + i * 150));
+    draw(() => {
+      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = 'bold 14px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText('More H⁺ ions → lower pH', cx, by - 18);
+    }, 1300);
+  }
+
+  else if (key === 'ph_examples') {
+    const items = [{ n: 'Battery\nAcid', ph: 1, c: '#e8433e' }, { n: 'Lemon\nJuice', ph: 2, c: '#f07038' }, { n: 'Coffee', ph: 5, c: '#f5c842' }, { n: 'Water', ph: 7, c: '#2dd4bf' }, { n: 'Baking\nSoda', ph: 9, c: '#82d94a' }, { n: 'Bleach', ph: 12, c: '#4ade80' }];
+    const cols = items.length, cw = _vtpW / (cols + 1);
+    draw(() => {
+      _vtpCtx.strokeStyle = 'rgba(255,255,255,.08)'; _vtpCtx.lineWidth = 1;
+      _vtpCtx.beginPath(); _vtpCtx.moveTo(cw * 0.5, cy + 48); _vtpCtx.lineTo(_vtpW - cw * 0.5, cy + 48); _vtpCtx.stroke();
+    }, 100);
+    items.forEach(({ n, ph, c }, i) => draw(() => {
+      const x = cw * (i + 1), maxH = 110, bh = 12 + (ph / 14) * maxH, bY = cy + 48 - bh;
+      _vtpCtx.fillStyle = c + '22'; _vtpCtx.strokeStyle = c + '70'; _vtpCtx.lineWidth = 1.5;
+      _vtpCtx.beginPath(); _vtpCtx.roundRect(x - 18, bY, 36, bh, 4); _vtpCtx.fill(); _vtpCtx.stroke();
+      _vtpCtx.fillStyle = c; _vtpCtx.font = 'bold 12px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText(ph, x, bY - 8);
+      _vtpCtx.fillStyle = '#9898ae'; _vtpCtx.font = '10px sans-serif';
+      n.split('\n').forEach((l, li) => _vtpCtx.fillText(l, x, cy + 62 + li * 13));
+    }, 200 + i * 130));
+  }
+
+  else if (key === 'ph_buffer') {
+    draw(() => {
+      _vtpCtx.fillStyle = 'rgba(248,113,113,.06)'; _vtpCtx.strokeStyle = 'rgba(248,113,113,.25)'; _vtpCtx.lineWidth = 1.5;
+      _vtpCtx.beginPath(); _vtpCtx.ellipse(cx, cy + 8, 155, 78, 0, 0, Math.PI * 2); _vtpCtx.fill(); _vtpCtx.stroke();
+      _vtpCtx.fillStyle = 'rgba(45,212,191,.12)'; _vtpCtx.strokeStyle = 'rgba(45,212,191,.3)'; _vtpCtx.lineWidth = 1;
+      _vtpCtx.beginPath(); _vtpCtx.ellipse(cx, cy + 8, 85, 42, 0, 0, Math.PI * 2); _vtpCtx.fill(); _vtpCtx.stroke();
+      _vtpCtx.fillStyle = '#2dd4bf'; _vtpCtx.font = 'bold 12px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText('BUFFER', cx, cy + 6);
+      _vtpCtx.fillStyle = '#9898ae'; _vtpCtx.font = '11px sans-serif'; _vtpCtx.fillText('HCO₃⁻ / H₂CO₃', cx, cy + 24);
+      _vtpCtx.fillText('Blood (pH 7.4)', cx, cy - 54);
+    }, 200);
+    draw(() => {
+      _vtpArrow(cx - 240, cy, cx - 160, cy, '#f87171', 2);
+      _vtpCtx.fillStyle = '#f87171'; _vtpCtx.font = '11px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText('acid in (H⁺)', cx - 205, cy - 14);
+    }, 700);
+    draw(() => {
+      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = 'bold 15px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText('pH stays ≈ 7.4 ✓', cx, cy + 112);
+      _vtpCtx.fillStyle = '#55556a'; _vtpCtx.font = '11px sans-serif';
+      _vtpCtx.fillText('Buffer absorbs the extra H⁺', cx, cy + 130);
+    }, 1300);
+  }
+
+  else if (key === 'ph_summary') {
+    const cards = [{ l: 'LOW pH (0–6)', s: 'Acidic · more H⁺', c: '#f87171', x: cx - 155 }, { l: 'pH 7', s: 'Neutral', c: '#2dd4bf', x: cx }, { l: 'HIGH pH (8–14)', s: 'Basic · more OH⁻', c: '#4ade80', x: cx + 155 }];
+    cards.forEach(({ l, s, c, x }, i) => draw(() => {
+      _vtpCtx.fillStyle = c + '15'; _vtpCtx.strokeStyle = c + '50'; _vtpCtx.lineWidth = 1.5;
+      _vtpCtx.beginPath(); _vtpCtx.roundRect(x - 62, cy - 54, 124, 108, 12); _vtpCtx.fill(); _vtpCtx.stroke();
+      _vtpCtx.fillStyle = c; _vtpCtx.font = 'bold 13px sans-serif'; _vtpCtx.textAlign = 'center'; _vtpCtx.fillText(l, x, cy - 16);
+      _vtpCtx.fillStyle = '#9898ae'; _vtpCtx.font = '11px sans-serif'; _vtpCtx.fillText(s, x, cy + 8);
+    }, 200 + i * 260));
+    draw(() => {
+      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = 'bold 13px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText('Buffers stabilize pH in living systems', cx, cy + 88);
+    }, 1100);
+  }
+
+  else if (key === 'n_1') {
+    draw(() => {
+      for (let i = 0; i < 50; i++) {
+        const sx = Math.random() * _vtpW, sy = Math.random() * _vtpH;
+        _vtpCtx.fillStyle = `rgba(255,255,255,${0.05 + Math.random() * 0.2})`;
+        _vtpCtx.beginPath(); _vtpCtx.arc(sx, sy, 0.8, 0, Math.PI * 2); _vtpCtx.fill();
+      }
+      _vtpCtx.beginPath(); _vtpCtx.arc(cx - 60, cy, 28, 0, Math.PI * 2);
+      _vtpCtx.fillStyle = 'rgba(96,165,250,.18)'; _vtpCtx.fill();
+      _vtpCtx.strokeStyle = '#60a5fa'; _vtpCtx.lineWidth = 2; _vtpCtx.stroke();
+      _vtpArrow(cx - 28, cy, cx + 120, cy, '#60a5fa', 2);
+      _vtpCtx.fillStyle = '#9898ae'; _vtpCtx.font = '12px sans-serif'; _vtpCtx.textAlign = 'left';
+      _vtpCtx.fillText('constant velocity', cx - 18, cy - 16);
+    }, 200);
+    draw(() => {
+      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = 'bold 14px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText('An object in motion stays in motion', cx, cy + 80);
+      _vtpCtx.fillStyle = '#55556a'; _vtpCtx.font = '12px sans-serif';
+      _vtpCtx.fillText('— unless a force acts on it', cx, cy + 100);
+    }, 900);
+  }
+
+  else if (key === 'n_2') {
+    draw(() => {
+      _vtpCtx.fillStyle = 'rgba(232,172,46,.07)'; _vtpCtx.strokeStyle = 'rgba(232,172,46,.22)'; _vtpCtx.lineWidth = 1.5;
+      _vtpCtx.beginPath(); _vtpCtx.roundRect(cx - 115, cy - 52, 230, 104, 14); _vtpCtx.fill(); _vtpCtx.stroke();
+      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = 'bold 44px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText('F = m × a', cx, cy + 18);
+    }, 200);
+    [['Force', cx - 85, '#f87171'], ['mass', cx + 5, '#60a5fa'], ['accel.', cx + 86, '#4ade80']].forEach(([l, x, c]) => draw(() => {
+      _vtpCtx.fillStyle = c; _vtpCtx.font = '11px sans-serif'; _vtpCtx.textAlign = 'center'; _vtpCtx.fillText(l, x, cy + 60);
+      _vtpCtx.strokeStyle = c + '60'; _vtpCtx.lineWidth = 1; _vtpCtx.setLineDash([2, 2]);
+      _vtpCtx.beginPath(); _vtpCtx.moveTo(x, cy + 26); _vtpCtx.lineTo(x, cy + 48); _vtpCtx.stroke(); _vtpCtx.setLineDash([]);
+    }, 500));
+    draw(() => {
+      _vtpCtx.fillStyle = '#9898ae'; _vtpCtx.font = '12px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText('More mass → need more force for same acceleration', cx, cy + 88);
+    }, 1000);
+  }
+
+  else if (key === 'n_3') {
+    draw(() => {
+      [cx - 115, cx + 115].forEach((x, i) => {
+        _vtpCtx.fillStyle = i === 0 ? 'rgba(248,113,113,.14)' : 'rgba(96,165,250,.14)';
+        _vtpCtx.strokeStyle = i === 0 ? '#f87171' : '#60a5fa'; _vtpCtx.lineWidth = 2;
+        _vtpCtx.beginPath(); _vtpCtx.roundRect(x - 22, cy - 42, 44, 84, 6); _vtpCtx.fill(); _vtpCtx.stroke();
+        _vtpCtx.fillStyle = i === 0 ? '#f87171' : '#60a5fa'; _vtpCtx.font = 'bold 13px sans-serif'; _vtpCtx.textAlign = 'center';
+        _vtpCtx.fillText(i === 0 ? 'YOU' : 'WALL', x, cy + 58);
+      });
+      _vtpArrow(cx - 90, cy, cx - 8, cy, '#e8ac2e', 2);
+    }, 200);
+    draw(() => {
+      _vtpArrow(cx + 90, cy - 10, cx + 8, cy - 10, '#2dd4bf', 2);
+      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = '11px sans-serif'; _vtpCtx.textAlign = 'center'; _vtpCtx.fillText('You push →', cx - 42, cy + 22);
+      _vtpCtx.fillStyle = '#2dd4bf'; _vtpCtx.fillText('← Equal push back', cx + 20, cy - 24);
+    }, 700);
+    draw(() => {
+      _vtpCtx.fillStyle = '#e8ac2e'; _vtpCtx.font = 'bold 14px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText('Equal & opposite — every single time', cx, cy + 96);
+    }, 1200);
+  }
+
+  else if (key === 'n_all' || key === 'n_summary') {
+    const laws = [{ n: 'Law 1', s: 'Inertia', c: '#60a5fa', x: cx - 140 }, { n: 'Law 2', s: 'F = ma', c: '#e8ac2e', x: cx }, { n: 'Law 3', s: 'Reaction', c: '#4ade80', x: cx + 140 }];
+    laws.forEach(({ n, s, c, x }, i) => draw(() => {
+      _vtpCtx.fillStyle = c + '14'; _vtpCtx.strokeStyle = c + '50'; _vtpCtx.lineWidth = 1.5;
+      _vtpCtx.beginPath(); _vtpCtx.roundRect(x - 55, cy - 52, 110, 104, 12); _vtpCtx.fill(); _vtpCtx.stroke();
+      _vtpCtx.fillStyle = c; _vtpCtx.font = 'bold 22px sans-serif'; _vtpCtx.textAlign = 'center'; _vtpCtx.fillText(n, x, cy - 10);
+      _vtpCtx.fillStyle = '#9898ae'; _vtpCtx.font = '500 13px sans-serif'; _vtpCtx.fillText(s, x, cy + 14);
+    }, 200 + i * 240));
+    draw(() => {
+      _vtpCtx.fillStyle = '#55556a'; _vtpCtx.font = '12px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText("Three laws explain almost every motion you've ever seen", cx, cy + 86);
+    }, 1100);
+  }
+
+  else { // generic fallback
+    draw(() => {
+      _vtpCtx.fillStyle = 'rgba(232,172,46,.06)'; _vtpCtx.strokeStyle = 'rgba(232,172,46,.16)'; _vtpCtx.lineWidth = 1.5;
+      _vtpCtx.beginPath(); _vtpCtx.roundRect(cx - 140, cy - 52, 280, 104, 16); _vtpCtx.fill(); _vtpCtx.stroke();
+      _vtpCtx.fillStyle = '#ededf0'; _vtpCtx.font = 'bold 20px sans-serif'; _vtpCtx.textAlign = 'center';
+      _vtpCtx.fillText(_vtpCurrentTopic, cx, cy - 10);
+      _vtpCtx.fillStyle = '#55556a'; _vtpCtx.font = '13px sans-serif';
+      _vtpCtx.fillText(`Step ${_vtpStepIdx + 1} of ${_vtpTotalSteps}`, cx, cy + 16);
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2, dx = Math.cos(a) * 110, dy = Math.sin(a) * 55;
+        _vtpCtx.fillStyle = 'rgba(232,172,46,.12)';
+        _vtpCtx.beginPath(); _vtpCtx.arc(cx + dx, cy + dy - 2, 5, 0, Math.PI * 2); _vtpCtx.fill();
+      }
+    }, 200);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// APP INTEGRATION POINTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Called by navigation.js on every FRESH navigation to the visual screen
+ * (i.e. user clicks the Visual Tutor nav item from another screen).
+ * Must return the UI to the entry screen and stop anything running.
+ */
 if (typeof window !== 'undefined') window._vtClear = function() {
-  const area = document.getElementById('vt-canvas-area');
-  if (area) {
-    area.innerHTML =
-      `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-      `<text x="220" y="155" text-anchor="middle" font-size="14" fill="var(--text-4)" font-family="var(--font-body)">Ask me to explain anything</text>` +
-      `<text x="220" y="178" text-anchor="middle" font-size="12" fill="var(--text-4)" font-family="var(--font-body)" opacity="0.6">I'll draw it here as I explain</text>` +
-      `</svg>`;
-  }
-  _vtHideStepNav();
-  const dot = document.getElementById('vt-canvas-dot');
-  if (dot) dot.style.background = '#4ade80';
-  const topicEl = document.getElementById('vt-canvas-topic');
-  if (topicEl) topicEl.textContent = 'Waiting for a concept...';
-  const msgs = document.getElementById('vt-chat-msgs');
-  if (msgs) {
-    msgs.innerHTML = `<div class="vt-msg vt-msg-ai"><div class="vt-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/><ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/><ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/><circle cx="50" cy="50" r="6" fill="#e8ac2e"/></svg></div><div class="vt-bubble">Hi! I'm your visual tutor. Ask me to explain any concept — I'll draw it on the canvas as I talk. Try "explain osmosis" or tap a concept on the left.</div></div>`;
-  }
-  // Clear session so next message starts a fresh recent entry
-  _vtSessionId = null;
-  if (typeof localStorage !== 'undefined') localStorage.removeItem('chunks_active_vt_session');
+  if (_vtpTypeTimer) clearTimeout(_vtpTypeTimer);
+  if (_vtpAutoTimer)  clearTimeout(_vtpAutoTimer);
+  _vtpLesson      = null;
+  _vtpStepBusy    = false;
+  _vtpAutoplay    = false;
+
+  // Visually reset — clear canvas and return to entry screen
+  _vtpClearCanvas();
+  const inp = document.getElementById('vtp-entry-input');
+  if (inp) inp.value = '';
+  const sw = document.getElementById('simplified-wrap');
+  if (sw) sw.style.display = 'none';
+  const gr = document.getElementById('gotit-row');
+  if (gr) gr.style.display = 'none';
+  const ar = document.getElementById('ask-reply');
+  if (ar) ar.classList.remove('open');
+
+  _vtpShowScreen('screen-entry');
 };
 
-// Called from flashcard Hard rating to open tutor on a specific concept
-if (typeof window !== 'undefined') window._vtOpenForConcept = function(front, back) {
-  _vtPrevScreen = 'flash';
-  _vtSessionId = null; // fresh session for each flashcard concept
-  window._navFromHistory = true; // skip showScreen reset — we set state ourselves
+/**
+ * Called by FlashScreen (Hard rating button) and studyPlanState
+ * to open the Visual Tutor pre-loaded with a specific concept.
+ * _navFromHistory must be true BEFORE showScreen so navigation.js
+ * skips calling _vtClear and we set state ourselves.
+ */
+if (typeof window !== 'undefined') window._vtOpenForConcept = function(front /*, back */) {
+  // Set the flag first — navigation.js reads it inside showScreen()
+  window._navFromHistory = true;
   if (window.showScreen) window.showScreen('visual');
   setTimeout(() => {
-    const q = front || 'this concept';
-    window._vtAsk(`explain ${q}`);
+    const inp = document.getElementById('vtp-entry-input');
+    if (inp && front) inp.value = front;
+    if (front) _vtpStartLesson();
+    else _vtpShowScreen('screen-entry');
   }, 300);
 };
 
-// Called when user clicks a recent item that was saved from Visual Tutor
+/**
+ * Called by sidebar when user clicks a recent VT session item.
+ * The new step-based VT has no persistent chat/SVG state to restore,
+ * so we pre-fill the topic and return to entry so they can restart.
+ */
 if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId, question) {
-  _vtSessionId = sessionId;
-
-  // Mark item active in sidebar
   if (window._setActiveRecent) window._setActiveRecent(sessionId);
-
-  const session = _vtLoadSession(sessionId);
-  const msgs = document.getElementById('vt-chat-msgs');
-
-  if (session && session.html && msgs) {
-    // Restore chat messages
-    msgs.innerHTML = typeof window.sanitize === 'function'
-      ? window.sanitize(session.html)
-      : session.html;
-    msgs.scrollTop = msgs.scrollHeight;
-
-    // Restore topic label
-    if (session.topic) {
-      const topicEl = document.getElementById('vt-canvas-topic');
-      if (topicEl) topicEl.textContent = session.topic;
-    }
-
-    // Restore SVG canvas — use saved SVG if available, else re-render from scene library
-    const area = document.getElementById('vt-canvas-area');
-    if (area) {
-      if (session.svg) {
-        area.innerHTML =
-          `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-          session.svg + `</svg>`;
-        const dot = document.getElementById('vt-canvas-dot');
-        if (dot) dot.style.background = '#4ade80';
-      } else if (session.topic) {
-        const scene = _vtMatchScene(session.topic);
-        if (scene) {
-          area.innerHTML =
-            `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-            scene.render(session.topic).svg + `</svg>`;
-          const dot = document.getElementById('vt-canvas-dot');
-          if (dot) dot.style.background = '#4ade80';
-        } else {
-          area.innerHTML =
-            `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-            `<text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>` +
-            `<text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>` +
-            `</svg>`;
-        }
-      }
-    }
-  } else if (question) {
-    // No saved HTML — pre-fill input so user can re-ask
-    const input = document.getElementById('vt-input');
-    if (input) { input.value = question; input.focus(); }
-  }
+  // Set flag so navigation doesn't immediately call _vtClear over us
+  window._navFromHistory = true;
+  if (window.showScreen) window.showScreen('visual');
+  setTimeout(() => {
+    const inp = document.getElementById('vtp-entry-input');
+    if (inp && question) inp.value = question;
+    _vtpShowScreen('screen-entry');
+  }, 100);
 };
 
-// ── Mount ──────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// MOUNT
+// ─────────────────────────────────────────────────────────────────────────────
 
 let _vtMounted = false;
 
 export function mountVisualTutorScreen() {
-  if (_vtMounted) return;   // prevent double-mount / duplicate event listeners
+  if (_vtMounted) return;
   _vtMounted = true;
+
+  // Inject HTML
   const sp = document.querySelector('[data-visual-screen]');
   if (sp) {
     sp.outerHTML = VT_HTML;
   } else {
-    // Fallback: append to body
     const div = document.createElement('div');
     div.innerHTML = VT_HTML;
     document.body.appendChild(div.firstElementChild);
   }
 
-  // Inject animation keyframes
-  if (!document.getElementById('vt-anims')) {
-    const style = document.createElement('style');
-    style.id = 'vt-anims';
-    style.textContent = VT_ANIMS;
-    document.head.appendChild(style);
-  }
-
-  // Wire input enter key
+  // Wire all event listeners after a tick so the DOM is ready
   setTimeout(() => {
-    const input = document.getElementById('vt-input');
-    if (input) {
-      input.addEventListener('keydown', e => {
-        if (e.key === 'Enter') window._vtSendInput();
+
+    // ── Entry screen ────────────────────────────────────────────────────────
+    const entryInput = document.getElementById('vtp-entry-input');
+    if (entryInput) {
+      entryInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') _vtpStartLesson();
       });
 
-      // ── Pick up weak-concept prefill from Exam results (Task 1) ──
+      // Pick up weak-concept prefill from Exam results
       try {
         const raw = sessionStorage.getItem('exam_weak_prefill');
         if (raw) {
           const { vtQuery } = JSON.parse(raw);
-          if (vtQuery) {
-            input.value = vtQuery;
-            setTimeout(() => input.focus(), 150);
-          }
+          if (vtQuery) { entryInput.value = vtQuery; setTimeout(() => entryInput.focus(), 150); }
           sessionStorage.removeItem('exam_weak_prefill');
         }
-      } catch(e) {}
+      } catch (e) {}
     }
 
-    // Wire pill buttons directly — avoids double-fire from global data-action delegation
-    document.querySelectorAll('#vt-quick-pills .vt-pill').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const q = btn.getAttribute('data-query');
-        if (q && window._vtAsk) window._vtAsk(q);
+    const startBtn = document.getElementById('vtp-entry-start');
+    if (startBtn) startBtn.addEventListener('click', _vtpStartLesson);
+
+    // Topic chips
+    const chipsWrap = document.getElementById('vtp-chips');
+    if (chipsWrap) {
+      chipsWrap.querySelectorAll('[data-topic]').forEach(chip => {
+        chip.addEventListener('click', () => {
+          const inp = document.getElementById('vtp-entry-input');
+          if (inp) inp.value = chip.getAttribute('data-topic');
+          _vtpStartLesson();
+        });
       });
+    }
+
+    // ── Lesson screen ────────────────────────────────────────────────────────
+    const exitBtn = document.getElementById('vtp-exit-btn');
+    if (exitBtn) exitBtn.addEventListener('click', _vtpExitLesson);
+
+    const gotitYes = document.getElementById('vtp-gotit-yes');
+    if (gotitYes) gotitYes.addEventListener('click', () => _vtpGotIt(true));
+
+    const gotitNo = document.getElementById('vtp-gotit-no');
+    if (gotitNo) gotitNo.addEventListener('click', () => _vtpGotIt(false));
+
+    const skipBtn = document.getElementById('btn-skip');
+    if (skipBtn) skipBtn.addEventListener('click', _vtpSkipToQuiz);
+
+    const replyClose = document.getElementById('vtp-reply-close');
+    if (replyClose) replyClose.addEventListener('click', _vtpCloseAskReply);
+
+    const askInput = document.getElementById('ask-input');
+    if (askInput) {
+      askInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') _vtpSendAsk();
+      });
+    }
+
+    const simpBtn = document.getElementById('btn-simplify');
+    if (simpBtn) simpBtn.addEventListener('click', _vtpSimplify);
+
+    const autoplayToggle = document.getElementById('autoplay-toggle');
+    if (autoplayToggle) autoplayToggle.addEventListener('click', _vtpToggleAutoplay);
+
+    // ── Quiz ────────────────────────────────────────────────────────────────
+    const quizContinue = document.getElementById('quiz-continue');
+    if (quizContinue) quizContinue.addEventListener('click', _vtpCloseQuiz);
+
+    // ── Complete screen ──────────────────────────────────────────────────────
+    const againBtn = document.getElementById('vtp-again-btn');
+    if (againBtn) againBtn.addEventListener('click', _vtpDoAgain);
+
+    const newBtn = document.getElementById('vtp-new-btn');
+    if (newBtn) newBtn.addEventListener('click', _vtpExitLesson);
+
+    const reviewBtn = document.getElementById('btn-review-weak');
+    if (reviewBtn) reviewBtn.addEventListener('click', _vtpReviewWeak);
+
+    // ── Resize handler ───────────────────────────────────────────────────────
+    window.addEventListener('resize', () => {
+      clearTimeout(_vtpResizeTimer);
+      _vtpResizeTimer = setTimeout(() => {
+        if (!_vtpCanvas || !_vtpLesson) return;
+        const area = document.getElementById('wb-area');
+        if (!area) return;
+        _vtpW = area.offsetWidth; _vtpH = area.offsetHeight;
+        _vtpCanvas.width = _vtpW; _vtpCanvas.height = _vtpH;
+        _vtpClearCanvas();
+        if (_vtpLesson.steps[_vtpStepIdx]) _vtpDrawScene(_vtpLesson.steps[_vtpStepIdx].draw || 'generic');
+      }, 150);
     });
+
   }, 100);
-
-  // ── Restore last visual session on page refresh ──
-  (function _restoreVtSession() {
-    const savedId = localStorage.getItem('chunks_active_vt_session');
-    if (!savedId) return;
-
-    const lastScreen = (() => {
-      try { return (typeof sessionStorage !== 'undefined') ? sessionStorage.getItem('chunks_last_screen') : null; } catch(e) { return null; }
-    })();
-    // Only auto-restore if we were on the visual screen
-    if (lastScreen !== 'visual') return;
-
-    const session = _vtLoadSession(savedId);
-    if (!session?.html) return;
-
-    const msgs = document.getElementById('vt-chat-msgs');
-    if (msgs) {
-      msgs.innerHTML = typeof window.sanitize === 'function'
-        ? window.sanitize(session.html)
-        : session.html;
-      msgs.scrollTop = msgs.scrollHeight;
-    }
-
-    if (session.topic) {
-      const topicEl = document.getElementById('vt-canvas-topic');
-      if (topicEl) topicEl.textContent = session.topic;
-      const area2 = document.getElementById('vt-canvas-area');
-      if (area2) {
-        if (session.svg) {
-          area2.innerHTML =
-            `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-            session.svg + `</svg>`;
-          const dot = document.getElementById('vt-canvas-dot');
-          if (dot) dot.style.background = '#4ade80';
-        } else {
-          const scene = _vtMatchScene(session.topic);
-          if (scene) {
-            area2.innerHTML =
-              `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-              scene.render(session.topic).svg + `</svg>`;
-            const dot = document.getElementById('vt-canvas-dot');
-            if (dot) dot.style.background = '#4ade80';
-          } else {
-            area2.innerHTML =
-              `<svg id="vt-svg" viewBox="0 0 440 340" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">` +
-              `<text x="220" y="148" text-anchor="middle" font-size="13" fill="var(--text-3)" font-family="var(--font-body)">💡 ${session.topic}</text>` +
-              `<text x="220" y="172" text-anchor="middle" font-size="11" fill="var(--text-4)" font-family="var(--font-body)">Ask a follow-up to redraw the canvas</text>` +
-              `</svg>`;
-          }
-        }
-      }
-    }
-
-    _vtSessionId = savedId;
-    setTimeout(() => {
-      if (window._setActiveRecent) window._setActiveRecent(savedId);
-    }, 200);
-  })();
 
   console.log('[VisualTutorScreen] mounted ✦');
 }
