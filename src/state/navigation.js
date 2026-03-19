@@ -175,21 +175,21 @@ function showScreen(name) {
   }
 
   // ── Always clear plan highlight when not on studyplan ─────────────────────
-  // Runs even for history navigation (_navFromHistory=true) so a plan item
-  // never stays highlighted while viewing a different screen's content.
   if (name !== 'studyplan' && typeof window.setActivePlan === 'function') {
     window.setActivePlan(null);
   }
-  // ── Always init studyplan screen when navigating to it ───────────────────
-  // Runs unconditionally (even for history nav) so the active plan is always
-  // restored and highlighted in the sidebar whenever studyplan is shown.
-  if (name === 'studyplan' && typeof window.spInitScreen === 'function') {
-    window.spInitScreen();
-  }
-  // ── Always clear chat highlight when on studyplan ──────────────────────────
-  // studyplan owns no chat sessions — no chat item should be highlighted there.
-  if (name === 'studyplan' && typeof _setActiveRecent === 'function') {
-    _setActiveRecent(null);
+  // ── Studyplan: fresh nav = new session, history nav = restore plan ─────────
+  if (name === 'studyplan') {
+    if (window._navFromHistory) {
+      // Came here via a recent plan click or browser back — restore active plan
+      if (typeof window.spInitScreen === 'function') window.spInitScreen();
+    } else {
+      // Fresh nav click on "Study Plan" sidebar item — show empty state (new plan)
+      if (typeof window.spShowEmpty === 'function') window.spShowEmpty();
+      if (typeof window.setActivePlan === 'function') window.setActivePlan(null);
+    }
+    // studyplan never owns chat sessions
+    if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
   }
   window._navFromHistory = false;
 

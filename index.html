@@ -6110,6 +6110,8 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
       // Update in-memory state and DOM highlights immediately
       if (planId && typeof window.setActivePlan === 'function') window.setActivePlan(planId);
 
+      // Mark as history navigation so showScreen restores the plan (not empty state)
+      window._navFromHistory = true;
       if (typeof showScreen === 'function') showScreen('studyplan');
 
       if (planId) {
