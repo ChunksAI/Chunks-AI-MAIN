@@ -79,20 +79,32 @@
   // Runs synchronously before ANY HTML renders — zero flash for unauthed users.
   // If no session in localStorage and not guest mode, redirect immediately.
   (function() {
-    var isGuest    = sessionStorage.getItem('chunks_guest_mode') === '1';
-    var hasCode    = location.search.includes('code=');
-    var hasHash    = location.hash.includes('access_token');
-    if (isGuest || hasCode || hasHash) return;
+    var isGuest       = sessionStorage.getItem('chunks_guest_mode') === '1';
+    var hasCode       = location.search.includes('code=');
+    var hasHash       = location.hash.includes('access_token');
+    var isOAuthCb     = sessionStorage.getItem('chunks_oauth_callback') === '1';
+    var isSigningOut  = sessionStorage.getItem('chunks_signing_out') === '1';
+    // Never redirect during OAuth callback, guest mode, or sign-out flow
+    if (isGuest || hasCode || hasHash || isOAuthCb || isSigningOut) return;
     try {
       var raw = localStorage.getItem('chunks-ai-auth');
-      if (!raw) { location.replace('login.html'); return; }
+      // No session at all — redirect to /login
+      if (!raw) { location.replace('/login'); return; }
       var parsed  = JSON.parse(raw);
+      // Handle both Supabase v2 session shapes:
+      // Shape A (direct): { access_token, expires_at, user, ... }
+      // Shape B (nested): { currentSession: { access_token, ... } }
       var session = parsed.access_token ? parsed
-                  : (parsed.currentSession || null);
-      if (!session || !session.access_token) { location.replace('login.html'); return; }
-      // Token expired? Let auth.js handle the refresh — don't redirect yet
+                  : (parsed.currentSession && parsed.currentSession.access_token)
+                    ? parsed.currentSession
+                  : null;
+      if (!session || !session.access_token) { location.replace('/login'); return; }
+      // Token expired? DO NOT redirect — auth.js will refresh it via Supabase SDK
+      // Redirecting on expiry causes refresh loops; let the SDK handle it
     } catch(e) {
-      location.replace('login.html');
+      // Corrupt localStorage entry — clear it and redirect cleanly
+      try { localStorage.removeItem('chunks-ai-auth'); } catch(_) {}
+      location.replace('/login');
     }
   })();
 </script>
