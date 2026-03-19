@@ -428,10 +428,17 @@ Rules:
     if (!plan || !Array.isArray(plan.concepts) || plan.concepts.length === 0) throw new Error('Invalid plan structure returned. Please try again.');
     _spCurrentPlan = plan;
     _spMastery = {};
+    _spExamDate = null;  // clear exam date for new plan
+    try {
+      localStorage.removeItem('sp_exam_date_default');
+    } catch (_) {}
     _spActivePlanId = _spGenPlanId(); // new ID for new plan
     if (typeof window.setActivePlan === 'function') window.setActivePlan(_spActivePlanId);
     spHideOverlay();
     spRenderPlanPatched(plan, sourceName);
+    // Update exam date + reminder UI to reflect cleared state
+    spUpdateExamDateUI();
+    spUpdateReminderUI();
     spSavePlanToSidebarAndLibrary(plan.topic);
     // Show My Plans button
     const switchBtn = document.getElementById('btn-switch-plan');
@@ -1458,9 +1465,6 @@ export function spClearExamDate() {
 }
 
 export function spUpdateExamDateUI() {
-  // Also update reminder row visibility whenever exam date UI updates
-  // Use setTimeout to avoid circular calls during initialization
-  setTimeout(() => { if (typeof spUpdateReminderUI === 'function') spUpdateReminderUI(); }, 0);
   const display = document.getElementById('sp-exam-date-display');
   const setBtn  = document.getElementById('sp-set-exam-date-btn');
   const label   = document.getElementById('sp-exam-date-label');
