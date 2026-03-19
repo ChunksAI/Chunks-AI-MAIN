@@ -227,7 +227,7 @@ const STUDYPLAN_HTML = /* html */`
                 </button>
                 <div id="sp-reminder-time-wrap" style="display:none;align-items:center;gap:5px;">
                   <span style="font-size:11px;color:var(--text-4);">at</span>
-                  <input type="time" id="sp-reminder-time" value="20:00" onchange="spUpdateReminderTime(this.value)" style="background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);padding:2px 6px;color:var(--text-1);font-size:11px;font-family:var(--font-mono);cursor:pointer;">
+                  <input type="time" id="sp-reminder-time" value="20:00" style="background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);padding:2px 6px;color:var(--text-1);font-size:11px;font-family:var(--font-mono);cursor:pointer;">
                   <button onclick="spUpdateReminderTime(document.getElementById('sp-reminder-time').value)" style="padding:2px 8px;background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-pill);font-size:10px;color:var(--text-3);cursor:pointer;font-family:var(--font-body);transition:color var(--t-fast),border-color var(--t-fast);">Set</button>
                 </div>
               </div>
