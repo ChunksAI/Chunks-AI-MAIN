@@ -6337,5 +6337,323 @@ window.addEventListener('load', function() {
   }, 100);
 });
 </script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     HEALTH REMINDER SYSTEM
+     Shows a wellness pop-up every 30 min (1 min for testing).
+     Reminders are randomised, non-repeating back-to-back.
+══════════════════════════════════════════════════════════════ -->
+
+<!-- Backdrop overlay -->
+<div id="health-reminder-overlay" style="
+  position:fixed;inset:0;z-index:10060;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(8,8,16,0.65);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+  opacity:0;pointer-events:none;
+  transition:opacity 300ms ease;
+"></div>
+
+<!-- Popup card -->
+<div id="health-reminder-popup" style="
+  position:fixed;left:50%;top:50%;
+  transform:translate(-50%,-48%) scale(0.96);
+  z-index:10061;width:min(430px,90vw);
+  background:var(--surface-2);
+  border:1px solid var(--border-md);
+  border-radius:var(--r-xl);
+  padding:32px 28px 26px;
+  box-shadow:0 24px 64px rgba(0,0,0,0.65),0 0 0 1px rgba(255,255,255,0.04);
+  font-family:var(--font-body);
+  opacity:0;pointer-events:none;
+  transition:opacity 300ms ease,transform 320ms cubic-bezier(0.34,1.56,0.64,1);
+">
+  <!-- Accent stripe -->
+  <div id="hr-stripe" style="
+    position:absolute;top:0;left:0;right:0;height:2px;
+    border-radius:var(--r-xl) var(--r-xl) 0 0;
+    background:linear-gradient(90deg,transparent,var(--teal),transparent);
+    transition:background 300ms ease;
+  "></div>
+
+  <!-- Icon -->
+  <div id="hr-icon" style="font-size:52px;text-align:center;margin-bottom:14px;line-height:1;user-select:none;"></div>
+
+  <!-- Category label -->
+  <div id="hr-label" style="
+    font-family:var(--font-mono);font-size:9px;letter-spacing:0.13em;
+    text-transform:uppercase;color:var(--text-3);text-align:center;margin-bottom:7px;
+  "></div>
+
+  <!-- Title -->
+  <div id="hr-title" style="
+    font-family:var(--font-head);font-size:21px;font-weight:700;
+    color:var(--text-1);text-align:center;margin-bottom:11px;line-height:1.25;
+  "></div>
+
+  <!-- Body -->
+  <div id="hr-body" style="
+    font-size:13px;color:var(--text-2);text-align:center;
+    line-height:1.65;margin-bottom:26px;
+  "></div>
+
+  <!-- Buttons -->
+  <div style="display:flex;gap:10px;">
+    <button id="hr-dismiss" style="
+      flex:1;padding:10px 14px;border-radius:var(--r-pill);
+      background:var(--surface-4);border:1px solid var(--border-sm);
+      color:var(--text-3);font-size:13px;font-family:var(--font-body);
+      cursor:pointer;transition:background 150ms ease,color 150ms ease;
+      outline:none;
+    ">Maybe later</button>
+    <button id="hr-action" style="
+      flex:2;padding:10px 18px;border-radius:var(--r-pill);
+      background:rgba(45,212,191,0.10);border:1px solid rgba(45,212,191,0.25);
+      color:var(--teal);font-size:13px;font-weight:600;font-family:var(--font-body);
+      cursor:pointer;transition:filter 150ms ease,background 150ms ease;
+      outline:none;
+    "></button>
+  </div>
+
+  <!-- Timer bar -->
+  <div style="margin-top:18px;height:2px;border-radius:2px;background:var(--surface-4);overflow:hidden;">
+    <div id="hr-timer-bar" style="
+      height:100%;width:100%;
+      background:var(--border-md);
+      border-radius:2px;
+      transform-origin:left;
+      transition:none;
+    "></div>
+  </div>
+  <div style="margin-top:6px;text-align:center;font-size:10px;color:var(--text-4);font-family:var(--font-mono);">
+    auto-closes in <span id="hr-countdown">15</span>s
+  </div>
+</div>
+
+<script>
+(function () {
+  /* ── Reminder bank ─────────────────────────────────────────── */
+  const REMINDERS = [
+    {
+      icon: '💧', label: 'Hydration Check',
+      title: 'Time to hydrate!',
+      body: "You've been studying hard. Drink a full glass of water — your brain is 73% water and even mild dehydration slows focus and memory.",
+      action: "I'm drinking it now 💙",
+      color: 'var(--teal)',
+      colorMuted: 'rgba(45,212,191,0.10)',
+      colorBorder: 'rgba(45,212,191,0.28)',
+      stripe: 'linear-gradient(90deg,transparent,var(--teal),transparent)'
+    },
+    {
+      icon: '👁️', label: '20-20-20 Rule',
+      title: 'Give your eyes a break',
+      body: "Look at something 20 feet away for 20 seconds. This resets your eye muscles and reduces digital eye strain significantly.",
+      action: "Done, eyes feel better!",
+      color: 'var(--violet)',
+      colorMuted: 'rgba(139,124,248,0.10)',
+      colorBorder: 'rgba(139,124,248,0.28)',
+      stripe: 'linear-gradient(90deg,transparent,var(--violet),transparent)'
+    },
+    {
+      icon: '🧘', label: 'Posture Check',
+      title: 'Sit up straight!',
+      body: "Roll your shoulders back, unclench your jaw, and plant both feet on the floor. Good posture increases oxygen to the brain by up to 30%.",
+      action: "Fixed — spine is happy!",
+      color: 'var(--gold)',
+      colorMuted: 'rgba(232,172,46,0.10)',
+      colorBorder: 'rgba(232,172,46,0.28)',
+      stripe: 'linear-gradient(90deg,transparent,var(--gold),transparent)'
+    },
+    {
+      icon: '🌬️', label: 'Breathing Break',
+      title: 'Box breathing time',
+      body: "Inhale 4s → hold 4s → exhale 4s → hold 4s. Just two cycles. This calms your nervous system and sharpens focus instantly.",
+      action: "Breathed, refreshed 🌿",
+      color: 'var(--teal)',
+      colorMuted: 'rgba(45,212,191,0.10)',
+      colorBorder: 'rgba(45,212,191,0.28)',
+      stripe: 'linear-gradient(90deg,transparent,var(--teal),transparent)'
+    },
+    {
+      icon: '🤸', label: 'Movement Break',
+      title: 'Stand up & stretch!',
+      body: "Stand, reach overhead, roll your neck gently, do 10 shoulder circles. Sitting long hours cuts circulation — a quick stretch fixes it.",
+      action: "Stretched, feeling good!",
+      color: 'var(--violet)',
+      colorMuted: 'rgba(139,124,248,0.10)',
+      colorBorder: 'rgba(139,124,248,0.28)',
+      stripe: 'linear-gradient(90deg,transparent,var(--violet),transparent)'
+    },
+    {
+      icon: '🍎', label: 'Brain Fuel',
+      title: 'Time for a light snack?',
+      body: "If it's been 3+ hours, grab nuts, fruit, or whole grains. Your brain consumes 20% of your body's glucose — keep it fueled!",
+      action: "Grabbing a snack now",
+      color: 'var(--gold)',
+      colorMuted: 'rgba(232,172,46,0.10)',
+      colorBorder: 'rgba(232,172,46,0.28)',
+      stripe: 'linear-gradient(90deg,transparent,var(--gold),transparent)'
+    },
+    {
+      icon: '🛌', label: 'Rest Check',
+      title: 'Long session alert!',
+      body: "After 90 minutes of focused study, your hippocampus needs a break to consolidate what you learned. A 10-min rest doubles retention.",
+      action: "Taking a proper break",
+      color: 'var(--violet)',
+      colorMuted: 'rgba(139,124,248,0.10)',
+      colorBorder: 'rgba(139,124,248,0.28)',
+      stripe: 'linear-gradient(90deg,transparent,var(--violet),transparent)'
+    },
+    {
+      icon: '🌡️', label: 'Environment Check',
+      title: 'How\'s your study space?',
+      body: "Ideal study temp is 20–22°C (68–72°F). A too-warm room causes drowsiness; too cold pulls focus. Adjust your environment!",
+      action: "All good here ✓",
+      color: 'var(--teal)',
+      colorMuted: 'rgba(45,212,191,0.10)',
+      colorBorder: 'rgba(45,212,191,0.28)',
+      stripe: 'linear-gradient(90deg,transparent,var(--teal),transparent)'
+    },
+    {
+      icon: '☀️', label: 'Light Check',
+      title: 'Is your lighting okay?',
+      body: "Study in a well-lit room to avoid eye strain. Position your light source to the side — never directly behind your screen.",
+      action: "Adjusted my light!",
+      color: 'var(--gold)',
+      colorMuted: 'rgba(232,172,46,0.10)',
+      colorBorder: 'rgba(232,172,46,0.28)',
+      stripe: 'linear-gradient(90deg,transparent,var(--gold),transparent)'
+    },
+    {
+      icon: '🙌', label: 'You\'re Doing Great',
+      title: 'Keep going, you\'ve got this!',
+      body: "Every page you study today is a step toward your goal. Celebrate the small wins — consistency beats intensity every time.",
+      action: "Thanks, back to it! 💪",
+      color: 'var(--gold)',
+      colorMuted: 'rgba(232,172,46,0.10)',
+      colorBorder: 'rgba(232,172,46,0.28)',
+      stripe: 'linear-gradient(90deg,transparent,var(--gold),transparent)'
+    },
+  ];
+
+  /* ── State ─────────────────────────────────────────────────── */
+  let _lastIdx      = -1;
+  let _schedTimer   = null;
+  let _autoClose    = null;
+  let _countdownInt = null;
+
+  /* ─── Interval: 1 min for testing, change to 30 * 60 * 1000 for production ── */
+  const INTERVAL_MS   = 1 * 60 * 1000;
+  const AUTO_CLOSE_MS = 15 * 1000;
+
+  /* ── Pick non-repeating reminder ───────────────────────────── */
+  function _pick() {
+    let idx;
+    do { idx = Math.floor(Math.random() * REMINDERS.length); }
+    while (idx === _lastIdx && REMINDERS.length > 1);
+    _lastIdx = idx;
+    return REMINDERS[idx];
+  }
+
+  /* ── DOM refs ──────────────────────────────────────────────── */
+  const $overlay    = () => document.getElementById('health-reminder-overlay');
+  const $popup      = () => document.getElementById('health-reminder-popup');
+  const $stripe     = () => document.getElementById('hr-stripe');
+  const $icon       = () => document.getElementById('hr-icon');
+  const $label      = () => document.getElementById('hr-label');
+  const $title      = () => document.getElementById('hr-title');
+  const $body       = () => document.getElementById('hr-body');
+  const $action     = () => document.getElementById('hr-action');
+  const $bar        = () => document.getElementById('hr-timer-bar');
+  const $countdown  = () => document.getElementById('hr-countdown');
+
+  /* ── Show ──────────────────────────────────────────────────── */
+  function _show() {
+    const r = _pick();
+
+    $icon().textContent   = r.icon;
+    $label().textContent  = r.label;
+    $title().textContent  = r.title;
+    $body().textContent   = r.body;
+    $action().textContent = r.action;
+    $stripe().style.background  = r.stripe;
+    $action().style.background  = r.colorMuted;
+    $action().style.borderColor = r.colorBorder;
+    $action().style.color       = r.color;
+
+    /* Animate in */
+    $overlay().style.opacity       = '1';
+    $overlay().style.pointerEvents = 'auto';
+    $popup().style.opacity         = '1';
+    $popup().style.pointerEvents   = 'auto';
+    $popup().style.transform       = 'translate(-50%,-50%) scale(1)';
+
+    /* Timer bar animation */
+    const bar = $bar();
+    bar.style.transition = 'none';
+    bar.style.transform  = 'scaleX(1)';
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        bar.style.transition = `transform ${AUTO_CLOSE_MS}ms linear`;
+        bar.style.transform  = 'scaleX(0)';
+      });
+    });
+
+    /* Countdown */
+    let secs = Math.round(AUTO_CLOSE_MS / 1000);
+    $countdown().textContent = secs;
+    clearInterval(_countdownInt);
+    _countdownInt = setInterval(() => {
+      secs--;
+      const el = $countdown();
+      if (el) el.textContent = secs;
+      if (secs <= 0) clearInterval(_countdownInt);
+    }, 1000);
+
+    /* Auto-close */
+    clearTimeout(_autoClose);
+    _autoClose = setTimeout(_hide, AUTO_CLOSE_MS);
+  }
+
+  /* ── Hide ──────────────────────────────────────────────────── */
+  function _hide() {
+    clearTimeout(_autoClose);
+    clearInterval(_countdownInt);
+    $overlay().style.opacity       = '0';
+    $overlay().style.pointerEvents = 'none';
+    $popup().style.opacity         = '0';
+    $popup().style.pointerEvents   = 'none';
+    $popup().style.transform       = 'translate(-50%,-48%) scale(0.96)';
+    _schedule();
+  }
+
+  /* ── Schedule next ─────────────────────────────────────────── */
+  function _schedule() {
+    clearTimeout(_schedTimer);
+    _schedTimer = setTimeout(_show, INTERVAL_MS);
+  }
+
+  /* ── Init ──────────────────────────────────────────────────── */
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('hr-dismiss').addEventListener('click', _hide);
+    document.getElementById('hr-action').addEventListener('click', _hide);
+    document.getElementById('health-reminder-overlay').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) _hide();
+    });
+
+    /* Hover states for dismiss button */
+    const dismiss = document.getElementById('hr-dismiss');
+    dismiss.addEventListener('mouseover', () => { dismiss.style.background = 'var(--surface-3)'; dismiss.style.color = 'var(--text-2)'; });
+    dismiss.addEventListener('mouseout',  () => { dismiss.style.background = 'var(--surface-4)'; dismiss.style.color = 'var(--text-3)'; });
+
+    /* Hover for action button */
+    const action = document.getElementById('hr-action');
+    action.addEventListener('mouseover', () => { action.style.filter = 'brightness(1.18)'; });
+    action.addEventListener('mouseout',  () => { action.style.filter = ''; });
+
+    _schedule();
+  });
+})();
+</script>
+
 </body>
 </html>
