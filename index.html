@@ -224,7 +224,9 @@ const RECENT_MAX = 8;
 const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
 let _recentItems = JSON.parse(localStorage.getItem('chunks_recent') || 'null') || [];
-let _activeRecentId = null;
+let _activeRecentId = (function() {
+  try { return localStorage.getItem('chunks_active_recent_id') || null; } catch(e) { return null; }
+})();
 
 function _saveRecent() {
   localStorage.setItem('chunks_recent', JSON.stringify(_recentItems));

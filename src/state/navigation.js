@@ -128,6 +128,24 @@ function showScreen(name) {
     if (name === 'studyplan') {
       if (typeof window.spInitScreen === 'function') window.spInitScreen();
     }
+
+    // Clear active chat highlight when navigating to a screen that doesn't
+    // own the active session. Each screen only owns sessions by source type:
+    //   home → general | workspace → workspace | exam → exam | visual → visual
+    // All other screens (flash, research, library, studyplan) own nothing.
+    // This prevents a workspace highlight showing in the sidebar when on Home, etc.
+    if (typeof _setActiveRecent === 'function' && typeof _recentItems !== 'undefined') {
+      const _activeId = typeof _activeRecentId !== 'undefined' ? _activeRecentId : null;
+      if (_activeId) {
+        const _activeItem = _recentItems.find(r => r.id === _activeId);
+        const _src = _activeItem?.source || '';
+        const _owns = { home: 'general', workspace: 'workspace', exam: 'exam', visual: 'visual' };
+        // If the destination screen doesn't own the active session source → clear it
+        if (_owns[name] !== _src) {
+          _setActiveRecent(null);
+        }
+      }
+    }
   }
   window._navFromHistory = false;
 
