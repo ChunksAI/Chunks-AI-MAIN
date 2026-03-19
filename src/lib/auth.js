@@ -239,8 +239,10 @@ window._applyUserProfile = function _applyUserProfile(session) {
   }
 
   // ── Check admin role from backend (users table is source of truth) ────────
-  // JWT metadata may not have the role — verify via backend after a short delay
-  // to ensure Supabase client and API_BASE are ready
+  // Debounced: only one call per session — skip if already in-flight or done.
+  if (window._adminCheckInflight || window._adminCheckDone === window._currentUser?.email) return;
+  window._adminCheckInflight = true;
+
   setTimeout(async () => {
     try {
       const sb = await window._getChunksSb?.();
@@ -259,17 +261,18 @@ window._applyUserProfile = function _applyUserProfile(session) {
       const data = await res.json();
       if (data.success && (data.role === 'admin' || data.role === 'owner' || data.role === 'superadmin')) {
         if (window._currentUser) window._currentUser.isAdmin = true;
-        // Cache the admin email so next refresh shows instantly
         localStorage.setItem('chunks_admin_email', window._currentUser.email);
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = '';
       } else {
-        // Not admin — clear cache
         localStorage.removeItem('chunks_admin_email');
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = 'none';
       }
+      // Mark done for this email so re-renders don't re-fire
+      window._adminCheckDone = window._currentUser?.email || true;
     } catch (_) {} // silent fail
+    finally { window._adminCheckInflight = false; }
   }, 500);
 };
 
@@ -419,6 +422,9 @@ window._initAuth = async function _initAuth() {
 
     if (_event === 'SIGNED_OUT') {
       window._currentUser = null;
+      // Reset admin check guard so next login re-verifies cleanly
+      window._adminCheckInflight = false;
+      window._adminCheckDone = null;
       // Leave presence channel on sign out
       if (window._presenceChannel) {
         try { sb.removeChannel(window._presenceChannel); } catch(_) {}
@@ -486,6 +492,8 @@ async function _trackPresence(sb) {
 // ── Sign out ──────────────────────────────────────────────────────────────────
 
 window.chunksSignOut = async function chunksSignOut() {
+  window._adminCheckInflight = false;
+  window._adminCheckDone = null;
   // Always clear state and redirect — never let a Supabase failure block logout
   function _doRedirect() {
     window._currentUser = null;
