@@ -1153,3 +1153,223 @@
   transition: opacity 0.2s;
 }
 #screen-visual .vtp-loading-retry:hover { opacity: 0.85; }
+
+/* ══════════════════════════════════════════════════════════
+   ENTRY SCREEN — NEW ADDITIONS
+   (particles, feature pills, animated example cards)
+══════════════════════════════════════════════════════════ */
+
+/* ── Teal orb (new 3rd orb) ──────────────────────────── */
+#screen-visual .orb-t {
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(45,212,191,.08), transparent 70%);
+  top: 40%; left: 58%;
+  animation: vtp-od1 18s ease-in-out infinite reverse;
+}
+
+/* ── Particle canvas ─────────────────────────────────── */
+#screen-visual .vtp-particles {
+  position: absolute;
+  inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Wider entry inner for cards ─────────────────────── */
+#screen-visual .entry-inner {
+  width: min(680px, calc(100vw - 40px));
+}
+
+/* ── Feature pills ───────────────────────────────────── */
+#screen-visual .vtp-feature-pills {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 26px;
+  animation: vtp-fadeUp .5s .28s ease both;
+}
+#screen-visual .vtp-fpill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: var(--rpill);
+  border: 1px solid var(--bsm);
+  background: var(--s1);
+  font-size: 12px;
+  color: var(--t3);
+  font-family: var(--fb);
+}
+#screen-visual .vtp-fpill-icon {
+  width: 18px; height: 18px;
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; flex-shrink: 0;
+}
+
+/* ── Example cards grid ──────────────────────────────── */
+#screen-visual .vtp-example-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  animation: vtp-fadeUp .5s .40s ease both;
+}
+@media (max-width: 560px) {
+  #screen-visual .vtp-example-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+  #screen-visual .vtp-example-cards .vtp-card:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ── Card base ───────────────────────────────────────── */
+#screen-visual .vtp-card {
+  background: var(--s2);
+  border: 1px solid var(--bsm);
+  border-radius: var(--rlg);
+  padding: 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: all .22s cubic-bezier(.25,.46,.45,.94);
+  position: relative;
+  overflow: hidden;
+}
+#screen-visual .vtp-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--rlg);
+  opacity: 0;
+  transition: opacity .22s;
+}
+#screen-visual .vtp-card.gold::before   { background: linear-gradient(135deg, rgba(232,172,46,.06), transparent 60%); }
+#screen-visual .vtp-card.violet::before { background: linear-gradient(135deg, rgba(139,124,248,.06), transparent 60%); }
+#screen-visual .vtp-card.teal::before   { background: linear-gradient(135deg, rgba(45,212,191,.06), transparent 60%); }
+#screen-visual .vtp-card:hover {
+  border-color: var(--bmd);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 28px rgba(0,0,0,.4);
+}
+#screen-visual .vtp-card:hover::before        { opacity: 1; }
+#screen-visual .vtp-card.gold:hover   { border-color: var(--gb); }
+#screen-visual .vtp-card.violet:hover { border-color: var(--vb); }
+#screen-visual .vtp-card.teal:hover   { border-color: var(--tb); }
+
+/* ── Card preview area ───────────────────────────────── */
+#screen-visual .vtp-card-preview {
+  height: 72px;
+  border-radius: var(--rmd);
+  margin-bottom: 10px;
+  overflow: hidden;
+  position: relative;
+  background: var(--s3);
+}
+
+/* ── pH bar chart ────────────────────────────────────── */
+#screen-visual .vtp-mini-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 8px 8px 0;
+  height: 100%;
+}
+#screen-visual .vtp-mini-bar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  transform-origin: bottom;
+  animation: vtp-barGrow 1s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes vtp-barGrow { from{transform:scaleY(0)} to{transform:scaleY(1)} }
+
+/* ── Wave ────────────────────────────────────────────── */
+#screen-visual .vtp-mini-wave {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+#screen-visual .vtp-mini-wave svg { width:100%;height:100%; }
+
+/* ── Cell diagram ────────────────────────────────────── */
+#screen-visual .vtp-mini-cell {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+#screen-visual .vtp-cell-nucleus {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: rgba(139,124,248,.5);
+  border: 2px solid rgba(139,124,248,.8);
+  box-shadow: 0 0 12px rgba(139,124,248,.4);
+  animation: vtp-cellPulse 3s ease-in-out infinite;
+  z-index: 2;
+}
+#screen-visual .vtp-cell-membrane {
+  position: absolute;
+  width: 56px; height: 44px;
+  border-radius: 50%;
+  border: 2px solid rgba(139,124,248,.35);
+  background: rgba(139,124,248,.05);
+  animation: vtp-cellPulse 3s ease-in-out infinite reverse;
+}
+#screen-visual .vtp-cell-orb {
+  position: absolute;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(45,212,191,.6);
+  border: 1px solid rgba(45,212,191,.9);
+  animation: vtp-orbit 4s linear infinite;
+}
+@keyframes vtp-cellPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+@keyframes vtp-orbit {
+  from { transform: rotate(0deg) translateX(30px) rotate(0deg); }
+  to   { transform: rotate(360deg) translateX(30px) rotate(-360deg); }
+}
+
+/* ── Force arrows ────────────────────────────────────── */
+#screen-visual .vtp-force-arrow {
+  font-size: 22px;
+  animation: vtp-arrowPulse 2s ease-in-out infinite;
+}
+@keyframes vtp-arrowPulse { 0%,100%{opacity:.4;transform:scale(.88)} 50%{opacity:1;transform:scale(1)} }
+
+/* ── Card text ───────────────────────────────────────── */
+#screen-visual .vtp-card-topic {
+  font-family: var(--fh);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--t1);
+  margin-bottom: 3px;
+  line-height: 1.2;
+}
+#screen-visual .vtp-card-sub {
+  font-size: 10.5px;
+  color: var(--t4);
+  font-family: var(--fm);
+  letter-spacing: .02em;
+}
+#screen-visual .vtp-card-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-family: var(--fm);
+  padding: 3px 8px;
+  border-radius: var(--rpill);
+  margin-top: 7px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  background: var(--s3);
+  border: 1px solid var(--bsm);
+  color: var(--t3);
+}
+#screen-visual .vtp-card.gold   .vtp-card-tag { background:var(--gm); border-color:var(--gb); color:var(--gold);   }
+#screen-visual .vtp-card.violet .vtp-card-tag { background:var(--vm); border-color:var(--vb); color:var(--violet); }
+#screen-visual .vtp-card.teal   .vtp-card-tag { background:var(--tm); border-color:var(--tb); color:var(--teal);   }
+
+/* ── Extra chips row below cards ─────────────────────── */
+#screen-visual .entry-chips {
+  animation: vtp-fadeUp .5s .52s ease both;
+}
