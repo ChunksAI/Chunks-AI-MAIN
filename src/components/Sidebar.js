@@ -273,11 +273,14 @@ export function _renderRecentPlansAllSidebars() {
   document.querySelectorAll('.sp-recent-plans-outer').forEach(section => {
     const listEl = section.querySelector('.sp-recent-plans-list');
     if (!listEl) return;
+
+    // Always show the section - display empty state when no plans
+    section.style.display = '';
+
     if (!plans || plans.length === 0) {
-      section.style.display = 'none';
+      listEl.innerHTML = `<div class="recent-empty" style="padding:4px 16px 6px;font-size:11px;color:var(--text-4);">No plans yet</div>`;
       return;
     }
-    section.style.display = '';
 
     listEl.innerHTML = plans.map(topic => {
       const entry = Object.entries(allPlans).find(([, e]) => e.topic === topic);

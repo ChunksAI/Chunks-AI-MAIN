@@ -609,14 +609,13 @@ export function spRenderRecentPlansSidebar(plans) {
   }
 }
 
-// Restore recent plans on load
+// Restore recent plans on load — always render so section is always visible
 (function() {
   try {
-    const plans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]');
     if (typeof window._renderRecentPlansAllSidebars === 'function') {
       window._renderRecentPlansAllSidebars();
     } else {
-      // Fallback: runs before Sidebar.js exposes the global, so schedule it
+      // Sidebar.js may not have exposed the global yet — schedule for next tick
       setTimeout(() => { window._renderRecentPlansAllSidebars?.(); }, 200);
     }
   } catch (_) {}
@@ -1330,8 +1329,21 @@ export function spSwitchToPlan(id) {
 }
 
 export function spDeletePlan(id) {
+  // Find the topic before deleting so we can remove it from recent plans
+  const deletedTopic = _spAllPlans[id]?.topic;
+
   delete _spAllPlans[id];
   try { localStorage.setItem('sp_all_plans', JSON.stringify(_spAllPlans)); } catch (e) {}
+
+  // Also remove from sp_recent_plans list
+  if (deletedTopic) {
+    try {
+      let recentPlans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]');
+      recentPlans = recentPlans.filter(p => p !== deletedTopic);
+      localStorage.setItem('sp_recent_plans', JSON.stringify(recentPlans));
+    } catch (e) {}
+  }
+
   if (_spActivePlanId === id) {
     _spActivePlanId = null;
     _spCurrentPlan = null;
@@ -1341,7 +1353,13 @@ export function spDeletePlan(id) {
     localStorage.removeItem('sp_active_plan_id');
     spShowEmpty();
   }
-  spShowPlansMenu(); // re-render menu
+
+  // Re-render all sidebar recent-plans sections in realtime
+  if (typeof window._renderRecentPlansAllSidebars === 'function') {
+    window._renderRecentPlansAllSidebars();
+  }
+
+  spShowPlansMenu(); // re-render in-screen menu
 }
 
 // ── FIX 2: Exam date + calendar ────────────────────────────────────────────
