@@ -71,7 +71,6 @@ const NAV_ITEMS = [
     label:  'Study Plan',
     action: 'showScreen',
     screen: 'studyplan',
-    onclick: `onclick="showScreen('studyplan')"`,
     svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
   },
   {
