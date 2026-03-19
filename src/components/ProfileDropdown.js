@@ -287,7 +287,7 @@ export async function pdAction(action) {
 
   switch (action) {
     case 'upgrade':       window.openUpgradeModal?.();            break;
-    case 'admin':         window.open('admin.html', '_blank');         break;
+    case 'admin':         window.open('/admin', '_blank');         break;
     case 'personalization': window.openSettings?.('personalization'); break;
     case 'settings':      window.openSettings?.('general');       break;
     case 'incognito':     window.openIncognitoChat?.();            break;

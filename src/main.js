@@ -109,8 +109,18 @@ function _reapplyProfile() {
       avatar_url: window._currentUser.avatar,
       picture:    window._currentUser.avatar,
       plan:       window._currentUser.plan,
+      // Preserve resolved role so isOwner/isAdmin are never wiped by a re-apply
+      role: window._currentUser.isOwner ? 'owner'
+          : window._currentUser.isAdmin ? 'admin'
+          : undefined,
     },
-    app_metadata: { plan: window._currentUser.plan }
+    app_metadata: {
+      plan: window._currentUser.plan,
+      // Mirror role into app_metadata too so both checks in auth.js pass
+      role: window._currentUser.isOwner ? 'owner'
+          : window._currentUser.isAdmin ? 'admin'
+          : undefined,
+    }
   }});
 }
 
