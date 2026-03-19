@@ -292,13 +292,11 @@ export function _renderRecentPlansAllSidebars() {
              title="${safeTopic}">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;opacity:0.55;"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
           <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;font-size:12px;">${topic}</span>
-          <button class="sp-plan-delete-btn" aria-label="Delete plan"
-                  data-action="spDeletePlanFromSidebar-self"
-                  data-plan-id="${planId}"
-                  data-plan-topic="${safeTopic}"
-                  title="Delete plan">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+          <span class="sp-plan-menu-btn recent-menu-btn"
+                data-action="spPlanCtxMenu-self"
+                data-plan-id="${planId}"
+                data-plan-topic="${safeTopic}"
+                title="More options">···</span>
         </div>`;
     }).join('');
   });
