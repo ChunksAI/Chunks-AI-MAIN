@@ -26,6 +26,10 @@ import { getSupabaseClient } from './supabase.js';
 /** @type {{ id:string|null, email:string, name:string, avatar:string, plan:string }|null} */
 window._currentUser = null;
 
+// Set to true the moment chunksSignOut() fires — suppresses all UI updates
+// so the user never sees a "Guest" flash while the page is navigating away.
+let _signingOut = false;
+
 // ── UI helpers ────────────────────────────────────────────────────────────────
 
 /** Derive initials (1-2 chars) from a display name or email. */
@@ -42,6 +46,8 @@ function _initials(name, email) {
 
 /** Update every piece of user-facing UI with the current user state. */
 function _applyUI(user) {
+  // No-op while signing out — page is already navigating to /login
+  if (_signingOut) return;
   if (!user) {
     document.querySelectorAll('.profile-name').forEach(el => { el.textContent = 'Guest'; });
     document.querySelectorAll('.profile-plan').forEach(el => { el.textContent = 'Free Plan'; });
@@ -514,6 +520,10 @@ async function _trackPresence(sb) {
 // ── Sign out ──────────────────────────────────────────────────────────────────
 
 window.chunksSignOut = async function chunksSignOut() {
+  // Set the flag immediately — suppresses all _applyUI calls triggered by
+  // the Supabase SIGNED_OUT event that fires when sb.auth.signOut() runs.
+  _signingOut = true;
+
   // Clean up state and storage BEFORE redirecting so the user never sees
   // a "Guest" flash — the page navigates away before any re-render happens.
   function _cleanAndRedirect() {
