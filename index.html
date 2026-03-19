@@ -1083,8 +1083,12 @@ document.addEventListener('keydown', function(e) {
   if (e.ctrlKey && e.shiftKey && e.key === 'Backspace') {
     e.preventDefault();
 
-    // Check if a study plan is currently loaded
-    const _activePlanId = (typeof window._spActivePlanId !== 'undefined') ? window._spActivePlanId : null;
+    // Check if a study plan is currently loaded.
+    // window._spActivePlanId is now bridged via Object.defineProperty, but also
+    // fall back to localStorage so the shortcut works even before spInitScreen runs.
+    const _activePlanId = (typeof window._spActivePlanId !== 'undefined' && window._spActivePlanId)
+      ? window._spActivePlanId
+      : (() => { try { return localStorage.getItem('sp_active_plan_id') || null; } catch(_) { return null; } })();
     const _activePlan   = (typeof window._spCurrentPlan  !== 'undefined') ? window._spCurrentPlan  : null;
 
     if (_activePlanId && _activePlan) {

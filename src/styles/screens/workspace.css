@@ -342,9 +342,17 @@
 }
 .recent-item span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .recent-item:hover { background: var(--surface-2); color: var(--text-1); }
-.recent-item.active { background: var(--surface-2); color: var(--text-1); }
+.recent-item.active { background: var(--gold-muted); color: var(--gold); }
+.recent-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 4px; bottom: 4px;
+  width: 2px;
+  background: var(--gold);
+  border-radius: 0 2px 2px 0;
+}
 .recent-item svg { opacity: 0.45; flex-shrink: 0; transition: opacity var(--t-fast); }
-.recent-item:hover svg, .recent-item.active svg { opacity: 0.85; }
+.recent-item:hover svg, .recent-item.active svg { opacity: 1; }
 .recent-item > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .recent-item .recent-menu-btn {
   opacity: 0; border-radius: 3px;

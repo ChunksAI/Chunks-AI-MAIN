@@ -421,6 +421,7 @@ Rules:
     _spCurrentPlan = plan;
     _spMastery = {};
     _spActivePlanId = _spGenPlanId(); // new ID for new plan
+    if (typeof window.setActivePlan === 'function') window.setActivePlan(_spActivePlanId);
     spHideOverlay();
     spRenderPlanPatched(plan, sourceName);
     spSavePlanToSidebarAndLibrary(plan.topic);
@@ -1172,7 +1173,10 @@ document.addEventListener('click', e => {
 export function spInitScreen() {
   // Restore the last active plan + mastery from localStorage on page load / screen switch.
   if (_spCurrentPlan) {
-    // Already in memory — still restore exam date UI
+    // Already in memory — re-highlight sidebar in case we navigated away and back
+    if (_spActivePlanId && typeof window.setActivePlan === 'function') {
+      window.setActivePlan(_spActivePlanId);
+    }
     setTimeout(() => { spUpdateExamDateUI(); spUpdateDailySchedule(); }, 100);
     return;
   }
@@ -1313,6 +1317,8 @@ export function spSwitchToPlan(id) {
   _spCurrentPlan = entry.plan;
   _spMastery = entry.mastery || {};
   _spActivePlanId = id;
+  // Highlight the active plan in all sidebars
+  if (typeof window.setActivePlan === 'function') window.setActivePlan(id);
   _spExamDate = entry.examDate || null;
   try {
     localStorage.setItem('sp_active_plan_id', id);
@@ -1351,6 +1357,7 @@ export function spDeletePlan(id) {
     localStorage.removeItem('sp_active_plan');
     localStorage.removeItem('sp_active_mastery');
     localStorage.removeItem('sp_active_plan_id');
+    if (typeof window.setActivePlan === 'function') window.setActivePlan(null);
     spShowEmpty();
   }
 
@@ -1789,6 +1796,7 @@ Object.assign(window, _SP_FNS);
 // Mutable state bridges
 [
   ['_spCurrentPlan',    () => _spCurrentPlan,    v => { _spCurrentPlan = v; }],
+  ['_spActivePlanId',   () => _spActivePlanId,   v => { _spActivePlanId = v; }],
   ['_spDrawerConcept',  () => _spDrawerConcept,  v => { _spDrawerConcept = v; }],
   ['_spMastery',        () => _spMastery,        v => { _spMastery = v; }],
   ['_spFcDeck',         () => _spFcDeck,         v => { _spFcDeck = v; }],
