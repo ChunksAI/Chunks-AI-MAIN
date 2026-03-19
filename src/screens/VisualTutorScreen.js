@@ -825,6 +825,9 @@ async function _vtpStartLesson() {
   _vtpWeakSteps     = [];
   _vtpAskHistory    = [];
 
+  // Always wipe any stale lesson DOM before starting fresh
+  _vtpResetLessonDOM();
+
   // Show loading screen
   const topicEl = document.getElementById('vtp-loading-topic');
   if (topicEl) topicEl.textContent = t;
@@ -1528,6 +1531,47 @@ function _vtpFadeAndDraw(spec) {
  * (i.e. user clicks the Visual Tutor nav item from another screen).
  * Must return the UI to the entry screen and stop anything running.
  */
+// ── Full DOM reset for lesson UI — call before any lesson transition ─────────
+// Closes quiz overlay, clears quiz content, hides announce pill, resets all
+// lesson-panel state so a new lesson never inherits stale UI from a previous one.
+function _vtpResetLessonDOM() {
+  // Quiz overlay — close and wipe content
+  const quizOverlay = document.getElementById('quiz-overlay');
+  if (quizOverlay) quizOverlay.classList.remove('open');
+  const quizFb   = document.getElementById('quiz-feedback');
+  const quizCont = document.getElementById('quiz-continue');
+  const quizXp   = document.getElementById('quiz-xp-pop');
+  const quizOpts = document.getElementById('quiz-options');
+  if (quizFb)   { quizFb.style.display = 'none'; quizFb.textContent = ''; quizFb.className = 'quiz-feedback'; }
+  if (quizCont) quizCont.style.display = 'none';
+  if (quizXp)   quizXp.classList.remove('show');
+  if (quizOpts) quizOpts.innerHTML = '';
+
+  // Quiz announce pill
+  const pill = document.getElementById('quiz-announce-pill');
+  if (pill) pill.classList.remove('show');
+
+  // Bottom panel elements
+  const sw = document.getElementById('simplified-wrap');
+  if (sw) sw.style.display = 'none';
+  const gr = document.getElementById('gotit-row');
+  if (gr) gr.style.display = 'none';
+  const ar = document.getElementById('ask-reply');
+  if (ar) ar.classList.remove('open');
+  const simpWrap = document.getElementById('simplified-wrap');
+  if (simpWrap) simpWrap.style.display = 'none';
+
+  // Ask input — re-enable in case it was disabled mid-step
+  const askEl  = document.getElementById('ask-input');
+  const simpBtn = document.getElementById('btn-simplify');
+  if (askEl)   { askEl.disabled = false; askEl.value = ''; askEl.placeholder = 'Ask anything…'; }
+  if (simpBtn) simpBtn.disabled = false;
+
+  // Progress + dots
+  const progFill = document.getElementById('prog-fill');
+  if (progFill) progFill.style.width = '0%';
+}
+
 if (typeof window !== 'undefined') window._vtClear = function() {
   if (_vtpTypeTimer)    clearTimeout(_vtpTypeTimer);
   if (_vtpAutoTimer)    clearTimeout(_vtpAutoTimer);
@@ -1537,16 +1581,13 @@ if (typeof window !== 'undefined') window._vtClear = function() {
   _vtpStepBusy    = false;
   _vtpAutoplay    = false;
 
-  // Visually reset — clear canvas and return to entry screen
+  // Wipe all lesson DOM state so nothing bleeds into the next session
+  _vtpResetLessonDOM();
+
+  // Clear canvas and return to entry screen
   _vtpClearCanvas();
   const inp = document.getElementById('vtp-entry-input');
   if (inp) inp.value = '';
-  const sw = document.getElementById('simplified-wrap');
-  if (sw) sw.style.display = 'none';
-  const gr = document.getElementById('gotit-row');
-  if (gr) gr.style.display = 'none';
-  const ar = document.getElementById('ask-reply');
-  if (ar) ar.classList.remove('open');
 
   _vtpShowScreen('screen-entry');
 };
@@ -1623,6 +1664,7 @@ if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId
               .join('');
           }
 
+          _vtpResetLessonDOM();
           _vtpShowScreen('screen-lesson');
           setTimeout(() => { _vtpInitCanvas(); _vtpBuildDots(); _vtpRenderStep(0); }, 220);
           return;
