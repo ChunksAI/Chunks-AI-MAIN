@@ -1834,6 +1834,157 @@ export function spConfidenceBadge(conceptIdx) {
 }
 
 
+// ── Notifications helper — window._chunksNotifications ───────────────────────
+// Provides a consistent API used by spToggleReminder / spUpdateReminderUI.
+// Uses the SW local-alarm approach: schedules next 30 days of reminders into
+// localStorage, then pings the SW every minute via a page-side setInterval.
+(function _initChunksNotifications() {
+  const STORE_KEY   = 'chunks_reminder_schedule';
+  const PREFS_KEY   = 'chunks_reminder_prefs';
+  const ENABLED_KEY = 'chunks_reminder_enabled';
+
+  function _swReg() {
+    return navigator.serviceWorker?.controller || null;
+  }
+
+  function _pingSW() {
+    const sw = _swReg();
+    if (!sw) return;
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      const schedule = raw ? JSON.parse(raw) : [];
+      sw.postMessage({ type: 'SCHEDULE_CHECK', schedule });
+    } catch (_) {}
+  }
+
+  // Listen for fired confirmations from SW — mark those entries in localStorage
+  if (navigator.serviceWorker) {
+    navigator.serviceWorker.addEventListener('message', e => {
+      if (e.data?.type === 'REMINDER_FIRED' && Array.isArray(e.data.firedAt)) {
+        try {
+          const raw = localStorage.getItem(STORE_KEY);
+          if (!raw) return;
+          const schedule = JSON.parse(raw);
+          const firedSet = new Set(e.data.firedAt);
+          schedule.forEach(r => { if (firedSet.has(r.fireAt)) r.fired = true; });
+          localStorage.setItem(STORE_KEY, JSON.stringify(schedule));
+        } catch (_) {}
+      }
+    });
+  }
+
+  // Start a per-minute tick that pings the SW and fires due reminders
+  // directly from the page if the SW is unavailable (e.g. HTTP dev server).
+  let _tickHandle = null;
+  function _startTick() {
+    if (_tickHandle) return;
+    _tickHandle = setInterval(() => {
+      _pingSWAndCheckPage();
+    }, 60_000);
+  }
+  function _stopTick() {
+    if (_tickHandle) { clearInterval(_tickHandle); _tickHandle = null; }
+  }
+
+  function _pingSWAndCheckPage() {
+    _pingSW();
+    // Fallback: fire directly from page if SW not controlling
+    if (!_swReg()) _checkAndFirePage();
+  }
+
+  function _checkAndFirePage() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      const schedule = JSON.parse(raw);
+      const now = Date.now();
+      let changed = false;
+      (schedule || []).forEach(r => {
+        if (r.fireAt <= now && !r.fired) {
+          if (Notification.permission === 'granted') {
+            new Notification(r.title || 'Chunks AI – Study Reminder', {
+              body:  r.body  || "Time to study! Open your study plan.",
+              icon:  '/favicon-192x192.png',
+              badge: '/favicon-32x32.png',
+              tag:   'chunks-daily-reminder',
+            });
+          }
+          r.fired = true;
+          changed = true;
+        }
+      });
+      if (changed) localStorage.setItem(STORE_KEY, JSON.stringify(schedule));
+    } catch (_) {}
+  }
+
+  function _buildSchedule({ examDate, planTopic, hour, minute }) {
+    const schedule = [];
+    const now  = new Date();
+    const exam = examDate ? new Date(examDate + 'T00:00:00') : null;
+    const days = 30;
+    for (let d = 0; d < days; d++) {
+      const day = new Date(now);
+      day.setDate(day.getDate() + d);
+      day.setHours(hour, minute, 0, 0);
+      if (day <= now) continue;          // already past today's time
+      if (exam && day > exam) continue;  // after exam date
+      const daysLeft = exam ? Math.ceil((exam - day) / 86400000) : null;
+      const body = daysLeft != null
+        ? `${daysLeft} day${daysLeft !== 1 ? 's' : ''} until your exam — keep going! 📚`
+        : `Time to study${planTopic ? ' ' + planTopic : ''}. Open your study plan.`;
+      schedule.push({ fireAt: day.getTime(), fired: false, title: 'Chunks AI – Daily Reminder', body });
+    }
+    return schedule;
+  }
+
+  window._chunksNotifications = {
+    enabled() {
+      return localStorage.getItem(ENABLED_KEY) === '1';
+    },
+
+    prefs() {
+      try {
+        const p = localStorage.getItem(PREFS_KEY);
+        return p ? JSON.parse(p) : { hour: 20, minute: 0 };
+      } catch (_) { return { hour: 20, minute: 0 }; }
+    },
+
+    async request() {
+      if (!('Notification' in window)) return 'denied';
+      if (Notification.permission === 'granted') return 'granted';
+      if (Notification.permission === 'denied')  return 'denied';
+      return Notification.requestPermission();
+    },
+
+    schedule({ examDate, planTopic, hour = 20, minute = 0 }) {
+      try {
+        const prefs = { hour, minute, examDate, planTopic };
+        localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+        localStorage.setItem(ENABLED_KEY, '1');
+        const schedule = _buildSchedule({ examDate, planTopic, hour, minute });
+        localStorage.setItem(STORE_KEY, JSON.stringify(schedule));
+        _startTick();
+        _pingSWAndCheckPage();
+      } catch (_) {}
+    },
+
+    cancel() {
+      try {
+        localStorage.removeItem(STORE_KEY);
+        localStorage.setItem(ENABLED_KEY, '0');
+        _stopTick();
+      } catch (_) {}
+    },
+  };
+
+  // Auto-restart tick on page load if reminders were previously enabled
+  if (localStorage.getItem(ENABLED_KEY) === '1') {
+    _startTick();
+    // Immediately check in case a reminder fired while page was closed
+    setTimeout(_pingSWAndCheckPage, 2000);
+  }
+})();
+
 // ── Daily reminder (push notifications) ──────────────────────────────────────
 
 export function spUpdateReminderUI() {

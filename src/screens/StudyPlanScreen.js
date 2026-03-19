@@ -219,6 +219,17 @@ const STUDYPLAN_HTML = /* html */`
                 <input type="date" id="sp-exam-date-input" style="background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);padding:4px 8px;color:var(--text-1);font-size:12px;font-family:var(--font-mono);cursor:pointer;" onchange="spSetExamDate(this.value)">
                 <button onclick="document.getElementById('sp-exam-date-picker').style.display='none';" style="background:none;border:none;cursor:pointer;color:var(--text-4);font-size:18px;line-height:1;padding:0;">×</button>
               </div>
+              <!-- Daily reminder row (hidden until exam date is set) -->
+              <div id="sp-reminder-row" style="display:none;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
+                <button id="sp-reminder-btn" onclick="spToggleReminder()" style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-pill);font-size:11px;color:var(--text-3);cursor:pointer;font-family:var(--font-body);transition:color var(--t-fast),border-color var(--t-fast),background var(--t-fast);">
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                  <span id="sp-reminder-btn-label">Enable daily reminder</span>
+                </button>
+                <div id="sp-reminder-time-wrap" style="display:none;align-items:center;gap:5px;">
+                  <span style="font-size:11px;color:var(--text-4);">at</span>
+                  <input type="time" id="sp-reminder-time" value="20:00" onchange="spUpdateReminderTime(this.value)" style="background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);padding:2px 6px;color:var(--text-1);font-size:11px;font-family:var(--font-mono);cursor:pointer;">
+                </div>
+              </div>
             </div>
               <div class="sp-overall-ring">
                 <svg width="60" height="60" viewBox="0 0 60 60">

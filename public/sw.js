@@ -54,42 +54,51 @@ self.addEventListener('notificationclick', event => {
 
 // ── Local alarm: check every minute if a scheduled reminder is due ──────────
 // This is a lightweight local-only approach — no push server needed.
-// The page schedules reminders via localStorage; SW fires them.
+// The page passes the schedule via postMessage (SW has no localStorage access).
+// Schedule format: [{ fireAt: <timestamp ms>, fired: bool, title, body }, ...]
+
+let _cachedSchedule = [];
+
 self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'SCHEDULE_CHECK') {
-    checkAndFireReminders();
+  if (!event.data) return;
+
+  if (event.data.type === 'SCHEDULE_CHECK') {
+    // Page sends the current schedule so SW can check it without localStorage
+    if (Array.isArray(event.data.schedule)) {
+      _cachedSchedule = event.data.schedule;
+    }
+    const fired = checkAndFireReminders(_cachedSchedule);
+    // Tell the page which entries fired so it can update localStorage
+    if (fired.length && event.source) {
+      event.source.postMessage({ type: 'REMINDER_FIRED', firedAt: fired });
+    }
   }
 });
 
-function checkAndFireReminders() {
-  try {
-    const raw = self.localStorage ? self.localStorage.getItem('chunks_reminder_schedule') : null;
-    if (!raw) return;
-    const schedule = JSON.parse(raw);
-    const now = Date.now();
-    let changed = false;
-
-    (schedule || []).forEach(reminder => {
-      if (reminder.fireAt <= now && !reminder.fired) {
-        self.registration.showNotification(reminder.title || 'Chunks AI – Study Reminder', {
-          body:    reminder.body  || "Time to study! Don't forget your critical path.",
-          icon:    '/favicon-192x192.png',
-          badge:   '/favicon-32x32.png',
-          tag:     'chunks-daily-reminder',
-          renotify: true,
-          data:    { url: '/studyplan' },
-          actions: [
-            { action: 'open',    title: '📚 Open Study Plan' },
-            { action: 'dismiss', title: 'Dismiss' },
-          ],
-        });
-        reminder.fired = true;
-        changed = true;
-      }
-    });
-
-    if (changed) {
-      self.localStorage.setItem('chunks_reminder_schedule', JSON.stringify(schedule));
+/**
+ * @param {Array} schedule
+ * @returns {number[]} fireAt values that were just fired
+ */
+function checkAndFireReminders(schedule) {
+  const now    = Date.now();
+  const fired  = [];
+  (schedule || []).forEach(reminder => {
+    if (reminder.fireAt <= now && !reminder.fired) {
+      self.registration.showNotification(reminder.title || 'Chunks AI – Study Reminder', {
+        body:     reminder.body  || "Time to study! Don't forget your critical path.",
+        icon:     '/favicon-192x192.png',
+        badge:    '/favicon-32x32.png',
+        tag:      'chunks-daily-reminder',
+        renotify: true,
+        data:     { url: '/studyplan' },
+        actions:  [
+          { action: 'open',    title: '📚 Open Study Plan' },
+          { action: 'dismiss', title: 'Dismiss' },
+        ],
+      });
+      reminder.fired = true;
+      fired.push(reminder.fireAt);
     }
-  } catch (_) {}
+  });
+  return fired;
 }
