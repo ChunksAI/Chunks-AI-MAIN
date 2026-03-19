@@ -500,12 +500,12 @@ function _clickRecent(item) {
     }
     showScreen('exam');
   } else if (item.source === 'visual') {
-    // Visual Tutor — restore session on visual screen
+    // Visual Tutor — showScreen first (sets _navFromHistory correctly),
+    // then restore so the highlight set above is never cleared by a second showScreen call
+    showScreen('visual');
     if (typeof window._vtRestoreSession === 'function') {
       window._vtRestoreSession(item.id, item.question);
     }
-    showScreen('visual');
-    setTimeout(() => document.getElementById('vt-input')?.focus(), 80);
   } else if (item.source === 'general' || !item.bookId) {
     // General AI — restore saved session
     showScreen('home');

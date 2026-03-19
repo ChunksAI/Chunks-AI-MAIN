@@ -1589,9 +1589,9 @@ function _vtpSaveSession() {
 }
 
 if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId, question) {
-  if (window._setActiveRecent) window._setActiveRecent(sessionId);
+  // _clickRecent already called _setActiveRecent and showScreen('visual') before us.
+  // Just ensure _navFromHistory stays true so _vtClear doesn't fire after our setTimeout.
   window._navFromHistory = true;
-  if (window.showScreen) window.showScreen('visual');
 
   setTimeout(() => {
     // Try to restore saved lesson data
