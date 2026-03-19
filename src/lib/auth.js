@@ -91,7 +91,9 @@ function _applyUI(user) {
   }
 
   const initials = _initials(user.name, user.email);
-  const planLabel = user.plan === 'ultra' ? 'Ultra Plan'
+  const planLabel = user.isOwner  ? 'Owner'
+                  : user.isAdmin  ? 'Admin'
+                  : user.plan === 'ultra' ? 'Ultra Plan'
                   : user.plan === 'pro'   ? 'Pro Plan'
                   : user.plan === 'team'  ? 'Team Plan'
                   : 'Free Plan';
@@ -235,6 +237,10 @@ window._applyUserProfile = function _applyUserProfile(session) {
              meta.role === 'admin' ||
              meta.role === 'owner' ||
              meta.role === 'superadmin',
+    isOwner: u.app_metadata?.role === 'owner' ||
+             u.app_metadata?.role === 'superadmin' ||
+             meta.role === 'owner' ||
+             meta.role === 'superadmin',
   };
 
   _applyUI(window._currentUser);
@@ -262,11 +268,16 @@ window._applyUserProfile = function _applyUserProfile(session) {
       });
       const data = await res.json();
       if (data.success && (data.role === 'admin' || data.role === 'owner' || data.role === 'superadmin')) {
-        if (window._currentUser) window._currentUser.isAdmin = true;
+        if (window._currentUser) {
+          window._currentUser.isAdmin = true;
+          window._currentUser.isOwner = data.role === 'owner' || data.role === 'superadmin';
+        }
         // Cache the admin email so next refresh shows instantly
         localStorage.setItem('chunks_admin_email', window._currentUser.email);
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = '';
+        // Re-apply profile so plan label updates to Owner/Admin immediately
+        if (window._currentUser) _applyUI(window._currentUser);
       } else {
         // Not admin — clear cache
         localStorage.removeItem('chunks_admin_email');

@@ -330,6 +330,7 @@
   border-radius: var(--r-md);
   cursor: pointer;
   transition: background var(--t-fast);
+  min-width: 0;
 }
 .profile-row:hover { background: var(--surface-2); }
 
@@ -349,8 +350,14 @@
   color: #fff;
 }
 
-.profile-name { font-size: 13px; font-weight: 500; color: var(--text-1); }
-.profile-plan { font-size: 11px; color: var(--text-3); }
+.profile-name {
+  font-size: 13px; font-weight: 500; color: var(--text-1);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.profile-plan {
+  font-size: 11px; color: var(--text-3);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
 /* ── Recent Plans section (all sidebars, inside scroll) ─── */
 .sp-recent-plans-outer.collapsed .hist-list { display: none; }
