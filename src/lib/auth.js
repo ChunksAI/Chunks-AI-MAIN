@@ -134,9 +134,14 @@ function _applyUI(user) {
   document.querySelectorAll('.md-profile-plan').forEach(el => { el.textContent = planLabel; });
   document.querySelectorAll('.md-avatar').forEach(el => _setAvatar(el, user.avatar, initials));
 
-  // Show/hide the admin button in ProfileDropdown if applicable
+  // Show/hide the admin button in ProfileDropdown if applicable.
+  // Check both the user.isAdmin flag AND the localStorage cache so the button
+  // appears instantly on every _applyUI call without waiting for the backend.
+  const cachedAdmin = localStorage.getItem('chunks_admin_email');
+  const isAdminNow  = user.isAdmin || (cachedAdmin && cachedAdmin === user.email);
+  if (isAdminNow && window._currentUser) window._currentUser.isAdmin = true;
   const adminBtn = document.getElementById('pd-admin-btn');
-  if (adminBtn) adminBtn.style.display = user.isAdmin ? '' : 'none';
+  if (adminBtn) adminBtn.style.display = isAdminNow ? '' : 'none';
 }
 
 // ── Default settings (new users) ─────────────────────────────────────────────
@@ -228,15 +233,8 @@ window._applyUserProfile = function _applyUserProfile(session) {
 
   _applyUI(window._currentUser);
 
-  // ── Show admin button instantly from cache ────────────────────────────────
-  // If we previously verified this user is admin, show the button immediately
-  // without waiting for the backend check — avoids the flash on refresh
-  const cachedAdminEmail = localStorage.getItem('chunks_admin_email');
-  if (cachedAdminEmail && cachedAdminEmail === window._currentUser.email) {
-    window._currentUser.isAdmin = true;
-    const adminBtnImmediate = document.getElementById('pd-admin-btn');
-    if (adminBtnImmediate) adminBtnImmediate.style.display = '';
-  }
+  // ── Admin cache is now checked inside _applyUI directly ─────────────────
+  // _applyUI already reads chunks_admin_email and shows the button instantly.
 
   // ── Check admin role from backend (users table is source of truth) ────────
   // JWT metadata may not have the role — verify via backend after a short delay
@@ -516,34 +514,35 @@ async function _trackPresence(sb) {
 // ── Sign out ──────────────────────────────────────────────────────────────────
 
 window.chunksSignOut = async function chunksSignOut() {
-  // Always clear state and redirect — never let a Supabase failure block logout
-  function _doRedirect() {
+  // Clean up state and storage BEFORE redirecting so the user never sees
+  // a "Guest" flash — the page navigates away before any re-render happens.
+  function _cleanAndRedirect() {
+    // Clear all state
     window._currentUser = null;
-    _applyUI(null);
     // Clear localStorage session state
     localStorage.removeItem('chunks_active_home_session');
     localStorage.removeItem('chunks_active_ws_book');
     localStorage.removeItem('chunks_active_recent_id');
     localStorage.removeItem('chunks_admin_email');
-    // Clear sessionStorage so auth gate redirects to login on next load
+    // Clear sessionStorage
     sessionStorage.setItem('chunks_signing_out', '1');
     sessionStorage.removeItem('chunks_was_here');
     sessionStorage.removeItem('chunks_active_screen');
     sessionStorage.removeItem('chunks_is_refresh');
     sessionStorage.removeItem('chunks_guest_mode');
-    // Hard redirect to login
+    sessionStorage.removeItem('chunks_oauth_callback');
+    // Navigate immediately — do NOT call _applyUI(null) before this
+    // because that would flash "Guest" while the page is still visible.
     window.location.replace('/login');
   }
 
-  // Try to sign out from Supabase, but redirect regardless of result
+  // Fire-and-forget Supabase signOut — don't await it before redirecting
+  // to avoid any delay. The session will be invalidated server-side.
   try {
-    const sb = await getSupabaseClient();
-    if (sb) await sb.auth.signOut();
-  } catch (e) {
-    console.warn('[auth] signOut error (continuing with redirect):', e.message);
-  }
+    getSupabaseClient().then(sb => { if (sb) sb.auth.signOut({ scope: 'local' }); }).catch(() => {});
+  } catch (e) {}
 
-  _doRedirect();
+  _cleanAndRedirect();
 };
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
