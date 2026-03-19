@@ -603,22 +603,23 @@ export function spSavePlanToSidebar(topic) {
 }
 
 export function spRenderRecentPlansSidebar(plans) {
-  const section = document.getElementById('sp-recent-plans-section');
-  const list    = document.getElementById('sp-recent-plans-list');
-  if (!section || !list) return;
-  if (!plans || plans.length === 0) { section.style.display = 'none'; return; }
-  section.style.display = '';
-  list.innerHTML = plans.map(p => `
-    <div class="sidebar-item" role="button" tabindex="0" aria-label="${p}" style="cursor:pointer;font-size:12px;padding:6px 16px;">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${p}</span>
-    </div>
-  `).join('');
+  // Delegate to the global sidebar renderer so ALL sidebars update
+  if (typeof window._renderRecentPlansAllSidebars === 'function') {
+    window._renderRecentPlansAllSidebars();
+  }
 }
 
 // Restore recent plans on load
 (function() {
-  try { spRenderRecentPlansSidebar(JSON.parse(localStorage.getItem('sp_recent_plans') || '[]')); } catch (_) {}
+  try {
+    const plans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]');
+    if (typeof window._renderRecentPlansAllSidebars === 'function') {
+      window._renderRecentPlansAllSidebars();
+    } else {
+      // Fallback: runs before Sidebar.js exposes the global, so schedule it
+      setTimeout(() => { window._renderRecentPlansAllSidebars?.(); }, 200);
+    }
+  } catch (_) {}
 })();
 
 export function animateBars() {

@@ -337,7 +337,25 @@
 .profile-name { font-size: 13px; font-weight: 500; color: var(--text-1); }
 .profile-plan { font-size: 11px; color: var(--text-3); }
 
-/* ── Profile dropdown menu ────────────────────────────────── */
+/* ── Recent Plans section (all sidebars) ─────────────────── */
+.sidebar-recent-plans-section .sidebar-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sp-plans-chevron {
+  flex-shrink: 0;
+  opacity: 0.5;
+  transform: rotate(90deg);
+  transition: transform 200ms ease, opacity 200ms ease;
+}
+
+.sp-recent-plans-list .sidebar-item {
+  gap: 8px;
+}
+
+.sidebar.compact .sidebar-recent-plans-section { display: none !important; }
 /* ── Profile dropdown ─────────────────────────────────────── */
 .profile-dropdown {
   display: none;
