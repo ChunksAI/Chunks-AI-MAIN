@@ -216,7 +216,7 @@ const STUDYPLAN_HTML = /* html */`
               <!-- Exam date picker (hidden) -->
               <div id="sp-exam-date-picker" style="display:none;margin-top:8px;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-md);display:none;align-items:center;gap:8px;flex-wrap:wrap;">
                 <span style="font-size:11px;color:var(--text-3);">Exam date:</span>
-                <input type="date" id="sp-exam-date-input" style="background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);padding:4px 8px;color:var(--text-1);font-size:12px;font-family:var(--font-mono);cursor:pointer;" oninput="spSetExamDate(this.value)">
+                <input type="date" id="sp-exam-date-input" style="background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);padding:4px 8px;color:var(--text-1);font-size:12px;font-family:var(--font-mono);cursor:pointer;" onchange="spSetExamDate(this.value)">
                 <button onclick="document.getElementById('sp-exam-date-picker').style.display='none';" style="background:none;border:none;cursor:pointer;color:var(--text-4);font-size:18px;line-height:1;padding:0;">×</button>
               </div>
             </div>

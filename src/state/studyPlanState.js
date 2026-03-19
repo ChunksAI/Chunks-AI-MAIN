@@ -1424,6 +1424,9 @@ export function spShowExamDatePicker() {
 
 export function spSetExamDate(val) {
   if (!val) return;
+  // Validate the date is complete — year must be 4 digits (type="date" returns YYYY-MM-DD)
+  const parts = val.split('-');
+  if (parts.length !== 3 || parts[0].length !== 4 || parseInt(parts[0], 10) < 2020) return;
   _spExamDate = val;
   try { localStorage.setItem('sp_exam_date_' + (_spActivePlanId || 'default'), val); } catch (e) {}
   // save into the plan entry
