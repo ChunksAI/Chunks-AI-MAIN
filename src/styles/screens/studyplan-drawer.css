@@ -99,7 +99,12 @@
 #sp-explain-body {
   font-size: var(--chat-font-size);
   scrollbar-width: thin;
+  scrollbar-color: var(--border-sm) transparent;
 }
+#sp-explain-body::-webkit-scrollbar { width: 4px; }
+#sp-explain-body::-webkit-scrollbar-track { background: transparent; }
+#sp-explain-body::-webkit-scrollbar-thumb { background: var(--border-sm); border-radius: 4px; }
+#sp-explain-body::-webkit-scrollbar-thumb:hover { background: var(--border-md); }
 #sp-explain-body p { margin: 0 0 12px; }
 #sp-explain-body p:last-child { margin-bottom: 0; }
 #sp-explain-body strong { color: var(--text-1); font-weight: 600; }

@@ -27,7 +27,7 @@
   display: flex;
   border-bottom: 1px solid var(--border-xs);
   flex-shrink: 0;
-  padding: 0 2px;
+  padding: 0;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
@@ -35,8 +35,9 @@
 }
 .sp-drawer-tabs::-webkit-scrollbar { display: none; }
 .sp-drawer-tab {
-  display: flex; align-items: center; gap: 4px;
-  padding: 0 10px; height: 38px;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  flex: 1;
+  padding: 0 4px; height: 38px;
   font-size: 11.5px; font-weight: 500; font-family: var(--font-body);
   color: var(--text-3);
   background: none; border: none;
@@ -44,7 +45,7 @@
   cursor: pointer;
   transition: color var(--t-fast);
   white-space: nowrap;
-  flex-shrink: 0;
+  min-width: 0;
 }
 .sp-drawer-tab:hover { color: var(--text-1); }
 .sp-drawer-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
