@@ -195,6 +195,29 @@ function toggleSidebar() {
 function handleLogoClick() { showScreen('home'); }
 
 export function _navInit() {
+  // ── Strip OAuth hash and land on /home ──────────────────────────────────
+  // After Google/email login, Supabase redirects to / with #access_token=...
+  // or /home?code=... in the URL. We need to clean this up immediately so
+  // the user sees /home rather than /#access_token=... or /?code=...
+  if (_isOAuthHash() || window.location.search.includes('code=')) {
+    try {
+      window.history.replaceState({ screen: 'home' }, '', '/home');
+    } catch(e) {}
+    // Show home screen and return — hash exchange is handled by auth.js
+    document.querySelectorAll('.screen').forEach(s => { s.style.display = 'none'; s.classList.remove('active'); });
+    showScreen('home');
+    const overlay = document.getElementById('mobile-drawer-overlay');
+    if (overlay) overlay.addEventListener('click', closeMobileDrawer);
+    window.addEventListener('popstate', (e) => {
+      const name = (e.state && e.state.screen) ? e.state.screen : _screenFromPath();
+      if (name && name !== _currentScreen()) {
+        window._navFromHistory = true;
+        showScreen(name);
+      }
+    });
+    return;
+  }
+
   // Priority: current pathname → sessionStorage → 'home'
   const fromPath    = _screenFromPath();
   const fromSession = (() => { try { return sessionStorage.getItem('chunks_last_screen'); } catch(e) { return null; } })();

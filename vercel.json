@@ -1,6 +1,10 @@
 {
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/login",   "destination": "/login.html"   },
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/terms",   "destination": "/terms.html"   },
+    { "source": "/admin",   "destination": "/admin.html"   },
+    { "source": "/(.*)",    "destination": "/index.html"   }
   ],
   "headers": [
     {
