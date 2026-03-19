@@ -674,6 +674,7 @@ export function clearAllHistory() {
         k.startsWith('chunks_ws_session_') ||
         k.startsWith('chunks_vt_session_') ||
         k.startsWith('exam_snap_') ||
+        k.startsWith('sp_') ||
         k === 'chunks_recent' ||
         k === 'chunks_active_home_session' ||
         k === 'chunks_active_ws_book' ||
@@ -694,6 +695,11 @@ export function clearAllHistory() {
 
       // ── Re-render sidebar history (all sections show empty) ─
       window._renderAllRecent?.();
+
+      // ── Clear in-memory study plan state and re-render sidebar ─
+      if (typeof window.spShowEmpty === 'function') window.spShowEmpty();
+      if (typeof window.setActivePlan === 'function') window.setActivePlan(null);
+      if (typeof window._renderRecentPlansAllSidebars === 'function') window._renderRecentPlansAllSidebars();
 
       // ── Reset Home screen to landing ──────────────────────
       const chatHist    = document.getElementById('home-chat-history');

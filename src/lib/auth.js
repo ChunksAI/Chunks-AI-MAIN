@@ -91,8 +91,15 @@ function _applyUI(user) {
   }
 
   const initials = _initials(user.name, user.email);
-  const planLabel = user.isOwner  ? 'Owner'
-                  : user.isAdmin  ? 'Admin'
+
+  // Resolve owner/admin from cache immediately — before planLabel so the label is correct on first paint
+  const _cachedAdminEarly = localStorage.getItem('chunks_admin_email');
+  const _cachedOwnerEarly = localStorage.getItem('chunks_owner_email');
+  const _isOwnerEarly = user.isOwner || (_cachedOwnerEarly && _cachedOwnerEarly === user.email);
+  const _isAdminEarly = user.isAdmin || (_cachedAdminEarly && _cachedAdminEarly === user.email);
+
+  const planLabel = _isOwnerEarly ? 'Owner'
+                  : _isAdminEarly ? 'Admin'
                   : user.plan === 'ultra' ? 'Ultra Plan'
                   : user.plan === 'pro'   ? 'Pro Plan'
                   : user.plan === 'team'  ? 'Team Plan'
@@ -143,13 +150,16 @@ function _applyUI(user) {
   document.querySelectorAll('.md-avatar').forEach(el => _setAvatar(el, user.avatar, initials));
 
   // Show/hide the admin button in ProfileDropdown if applicable.
-  // Check both the user.isAdmin flag AND the localStorage cache so the button
-  // appears instantly on every _applyUI call without waiting for the backend.
+  // Check both the user.isAdmin/isOwner flags AND the localStorage cache so the button
+  // and label appear instantly on every _applyUI call without waiting for the backend.
   const cachedAdmin = localStorage.getItem('chunks_admin_email');
+  const cachedOwner = localStorage.getItem('chunks_owner_email');
   const isAdminNow  = user.isAdmin || (cachedAdmin && cachedAdmin === user.email);
-  if (isAdminNow && window._currentUser) window._currentUser.isAdmin = true;
+  const isOwnerNow  = user.isOwner || (cachedOwner && cachedOwner === user.email);
+  if (isOwnerNow && window._currentUser) { window._currentUser.isOwner = true; window._currentUser.isAdmin = true; }
+  else if (isAdminNow && window._currentUser) window._currentUser.isAdmin = true;
   const adminBtn = document.getElementById('pd-admin-btn');
-  if (adminBtn) adminBtn.style.display = isAdminNow ? '' : 'none';
+  if (adminBtn) adminBtn.style.display = (isAdminNow || isOwnerNow) ? '' : 'none';
 }
 
 // ── Default settings (new users) ─────────────────────────────────────────────
@@ -272,15 +282,21 @@ window._applyUserProfile = function _applyUserProfile(session) {
           window._currentUser.isAdmin = true;
           window._currentUser.isOwner = data.role === 'owner' || data.role === 'superadmin';
         }
-        // Cache the admin email so next refresh shows instantly
+        // Cache admin + owner email so next refresh shows the correct label instantly
         localStorage.setItem('chunks_admin_email', window._currentUser.email);
+        if (window._currentUser.isOwner) {
+          localStorage.setItem('chunks_owner_email', window._currentUser.email);
+        } else {
+          localStorage.removeItem('chunks_owner_email');
+        }
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = '';
         // Re-apply profile so plan label updates to Owner/Admin immediately
         if (window._currentUser) _applyUI(window._currentUser);
       } else {
-        // Not admin — clear cache
+        // Not admin — clear both caches
         localStorage.removeItem('chunks_admin_email');
+        localStorage.removeItem('chunks_owner_email');
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = 'none';
       }
@@ -545,6 +561,7 @@ window.chunksSignOut = async function chunksSignOut() {
     localStorage.removeItem('chunks_active_ws_book');
     localStorage.removeItem('chunks_active_recent_id');
     localStorage.removeItem('chunks_admin_email');
+    localStorage.removeItem('chunks_owner_email');
     // Clear sessionStorage
     sessionStorage.setItem('chunks_signing_out', '1');
     sessionStorage.removeItem('chunks_was_here');
