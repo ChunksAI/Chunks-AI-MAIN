@@ -4,123 +4,917 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests;">
-  <meta name="referrer" content="strict-origin-when-cross-origin">
-  <meta name="robots" content="noindex, follow">
-  <meta name="description" content="Sign in to Chunks AI — AI-powered flashcards, study plans and exam prep.">
-  <link rel="canonical" href="https://chunks.online/login">
-  <title>Chunks AI — Sign in</title>
+  <meta name="description" content="Chunks AI — Study smarter with AI-powered visual diagrams, flashcards, practice exams, and personalized study plans.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://chunks.online">
+  <title>Chunks AI — See it. Understand it. Never forget it.</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://wiwbfspsrgayvquzfryl.supabase.co">
   <link rel="dns-prefetch" href="https://accounts.google.com">
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <style>
-    /* Hide body until we know whether to show login or redirect */
-    body { opacity: 0; }
-    body.ready { opacity: 1; transition: opacity 0.15s ease; }
-    :root {
-      --bg:#080810;--surface-1:#111219;--surface-2:#171820;--surface-3:#1e1f29;
-      --border-xs:rgba(255,255,255,0.05);--border-sm:rgba(255,255,255,0.08);
-      --border-md:rgba(255,255,255,0.13);--border-lg:rgba(255,255,255,0.20);
-      --gold:#e8ac2e;--text-1:#ededf0;--text-2:#9898ae;--text-3:#55556a;--text-4:#3a3a4d;
-      --red:#f87171;--font-head:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;
-      --font-mono:'DM Mono',monospace;--r-sm:8px;--r-md:12px;--r-pill:9999px;--t-fast:120ms;
-    }
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-    html,body{height:100%;background:var(--bg);color:var(--text-1);font-family:var(--font-body);-webkit-font-smoothing:antialiased;overflow:hidden;}
-    .bg-layer{position:fixed;inset:0;pointer-events:none;z-index:0;}
-    .bg-orb{position:absolute;border-radius:50%;filter:blur(120px);opacity:0.18;}
-    .bg-orb-1{width:600px;height:600px;background:radial-gradient(circle,#e8ac2e,transparent 70%);top:-200px;left:-100px;animation:od1 18s ease-in-out infinite;}
-    .bg-orb-2{width:500px;height:500px;background:radial-gradient(circle,#8b7cf8,transparent 70%);bottom:-150px;right:-100px;animation:od2 22s ease-in-out infinite;}
-    .bg-orb-3{width:300px;height:300px;background:radial-gradient(circle,#2dd4bf,transparent 70%);top:50%;left:60%;opacity:0.09;animation:od3 28s ease-in-out infinite;}
-    @keyframes od1{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,60px)}}
-    @keyframes od2{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,-40px)}}
-    @keyframes od3{0%,100%{transform:translate(0,0)}33%{transform:translate(-30px,20px)}66%{transform:translate(20px,-30px)}}
-    .bg-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px);background-size:48px 48px;}
-    .page{position:relative;z-index:1;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
-    .card{width:100%;max-width:400px;background:var(--surface-1);border:1px solid var(--border-md);border-radius:24px;padding:40px 36px 36px;box-shadow:0 0 0 1px rgba(255,255,255,0.03) inset,0 32px 80px rgba(0,0,0,0.6);animation:card-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both;}
-    @keyframes card-in{from{opacity:0;transform:translateY(24px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
-    .logo-wrap{display:flex;align-items:center;gap:10px;margin-bottom:28px;}
-    .logo-mark{width:34px;height:34px;flex-shrink:0;}
-    .logo-name{font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text-1);letter-spacing:-0.01em;}
-    .logo-name span{color:var(--gold);}
-    .card-title{font-family:var(--font-head);font-size:24px;font-weight:700;color:var(--text-1);line-height:1.2;margin-bottom:8px;}
-    .card-sub{font-size:13px;color:var(--text-3);line-height:1.55;margin-bottom:28px;}
-    .btn-google{width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 20px;border-radius:var(--r-md);border:1px solid var(--border-md);background:var(--surface-2);color:var(--text-1);font-family:var(--font-body);font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;transition:background var(--t-fast),border-color var(--t-fast),transform var(--t-fast);position:relative;overflow:hidden;}
-    .btn-google::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.04) 0%,transparent 60%);pointer-events:none;}
-    .btn-google:hover{background:var(--surface-3);border-color:var(--border-lg);transform:translateY(-1px);}
-    .btn-google:active{transform:translateY(0);}
-    .btn-google-icon{width:18px;height:18px;flex-shrink:0;}
-    .divider{display:flex;align-items:center;gap:12px;margin:20px 0;}
-    .divider-line{flex:1;height:1px;background:var(--border-xs);}
-    .divider-text{font-size:11px;color:var(--text-4);font-family:var(--font-mono);letter-spacing:0.05em;}
-    .btn-guest{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;padding:11px 20px;border-radius:var(--r-md);border:1px solid var(--border-xs);background:transparent;color:var(--text-3);font-family:var(--font-body);font-size:13px;cursor:pointer;transition:color var(--t-fast),border-color var(--t-fast),background var(--t-fast);outline:none;}
-    .btn-guest:hover{color:var(--text-2);border-color:var(--border-sm);background:var(--surface-2);}
-    .features{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:28px;}
-    .feat-pill{font-size:11px;color:var(--text-3);background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-pill);padding:4px 10px;font-family:var(--font-mono);}
-    .card-footer{margin-top:24px;text-align:center;font-size:11px;color:var(--text-4);line-height:1.6;}
-    .card-footer a{color:var(--text-3);text-decoration:none;}
-    .card-footer a:hover{color:var(--text-2);text-decoration:underline;}
-    .auth-error{display:none;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:var(--r-sm);padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:16px;}
-    .auth-error.show{display:block;}
-    .cb-overlay{display:none;position:fixed;inset:0;background:var(--bg);z-index:100;align-items:center;justify-content:center;flex-direction:column;gap:12px;}
-    .cb-overlay.show{display:flex;}
-    .cb-spinner{width:24px;height:24px;border:2px solid rgba(255,255,255,0.1);border-top-color:var(--gold);border-radius:50%;animation:spin 0.7s linear infinite;}
-    .cb-text{font-size:13px;color:var(--text-3);}
-    @keyframes spin{to{transform:rotate(360deg)}}
-  </style>
-
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Instant auth redirect — if already logged in, skip landing page -->
   <script>
-    // ── INSTANT session check — runs before body renders ─────────────────────
-    // Supabase stores the session in localStorage synchronously.
-    // If a valid non-expired session exists, redirect immediately — no network
-    // call, no SDK load, no flash. The user never sees the login page.
-    (function() {
-      var isPostLogout = sessionStorage.getItem('chunks_signing_out') === '1';
-      var hasCode      = location.search.includes('code=');
-      var hasHash      = location.hash.includes('access_token');
-      if (isPostLogout || hasCode || hasHash) return; // need SDK for these cases
-
-      // Check for an existing non-expired Supabase session in localStorage
-      try {
-        var raw = localStorage.getItem('chunks-ai-auth');
-        if (raw) {
-          var parsed = JSON.parse(raw);
-          // Supabase session shape: { access_token, expires_at (unix seconds) }
-          var session = parsed.access_token ? parsed
-                      : parsed.currentSession ? parsed.currentSession
-                      : null;
-          if (session && session.access_token) {
-            var expiresAt = session.expires_at || 0;
-            var nowSec = Math.floor(Date.now() / 1000);
-            // Give 60s buffer for clock skew
-            if (expiresAt === 0 || expiresAt - nowSec > 60) {
-              // Valid session — redirect instantly, no flash
-              location.replace('/home');
-              return;
-            }
+    (function(){
+      if(sessionStorage.getItem('chunks_guest_mode')==='1'){location.replace('/home');return;}
+      if(location.search.includes('code=')||location.hash.includes('access_token')) return;
+      try{
+        var raw=localStorage.getItem('chunks-ai-auth');
+        if(raw){
+          var p=JSON.parse(raw);
+          var s=p.access_token?p:p.currentSession?p.currentSession:null;
+          if(s&&s.access_token){
+            var exp=s.expires_at||0;
+            if(exp===0||exp-Math.floor(Date.now()/1000)>60){location.replace('/home');return;}
           }
         }
-      } catch(e) {}
-
-      // Also check guest mode
-      if (sessionStorage.getItem('chunks_guest_mode') === '1') {
-        location.replace('/home');
-        return;
-      }
-
-      // No session — show the login page
-      document.addEventListener('DOMContentLoaded', function() {
-        document.body.classList.add('ready');
-      });
+      }catch(e){}
     })();
   </script>
+  <style>
+    /* ─────────────────────────────────────────
+       DESIGN TOKENS — calmer, more intentional
+    ───────────────────────────────────────── */
+    :root {
+      /* Backgrounds — slightly warmer than pure cold dark */
+      --bg:#09090f;
+      --surface-1:#111118;
+      --surface-2:#16161f;
+      --surface-3:#1c1c28;
+
+      /* Borders — subtle hierarchy */
+      --border-xs:rgba(255,255,255,0.04);
+      --border-sm:rgba(255,255,255,0.07);
+      --border-md:rgba(255,255,255,0.11);
+      --border-lg:rgba(255,255,255,0.18);
+
+      /* Accent — used sparingly, with purpose */
+      --gold:#e8ac2e;
+      --gold-dim:rgba(232,172,46,0.09);
+      --gold-glow:rgba(232,172,46,0.22);
+      --gold-soft:rgba(232,172,46,0.15);
+
+      --purple:#8b7cf8;
+      --purple-dim:rgba(139,124,248,0.09);
+
+      --teal:#2dd4bf;
+      --teal-dim:rgba(45,212,191,0.09);
+
+      --red:#f87171;
+
+      /* Text — deliberate contrast steps */
+      --text-1:#e8e8ec;
+      --text-2:#8e8ea0;
+      --text-3:#4e4e62;
+      --text-4:#32323f;
+
+      /* Type */
+      --font-head:'Syne',sans-serif;
+      --font-body:'DM Sans',sans-serif;
+      --font-mono:'DM Mono',monospace;
+
+      /* Radii */
+      --r-sm:6px; --r-md:10px; --r-lg:14px; --r-xl:20px; --r-pill:9999px;
+
+      /* Easing */
+      --ease-out:cubic-bezier(.16,1,.3,1);
+      --ease-std:cubic-bezier(.4,0,.2,1);
+    }
+
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html,body{min-height:100vh;background:var(--bg);color:var(--text-1);font-family:var(--font-body);-webkit-font-smoothing:antialiased;overflow-x:hidden;}
+
+    /* ─────────────────────────────────────────
+       BACKGROUND — barely-there, not competing
+    ───────────────────────────────────────── */
+    .bg-layer{position:fixed;inset:0;pointer-events:none;z-index:0;}
+
+    /* Grid: very faint, just adds depth */
+    .bg-grid{
+      position:absolute;inset:0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(255,255,255,0.015) 1px,transparent 1px);
+      background-size:56px 56px;
+    }
+
+    /* Orbs: ambient only, slow and gentle */
+    .bg-orb{position:absolute;border-radius:50%;filter:blur(160px);}
+    .bg-orb-1{
+      width:600px;height:600px;
+      background:radial-gradient(circle,#e8ac2e,transparent 70%);
+      top:-240px;left:-160px;opacity:.07;
+      animation:od1 28s ease-in-out infinite;
+    }
+    .bg-orb-2{
+      width:500px;height:500px;
+      background:radial-gradient(circle,#8b7cf8,transparent 70%);
+      bottom:-160px;right:-100px;opacity:.09;
+      animation:od2 34s ease-in-out infinite;
+    }
+    .bg-orb-3{
+      width:360px;height:360px;
+      background:radial-gradient(circle,#2dd4bf,transparent 70%);
+      top:50%;left:48%;opacity:.03;
+      animation:od3 40s ease-in-out infinite;
+    }
+    /* Subtle movement only */
+    @keyframes od1{0%,100%{transform:translate(0,0)}50%{transform:translate(28px,36px)}}
+    @keyframes od2{0%,100%{transform:translate(0,0)}50%{transform:translate(-32px,-28px)}}
+    @keyframes od3{0%,100%{transform:translate(0,0)}33%{transform:translate(-20px,16px)}66%{transform:translate(16px,-20px)}}
+
+    /* ─────────────────────────────────────────
+       NAVBAR — invisible at rest, clear on use
+    ───────────────────────────────────────── */
+    nav{
+      position:fixed;top:0;left:0;right:0;z-index:100;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0 44px;height:52px;
+      background:rgba(9,9,15,.75);
+      border-bottom:1px solid var(--border-xs);
+      backdrop-filter:blur(28px);
+      -webkit-backdrop-filter:blur(28px);
+    }
+    .nav-logo{display:flex;align-items:center;gap:9px;text-decoration:none;}
+    .logo-mark{width:24px;height:24px;}
+    .logo-name{font-family:var(--font-head);font-size:14.5px;font-weight:700;color:var(--text-1);letter-spacing:-.01em;}
+    .logo-name span{color:var(--gold);}
+    .nav-links{display:flex;align-items:center;}
+    .nav-link{font-size:13px;color:var(--text-3);text-decoration:none;padding:5px 11px;border-radius:var(--r-md);transition:color .18s,background .18s;}
+    .nav-link:hover{color:var(--text-1);background:rgba(255,255,255,.04);}
+    .nav-actions{display:flex;align-items:center;gap:8px;}
+    .btn-ghost{
+      font-size:13px;color:var(--text-2);
+      background:none;border:1px solid var(--border-sm);
+      padding:5px 14px;border-radius:var(--r-md);
+      cursor:pointer;font-family:var(--font-body);
+      transition:color .18s,border-color .18s,background .18s;
+      text-decoration:none;
+    }
+    .btn-ghost:hover{color:var(--text-1);border-color:var(--border-md);background:rgba(255,255,255,.03);}
+    .btn-nav-cta{
+      font-size:13px;color:#0a0a10;
+      background:var(--gold);border:none;
+      padding:6px 16px;border-radius:var(--r-md);
+      cursor:pointer;font-family:var(--font-head);font-weight:700;
+      transition:opacity .18s,transform .2s;
+      text-decoration:none;
+    }
+    .btn-nav-cta:hover{opacity:.85;transform:translateY(-1px);}
+
+    /* ─────────────────────────────────────────
+       HERO LAYOUT
+    ───────────────────────────────────────── */
+    .hero{
+      position:relative;z-index:1;
+      min-height:100vh;
+      display:grid;
+      grid-template-columns:1fr 1.16fr;
+      align-items:center;
+      gap:48px;
+      max-width:1240px;margin:0 auto;
+      padding:72px 48px 60px;
+    }
+
+    /* ══════════
+       LEFT SIDE
+    ══════════ */
+    .hero-left{display:flex;flex-direction:column;align-items:flex-start;}
+
+    /* Badge — quiet, doesn't shout */
+    .hero-badge{
+      display:inline-flex;align-items:center;gap:7px;
+      background:transparent;
+      border:1px solid var(--border-md);
+      border-radius:var(--r-pill);
+      padding:4px 12px 4px 9px;
+      font-size:11px;color:var(--text-2);
+      font-family:var(--font-mono);
+      margin-bottom:16px;
+      animation:fadeUp .5s var(--ease-out) both;
+    }
+    .badge-dot{
+      width:5px;height:5px;
+      background:var(--gold);
+      border-radius:50%;
+      /* Soft pulse — barely there */
+      animation:dot-breathe 3s ease-in-out infinite;
+    }
+    @keyframes dot-breathe{0%,100%{opacity:1}50%{opacity:.4}}
+
+    /* Headline — the emotional anchor */
+    .hero-headline{
+      font-family:var(--font-head);
+      font-size:clamp(28px,2.75vw,42px);
+      font-weight:800;
+      line-height:1.12;
+      letter-spacing:-.03em;
+      color:var(--text-1);
+      margin-bottom:14px;
+    }
+    .hl-line{display:block;overflow:hidden;padding-bottom:.06em;}
+    .hl-inner{
+      display:block;
+      transform:translateY(110%);opacity:0;
+      animation:swipe-up .75s var(--ease-out) both;
+    }
+    .hl-line:nth-child(1) .hl-inner{animation-delay:.05s;}
+    .hl-line:nth-child(2) .hl-inner{animation-delay:.2s;}
+    .hl-line:nth-child(3) .hl-inner{animation-delay:.35s;}
+    @keyframes swipe-up{
+      0%{transform:translateY(110%) skewY(3deg);opacity:0;}
+      55%{opacity:1;}
+      100%{transform:translateY(0) skewY(0);opacity:1;}
+    }
+    .hl-gold{color:var(--gold);}
+    .hl-purple{color:var(--purple);}
+
+    /* Subtext — supporting, not competing */
+    .hero-sub{
+      font-size:14px;
+      color:var(--text-2);
+      line-height:1.72;
+      max-width:380px;
+      margin-bottom:18px;
+      animation:fadeUp .6s .24s var(--ease-out) both;
+    }
+    .hero-sub strong{color:var(--text-1);font-weight:500;}
+
+    /* Social proof — compact, credible */
+    .social-proof{
+      display:flex;align-items:center;gap:10px;
+      margin-bottom:16px;
+      animation:fadeUp .6s .3s var(--ease-out) both;
+    }
+    .avatars{display:flex;}
+    .av{
+      width:26px;height:26px;border-radius:50%;
+      border:2px solid var(--bg);
+      display:flex;align-items:center;justify-content:center;
+      font-size:11px;margin-left:-8px;flex-shrink:0;
+    }
+    .av:first-child{margin-left:0;}
+    .proof-text{font-size:12px;color:var(--text-2);line-height:1.45;}
+    .proof-text strong{color:var(--text-1);font-weight:600;}
+    .proof-stars{color:var(--gold);font-size:10px;letter-spacing:.5px;margin-top:1px;}
+    .proof-rating{color:var(--text-3);font-size:9.5px;font-family:var(--font-mono);margin-left:3px;}
+
+    /* ─── AUTH CARD — the conversion center ─── */
+    .auth-card{
+      width:100%;max-width:368px;
+      background:var(--surface-1);
+      border:1px solid var(--border-sm);
+      border-radius:var(--r-xl);
+      padding:18px 20px;
+      box-shadow:0 32px 80px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.25);
+      animation:fadeUp .65s .36s var(--ease-out) both;
+    }
+
+    /* Hint — motivational nudge */
+    .cta-hint{
+      text-align:center;
+      font-size:11px;color:var(--gold);
+      font-family:var(--font-mono);
+      margin-bottom:11px;
+      opacity:.85;
+    }
+
+    /* Google button */
+    .btn-google{
+      width:100%;display:flex;align-items:center;justify-content:center;gap:9px;
+      padding:9px 16px;border-radius:var(--r-md);
+      border:1px solid var(--border-md);
+      background:var(--surface-2);color:var(--text-1);
+      font-family:var(--font-body);font-size:13px;font-weight:500;
+      cursor:pointer;text-decoration:none;
+      transition:background .2s,border-color .2s,transform .2s;
+    }
+    .btn-google:hover{
+      background:var(--surface-3);
+      border-color:var(--border-lg);
+      transform:translateY(-1px);
+    }
+    .g-icon{width:15px;height:15px;flex-shrink:0;}
+
+    .divider{display:flex;align-items:center;gap:10px;margin:9px 0;}
+    .divider-line{flex:1;height:1px;background:var(--border-xs);}
+    .divider-text{font-size:10px;color:var(--text-4);font-family:var(--font-mono);letter-spacing:.06em;}
+
+    /* Email input */
+    .email-input{
+      width:100%;padding:9px 13px;
+      border-radius:var(--r-md);
+      border:1px solid var(--border-sm);
+      background:var(--surface-2);
+      color:var(--text-1);
+      font-family:var(--font-body);font-size:13px;
+      outline:none;
+      transition:border-color .22s,box-shadow .28s;
+      margin-bottom:7px;
+    }
+    .email-input::placeholder{color:var(--text-4);}
+    .email-input:focus{
+      border-color:rgba(232,172,46,.45);
+      box-shadow:0 0 0 3px var(--gold-dim);
+    }
+
+    /* Primary CTA */
+    .btn-primary-full{
+      width:100%;padding:11px 18px;
+      border-radius:var(--r-md);border:none;
+      background:var(--gold);
+      color:#080810;
+      font-family:var(--font-head);font-size:13.5px;font-weight:700;
+      cursor:pointer;
+      letter-spacing:.01em;
+      position:relative;overflow:hidden;
+      box-shadow:0 4px 24px rgba(232,172,46,.32),0 1px 3px rgba(0,0,0,.3);
+      transition:transform .2s var(--ease-out),box-shadow .2s,opacity .15s;
+    }
+    .btn-primary-full::before{
+      content:'';position:absolute;
+      top:0;left:0;right:0;height:50%;
+      background:linear-gradient(rgba(255,255,255,.12),transparent);
+      pointer-events:none;
+    }
+    .btn-primary-full:hover{
+      transform:translateY(-2px);
+      box-shadow:0 8px 32px rgba(232,172,46,.42),0 2px 8px rgba(0,0,0,.3);
+    }
+    .btn-primary-full:active{
+      transform:translateY(0);
+      box-shadow:0 2px 12px rgba(232,172,46,.28);
+    }
+
+    /* Trust signals — one clean row */
+    .trust-signals{
+      display:flex;align-items:center;justify-content:center;
+      flex-wrap:nowrap;gap:0;
+      margin-top:10px;
+    }
+    .trust-item{
+      font-size:10.5px;color:var(--text-3);
+      font-family:var(--font-mono);
+      display:flex;align-items:center;gap:4px;
+      padding:0 9px;white-space:nowrap;
+    }
+    .trust-item+.trust-item{border-left:1px solid var(--border-xs);}
+    .trust-check{color:var(--teal);font-size:10px;}
+
+    .auth-footer{
+      margin-top:8px;text-align:center;
+      font-size:10px;color:var(--text-4);
+    }
+    .auth-footer a{color:var(--text-3);text-decoration:none;transition:color .15s;}
+    .auth-footer a:hover{color:var(--text-2);}
+
+    /* Subjects — quiet, scannable */
+    .used-by{margin-top:16px;animation:fadeUp .6s .44s var(--ease-out) both;}
+    .used-by-label{
+      font-size:10px;color:var(--text-4);
+      font-family:var(--font-mono);
+      margin-bottom:8px;letter-spacing:.06em;text-transform:uppercase;
+    }
+    .used-by-tags{display:flex;flex-wrap:wrap;gap:5px;}
+    .subject-tag{
+      font-size:10.5px;color:var(--text-3);
+      background:transparent;
+      border:1px solid var(--border-xs);
+      border-radius:var(--r-pill);
+      padding:3px 10px;
+      font-family:var(--font-mono);
+      transition:border-color .18s,color .18s;
+    }
+    .subject-tag:hover{border-color:var(--border-sm);color:var(--text-2);}
+
+    /* ═════════════
+       RIGHT SIDE
+    ═════════════ */
+    .hero-right{
+      position:relative;
+      animation:fadeUp .8s .12s var(--ease-out) both;
+    }
+
+    /* Watch label — a quiet invitation */
+    .watch-label{
+      display:inline-flex;align-items:center;gap:6px;
+      font-size:10.5px;font-family:var(--font-mono);
+      color:var(--text-4);letter-spacing:.04em;
+      margin-bottom:12px;
+    }
+
+    /* Ambient glows — barely-there, atmospheric only */
+    .mockup-halo{position:absolute;border-radius:50%;filter:blur(100px);pointer-events:none;}
+    .halo-purple{
+      width:340px;height:340px;
+      background:radial-gradient(circle,rgba(139,124,248,.14),transparent 70%);
+      top:-80px;right:-80px;
+      /* Static — no pulse, let the product breathe */
+    }
+    .halo-gold{
+      width:260px;height:260px;
+      background:radial-gradient(circle,rgba(232,172,46,.10),transparent 70%);
+      bottom:-60px;left:-60px;
+    }
+
+    /* The mockup — product screenshot quality */
+    .mockup-shell{
+      position:relative;
+      border-radius:16px;overflow:hidden;
+      border:1px solid var(--border-sm);
+      background:var(--surface-1);
+      /* Single well-composed shadow — not 3 competing shadows */
+      box-shadow:0 2px 0 rgba(255,255,255,.05) inset,
+                 0 40px 100px rgba(0,0,0,.7);
+      aspect-ratio:16/11;
+      /* Subtle scale — enough to feel elevated without overflow risk */
+      transform:scale(1.02);
+      transform-origin:center top;
+    }
+
+    /* ── MOCKUP TOP BAR ── */
+    .m-topbar{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:0 14px;height:36px;
+      border-bottom:1px solid var(--border-xs);
+      background:rgba(10,10,18,.95);
+      flex-shrink:0;
+    }
+    .m-traffic{display:flex;gap:5px;flex-shrink:0;}
+    .m-dot{width:8px;height:8px;border-radius:50%;}
+    .m-dot:nth-child(1){background:#ff5f57;}
+    .m-dot:nth-child(2){background:#febc2e;}
+    .m-dot:nth-child(3){background:#28c840;}
+
+    /* 5-tab swipe strip */
+    .m-tabs-wrap{flex:1;overflow:hidden;position:relative;margin:0 10px;}
+    .m-tabs{
+      display:flex;position:relative;
+      transition:transform .48s var(--ease-std);
+      will-change:transform;
+    }
+    .m-tab{
+      font-size:10.5px;font-family:var(--font-head);font-weight:600;
+      color:var(--text-4);padding:0 13px;height:36px;
+      display:flex;align-items:center;
+      cursor:default;
+      transition:color .28s ease;
+      position:relative;z-index:1;
+      white-space:nowrap;flex-shrink:0;
+    }
+    .m-tab.on{color:var(--text-1);}
+    /* Underline pill — the only gold accent in the mockup header */
+    .m-tab-pill{
+      position:absolute;bottom:0;height:1.5px;
+      background:var(--gold);
+      border-radius:2px 2px 0 0;
+      transition:left .48s var(--ease-std),width .48s var(--ease-std);
+      pointer-events:none;
+      /* Minimal glow — purposeful, not decorative */
+      box-shadow:0 0 6px rgba(232,172,46,.4);
+    }
+
+    /* Mode badge */
+    .m-mode-badge{
+      font-size:8.5px;font-family:var(--font-mono);
+      color:var(--gold);
+      background:var(--gold-dim);
+      border:1px solid rgba(232,172,46,.15);
+      border-radius:var(--r-pill);
+      padding:2px 8px;
+      white-space:nowrap;flex-shrink:0;
+    }
+
+    /* ── MOCKUP BODY ── */
+    .m-body{display:flex;height:calc(100% - 36px);}
+
+    /* Sidebar */
+    .m-sidebar{
+      width:120px;
+      border-right:1px solid var(--border-xs);
+      background:var(--surface-1);
+      padding:9px;flex-shrink:0;
+    }
+    .m-search{
+      display:flex;align-items:center;gap:6px;
+      background:var(--surface-2);
+      border:1px solid var(--border-xs);
+      border-radius:5px;padding:5px 7px;margin-bottom:8px;
+    }
+    .m-search svg{width:8px;height:8px;opacity:.2;flex-shrink:0;}
+    .m-search span{font-size:8.5px;color:var(--text-4);font-family:var(--font-mono);}
+    .m-folders{display:grid;grid-template-columns:1fr 1fr;gap:4px;}
+    .m-folder{
+      background:var(--surface-2);
+      border:1px solid var(--border-xs);
+      border-radius:5px;padding:6px 5px;
+      cursor:default;transition:border-color .2s;
+    }
+    .m-folder.hot{
+      border-color:rgba(232,172,46,.28);
+      background:rgba(232,172,46,.04);
+    }
+    .m-ficon{font-size:12px;margin-bottom:2px;}
+    .m-fname{font-size:7.5px;color:var(--text-4);font-family:var(--font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+    /* Canvas */
+    .m-main{flex:1;position:relative;background:var(--surface-2);overflow:hidden;}
+
+    /* ── PHASE CONTAINERS — smooth crossfade ── */
+    .phase{
+      position:absolute;inset:0;
+      display:flex;flex-direction:column;
+      padding:10px;
+      /* Longer, smoother — feels calm */
+      transition:opacity .6s ease,transform .6s var(--ease-out);
+    }
+    .phase.hidden{opacity:0;transform:translateY(10px);pointer-events:none;}
+    .phase.visible{opacity:1;transform:translateY(0);}
+    /* Study plan phase gets zero padding — it manages its own */
+    #phase-d{padding:0;}
+
+    /* ── PHASE A: Chat + Visual ── */
+    .chat-area{display:flex;flex-direction:column;gap:6px;flex:1;justify-content:flex-end;overflow:hidden;}
+    .c-bubble{
+      border-radius:var(--r-md);padding:7px 10px;
+      font-size:8.5px;font-family:var(--font-mono);
+      line-height:1.55;max-width:90%;
+      opacity:0;transform:translateY(5px);
+      transition:opacity .4s ease,transform .4s var(--ease-out);
+    }
+    .c-bubble.show{opacity:1;transform:translateY(0);}
+    .c-user{background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);align-self:flex-end;}
+    .c-ai{background:rgba(139,124,248,.07);border:1px solid rgba(139,124,248,.16);color:var(--text-1);align-self:flex-start;}
+    .c-ai-label{color:var(--purple);font-size:7.5px;font-weight:700;display:block;margin-bottom:2px;letter-spacing:.04em;opacity:.8;}
+    .cursor{
+      display:none;
+      width:4px;height:9px;background:var(--purple);
+      border-radius:1px;margin-left:2px;
+      vertical-align:middle;
+      animation:blink .9s step-end infinite;
+      opacity:.7;
+    }
+    @keyframes blink{0%,100%{opacity:.7}50%{opacity:0}}
+
+    .vt-box{
+      background:rgba(9,9,15,.75);border:1px solid var(--border-md);
+      border-radius:var(--r-md);padding:9px 11px;margin-top:7px;
+      opacity:0;transform:translateY(6px);
+      transition:opacity .45s ease,transform .45s var(--ease-out);
+    }
+    .vt-box.show{opacity:1;transform:translateY(0);}
+    .vt-header{display:flex;align-items:center;gap:6px;margin-bottom:7px;}
+    .vt-tag{
+      font-size:8px;font-family:var(--font-head);font-weight:700;
+      color:var(--purple);background:var(--purple-dim);
+      border:1px solid rgba(139,124,248,.16);
+      border-radius:var(--r-pill);padding:2px 8px;
+    }
+    .vt-label{font-size:7.5px;color:var(--text-3);font-family:var(--font-mono);}
+    .vt-diagram{width:100%;display:block;}
+    .vt-node{opacity:0;transform:scale(.72);transform-origin:center;transition:opacity .32s ease,transform .32s var(--ease-out);}
+    .vt-node.pop{opacity:1;transform:scale(1);}
+    .vt-line{stroke-dasharray:60;stroke-dashoffset:60;transition:stroke-dashoffset .45s ease;}
+
+    /* ── PHASE B: Flashcards ── */
+    .fc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+    .fc-title{font-size:9.5px;font-family:var(--font-head);font-weight:700;color:var(--text-1);}
+    .fc-count{font-size:8.5px;font-family:var(--font-mono);color:var(--text-3);}
+    .fc-card{
+      background:rgba(9,9,15,.8);border:1px solid var(--border-sm);
+      border-radius:9px;padding:9px 12px;margin-bottom:6px;
+      opacity:0;transform:translateX(-8px);
+      transition:opacity .38s ease,transform .38s var(--ease-out);
+    }
+    .fc-card.show{opacity:1;transform:translateX(0);}
+    .fc-q{font-size:8.5px;color:var(--text-3);font-family:var(--font-mono);margin-bottom:4px;}
+    .fc-a{font-size:9px;color:var(--text-1);font-family:var(--font-mono);line-height:1.5;}
+    .fc-a .hl{color:var(--gold);font-weight:600;}
+    .fc-tags{display:flex;gap:4px;margin-top:5px;}
+    .fc-tag{font-size:7.5px;border-radius:4px;padding:2px 7px;font-family:var(--font-mono);}
+    .fc-tag-green{background:rgba(45,212,191,.08);color:var(--teal);border:1px solid rgba(45,212,191,.16);}
+    .fc-tag-gold{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(232,172,46,.16);}
+
+    /* ── PHASE C: Exam ── */
+    .qz-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+    .qz-title{font-size:9.5px;font-family:var(--font-head);font-weight:700;color:var(--text-1);}
+    .qz-score{font-size:8.5px;font-family:var(--font-mono);color:var(--teal);}
+    .qz-q{
+      font-size:8.5px;color:var(--text-1);font-family:var(--font-mono);
+      background:rgba(9,9,15,.8);border:1px solid var(--border-sm);
+      border-radius:7px;padding:8px 10px;margin-bottom:6px;line-height:1.55;
+    }
+    .qz-options{display:flex;flex-direction:column;gap:4px;}
+    .qz-opt{
+      font-size:8.5px;font-family:var(--font-mono);
+      border:1px solid var(--border-xs);border-radius:6px;
+      padding:6px 10px;background:var(--surface-3);color:var(--text-2);
+      display:flex;align-items:center;gap:7px;
+      opacity:0;transform:translateX(-6px);
+      transition:opacity .32s ease,transform .32s var(--ease-out),border-color .2s,background .2s;
+    }
+    .qz-opt.show{opacity:1;transform:translateX(0);}
+    .qz-opt.correct{border-color:rgba(45,212,191,.35);background:rgba(45,212,191,.07);color:var(--teal);}
+    .qz-opt.wrong{border-color:rgba(248,113,113,.25);background:rgba(248,113,113,.05);color:var(--red);}
+    .qz-opt-key{
+      width:14px;height:14px;border-radius:3px;
+      border:1px solid var(--border-sm);
+      display:flex;align-items:center;justify-content:center;
+      font-size:7.5px;flex-shrink:0;font-weight:700;
+    }
+    .correct .qz-opt-key{background:var(--teal);border-color:var(--teal);color:#0a0a10;}
+    .wrong .qz-opt-key{background:var(--red);border-color:var(--red);color:#0a0a10;}
+
+    /* ── PHASE D: Study Plan — Full Critical Path Layout ── */
+    .sp-outer{display:flex;height:100%;gap:0;}
+
+    /* LEFT: timeline + cards */
+    .sp-main{flex:1;overflow:hidden;padding:8px 8px 8px 10px;display:flex;flex-direction:column;gap:0;}
+    .sp-header-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-shrink:0;}
+    .sp-title{font-size:8.5px;font-family:var(--font-head);font-weight:700;color:var(--text-1);}
+    .sp-critical-badge{font-size:7px;font-family:var(--font-mono);color:var(--gold);background:var(--gold-dim);border:1px solid rgba(232,172,46,.18);border-radius:var(--r-pill);padding:1.5px 6px;letter-spacing:.04em;}
+    .sp-filter-row{display:flex;align-items:center;gap:4px;margin-bottom:6px;flex-shrink:0;}
+    .sp-filter{font-size:7px;font-family:var(--font-mono);border-radius:var(--r-pill);padding:2px 7px;cursor:default;}
+    .sp-filter.ready{background:rgba(139,124,248,.1);color:var(--purple);border:1px solid rgba(139,124,248,.18);}
+    .sp-filter.locked{background:rgba(255,255,255,.04);color:var(--text-3);border:1px solid var(--border-xs);}
+
+    /* Timeline */
+    .sp-timeline{display:flex;flex-direction:column;gap:5px;overflow:hidden;flex:1;}
+
+    /* Concept card */
+    .sp-card{
+      background:rgba(9,9,15,.75);
+      border:1px solid var(--border-xs);
+      border-radius:7px;
+      display:flex;align-items:stretch;
+      overflow:hidden;
+      opacity:0;transform:translateX(-8px);
+      transition:opacity .38s ease,transform .38s var(--ease-out);
+      flex-shrink:0;
+    }
+    .sp-card.show{opacity:1;transform:translateX(0);}
+    .sp-card.active-card{border-color:rgba(139,124,248,.3);background:rgba(139,124,248,.04);}
+    .sp-card.ready-card{border-color:rgba(232,172,46,.22);}
+
+    /* Step number column */
+    .sp-step-col{
+      width:24px;
+      display:flex;align-items:flex-start;justify-content:center;
+      padding-top:8px;
+      flex-shrink:0;
+    }
+    .sp-step-num{
+      width:16px;height:16px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:7px;font-family:var(--font-head);font-weight:700;
+      flex-shrink:0;
+    }
+    .sp-step-num.s-active{background:var(--purple);color:#fff;}
+    .sp-step-num.s-ready{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(232,172,46,.3);}
+    .sp-step-num.s-locked{background:transparent;color:var(--text-4);border:1px solid var(--border-xs);}
+
+    /* Card body */
+    .sp-card-body{flex:1;padding:7px 8px 7px 0;}
+    .sp-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:3px;}
+    .sp-card-title{font-size:8px;font-family:var(--font-head);font-weight:700;color:var(--text-1);}
+    .sp-card-badge{font-size:6.5px;font-family:var(--font-mono);border-radius:var(--r-pill);padding:1.5px 6px;}
+    .sp-card-badge.b-ready{background:rgba(139,124,248,.1);color:var(--purple);border:1px solid rgba(139,124,248,.2);}
+    .sp-card-badge.b-locked{background:rgba(255,255,255,.04);color:var(--text-4);border:1px solid var(--border-xs);}
+    .sp-card-desc{font-size:7px;font-family:var(--font-mono);color:var(--text-3);line-height:1.5;margin-bottom:4px;}
+
+    /* Tags */
+    .sp-card-tags{display:flex;gap:3px;margin-bottom:4px;}
+    .sp-card-tag{font-size:6px;font-family:var(--font-mono);color:var(--text-4);border:1px solid var(--border-xs);border-radius:3px;padding:1px 5px;}
+
+    /* Action buttons */
+    .sp-card-actions{display:flex;gap:3px;flex-wrap:wrap;}
+    .sp-action{
+      font-size:6.5px;font-family:var(--font-mono);
+      border-radius:var(--r-pill);padding:2px 6px;
+      display:flex;align-items:center;gap:3px;
+      transition:opacity .2s;
+    }
+    .sp-action.active{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(232,172,46,.2);}
+    .sp-action.inactive{background:transparent;color:var(--text-4);border:1px solid var(--border-xs);opacity:.5;}
+    .sp-card-time{font-size:6.5px;font-family:var(--font-mono);color:var(--text-4);margin-top:4px;}
+
+    /* RIGHT: sidebar stats */
+    .sp-sidebar{
+      width:80px;
+      border-left:1px solid var(--border-xs);
+      background:rgba(9,9,15,.6);
+      padding:7px 7px;
+      display:flex;flex-direction:column;gap:7px;
+      flex-shrink:0;overflow:hidden;
+    }
+    .sp-sb-section{display:flex;flex-direction:column;gap:3px;}
+    .sp-sb-label{font-size:6px;font-family:var(--font-mono);color:var(--text-4);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px;}
+
+    /* Donut progress */
+    .sp-donut-wrap{display:flex;align-items:center;justify-content:center;margin:3px 0;}
+    .sp-donut{position:relative;width:36px;height:36px;}
+    .sp-donut svg{width:100%;height:100%;transform:rotate(-90deg);}
+    .sp-donut-label{
+      position:absolute;inset:0;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+    }
+    .sp-donut-pct{font-size:8px;font-family:var(--font-head);font-weight:700;color:var(--text-1);}
+    .sp-donut-sub{font-size:5.5px;font-family:var(--font-mono);color:var(--text-4);}
+
+    .sp-legend{display:flex;flex-direction:column;gap:2px;}
+    .sp-legend-item{display:flex;align-items:center;justify-content:space-between;}
+    .sp-legend-left{display:flex;align-items:center;gap:3px;}
+    .sp-legend-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+    .sp-legend-name{font-size:6px;font-family:var(--font-mono);color:var(--text-3);}
+    .sp-legend-val{font-size:6px;font-family:var(--font-mono);color:var(--text-4);}
+
+    /* Score forecast */
+    .sp-forecast{
+      background:rgba(248,113,113,.05);
+      border:1px solid rgba(248,113,113,.18);
+      border-radius:5px;
+      padding:5px 6px;
+    }
+    .sp-forecast-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px;}
+    .sp-forecast-title{font-size:7px;font-family:var(--font-head);font-weight:700;color:var(--text-1);}
+    .sp-forecast-pct{font-size:8px;font-family:var(--font-head);font-weight:700;color:var(--red);}
+    .sp-forecast-desc{font-size:6px;font-family:var(--font-mono);color:var(--text-3);line-height:1.5;}
+
+    /* Up next card */
+    .sp-next{
+      background:rgba(255,255,255,.03);
+      border:1px solid var(--border-xs);
+      border-radius:5px;padding:5px 6px;
+      display:flex;align-items:center;gap:5px;
+    }
+    .sp-next-icon{width:16px;height:16px;border-radius:4px;background:rgba(248,113,113,.15);display:flex;align-items:center;justify-content:center;font-size:8px;flex-shrink:0;}
+    .sp-next-name{font-size:7px;font-family:var(--font-head);font-weight:600;color:var(--text-1);margin-bottom:1px;}
+    .sp-next-sub{font-size:6px;font-family:var(--font-mono);color:var(--text-3);}
+
+    /* Time remaining */
+    .sp-time-row{display:flex;align-items:center;gap:4px;}
+    .sp-time-val{font-size:7px;font-family:var(--font-head);font-weight:700;color:var(--text-1);}
+    .sp-time-desc{font-size:6px;font-family:var(--font-mono);color:var(--text-3);line-height:1.4;}
+
+    /* ── PROGRESS CARD — integrated, not floating ── */
+    .m-progress{
+      position:absolute;bottom:8px;right:8px;width:124px;
+      background:rgba(13,13,22,.92);
+      border:1px solid var(--border-sm);
+      border-radius:var(--r-md);padding:9px 10px;
+      /* Lighter shadow — it's a secondary element */
+      box-shadow:0 4px 16px rgba(0,0,0,.35);
+      z-index:10;
+      backdrop-filter:blur(8px);
+    }
+    .mp-header{margin-bottom:6px;}
+    .mp-title{font-size:8.5px;font-family:var(--font-head);font-weight:700;color:var(--text-2);}
+    .mp-items{display:flex;flex-direction:column;gap:4px;}
+    .mp-item{display:flex;align-items:center;gap:6px;}
+    .mp-check{
+      width:11px;height:11px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;font-size:6.5px;font-weight:900;
+      transition:background .4s,border-color .4s;
+    }
+    .mp-check.done{background:var(--gold);color:#0a0a10;border:none;}
+    .mp-check.active{background:transparent;border:1.5px solid var(--gold);}
+    .mp-check.idle{background:transparent;border:1.5px solid var(--border-sm);}
+    /* Removed the pulsing ring — progress card is ambient, not attention-seeking */
+    .mp-label{font-size:7.5px;font-family:var(--font-mono);transition:color .35s;}
+    .mp-label.done{color:var(--text-4);text-decoration:line-through;}
+    .mp-label.active{color:var(--gold);font-weight:600;}
+    .mp-label.idle{color:var(--text-4);}
+
+    /* ─────────────────────────────────────────
+       SHARED ANIMATIONS
+    ───────────────────────────────────────── */
+    @keyframes fadeUp{
+      from{opacity:0;transform:translateY(16px);}
+      to{opacity:1;transform:translateY(0);}
+    }
+
+    /* ─────────────────────────────────────────
+       HOW IT WORKS — clean and minimal
+    ───────────────────────────────────────── */
+    .how{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:80px 48px 100px;}
+    .s-eyebrow{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:16px;}
+    .ey-line{width:24px;height:1px;background:var(--border-sm);}
+    .ey-text{font-size:10px;color:var(--text-4);font-family:var(--font-mono);letter-spacing:.12em;text-transform:uppercase;}
+    .s-title{
+      text-align:center;
+      font-family:var(--font-head);
+      font-size:clamp(26px,2.8vw,38px);
+      font-weight:800;letter-spacing:-.025em;
+      color:var(--text-1);margin-bottom:10px;
+    }
+    .s-sub{
+      text-align:center;font-size:15px;color:var(--text-3);
+      max-width:440px;margin:0 auto 56px;line-height:1.7;
+    }
+    .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+    .step{
+      background:var(--surface-1);
+      border:1px solid var(--border-xs);
+      border-radius:var(--r-xl);padding:28px 24px;
+      position:relative;overflow:hidden;
+      transition:border-color .25s,transform .25s;
+    }
+    .step::before{
+      content:'';position:absolute;inset:0;
+      opacity:0;transition:opacity .4s;
+    }
+    .step:nth-child(1)::before{background:radial-gradient(ellipse at 0% 0%,rgba(232,172,46,.05),transparent 70%);}
+    .step:nth-child(2)::before{background:radial-gradient(ellipse at 0% 0%,rgba(139,124,248,.05),transparent 70%);}
+    .step:nth-child(3)::before{background:radial-gradient(ellipse at 0% 0%,rgba(45,212,191,.05),transparent 70%);}
+    .step:hover{transform:translateY(-2px);border-color:var(--border-sm);}
+    .step:hover::before{opacity:1;}
+    .step-n{
+      width:20px;height:20px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:9.5px;font-weight:700;margin-bottom:16px;
+      font-family:var(--font-mono);
+    }
+    .step:nth-child(1) .step-n{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(232,172,46,.16);}
+    .step:nth-child(2) .step-n{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(139,124,248,.16);}
+    .step:nth-child(3) .step-n{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(45,212,191,.16);}
+    .step-emoji{font-size:24px;margin-bottom:12px;}
+    .step-title{font-family:var(--font-head);font-size:15.5px;font-weight:700;color:var(--text-1);margin-bottom:8px;}
+    .step-desc{font-size:13px;color:var(--text-2);line-height:1.7;}
+
+    @media(max-width:960px){
+      .hero{grid-template-columns:1fr;padding:100px 24px 60px;gap:44px;}
+      .hero-right{display:none;}
+      nav{padding:0 24px;}
+      .nav-links{display:none;}
+      .steps{grid-template-columns:1fr;}
+      .how{padding:60px 24px 80px;}
+    }
+
+    /* ── AUTH STATES ── */
+    /* Full-screen loading overlay (OAuth redirect) */
+    .auth-overlay{
+      display:none;position:fixed;inset:0;
+      background:var(--bg);z-index:200;
+      align-items:center;justify-content:center;
+      flex-direction:column;gap:14px;
+    }
+    .auth-overlay.show{display:flex;}
+    .auth-spinner{
+      width:26px;height:26px;
+      border:2px solid rgba(255,255,255,.08);
+      border-top-color:var(--gold);
+      border-radius:50%;
+      animation:spin .7s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .auth-overlay-text{font-size:13px;color:var(--text-3);font-family:var(--font-mono);}
+
+    /* Email success / error states */
+    .email-feedback{
+      display:none;
+      border-radius:var(--r-md);
+      padding:10px 14px;
+      font-size:12px;
+      font-family:var(--font-mono);
+      margin-bottom:8px;
+      text-align:center;
+    }
+    .email-feedback.success{
+      display:block;
+      background:rgba(45,212,191,.07);
+      border:1px solid rgba(45,212,191,.2);
+      color:var(--teal);
+    }
+    .email-feedback.error{
+      display:block;
+      background:rgba(248,113,113,.07);
+      border:1px solid rgba(248,113,113,.2);
+      color:var(--red);
+    }
+
+    /* Button loading state */
+    .btn-primary-full.loading{
+      opacity:.7;cursor:not-allowed;
+      pointer-events:none;
+    }
+    .btn-primary-full.loading::after{
+      content:'';display:inline-block;
+      width:12px;height:12px;
+      border:2px solid rgba(0,0,0,.2);
+      border-top-color:#080810;
+      border-radius:50%;
+      animation:spin .6s linear infinite;
+      margin-left:8px;vertical-align:middle;
+    }
+  </style>
 </head>
 <body>
 
-<div class="cb-overlay" id="cb-overlay">
-  <div class="cb-spinner"></div>
-  <div class="cb-text">Signing you in…</div>
+<!-- Auth loading overlay — shown during OAuth redirect -->
+<div class="auth-overlay" id="auth-overlay">
+  <div class="auth-spinner"></div>
+  <div class="auth-overlay-text">Signing you in…</div>
 </div>
 
 <div class="bg-layer">
@@ -130,165 +924,854 @@
   <div class="bg-orb bg-orb-3"></div>
 </div>
 
-<div class="page">
-  <div class="card">
-    <div class="logo-wrap">
-      <svg class="logo-mark" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="lg-gv" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
-          <linearGradient id="lg-vg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient>
-        </defs>
-        <ellipse cx="18" cy="18" rx="14" ry="5" fill="none" stroke="url(#lg-gv)" stroke-width="2.2" opacity="0.95"/>
-        <ellipse cx="18" cy="18" rx="14" ry="5" fill="none" stroke="url(#lg-vg)" stroke-width="2.2" transform="rotate(60 18 18)" opacity="0.88"/>
-        <ellipse cx="18" cy="18" rx="14" ry="5" fill="none" stroke="url(#lg-gv)" stroke-width="2.2" transform="rotate(120 18 18)" opacity="0.80"/>
-        <circle cx="18" cy="18" r="3" fill="#e8ac2e"/>
-      </svg>
-      <span class="logo-name">Chunks <span>AI</span></span>
+<!-- Navbar -->
+<nav>
+  <a href="/" class="nav-logo">
+    <svg class="logo-mark" viewBox="0 0 36 36" fill="none">
+      <defs>
+        <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
+        <linearGradient id="lg2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#8b7cf8"/><stop offset="100%" stop-color="#e8ac2e"/></linearGradient>
+      </defs>
+      <ellipse cx="18" cy="18" rx="14" ry="5" fill="none" stroke="url(#lg1)" stroke-width="2.2" opacity=".9"/>
+      <ellipse cx="18" cy="18" rx="14" ry="5" fill="none" stroke="url(#lg2)" stroke-width="2.2" transform="rotate(60 18 18)" opacity=".8"/>
+      <ellipse cx="18" cy="18" rx="14" ry="5" fill="none" stroke="url(#lg1)" stroke-width="2.2" transform="rotate(120 18 18)" opacity=".7"/>
+      <circle cx="18" cy="18" r="2.8" fill="#e8ac2e"/>
+    </svg>
+    <span class="logo-name">Chunks <span>AI</span></span>
+  </a>
+  <div class="nav-links">
+    <a href="#" class="nav-link">Features</a>
+    <a href="#" class="nav-link">Textbooks</a>
+    <a href="#" class="nav-link">How it works</a>
+    <a href="#" class="nav-link">Pricing</a>
+  </div>
+  <div class="nav-actions">
+    <a href="/login" class="btn-ghost">Sign in</a>
+    <a href="/login" class="btn-nav-cta">Get started free</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+
+  <!-- LEFT -->
+  <div class="hero-left">
+
+    <!-- Badge: quiet, not demanding -->
+    <div class="hero-badge">
+      <span class="badge-dot"></span>
+      AI that teaches visually — not just text
     </div>
-    <h1 class="card-title">Welcome back</h1>
-    <p class="card-sub">Sign in to access your textbooks, flashcards, and study history.</p>
-    <div class="features">
-      <span class="feat-pill">Workspace</span>
-      <span class="feat-pill">Flashcards</span>
-      <span class="feat-pill">Exam mode</span>
-      <span class="feat-pill">AI tutor</span>
-      <span class="feat-pill">Research</span>
+
+    <!-- Headline: first thing they read -->
+    <h1 class="hero-headline">
+      <span class="hl-line"><span class="hl-inner">See it.</span></span>
+      <span class="hl-line"><span class="hl-inner"><span class="hl-gold">Understand</span> it.</span></span>
+      <span class="hl-line"><span class="hl-inner">Never <span class="hl-purple">forget</span> it.</span></span>
+    </h1>
+
+    <!-- Subtext: second thing, explains the value -->
+    <p class="hero-sub">
+      Chunks turns any topic into a <strong>visual diagram</strong>, then locks it in with smart flashcards, practice exams, and a personalized study plan.
+    </p>
+
+    <!-- Social proof: before the ask, builds trust -->
+    <div class="social-proof">
+      <div class="avatars">
+        <div class="av" style="background:linear-gradient(135deg,#e8ac2e,#f59e0b)">🧑</div>
+        <div class="av" style="background:linear-gradient(135deg,#8b7cf8,#6d57d8)">👩</div>
+        <div class="av" style="background:linear-gradient(135deg,#2dd4bf,#14b8a6)">👨</div>
+        <div class="av" style="background:linear-gradient(135deg,#f87171,#ef4444)">👩</div>
+        <div class="av" style="background:linear-gradient(135deg,#60a5fa,#3b82f6)">🧑</div>
+      </div>
+      <div>
+        <div class="proof-text"><strong>1,200+ students</strong> learning smarter</div>
+        <div class="proof-stars">★★★★★ <span class="proof-rating">4.9 / 5</span></div>
+      </div>
     </div>
-    <div class="auth-error" id="auth-error"></div>
-    <a class="btn-google" id="btn-google" href="https://wiwbfspsrgayvquzfryl.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://chunks.online/home">
-      <svg class="btn-google-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-      </svg>
-      <span>Continue with Google</span>
-    </a>
-    <div class="divider"><div class="divider-line"></div><span class="divider-text">or</span><div class="divider-line"></div></div>
-    <button class="btn-guest" onclick="continueAsGuest()">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      Continue as guest
-    </button>
-    <div class="card-footer">
-      By signing in you agree to our
-      <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>
+
+    <!-- Auth card: the conversion unit -->
+    <div class="auth-card">
+      <div class="cta-hint">⚡ Start learning in 30 seconds — it's free</div>
+
+      <!-- Google OAuth — direct Supabase URL -->
+      <a id="btn-google"
+         href="https://wiwbfspsrgayvquzfryl.supabase.co/auth/v1/authorize?provider=google&redirect_to=https://chunks.online/home"
+         class="btn-google">
+        <svg class="g-icon" viewBox="0 0 18 18">
+          <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
+          <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+          <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+          <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+        </svg>
+        Continue with Google
+      </a>
+
+      <div class="divider">
+        <div class="divider-line"></div>
+        <span class="divider-text">or</span>
+        <div class="divider-line"></div>
+      </div>
+
+      <!-- Email feedback message -->
+      <div class="email-feedback" id="email-feedback"></div>
+
+      <input type="email" class="email-input" id="email-input"
+             placeholder="Your email address"
+             autocomplete="email" inputmode="email">
+      <button class="btn-primary-full" id="btn-email-cta"
+              onclick="handleEmailSignup()">Get started free →</button>
+
+      <!-- Trust: answers the 3 hesitation questions -->
+      <div class="trust-signals">
+        <span class="trust-item"><span class="trust-check">✔</span> No credit card</span>
+        <span class="trust-item"><span class="trust-check">✔</span> Free forever plan</span>
+        <span class="trust-item"><span class="trust-check">✔</span> Cancel anytime</span>
+      </div>
+      <p class="auth-footer"><a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a></p>
+    </div>
+
+    <!-- Subjects: social relevance signal -->
+    <div class="used-by">
+      <div class="used-by-label">Used by students in</div>
+      <div class="used-by-tags">
+        <span class="subject-tag">🩺 Nursing</span>
+        <span class="subject-tag">⚗️ Pre-med</span>
+        <span class="subject-tag">🔬 Biology</span>
+        <span class="subject-tag">⚙️ Engineering</span>
+        <span class="subject-tag">🧪 Chemistry</span>
+      </div>
     </div>
   </div>
-</div>
+
+  <!-- RIGHT — Product demo -->
+  <div class="hero-right">
+    <div class="mockup-halo halo-purple"></div>
+    <div class="mockup-halo halo-gold"></div>
+    <div class="watch-label">🎬 See it in action</div>
+
+    <div class="mockup-shell">
+
+      <!-- Top bar -->
+      <div class="m-topbar">
+        <div class="m-traffic">
+          <div class="m-dot"></div>
+          <div class="m-dot"></div>
+          <div class="m-dot"></div>
+        </div>
+
+        <div class="m-tabs-wrap">
+          <div class="m-tabs" id="m-tabs-strip">
+            <div class="m-tab" id="tab-chat">Chat</div>
+            <div class="m-tab on" id="tab-visual">Visual Tutor</div>
+            <div class="m-tab" id="tab-practice">Practice</div>
+            <div class="m-tab" id="tab-exam">Exam</div>
+            <div class="m-tab" id="tab-plan">Study Plan</div>
+            <div class="m-tab-pill" id="tab-pill"></div>
+          </div>
+        </div>
+
+        <div class="m-mode-badge" id="top-badge">🧠 Visual Tutor</div>
+      </div>
+
+      <div class="m-body">
+
+        <!-- Sidebar -->
+        <div class="m-sidebar">
+          <div class="m-search">
+            <svg viewBox="0 0 10 10" fill="none">
+              <circle cx="4.5" cy="4.5" r="3.5" stroke="white" stroke-width="1.2"/>
+              <path d="M7 7l2 2" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+            <span>Search…</span>
+          </div>
+          <div class="m-folders">
+            <div class="m-folder hot"><div class="m-ficon">📘</div><div class="m-fname">Biochem</div></div>
+            <div class="m-folder"><div class="m-ficon">📗</div><div class="m-fname">Anatomy</div></div>
+            <div class="m-folder"><div class="m-ficon">📙</div><div class="m-fname">Quarterly</div></div>
+            <div class="m-folder"><div class="m-ficon">📕</div><div class="m-fname">Chem 101</div></div>
+          </div>
+        </div>
+
+        <!-- Canvas -->
+        <div class="m-main">
+
+          <!-- PHASE A: Visual Tutor -->
+          <div class="phase visible" id="phase-a">
+            <div class="chat-area">
+              <div class="c-bubble c-user" id="b-user">Explain the Krebs cycle visually</div>
+              <div class="c-bubble c-ai" id="b-ai">
+                <span class="c-ai-label">✦ Chunks AI</span>
+                Here's the Krebs cycle as a visual — each step shows where energy is captured<span class="cursor" id="cursor-a"></span>
+              </div>
+            </div>
+            <div class="vt-box" id="vt-box">
+              <div class="vt-header">
+                <span class="vt-tag">🧬 Visual Diagram</span>
+                <span class="vt-label">Krebs Cycle · 8 steps</span>
+              </div>
+              <svg class="vt-diagram" viewBox="0 0 280 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <line id="l1" x1="52" y1="28" x2="96" y2="28" stroke="#8b7cf8" stroke-width="1.2" stroke-dasharray="50" stroke-dashoffset="50" opacity=".45"/>
+                <line id="l2" x1="144" y1="28" x2="188" y2="28" stroke="#e8ac2e" stroke-width="1.2" stroke-dasharray="50" stroke-dashoffset="50" opacity=".45"/>
+                <line id="l3" x1="236" y1="28" x2="256" y2="44" stroke="#2dd4bf" stroke-width="1.2" stroke-dasharray="28" stroke-dashoffset="28" opacity=".45"/>
+                <line id="l4" x1="256" y1="72" x2="236" y2="80" stroke="#8b7cf8" stroke-width="1.2" stroke-dasharray="28" stroke-dashoffset="28" opacity=".45"/>
+                <line id="l5" x1="188" y1="80" x2="144" y2="80" stroke="#e8ac2e" stroke-width="1.2" stroke-dasharray="50" stroke-dashoffset="50" opacity=".45"/>
+                <line id="l6" x1="96" y1="80" x2="52" y2="80" stroke="#2dd4bf" stroke-width="1.2" stroke-dasharray="50" stroke-dashoffset="50" opacity=".45"/>
+                <line id="l7" x1="28" y1="64" x2="28" y2="44" stroke="#8b7cf8" stroke-width="1.2" stroke-dasharray="28" stroke-dashoffset="28" opacity=".45"/>
+                <g id="n1" class="vt-node"><rect x="0" y="14" width="52" height="28" rx="5" fill="rgba(139,124,248,.12)" stroke="rgba(139,124,248,.3)" stroke-width=".8"/><text x="26" y="24" text-anchor="middle" fill="#e8e8ec" font-size="7" font-family="DM Mono,monospace">Acetyl</text><text x="26" y="34" text-anchor="middle" fill="#e8e8ec" font-size="7" font-family="DM Mono,monospace">CoA</text></g>
+                <g id="n2" class="vt-node"><rect x="96" y="14" width="48" height="28" rx="5" fill="rgba(232,172,46,.1)" stroke="rgba(232,172,46,.28)" stroke-width=".8"/><text x="120" y="24" text-anchor="middle" fill="#e8e8ec" font-size="7" font-family="DM Mono,monospace">Citrate</text><text x="120" y="34" text-anchor="middle" fill="#e8ac2e" font-size="6" font-family="DM Mono,monospace">6C</text></g>
+                <g id="n3" class="vt-node"><rect x="188" y="14" width="52" height="28" rx="5" fill="rgba(45,212,191,.1)" stroke="rgba(45,212,191,.28)" stroke-width=".8"/><text x="214" y="24" text-anchor="middle" fill="#e8e8ec" font-size="7" font-family="DM Mono,monospace">α-Keto</text><text x="214" y="34" text-anchor="middle" fill="#2dd4bf" font-size="6" font-family="DM Mono,monospace">5C</text></g>
+                <g id="n4" class="vt-node"><rect x="242" y="44" width="38" height="24" rx="5" fill="rgba(232,172,46,.1)" stroke="rgba(232,172,46,.28)" stroke-width=".8"/><text x="261" y="53" text-anchor="middle" fill="#e8ac2e" font-size="6" font-family="DM Mono,monospace">NADH</text><text x="261" y="62" text-anchor="middle" fill="#8e8ea0" font-size="5.5" font-family="DM Mono,monospace">×3</text></g>
+                <g id="n5" class="vt-node"><rect x="188" y="66" width="52" height="24" rx="5" fill="rgba(139,124,248,.1)" stroke="rgba(139,124,248,.28)" stroke-width=".8"/><text x="214" y="76" text-anchor="middle" fill="#e8e8ec" font-size="7" font-family="DM Mono,monospace">Succinate</text><text x="214" y="84" text-anchor="middle" fill="#8b7cf8" font-size="6" font-family="DM Mono,monospace">4C</text></g>
+                <g id="n6" class="vt-node"><rect x="96" y="66" width="48" height="24" rx="5" fill="rgba(45,212,191,.1)" stroke="rgba(45,212,191,.28)" stroke-width=".8"/><text x="120" y="76" text-anchor="middle" fill="#e8e8ec" font-size="7" font-family="DM Mono,monospace">Malate</text><text x="120" y="84" text-anchor="middle" fill="#2dd4bf" font-size="6" font-family="DM Mono,monospace">4C</text></g>
+                <g id="n7" class="vt-node"><rect x="4" y="66" width="46" height="24" rx="5" fill="rgba(232,172,46,.1)" stroke="rgba(232,172,46,.28)" stroke-width=".8"/><text x="27" y="76" text-anchor="middle" fill="#e8ac2e" font-size="6" font-family="DM Mono,monospace">FADH₂</text><text x="27" y="84" text-anchor="middle" fill="#8e8ea0" font-size="5.5" font-family="DM Mono,monospace">+GTP</text></g>
+                <text id="co2-1" x="170" y="22" text-anchor="middle" fill="#f87171" font-size="7" font-family="DM Mono,monospace" opacity="0">CO₂</text>
+                <text id="co2-2" x="170" y="58" text-anchor="middle" fill="#f87171" font-size="7" font-family="DM Mono,monospace" opacity="0">CO₂</text>
+              </svg>
+            </div>
+          </div>
+
+          <!-- PHASE B: Flashcards (Practice tab) -->
+          <div class="phase hidden" id="phase-b">
+            <div class="fc-header">
+              <span class="fc-title">Generated Flashcards</span>
+              <span class="fc-count">8 cards · Krebs Cycle</span>
+            </div>
+            <div class="fc-card" id="fc1">
+              <div class="fc-q">Q: What does one turn of Krebs produce?</div>
+              <div class="fc-a">→ <span class="hl">3 NADH</span>, 1 FADH₂, 1 GTP, releases <span class="hl">2 CO₂</span></div>
+              <div class="fc-tags"><span class="fc-tag fc-tag-green">✓ Know it</span></div>
+            </div>
+            <div class="fc-card" id="fc2">
+              <div class="fc-q">Q: Where does the Krebs cycle occur?</div>
+              <div class="fc-a">→ <span class="hl">Mitochondrial matrix</span> — inner fluid compartment</div>
+              <div class="fc-tags"><span class="fc-tag fc-tag-gold">⚡ Review</span></div>
+            </div>
+            <div class="fc-card" id="fc3">
+              <div class="fc-q">Q: What enters from glycolysis?</div>
+              <div class="fc-a">→ <span class="hl">Acetyl-CoA</span> (2C) + oxaloacetate (4C) → Citrate</div>
+              <div class="fc-tags"><span class="fc-tag fc-tag-green">✓ Know it</span></div>
+            </div>
+          </div>
+
+          <!-- PHASE C: Exam -->
+          <div class="phase hidden" id="phase-c">
+            <div class="qz-header">
+              <span class="qz-title">Krebs Cycle — Exam</span>
+              <span class="qz-score">4 / 5 correct</span>
+            </div>
+            <div class="qz-q">How many ATP equivalents does one NADH produce in the electron transport chain?</div>
+            <div class="qz-options">
+              <div class="qz-opt" id="qo1"><span class="qz-opt-key">A</span> 1 ATP</div>
+              <div class="qz-opt correct" id="qo2"><span class="qz-opt-key">B</span> 2.5 ATP</div>
+              <div class="qz-opt wrong" id="qo3"><span class="qz-opt-key">C</span> 3 ATP</div>
+              <div class="qz-opt" id="qo4"><span class="qz-opt-key">D</span> 4 ATP</div>
+            </div>
+          </div>
+
+          <!-- PHASE D: Study Plan — Critical Path Layout -->
+          <div class="phase hidden" id="phase-d">
+            <div class="sp-outer">
+
+              <!-- LEFT: concept cards with timeline -->
+              <div class="sp-main">
+                <div class="sp-header-row">
+                  <span class="sp-title">Study Plan · Biochem</span>
+                  <span class="sp-critical-badge">CRITICAL PATH</span>
+                </div>
+                <div class="sp-filter-row">
+                  <span class="sp-filter ready">● 1 Ready</span>
+                  <span class="sp-filter locked">● 5 Locked</span>
+                </div>
+                <div class="sp-timeline">
+
+                  <!-- Card 1: ACTIVE — Krebs Cycle -->
+                  <div class="sp-card active-card ready-card" id="sc1">
+                    <div class="sp-step-col">
+                      <div class="sp-step-num s-active">1</div>
+                    </div>
+                    <div class="sp-card-body">
+                      <div class="sp-card-top">
+                        <span class="sp-card-title">1. Fundamentals of Krebs Cycle</span>
+                        <span class="sp-card-badge b-ready">READY</span>
+                      </div>
+                      <div class="sp-card-desc">Covers the 8-step cycle of acetyl-CoA oxidation — how carbon enters, energy is captured, and CO₂ is released at each stage.</div>
+                      <div class="sp-card-tags">
+                        <span class="sp-card-tag">acetyl-CoA</span>
+                        <span class="sp-card-tag">NADH</span>
+                        <span class="sp-card-tag">mitochondria</span>
+                      </div>
+                      <div class="sp-card-actions">
+                        <span class="sp-action active">🧠 AI Explain</span>
+                        <span class="sp-action active">⚡ Flashcards</span>
+                        <span class="sp-action active">✏️ Practice Q's</span>
+                        <span class="sp-action active">🎯 Mini Exam</span>
+                        <span class="sp-action active">👁️ Visual Tutor</span>
+                      </div>
+                      <div class="sp-card-time">~90 min</div>
+                    </div>
+                  </div>
+
+                  <!-- Card 2: READY -->
+                  <div class="sp-card" id="sc2">
+                    <div class="sp-step-col">
+                      <div class="sp-step-num s-ready">2</div>
+                    </div>
+                    <div class="sp-card-body">
+                      <div class="sp-card-top">
+                        <span class="sp-card-title">2. Electron Transport Chain</span>
+                        <span class="sp-card-badge b-ready">READY</span>
+                      </div>
+                      <div class="sp-card-desc">How NADH and FADH₂ feed the ETC, proton gradient formation, and ATP synthase mechanism.</div>
+                      <div class="sp-card-tags">
+                        <span class="sp-card-tag">NADH</span>
+                        <span class="sp-card-tag">ATP synthase</span>
+                        <span class="sp-card-tag">oxidative phosphorylation</span>
+                      </div>
+                      <div class="sp-card-actions">
+                        <span class="sp-action active">🧠 AI Explain</span>
+                        <span class="sp-action active">⚡ Flashcards</span>
+                        <span class="sp-action inactive">✏️ Practice Q's</span>
+                        <span class="sp-action inactive">🎯 Mini Exam</span>
+                        <span class="sp-action active">👁️ Visual Tutor</span>
+                      </div>
+                      <div class="sp-card-time">~90 min</div>
+                    </div>
+                  </div>
+
+                  <!-- Card 3: LOCKED -->
+                  <div class="sp-card" id="sc3">
+                    <div class="sp-step-col">
+                      <div class="sp-step-num s-locked">3</div>
+                    </div>
+                    <div class="sp-card-body">
+                      <div class="sp-card-top">
+                        <span class="sp-card-title">3. Glycolysis Pathway</span>
+                        <span class="sp-card-badge b-locked">LOCKED</span>
+                      </div>
+                      <div class="sp-card-desc">10-step glucose breakdown, net ATP yield, and regulation points. Prerequisite for Krebs mastery.</div>
+                      <div class="sp-card-actions">
+                        <span class="sp-action inactive">🧠 AI Explain</span>
+                        <span class="sp-action inactive">⚡ Flashcards</span>
+                        <span class="sp-action inactive">✏️ Practice Q's</span>
+                        <span class="sp-action inactive">🎯 Mini Exam</span>
+                        <span class="sp-action inactive">👁️ Visual Tutor</span>
+                      </div>
+                      <div class="sp-card-time">~120 min</div>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- RIGHT: sidebar -->
+              <div class="sp-sidebar" id="sp-sidebar-el" style="opacity:0;transform:translateX(8px);transition:opacity .5s .3s ease,transform .5s .3s var(--ease-out);">
+
+                <!-- Overall progress -->
+                <div class="sp-sb-section">
+                  <div class="sp-sb-label">Overall Progress</div>
+                  <div class="sp-donut-wrap">
+                    <div class="sp-donut">
+                      <svg viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="3"/>
+                        <circle cx="18" cy="18" r="14" fill="none" stroke="#e8ac2e" stroke-width="3"
+                          stroke-dasharray="88" stroke-dashoffset="88" id="sp-donut-arc"
+                          stroke-linecap="round" style="transition:stroke-dashoffset 1.2s var(--ease-out)"/>
+                      </svg>
+                      <div class="sp-donut-label">
+                        <span class="sp-donut-pct" id="sp-donut-pct">0%</span>
+                        <span class="sp-donut-sub">mastery</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="sp-legend">
+                    <div class="sp-legend-item"><div class="sp-legend-left"><div class="sp-legend-dot" style="background:var(--teal)"></div><span class="sp-legend-name">Mastered</span></div><span class="sp-legend-val">0 / 6</span></div>
+                    <div class="sp-legend-item"><div class="sp-legend-left"><div class="sp-legend-dot" style="background:var(--gold)"></div><span class="sp-legend-name">In Progress</span></div><span class="sp-legend-val">1 / 6</span></div>
+                    <div class="sp-legend-item"><div class="sp-legend-left"><div class="sp-legend-dot" style="background:var(--purple)"></div><span class="sp-legend-name">Ready</span></div><span class="sp-legend-val">1 / 6</span></div>
+                    <div class="sp-legend-item"><div class="sp-legend-left"><div class="sp-legend-dot" style="background:var(--text-4)"></div><span class="sp-legend-name">Locked</span></div><span class="sp-legend-val">4 / 6</span></div>
+                  </div>
+                </div>
+
+                <!-- Exam readiness -->
+                <div class="sp-sb-section">
+                  <div class="sp-sb-label">Exam Readiness</div>
+                  <div class="sp-forecast">
+                    <div class="sp-forecast-top">
+                      <span class="sp-forecast-title">Score Forecast</span>
+                      <span class="sp-forecast-pct">0%</span>
+                    </div>
+                    <div class="sp-forecast-desc">Complete "Krebs Cycle" to push your forecast above 80%.</div>
+                  </div>
+                </div>
+
+                <!-- Up next -->
+                <div class="sp-sb-section">
+                  <div class="sp-sb-label">Up Next</div>
+                  <div class="sp-next">
+                    <div class="sp-next-icon">⚡</div>
+                    <div>
+                      <div class="sp-next-name">Krebs Cycle</div>
+                      <div class="sp-next-sub">Take Mini Exam</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Time -->
+                <div class="sp-sb-section">
+                  <div class="sp-time-row">
+                    <span style="font-size:8px">🕐</span>
+                    <span class="sp-time-val">~9.0 hrs</span>
+                  </div>
+                  <div class="sp-time-desc">remaining to mastery</div>
+                </div>
+
+              </div><!-- /.sp-sidebar -->
+            </div><!-- /.sp-outer -->
+          </div>
+
+          <!-- Progress overlay — ambient, not intrusive -->
+          <div class="m-progress">
+            <div class="mp-header"><span class="mp-title">Study Progress</span></div>
+            <div class="mp-items">
+              <div class="mp-item"><div class="mp-check done" id="pc1">✓</div><span class="mp-label done" id="pl1">Read notes</span></div>
+              <div class="mp-item"><div class="mp-check done" id="pc2">✓</div><span class="mp-label done" id="pl2">Key concepts</span></div>
+              <div class="mp-item"><div class="mp-check active" id="pc3"></div><span class="mp-label active" id="pl3">Visual diagram</span></div>
+              <div class="mp-item"><div class="mp-check idle" id="pc4"></div><span class="mp-label idle" id="pl4">Flashcards</span></div>
+              <div class="mp-item"><div class="mp-check idle" id="pc5"></div><span class="mp-label idle" id="pl5">Exam prep</span></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how">
+  <div class="s-eyebrow">
+    <div class="ey-line"></div>
+    <span class="ey-text">How it works</span>
+    <div class="ey-line"></div>
+  </div>
+  <h2 class="s-title">From confused to confident<br>in three steps</h2>
+  <p class="s-sub">No more re-reading the same chapter twice. Chunks builds the system for you.</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-n">1</div>
+      <div class="step-emoji">👁️</div>
+      <h3 class="step-title">See it visually</h3>
+      <p class="step-desc">Ask any topic. Chunks draws a diagram — concept maps, cycles, timelines — so you see the structure, not just the words.</p>
+    </div>
+    <div class="step">
+      <div class="step-n">2</div>
+      <div class="step-emoji">⚡</div>
+      <h3 class="step-title">Lock it in fast</h3>
+      <p class="step-desc">AI-generated flashcards appear instantly, tuned to your exact chapter and the concepts you keep getting wrong.</p>
+    </div>
+    <div class="step">
+      <div class="step-n">3</div>
+      <div class="step-emoji">🎯</div>
+      <h3 class="step-title">Test yourself</h3>
+      <p class="step-desc">Adaptive practice exams zero in on weak spots — so you spend time on what matters, not what you already know.</p>
+    </div>
+  </div>
+</section>
 
 <script>
-  function continueAsGuest() {
-    sessionStorage.setItem('chunks_guest_mode', '1');
-    window.location.href = '/home';
+const delay = ms => new Promise(r => setTimeout(r, ms));
+const TAB_IDS = ['tab-chat','tab-visual','tab-practice','tab-exam','tab-plan'];
+const BADGES  = {
+  'tab-visual':  '🧠 Visual Tutor',
+  'tab-practice':'⚡ Flashcards',
+  'tab-exam':    '🎯 Exam',
+  'tab-plan':    '📅 Study Plan'
+};
+
+function show(el){ el.classList.add('show'); }
+function phaseIn(id){ document.getElementById(id).classList.replace('hidden','visible'); }
+function phaseOut(id){ document.getElementById(id).classList.replace('visible','hidden'); }
+function lineDraw(id){ document.getElementById(id).style.strokeDashoffset='0'; }
+function nodeShow(id){ document.getElementById(id).classList.add('pop'); }
+function textShow(id){ document.getElementById(id).style.opacity='1'; }
+
+function setProgress(step){
+  const configs=[
+    [{c:'done'},{c:'done'},{c:'active'},{c:'idle'},{c:'idle'}],
+    [{c:'done'},{c:'done'},{c:'done'},{c:'active'},{c:'idle'}],
+    [{c:'done'},{c:'done'},{c:'done'},{c:'done'},{c:'active'}],
+    [{c:'done'},{c:'done'},{c:'done'},{c:'done'},{c:'done'}],
+  ];
+  configs[step].forEach((cfg,i)=>{
+    const n=i+1;
+    const c=document.getElementById('pc'+n), l=document.getElementById('pl'+n);
+    c.className='mp-check '+cfg.c;
+    l.className='mp-label '+cfg.c;
+    c.textContent=cfg.c==='done'?'✓':'';
+  });
+}
+
+function setMode(activeId){
+  const strip=document.getElementById('m-tabs-strip');
+  const wrap=strip.parentElement;
+  const pill=document.getElementById('tab-pill');
+
+  TAB_IDS.forEach(id=>document.getElementById(id).classList.toggle('on',id===activeId));
+
+  const activeTab=document.getElementById(activeId);
+  pill.style.left=activeTab.offsetLeft+'px';
+  pill.style.width=activeTab.offsetWidth+'px';
+
+  const wrapW=wrap.offsetWidth;
+  const tabCx=activeTab.offsetLeft+activeTab.offsetWidth/2;
+  let shift=wrapW/2-tabCx;
+  shift=Math.min(0,Math.max(wrapW-strip.scrollWidth,shift));
+  strip.style.transform=`translateX(${shift}px)`;
+
+  const badge=BADGES[activeId];
+  if(badge) document.getElementById('top-badge').textContent=badge;
+}
+
+async function runPhaseA(){
+  phaseIn('phase-a'); setMode('tab-visual'); setProgress(0);
+  // Show chat bubbles quickly — user sees activity immediately
+  await delay(200);
+  show(document.getElementById('b-user'));
+  await delay(500);
+  show(document.getElementById('b-ai'));
+  document.getElementById('cursor-a').style.display='inline-block';
+  await delay(700);
+  document.getElementById('cursor-a').style.display='none';
+  // Diagram box fades in fast
+  await delay(150);
+  document.getElementById('vt-box').classList.add('show');
+  await delay(300);
+  // Nodes draw quickly — feels responsive, not slow
+  const seq=[
+    ()=>nodeShow('n1'), ()=>lineDraw('l1'),
+    ()=>nodeShow('n2'), ()=>{ lineDraw('l2'); textShow('co2-1'); },
+    ()=>nodeShow('n3'), ()=>lineDraw('l3'),
+    ()=>nodeShow('n4'), ()=>lineDraw('l4'),
+    ()=>nodeShow('n5'), ()=>{ lineDraw('l5'); textShow('co2-2'); },
+    ()=>nodeShow('n6'), ()=>lineDraw('l6'),
+    ()=>nodeShow('n7'), ()=>lineDraw('l7'),
+  ];
+  for(const fn of seq){ fn(); await delay(160); }
+  await delay(2400);
+}
+
+async function runPhaseB(){
+  phaseOut('phase-a'); phaseIn('phase-b'); setMode('tab-practice'); setProgress(1);
+  await delay(400);
+  for(const id of['fc1','fc2','fc3']){
+    document.getElementById(id).classList.add('show');
+    await delay(320);
   }
-  function showError(msg) {
-    document.getElementById('auth-error').textContent = msg;
-    document.getElementById('auth-error').classList.add('show');
-    document.getElementById('cb-overlay').classList.remove('show');
-    document.body.classList.add('ready');
+  await delay(2600);
+}
+
+async function runPhaseC(){
+  phaseOut('phase-b'); phaseIn('phase-c'); setMode('tab-exam'); setProgress(2);
+  await delay(400);
+  for(const id of['qo1','qo2','qo3','qo4']){
+    document.getElementById(id).classList.add('show');
+    await delay(220);
+  }
+  await delay(2800);
+  phaseOut('phase-c');
+}
+
+async function runPhaseD(){
+  phaseIn('phase-d'); setMode('tab-plan'); setProgress(3);
+  await delay(250);
+
+  // Animate sidebar in
+  const sidebar = document.getElementById('sp-sidebar-el');
+  sidebar.style.opacity='1';
+  sidebar.style.transform='translateX(0)';
+
+  // Animate cards staggered
+  for(const id of['sc1','sc2','sc3']){
+    document.getElementById(id).classList.add('show');
+    await delay(280);
   }
 
-  var _hasCode      = location.search.includes('code=');
-  var _hasHash      = location.hash.includes('access_token');
-  var _isPostLogout = sessionStorage.getItem('chunks_signing_out') === '1';
+  // Animate donut to 17% after cards load
+  await delay(400);
+  const arc = document.getElementById('sp-donut-arc');
+  const pctEl = document.getElementById('sp-donut-pct');
+  // 17% of circumference (88): offset = 88 - (88 * 0.17) = 73
+  if(arc){ arc.style.strokeDashoffset = '73'; }
+  // Count up pct
+  let p=0;
+  const counter = setInterval(()=>{
+    p++;
+    if(pctEl) pctEl.textContent = p+'%';
+    if(p>=17) clearInterval(counter);
+  }, 60);
 
-  if (_isPostLogout) {
-    sessionStorage.removeItem('chunks_signing_out');
-    document.body.classList.add('ready');
-  } else if (_hasCode || _hasHash) {
-    // Show loading overlay immediately — user sees spinner not login form
-    document.getElementById('cb-overlay').classList.add('show');
+  await delay(3200);
+  phaseOut('phase-d');
+}
+
+async function resetAll(){
+  document.querySelectorAll('.c-bubble').forEach(el=>el.classList.remove('show'));
+  document.getElementById('vt-box').classList.remove('show');
+  document.querySelectorAll('.vt-node').forEach(el=>el.classList.remove('pop'));
+  ['l1','l2','l3','l4','l5','l6','l7'].forEach(id=>{
+    const el=document.getElementById(id);
+    el.style.transition='none';
+    el.style.strokeDashoffset=el.getAttribute('stroke-dasharray');
+    setTimeout(()=>el.style.transition='stroke-dashoffset .45s ease',50);
+  });
+  ['co2-1','co2-2'].forEach(id=>{ document.getElementById(id).style.opacity='0'; });
+  document.querySelectorAll('.fc-card,.qz-opt').forEach(el=>el.classList.remove('show'));
+
+  // Reset study plan
+  document.querySelectorAll('.sp-card').forEach(el=>el.classList.remove('show'));
+  const sidebar = document.getElementById('sp-sidebar-el');
+  if(sidebar){ sidebar.style.opacity='0'; sidebar.style.transform='translateX(8px)'; }
+  const arc = document.getElementById('sp-donut-arc');
+  const pctEl = document.getElementById('sp-donut-pct');
+  if(arc){ arc.style.transition='none'; arc.style.strokeDashoffset='88'; setTimeout(()=>{ if(arc) arc.style.transition='stroke-dashoffset 1.2s var(--ease-out)'; },50); }
+  if(pctEl) pctEl.textContent='0%';
+}
+
+async function loop(){
+  while(true){
+    await resetAll();
+    await delay(400);
+    await runPhaseA();
+    await runPhaseB();
+    await runPhaseC();
+    await runPhaseD();
+    await delay(600);
   }
+}
 
+window.addEventListener('load',()=>{
+  const strip=document.getElementById('m-tabs-strip');
+  const wrap=strip.parentElement;
+  const initTab=document.getElementById('tab-visual');
+  const pill=document.getElementById('tab-pill');
+
+  strip.style.transition='none';
+  pill.style.transition='none';
+  pill.style.left=initTab.offsetLeft+'px';
+  pill.style.width=initTab.offsetWidth+'px';
+  const wrapW=wrap.offsetWidth;
+  const tabCx=initTab.offsetLeft+initTab.offsetWidth/2;
+  strip.style.transform=`translateX(${Math.min(0,wrapW/2-tabCx)}px)`;
+
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    strip.style.transition='';
+    pill.style.transition='';
+  }));
+
+  setTimeout(loop,300);
+});
+</script>
+
+<!-- ═══════════════════════════════════════════════════
+     AUTH SYSTEM — Supabase Google OAuth + Email Magic Link
+═══════════════════════════════════════════════════ -->
+<script>
+  /* ── Config ─────────────────────────────────────── */
   var SUPABASE_URL  = 'https://wiwbfspsrgayvquzfryl.supabase.co';
   var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I';
+  var APP_HOME      = 'https://chunks.online/home';
 
+  /* ── Storage fallback (same as login.html) ───────── */
   var _mem = {};
-  var _store = (function() {
-    try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return localStorage; } catch(e) {}
-    try { sessionStorage.setItem('__t','1'); sessionStorage.removeItem('__t'); return sessionStorage; } catch(e) {}
-    return { getItem:function(k){return _mem[k]||null;}, setItem:function(k,v){_mem[k]=String(v);}, removeItem:function(k){delete _mem[k];} };
+  var _store = (function(){
+    try{ localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return localStorage; }catch(e){}
+    try{ sessionStorage.setItem('__t','1'); sessionStorage.removeItem('__t'); return sessionStorage; }catch(e){}
+    return {
+      getItem:function(k){return _mem[k]||null;},
+      setItem:function(k,v){_mem[k]=String(v);},
+      removeItem:function(k){delete _mem[k];}
+    };
   })();
 
-  // ── Sync user into public users table ─────────────────────────────────────
-  // Called immediately after OAuth sign-in completes.
-  // Step 1: INSERT if not exists (ignoreDuplicates:true — safe no-op for returning users)
-  // Step 2: UPDATE display fields only (never touches plan/approved/paid for existing users)
-  function _syncUserRow(sb, session) {
-    try {
-      var u    = session.user;
-      var meta = u.user_metadata || {};
-      var name = meta.full_name || meta.name || meta.display_name
-                 || (u.email ? u.email.split('@')[0] : 'User');
-      var avatar = (meta.avatar_url || meta.picture || '').replace(/^http:\/\//i, 'https://');
-      var now  = new Date().toISOString();
-
-      sb.from('users').upsert(
-        { email: u.email, full_name: name, avatar: avatar,
-          plan: 'free', approved: true, paid: false, created_at: u.created_at || now },
-        { onConflict: 'email', ignoreDuplicates: true }
-      ).then(function(r1) {
-        if (r1.error) console.warn('[login] insert user row failed:', r1.error.message);
-        // Always update display fields so name/avatar stays fresh
-        return sb.from('users')
-          .update({ full_name: name, avatar: avatar })
-          .eq('email', u.email);
-      }).then(function(r2) {
-        if (r2 && r2.error) console.warn('[login] update display fields failed:', r2.error.message);
-        else console.log('[login] user row synced:', u.email);
-      }).catch(function(e) {
-        console.warn('[login] _syncUserRow error:', e.message);
-      });
-    } catch(e) {
-      console.warn('[login] _syncUserRow crashed:', e.message);
+  /* ── UI helpers ──────────────────────────────────── */
+  function showOverlay(msg){
+    var o=document.getElementById('auth-overlay');
+    if(msg) o.querySelector('.auth-overlay-text').textContent=msg;
+    o.classList.add('show');
+  }
+  function hideOverlay(){
+    document.getElementById('auth-overlay').classList.remove('show');
+  }
+  function showFeedback(msg, type){
+    var el=document.getElementById('email-feedback');
+    el.textContent=msg;
+    el.className='email-feedback '+type;
+  }
+  function hideFeedback(){
+    var el=document.getElementById('email-feedback');
+    el.className='email-feedback';
+  }
+  function setButtonLoading(loading){
+    var btn=document.getElementById('btn-email-cta');
+    if(!btn) return;
+    if(loading){
+      btn.classList.add('loading');
+      btn.textContent='Sending…';
+    } else {
+      btn.classList.remove('loading');
+      btn.textContent='Get started free →';
     }
   }
 
-  // Load Supabase SDK — sync on callback (fast exchange), async otherwise
-  var _sdkEl = document.createElement('script');
-  _sdkEl.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
-  if (!_hasCode && !_hasHash && !_isPostLogout) _sdkEl.async = true;
-  _sdkEl.onload = async function() {
-    var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-      auth: { persistSession:true, autoRefreshToken:true, storage:_store, storageKey:'chunks-ai-auth' }
-    });
+  /* ── Sync user row (matches login.html exactly) ──── */
+  function _syncUserRow(sb, session){
+    try{
+      var u=session.user, meta=u.user_metadata||{};
+      var name=meta.full_name||meta.name||meta.display_name||(u.email?u.email.split('@')[0]:'User');
+      var avatar=(meta.avatar_url||meta.picture||'').replace(/^http:\/\//i,'https://');
+      var now=new Date().toISOString();
+      sb.from('users').upsert(
+        {email:u.email,full_name:name,avatar:avatar,plan:'free',approved:true,paid:false,created_at:u.created_at||now},
+        {onConflict:'email',ignoreDuplicates:true}
+      ).then(function(r1){
+        if(r1.error) console.warn('[landing] insert user row:',r1.error.message);
+        return sb.from('users').update({full_name:name,avatar:avatar}).eq('email',u.email);
+      }).then(function(r2){
+        if(r2&&r2.error) console.warn('[landing] update display:',r2.error.message);
+      }).catch(function(e){console.warn('[landing] _syncUserRow:',e.message);});
+    }catch(e){console.warn('[landing] _syncUserRow crash:',e.message);}
+  }
 
-    if (_isPostLogout) {
-      try { await sb.auth.signOut({ scope:'local' }); } catch(e) {}
+  /* ── Email magic link handler ────────────────────── */
+  function handleEmailSignup(){
+    var emailEl=document.getElementById('email-input');
+    var email=(emailEl?emailEl.value:'').trim().toLowerCase();
+
+    // Basic validation
+    if(!email){
+      showFeedback('Please enter your email address.','error');
+      if(emailEl) emailEl.focus();
+      return;
+    }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+      showFeedback('Please enter a valid email address.','error');
+      if(emailEl) emailEl.focus();
       return;
     }
 
-    if (_hasCode || _hasHash) {
-      // Exchange code for session — getSession() triggers PKCE exchange automatically
-      try {
+    hideFeedback();
+    setButtonLoading(true);
+
+    // Load Supabase SDK then send OTP
+    if(window._sbClient){
+      _sendOtp(window._sbClient, email);
+    } else {
+      _loadSdk(function(sb){
+        window._sbClient = sb;
+        _sendOtp(sb, email);
+      });
+    }
+  }
+
+  function _sendOtp(sb, email){
+    sb.auth.signInWithOtp({
+      email: email,
+      options: {
+        emailRedirectTo: APP_HOME,
+        shouldCreateUser: true
+      }
+    }).then(function(result){
+      setButtonLoading(false);
+      if(result.error){
+        showFeedback(result.error.message || 'Something went wrong. Try again.','error');
+      } else {
+        showFeedback('✓ Magic link sent! Check your inbox to continue.','success');
+        // Disable input while waiting
+        var emailEl=document.getElementById('email-input');
+        if(emailEl){ emailEl.disabled=true; emailEl.style.opacity='.5'; }
+        var btn=document.getElementById('btn-email-cta');
+        if(btn){ btn.textContent='Check your email →'; btn.style.opacity='.6'; btn.style.pointerEvents='none'; }
+      }
+    }).catch(function(e){
+      setButtonLoading(false);
+      showFeedback(e.message || 'Something went wrong. Please try again.','error');
+    });
+  }
+
+  /* ── Enter key on email input ────────────────────── */
+  document.addEventListener('DOMContentLoaded', function(){
+    var emailEl = document.getElementById('email-input');
+    if(emailEl){
+      emailEl.addEventListener('keydown', function(e){
+        if(e.key === 'Enter'){ e.preventDefault(); handleEmailSignup(); }
+      });
+      // Clear error on typing
+      emailEl.addEventListener('input', function(){
+        var fb = document.getElementById('email-feedback');
+        if(fb && fb.classList.contains('error')) hideFeedback();
+      });
+    }
+  });
+
+  /* ── Load Supabase SDK ───────────────────────────── */
+  function _loadSdk(cb){
+    if(window.supabase && window.supabase.createClient){
+      cb(_makeSb()); return;
+    }
+    var el=document.createElement('script');
+    el.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
+    el.async=true;
+    el.onload=function(){ cb(_makeSb()); };
+    el.onerror=function(){
+      setButtonLoading(false);
+      showFeedback('Failed to load auth library. Please refresh.','error');
+    };
+    document.head.appendChild(el);
+  }
+
+  function _makeSb(){
+    return window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth:{
+        persistSession:true,
+        autoRefreshToken:true,
+        storage:_store,
+        storageKey:'chunks-ai-auth'
+      }
+    });
+  }
+
+  /* ── Handle OAuth callback on this page ─────────── */
+  /* (Supabase can redirect back to any page including /) */
+  var _hasCode  = location.search.includes('code=');
+  var _hasHash  = location.hash.includes('access_token');
+  if(_hasCode || _hasHash){
+    showOverlay('Signing you in…');
+    _loadSdk(async function(sb){
+      window._sbClient = sb;
+      try{
         var result = await sb.auth.getSession();
         var session = result.data && result.data.session;
-        if (session) {
-          // ── Write user row immediately on sign-in ──────────────────────
+        if(session){
           _syncUserRow(sb, session);
-          location.replace('/home'); return;
+          location.replace(APP_HOME); return;
         }
-        // Not ready — wait for auth state change
-        sb.auth.onAuthStateChange(function(event, session) {
-          if (event === 'SIGNED_IN' && session) {
+        // Wait for auth state change (PKCE flow)
+        sb.auth.onAuthStateChange(function(event, session){
+          if(event==='SIGNED_IN' && session){
             _syncUserRow(sb, session);
-            location.replace('/home');
-          } else if (event === 'SIGNED_IN' && !session) showError('Sign-in failed. Please try again.');
+            location.replace(APP_HOME);
+          } else if(event==='SIGNED_IN' && !session){
+            hideOverlay();
+            showFeedback('Sign-in failed. Please try again.','error');
+          }
         });
-      } catch(err) {
-        showError(err.message || 'Sign-in failed. Please try again.');
+      }catch(err){
+        hideOverlay();
+        showFeedback(err.message || 'Sign-in failed. Please try again.','error');
       }
-      return;
-    }
-
-    // Normal load — check session (SDK path, for expired/refreshed tokens)
-    var result2 = await sb.auth.getSession();
-    var session2 = result2.data && result2.data.session;
-    if (session2) { location.replace('/home'); return; }
-    // No session — show login page
-    document.body.classList.add('ready');
-  };
-  document.head.appendChild(_sdkEl);
+    });
+  }
 </script>
 </body>
 </html>
