@@ -13,12 +13,16 @@ import * as supabaseJs from '@supabase/supabase-js';
 import katex from 'katex';
 import DOMPurify from 'dompurify';
 import { inject } from '@vercel/analytics';
+import { injectSpeedInsights } from '@vercel/speed-insights';
 window.supabase   = supabaseJs;
 window.katex      = katex;
 window.DOMPurify  = DOMPurify;
 
 // ── Vercel Web Analytics ──────────────────────────────────────────────────
 inject();
+
+// ── Vercel Speed Insights ─────────────────────────────────────────────────
+injectSpeedInsights();
 
 // ── Styles (added task-by-task) ────────────────────────────────────────────
 import './styles/tokens.css';             // Task 3 ✓
