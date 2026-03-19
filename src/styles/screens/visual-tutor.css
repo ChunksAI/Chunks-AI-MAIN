@@ -346,7 +346,12 @@
    SCREEN 2 — LESSON
 ══════════════════════════════════════════════════════════ */
 
-#screen-lesson { background: var(--bg); }
+#screen-lesson {
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 
 /* ── Lesson header ─────────────────────────────────────── */
 
@@ -425,6 +430,7 @@
 
 #screen-visual .wb-area {
   flex: 1;
+  min-height: 120px;
   position: relative;
   overflow: hidden;
   background: var(--bg);
@@ -652,7 +658,7 @@
 #screen-visual .exp-wrap {
   padding: 16px 22px 10px;
   overflow-y: auto;
-  max-height: 180px;
+  max-height: clamp(72px, 18vh, 160px);
 }
 
 #screen-visual .exp-purpose {
