@@ -121,22 +121,27 @@ function showScreen(name) {
         if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
       }
     }
-    if (name === 'visual') {
-      if (typeof window._vtClear === 'function') window._vtClear();
-      if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
-    }
     // studyplan init is handled unconditionally outside this block
 
-    // ── Fresh navigation: restore screen state, don't reset ──────────────────
-    if (name === 'home') {
-      // Do NOT clear home chat on nav click.
-      // Clicking "Home" restores the existing session — + New Chat handles reset.
-    }
+    // ── Fresh nav = new session. History nav (_navFromHistory=true) = restore. ─
+    // Home uses goHome() which already resets to landing — no extra work needed here.
+
     if (name === 'workspace') {
-      // Do NOT clear workspace chat or book on nav click.
-      // Clicking "Workspace" in the sidebar should restore the existing session,
-      // exactly like clicking a workspace history item does.
-      // The "+ New Chat" button (newChat()) handles full workspace reset.
+      // Silent reset — clear chat and book, NO toast (toast is for explicit "clear" action)
+      try {
+        const msgs = document.getElementById('ws-messages');
+        if (msgs) msgs.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div></div>';
+        if (typeof window._wsChatHistory !== 'undefined') window._wsChatHistory = [];
+        localStorage.removeItem('chunks_active_ws_book');
+        const wsNoBook  = document.getElementById('ws-no-book-bar');
+        const wsBookBar = document.getElementById('ws-book-bar');
+        if (wsNoBook)  wsNoBook.style.display  = '';
+        if (wsBookBar) wsBookBar.style.display = 'none';
+      } catch(_) {}
+    }
+    if (name === 'visual') {
+      // vtClear already runs silently (no toast) when fired from here
+      if (typeof window._vtClear === 'function') window._vtClear();
     }
     if (name === 'flash') {
       if (typeof window._fcExitStudy === 'function') window._fcExitStudy();
@@ -144,7 +149,7 @@ function showScreen(name) {
     if (name === 'research') {
       if (typeof window._researchBackToSetup === 'function') window._researchBackToSetup();
     }
-    // Clear active chat highlight — fresh nav means no session is selected
+    // Clear active chat highlight — fresh nav means no session is active
     if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
   }
 
