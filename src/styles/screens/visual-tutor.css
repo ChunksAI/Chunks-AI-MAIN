@@ -6,6 +6,28 @@
    by all descendant rules — no global :root pollution.
 ══════════════════════════════════════════════════════════ */
 
+/* ── Scrollbar styling for all VT scroll areas ──────────── */
+#screen-visual ::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+#screen-visual ::-webkit-scrollbar-track {
+  background: transparent;
+}
+#screen-visual ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 999px;
+}
+#screen-visual ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.22);
+}
+/* Firefox */
+#screen-visual * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
+}
+
+
 /* ── Outer screen wrapper + scoped token aliases ───────── */
 
 #screen-visual {
@@ -623,7 +645,11 @@
   flex-direction: column;
 }
 
-#screen-visual .exp-wrap { padding: 16px 22px 10px; }
+#screen-visual .exp-wrap {
+  padding: 16px 22px 10px;
+  overflow-y: auto;
+  max-height: 180px;
+}
 
 #screen-visual .exp-purpose {
   font-size: 10.5px;
