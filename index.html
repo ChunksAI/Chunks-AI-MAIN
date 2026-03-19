@@ -476,6 +476,10 @@ function _deleteRecent(id, e) {
 
 function _clickRecent(item) {
   _setActiveRecent(item.id);
+  // Always set _navFromHistory = true so showScreen skips the "fresh navigation"
+  // reset block — this preserves the active highlight for the clicked item and
+  // prevents any stale-state clears from running on history-item navigation.
+  window._navFromHistory = true;
   if (item.source === 'exam') {
     // Restore snapshot first, THEN show screen — prevents flash of setup view
     if (item._snapId && typeof window._examLoadSnap === 'function') {
@@ -486,16 +490,12 @@ function _clickRecent(item) {
       const topicInput = document.getElementById('exam-topic-input');
       if (topicInput) topicInput.value = item.question?.replace(/\s*\(\d+%\)$/, '') || '';
     }
-    window._navFromHistory = true;
     showScreen('exam');
   } else if (item.source === 'visual') {
     // Visual Tutor — restore session on visual screen
-    window._navFromHistory = true;
-    // Restore session first, THEN show screen — prevents flash of blank canvas
     if (typeof window._vtRestoreSession === 'function') {
       window._vtRestoreSession(item.id, item.question);
     }
-    window._navFromHistory = true;
     showScreen('visual');
     setTimeout(() => document.getElementById('vt-input')?.focus(), 80);
   } else if (item.source === 'general' || !item.bookId) {
