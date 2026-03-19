@@ -1175,7 +1175,11 @@ document.addEventListener('click', e => {
 export function spInitScreen() {
   // Restore the last active plan + mastery from localStorage on page load / screen switch.
   if (_spCurrentPlan) {
-    // Already in memory — re-highlight sidebar in case we navigated away and back
+    // Plan is already in memory — ensure the plan view is visible (not the empty state).
+    // spShowEmpty() may have been called (e.g. "New Plan" button) before navigating away;
+    // calling spShowPlan() here guarantees the plan is shown on return.
+    if (typeof spShowPlan === 'function') spShowPlan();
+    // Re-highlight sidebar in case we navigated away and back
     if (_spActivePlanId && typeof window.setActivePlan === 'function') {
       window.setActivePlan(_spActivePlanId);
     }
