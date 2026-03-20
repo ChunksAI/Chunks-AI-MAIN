@@ -371,16 +371,17 @@ const chat = {
 
     // Write each remote session into localStorage so the page restore path
     // picks it up. Only overwrite if remote is newer than what's already local.
-    let newestId   = null;
-    let newestTime = 0;
+    let newestId       = null;   // local_id (r+timestamp) of the most recently updated remote session
+    let newestTime     = 0;
+    let newestLocalId  = null;   // cached alongside newestId for the active-session update below
 
     for (const remote of remoteSessions) {
       if (!remote.id) continue;
 
       const localKey = 'chunks_session_' + remote.id;
       const localRaw = _lsGet(localKey);
-      const localTime = localRaw?.updatedAt ? new Date(localRaw.updatedAt).getTime() : 0;
-      const remoteTime = remote.updated_at  ? new Date(remote.updated_at).getTime()  : 0;
+      const localTime  = localRaw?.updatedAt    ? new Date(localRaw.updatedAt).getTime()    : 0;
+      const remoteTime = remote.updated_at ? new Date(remote.updated_at).getTime() : 0;
 
       // Remote wins if newer or if no local copy exists
       if (remoteTime >= localTime) {
@@ -404,17 +405,8 @@ const chat = {
             title:      remote.title    || null,
             updatedAt:  remote.updated_at,
           });
-          // Point active session at the familiar r+timestamp key
-          // so existing restore path works without changes
-          const currentActive = localStorage.getItem('chunks_active_home_session');
-          if (!currentActive || currentActive === remote.id) {
-            localStorage.setItem('chunks_active_home_session', remote.local_id);
-          }
         }
         // Bug #5 fix: only fire conflict when local had content that got overwritten.
-        // remoteTime >= localTime is true on every normal pull (first-time sync,
-        // same-device refresh) — firing the banner in those cases is a false alarm
-        // that trains users to ignore it.
         const hadLocalContent = (localRaw?.history?.length || localRaw?.messages?.length || 0) > 0;
         const remoteIsMeaningfullyNewer = remoteTime > localTime + 1000; // >1s gap
         if (hadLocalContent && remoteIsMeaningfullyNewer) {
@@ -422,16 +414,39 @@ const chat = {
         }
       }
 
-      // Track the most recently updated session to set as active
+      // Track the most recently updated session across all remote rows
       if (remoteTime > newestTime) {
-        newestTime = remoteTime;
-        newestId   = remote.id;
+        newestTime    = remoteTime;
+        newestId      = remote.id;
+        newestLocalId = remote.local_id || null;
       }
     }
 
-    // Set the most recent session as the active one if nothing is set locally
+    // ── Bug #6 fix: update the active session pointer correctly ──────────────
+    // The old code had two problems:
+    //
+    // 1. Inside the per-session loop it checked `currentActive === remote.id`
+    //    which compared an r+timestamp local key against a UUID — always false —
+    //    so the active pointer was only updated on a completely fresh device.
+    //
+    // 2. The outer guard `!currentActive` meant an existing device never had its
+    //    active session updated, even when the other device had newer messages.
+    //
+    // Fix: after the loop we know newestTime (the most recent remote session).
+    // Read the locally-active session's own updatedAt and compare directly.
+    // Switch to the remote session only when it is strictly newer (>5s gap to
+    // avoid thrashing when two devices save within the same sync window).
     const currentActive = localStorage.getItem('chunks_active_home_session');
-    if (newestId && !currentActive) {
+    const currentLocalSession = currentActive ? _lsGet('chunks_session_' + currentActive) : null;
+    const currentLocalTime = currentLocalSession?.updatedAt
+      ? new Date(currentLocalSession.updatedAt).getTime() : 0;
+    const remoteIsStrictlyNewer = newestTime > currentLocalTime + 5000; // >5s newer
+
+    if (newestLocalId && (!currentActive || remoteIsStrictlyNewer)) {
+      // Prefer the r+timestamp local_id — HomeScreen restore reads this key format
+      localStorage.setItem('chunks_active_home_session', newestLocalId);
+    } else if (newestId && !currentActive) {
+      // Fallback: no local_id stored (old sessions) — use the UUID directly
       localStorage.setItem('chunks_active_home_session', newestId);
     }
 
