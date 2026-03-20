@@ -246,6 +246,13 @@ function _remoteIsNewer(remoteIso, localIso) {
   return new Date(remoteIso) >= new Date(localIso);
 }
 
+/** Fire a conflict event so SyncManager can detect remote overwrites */
+function _notifyConflict(table) {
+  try {
+    window.dispatchEvent(new CustomEvent('chunksdb:conflict', { detail: { table } }));
+  } catch (_) {}
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // chat — Home screen chat session persistence
 // Table: chat_sessions  (created in migration 002)
@@ -407,6 +414,7 @@ const settings = {
     }
 
     // Remote is newer — apply all columns to localStorage
+    _notifyConflict('user_settings');
     if (row.appearance)       try { localStorage.setItem('chunks_setting_appearance',       row.appearance); }        catch (_) {}
     if (row.chat_font_size)   _lsSet('chunks-chat-font-size', row.chat_font_size);
     if (row.accent)           try { localStorage.setItem('chunks_setting_accent',           row.accent); }            catch (_) {}
@@ -494,6 +502,7 @@ const streak = {
 
     if (_remoteIsNewer(row.updated_at, local.updatedAt)) {
       // Remote wins — overwrite local
+      _notifyConflict('streak_state');
       _lsSet(_STREAK_LS_KEY, {
         count:         row.streak_count,
         longest:       row.longest_streak,
@@ -611,6 +620,7 @@ const ws = {
       const localBook  = _lsGet('chunks_active_ws_book');
       const localVisit = _lsGet('chunks_ws_last_visited');
       if (_remoteIsNewer(row.updated_at, localVisit)) {
+        _notifyConflict('ws_state');
         _lsSet('chunks_active_ws_book', row.active_book_id);
         _lsSet('chunks_default_book',   row.active_book_id);
       }
