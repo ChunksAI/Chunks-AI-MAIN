@@ -383,8 +383,9 @@ window._initAuth = async function _initAuth() {
     // Apply default settings for users who haven't been initialized yet
     if (session?.user) _applyDefaultSettings();
 
-    // ── Phase 4: cross-device sync via SyncManager ───────────────────────
-    if (session?.user) {
+    // ── Phase 4: cross-device sync via SyncManager (run once per page load) ──
+    if (session?.user && !window._chunksSyncFired) {
+      window._chunksSyncFired = true;  // prevent duplicate calls from TOKEN_REFRESHED etc.
       // Ensure user_settings row exists (idempotent, safe to call every login)
       getSupabaseClient().then(sb2 => {
         if (sb2) sb2.rpc('ensure_user_settings', { p_user_id: session.user.id }).catch(() => {});
@@ -467,8 +468,9 @@ window._initAuth = async function _initAuth() {
       // Apply default settings for new users (no-op if already initialized)
       _applyDefaultSettings();
 
-      // Phase 4: full login sync with UI feedback
-      if (session?.user) {
+      // Phase 4: full login sync — guarded by _chunksSyncFired (set in session restore)
+      if (session?.user && !window._chunksSyncFired) {
+        window._chunksSyncFired = true;
         setTimeout(() => {
           window.SyncManager?.loginSync?.().catch(() => {});
         }, 800);
