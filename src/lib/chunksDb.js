@@ -4,7 +4,7 @@
  * ChunksDB — Shared Sync Layer
  * Central helper for all Supabase read/write operations.
  * Every feature (flashcards, exams, research, study plans)
- * uses these helpers instead of talking to Supabase directly.
+ * uses these helpers instead of talking to Supabase directly..
  *
  * RULES:
  * - Always scoped to the current auth.uid() via RLS
