@@ -38,6 +38,7 @@ let _retryCount    = 0;
 let _retryTimer    = null;
 let _pillHideTimer = null;
 let _conflictsFound = [];      // list of table names where remote overwrote local
+let _lastNudgeTime  = 0;       // timestamp of last nudge() call for cooldown
 
 // ── DOM helpers ───────────────────────────────────────────────────────────────
 
@@ -236,6 +237,10 @@ const SyncManager = {
   async nudge() {
     if (!ChunksDB.isLoggedIn()) return;
     if (_inFlight) return;
+    // pullAll has its own 60s cooldown but check here too so we don't start
+    // _runSync (which sets _inFlight and could disrupt in-progress UI) needlessly.
+    if (_status === 'success' && (Date.now() - (_lastNudgeTime || 0)) < 60_000) return;
+    _lastNudgeTime = Date.now();
     await _runSync({ silent: true });
     _applyPostSyncUI();
   },
