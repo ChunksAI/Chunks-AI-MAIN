@@ -22,6 +22,7 @@
 const PATH_TO_SCREEN = {
   '/':            'home',
   '/home':        'home',
+  '/app':         'home',
   '/workspace':   'workspace',
   '/library':     'library',
   '/flashcard':   'flash',
@@ -32,7 +33,7 @@ const PATH_TO_SCREEN = {
 };
 
 const SCREEN_TO_PATH = {
-  home:      '/home',
+  home:      '/app',
   workspace: '/workspace',
   library:   '/library',
   flash:     '/flashcard',
@@ -65,7 +66,7 @@ function _isOAuthHash() {
 function _setPath(name) {
   if (_isOAuthHash()) return;
   try {
-    const path = SCREEN_TO_PATH[name] || '/home';
+    const path = SCREEN_TO_PATH[name] || '/app';
     if (window.location.pathname !== path) {
       window.history.pushState({ screen: name }, '', path);
     }
