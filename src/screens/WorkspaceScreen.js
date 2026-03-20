@@ -197,14 +197,32 @@ const WORKSPACE_HTML = /* html */`
       <div class="chat-input-inner">
         <div class="chat-plus-wrap">
           <button class="chat-plus" id="ws-plus-btn" onclick="wsToggleAttachMenu(event)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-          <div class="attach-menu" id="ws-attach-menu">
+          <div class="attach-menu home-rich-menu" id="ws-attach-menu">
+            <div class="attach-menu-section-label">Attach</div>
             <div class="attach-menu-item" onclick="wsAttachTrigger('image')">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-              Image
+              <span>Image</span>
             </div>
             <div class="attach-menu-item" onclick="wsAttachTrigger('pdf')">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              PDF
+              <span>PDF</span>
+            </div>
+            <div class="attach-menu-divider"></div>
+            <div class="attach-menu-section-label">AI Mode</div>
+            <div class="attach-menu-item attach-menu-toggle" id="ws-toggle-websearch" onclick="wsToggleWebSearch()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              <span>Web Search</span>
+              <div class="attach-menu-check" id="ws-websearch-check"></div>
+            </div>
+            <div class="attach-menu-item attach-menu-toggle" id="ws-toggle-think" onclick="wsToggleThinking('think')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
+              <span>Think</span>
+              <div class="attach-menu-check" id="ws-think-check"></div>
+            </div>
+            <div class="attach-menu-item attach-menu-toggle" id="ws-toggle-deep" onclick="wsToggleThinking('deep')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span>Deep Think</span>
+              <div class="attach-menu-check" id="ws-deep-check"></div>
             </div>
           </div>
         </div>
