@@ -2389,20 +2389,9 @@ window.addEventListener('load',()=>{
 </script>
 
 <script>
-/* ── Smooth scroll without hash — intercept ALL #section anchor clicks ── */
+/* ── Smooth scroll without hash — native scroll + clean URL after ── */
 (function(){
   const NAV_H = 60;
-
-  function smoothScrollTo(id) {
-    const target = document.getElementById(id);
-    if (!target) return;
-    const top = target.getBoundingClientRect().top + window.scrollY - NAV_H;
-    window.scrollTo({ top: top, behavior: 'smooth' });
-    // Clean URL after scroll animation finishes (~600ms)
-    setTimeout(function() {
-      history.replaceState(null, '', window.location.pathname);
-    }, 650);
-  }
 
   document.addEventListener('click', function(e) {
     const a = e.target.closest('a[href^="#"]');
@@ -2411,8 +2400,13 @@ window.addEventListener('load',()=>{
     if (!id || id === '') return;
     const target = document.getElementById(id);
     if (!target) return;
+
     e.preventDefault();
-    smoothScrollTo(id);
+    const top = target.getBoundingClientRect().top + window.scrollY - NAV_H;
+    window.scrollTo({ top: top, behavior: 'smooth' });
+    setTimeout(function() {
+      history.replaceState(null, '', window.location.pathname);
+    }, 650);
   });
 })();
 
