@@ -196,7 +196,7 @@
 
 .pdf-view {
   flex: 1; overflow: hidden;
-  background: #18181e;
+  background: var(--surface-2);
   position: relative;
   display: flex; flex-direction: column;
 }
@@ -685,4 +685,12 @@
 }
 #ws-ask-ai-btn:active {
   transform: scale(0.97);
+}
+
+/* ── Study mode: pdf-view warm background ── */
+[data-theme="study"] .pdf-view {
+  background: var(--bg-warm, #ede8dc);
+}
+[data-theme="study"] .ws-pdf-scroll {
+  background: var(--bg-warm, #ede8dc);
 }
