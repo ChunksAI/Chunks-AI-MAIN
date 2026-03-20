@@ -7,7 +7,7 @@
  *   • Conflict detection: shows a banner when remote data overwrites local
  *   • Pre-signout flush: ensures all pending writes land before logout
  *   • Online/offline awareness: queues a sync when connectivity returns
- *   • Idempotent: safe to call multiple times — de-dupes in-flight calls
+ *   • Idempotent: safe to call multiple times — de-dupes in-flight calls.
  *
  * Public API (all set on window.SyncManager):
  *   SyncManager.loginSync()         — called on SIGNED_IN / session restore
