@@ -75,9 +75,24 @@
     html{scroll-behavior:smooth;}
     .nav-link.active{color:var(--text-1);background:rgba(255,255,255,.04);}
 
-    html{min-height:100vh;background:var(--bg);color:var(--text-1);font-family:var(--font-body);-webkit-font-smoothing:antialiased;}
-    body{min-height:100vh;}
-    .page-wrap{overflow-x:hidden;}
+    html{
+      min-height:100vh;
+      background:var(--bg);
+      color:var(--text-1);
+      font-family:var(--font-body);
+      -webkit-font-smoothing:antialiased;
+      overflow-y:scroll !important;
+      overflow-x:hidden !important;
+    }
+    body{
+      min-height:100vh;
+      overflow-y:visible !important;
+      overflow-x:hidden !important;
+    }
+    .page-wrap{
+      overflow-x:hidden;
+      min-height:100vh;
+    }
 
     /* ─────────────────────────────────────────
        BACKGROUND — barely-there, not competing
@@ -2025,6 +2040,22 @@
   </div>
 </footer>
 
+
+<script>
+/* ── Scroll guard — homepage must always be scrollable ── */
+(function ensureScroll(){
+  function unlock(){
+    document.documentElement.style.setProperty('overflow-y','scroll','important');
+    document.documentElement.style.setProperty('overflow-x','hidden','important');
+    document.body.style.setProperty('overflow-y','visible','important');
+  }
+  unlock();
+  if(window.MutationObserver){
+    new MutationObserver(unlock).observe(document.documentElement,{attributes:true,attributeFilter:['style']});
+    new MutationObserver(unlock).observe(document.body,{attributes:true,attributeFilter:['style']});
+  }
+})();
+</script>
 
 <script>
 const delay = ms => new Promise(r => setTimeout(r, ms));
