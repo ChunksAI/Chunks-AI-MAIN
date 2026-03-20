@@ -286,13 +286,30 @@ async function _uploadPendingChatSessions() {
       const k = localStorage.key(i);
       if (!k?.startsWith('chunks_session_')) continue;
       const s = JSON.parse(localStorage.getItem(k) || 'null');
-      if (!s?.id) continue;
+      if (!s) continue;
+
+      // Bug #3 fix: saveFull's id must be a UUID — never pass an r+timestamp local id.
+      // If no supabaseId exists yet, generate one and persist it so this is idempotent.
+      if (!s.supabaseId || /^r[0-9]+$/.test(s.supabaseId)) {
+        s.supabaseId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+              const r = Math.random() * 16 | 0;
+              return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+        try { localStorage.setItem(k, JSON.stringify(s)); } catch (_) {}
+      }
+
+      const messages = s.history || s.messages || [];
+      if (!messages.length) continue;
+
       await ChunksDB.chat.saveFull({
-        id:       s.id,
-        messages: s.history || s.messages || [],
-        bookId:   s.bookId || null,
-        title:    s.title  || null,
-        updatedAt:s.updatedAt || new Date().toISOString(),
+        id:        s.supabaseId,
+        localId:   /^r[0-9]+$/.test(s.id) ? s.id : null,
+        messages,
+        bookId:    s.bookId   || null,
+        title:     s.title    || null,
+        updatedAt: s.updatedAt || new Date().toISOString(),
       });
     }
   } catch (_) {}
