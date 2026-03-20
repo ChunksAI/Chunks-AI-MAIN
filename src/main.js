@@ -50,6 +50,7 @@ import { getSupabaseClient } from './lib/supabase.js';  // Task 11 ✓ — also 
 import { ChunksDB }          from './lib/chunksDb.js';  // Task 31 ✓ — sets window.ChunksDB
 import './lib/flashcardDb.js';                           // Task 33 ✓ — sets window.FlashcardDB
 import './lib/auth.js';                                  // Task 32 ✓ — sets window._currentUser, chunksSignOut, _initAuth
+import './lib/syncManager.js';                           // Phase 4 ✓ — sets window.SyncManager (must be after ChunksDB + auth)
 import './utils/render.js';                             // Task 12 ✓ — sets window.{sanitize,wsRender,homeMarkdown,_renderMath,_spExplainMarkdown}
 import './utils/storage.js';                            // Task 13 ✓ — sets window.{_lsGet,_lsSet,getSetting,setSetting,STORAGE_KEYS}
 import './utils/focusTrap.js';                          // Task 14 ✓ — sets window.trapFocus
