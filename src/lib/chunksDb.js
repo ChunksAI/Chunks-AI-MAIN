@@ -846,25 +846,60 @@ async function _uploadLocalChatSessions() {
       if (!keys.includes(k)) keys.push(k);
     });
 
+    // Track newly-assigned UUIDs so we can hydrate _recentItems afterwards.
+    // This ensures _saveSession can find the uuid for these sessions going forward.
+    const newlyAssigned = [];
+
     for (const k of keys) {
       const s = _lsGet(k);
       if (!s) continue;
-      // Use supabaseId (UUID) if available; skip r+timestamp IDs — Postgres rejects them
-      const supaId = s.supabaseId || s.id;
-      if (!supaId) continue;
-      if (/^r[0-9]+$/.test(supaId)) continue;
+
+      // Bug #3 fix: if no supabaseId exists (session was created before auth was
+      // ready, or before the uuid assignment code was added), generate one now and
+      // persist it back to localStorage so this assignment is permanent and
+      // idempotent — future upload calls will find the same UUID.
+      if (!s.supabaseId || /^r[0-9]+$/.test(s.supabaseId)) {
+        s.supabaseId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+              const r = Math.random() * 16 | 0;
+              return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+            });
+        _lsSet(k, s); // persist the new UUID back so _saveSession finds it
+        newlyAssigned.push({ id: s.id, uuid: s.supabaseId, title: s.title, bookId: s.bookId, updatedAt: s.updatedAt });
+      }
+
+      const messages = s.history || s.messages || [];
+      if (!messages.length) continue; // nothing worth syncing
+
       await upsert('chat_sessions', {
-        id:         supaId,
+        id:         s.supabaseId,
+        local_id:   /^r[0-9]+$/.test(s.id) ? s.id : null,
         book_id:    s.bookId   || null,
         title:      s.title    || null,
-        messages:   s.history  || s.messages || [],
+        messages,
         updated_at: s.updatedAt || new Date().toISOString(),
       }, 'id');
     }
 
+    // Hydrate _recentItems with any sessions that just got a fresh UUID so that
+    // subsequent _saveSession calls can route writes to Supabase correctly.
+    if (newlyAssigned.length) {
+      try {
+        window._hydrateRecentFromRemote?.(newlyAssigned.map(n => ({
+          id:         n.uuid,
+          local_id:   n.id,
+          title:      n.title    || null,
+          book_id:    n.bookId   || null,
+          updated_at: n.updatedAt || new Date().toISOString(),
+          messages:   [],
+        })));
+      } catch (_) {}
+    }
+
     // Clear the pending queue now that everything is uploaded
     _lsRemove('chunks_pending_upload_sessions');
-    console.log(`[ChunksDB] _uploadLocalChatSessions — ${keys.length} sessions uploaded`);
+    console.log(`[ChunksDB] _uploadLocalChatSessions — ${keys.length} sessions uploaded (${newlyAssigned.length} UUIDs generated)`);
   } catch (e) {
     console.warn('[ChunksDB] _uploadLocalChatSessions error:', e.message);
   }
