@@ -94,7 +94,7 @@
   window.scrollTo(0, 0);
 
   // ── Instant pre-render auth gate ─────────────────────────────────────────
-  // Runs synchronously before ANY HTML renders — zero flash for unauthed users.
+  // Runs synchronously before ANY HTML renders — zero flash for unauthed users..
   // If no session in localStorage and not guest mode, redirect immediately.
   (function() {
     var isGuest       = sessionStorage.getItem('chunks_guest_mode') === '1';
