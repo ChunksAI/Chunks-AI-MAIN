@@ -386,19 +386,17 @@ window._initAuth = async function _initAuth() {
     // ── Phase 4: cross-device sync via SyncManager (run once per page load) ──
     if (session?.user && !window._chunksSyncFired) {
       window._chunksSyncFired = true;  // prevent duplicate calls from TOKEN_REFRESHED etc.
-      // Bug #4 fix: await ensure_user_settings before loginSync.
-      // Previously both fired independently — if the RPC took >800ms the settings
-      // row didn't exist yet when settings.pullAndApply() ran, so it found no row
-      // and returned without pushing local defaults to Supabase. New users'
-      // settings were stuck at server defaults instead of their local choices.
       (async () => {
         try {
           const sb2 = await getSupabaseClient();
           if (sb2) await sb2.rpc('ensure_user_settings', { p_user_id: session.user.id });
         } catch (_) { /* non-fatal — row may already exist */ }
-        // Shorter delay now that we're not racing the RPC
+        // Small delay so the page has painted, then force-sync bypassing cooldown
         setTimeout(() => {
-          window.SyncManager?.loginSync?.().catch(() => {});
+          window.SyncManager?.loginSync?.({ force: true }).catch(() => {
+            // Reset flag so the next page load retries rather than staying permanently blocked
+            window._chunksSyncFired = false;
+          });
         }, 200);
       })();
     }
@@ -478,15 +476,15 @@ window._initAuth = async function _initAuth() {
       // Phase 4: full login sync — guarded by _chunksSyncFired (set in session restore)
       if (session?.user && !window._chunksSyncFired) {
         window._chunksSyncFired = true;
-        // Bug #4 fix: same pattern as session-restore path above —
-        // await ensure_user_settings so the settings row exists before pullAll runs.
         (async () => {
           try {
             const sb2 = await getSupabaseClient();
             if (sb2) await sb2.rpc('ensure_user_settings', { p_user_id: session.user.id });
           } catch (_) {}
           setTimeout(() => {
-            window.SyncManager?.loginSync?.().catch(() => {});
+            window.SyncManager?.loginSync?.({ force: true }).catch(() => {
+              window._chunksSyncFired = false;
+            });
           }, 200);
         })();
       }
