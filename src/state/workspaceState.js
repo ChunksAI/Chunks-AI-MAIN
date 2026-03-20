@@ -15,6 +15,7 @@
  */
 
 import { API_BASE }    from '../lib/api.js';
+import { trackBookOpen, trackBookPage } from '../lib/bookProgress.js';
 import { showToast }   from '../components/Toast.js';
 import { getDocBlob, getDocMeta, deleteDoc } from '../lib/userDocDb.js';
 
@@ -145,6 +146,9 @@ export async function _wsRescale(newScale) {
   newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newScale));
   if (Math.abs(newScale - _wsScale) < 0.01) return;
   _wsScale = newScale;
+  // Update zoom badge
+  const badge = document.getElementById('ws-zoom-badge');
+  if (badge) badge.textContent = Math.round(newScale * 100) + '%';
   for (let i = 0; i < _wsPageContainers.length; i++) {
     const c = _wsPageContainers[i];
     if (!c.dataset.rendered) continue;
@@ -179,17 +183,23 @@ export async function _wsRenderPage(pageNum, container) {
   container.dataset.rendered = '1';
   try {
     const page     = await _wsPdfDoc.getPage(pageNum);
-    const viewport = page.getViewport({ scale: _wsScale });
+    const dpr      = window.devicePixelRatio || 1;
+    const viewport = page.getViewport({ scale: _wsScale * dpr });
     const canvas   = container.querySelector('canvas');
+    // Physical pixel size (high-res)
     canvas.width   = viewport.width;
     canvas.height  = viewport.height;
-    container.style.width  = viewport.width  + 'px';
-    container.style.height = viewport.height + 'px';
+    // CSS display size (logical pixels — what the user sees)
+    canvas.style.width  = (viewport.width  / dpr) + 'px';
+    canvas.style.height = (viewport.height / dpr) + 'px';
+    container.style.width  = (viewport.width  / dpr) + 'px';
+    container.style.height = (viewport.height / dpr) + 'px';
 
     // Canvas must NOT capture pointer events — text layer sits on top and needs them
     canvas.style.pointerEvents = 'none';
 
-    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
 
     // ── Text layer — transparent selectable text over the canvas ──────────
     let textDiv = container.querySelector('.ws-text-layer');
@@ -197,18 +207,20 @@ export async function _wsRenderPage(pageNum, container) {
     textDiv = document.createElement('div');
     textDiv.className = 'ws-text-layer';
     // PDF.js 3.x requires --scale-factor CSS var on the container
+    const cssW = viewport.width  / dpr;
+    const cssH = viewport.height / dpr;
     textDiv.style.cssText = [
       'position:absolute',
       'top:0',
       'left:0',
-      `width:${viewport.width}px`,
-      `height:${viewport.height}px`,
+      `width:${cssW}px`,
+      `height:${cssH}px`,
       'overflow:hidden',
       'line-height:1',
       'pointer-events:auto',
       'user-select:text',
       '-webkit-user-select:text',
-      `--scale-factor:${viewport.scale}`,
+      `--scale-factor:${_wsScale}`,
     ].join(';');
     container.appendChild(textDiv);
 
@@ -284,6 +296,7 @@ export async function selectBook(bookId) {
   _wsUserDocText = '';
   _wsBookId = bookId;
   _wsChatHistory = [];
+  trackBookOpen(bookId);
   const short  = meta.name.split(' ').slice(0, 2).join(' ');
   const ctag   = document.getElementById('ws-context-tag');
   const ctitle = document.getElementById('ws-chat-title');
