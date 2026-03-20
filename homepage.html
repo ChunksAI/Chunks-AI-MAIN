@@ -2391,22 +2391,24 @@ window.addEventListener('load',()=>{
 <script>
 /* ── Smooth scroll without hash — intercept ALL #section anchor clicks ── */
 (function(){
-  const NAV_H = 56; // navbar height offset
+  const NAV_H = 60;
 
   function smoothScrollTo(id) {
     const target = document.getElementById(id);
     if (!target) return;
     const top = target.getBoundingClientRect().top + window.scrollY - NAV_H;
     window.scrollTo({ top: top, behavior: 'smooth' });
-    // Remove hash from URL without triggering a jump
-    history.replaceState(null, '', window.location.pathname);
+    // Clean URL after scroll animation finishes (~600ms)
+    setTimeout(function() {
+      history.replaceState(null, '', window.location.pathname);
+    }, 650);
   }
 
   document.addEventListener('click', function(e) {
     const a = e.target.closest('a[href^="#"]');
     if (!a) return;
     const id = a.getAttribute('href').replace('#', '');
-    if (!id || id === '') return; // bare # links (social icons etc)
+    if (!id || id === '') return;
     const target = document.getElementById(id);
     if (!target) return;
     e.preventDefault();
