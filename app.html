@@ -94,7 +94,7 @@
   window.scrollTo(0, 0);
 
   // ── Instant pre-render auth gate ─────────────────────────────────────────
-  // Runs synchronously before ANY HTML renders — zero flash for unauthed users..
+  // Runs synchronously before ANY HTML renders — zero flash for unauthed users.
   // If no session in localStorage and not guest mode, redirect immediately.
   (function() {
     var isGuest       = sessionStorage.getItem('chunks_guest_mode') === '1';
@@ -268,14 +268,22 @@ function _saveSession(id, historyArr) {
   // Always save — history is only deleted when user explicitly clears it
   const html = document.getElementById('home-chat-history')?.innerHTML || '';
   const updatedAt = new Date().toISOString();
-  localStorage.setItem('chunks_session_' + id, JSON.stringify({ id, html, history: historyArr, updatedAt }));
+  // Look up the stable UUID for this session (set on the recent item at creation time)
+  const recentItem = _recentItems.find(r => r.id === id);
+  const supabaseId = recentItem?.uuid || null;
+  localStorage.setItem('chunks_session_' + id, JSON.stringify({
+    id, supabaseId, html, history: historyArr, updatedAt
+  }));
   localStorage.setItem('chunks_active_home_session', id);
-  // Phase 3: full-session sync to Supabase (covers bulk saves and imports)
-  window.ChunksDB?.chat?.saveFull?.({
-    id,
-    messages: historyArr,
-    updatedAt,
-  });
+  // Phase 3: sync to Supabase using the valid UUID (r+timestamp id is rejected by Postgres)
+  if (supabaseId) {
+    window.ChunksDB?.chat?.saveFull?.({
+      id:        supabaseId,
+      localId:   id,           // keep r+timestamp so pullAndApply can link back
+      messages:  historyArr,
+      updatedAt,
+    });
+  }
 }
 
 function _loadSession(id) {
@@ -434,6 +442,14 @@ function recentAdd(question, bookId, source) {
   }
   const item = {
     id: 'r' + Date.now(),
+    // uuid is the cross-device stable identifier used for Supabase chat_sessions.
+    // crypto.randomUUID() is available in all modern browsers.
+    uuid: (typeof crypto !== 'undefined' && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+          const r = Math.random() * 16 | 0;
+          return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+        }),
     label,
     question,
     bookId: (source === 'exam' || source === 'visual') ? '' : (bookId || _wsBookId || ''),
