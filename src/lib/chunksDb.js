@@ -428,6 +428,19 @@ const chat = {
     }
 
     console.log(`[ChunksDB] chat.pullAndApply — ${remoteSessions.length} sessions downloaded`);
+
+    // ── Bug #1 fix: rebuild _recentItems from remote sessions ────────────────
+    // _recentItems is an in-memory array in app.html's closure.  After a fresh
+    // login on a new device it is empty, so _saveSession can never find a uuid
+    // for the restored session — causing every subsequent write to skip Supabase.
+    // _hydrateRecentFromRemote merges remote sessions in without triggering the
+    // side-effects of recentAdd (no _homeSessionId mutation, no active highlight).
+    try {
+      window._hydrateRecentFromRemote?.(remoteSessions);
+    } catch (e) {
+      console.warn('[ChunksDB] _hydrateRecentFromRemote error:', e.message);
+    }
+
     // Notify HomeScreen directly via CustomEvent — more reliable than window fn lookup
     try {
       window.dispatchEvent(new CustomEvent('chunks:sessions-ready', {
