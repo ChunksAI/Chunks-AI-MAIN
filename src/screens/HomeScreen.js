@@ -909,9 +909,11 @@ mountHomeScreen();
   // This is the reliable cross-device mount trigger.
   // Fires every time pullAndApply successfully writes sessions to localStorage.
   window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
-    // Don't clobber a chat the user has already started on this device
-    const bar = document.getElementById('home-input-bar');
-    if (bar && bar.style.display === 'flex') return;
+    console.log('[HomeScreen] chunks:sessions-ready fired, homeHistory.length=', homeHistory.length);
+    // Only skip if the user has ACTIVELY started typing in this session
+    // (homeHistory has turns = they've engaged). Don't skip just because the
+    // bar is visible — it could be showing a stale/empty session from localStorage.
+    if (homeHistory.length > 0) return;
 
     // Scan all chunks_session_* keys and find the newest with content
     try {
