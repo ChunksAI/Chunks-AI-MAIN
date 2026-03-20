@@ -1335,26 +1335,45 @@ export function spShowPlansMenu() {
 }
 
 function _spRenderPlanCards(entries) {
+  // For the active plan, sp_active_mastery is the ground truth (written in real-time
+  // by spMasteryRecord). sp_all_plans.mastery can lag by one write cycle.
+  let activeMastery = null;
+  try {
+    const raw = localStorage.getItem('sp_active_mastery');
+    if (raw) activeMastery = JSON.parse(raw);
+  } catch (_) {}
+
   return entries.map(([id, entry]) => {
     const isActive = id === _spActivePlanId;
     const n = entry.plan?.concepts?.length || 0;
-    const masteryVals = Object.values(entry.mastery || {});
-    const mastered = masteryVals.filter(m => {
-      const keys = ['explain','flash','pq','exam'];
-      const w = { explain:10, flash:20, pq:35, exam:35 };
-      return Object.values(m || {}).reduce((s, v, idx) => s + (v / 100) * (w[keys[idx]] || 0), 0) >= 80;
-    }).length;
-    const inProgress = masteryVals.filter(m => {
-      const keys = ['explain','flash','pq','exam'];
-      const w = { explain:10, flash:20, pq:35, exam:35 };
-      const score = Object.values(m || {}).reduce((s, v, idx) => s + (v / 100) * (w[keys[idx]] || 0), 0);
-      return score > 0 && score < 80;
-    }).length;
+
+    // Use live sp_active_mastery for the active plan, entry.mastery for others
+    const masteryData = isActive && activeMastery ? activeMastery : (entry.mastery || {});
+
+    // Score each concept using named keys — same weights as SP_WEIGHTS
+    const W = { explain: 10, flash: 20, pq: 35, exam: 35 };
+    const conceptScores = Array.from({ length: n }, (_, i) => {
+      const m = masteryData[i] || {};
+      return Math.min(100, Math.round(
+        ((m.explain || 0) / 100) * W.explain +
+        ((m.flash   || 0) / 100) * W.flash   +
+        ((m.pq      || 0) / 100) * W.pq      +
+        ((m.exam    || 0) / 100) * W.exam
+      ));
+    });
+
+    const mastered    = conceptScores.filter(s => s >= 80).length;
+    const inProgress  = conceptScores.filter(s => s > 0 && s < 80).length;
+    const avgProgress = n > 0 ? Math.round(conceptScores.reduce((a, b) => a + b, 0) / n) : 0;
+    // Overall % = proportion of concepts fully mastered, but also show partial progress
     const pct = n > 0 ? Math.round((mastered / n) * 100) : 0;
+    // Use avgProgress for the bar so partial work shows up, pct label for accuracy
+    const barPct = n > 0 ? Math.round(conceptScores.reduce((a, b) => a + b, 0) / n) : 0;
+
     const savedDate = entry.savedAt ? new Date(entry.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
 
     // Color for mastery bar
-    const barColor = pct >= 80 ? 'var(--green, #4caf50)' : pct >= 40 ? 'var(--gold)' : 'var(--text-4)';
+    const barColor = barPct >= 80 ? 'var(--green, #4caf50)' : barPct >= 20 ? 'var(--gold)' : 'var(--text-4)';
 
     return `
       <div class="sp-plan-card${isActive ? ' active' : ''}" onclick="spSwitchToPlan('${id}');spHidePlansMenu();" role="button" tabindex="0" onkeydown="if(event.key==='Enter')this.click()">
@@ -1372,9 +1391,9 @@ function _spRenderPlanCards(entries) {
           </div>
           <div class="sp-plan-card-bar-wrap">
             <div class="sp-plan-card-bar-track">
-              <div class="sp-plan-card-bar-fill" style="width:${pct}%;background:${barColor};"></div>
+              <div class="sp-plan-card-bar-fill" style="width:${barPct}%;background:${barColor};"></div>
             </div>
-            <span class="sp-plan-card-bar-pct" style="color:${pct > 0 ? barColor : 'var(--text-4)'};">${pct}%</span>
+            <span class="sp-plan-card-bar-pct" style="color:${barPct > 0 ? barColor : 'var(--text-4)'};">${barPct}%</span>
           </div>
         </div>
         <button class="sp-plan-card-delete" onclick="event.stopPropagation();spDeletePlan('${id}');" title="Delete plan">
