@@ -877,16 +877,13 @@ function _withTimeout(promise, ms, label) {
 let _lastPullAllTime = 0;
 const PULLALL_COOLDOWN_MS = 60_000; // 60 seconds between full syncs
 
-async function pullAll() {
+async function pullAll({ force = false } = {}) {
   if (!isLoggedIn()) return;
 
-  // Cooldown guard: the second pullAll in the console log was triggered by
-  // TOKEN_REFRESHED or a visibilitychange nudge seconds after the first completed.
-  // _withTimeout resolves its JS promise but leaves the underlying Supabase HTTP
-  // requests in-flight. A second pullAll then fires NEW requests while the first
-  // batch is still consuming the connection pool → all 10 requests starve → all time out.
+  // Cooldown guard: prevents overlapping pulls from TOKEN_REFRESHED / visibilitychange.
+  // Pass { force: true } to bypass — used by loginSync on first load and manual retries.
   const now = Date.now();
-  if (now - _lastPullAllTime < PULLALL_COOLDOWN_MS) {
+  if (!force && now - _lastPullAllTime < PULLALL_COOLDOWN_MS) {
     console.log(`[ChunksDB] pullAll skipped — last sync was ${Math.round((now - _lastPullAllTime) / 1000)}s ago`);
     return;
   }
@@ -907,7 +904,10 @@ async function pullAll() {
 
     console.log('[ChunksDB] pullAll — done ✦');
   } catch (e) {
+    // Reset the timestamp so the next loginSync retry isn't blocked by a failed pull
+    _lastPullAllTime = 0;
     console.warn('[ChunksDB] pullAll error:', e.message);
+    throw e; // re-throw so SyncManager can reset _chunksSyncFired
   }
 }
 
