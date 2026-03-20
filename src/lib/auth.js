@@ -598,12 +598,58 @@ window.chunksSignOut = async function chunksSignOut() {
   function _cleanAndRedirect() {
     // Clear all state
     window._currentUser = null;
-    // Clear localStorage session state
-    localStorage.removeItem('chunks_active_home_session');
-    localStorage.removeItem('chunks_active_ws_book');
-    localStorage.removeItem('chunks_active_recent_id');
-    localStorage.removeItem('chunks_admin_email');
-    localStorage.removeItem('chunks_owner_email');
+
+    // ── Wipe ALL user-scoped localStorage data ────────────────────────────────
+    // Previously only 5 pointer keys were cleared, leaving behind chat sessions,
+    // settings, streak data, workspace positions, and recent items.  When a
+    // second account logged in on the same browser it inherited the first user's
+    // full history — a privacy and correctness bug.
+    //
+    // Strategy: collect every key that starts with a known user-data prefix,
+    // then delete them all.  We do NOT use localStorage.clear() because that
+    // would also wipe Supabase's own auth token keys (sb-*-auth-token) which
+    // the SDK needs to complete the server-side signOut call that fires below.
+    try {
+      const USER_PREFIXES = [
+        'chunks_session_',       // chat sessions (r+timestamp and UUID variants)
+        'chunks_ws_session_',    // workspace chat sessions
+        'chunks_ws_page_',       // per-book page position
+        'chunks_ws_zoom_',       // per-book zoom level
+        'chunks_ws_visited_',    // per-book last-visited timestamp
+        'chunks_setting_',       // all settings keys
+        'chunks_fc_',            // flashcard streak, XP, freeze tokens, accent, mastery
+        'fc_streak_data',        // legacy streak key
+        'fc_streak_last_study',  // legacy streak key
+      ];
+      const EXACT_KEYS = [
+        'chunks_recent',
+        'chunks_active_home_session',
+        'chunks_active_ws_book',
+        'chunks_active_recent_id',
+        'chunks_admin_email',
+        'chunks_owner_email',
+        'chunks_default_book',
+        'chunks_home_session',
+        'chunks_pending_upload_sessions',
+        'chunks_settings_initialized',
+        'chunks_settings_updated_at',
+        'chunks_ws_last_visited',
+        'chunks-chat-font-size',
+        'chunks_improve_data',
+        'chunks_study_mode',
+        'chunks_chunksSyncFired',
+      ];
+
+      // Collect prefix-matched keys first (can't mutate while iterating)
+      const prefixKeys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && USER_PREFIXES.some(p => k.startsWith(p))) prefixKeys.push(k);
+      }
+      prefixKeys.forEach(k => localStorage.removeItem(k));
+      EXACT_KEYS.forEach(k => localStorage.removeItem(k));
+    } catch (_) { /* storage may be blocked in some environments */ }
+
     // Clear sessionStorage
     sessionStorage.setItem('chunks_signing_out', '1');
     sessionStorage.removeItem('chunks_was_here');
@@ -611,6 +657,10 @@ window.chunksSignOut = async function chunksSignOut() {
     sessionStorage.removeItem('chunks_is_refresh');
     sessionStorage.removeItem('chunks_guest_mode');
     sessionStorage.removeItem('chunks_oauth_callback');
+
+    // Reset the sync-fired flag so the next login triggers a fresh pull
+    window._chunksSyncFired = false;
+
     // Navigate immediately — do NOT call _applyUI(null) before this
     // because that would flash "Guest" while the page is still visible.
     window.location.replace('/login');
