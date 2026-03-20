@@ -440,9 +440,6 @@ Rules:
     spUpdateExamDateUI();
     spUpdateReminderUI();
     spSavePlanToSidebarAndLibrary(plan.topic);
-    // Show My Plans button
-    const switchBtn = document.getElementById('btn-switch-plan');
-    if (switchBtn) switchBtn.style.display = '';
   };
 
   const _spRetry = async () => {
@@ -594,12 +591,6 @@ export function spShowEmpty() {
   if (typeof window.setActivePlan === 'function') window.setActivePlan(null);
   // Clear the PDF upload so a new plan always starts with an empty form
   if (typeof spClearUpload === 'function') spClearUpload();
-  // Always show New Plan button; show My Plans if any plans exist
-  const newBtn = document.getElementById('btn-new-plan');
-  if (newBtn) newBtn.style.display = '';
-  spLoadAllPlans();
-  const switchBtn = document.getElementById('btn-switch-plan');
-  if (switchBtn) switchBtn.style.display = Object.keys(_spAllPlans).length > 0 ? '' : 'none';
 }
 
 export function spShowPlan() {
@@ -1213,11 +1204,6 @@ export function spInitScreen() {
   }
   // Load multi-plan library
   spLoadAllPlans();
-  // Always show New Plan button; show My Plans if any saved plans exist
-  const newPlanBtn = document.getElementById('btn-new-plan');
-  if (newPlanBtn) newPlanBtn.style.display = '';
-  const planBtn = document.getElementById('btn-switch-plan');
-  if (planBtn) planBtn.style.display = Object.keys(_spAllPlans).length > 0 ? '' : 'none';
   try {
     const savedPlan    = localStorage.getItem('sp_active_plan');
     const savedMastery = localStorage.getItem('sp_active_mastery');
@@ -1611,9 +1597,6 @@ export function spSavePlanToSidebarAndLibrary(topic) {
   plans = plans.slice(0, 6);
   localStorage.setItem('sp_recent_plans', JSON.stringify(plans));
   spRenderRecentPlansSidebar(plans);
-  // Show My Plans button
-  const btn = document.getElementById('btn-switch-plan');
-  if (btn) btn.style.display = '';
 }
 
 // ── Exam date schedule hook in spUpdatePanel ────────────────────────────────
@@ -1627,10 +1610,7 @@ export function spRenderPlanPatched(plan, sourceName) {
   setTimeout(() => {
     spUpdateExamDateUI();
     spUpdateDailySchedule();
-    // Show My Plans button if any plans exist
     spLoadAllPlans();
-    const btn = document.getElementById('btn-switch-plan');
-    if (btn) btn.style.display = Object.keys(_spAllPlans).length > 0 ? '' : 'none';
     // Inject daily schedule container into detail panel if not present
     const detailCol = document.getElementById('sp-detail-col');
     if (detailCol && !document.getElementById('sp-daily-schedule')) {

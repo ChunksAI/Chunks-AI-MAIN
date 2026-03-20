@@ -31,11 +31,11 @@ const STUDYPLAN_HTML = /* html */`
       <span class="sp-topbar-title">Study Plan</span>
       <span class="sp-topbar-badge">CRITICAL PATH</span>
       <div class="sp-topbar-actions">
-        <button class="sp-topbar-btn" id="btn-switch-plan" data-action="spShowPlansMenu" style="display:none;">
+        <button class="sp-topbar-btn" id="btn-switch-plan" data-action="spShowPlansMenu">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
           My Plans
         </button>
-        <button class="sp-topbar-btn" id="btn-new-plan" data-action="spShowEmpty" style="display:none;">
+        <button class="sp-topbar-btn" id="btn-new-plan" data-action="spShowEmpty">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           New Plan
         </button>
