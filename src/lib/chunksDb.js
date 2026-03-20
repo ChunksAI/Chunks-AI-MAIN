@@ -861,19 +861,32 @@ function _withTimeout(promise, ms, label) {
   return Promise.race([promise, timer]);
 }
 
+// Tracks the timestamp of the last completed pullAll so rapid re-calls
+// (from TOKEN_REFRESHED, visibilitychange, or online events) are suppressed.
+let _lastPullAllTime = 0;
+const PULLALL_COOLDOWN_MS = 60_000; // 60 seconds between full syncs
+
 async function pullAll() {
   if (!isLoggedIn()) return;
+
+  // Cooldown guard: the second pullAll in the console log was triggered by
+  // TOKEN_REFRESHED or a visibilitychange nudge seconds after the first completed.
+  // _withTimeout resolves its JS promise but leaves the underlying Supabase HTTP
+  // requests in-flight. A second pullAll then fires NEW requests while the first
+  // batch is still consuming the connection pool → all 10 requests starve → all time out.
+  const now = Date.now();
+  if (now - _lastPullAllTime < PULLALL_COOLDOWN_MS) {
+    console.log(`[ChunksDB] pullAll skipped — last sync was ${Math.round((now - _lastPullAllTime) / 1000)}s ago`);
+    return;
+  }
+  _lastPullAllTime = now;
+
   console.log('[ChunksDB] pullAll — merging cross-device state…');
   try {
     // Step 1: upload local-only sessions FIRST, then download.
-    // Batch upsert makes this fast (one round-trip) — 30s timeout is a safety net
-    // only for extreme network conditions, not normal operation.
     await _withTimeout(_uploadLocalChatSessions(), 30000, '_uploadLocalChatSessions');
 
     // Step 2: pull all four tables in parallel.
-    // 30s timeout per operation — Supabase cold-start + RLS evaluation can be
-    // slow on first request after idle. 10s was too tight and caused all four
-    // to time out on second pullAll calls (triggered by nudge/TOKEN_REFRESHED).
     await Promise.allSettled([
       _withTimeout(settings.pullAndApply(), 30000, 'settings.pullAndApply'),
       _withTimeout(streak.pullAndApply(),   30000, 'streak.pullAndApply'),
@@ -960,14 +973,22 @@ async function _uploadLocalChatSessions() {
       });
     }
 
-    // Single batch upsert — one network round-trip instead of N sequential awaits.
-    // Previously N=75 sessions × ~200ms each = 15 000ms+, causing the 8s timeout.
-    // Supabase accepts arrays in upsert() and issues one INSERT … ON CONFLICT statement.
-    if (uploadBatch.length) {
+    // Deduplicate by supabaseId before upserting.
+    // Each session exists under TWO localStorage keys (r+timestamp AND UUID) so
+    // without this the batch contains the same UUID twice → Postgres error:
+    // "ON CONFLICT DO UPDATE command cannot affect row a second time"
+    const _seenIds = new Set();
+    const dedupedBatch = uploadBatch.filter(row => {
+      if (_seenIds.has(row.id)) return false;
+      _seenIds.add(row.id);
+      return true;
+    });
+
+    if (dedupedBatch.length) {
       const sb = await _sb();
       if (sb) {
         const { error } = await sb.from('chat_sessions')
-          .upsert(uploadBatch, { onConflict: 'id', ignoreDuplicates: false });
+          .upsert(dedupedBatch, { onConflict: 'id', ignoreDuplicates: false });
         if (error) console.warn('[ChunksDB] batch upload error:', error.message);
       }
     }
