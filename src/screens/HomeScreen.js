@@ -917,12 +917,21 @@ mountHomeScreen();
 // Registered at module level (OUTSIDE the IIFE) so it's always active —
 // even on a fresh device where isRefresh=false and the IIFE exits early.
 // Fires when chat.pullAndApply() downloads sessions from Supabase.
+let _sessionsReadyLastFired = 0;
 window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
   console.log('[HomeScreen] chunks:sessions-ready fired, homeHistory.length=', homeHistory.length);
   // Skip if user is actively chatting
   if (homeHistory.length > 0) return;
 
-  // Find the newest session in localStorage with actual content
+  // Debounce: TOKEN_REFRESHED triggers a second pullAll shortly after the first,
+  // causing this event to fire twice in quick succession and mount the session twice.
+  const now = Date.now();
+  if (now - _sessionsReadyLastFired < 3000) return;
+  _sessionsReadyLastFired = now;
+
+  // Find the newest session in localStorage with actual content.
+  // Prefer the r+timestamp keyed entry (has supabaseId for future writes)
+  // over the UUID-keyed entry when both exist for the same session.
   try {
     let newest = null;
     let newestTime = 0;
@@ -933,12 +942,17 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
       try { s = JSON.parse(localStorage.getItem(k)); } catch (_) { continue; }
       const history = s?.history || s?.messages || [];
       if (!history.length) continue;
+      const localId = k.replace('chunks_session_', '');
+      // Prefer the r+timestamp key over the UUID key for the same session
+      const isLocalKey = /^r[0-9]+$/.test(localId);
       const t = new Date(s.updatedAt || 0).getTime();
-      if (t > newestTime) { newestTime = t; newest = { s, id: k.replace('chunks_session_', '') }; }
+      if (t > newestTime || (t === newestTime && isLocalKey)) {
+        newestTime = t;
+        newest = { s, id: localId };
+      }
     }
     if (newest) {
       localStorage.setItem('chunks_active_home_session', newest.id);
-      // Use mountHomeScreen's internal _mountSession via a re-usable path
       window._homeMountSession?.(newest.s, newest.id);
     }
   } catch (_) {}
