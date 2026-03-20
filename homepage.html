@@ -6,10 +6,10 @@
   <title>Chunks AI — Learn faster. Understand deeper.</title>
   <meta name="description" content="AI-powered flashcards, visual tutor, study plans, and exam prep. Upload your textbook and let AI help you learn faster. Used by 1,200+ students.">
   <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://chunks.online">
+  <link rel="canonical" href="https://chunks.online/ChunksAI">
   <meta property="og:title" content="Chunks AI — Learn faster. Understand deeper.">
   <meta property="og:description" content="AI-powered flashcards, visual tutor, study plans, and exam prep. Start for free.">
-  <meta property="og:url" content="https://chunks.online">
+  <meta property="og:url" content="https://chunks.online/ChunksAI">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://chunks.online/web-app-manifest-512x512.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -2718,7 +2718,7 @@ function openAuthPopup() {
 
 function continueAsGuest() {
   sessionStorage.setItem('chunks_guest_mode', '1');
-  window.location.href = '/home';
+  window.location.href = '/';
 }
 
 // Listen for success message from the popup (login.html posts this)
@@ -2727,7 +2727,7 @@ window.addEventListener('message', function(e) {
   if (e.data === 'chunks_auth_success') {
     clearInterval(_popupPollTimer);
     if (_authPopup && !_authPopup.closed) _authPopup.close();
-    window.location.replace('/home');
+    window.location.replace('/');
   }
 });
 </script>
