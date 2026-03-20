@@ -834,18 +834,41 @@ const ws = {
  *
  * @returns {Promise<void>}
  */
+// Wraps a promise with a timeout so a single stalled Supabase request
+// never hangs pullAll indefinitely. Resolves with { timedOut: true } on timeout
+// so Promise.allSettled still sees a settled promise (not a rejection).
+function _withTimeout(promise, ms, label) {
+  const timer = new Promise(resolve =>
+    setTimeout(() => {
+      console.warn(`[ChunksDB] ${label} timed out after ${ms}ms`);
+      resolve({ timedOut: true });
+    }, ms)
+  );
+  return Promise.race([promise, timer]);
+}
+
 async function pullAll() {
   if (!isLoggedIn()) return;
   console.log('[ChunksDB] pullAll — merging cross-device state…');
   try {
+    // Step 1: upload local-only sessions FIRST, then download.
+    // Previously both ran in parallel via allSettled — pullAndApply could
+    // complete before _uploadLocalChatSessions finished, causing the
+    // just-uploaded sessions to be missing from the downloaded list on
+    // the originating device (they'd only appear on the next sync cycle).
+    await _withTimeout(_uploadLocalChatSessions(), 8000, '_uploadLocalChatSessions');
+
+    // Step 2: pull all four tables in parallel. Each is individually wrapped
+    // with a 10s timeout so a single stalled request doesn't block the others.
+    // Previously no timeouts existed — one unresponsive Supabase call caused
+    // pullAll to hang forever, leaving the UI in a permanent "Syncing…" state.
     await Promise.allSettled([
-      settings.pullAndApply(),
-      streak.pullAndApply(),
-      ws.pullAndApply(),
-      // Chat: upload any local-only sessions, then download remote ones
-      _uploadLocalChatSessions(),
-      chat.pullAndApply(),
+      _withTimeout(settings.pullAndApply(), 10000, 'settings.pullAndApply'),
+      _withTimeout(streak.pullAndApply(),   10000, 'streak.pullAndApply'),
+      _withTimeout(ws.pullAndApply(),       10000, 'ws.pullAndApply'),
+      _withTimeout(chat.pullAndApply(),     10000, 'chat.pullAndApply'),
     ]);
+
     console.log('[ChunksDB] pullAll — done ✦');
   } catch (e) {
     console.warn('[ChunksDB] pullAll error:', e.message);
