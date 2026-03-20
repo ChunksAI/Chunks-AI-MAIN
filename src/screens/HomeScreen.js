@@ -905,31 +905,25 @@ mountHomeScreen();
     setTimeout(() => homeScrollBottom(true), 80);
   }
 
-  // Expose so SyncManager can trigger a re-render after login sync completes
-  window._homeMountLatestSession = function() {
-    // Don't re-mount if chat is already showing (user may have started typing)
+  // ── Listen for sessions-ready event from chat.pullAndApply ─────────────
+  // This is the reliable cross-device mount trigger.
+  // Fires every time pullAndApply successfully writes sessions to localStorage.
+  window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
+    // Don't clobber a chat the user has already started on this device
     const bar = document.getElementById('home-input-bar');
     if (bar && bar.style.display === 'flex') return;
 
-    // First try the r+timestamp active session key (returning users on same device)
-    const activeId = localStorage.getItem('chunks_active_home_session');
-    if (activeId) {
-      try {
-        const s = JSON.parse(localStorage.getItem('chunks_session_' + activeId));
-        if (s?.history?.length) { _mountSession(s, activeId); return; }
-      } catch (_) {}
-    }
-
-    // Fallback: scan for any UUID-keyed session written by pullAndApply
-    // (new device — no r+timestamp key exists yet, but UUID key was written)
+    // Scan all chunks_session_* keys and find the newest with content
     try {
       let newest = null;
       let newestTime = 0;
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if (!k?.startsWith('chunks_session_')) continue;
-        const s = JSON.parse(localStorage.getItem(k) || 'null');
-        if (!s?.history?.length && !s?.messages?.length) continue;
+        let s;
+        try { s = JSON.parse(localStorage.getItem(k)); } catch (_) { continue; }
+        const history = s?.history || s?.messages || [];
+        if (!history.length) continue;
         const t = new Date(s.updatedAt || 0).getTime();
         if (t > newestTime) { newestTime = t; newest = { s, id: k.replace('chunks_session_', '') }; }
       }
@@ -938,6 +932,11 @@ mountHomeScreen();
         _mountSession(newest.s, newest.id);
       }
     } catch (_) {}
+  });
+
+  // Keep window fn for backwards compat / manual trigger from console
+  window._homeMountLatestSession = function() {
+    window.dispatchEvent(new CustomEvent('chunks:sessions-ready'));
   };
 
   // ── Restore on page load ─────────────────────────────────────────────────
