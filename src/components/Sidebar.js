@@ -216,15 +216,7 @@ ${navHTML}
     </div>
 
     <div class="sidebar-footer">
-      <button
-        id="theme-toggle-btn"
-        class="theme-toggle-btn"
-        onclick="window.toggleTheme?.()"
-        title="Toggle Study Mode (warm light theme)"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-        Study Mode
-      </button>
+
       <div class="profile-row" role="button" tabindex="0" aria-label="Open profile menu" aria-haspopup="true" onclick="toggleProfileDropdown(event)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleProfileDropdown(event)">
         <div class="avatar" aria-hidden="true"></div>
         <div class="profile-text">
