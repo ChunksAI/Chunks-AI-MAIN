@@ -73,7 +73,6 @@
     }
 
     html{scroll-behavior:smooth;}
-    .nav-link.active{color:var(--text-1);background:rgba(255,255,255,.04);}
 
     html{
       min-height:100vh;
@@ -154,6 +153,49 @@
     .nav-links{display:flex;align-items:center;flex:1;}
     .nav-link{font-size:13px;color:var(--text-3);text-decoration:none;padding:5px 11px;border-radius:var(--r-md);transition:color .18s,background .18s;white-space:nowrap;}
     .nav-link:hover{color:var(--text-1);background:rgba(255,255,255,.04);}
+    .nav-link.active{color:var(--text-1);background:rgba(255,255,255,.06);}
+
+    /* Company dropdown */
+    .nav-dropdown{position:relative;display:flex;align-items:center;}
+    .nav-dropdown-btn{
+      display:flex;align-items:center;gap:4px;
+      font-size:13px;color:var(--text-3);
+      background:none;border:none;cursor:pointer;
+      padding:5px 11px;border-radius:var(--r-md);
+      font-family:var(--font-body);
+      transition:color .18s,background .18s;white-space:nowrap;
+    }
+    .nav-dropdown-btn:hover,.nav-dropdown-btn.open{color:var(--text-1);background:rgba(255,255,255,.04);}
+    .nav-dropdown-chevron{
+      width:10px;height:10px;opacity:.5;
+      transition:transform .2s var(--ease-std);
+      flex-shrink:0;
+    }
+    .nav-dropdown-btn.open .nav-dropdown-chevron{transform:rotate(180deg);}
+    .nav-dropdown-menu{
+      position:absolute;top:calc(100% + 10px);left:0;
+      background:var(--surface-2);
+      border:1px solid var(--border-sm);
+      border-radius:var(--r-lg);
+      padding:6px;
+      min-width:180px;
+      box-shadow:0 16px 40px rgba(0,0,0,.6);
+      opacity:0;visibility:hidden;
+      transform:translateY(-6px);
+      transition:opacity .18s var(--ease-out),transform .18s var(--ease-out),visibility .18s;
+      z-index:200;
+    }
+    .nav-dropdown-menu.open{opacity:1;visibility:visible;transform:translateY(0);}
+    .nav-dropdown-item{
+      display:flex;align-items:center;gap:8px;
+      font-size:13px;color:var(--text-2);text-decoration:none;
+      padding:8px 10px;border-radius:var(--r-md);
+      transition:color .15s,background .15s;
+      white-space:nowrap;
+    }
+    .nav-dropdown-item:hover{color:var(--text-1);background:rgba(255,255,255,.05);}
+    .nav-dropdown-item-icon{font-size:13px;opacity:.7;flex-shrink:0;}
+
     .nav-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto;}
     .btn-ghost{
       font-size:13px;color:var(--text-2);
@@ -1257,6 +1299,28 @@
     <a href="#how" class="nav-link">How it works</a>
     <a href="#pricing" class="nav-link">Pricing</a>
     <a href="#about" class="nav-link">About</a>
+    <div class="nav-dropdown" id="nav-company-dropdown">
+      <button class="nav-dropdown-btn" id="nav-company-btn" aria-expanded="false" aria-haspopup="true">
+        Company
+        <svg class="nav-dropdown-chevron" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+      <div class="nav-dropdown-menu" id="nav-company-menu" role="menu">
+        <a href="#about" class="nav-dropdown-item" role="menuitem">
+          <span class="nav-dropdown-item-icon">↗</span> About Us
+        </a>
+        <a href="/privacy" class="nav-dropdown-item" role="menuitem">
+          <span class="nav-dropdown-item-icon">🔒</span> Privacy Policy
+        </a>
+        <a href="/terms" class="nav-dropdown-item" role="menuitem">
+          <span class="nav-dropdown-item-icon">📄</span> Terms of Service
+        </a>
+        <a href="mailto:chunks.ai.app@gmail.com" class="nav-dropdown-item" role="menuitem">
+          <span class="nav-dropdown-item-icon">✉</span> Contact
+        </a>
+      </div>
+    </div>
   </div>
   <div class="nav-actions">
     <a href="/login" class="btn-ghost">Sign in</a>
@@ -1885,7 +1949,7 @@
         <span class="plan-amount">$8</span>
         <span class="plan-period">/ seat / month</span>
       </div>
-      <a href="mailto:hello@chunks.online" class="plan-cta cta-outline">Contact us</a>
+      <a href="mailto:chunks.ai.app@gmail.com" class="plan-cta cta-outline">Contact us</a>
       <div class="plan-divider"></div>
       <div class="plan-features">
         <div class="plan-feat"><span class="plan-check">✓</span> Everything in Pro</div>
@@ -2014,7 +2078,7 @@
         <a href="/about" target="_blank" class="footer-link">About Us ↗</a>
         <a href="/privacy" class="footer-link">Privacy Policy</a>
         <a href="/terms" class="footer-link">Terms of Service</a>
-        <a href="mailto:hello@chunks.online" class="footer-link">Contact</a>
+        <a href="mailto:chunks.ai.app@gmail.com" class="footer-link">Contact</a>
       </div>
     </div>
 
@@ -2032,11 +2096,6 @@
 
   <div class="footer-bottom">
     <span>© 2026 Chunks AI. All rights reserved.</span>
-    <div class="footer-legal">
-      <a href="/privacy">Privacy</a>
-      <a href="/terms">Terms</a>
-      <a href="mailto:hello@chunks.online">hello@chunks.online</a>
-    </div>
   </div>
 </footer>
 
@@ -2264,6 +2323,36 @@ window.addEventListener('load',()=>{
   }
   window.addEventListener('scroll', onScroll, {passive:true});
   onScroll();
+})();
+
+/* ── Company dropdown ── */
+(function(){
+  const btn  = document.getElementById('nav-company-btn');
+  const menu = document.getElementById('nav-company-menu');
+  if(!btn || !menu) return;
+
+  function open(){
+    btn.classList.add('open');
+    menu.classList.add('open');
+    btn.setAttribute('aria-expanded','true');
+  }
+  function close(){
+    btn.classList.remove('open');
+    menu.classList.remove('open');
+    btn.setAttribute('aria-expanded','false');
+  }
+  function toggle(){ btn.classList.contains('open') ? close() : open(); }
+
+  btn.addEventListener('click', function(e){ e.stopPropagation(); toggle(); });
+  document.addEventListener('click', function(e){
+    if(!document.getElementById('nav-company-dropdown').contains(e.target)) close();
+  });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') close(); });
+
+  // Close menu when a dropdown item is clicked
+  menu.querySelectorAll('.nav-dropdown-item').forEach(function(item){
+    item.addEventListener('click', close);
+  });
 })();
 
 /* ── Google OAuth Popup ───────────────────────────────────────────── */
