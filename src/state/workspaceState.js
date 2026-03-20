@@ -132,6 +132,11 @@ export function wsGoToPage(n) {
   const wrap   = document.getElementById('ws-pdf-canvas-wrap');
   const target = _wsPageContainers[n - 1];
   if (target && wrap) wrap.scrollTop = target.offsetTop - 16;
+  // Phase 3: debounced position sync (avoids per-scroll-pixel writes)
+  clearTimeout(window._wsSavePosTm);
+  window._wsSavePosTm = setTimeout(() => {
+    window.ChunksDB?.ws?.savePosition?.(_wsBookId, { page: n, zoom: _wsScale });
+  }, 1200);
 }
 export function wsJumpToPage() {
   const n = parseInt(prompt(`Go to page (1 – ${_wsTotalPages}):`, _wsCurrentPage));
@@ -157,6 +162,11 @@ export async function _wsRescale(newScale) {
     c.dataset.rendered = '';
     await _wsRenderPage(i + 1, c);
   }
+  // Phase 3: sync zoom change to Supabase
+  clearTimeout(window._wsSaveZoomTm);
+  window._wsSaveZoomTm = setTimeout(() => {
+    window.ChunksDB?.ws?.savePosition?.(_wsBookId, { zoom: newScale, page: _wsCurrentPage });
+  }, 1200);
 }
 
 // ── PDF.js lazy loader ────────────────────────────────────────────────────
@@ -485,6 +495,11 @@ export async function selectBook(bookId) {
         _wsCurrentPage = closest;
         _wsUpdateBadge(closest);
         _wsUpdateOutlineActive(closest);
+        // Phase 3: debounced sync on scroll-based page change
+        clearTimeout(window._wsSaveScrollTm);
+        window._wsSaveScrollTm = setTimeout(() => {
+          window.ChunksDB?.ws?.savePosition?.(_wsBookId, { page: closest, zoom: _wsScale });
+        }, 2000);
       }
     });
 
