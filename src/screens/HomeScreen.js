@@ -86,14 +86,32 @@ const HOME_HTML = /* html */`
         <div class="ask-box" id="home-ask-box" style="margin-bottom:20px;">
           <div class="ask-plus-wrap">
             <button class="chat-plus" id="home-plus-btn" onclick="homeToggleAttachMenu(event)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-            <div class="attach-menu" id="home-attach-menu">
+            <div class="attach-menu home-rich-menu" id="home-attach-menu">
+              <div class="attach-menu-section-label">Attach</div>
               <div class="attach-menu-item" onclick="homeAttachTrigger('image')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                Image
+                <span>Image</span>
               </div>
               <div class="attach-menu-item" onclick="homeAttachTrigger('pdf')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                PDF
+                <span>PDF</span>
+              </div>
+              <div class="attach-menu-divider"></div>
+              <div class="attach-menu-section-label">AI Mode</div>
+              <div class="attach-menu-item attach-menu-toggle" id="home-toggle-websearch" onclick="homeToggleWebSearch()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <span>Web Search</span>
+                <div class="attach-menu-check" id="home-websearch-check"></div>
+              </div>
+              <div class="attach-menu-item attach-menu-toggle" id="home-toggle-think" onclick="homeToggleThinking('think')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
+                <span>Think</span>
+                <div class="attach-menu-check" id="home-think-check"></div>
+              </div>
+              <div class="attach-menu-item attach-menu-toggle" id="home-toggle-deep" onclick="homeToggleThinking('deep')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span>Deep Think</span>
+                <div class="attach-menu-check" id="home-deep-check"></div>
               </div>
             </div>
           </div>
@@ -142,14 +160,32 @@ const HOME_HTML = /* html */`
       <div class="ask-box" id="home-ask-box-bottom" style="max-width:860px;">
         <div class="ask-plus-wrap">
           <button class="chat-plus" id="home-plus-btn-bottom" onclick="homeToggleAttachMenu(event,'bottom')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-          <div class="attach-menu" id="home-attach-menu-bottom">
+          <div class="attach-menu home-rich-menu" id="home-attach-menu-bottom">
+            <div class="attach-menu-section-label">Attach</div>
             <div class="attach-menu-item" onclick="homeAttachTrigger('image','bottom')">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-              Image
+              <span>Image</span>
             </div>
             <div class="attach-menu-item" onclick="homeAttachTrigger('pdf','bottom')">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              PDF
+              <span>PDF</span>
+            </div>
+            <div class="attach-menu-divider"></div>
+            <div class="attach-menu-section-label">AI Mode</div>
+            <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleWebSearch()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              <span>Web Search</span>
+              <div class="attach-menu-check" id="home-websearch-check-b"></div>
+            </div>
+            <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleThinking('think')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
+              <span>Think</span>
+              <div class="attach-menu-check" id="home-think-check-b"></div>
+            </div>
+            <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleThinking('deep')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+              <span>Deep Think</span>
+              <div class="attach-menu-check" id="home-deep-check-b"></div>
             </div>
           </div>
         </div>
@@ -255,6 +291,8 @@ const HERO_PHRASES = [
 const _HOME_AI_AVATAR = `<div class="hc-ai-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#c8a84b" stroke-width="7" opacity="0.95"/><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#a855f7" stroke-width="7" transform="rotate(60 50 50)" opacity="0.85"/><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#c8a84b" stroke-width="7" transform="rotate(120 50 50)" opacity="0.75"/><circle cx="50" cy="50" r="6" fill="#e8ac2e"/></svg></div>`;
 
 export let homeMode      = 'general';
+export let _homeWebSearch = false;
+export let _homeThinking  = 'off'; // 'off' | 'think' | 'deep'
 export let homeHistory   = [];
 export let _homeSessionId = null;
 let homeIsTyping = false;
@@ -624,6 +662,42 @@ export function homeHideLanding() {
 
 // ── Main send ─────────────────────────────────────────────────────────────────
 
+// ── AI Mode toggles ───────────────────────────────────────────────────────
+export function homeToggleWebSearch() {
+  _homeWebSearch = !_homeWebSearch;
+  ['home-websearch-check','home-websearch-check-b'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('on', _homeWebSearch);
+  });
+  ['home-toggle-websearch'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', _homeWebSearch);
+  });
+}
+
+export function homeToggleThinking(mode) {
+  // Toggle off if already active, else switch to new mode
+  _homeThinking = _homeThinking === mode ? 'off' : mode;
+  const isThink = _homeThinking === 'think';
+  const isDeep  = _homeThinking === 'deep';
+  ['home-think-check','home-think-check-b'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('on', isThink);
+  });
+  ['home-deep-check','home-deep-check-b'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('on', isDeep);
+  });
+  ['home-toggle-think'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', isThink);
+  });
+  ['home-toggle-deep'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', isDeep);
+  });
+}
+
 export async function homeSendMessage() {
   if (homeIsTyping) return;
   const bar = document.getElementById('home-input-bar');
@@ -678,6 +752,9 @@ export async function homeSendMessage() {
         language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
         safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
         history: homeHistory.slice(-12),
+        ...(_homeWebSearch ? { web_search: true } : {}),
+        ...(_homeThinking === 'think' ? { thinking: 'thinking' } : {}),
+        ...(_homeThinking === 'deep'  ? { thinking: 'deep'     } : {}),
       }),
     });
 
@@ -800,7 +877,9 @@ window.homeAppendAI       = homeAppendAI;
 window.homeAppendError    = homeAppendError;
 window.homeScrollBottom   = homeScrollBottom;
 window.homeHideLanding    = homeHideLanding;
-window.homeSendMessage    = homeSendMessage;
+window.homeSendMessage      = homeSendMessage;
+window.homeToggleWebSearch  = homeToggleWebSearch;
+window.homeToggleThinking   = homeToggleThinking;
 
 // ── Incognito chat bridges ────────────────────────────────────────────────────
 window.openIncognitoChat    = openIncognitoChat;
