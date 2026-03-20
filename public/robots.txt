@@ -3,6 +3,5 @@ Allow: /
 Disallow: /admin
 Disallow: /admin.html
 Disallow: /api/
-Disallow: /g,
 
 Sitemap: https://chunks.online/sitemap.xml
