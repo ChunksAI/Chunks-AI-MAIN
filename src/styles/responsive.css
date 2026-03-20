@@ -1082,146 +1082,164 @@
 }
 
 /* ══════════════════════════════════════════════════════════
-   SETTINGS MODAL — MOBILE
+   SETTINGS MODAL — MOBILE  (centered popup, ChatGPT-style)
    ══════════════════════════════════════════════════════════ */
 @media (max-width: 600px) {
 
-  /* ── Overlay: bottom sheet ── */
+  /* ── Overlay: centered with comfortable padding ── */
   .settings-modal {
-    padding: 0 !important;
-    align-items: flex-end !important;
+    padding: 20px 16px !important;
+    align-items: center !important;
   }
 
+  /* ── Popup container ── */
   .settings-content {
     flex-direction: column !important;
-    border-radius: 20px 20px 0 0 !important;
+    border-radius: 16px !important;
     max-width: 100% !important;
     width: 100% !important;
-    height: 88dvh !important;
-    animation: settings-slide-up-mobile 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    height: auto !important;
+    max-height: 88dvh !important;
+    animation: modal-slide-up 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
 
-  @keyframes settings-slide-up-mobile {
-    from { transform: translateY(100%); opacity: 0.7; }
-    to   { transform: translateY(0);    opacity: 1;   }
-  }
-
-  /* ── Left nav → horizontal icon tab bar ── */
+  /* ══ HEADER ROW: title + close button ══════════════════ */
+  /* Repurpose settings-nav as a two-zone header:
+     top strip = title + ✕, bottom strip = scrollable tabs */
   .settings-nav {
     width: 100% !important;
     height: auto !important;
-    flex-direction: row !important;
+    flex-direction: column !important;
     border-right: none !important;
     border-bottom: 1px solid var(--border-xs) !important;
     padding: 0 !important;
     gap: 0 !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    scrollbar-width: none !important;
+    overflow: visible !important;
     flex-shrink: 0 !important;
     position: relative !important;
   }
-  .settings-nav::-webkit-scrollbar { display: none !important; }
 
-  /* Close button: top-right corner pill */
+  /* ── Title bar built from the existing spacer div + close btn ── */
+  /* Hide the raw spacer, we style the close-btn row instead */
+  .settings-nav > div[style*="height:38px"] {
+    display: none !important;
+  }
+
+  /* Close button: absolutely positioned top-right of the CONTENT box */
   .settings-close {
     position: absolute !important;
-    top: 10px !important;
-    right: 10px !important;
+    top: 14px !important;
+    right: 14px !important;
     left: auto !important;
     width: 28px !important;
     height: 28px !important;
     background: var(--surface-3) !important;
     border-radius: 50% !important;
-    z-index: 10 !important;
+    font-size: 13px !important;
+    z-index: 20 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .settings-close:hover {
+    background: var(--surface-4) !important;
+    color: var(--text-1) !important;
   }
 
-  /* Spacer that was pushing content down for the close btn — hide it */
-  .settings-nav > div[style*="height:38px"] {
-    display: none !important;
+  /* ── Inject a "General" title via the sr-only span trick ──
+     We make the sr-only span visible on mobile as the header title */
+  #settings-modal-title {
+    position: static !important;
+    width: auto !important;
+    height: auto !important;
+    clip: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    font-family: var(--font-head) !important;
+    font-size: 17px !important;
+    font-weight: 700 !important;
+    color: var(--text-1) !important;
+    padding: 16px 48px 0 18px !important; /* right pad avoids X button */
+    letter-spacing: -0.01em !important;
   }
 
-  /* nav wrapper */
+  /* ── Scrollable tab strip ── */
   .settings-nav nav {
     display: flex !important;
     flex-direction: row !important;
-    padding: 10px 44px 0 12px !important; /* right padding leaves room for close btn */
-    gap: 2px !important;
-    width: max-content !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    width: 100% !important;
+    margin-top: 8px !important;
   }
+  .settings-nav nav::-webkit-scrollbar { display: none !important; }
 
-  /* Each tab item: stacked icon + label pill */
+  /* ── Individual tab: icon + label inline (not stacked) ── */
   .settings-nav-item {
-    flex-direction: column !important;
-    gap: 4px !important;
-    padding: 8px 10px 10px !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 8px 12px 10px !important;
     margin: 0 !important;
     border-radius: 0 !important;
-    font-size: 10px !important;
+    font-size: 12px !important;
     white-space: nowrap !important;
-    align-items: center !important;
-    min-width: 58px !important;
     border-bottom: 2px solid transparent !important;
-    border-radius: 0 !important;
-    transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast) !important;
+    flex-shrink: 0 !important;
+    background: transparent !important;
+    color: var(--text-3) !important;
+    transition: color var(--t-fast), border-color var(--t-fast) !important;
   }
 
   .settings-nav-item svg {
-    width: 18px !important;
-    height: 18px !important;
-    opacity: 0.55 !important;
+    width: 14px !important;
+    height: 14px !important;
+    opacity: 0.6 !important;
+    flex-shrink: 0 !important;
   }
 
   .settings-nav-item.active {
     background: transparent !important;
-    color: var(--gold) !important;
+    color: var(--text-1) !important;
     font-weight: 600 !important;
     border-bottom: 2px solid var(--gold) !important;
   }
   .settings-nav-item.active svg {
     opacity: 1 !important;
-    stroke: var(--gold) !important;
   }
 
   .settings-nav-item:hover {
-    background: var(--surface-2) !important;
+    color: var(--text-2) !important;
+    background: transparent !important;
   }
 
-  /* ── Right panel: fills remaining height ── */
+  /* ── Content panel ── */
   .settings-panel {
     flex: 1 !important;
-    padding: 20px 20px 32px !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
+    padding: 20px 18px 28px !important;
+    max-height: calc(88dvh - 96px) !important;
   }
 
+  /* Hide the per-page title since the header already shows it */
   .settings-page-title {
-    font-size: 16px !important;
-    margin-bottom: 16px !important;
+    display: none !important;
   }
 
-  /* Rows: let them breathe */
+  /* Rows */
   .settings-row {
-    padding: 14px 0 !important;
+    padding: 13px 0 !important;
     gap: 12px !important;
   }
+  .settings-row-label { font-size: 13px !important; }
+  .settings-row-desc  { font-size: 11px !important; max-width: none !important; }
 
-  .settings-row-label {
-    font-size: 13px !important;
-  }
-
-  .settings-row-desc {
-    font-size: 11px !important;
-    max-width: none !important;
-  }
-
-  /* Selects: full width on mobile */
-  .settings-select-wrap {
-    min-width: 110px !important;
-  }
-
-  .settings-select-btn {
-    font-size: 12px !important;
-  }
+  /* Controls */
+  .settings-select-wrap { min-width: 110px !important; }
+  .settings-select-btn  { font-size: 12px !important; }
 
 }
