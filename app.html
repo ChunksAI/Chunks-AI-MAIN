@@ -93,6 +93,17 @@
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   window.scrollTo(0, 0);
 
+  // ── Strip any leftover hash from URL immediately ──────────────────────────
+  // Supabase puts #access_token=... on /home after OAuth redirect.
+  // Once it's been consumed by the SDK, a bare # remains — clean it now
+  // before any render so the address bar always shows clean /home.
+  (function() {
+    var h = window.location.hash;
+    if (h && !h.includes('access_token') && !h.includes('error')) {
+      try { window.history.replaceState(null, '', '/home'); } catch(_) {}
+    }
+  })();
+
   // ── Instant pre-render auth gate ─────────────────────────────────────────
   // Runs synchronously before ANY HTML renders — zero flash for unauthed users.
   // If no session in localStorage and not guest mode, redirect immediately.
