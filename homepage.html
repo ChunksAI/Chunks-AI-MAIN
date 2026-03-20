@@ -2389,9 +2389,11 @@ window.addEventListener('load',()=>{
 </script>
 
 <script>
-/* ── Smooth scroll without hash — native scroll + clean URL after ── */
+/* ── Smooth scroll without hash ── */
 (function(){
   const NAV_H = 60;
+  // html has overflow-y:scroll so the scroll container is documentElement, not window
+  const scroller = document.documentElement;
 
   document.addEventListener('click', function(e) {
     const a = e.target.closest('a[href^="#"]');
@@ -2402,8 +2404,8 @@ window.addEventListener('load',()=>{
     if (!target) return;
 
     e.preventDefault();
-    const top = target.getBoundingClientRect().top + window.scrollY - NAV_H;
-    window.scrollTo({ top: top, behavior: 'smooth' });
+    const top = target.getBoundingClientRect().top + scroller.scrollTop - NAV_H;
+    scroller.scrollTop = top; // CSS scroll-behavior:smooth handles animation
     setTimeout(function() {
       history.replaceState(null, '', window.location.pathname);
     }, 650);
@@ -2412,7 +2414,7 @@ window.addEventListener('load',()=>{
 
 /* ── Scroll spy — highlight active nav link ── */
 (function(){
-  // Build a map: sectionId -> navLink
+  const scroller = document.documentElement; // html has overflow-y:scroll
   const links = document.querySelectorAll('.nav-link[href^="#"]');
   const linkMap = {};
   links.forEach(l => {
@@ -2428,54 +2430,26 @@ window.addEventListener('load',()=>{
     if (id && linkMap[id]) linkMap[id].classList.add('active');
   }
 
-  // Use IntersectionObserver for accuracy
-  if ('IntersectionObserver' in window) {
-    let activeSectionId = null;
-    const navH = 60;
+  function getScrollTop() { return scroller.scrollTop || window.scrollY || 0; }
 
-    const observer = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          activeSectionId = entry.target.id;
-        }
-      });
-      setActive(activeSectionId);
-    }, {
-      rootMargin: `-${navH}px 0px -40% 0px`,
-      threshold: 0
+  function onScroll() {
+    const scrollTop = getScrollTop();
+    const mid = scrollTop + window.innerHeight * 0.4;
+    let best = null, bestDist = Infinity;
+    sections.forEach(s => {
+      const top = s.getBoundingClientRect().top + scrollTop;
+      if (top <= mid) {
+        const dist = mid - top;
+        if (dist < bestDist) { bestDist = dist; best = s.id; }
+      }
     });
-
-    sections.forEach(s => observer.observe(s));
-
-    // Fallback: on scroll, pick whichever section top is closest above viewport center
-    window.addEventListener('scroll', function() {
-      const mid = window.scrollY + window.innerHeight * 0.4;
-      let best = null, bestDist = Infinity;
-      sections.forEach(s => {
-        const top = s.getBoundingClientRect().top + window.scrollY;
-        if (top <= mid) {
-          const dist = mid - top;
-          if (dist < bestDist) { bestDist = dist; best = s.id; }
-        }
-      });
-      setActive(best);
-    }, {passive: true});
-
-  } else {
-    // Pure scroll fallback
-    window.addEventListener('scroll', function() {
-      const y = window.scrollY + 80;
-      let best = null;
-      sections.forEach(s => {
-        const top = s.getBoundingClientRect().top + window.scrollY;
-        if (top <= y) best = s.id;
-      });
-      setActive(best);
-    }, {passive: true});
+    setActive(best);
   }
 
-  // Run once on load
-  window.dispatchEvent(new Event('scroll'));
+  // Listen on both window and scroller to cover all browsers
+  window.addEventListener('scroll', onScroll, {passive: true});
+  scroller.addEventListener('scroll', onScroll, {passive: true});
+  onScroll();
 })();
 
 /* ── Company dropdown ── */
