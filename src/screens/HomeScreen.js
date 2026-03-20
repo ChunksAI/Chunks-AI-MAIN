@@ -904,42 +904,8 @@ mountHomeScreen();
     window._setActiveRecent?.(sessionId);
     setTimeout(() => homeScrollBottom(true), 80);
   }
-
-  // ── Listen for sessions-ready event from chat.pullAndApply ─────────────
-  // This is the reliable cross-device mount trigger.
-  // Fires every time pullAndApply successfully writes sessions to localStorage.
-  window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
-    console.log('[HomeScreen] chunks:sessions-ready fired, homeHistory.length=', homeHistory.length);
-    // Only skip if the user has ACTIVELY started typing in this session
-    // (homeHistory has turns = they've engaged). Don't skip just because the
-    // bar is visible — it could be showing a stale/empty session from localStorage.
-    if (homeHistory.length > 0) return;
-
-    // Scan all chunks_session_* keys and find the newest with content
-    try {
-      let newest = null;
-      let newestTime = 0;
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!k?.startsWith('chunks_session_')) continue;
-        let s;
-        try { s = JSON.parse(localStorage.getItem(k)); } catch (_) { continue; }
-        const history = s?.history || s?.messages || [];
-        if (!history.length) continue;
-        const t = new Date(s.updatedAt || 0).getTime();
-        if (t > newestTime) { newestTime = t; newest = { s, id: k.replace('chunks_session_', '') }; }
-      }
-      if (newest) {
-        localStorage.setItem('chunks_active_home_session', newest.id);
-        _mountSession(newest.s, newest.id);
-      }
-    } catch (_) {}
-  });
-
-  // Keep window fn for backwards compat / manual trigger from console
-  window._homeMountLatestSession = function() {
-    window.dispatchEvent(new CustomEvent('chunks:sessions-ready'));
-  };
+  // Expose so module-level listener can call it after IIFE exits
+  window._homeMountSession = _mountSession;
 
   // ── Restore on page load ─────────────────────────────────────────────────
   // For logged-in users: don't block on sync — just restore what localStorage
@@ -954,6 +920,41 @@ mountHomeScreen();
     } catch (_) {}
   }
 })();
+
+// ── Cross-device chat restore ─────────────────────────────────────────────────
+// Registered at module level (OUTSIDE the IIFE) so it's always active —
+// even on a fresh device where isRefresh=false and the IIFE exits early.
+// Fires when chat.pullAndApply() downloads sessions from Supabase.
+window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
+  console.log('[HomeScreen] chunks:sessions-ready fired, homeHistory.length=', homeHistory.length);
+  // Skip if user is actively chatting
+  if (homeHistory.length > 0) return;
+
+  // Find the newest session in localStorage with actual content
+  try {
+    let newest = null;
+    let newestTime = 0;
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k?.startsWith('chunks_session_')) continue;
+      let s;
+      try { s = JSON.parse(localStorage.getItem(k)); } catch (_) { continue; }
+      const history = s?.history || s?.messages || [];
+      if (!history.length) continue;
+      const t = new Date(s.updatedAt || 0).getTime();
+      if (t > newestTime) { newestTime = t; newest = { s, id: k.replace('chunks_session_', '') }; }
+    }
+    if (newest) {
+      localStorage.setItem('chunks_active_home_session', newest.id);
+      // Use mountHomeScreen's internal _mountSession via a re-usable path
+      window._homeMountSession?.(newest.s, newest.id);
+    }
+  } catch (_) {}
+});
+
+window._homeMountLatestSession = function() {
+  window.dispatchEvent(new CustomEvent('chunks:sessions-ready'));
+};
 
 // ── Wire input listeners (after DOM is interactive) ───────────────────────────
 function _wireHomeListeners() {
