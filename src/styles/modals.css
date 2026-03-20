@@ -80,7 +80,7 @@
 .upgrade-close:hover { background: var(--surface-4); color: var(--text-1); }
 
 .upgrade-plans {
-  display: grid; grid-template-columns: 1fr 1fr;
+  display: grid; grid-template-columns: repeat(3, 1fr);
   gap: 14px; padding: 22px 28px;
 }
 .upgrade-plan {
