@@ -751,10 +751,11 @@ export async function homeSendMessage() {
     window._saveSession?.(_homeSessionId, homeHistory);
     localStorage.setItem('chunks_active_home_session', _homeSessionId);
     window._renderAllRecent?.();
-    // Phase 3: sync user turn to Supabase (fire-and-forget)
-    window.ChunksDB?.chat?.appendMessage?.(_homeSessionId,
+    // Phase 3: sync user turn to Supabase using stable UUID (not r+timestamp)
+    const _sbId1 = window._recentItems?.find(r => r.id === _homeSessionId)?.uuid;
+    if (_sbId1) window.ChunksDB?.chat?.appendMessage?.(_sbId1,
       { role: 'user', content: question, ts: Date.now() },
-      { bookId: null, title: question.slice(0, 80) }
+      { bookId: null, title: question.slice(0, 80), localId: _homeSessionId }
     );
   }
 
@@ -797,9 +798,11 @@ export async function homeSendMessage() {
         window._saveSession?.(_homeSessionId, homeHistory);
         localStorage.setItem('chunks_active_home_session', _homeSessionId);
         window._renderAllRecent?.();
-        // Phase 3: sync AI turn to Supabase (fire-and-forget)
-        window.ChunksDB?.chat?.appendMessage?.(_homeSessionId,
-          { role: 'assistant', content: answer, ts: Date.now() }
+        // Phase 3: sync AI turn to Supabase using stable UUID
+        const _sbId2 = window._recentItems?.find(r => r.id === _homeSessionId)?.uuid;
+        if (_sbId2) window.ChunksDB?.chat?.appendMessage?.(_sbId2,
+          { role: 'assistant', content: answer, ts: Date.now() },
+          { localId: _homeSessionId }
         );
       }
     }
@@ -902,14 +905,36 @@ mountHomeScreen();
 
   // Expose so SyncManager can trigger a re-render after login sync completes
   window._homeMountLatestSession = function() {
-    const activeId = localStorage.getItem('chunks_active_home_session');
-    if (!activeId) return;
     // Don't re-mount if chat is already showing (user may have started typing)
     const bar = document.getElementById('home-input-bar');
     if (bar && bar.style.display === 'flex') return;
+
+    // First try the r+timestamp active session key (returning users on same device)
+    const activeId = localStorage.getItem('chunks_active_home_session');
+    if (activeId) {
+      try {
+        const s = JSON.parse(localStorage.getItem('chunks_session_' + activeId));
+        if (s?.history?.length) { _mountSession(s, activeId); return; }
+      } catch (_) {}
+    }
+
+    // Fallback: scan for any UUID-keyed session written by pullAndApply
+    // (new device — no r+timestamp key exists yet, but UUID key was written)
     try {
-      const s = JSON.parse(localStorage.getItem('chunks_session_' + activeId));
-      if (s) _mountSession(s, activeId);
+      let newest = null;
+      let newestTime = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k?.startsWith('chunks_session_')) continue;
+        const s = JSON.parse(localStorage.getItem(k) || 'null');
+        if (!s?.history?.length && !s?.messages?.length) continue;
+        const t = new Date(s.updatedAt || 0).getTime();
+        if (t > newestTime) { newestTime = t; newest = { s, id: k.replace('chunks_session_', '') }; }
+      }
+      if (newest) {
+        localStorage.setItem('chunks_active_home_session', newest.id);
+        _mountSession(newest.s, newest.id);
+      }
     } catch (_) {}
   };
 
