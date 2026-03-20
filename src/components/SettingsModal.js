@@ -409,6 +409,16 @@ export function openSettings(page) {
     navItems[idx]?.setAttribute('aria-current', 'page');
     modal.querySelector('#settings-page-' + page)?.classList.add('active');
     if (page === 'data') _updateCacheSizeLabel();
+
+    // On mobile: sync header title + scroll active tab into view
+    if (window.innerWidth <= 600) {
+      const titleEl = modal.querySelector('#settings-modal-title');
+      if (titleEl) {
+        const pageTitle = modal.querySelector('#settings-page-' + page + ' .settings-page-title');
+        titleEl.textContent = pageTitle?.textContent || page.charAt(0).toUpperCase() + page.slice(1);
+      }
+      navItems[idx]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
   }
   _settingsFocusRelease = window.trapFocus?.(modal) ?? null;
 }
