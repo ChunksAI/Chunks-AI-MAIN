@@ -4,7 +4,7 @@
  * ChunksDB — Shared Sync Layer
  * Central helper for all Supabase read/write operations.
  * Every feature (flashcards, exams, research, study plans)
- * uses these helpers instead of talking to Supabase directly..
+ * uses these helpers instead of talking to Supabase directly.
  *
  * RULES:
  * - Always scoped to the current auth.uid() via RLS
@@ -490,28 +490,86 @@ const chat = {
   },
 
   /**
-   * Delete a session by id.
-   * @param {string} sessionId
+   * Delete a session by id — permanent across all devices.
+   *
+   * 1. Remove from localStorage immediately (instant UI)
+   * 2. Add UUID to local tombstone (blocks re-upload this session)
+   * 3. Persist UUID to Supabase via user_settings.notifications.deleted_sessions
+   *    → survives fresh logins on any device forever
+   * 4. DELETE the Supabase row with retry
    */
   async deleteSession(sessionId) {
     _lsRemove('chunks_session_' + sessionId);
 
-    // Add to tombstone set so _uploadLocalChatSessions never re-uploads this session.
-    // The tombstone persists across page loads — cleared only when the upload run
-    // confirms the session no longer exists in Supabase.
     try {
       const tombs = JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]');
       if (!tombs.includes(sessionId)) {
         tombs.push(sessionId);
-        // Cap at 200 entries to prevent unbounded growth
         localStorage.setItem('chunks_deleted_sessions', JSON.stringify(tombs.slice(-200)));
       }
     } catch (_) {}
 
     if (!isLoggedIn()) return { error: null };
-    return remove('chat_sessions', sessionId);
+
+    // Persist tombstone to Supabase so ALL devices + future logins skip this session
+    _persistServerTombstone(sessionId);
+
+    // DELETE the Supabase row with retry
+    return _deleteWithRetry(sessionId);
   },
 };
+
+// ── Server-side tombstone helpers ────────────────────────────────────────────
+// Stores deleted session UUIDs in user_settings.notifications.deleted_sessions
+// so deletes survive fresh logins and are visible on all devices.
+
+/**
+ * Add a session UUID to the server-side tombstone list.
+ * Uses the existing patch_user_settings RPC — no migration required.
+ * Fire-and-forget (non-blocking).
+ */
+async function _persistServerTombstone(sessionId) {
+  try {
+    const sb = await _sb();
+    if (!sb || !isLoggedIn()) return;
+    // Read current deleted_sessions from user_settings
+    const { data } = await sb
+      .from('user_settings')
+      .select('notifications')
+      .eq('user_id', _uid())
+      .single();
+    const existing = data?.notifications?.deleted_sessions || [];
+    if (existing.includes(sessionId)) return; // already tombstoned
+    const updated = [...existing, sessionId].slice(-200); // cap at 200
+    await sb.from('user_settings')
+      .update({ notifications: { ...(data?.notifications || {}), deleted_sessions: updated } })
+      .eq('user_id', _uid());
+    console.log('[ChunksDB] server tombstone saved for', sessionId);
+  } catch (e) {
+    console.warn('[ChunksDB] server tombstone failed:', e.message);
+  }
+}
+
+/**
+ * Delete a chat_sessions row from Supabase with up to 3 retries.
+ * Logs result clearly so failures are never silent.
+ */
+async function _deleteWithRetry(sessionId, attempt = 1) {
+  const MAX = 3;
+  const result = await remove('chat_sessions', sessionId);
+  if (!result.error) {
+    console.log('[ChunksDB] session deleted from Supabase:', sessionId);
+    return result;
+  }
+  if (attempt < MAX) {
+    const delay = 1000 * attempt;
+    console.warn(`[ChunksDB] delete failed (attempt ${attempt}/${MAX}), retrying in ${delay}ms…`, result.error);
+    await new Promise(r => setTimeout(r, delay));
+    return _deleteWithRetry(sessionId, attempt + 1);
+  }
+  console.error('[ChunksDB] delete permanently failed after', MAX, 'attempts:', result.error);
+  return result;
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // settings — User preferences sync
@@ -581,6 +639,19 @@ const settings = {
     // Bug #5 fix: only notify if the user had local settings from a prior session.
     // A null localUpdatedAt means first-time sync on this device — not a conflict.
     if (localUpdatedAt) _notifyConflict('user_settings');
+
+    // ── Restore server-side tombstones ───────────────────────────────────────
+    // deleted_sessions is stored inside the notifications JSONB so fresh logins on
+    // any device always know which sessions were deleted — even with empty localStorage.
+    try {
+      const serverDeleted = row.notifications?.deleted_sessions || [];
+      if (serverDeleted.length) {
+        const localTombs = JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]');
+        const merged = [...new Set([...localTombs, ...serverDeleted])].slice(-200);
+        localStorage.setItem('chunks_deleted_sessions', JSON.stringify(merged));
+        console.log(`[ChunksDB] restored ${serverDeleted.length} server-side tombstones`);
+      }
+    } catch (_) {}
     if (row.appearance)       try { localStorage.setItem('chunks_setting_appearance',       row.appearance); }        catch (_) {}
     if (row.chat_font_size)   _lsSet('chunks-chat-font-size', row.chat_font_size);
     if (row.accent)           try { localStorage.setItem('chunks_setting_accent',           row.accent); }            catch (_) {}
