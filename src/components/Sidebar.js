@@ -216,6 +216,15 @@ ${navHTML}
     </div>
 
     <div class="sidebar-footer">
+      <button
+        id="theme-toggle-btn"
+        class="theme-toggle-btn"
+        onclick="window.toggleTheme?.()"
+        title="Toggle Study Mode (warm light theme)"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        Study Mode
+      </button>
       <div class="profile-row" role="button" tabindex="0" aria-label="Open profile menu" aria-haspopup="true" onclick="toggleProfileDropdown(event)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleProfileDropdown(event)">
         <div class="avatar" aria-hidden="true"></div>
         <div class="profile-text">
@@ -349,12 +358,25 @@ if (document.readyState === 'loading') {
     mountSidebars();
     window._renderAllRecent?.();
     _renderRecentPlansAllSidebars();
+    _syncThemeToggleBtns();
   });
 } else {
   mountSidebars();
   window._renderAllRecent?.();
   _renderRecentPlansAllSidebars();
+  _syncThemeToggleBtns();
 }
+
+function _syncThemeToggleBtns() {
+  const isStudy = document.documentElement.getAttribute('data-theme') === 'study';
+  document.querySelectorAll('#theme-toggle-btn').forEach(btn => {
+    if (typeof window._updateThemeBtn === 'function') window._updateThemeBtn(btn, isStudy);
+    else btn.innerHTML = isStudy
+      ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> Switch to Dark'
+      : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Study Mode';
+  });
+}
+window._syncThemeToggleBtns = _syncThemeToggleBtns;
 
 // Safety net: if screens mount asynchronously (e.g. code-split chunks),
 // re-run mountSidebars on the next tick so any <aside> elements that
