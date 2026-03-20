@@ -813,6 +813,11 @@ window._deleteRecent      = _deleteRecent;
 window._clickRecent       = _clickRecent;
 window._showRecentCtxMenu = _showRecentCtxMenu;
 window.recentAdd          = recentAdd;
+// Expose _recentItems so HomeScreen can look up uuid values
+Object.defineProperty(window, '_recentItems', {
+  get: () => _recentItems,
+  set: (v) => { _recentItems = v; },
+});
 Object.defineProperty(window, '_recentItems', { get: () => _recentItems });
 
 // ── Home chat session restore → src/screens/HomeScreen.js (Task 25) ──────
