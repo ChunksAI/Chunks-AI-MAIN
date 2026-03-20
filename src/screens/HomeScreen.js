@@ -2,7 +2,7 @@
  * src/screens/HomeScreen.js — Task 25
  *
  * Owns:
- *   • #screen-home HTML injection (replaces data-home-screen placeholder))
+ *   • #screen-home HTML injection (replaces data-home-screen placeholder)
  *   • Home chat state: homeMode, homeHistory, _homeSessionId, homeIsTyping
  *   • All home chat functions: homeSetMode, homeSetInput, homeHandlePdfUpload,
  *     homeAutoResize, homeAppendUser, homeAppendThinking, homeRemoveThinking,
@@ -845,57 +845,86 @@ mountHomeScreen();
   if (activeScreen && activeScreen !== 'home') return;
 
   // Helper that actually mounts the session into the DOM
+  // ── renderFromHistory: re-builds chat DOM from message array ────────────
+  // Used when html is empty (cross-device restore — HTML was never stored on
+  // this device). Falls back gracefully if markdown renderer isn't ready.
+  function _renderFromHistory(history) {
+    const chatHist = document.getElementById('home-chat-history');
+    if (!chatHist || !history?.length) return;
+    chatHist.innerHTML = '';
+    history.forEach(msg => {
+      if (msg.role === 'user') {
+        const el = document.createElement('div');
+        el.className = 'hc-user';
+        el.textContent = msg.content || '';
+        chatHist.appendChild(el);
+      } else if (msg.role === 'assistant') {
+        const wrap = document.createElement('div');
+        wrap.className = 'hc-ai';
+        const rendered = window.homeMarkdown
+          ? window.homeMarkdown(msg.content || '')
+          : (msg.content || '').replace(/</g, '&lt;');
+        wrap.innerHTML = `${_HOME_AI_AVATAR}<div class="hc-ai-body">${rendered}</div>`;
+        chatHist.appendChild(wrap);
+      }
+    });
+  }
+
+  // ── _mountSession: show the landing-to-chat transition ──────────────────
   function _mountSession(session, sessionId) {
-    if (!session?.history?.length && !session?.html) return;
+    const history = session?.history || session?.messages || [];
+    if (!history.length && !session?.html) return;
+
     const landing    = document.getElementById('home-landing');
     const hero       = document.querySelector('.home-hero');
     const bar        = document.getElementById('home-input-bar');
     const scrollArea = document.getElementById('home-scroll-area');
     const chatHist   = document.getElementById('home-chat-history');
+
     if (landing)    landing.style.display = 'none';
     if (hero)       hero.style.display = 'none';
     if (bar)        bar.style.display = 'flex';
     if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
-    // Prefer locally-rendered HTML; fall back to re-building from history
+
     if (session.html && chatHist) {
+      // Local device — use cached rendered HTML
       chatHist.innerHTML = window.sanitize?.(session.html) ?? session.html;
+    } else if (history.length && chatHist) {
+      // Cross-device restore — rebuild from message array
+      _renderFromHistory(history);
     }
-    homeHistory    = session.history || [];
+
+    homeHistory    = history;
     _homeSessionId = sessionId;
     window._setActiveRecent?.(sessionId);
     setTimeout(() => homeScrollBottom(true), 80);
   }
 
-  // Phase 4 fix: if logged in, ALWAYS pull from Supabase first —
-  // even on a fresh device where localStorage has nothing.
-  // chat.pullAndApply() (called by SyncManager.loginSync) writes remote
-  // sessions into localStorage, so we just need to wait for it then read.
-  if (window.ChunksDB?.isLoggedIn?.()) {
-    // Give pullAll up to 4s to finish writing to localStorage, then restore
-    const _waitForSync = async () => {
-      // Check if pullAll has already run (SyncManager sets this flag)
-      let waited = 0;
-      while (!window._syncManagerDone && waited < 4000) {
-        await new Promise(r => setTimeout(r, 200));
-        waited += 200;
-      }
-      // Now read from localStorage — pullAndApply will have populated it
-      const activeId = localStorage.getItem('chunks_active_home_session');
-      if (!activeId) return; // no sessions at all
-      let s;
-      try { s = JSON.parse(localStorage.getItem('chunks_session_' + activeId)); } catch (_) {}
+  // Expose so SyncManager can trigger a re-render after login sync completes
+  window._homeMountLatestSession = function() {
+    const activeId = localStorage.getItem('chunks_active_home_session');
+    if (!activeId) return;
+    // Don't re-mount if chat is already showing (user may have started typing)
+    const bar = document.getElementById('home-input-bar');
+    if (bar && bar.style.display === 'flex') return;
+    try {
+      const s = JSON.parse(localStorage.getItem('chunks_session_' + activeId));
       if (s) _mountSession(s, activeId);
-    };
-    _waitForSync().catch(() => {});
-    return; // async path takes over from here
-  }
+    } catch (_) {}
+  };
 
-  // Not logged in — restore from localStorage directly (existing behaviour)
+  // ── Restore on page load ─────────────────────────────────────────────────
+  // For logged-in users: don't block on sync — just restore what localStorage
+  // has right now, then let SyncManager call _homeMountLatestSession() after
+  // sync completes to pick up any newer sessions from other devices.
+
   const savedId = localStorage.getItem('chunks_active_home_session');
-  if (!savedId) return;
-  let session;
-  try { session = JSON.parse(localStorage.getItem('chunks_session_' + savedId)); } catch (e) {}
-  if (session) _mountSession(session, savedId);
+  if (savedId && !(activeScreen && activeScreen !== 'home')) {
+    try {
+      const s = JSON.parse(localStorage.getItem('chunks_session_' + savedId));
+      if (s) _mountSession(s, savedId);
+    } catch (_) {}
+  }
 })();
 
 // ── Wire input listeners (after DOM is interactive) ───────────────────────────
