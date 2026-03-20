@@ -966,15 +966,21 @@ async function pullAll({ force = false } = {}) {
 
   console.log('[ChunksDB] pullAll — merging cross-device state…');
   try {
-    // Step 1: upload local-only sessions FIRST, then download.
+    // Step 1: upload local-only sessions FIRST.
     await _withTimeout(_uploadLocalChatSessions(), 30000, '_uploadLocalChatSessions');
 
-    // Step 2: pull all four tables in parallel.
+    // Step 2: settings MUST complete before chat — it restores server-side tombstones
+    // into localStorage so that chat.pullAndApply and _hydrateRecentFromRemote can
+    // filter deleted sessions correctly. Running them in parallel caused a race where
+    // _hydrateRecentFromRemote ran before tombstones arrived, putting deleted sessions
+    // back in the sidebar on every login.
+    await _withTimeout(settings.pullAndApply(), 30000, 'settings.pullAndApply');
+
+    // Step 3: streak, ws, and chat can now run in parallel safely.
     await Promise.allSettled([
-      _withTimeout(settings.pullAndApply(), 30000, 'settings.pullAndApply'),
-      _withTimeout(streak.pullAndApply(),   30000, 'streak.pullAndApply'),
-      _withTimeout(ws.pullAndApply(),       30000, 'ws.pullAndApply'),
-      _withTimeout(chat.pullAndApply(),     30000, 'chat.pullAndApply'),
+      _withTimeout(streak.pullAndApply(), 30000, 'streak.pullAndApply'),
+      _withTimeout(ws.pullAndApply(),     30000, 'ws.pullAndApply'),
+      _withTimeout(chat.pullAndApply(),   30000, 'chat.pullAndApply'),
     ]);
 
     console.log('[ChunksDB] pullAll — done ✦');
