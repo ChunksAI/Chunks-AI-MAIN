@@ -46,6 +46,8 @@ export let _wsBookId      = localStorage.getItem('chunks_default_book') || 'atki
 export let _wsChatHistory = [];
 export let _newChatIsIncognito = false;
 export let _wsTyping      = false;
+export let _wsWebSearch   = false;
+export let _wsThinking    = 'off'; // 'off' | 'think' | 'deep'
 export let _wsSelectedText = '';  // text highlighted in PDF — sent as context with next question
 export let _wsUserDocId   = null;  // id of user-uploaded doc currently open (null = textbook mode)
 export let _wsUserDocText = '';    // full extracted text of user doc — sent to /ask as doc_context
@@ -1094,6 +1096,28 @@ export async function _wsRegenerate(msgId, question) {
   await _wsAsk(question);
 }
 
+export function wsToggleWebSearch() {
+  _wsWebSearch = !_wsWebSearch;
+  const check = document.getElementById('ws-websearch-check');
+  const btn   = document.getElementById('ws-toggle-websearch');
+  if (check) check.classList.toggle('on', _wsWebSearch);
+  if (btn)   btn.classList.toggle('active', _wsWebSearch);
+}
+
+export function wsToggleThinking(mode) {
+  _wsThinking = _wsThinking === mode ? 'off' : mode;
+  const isThink = _wsThinking === 'think';
+  const isDeep  = _wsThinking === 'deep';
+  const thinkCheck = document.getElementById('ws-think-check');
+  const deepCheck  = document.getElementById('ws-deep-check');
+  const thinkBtn   = document.getElementById('ws-toggle-think');
+  const deepBtn    = document.getElementById('ws-toggle-deep');
+  if (thinkCheck) thinkCheck.classList.toggle('on', isThink);
+  if (deepCheck)  deepCheck.classList.toggle('on', isDeep);
+  if (thinkBtn)   thinkBtn.classList.toggle('active', isThink);
+  if (deepBtn)    deepBtn.classList.toggle('active', isDeep);
+}
+
 export async function wsChatSend() {
   if (_wsTyping) return;
   const inp = document.getElementById('ws-chat-input');
@@ -1116,6 +1140,9 @@ export async function _wsAsk(question) {
     const mode = typeof _getStudyMode === 'function' ? _getStudyMode() : 'study';
     const complexity = mode === 'concise' ? 3 : mode === 'detailed' ? 8 : 5;
     const body = { question, bookId: _wsBookId || 'atkins', mode, complexity, history: _wsChatHistory.slice(-10) };
+    if (_wsWebSearch)              body.web_search = true;
+    if (_wsThinking === 'think')   body.thinking   = 'thinking';
+    if (_wsThinking === 'deep')    body.thinking   = 'deep';
     if (capturedSelection) body.selected_text = capturedSelection;
     // User-uploaded doc: send extracted text as context instead of textbook index
     if (_wsUserDocId && _wsUserDocText) {
@@ -1448,6 +1475,8 @@ window.wsNextPage          = wsNextPage;
 window.wsGoToPage          = wsGoToPage;
 window.wsJumpToPage        = wsJumpToPage;
 window.wsZoomIn            = wsZoomIn;
+window.wsToggleWebSearch   = wsToggleWebSearch;
+window.wsToggleThinking    = wsToggleThinking;
 window.wsZoomOut           = wsZoomOut;
 window.togglePdfOutline    = togglePdfOutline;
 window.wsShowToast         = wsShowToast;
