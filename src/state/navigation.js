@@ -147,6 +147,10 @@ function showScreen(name) {
     if (name === 'flash') {
       if (typeof window._fcExitStudy === 'function') window._fcExitStudy();
     }
+    if (name === 'library') {
+      // Refresh progress overlays every time library is shown
+      setTimeout(() => { if (typeof window._libInjectProgress === 'function') window._libInjectProgress(); }, 50);
+    }
     if (name === 'research') {
       if (typeof window._researchBackToSetup === 'function') window._researchBackToSetup();
     }
