@@ -111,7 +111,7 @@ const WORKSPACE_HTML = /* html */`
       <div class="pdf-view" id="ws-pdf-view">
 
         <!-- Empty state — shown when no book loaded -->
-        <div id="ws-default-content" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:40px;background:#18181e;z-index:2;">
+        <div id="ws-default-content" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:40px;background:var(--surface-2);z-index:2;">
           <div style="width:56px;height:56px;border-radius:16px;background:var(--gold-muted);border:1px solid var(--gold-border);display:flex;align-items:center;justify-content:center;">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
           </div>
@@ -123,7 +123,7 @@ const WORKSPACE_HTML = /* html */`
         </div>
 
         <!-- Loading state — skeleton while PDF fetches/renders -->
-        <div id="ws-pdf-loading" style="display:none;flex-direction:column;height:100%;position:absolute;inset:0;background:#18181e;overflow:hidden;">
+        <div id="ws-pdf-loading" style="display:none;flex-direction:column;height:100%;position:absolute;inset:0;background:var(--surface-2);overflow:hidden;">
           <!-- Book cover + title skeleton strip -->
           <div style="display:flex;align-items:center;gap:12px;padding:18px 20px 14px;border-bottom:1px solid var(--border);">
             <div class="skeleton-line" style="width:36px;height:50px;border-radius:6px;flex-shrink:0;"></div>
@@ -160,7 +160,7 @@ const WORKSPACE_HTML = /* html */`
         </div>
 
         <!-- PDF.js canvas scroll container -->
-        <div id="ws-pdf-canvas-wrap" style="display:none;width:100%;height:100%;overflow-y:auto;padding:20px;box-sizing:border-box;background:#18181e;flex-direction:column;align-items:center;gap:12px;">
+        <div id="ws-pdf-canvas-wrap" style="display:none;width:100%;height:100%;overflow-y:auto;padding:20px;box-sizing:border-box;background:var(--surface-2);flex-direction:column;align-items:center;gap:12px;">
         </div>
 
       </div>
