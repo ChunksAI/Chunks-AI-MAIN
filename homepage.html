@@ -76,7 +76,8 @@
     .nav-link.active{color:var(--text-1);background:rgba(255,255,255,.04);}
 
     html{min-height:100vh;background:var(--bg);color:var(--text-1);font-family:var(--font-body);-webkit-font-smoothing:antialiased;}
-    body{min-height:100vh;overflow-x:hidden;}
+    body{min-height:100vh;}
+    .page-wrap{overflow-x:hidden;}
 
     /* ─────────────────────────────────────────
        BACKGROUND — barely-there, not competing
@@ -1218,6 +1219,8 @@
   <div class="bg-orb bg-orb-3"></div>
 </div>
 
+<div class="page-wrap">
+
 <!-- Navbar -->
 <nav>
   <a href="/" class="nav-logo">
@@ -2292,5 +2295,7 @@ window.addEventListener('message', function(e) {
   }
 });
 </script>
+
+</div><!-- /.page-wrap -->
 </body>
 </html>
