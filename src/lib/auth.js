@@ -631,6 +631,7 @@ window.chunksSignOut = async function chunksSignOut() {
         'chunks_default_book',
         'chunks_home_session',
         'chunks_pending_upload_sessions',
+        'chunks_deleted_sessions',
         'chunks_settings_initialized',
         'chunks_settings_updated_at',
         'chunks_ws_last_visited',
