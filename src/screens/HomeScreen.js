@@ -751,6 +751,11 @@ export async function homeSendMessage() {
     window._saveSession?.(_homeSessionId, homeHistory);
     localStorage.setItem('chunks_active_home_session', _homeSessionId);
     window._renderAllRecent?.();
+    // Phase 3: sync user turn to Supabase (fire-and-forget)
+    window.ChunksDB?.chat?.appendMessage?.(_homeSessionId,
+      { role: 'user', content: question, ts: Date.now() },
+      { bookId: null, title: question.slice(0, 80) }
+    );
   }
 
   homeIsTyping = true;
@@ -792,6 +797,10 @@ export async function homeSendMessage() {
         window._saveSession?.(_homeSessionId, homeHistory);
         localStorage.setItem('chunks_active_home_session', _homeSessionId);
         window._renderAllRecent?.();
+        // Phase 3: sync AI turn to Supabase (fire-and-forget)
+        window.ChunksDB?.chat?.appendMessage?.(_homeSessionId,
+          { role: 'assistant', content: answer, ts: Date.now() }
+        );
       }
     }
   } catch (e) {
@@ -835,6 +844,28 @@ mountHomeScreen();
   // ── Restore home chat ──
   const savedId = localStorage.getItem('chunks_active_home_session');
   if (!savedId || (activeScreen && activeScreen !== 'home')) return;
+
+  // Phase 3: if logged in, try to restore from Supabase first so sessions
+  // from other devices are available. Falls back to localStorage automatically.
+  if (window.ChunksDB?.isLoggedIn?.()) {
+    window.ChunksDB.chat.getSessions(1).then(({ data }) => {
+      if (data?.[0]?.messages?.length) {
+        const remote = data[0];
+        // Only use remote if it has content localStorage doesn't
+        const localRaw = localStorage.getItem('chunks_session_' + (remote.id || savedId));
+        const localSession = localRaw ? JSON.parse(localRaw) : null;
+        const remoteNewer = !localSession ||
+          new Date(remote.updated_at) > new Date(localSession.updatedAt || 0);
+        if (remoteNewer && !localRaw) {
+          // Store remote session locally so the existing restore path finds it
+          localStorage.setItem('chunks_active_home_session', remote.id);
+          localStorage.setItem('chunks_session_' + remote.id, JSON.stringify({
+            id: remote.id, html: '', history: remote.messages, updatedAt: remote.updated_at
+          }));
+        }
+      }
+    }).catch(() => {});
+  }
 
   let session;
   try { session = JSON.parse(localStorage.getItem('chunks_session_' + savedId)); } catch (e) {}
