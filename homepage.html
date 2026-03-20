@@ -4,6 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chunks AI — Learn faster. Understand deeper.</title>
+  <meta name="description" content="AI-powered flashcards, visual tutor, study plans, and exam prep. Upload your textbook and let AI help you learn faster. Used by 1,200+ students.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://chunks.online">
+  <meta property="og:title" content="Chunks AI — Learn faster. Understand deeper.">
+  <meta property="og:description" content="AI-powered flashcards, visual tutor, study plans, and exam prep. Start for free.">
+  <meta property="og:url" content="https://chunks.online">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://chunks.online/web-app-manifest-512x512.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Chunks AI — Learn faster. Understand deeper.">
+  <meta name="twitter:image" content="https://chunks.online/web-app-manifest-512x512.png">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -57,7 +72,9 @@
       --ease-std:cubic-bezier(.4,0,.2,1);
     }
 
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html{scroll-behavior:smooth;}
+    .nav-link.active{color:var(--text-1);background:rgba(255,255,255,.04);}
+
     html,body{min-height:100vh;background:var(--bg);color:var(--text-1);font-family:var(--font-body);-webkit-font-smoothing:antialiased;overflow-x:hidden;}
 
     /* ─────────────────────────────────────────
@@ -104,21 +121,23 @@
     ───────────────────────────────────────── */
     nav{
       position:fixed;top:0;left:0;right:0;z-index:100;
-      display:flex;align-items:center;justify-content:space-between;
+      display:flex;align-items:center;
+      gap:0;
       padding:0 44px;height:52px;
       background:rgba(9,9,15,.75);
       border-bottom:1px solid var(--border-xs);
       backdrop-filter:blur(28px);
       -webkit-backdrop-filter:blur(28px);
     }
-    .nav-logo{display:flex;align-items:center;gap:9px;text-decoration:none;}
+    .nav-logo{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0;}
     .logo-mark{width:24px;height:24px;}
     .logo-name{font-family:var(--font-head);font-size:14.5px;font-weight:700;color:var(--text-1);letter-spacing:-.01em;}
     .logo-name span{color:var(--gold);}
-    .nav-links{display:flex;align-items:center;}
-    .nav-link{font-size:13px;color:var(--text-3);text-decoration:none;padding:5px 11px;border-radius:var(--r-md);transition:color .18s,background .18s;}
+    .nav-sep{width:1px;height:16px;background:var(--border-sm);margin:0 16px;flex-shrink:0;}
+    .nav-links{display:flex;align-items:center;flex:1;}
+    .nav-link{font-size:13px;color:var(--text-3);text-decoration:none;padding:5px 11px;border-radius:var(--r-md);transition:color .18s,background .18s;white-space:nowrap;}
     .nav-link:hover{color:var(--text-1);background:rgba(255,255,255,.04);}
-    .nav-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+    .nav-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto;}
     .btn-ghost{
       font-size:13px;color:var(--text-2);
       background:none;border:1px solid var(--border-sm);
@@ -870,6 +889,323 @@
       .how-title{font-size:clamp(22px,7vw,32px);}
       .steps{gap:16px;}
     }
+
+    /* ─────────────────────────────────────────
+       FEATURES SECTION
+    ───────────────────────────────────────── */
+    .features{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:80px 48px 100px;}
+    .features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:48px;}
+    .feat-card{
+      background:var(--surface-1);
+      border:1px solid var(--border-xs);
+      border-radius:var(--r-xl);
+      padding:28px 26px;
+      position:relative;overflow:hidden;
+      transition:border-color .3s,transform .3s var(--ease-out);
+    }
+    .feat-card::after{
+      content:'';position:absolute;inset:0;opacity:0;
+      transition:opacity .4s;pointer-events:none;
+    }
+    .feat-card.fc-gold::after{background:radial-gradient(ellipse at 0% 0%,rgba(232,172,46,.06),transparent 65%);}
+    .feat-card.fc-purple::after{background:radial-gradient(ellipse at 0% 0%,rgba(139,124,248,.06),transparent 65%);}
+    .feat-card.fc-teal::after{background:radial-gradient(ellipse at 0% 0%,rgba(45,212,191,.06),transparent 65%);}
+    .feat-card.fc-red::after{background:radial-gradient(ellipse at 0% 0%,rgba(248,113,113,.06),transparent 65%);}
+    .feat-card.fc-blue::after{background:radial-gradient(ellipse at 0% 0%,rgba(96,165,250,.06),transparent 65%);}
+    .feat-card.fc-green::after{background:radial-gradient(ellipse at 0% 0%,rgba(74,222,128,.06),transparent 65%);}
+    .feat-card:hover{border-color:var(--border-sm);transform:translateY(-3px);}
+    .feat-card:hover::after{opacity:1;}
+    .feat-icon{
+      width:38px;height:38px;border-radius:var(--r-md);
+      display:flex;align-items:center;justify-content:center;
+      font-size:18px;margin-bottom:16px;
+    }
+    .feat-icon.fi-gold{background:var(--gold-dim);border:1px solid rgba(232,172,46,.16);}
+    .feat-icon.fi-purple{background:var(--purple-dim);border:1px solid rgba(139,124,248,.16);}
+    .feat-icon.fi-teal{background:var(--teal-dim);border:1px solid rgba(45,212,191,.16);}
+    .feat-icon.fi-red{background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.16);}
+    .feat-icon.fi-blue{background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.16);}
+    .feat-icon.fi-green{background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.16);}
+    .feat-title{font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);margin-bottom:8px;}
+    .feat-desc{font-size:13px;color:var(--text-2);line-height:1.72;}
+    .feat-tag{
+      display:inline-flex;align-items:center;gap:5px;
+      margin-top:14px;font-size:10.5px;font-family:var(--font-mono);
+      border-radius:var(--r-pill);padding:3px 10px;
+    }
+    .feat-tag.ft-gold{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(232,172,46,.16);}
+    .feat-tag.ft-purple{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(139,124,248,.16);}
+    .feat-tag.ft-teal{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(45,212,191,.16);}
+    .feat-tag.ft-red{background:rgba(248,113,113,.08);color:var(--red);border:1px solid rgba(248,113,113,.16);}
+
+    /* Wide card spanning 2 columns */
+    .feat-card.wide{grid-column:span 2;}
+
+    /* ─────────────────────────────────────────
+       STATS STRIP
+    ───────────────────────────────────────── */
+    .stats-strip{
+      position:relative;z-index:1;
+      border-top:1px solid var(--border-xs);
+      border-bottom:1px solid var(--border-xs);
+      background:var(--surface-1);
+    }
+    .stats-inner{
+      max-width:1240px;margin:0 auto;
+      display:grid;grid-template-columns:repeat(4,1fr);
+    }
+    .stat-item{
+      padding:32px 24px;
+      border-right:1px solid var(--border-xs);
+      text-align:center;
+    }
+    .stat-item:last-child{border-right:none;}
+    .stat-num{
+      font-family:var(--font-head);font-size:clamp(28px,3vw,40px);
+      font-weight:800;letter-spacing:-.03em;color:var(--text-1);
+      display:block;margin-bottom:4px;
+    }
+    .stat-num span{color:var(--gold);}
+    .stat-label{font-size:12px;color:var(--text-3);font-family:var(--font-mono);}
+
+    /* ─────────────────────────────────────────
+       PRICING SECTION
+    ───────────────────────────────────────── */
+    .pricing{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:80px 48px 100px;}
+    .pricing-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:48px;align-items:start;}
+    .plan-card{
+      background:var(--surface-1);
+      border:1px solid var(--border-xs);
+      border-radius:var(--r-xl);
+      padding:28px;
+      position:relative;overflow:hidden;
+      transition:border-color .3s,transform .3s var(--ease-out);
+    }
+    .plan-card:hover{transform:translateY(-3px);}
+    .plan-card.popular{
+      border-color:rgba(232,172,46,.35);
+      background:linear-gradient(160deg,rgba(232,172,46,.04) 0%,var(--surface-1) 60%);
+    }
+    .plan-badge{
+      display:inline-flex;align-items:center;gap:5px;
+      font-size:9.5px;font-family:var(--font-mono);font-weight:700;
+      background:var(--gold);color:#0a0a10;
+      border-radius:var(--r-pill);padding:3px 10px;
+      margin-bottom:12px;letter-spacing:.04em;text-transform:uppercase;
+    }
+    .plan-name{font-family:var(--font-head);font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:4px;}
+    .plan-desc{font-size:12.5px;color:var(--text-3);margin-bottom:20px;line-height:1.6;}
+    .plan-price{display:flex;align-items:flex-end;gap:4px;margin-bottom:20px;}
+    .plan-amount{font-family:var(--font-head);font-size:clamp(32px,3.5vw,44px);font-weight:800;color:var(--text-1);letter-spacing:-.03em;line-height:1;}
+    .plan-period{font-size:12px;color:var(--text-3);font-family:var(--font-mono);padding-bottom:6px;}
+    .plan-cta{
+      width:100%;padding:11px;border-radius:var(--r-md);
+      font-family:var(--font-head);font-size:13.5px;font-weight:700;
+      cursor:pointer;transition:all .2s;text-decoration:none;
+      display:block;text-align:center;margin-bottom:20px;
+    }
+    .plan-cta.cta-outline{
+      background:transparent;color:var(--text-2);
+      border:1px solid var(--border-sm);
+    }
+    .plan-cta.cta-outline:hover{border-color:var(--border-md);color:var(--text-1);}
+    .plan-cta.cta-gold{
+      background:var(--gold);color:#0a0a10;border:none;
+      box-shadow:0 4px 20px rgba(232,172,46,.3);
+    }
+    .plan-cta.cta-gold:hover{opacity:.88;transform:translateY(-1px);}
+    .plan-divider{height:1px;background:var(--border-xs);margin-bottom:20px;}
+    .plan-features{display:flex;flex-direction:column;gap:9px;}
+    .plan-feat{display:flex;align-items:flex-start;gap:9px;font-size:13px;color:var(--text-2);line-height:1.5;}
+    .plan-check{color:var(--teal);font-size:11px;flex-shrink:0;margin-top:2px;}
+    .plan-x{color:var(--text-4);font-size:11px;flex-shrink:0;margin-top:2px;}
+    .plan-feat.dim{color:var(--text-4);}
+
+    /* ─────────────────────────────────────────
+       CTA BANNER
+    ───────────────────────────────────────── */
+    .cta-banner{
+      position:relative;z-index:1;
+      margin:0 48px 100px;
+      border-radius:var(--r-xl);overflow:hidden;
+      background:var(--surface-1);
+      border:1px solid var(--border-sm);
+    }
+    .cta-banner-inner{
+      position:relative;z-index:1;
+      padding:64px 72px;
+      display:flex;align-items:center;justify-content:space-between;
+      gap:48px;
+    }
+    .cta-banner-bg{
+      position:absolute;inset:0;
+      background:
+        radial-gradient(ellipse at 0% 50%,rgba(232,172,46,.08) 0%,transparent 60%),
+        radial-gradient(ellipse at 100% 50%,rgba(139,124,248,.07) 0%,transparent 60%);
+      pointer-events:none;
+    }
+    .cta-banner-left{flex:1;}
+    .cta-banner-eyebrow{
+      font-size:10px;font-family:var(--font-mono);
+      color:var(--gold);letter-spacing:.12em;text-transform:uppercase;
+      margin-bottom:12px;display:flex;align-items:center;gap:8px;
+    }
+    .cta-banner-eyebrow::before{content:'';width:20px;height:1px;background:var(--gold);opacity:.5;}
+    .cta-banner-title{
+      font-family:var(--font-head);
+      font-size:clamp(24px,2.6vw,36px);
+      font-weight:800;letter-spacing:-.025em;
+      color:var(--text-1);line-height:1.15;
+      margin-bottom:10px;
+    }
+    .cta-banner-sub{font-size:14px;color:var(--text-2);line-height:1.7;max-width:440px;}
+    .cta-banner-right{display:flex;flex-direction:column;gap:10px;flex-shrink:0;}
+    .btn-banner-primary{
+      padding:13px 32px;border-radius:var(--r-md);border:none;
+      background:var(--gold);color:#0a0a10;
+      font-family:var(--font-head);font-size:14px;font-weight:700;
+      cursor:pointer;white-space:nowrap;
+      box-shadow:0 4px 24px rgba(232,172,46,.35);
+      transition:opacity .2s,transform .2s var(--ease-out);
+      text-decoration:none;display:block;text-align:center;
+    }
+    .btn-banner-primary:hover{opacity:.88;transform:translateY(-2px);}
+    .btn-banner-ghost{
+      padding:13px 32px;border-radius:var(--r-md);
+      border:1px solid var(--border-sm);background:transparent;
+      color:var(--text-2);font-family:var(--font-body);font-size:13.5px;
+      cursor:pointer;white-space:nowrap;
+      transition:border-color .2s,color .2s;
+      text-decoration:none;display:block;text-align:center;
+    }
+    .btn-banner-ghost:hover{border-color:var(--border-md);color:var(--text-1);}
+    .cta-banner-note{text-align:center;font-size:10.5px;color:var(--text-4);font-family:var(--font-mono);}
+
+    /* ─────────────────────────────────────────
+       TESTIMONIALS
+    ───────────────────────────────────────── */
+    .testimonials{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:0 48px 80px;}
+    .testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:48px;}
+    .testi-card{
+      background:var(--surface-1);border:1px solid var(--border-xs);
+      border-radius:var(--r-xl);padding:24px;
+      transition:border-color .25s;
+    }
+    .testi-card:hover{border-color:var(--border-sm);}
+    .testi-stars{color:var(--gold);font-size:11px;letter-spacing:1px;margin-bottom:12px;}
+    .testi-text{font-size:13.5px;color:var(--text-2);line-height:1.72;margin-bottom:16px;font-style:italic;}
+    .testi-text::before{content:'"';color:var(--gold);font-size:20px;line-height:0;vertical-align:-6px;margin-right:2px;font-style:normal;}
+    .testi-author{display:flex;align-items:center;gap:10px;}
+    .testi-av{
+      width:32px;height:32px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:13px;flex-shrink:0;
+    }
+    .testi-name{font-size:12.5px;font-weight:600;color:var(--text-1);}
+    .testi-role{font-size:11px;color:var(--text-4);font-family:var(--font-mono);}
+
+    /* ─────────────────────────────────────────
+       FOOTER
+    ───────────────────────────────────────── */
+    footer{
+      position:relative;z-index:1;
+      border-top:1px solid var(--border-xs);
+      padding:48px 48px 32px;
+      max-width:1240px;margin:0 auto;
+    }
+    .footer-top{display:grid;grid-template-columns:1.8fr 1fr 1fr 1fr;gap:40px;margin-bottom:40px;}
+    .footer-brand{}
+    .footer-logo{display:flex;align-items:center;gap:8px;margin-bottom:12px;text-decoration:none;}
+    .footer-logo-name{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text-1);}
+    .footer-logo-name span{color:var(--gold);}
+    .footer-tagline{font-size:12.5px;color:var(--text-3);line-height:1.65;max-width:220px;}
+    .footer-col-title{font-size:11px;font-family:var(--font-mono);color:var(--text-4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;}
+    .footer-links{display:flex;flex-direction:column;gap:8px;}
+    .footer-link{font-size:13px;color:var(--text-3);text-decoration:none;transition:color .18s;}
+    .footer-link:hover{color:var(--text-1);}
+    .footer-bottom{
+      display:flex;align-items:center;justify-content:space-between;
+      border-top:1px solid var(--border-xs);padding-top:24px;
+      font-size:11.5px;color:var(--text-4);font-family:var(--font-mono);
+    }
+    .footer-legal{display:flex;align-items:center;gap:16px;}
+    .footer-legal a{color:var(--text-4);text-decoration:none;transition:color .18s;}
+    .footer-legal a:hover{color:var(--text-3);}
+
+    /* ── About Us ── */
+    .about{position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:0 48px 100px;}
+    .about-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;margin-top:48px;}
+    .about-left{}
+    .about-mission{
+      font-family:var(--font-head);
+      font-size:clamp(20px,2.2vw,28px);
+      font-weight:700;color:var(--text-1);
+      line-height:1.3;letter-spacing:-.02em;
+      margin-bottom:18px;
+    }
+    .about-mission span{color:var(--gold);}
+    .about-body{font-size:14px;color:var(--text-2);line-height:1.82;margin-bottom:14px;}
+    .about-values{display:flex;flex-direction:column;gap:12px;margin-top:24px;}
+    .about-value{display:flex;align-items:flex-start;gap:12px;}
+    .about-value-icon{
+      width:32px;height:32px;border-radius:var(--r-sm);flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;font-size:14px;
+      background:var(--gold-dim);border:1px solid rgba(232,172,46,.16);margin-top:1px;
+    }
+    .about-value-text{font-size:13px;color:var(--text-2);line-height:1.65;}
+    .about-value-text strong{display:block;color:var(--text-1);font-weight:600;margin-bottom:2px;}
+    .about-right{display:flex;flex-direction:column;gap:14px;}
+    .about-stat-card{
+      background:var(--surface-1);border:1px solid var(--border-xs);
+      border-radius:var(--r-xl);padding:24px;
+      transition:border-color .25s;
+    }
+    .about-stat-card:hover{border-color:var(--border-sm);}
+    .about-stat-num{
+      font-family:var(--font-head);font-size:36px;font-weight:800;
+      color:var(--text-1);letter-spacing:-.03em;
+      margin-bottom:4px;
+    }
+    .about-stat-num span{color:var(--gold);}
+    .about-stat-label{font-size:13px;color:var(--text-2);}
+    .about-built{
+      background:var(--surface-1);border:1px solid var(--border-xs);
+      border-radius:var(--r-xl);padding:24px;
+    }
+    .about-built-title{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text-1);margin-bottom:8px;}
+    .about-built-text{font-size:13px;color:var(--text-2);line-height:1.7;}
+    @media(max-width:960px){
+      .about-grid{grid-template-columns:1fr;gap:36px;}
+      .about{padding:0 24px 60px;}
+      .nav-sep{display:none;}
+    }
+    @media(max-width:960px){
+      .features-grid{grid-template-columns:1fr 1fr;}
+      .feat-card.wide{grid-column:span 1;}
+      .stats-inner{grid-template-columns:repeat(2,1fr);}
+      .stat-item:nth-child(2){border-right:none;}
+      .stat-item:nth-child(3){border-right:1px solid var(--border-xs);}
+      .pricing-grid{grid-template-columns:1fr;}
+      .cta-banner-inner{flex-direction:column;padding:40px 32px;text-align:center;}
+      .cta-banner-sub{max-width:100%;}
+      .cta-banner-eyebrow{justify-content:center;}
+      .testi-grid{grid-template-columns:1fr;}
+      .footer-top{grid-template-columns:1fr 1fr;gap:28px;}
+      .footer-bottom{flex-direction:column;gap:12px;text-align:center;}
+      .features{padding:60px 24px 80px;}
+      .pricing{padding:60px 24px 80px;}
+      .testimonials{padding:0 24px 60px;}
+      .cta-banner{margin:0 24px 60px;}
+      footer{padding:40px 24px 24px;}
+    }
+    @media(max-width:480px){
+      .features-grid{grid-template-columns:1fr;}
+      .stats-inner{grid-template-columns:1fr 1fr;}
+      .stat-item:nth-child(3){border-right:none;}
+      .footer-top{grid-template-columns:1fr;}
+      .cta-banner-right{width:100%;}
+      .btn-banner-primary,.btn-banner-ghost{width:100%;}
+    }
   </style>
 </head>
 <body>
@@ -897,7 +1233,11 @@
     <span class="logo-name">Chunks <span>AI</span></span>
   </a>
   <div class="nav-links">
-
+    <div class="nav-sep"></div>
+    <a href="#features" class="nav-link">Features</a>
+    <a href="#how" class="nav-link">How it works</a>
+    <a href="#pricing" class="nav-link">Pricing</a>
+    <a href="#about" class="nav-link">About</a>
   </div>
   <div class="nav-actions">
     <a href="/login" class="btn-ghost">Sign in</a>
@@ -1292,8 +1632,96 @@
 
 </section>
 
+
+<!-- ── STATS STRIP ─────────────────────────────────────────────── -->
+<div class="stats-strip">
+  <div class="stats-inner">
+    <div class="stat-item">
+      <span class="stat-num">1,<span>200</span>+</span>
+      <span class="stat-label">Active students</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">4.<span>9</span></span>
+      <span class="stat-label">Average rating</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num">50<span>K</span>+</span>
+      <span class="stat-label">Flashcards generated</span>
+    </div>
+    <div class="stat-item">
+      <span class="stat-num"><span>30</span>s</span>
+      <span class="stat-label">To start learning</span>
+    </div>
+  </div>
+</div>
+
+<!-- ── FEATURES ───────────────────────────────────────────────────── -->
+<section class="features" id="features">
+  <div class="s-eyebrow">
+    <div class="ey-line"></div>
+    <span class="ey-text">Everything you need</span>
+    <div class="ey-line"></div>
+  </div>
+  <h2 class="s-title">One app. Every study tool.</h2>
+  <p class="s-sub">Stop switching between apps. Chunks has everything built in — tuned for how students actually learn.</p>
+
+  <div class="features-grid">
+
+    <div class="feat-card fc-purple">
+      <div class="feat-icon fi-purple">👁️</div>
+      <div class="feat-title">Visual Tutor</div>
+      <div class="feat-desc">Ask any concept and watch it come to life as an animated diagram. See the structure, not just the words — in under 3 minutes.</div>
+      <div class="feat-tag ft-purple">✦ Animated diagrams</div>
+    </div>
+
+    <div class="feat-card fc-gold">
+      <div class="feat-icon fi-gold">⚡</div>
+      <div class="feat-title">Smart Flashcards</div>
+      <div class="feat-desc">AI generates flashcards from your textbook chapters instantly. Spaced repetition keeps the right cards appearing at the right time.</div>
+      <div class="feat-tag ft-gold">✦ Spaced repetition</div>
+    </div>
+
+    <div class="feat-card fc-teal">
+      <div class="feat-icon fi-teal">📅</div>
+      <div class="feat-title">AI Study Plan</div>
+      <div class="feat-desc">Set your exam date and Chunks builds a critical path — unlocking concepts in the right order based on what you've mastered.</div>
+      <div class="feat-tag ft-teal">✦ Critical path learning</div>
+    </div>
+
+    <div class="feat-card fc-red wide">
+      <div class="feat-icon fi-red">🎯</div>
+      <div class="feat-title">Exam Prep & Practice Quizzes</div>
+      <div class="feat-desc">Adaptive practice exams that zero in on your weak spots. Every question is generated from your exact study material — not generic question banks. Get a real score forecast before your actual exam so there are no surprises.</div>
+      <div class="feat-tag ft-red">✦ Adaptive difficulty</div>
+    </div>
+
+    <div class="feat-card fc-gold">
+      <div class="feat-icon fi-gold">📚</div>
+      <div class="feat-title">Textbook Workspace</div>
+      <div class="feat-desc">Upload your PDF textbook and chat with it directly. Ask questions, get summaries, highlight key concepts — all in one place.</div>
+      <div class="feat-tag ft-gold">✦ PDF-aware AI</div>
+    </div>
+
+    <div class="feat-card fc-purple wide">
+      <div class="feat-icon fi-purple">🔬</div>
+      <div class="feat-title">Research Assistant</div>
+      <div class="feat-desc">Search through academic papers and get cited summaries instantly. Perfect for literature reviews, understanding background theory, or going deeper on a topic your textbook barely covers. Built for science, medical, and engineering students.</div>
+      <div class="feat-tag ft-purple">✦ Cited sources</div>
+    </div>
+
+    <div class="feat-card fc-teal">
+      <div class="feat-icon fi-teal">🧠</div>
+      <div class="feat-title">Ask Anything Live</div>
+      <div class="feat-desc">Stuck mid-lesson? Ask Chunks anything in real time. It remembers your context and gives you a precise answer — not a search result.</div>
+      <div class="feat-tag ft-teal">✦ Context-aware</div>
+    </div>
+
+  </div>
+</section>
+
+
 <!-- HOW IT WORKS -->
-<section class="how">
+<section class="how" id="how">
   <div class="s-eyebrow">
     <div class="ey-line"></div>
     <span class="ey-text">How it works</span>
@@ -1322,6 +1750,277 @@
     </div>
   </div>
 </section>
+
+
+<!-- ── HOW IT WORKS is already in the original file — kept as-is ── -->
+
+<!-- ── TESTIMONIALS ─────────────────────────────────────────────── -->
+<section class="testimonials" id="testimonials">
+  <div class="s-eyebrow">
+    <div class="ey-line"></div>
+    <span class="ey-text">What students say</span>
+    <div class="ey-line"></div>
+  </div>
+  <h2 class="s-title">Real students. Real results.</h2>
+  <p class="s-sub">From nursing to engineering — Chunks is how students actually pass their exams.</p>
+
+  <div class="testi-grid">
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">The Visual Tutor explained the Krebs cycle in 3 minutes better than my professor did in an entire lecture. I actually understood it for the first time.</p>
+      <div class="testi-author">
+        <div class="testi-av" style="background:linear-gradient(135deg,#e8ac2e,#f59e0b)">👩</div>
+        <div>
+          <div class="testi-name">Maria S.</div>
+          <div class="testi-role">Pre-med · 2nd year</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">I uploaded my entire Biochem textbook and the AI study plan knew exactly what to focus on. Went from 62% to 89% on my midterm in two weeks.</p>
+      <div class="testi-author">
+        <div class="testi-av" style="background:linear-gradient(135deg,#8b7cf8,#6d57d8)">🧑</div>
+        <div>
+          <div class="testi-name">James R.</div>
+          <div class="testi-role">Nursing · 3rd year</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">The flashcards are insanely good. It pulls exactly the right concepts from my chapter and generates questions I'd actually see on an exam. Saves me hours.</p>
+      <div class="testi-author">
+        <div class="testi-av" style="background:linear-gradient(135deg,#2dd4bf,#14b8a6)">👨</div>
+        <div>
+          <div class="testi-name">David K.</div>
+          <div class="testi-role">Engineering · 1st year</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRICING ──────────────────────────────────────────────────── -->
+<section class="pricing" id="pricing">
+  <div class="s-eyebrow">
+    <div class="ey-line"></div>
+    <span class="ey-text">Simple pricing</span>
+    <div class="ey-line"></div>
+  </div>
+  <h2 class="s-title">Start free. Upgrade when ready.</h2>
+  <p class="s-sub">No credit card required. Cancel anytime. Chunks grows with you.</p>
+
+  <div class="pricing-grid">
+
+    <!-- Free -->
+    <div class="plan-card">
+      <div class="plan-name">Free</div>
+      <div class="plan-desc">Everything you need to start studying smarter today.</div>
+      <div class="plan-price">
+        <span class="plan-amount">$0</span>
+        <span class="plan-period">/ month</span>
+      </div>
+      <a href="/login" class="plan-cta cta-outline">Get started free</a>
+      <div class="plan-divider"></div>
+      <div class="plan-features">
+        <div class="plan-feat"><span class="plan-check">✓</span> Visual Tutor — 10 lessons/month</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> AI Flashcards — 50 cards/month</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> Study Plan — 1 active plan</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> Workspace — 1 textbook</div>
+        <div class="plan-feat dim"><span class="plan-x">✕</span> Unlimited lessons</div>
+        <div class="plan-feat dim"><span class="plan-x">✕</span> Exam Prep</div>
+        <div class="plan-feat dim"><span class="plan-x">✕</span> Research Assistant</div>
+      </div>
+    </div>
+
+    <!-- Pro — Popular -->
+    <div class="plan-card popular">
+      <div class="plan-badge">✦ Most Popular</div>
+      <div class="plan-name">Pro</div>
+      <div class="plan-desc">Unlimited access to every tool. For students serious about their grades.</div>
+      <div class="plan-price">
+        <span class="plan-amount">$12</span>
+        <span class="plan-period">/ month</span>
+      </div>
+      <a href="/login" class="plan-cta cta-gold">Start Pro free trial</a>
+      <div class="plan-divider"></div>
+      <div class="plan-features">
+        <div class="plan-feat"><span class="plan-check">✓</span> Unlimited Visual Tutor lessons</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> Unlimited AI Flashcards</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> Unlimited Study Plans</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> Unlimited Workspaces</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> Full Exam Prep suite</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> Research Assistant</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> Daily study reminders</div>
+      </div>
+    </div>
+
+    <!-- Team -->
+    <div class="plan-card">
+      <div class="plan-name">Team</div>
+      <div class="plan-desc">For study groups, tutoring centers, and institutions.</div>
+      <div class="plan-price">
+        <span class="plan-amount">$8</span>
+        <span class="plan-period">/ seat / month</span>
+      </div>
+      <a href="mailto:hello@chunks.online" class="plan-cta cta-outline">Contact us</a>
+      <div class="plan-divider"></div>
+      <div class="plan-features">
+        <div class="plan-feat"><span class="plan-check">✓</span> Everything in Pro</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> Team dashboard</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> Shared study plans</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> Admin controls</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> Priority support</div>
+        <div class="plan-feat"><span class="plan-check">✓</span> Custom onboarding</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</section>
+
+<!-- ── ABOUT US ─────────────────────────────────────────────────── -->
+<section class="about" id="about">
+  <div class="s-eyebrow">
+    <div class="ey-line"></div>
+    <span class="ey-text">About Chunks AI</span>
+    <div class="ey-line"></div>
+  </div>
+  <h2 class="s-title">Built by students,<br>for students.</h2>
+  <p class="s-sub">We got tired of studying the wrong way. So we built the tool we wished we had.</p>
+
+  <div class="about-grid">
+    <div class="about-left">
+      <p class="about-mission">We believe every student deserves to <span>actually understand</span> what they're studying — not just memorize it.</p>
+      <p class="about-body">Chunks AI was born out of frustration with traditional studying. Re-reading notes, highlighting textbooks, cramming the night before — none of it works. We built Chunks to replace all of that with one intelligent system that adapts to how you actually learn.</p>
+      <p class="about-body">Our AI doesn't just generate content — it builds a personalized path from confusion to mastery, using visual explanations, spaced repetition, and adaptive exams tuned to your exact curriculum.</p>
+
+      <div class="about-values">
+        <div class="about-value">
+          <div class="about-value-icon">👁️</div>
+          <div class="about-value-text">
+            <strong>Understanding over memorization</strong>
+            We build tools that explain the why, not just the what. Visual diagrams, analogies, and step-by-step breakdowns — not walls of text.
+          </div>
+        </div>
+        <div class="about-value">
+          <div class="about-value-icon">⚡</div>
+          <div class="about-value-text">
+            <strong>Efficiency above all</strong>
+            Every feature is designed to get you to mastery faster — so you can spend less time studying and more time living.
+          </div>
+        </div>
+        <div class="about-value">
+          <div class="about-value-icon">🎯</div>
+          <div class="about-value-text">
+            <strong>Built for real exams</strong>
+            We don't do generic. Every flashcard, quiz, and study plan is generated from your actual textbook content.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="about-right">
+      <div class="about-stat-card">
+        <div class="about-stat-num">1,<span>200</span>+</div>
+        <div class="about-stat-label">Students studying smarter with Chunks AI across nursing, pre-med, engineering, and more.</div>
+      </div>
+      <div class="about-stat-card">
+        <div class="about-stat-num"><span>50</span>K+</div>
+        <div class="about-stat-label">Flashcards generated from real textbook content — not generic question banks.</div>
+      </div>
+      <div class="about-built">
+        <div class="about-built-title">🌏 Based in the Philippines</div>
+        <div class="about-built-text">Chunks AI is built and maintained by a small, focused team that understands what it means to study hard for high-stakes exams. We ship fast, listen to students, and care deeply about outcomes.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA BANNER ────────────────────────────────────────────────── -->
+<div style="max-width:1240px;margin:0 auto;padding:0 48px 100px;position:relative;z-index:1;">
+<div class="cta-banner">
+  <div class="cta-banner-bg"></div>
+  <div class="cta-banner-inner">
+    <div class="cta-banner-left">
+      <div class="cta-banner-eyebrow">Start today — it's free</div>
+      <h2 class="cta-banner-title">Your next exam is<br>closer than you think.</h2>
+      <p class="cta-banner-sub">Join 1,200+ students who stopped re-reading and started actually understanding. It takes 30 seconds to get started.</p>
+    </div>
+    <div class="cta-banner-right">
+      <a href="/login" class="btn-banner-primary">Start learning free →</a>
+      <a href="/login" class="btn-banner-ghost">Sign in</a>
+      <div class="cta-banner-note">No credit card · Free forever plan</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FOOTER ────────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-top">
+    <div class="footer-brand">
+      <a href="/" class="footer-logo">
+        <svg width="22" height="22" viewBox="0 0 36 36" fill="none">
+          <defs>
+            <linearGradient id="flg1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
+          </defs>
+          <ellipse cx="18" cy="18" rx="14" ry="5" fill="none" stroke="url(#flg1)" stroke-width="2" opacity=".9"/>
+          <ellipse cx="18" cy="18" rx="14" ry="5" fill="none" stroke="#8b7cf8" stroke-width="2" transform="rotate(60 18 18)" opacity=".75"/>
+          <ellipse cx="18" cy="18" rx="14" ry="5" fill="none" stroke="#e8ac2e" stroke-width="2" transform="rotate(120 18 18)" opacity=".65"/>
+          <circle cx="18" cy="18" r="2.5" fill="#e8ac2e"/>
+        </svg>
+        <span class="footer-logo-name">Chunks <span>AI</span></span>
+      </a>
+      <p class="footer-tagline">AI-powered study tools for students who want to actually understand what they're learning.</p>
+    </div>
+
+    <div>
+      <div class="footer-col-title">Product</div>
+      <div class="footer-links">
+        <a href="#features" class="footer-link">Visual Tutor</a>
+        <a href="#features" class="footer-link">Flashcards</a>
+        <a href="#features" class="footer-link">Study Plans</a>
+        <a href="#features" class="footer-link">Exam Prep</a>
+        <a href="#features" class="footer-link">Research</a>
+      </div>
+    </div>
+
+    <div>
+      <div class="footer-col-title">Company</div>
+      <div class="footer-links">
+        <a href="/about" target="_blank" class="footer-link">About Us ↗</a>
+        <a href="/privacy" class="footer-link">Privacy Policy</a>
+        <a href="/terms" class="footer-link">Terms of Service</a>
+        <a href="mailto:hello@chunks.online" class="footer-link">Contact</a>
+      </div>
+    </div>
+
+    <div>
+      <div class="footer-col-title">Students</div>
+      <div class="footer-links">
+        <a href="/login" class="footer-link">🩺 Nursing</a>
+        <a href="/login" class="footer-link">⚗️ Pre-med</a>
+        <a href="/login" class="footer-link">🔬 Biology</a>
+        <a href="/login" class="footer-link">⚙️ Engineering</a>
+        <a href="/login" class="footer-link">🧪 Chemistry</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    <span>© 2026 Chunks AI. All rights reserved.</span>
+    <div class="footer-legal">
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="mailto:hello@chunks.online">hello@chunks.online</a>
+    </div>
+  </div>
+</footer>
+
 
 <script>
 const delay = ms => new Promise(r => setTimeout(r, ms));
@@ -1518,7 +2217,21 @@ window.addEventListener('load',()=>{
 </script>
 
 <script>
-/* ── Google OAuth Popup ─────────────────────────────────────────────────── */
+/* ── Scroll spy — highlight active nav link ── */
+(function(){
+  const links = document.querySelectorAll('.nav-link[href^="#"]');
+  const sections = [...links].map(l => document.querySelector(l.getAttribute('href'))).filter(Boolean);
+  function onScroll(){
+    const y = window.scrollY + 80;
+    let active = null;
+    sections.forEach((s,i) => { if(s.offsetTop <= y) active = i; });
+    links.forEach((l,i) => l.classList.toggle('active', i === active));
+  }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+})();
+
+/* ── Google OAuth Popup ───────────────────────────────────────────── */
 var SUPABASE_OAUTH = 'https://wiwbfspsrgayvquzfryl.supabase.co/auth/v1/authorize'
   + '?provider=google&redirect_to=https://chunks.online/login';
 
