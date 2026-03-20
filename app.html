@@ -267,7 +267,15 @@ function _saveRecent() {
 function _saveSession(id, historyArr) {
   // Always save — history is only deleted when user explicitly clears it
   const html = document.getElementById('home-chat-history')?.innerHTML || '';
-  localStorage.setItem('chunks_session_' + id, JSON.stringify({ html, history: historyArr }));
+  const updatedAt = new Date().toISOString();
+  localStorage.setItem('chunks_session_' + id, JSON.stringify({ id, html, history: historyArr, updatedAt }));
+  localStorage.setItem('chunks_active_home_session', id);
+  // Phase 3: full-session sync to Supabase (covers bulk saves and imports)
+  window.ChunksDB?.chat?.saveFull?.({
+    id,
+    messages: historyArr,
+    updatedAt,
+  });
 }
 
 function _loadSession(id) {
@@ -282,6 +290,8 @@ function _saveWsSession(bookId, historyArr) {
   // Always save — history is only deleted when user explicitly clears it
   const html = document.getElementById('ws-messages')?.innerHTML || '';
   localStorage.setItem('chunks_ws_session_' + bookId, JSON.stringify({ html, history: historyArr }));
+  // Phase 3: sync active book to ws_state (page/zoom synced separately via wsGoToPage)
+  window.ChunksDB?.ws?.savePosition?.(bookId, {});
   // Track which book + recent item was last active
   localStorage.setItem('chunks_active_ws_book', bookId);
 }
@@ -583,6 +593,8 @@ function _clickRecent(item) {
         if (msgs) msgs.innerHTML = typeof sanitize === 'function' ? sanitize(wsSession.html) : wsSession.html;
         _wsChatHistory = wsSession.history || [];
         localStorage.setItem('chunks_active_ws_book', item.bookId);
+        // Phase 3: record active book in ws_state
+        window.ChunksDB?.ws?.savePosition?.(item.bookId, {});
         setTimeout(() => {
           const m = document.getElementById('ws-messages');
           if (m) m.scrollTop = m.scrollHeight;
