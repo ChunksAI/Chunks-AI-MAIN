@@ -842,49 +842,60 @@ mountHomeScreen();
   }
 
   // ── Restore home chat ──
-  const savedId = localStorage.getItem('chunks_active_home_session');
-  if (!savedId || (activeScreen && activeScreen !== 'home')) return;
+  if (activeScreen && activeScreen !== 'home') return;
 
-  // Phase 3: if logged in, try to restore from Supabase first so sessions
-  // from other devices are available. Falls back to localStorage automatically.
-  if (window.ChunksDB?.isLoggedIn?.()) {
-    window.ChunksDB.chat.getSessions(1).then(({ data }) => {
-      if (data?.[0]?.messages?.length) {
-        const remote = data[0];
-        // Only use remote if it has content localStorage doesn't
-        const localRaw = localStorage.getItem('chunks_session_' + (remote.id || savedId));
-        const localSession = localRaw ? JSON.parse(localRaw) : null;
-        const remoteNewer = !localSession ||
-          new Date(remote.updated_at) > new Date(localSession.updatedAt || 0);
-        if (remoteNewer && !localRaw) {
-          // Store remote session locally so the existing restore path finds it
-          localStorage.setItem('chunks_active_home_session', remote.id);
-          localStorage.setItem('chunks_session_' + remote.id, JSON.stringify({
-            id: remote.id, html: '', history: remote.messages, updatedAt: remote.updated_at
-          }));
-        }
-      }
-    }).catch(() => {});
+  // Helper that actually mounts the session into the DOM
+  function _mountSession(session, sessionId) {
+    if (!session?.history?.length && !session?.html) return;
+    const landing    = document.getElementById('home-landing');
+    const hero       = document.querySelector('.home-hero');
+    const bar        = document.getElementById('home-input-bar');
+    const scrollArea = document.getElementById('home-scroll-area');
+    const chatHist   = document.getElementById('home-chat-history');
+    if (landing)    landing.style.display = 'none';
+    if (hero)       hero.style.display = 'none';
+    if (bar)        bar.style.display = 'flex';
+    if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
+    // Prefer locally-rendered HTML; fall back to re-building from history
+    if (session.html && chatHist) {
+      chatHist.innerHTML = window.sanitize?.(session.html) ?? session.html;
+    }
+    homeHistory    = session.history || [];
+    _homeSessionId = sessionId;
+    window._setActiveRecent?.(sessionId);
+    setTimeout(() => homeScrollBottom(true), 80);
   }
 
+  // Phase 4 fix: if logged in, ALWAYS pull from Supabase first —
+  // even on a fresh device where localStorage has nothing.
+  // chat.pullAndApply() (called by SyncManager.loginSync) writes remote
+  // sessions into localStorage, so we just need to wait for it then read.
+  if (window.ChunksDB?.isLoggedIn?.()) {
+    // Give pullAll up to 4s to finish writing to localStorage, then restore
+    const _waitForSync = async () => {
+      // Check if pullAll has already run (SyncManager sets this flag)
+      let waited = 0;
+      while (!window._syncManagerDone && waited < 4000) {
+        await new Promise(r => setTimeout(r, 200));
+        waited += 200;
+      }
+      // Now read from localStorage — pullAndApply will have populated it
+      const activeId = localStorage.getItem('chunks_active_home_session');
+      if (!activeId) return; // no sessions at all
+      let s;
+      try { s = JSON.parse(localStorage.getItem('chunks_session_' + activeId)); } catch (_) {}
+      if (s) _mountSession(s, activeId);
+    };
+    _waitForSync().catch(() => {});
+    return; // async path takes over from here
+  }
+
+  // Not logged in — restore from localStorage directly (existing behaviour)
+  const savedId = localStorage.getItem('chunks_active_home_session');
+  if (!savedId) return;
   let session;
   try { session = JSON.parse(localStorage.getItem('chunks_session_' + savedId)); } catch (e) {}
-  if (!session?.html) return;
-
-  const landing    = document.getElementById('home-landing');
-  const hero       = document.querySelector('.home-hero');
-  const bar        = document.getElementById('home-input-bar');
-  const scrollArea = document.getElementById('home-scroll-area');
-  const chatHist   = document.getElementById('home-chat-history');
-  if (landing)    landing.style.display = 'none';
-  if (hero)       hero.style.display = 'none';
-  if (bar)        bar.style.display = 'flex';
-  if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
-  if (chatHist)   chatHist.innerHTML = window.sanitize?.(session.html) ?? session.html;
-  homeHistory    = session.history || [];
-  _homeSessionId = savedId;
-  window._setActiveRecent?.(savedId);
-  setTimeout(() => homeScrollBottom(true), 80);
+  if (session) _mountSession(session, savedId);
 })();
 
 // ── Wire input listeners (after DOM is interactive) ───────────────────────────
