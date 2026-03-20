@@ -234,11 +234,14 @@ const SyncManager = {
    */
   async nudge() {
     if (!ChunksDB.isLoggedIn()) return;
+    // Set the cooldown timestamp FIRST — before any early-return guards.
+    // If nudge() returns early because _inFlight=true, we still want the
+    // cooldown stamped so the next trigger (online/visibilitychange) doesn't
+    // fire a second full sync the instant _inFlight becomes false.
+    const now = Date.now();
+    if (_status === 'success' && (now - (_lastNudgeTime || 0)) < 60_000) return;
+    _lastNudgeTime = now;
     if (_inFlight) return;
-    // pullAll has its own 60s cooldown but check here too so we don't start
-    // _runSync (which sets _inFlight and could disrupt in-progress UI) needlessly.
-    if (_status === 'success' && (Date.now() - (_lastNudgeTime || 0)) < 60_000) return;
-    _lastNudgeTime = Date.now();
     await _runSync({ silent: true });
     _applyPostSyncUI();
   },
