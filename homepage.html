@@ -2389,6 +2389,31 @@ window.addEventListener('load',()=>{
 </script>
 
 <script>
+/* ── Smooth scroll without hash — intercept ALL #section anchor clicks ── */
+(function(){
+  const NAV_H = 56; // navbar height offset
+
+  function smoothScrollTo(id) {
+    const target = document.getElementById(id);
+    if (!target) return;
+    const top = target.getBoundingClientRect().top + window.scrollY - NAV_H;
+    window.scrollTo({ top: top, behavior: 'smooth' });
+    // Remove hash from URL without triggering a jump
+    history.replaceState(null, '', window.location.pathname);
+  }
+
+  document.addEventListener('click', function(e) {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a) return;
+    const id = a.getAttribute('href').replace('#', '');
+    if (!id || id === '') return; // bare # links (social icons etc)
+    const target = document.getElementById(id);
+    if (!target) return;
+    e.preventDefault();
+    smoothScrollTo(id);
+  });
+})();
+
 /* ── Scroll spy — highlight active nav link ── */
 (function(){
   // Build a map: sectionId -> navLink
