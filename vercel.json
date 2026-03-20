@@ -6,11 +6,14 @@
     { "source": "/admin.html",   "destination": "/admin",   "permanent": true }
   ],
   "rewrites": [
-    { "source": "/login",   "destination": "/login.html"   },
-    { "source": "/privacy", "destination": "/privacy.html" },
-    { "source": "/terms",   "destination": "/terms.html"   },
-    { "source": "/admin",   "destination": "/admin.html"   },
-    { "source": "/(.*)",    "destination": "/index.html"   }
+    { "source": "/",        "destination": "/homepage.html" },
+    { "source": "/app",     "destination": "/index.html"    },
+    { "source": "/login",   "destination": "/login.html"    },
+    { "source": "/privacy", "destination": "/privacy.html"  },
+    { "source": "/terms",   "destination": "/terms.html"    },
+    { "source": "/admin",   "destination": "/admin.html"    },
+    { "source": "/app/(.*)", "destination": "/index.html"   },
+    { "source": "/(.*)",    "destination": "/index.html"    }
   ],
   "headers": [
     {
