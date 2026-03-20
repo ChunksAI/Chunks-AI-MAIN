@@ -307,6 +307,14 @@ window._applyUserProfile = function _applyUserProfile(session) {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 window._initAuth = async function _initAuth() {
+  // ── Strip bare # from URL immediately (left over after Supabase consumes access_token) ──
+  try {
+    const h = window.location.hash;
+    const isHomePage = window.location.pathname === '/home';
+    if (isHomePage && h && !h.includes('access_token') && !h.includes('error')) {
+      window.history.replaceState(null, '', '/home');
+    }
+  } catch(_) {}
   // ── Helpers ───────────────────────────────────────────────────────────────
   const isGuest_         = sessionStorage.getItem('chunks_guest_mode') === '1';
   const isLoginPage_     = window.location.pathname === '/login';
@@ -501,7 +509,11 @@ window._initAuth = async function _initAuth() {
       try {
         const hasOAuthInUrl = window.location.hash.includes('access_token') ||
                               window.location.search.includes('code=');
-        if (hasOAuthInUrl) {
+        // Also strip bare # left after Supabase consumes the access_token hash
+        const hasBareHash   = window.location.hash === '#' ||
+                              window.location.hash === '#/' ||
+                              (window.location.hash.length > 0 && !window.location.hash.includes('access_token'));
+        if (hasOAuthInUrl || hasBareHash) {
           window.history.replaceState({ screen: 'home' }, '', '/home');
         }
       } catch(e) {}
