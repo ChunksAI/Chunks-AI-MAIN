@@ -479,6 +479,19 @@ const chat = {
    */
   async deleteSession(sessionId) {
     _lsRemove('chunks_session_' + sessionId);
+
+    // Add to tombstone set so _uploadLocalChatSessions never re-uploads this session.
+    // The tombstone persists across page loads — cleared only when the upload run
+    // confirms the session no longer exists in Supabase.
+    try {
+      const tombs = JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]');
+      if (!tombs.includes(sessionId)) {
+        tombs.push(sessionId);
+        // Cap at 200 entries to prevent unbounded growth
+        localStorage.setItem('chunks_deleted_sessions', JSON.stringify(tombs.slice(-200)));
+      }
+    } catch (_) {}
+
     if (!isLoggedIn()) return { error: null };
     return remove('chat_sessions', sessionId);
   },
@@ -852,21 +865,19 @@ async function pullAll() {
   console.log('[ChunksDB] pullAll — merging cross-device state…');
   try {
     // Step 1: upload local-only sessions FIRST, then download.
-    // Previously both ran in parallel via allSettled — pullAndApply could
-    // complete before _uploadLocalChatSessions finished, causing the
-    // just-uploaded sessions to be missing from the downloaded list on
-    // the originating device (they'd only appear on the next sync cycle).
-    await _withTimeout(_uploadLocalChatSessions(), 8000, '_uploadLocalChatSessions');
+    // Batch upsert makes this fast (one round-trip) — 30s timeout is a safety net
+    // only for extreme network conditions, not normal operation.
+    await _withTimeout(_uploadLocalChatSessions(), 30000, '_uploadLocalChatSessions');
 
-    // Step 2: pull all four tables in parallel. Each is individually wrapped
-    // with a 10s timeout so a single stalled request doesn't block the others.
-    // Previously no timeouts existed — one unresponsive Supabase call caused
-    // pullAll to hang forever, leaving the UI in a permanent "Syncing…" state.
+    // Step 2: pull all four tables in parallel.
+    // 30s timeout per operation — Supabase cold-start + RLS evaluation can be
+    // slow on first request after idle. 10s was too tight and caused all four
+    // to time out on second pullAll calls (triggered by nudge/TOKEN_REFRESHED).
     await Promise.allSettled([
-      _withTimeout(settings.pullAndApply(), 10000, 'settings.pullAndApply'),
-      _withTimeout(streak.pullAndApply(),   10000, 'streak.pullAndApply'),
-      _withTimeout(ws.pullAndApply(),       10000, 'ws.pullAndApply'),
-      _withTimeout(chat.pullAndApply(),     10000, 'chat.pullAndApply'),
+      _withTimeout(settings.pullAndApply(), 30000, 'settings.pullAndApply'),
+      _withTimeout(streak.pullAndApply(),   30000, 'streak.pullAndApply'),
+      _withTimeout(ws.pullAndApply(),       30000, 'ws.pullAndApply'),
+      _withTimeout(chat.pullAndApply(),     30000, 'chat.pullAndApply'),
     ]);
 
     console.log('[ChunksDB] pullAll — done ✦');
@@ -897,17 +908,20 @@ async function _uploadLocalChatSessions() {
     });
 
     // Track newly-assigned UUIDs so we can hydrate _recentItems afterwards.
-    // This ensures _saveSession can find the uuid for these sessions going forward.
     const newlyAssigned = [];
+    const uploadBatch   = [];  // collected payloads for a single batch upsert
 
     for (const k of keys) {
       const s = _lsGet(k);
       if (!s) continue;
 
-      // Bug #3 fix: if no supabaseId exists (session was created before auth was
-      // ready, or before the uuid assignment code was added), generate one now and
-      // persist it back to localStorage so this assignment is permanent and
-      // idempotent — future upload calls will find the same UUID.
+      // Skip sessions that were explicitly deleted by the user.
+      // Without this guard, a session with no supabaseId would get a fresh UUID
+      // and be re-uploaded, making deletes appear to "come back" after sync.
+      const _tombs = (() => { try { return JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]'); } catch(_){return[];} })();
+      if (_tombs.includes(s.id) || (s.supabaseId && _tombs.includes(s.supabaseId))) continue;
+
+      // Assign a UUID if missing (Bug #3 fix — see earlier comment)
       if (!s.supabaseId || /^r[0-9]+$/.test(s.supabaseId)) {
         s.supabaseId = (typeof crypto !== 'undefined' && crypto.randomUUID)
           ? crypto.randomUUID()
@@ -915,21 +929,34 @@ async function _uploadLocalChatSessions() {
               const r = Math.random() * 16 | 0;
               return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
             });
-        _lsSet(k, s); // persist the new UUID back so _saveSession finds it
+        _lsSet(k, s);
         newlyAssigned.push({ id: s.id, uuid: s.supabaseId, title: s.title, bookId: s.bookId, updatedAt: s.updatedAt });
       }
 
       const messages = s.history || s.messages || [];
-      if (!messages.length) continue; // nothing worth syncing
+      if (!messages.length) continue;
 
-      await upsert('chat_sessions', {
+      uploadBatch.push({
         id:         s.supabaseId,
+        user_id:    _uid(),
         local_id:   /^r[0-9]+$/.test(s.id) ? s.id : null,
         book_id:    s.bookId   || null,
         title:      s.title    || null,
         messages,
         updated_at: s.updatedAt || new Date().toISOString(),
-      }, 'id');
+      });
+    }
+
+    // Single batch upsert — one network round-trip instead of N sequential awaits.
+    // Previously N=75 sessions × ~200ms each = 15 000ms+, causing the 8s timeout.
+    // Supabase accepts arrays in upsert() and issues one INSERT … ON CONFLICT statement.
+    if (uploadBatch.length) {
+      const sb = await _sb();
+      if (sb) {
+        const { error } = await sb.from('chat_sessions')
+          .upsert(uploadBatch, { onConflict: 'id', ignoreDuplicates: false });
+        if (error) console.warn('[ChunksDB] batch upload error:', error.message);
+      }
     }
 
     // Hydrate _recentItems with any sessions that just got a fresh UUID so that
