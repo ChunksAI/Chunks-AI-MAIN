@@ -385,9 +385,13 @@ const chat = {
       if (!remote.id) continue;
 
       // Skip sessions the user explicitly deleted on this device.
-      // Without this, pullAndApply re-writes deleted rows back to localStorage
-      // and re-adds them to _recentItems every login — making deletes "come back".
-      if (_pullTombs.has(remote.id) || (remote.local_id && _pullTombs.has(remote.local_id))) continue;
+      // If the row still exists in Supabase (delete failed or raced), delete it now
+      // so it never comes back on a future sync.
+      if (_pullTombs.has(remote.id) || (remote.local_id && _pullTombs.has(remote.local_id))) {
+        // Self-heal: row is tombstoned locally but still exists in Supabase — delete it now.
+        remove('chat_sessions', remote.id).catch(() => {});
+        continue;
+      }
 
       const localKey = 'chunks_session_' + remote.id;
       const localRaw = _lsGet(localKey);
