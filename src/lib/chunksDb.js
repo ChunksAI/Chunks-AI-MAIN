@@ -314,8 +314,9 @@ const chat = {
     }
     return upsert('chat_sessions', {
       id:         session.id,
-      book_id:    session.bookId  || null,
-      title:      session.title   || null,
+      local_id:   session.localId  || null,
+      book_id:    session.bookId   || null,
+      title:      session.title    || null,
       messages:   session.messages || session.history || [],
       updated_at: session.updatedAt || new Date().toISOString(),
     }, 'id');
