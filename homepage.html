@@ -2721,4 +2721,17 @@ function continueAsGuest() {
   window.location.href = '/app';
 }
 
-// Listen for succes
+// Listen for success message from the popup (login.html posts this)
+window.addEventListener('message', function(e) {
+  if (e.origin !== 'https://chunks.online') return;
+  if (e.data === 'chunks_auth_success') {
+    clearInterval(_popupPollTimer);
+    if (_authPopup && !_authPopup.closed) _authPopup.close();
+    window.location.replace('/home');
+  }
+});
+</script>
+
+</div><!-- /.page-wrap -->
+</body>
+</html>
