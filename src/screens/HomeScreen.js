@@ -893,6 +893,10 @@ mountHomeScreen();
       _renderFromHistory(history);
     }
 
+    // Always populate homeHistory from the message array so the _onSessionsReady
+    // guard correctly sees this session as active. Previously, sessions restored
+    // via cached HTML could leave homeHistory=[] even though content was showing,
+    // causing cross-device sync to mount a second session on top of this one.
     homeHistory    = history;
     _homeSessionId = sessionId;
     window._setActiveRecent?.(sessionId);
@@ -923,10 +927,11 @@ let _sessionsReadyLastFired = 0;
 window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
   console.log('[HomeScreen] chunks:sessions-ready fired, homeHistory.length=', homeHistory.length);
 
-  // Only skip if the user has ACTIVELY typed in this session within the last 2 minutes.
-  // A stale session restored from localStorage on page load does NOT count — we must
-  // allow the newer remote session from Supabase to replace it.
-  const userIsLive = homeHistory.length > 0 && (Date.now() - (window._homeLastInputTime || 0)) < 120_000;
+  // Only block if the user actively TYPED something in the last 2 minutes.
+  // _homeSessionId being set just means a session was restored — that's fine
+  // to override with a newer remote session. Only a live in-progress conversation
+  // (user typed recently) should block the remote session from loading.
+  const userIsLive = _homeSessionId && (Date.now() - (window._homeLastInputTime || 0)) < 120_000;
   if (userIsLive) return;
 
   // Debounce: TOKEN_REFRESHED triggers a second pullAll shortly after the first,
