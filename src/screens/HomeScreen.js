@@ -126,17 +126,35 @@ const HOME_HTML = /* html */`
 
         <div class="quick-grid">
           <div class="quick-card" data-action="openLibraryModal">
-            <div class="qc-icon gold">📚</div>
+            <div class="qc-icon gold">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+              </svg>
+            </div>
             <div class="qc-title">Open Textbook</div>
             <div class="qc-desc">Browse your library and study alongside AI</div>
           </div>
           <div class="quick-card" data-action="showScreen" data-screen="flash">
-            <div class="qc-icon violet">🃏</div>
+            <div class="qc-icon violet">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="4" width="16" height="12" rx="2"/>
+                <rect x="6" y="7" width="16" height="12" rx="2" fill="var(--violet-muted)" stroke="var(--violet)" stroke-width="2"/>
+                <path d="M12.5 11 11 13.5h2.5L12 16" stroke-width="1.8"/>
+              </svg>
+            </div>
             <div class="qc-title">Flashcards</div>
             <div class="qc-desc">Generate and review study cards from any chapter</div>
           </div>
           <div class="quick-card" onclick="document.getElementById('home-pdf-upload').click()">
-            <div class="qc-icon teal">⬆️</div>
+            <div class="qc-icon teal">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/>
+                <polyline points="9 15 12 12 15 15"/>
+              </svg>
+            </div>
             <div class="qc-title">Upload PDF</div>
             <div class="qc-desc">Add your own notes or textbooks to chat with</div>
           </div>
