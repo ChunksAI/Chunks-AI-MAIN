@@ -384,10 +384,18 @@ const chat = {
     for (const remote of remoteSessions) {
       if (!remote.id) continue;
 
-      // Skip sessions the user explicitly deleted on this device.
-      // If the row still exists in Supabase (delete failed or raced), delete it now
-      // so it never comes back on a future sync.
-      if (_pullTombs.has(remote.id) || (remote.local_id && _pullTombs.has(remote.local_id))) {
+      // Tombstone check — three ways a deleted session can be identified:
+      //   1. remote.id (UUID) is directly in the tombstone
+      //   2. remote.local_id (r+timestamp) is in the tombstone
+      //   3. remote.local_id is null but we can reconstruct the synthetic r+timestamp
+      //      that was generated when the session was first downloaded on this device
+      //      (local_id = 'r' + Date(updated_at).getTime() — same formula as _hydrateRecentFromRemote)
+      const syntheticLocalId = remote.local_id || ('r' + new Date(remote.updated_at || 0).getTime());
+      if (
+        _pullTombs.has(remote.id) ||
+        (remote.local_id && _pullTombs.has(remote.local_id)) ||
+        _pullTombs.has(syntheticLocalId)
+      ) {
         // Self-heal: row is tombstoned locally but still exists in Supabase — delete it now.
         remove('chat_sessions', remote.id).catch(() => {});
         continue;
@@ -434,7 +442,7 @@ const chat = {
       if (remoteTime > newestTime) {
         newestTime    = remoteTime;
         newestId      = remote.id;
-        newestLocalId = remote.local_id || null;
+        newestLocalId = remote.local_id || remote.id; // UUID as fallback — never null
       }
     }
 
@@ -459,11 +467,7 @@ const chat = {
     const remoteIsStrictlyNewer = newestTime > currentLocalTime + 5000; // >5s newer
 
     if (newestLocalId && (!currentActive || remoteIsStrictlyNewer)) {
-      // Prefer the r+timestamp local_id — HomeScreen restore reads this key format
       localStorage.setItem('chunks_active_home_session', newestLocalId);
-    } else if (newestId && !currentActive) {
-      // Fallback: no local_id stored (old sessions) — use the UUID directly
-      localStorage.setItem('chunks_active_home_session', newestId);
     }
 
     console.log(`[ChunksDB] chat.pullAndApply — ${remoteSessions.length} sessions downloaded`);
@@ -1065,16 +1069,26 @@ async function _uploadLocalChatSessions() {
       });
     }
 
-    // Deduplicate by supabaseId before upserting.
-    // Each session exists under TWO localStorage keys (r+timestamp AND UUID) so
-    // without this the batch contains the same UUID twice → Postgres error:
-    // "ON CONFLICT DO UPDATE command cannot affect row a second time"
-    const _seenIds = new Set();
-    const dedupedBatch = uploadBatch.filter(row => {
-      if (_seenIds.has(row.id)) return false;
-      _seenIds.add(row.id);
-      return true;
-    });
+    // Deduplicate by supabaseId — prefer the r+timestamp keyed entry over the UUID keyed entry.
+    // Each session exists under TWO localStorage keys (r+timestamp AND UUID).
+    // The UUID-keyed entry always has local_id=null (s.id is UUID, fails /^r[0-9]+$/ test).
+    // The r+timestamp-keyed entry has local_id set correctly.
+    // Without this preference, uploading the UUID entry first wipes local_id in Supabase
+    // which breaks tombstone matching and cross-device restore for every session.
+    const _seenIds = new Map(); // supabaseId → index in dedupedBatch
+    const dedupedBatch = [];
+    for (const row of uploadBatch) {
+      if (_seenIds.has(row.id)) {
+        // Replace the existing entry only if this one has local_id and the stored one doesn't
+        const idx = _seenIds.get(row.id);
+        if (row.local_id && !dedupedBatch[idx].local_id) {
+          dedupedBatch[idx] = row;
+        }
+      } else {
+        _seenIds.set(row.id, dedupedBatch.length);
+        dedupedBatch.push(row);
+      }
+    }
 
     if (dedupedBatch.length) {
       const sb = await _sb();
