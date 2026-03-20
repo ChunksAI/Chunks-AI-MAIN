@@ -1243,3 +1243,104 @@
   .settings-select-btn  { font-size: 12px !important; }
 
 }
+
+/* ══════════════════════════════════════════════════════════
+   HOME CHAT — MOBILE  (content clipping + table scroll fix)
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+
+  /* ── Chat history container: constrain to viewport width ── */
+  .home-chat-history {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* ── AI message row: prevent flex children from overflowing ── */
+  .hc-ai {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+
+  /* ── AI body: must not grow wider than its flex parent ── */
+  .hc-ai-body {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+  }
+
+  /* ── User bubble: cap at 88% so it never clips left edge ── */
+  .hc-user {
+    max-width: 88% !important;
+    word-break: break-word !important;
+  }
+
+  /* ── Code blocks: scroll horizontally, never overflow ── */
+  .hc-ai-body pre {
+    overflow-x: auto !important;
+    max-width: 100% !important;
+    white-space: pre !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* ── Tables: wrap in a scroll container via CSS ── */
+  /* We can't inject a wrapper div from CSS alone, so we make
+     the table itself scroll by constraining it in a block context */
+  .hc-ai-body table {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-width: 100% !important;
+    width: max-content !important;    /* let table be its natural width… */
+    min-width: 100% !important;       /* …but at least fill the column   */
+    border-collapse: collapse !important;
+    /* subtle scroll hint: fade right edge */
+    -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
+    mask-image: linear-gradient(to right, black 90%, transparent 100%);
+  }
+  /* Remove the mask once the table fits — JS-free approximation:
+     restore mask when table is wider than container via min-content check */
+  .hc-ai-body table:not([style]) {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  /* Keep thead/tbody as table parts so layout isn't broken */
+  .hc-ai-body thead,
+  .hc-ai-body tbody,
+  .hc-ai-body tfoot {
+    display: table-header-group !important;
+  }
+  .hc-ai-body tbody { display: table-row-group !important; }
+  .hc-ai-body tfoot { display: table-footer-group !important; }
+  .hc-ai-body tr    { display: table-row !important; }
+  .hc-ai-body th,
+  .hc-ai-body td    { display: table-cell !important; }
+
+  /* ── Images inside chat: never overflow ── */
+  .hc-ai-body img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* ── Inline code: wrap if too long ── */
+  .hc-ai-body code {
+    word-break: break-all !important;
+    white-space: pre-wrap !important;
+  }
+  /* ...but NOT inside pre blocks (those scroll) */
+  .hc-ai-body pre code {
+    word-break: normal !important;
+    white-space: pre !important;
+  }
+
+  /* ── Home scroll area: ensure no horizontal bleed ── */
+  .home-scroll-area {
+    overflow-x: hidden !important;
+  }
+
+}
