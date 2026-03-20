@@ -42,11 +42,12 @@ export default defineConfig({
       // ── Multi-page entries ──────────────────────────────────────────────
       // Each HTML file becomes its own entry point in the dist/ output.
       input: {
-        main:    resolve(__dirname, 'index.html'),
-        login:   resolve(__dirname, 'login.html'),
-        admin:   resolve(__dirname, 'admin.html'),
-        privacy: resolve(__dirname, 'privacy.html'),
-        terms:   resolve(__dirname, 'terms.html'),
+        homepage: resolve(__dirname, 'homepage.html'),
+        app:      resolve(__dirname, 'app.html'),
+        login:    resolve(__dirname, 'login.html'),
+        admin:    resolve(__dirname, 'admin.html'),
+        privacy:  resolve(__dirname, 'privacy.html'),
+        terms:    resolve(__dirname, 'terms.html'),
       },
 
       output: {
