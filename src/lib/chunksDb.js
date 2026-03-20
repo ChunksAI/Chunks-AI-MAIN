@@ -375,8 +375,19 @@ const chat = {
     let newestTime     = 0;
     let newestLocalId  = null;   // cached alongside newestId for the active-session update below
 
+    // Load tombstone list once outside the loop (performance)
+    const _pullTombs = (() => {
+      try { return new Set(JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]')); }
+      catch(_) { return new Set(); }
+    })();
+
     for (const remote of remoteSessions) {
       if (!remote.id) continue;
+
+      // Skip sessions the user explicitly deleted on this device.
+      // Without this, pullAndApply re-writes deleted rows back to localStorage
+      // and re-adds them to _recentItems every login — making deletes "come back".
+      if (_pullTombs.has(remote.id) || (remote.local_id && _pullTombs.has(remote.local_id))) continue;
 
       const localKey = 'chunks_session_' + remote.id;
       const localRaw = _lsGet(localKey);
