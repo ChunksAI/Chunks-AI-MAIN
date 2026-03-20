@@ -112,6 +112,7 @@ async function _runSync({ silent = false } = {}) {
   _inFlight = true;
   _status   = 'syncing';
   _conflictsFound = [];
+  window._syncManagerDone = false;  // reset so restore waits
 
   if (!silent) _showPill('syncing', 'Syncing…');
 
@@ -134,6 +135,8 @@ async function _runSync({ silent = false } = {}) {
     _status     = 'success';
     _retryCount = 0;
     _inFlight   = false;
+    // Signal to HomeScreen restore that localStorage is now populated
+    window._syncManagerDone = true;
 
     if (_conflictsFound.length > 0) {
       // Remote overwrote something local — inform the user
