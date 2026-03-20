@@ -97,7 +97,7 @@ const SETTINGS_MODAL_HTML = `
             <div class="settings-select-menu" role="listbox" data-setting-key="appearance">
               <div class="settings-select-option selected" data-action="settingsSelect-self" data-appearance="dark" onclick="applyAppearance('dark')">Dark</div>
               <div class="settings-select-option" data-action="settingsSelect-self" data-appearance="system" onclick="applyAppearance('system')">System</div>
-              <div class="settings-select-option" data-action="settingsSelect-self" data-appearance="light" style="opacity:0.45;pointer-events:none;">Light <span style="font-size:10px;color:var(--text-4);">(soon)</span></div>
+              <div class="settings-select-option" data-action="settingsSelect-self" data-appearance="study" onclick="applyAppearance('study')">📖 Study Mode</div>
             </div>
           </div>
         </div>
@@ -513,23 +513,45 @@ export function settingsSelect(optionEl) {
 // ── Appearance ────────────────────────────────────────────────────────────────
 
 export function applyAppearance(value) {
-  // Only dark theme is fully built. System respects prefers-color-scheme.
-  // Light is marked coming soon and will never be passed here.
   const root = document.documentElement;
-  if (value === 'system') {
+  if (value === 'study') {
+    root.setAttribute('data-theme', 'study');
+  } else if (value === 'system') {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    root.setAttribute('data-theme', prefersDark ? 'dark' : 'dark'); // both dark for now
+    root.setAttribute('data-theme', prefersDark ? 'dark' : 'study');
   } else {
     root.setAttribute('data-theme', 'dark');
   }
   try { localStorage.setItem('chunks_setting_appearance', value); } catch(e) {}
+  // Update sidebar toggle label if present
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) _updateThemeBtn(btn, value === 'study');
+}
+
+export function _updateThemeBtn(btn, isStudy) {
+  btn.innerHTML = isStudy
+    ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg> Switch to Dark`
+    : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Study Mode`;
+}
+
+export function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const next = current === 'study' ? 'dark' : 'study';
+  applyAppearance(next);
+  // Sync settings dropdown options
+  document.querySelectorAll('[data-appearance]').forEach(opt => {
+    opt.classList.toggle('selected', opt.dataset.appearance === next);
+  });
+  // Sync all sidebar toggle buttons
+  window._syncThemeToggleBtns?.();
 }
 
 // Restore appearance immediately on load
 (function() {
   try {
     const saved = localStorage.getItem('chunks_setting_appearance') || 'dark';
-    document.documentElement.setAttribute('data-theme', 'dark'); // always dark for now
+    const theme = saved === 'study' ? 'study' : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
   } catch(e) {}
 })();
 
