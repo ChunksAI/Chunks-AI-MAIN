@@ -138,6 +138,241 @@
 #sp-plans-menu button:focus { outline: none; }
 #sp-plans-menu { backdrop-filter: blur(8px); }
 
+/* ── My Plans Modal ──────────────────────────────────────────── */
+.sp-plans-modal-panel {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: 16px;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+  width: min(680px, 92vw);
+  max-height: min(620px, 88vh);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: spModalIn 0.18s cubic-bezier(0.34,1.2,0.64,1);
+}
+@keyframes spModalIn {
+  from { opacity: 0; transform: scale(0.94) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* Header */
+.sp-plans-modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--border-xs);
+  flex-shrink: 0;
+}
+.sp-plans-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+  font-family: var(--font-head);
+  letter-spacing: 0.02em;
+  flex: 1;
+}
+.sp-plans-modal-meta {
+  font-size: 11px;
+  color: var(--text-4);
+  background: var(--surface-3);
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.sp-plans-modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-3);
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  transition: background var(--t-fast), color var(--t-fast);
+  flex-shrink: 0;
+}
+.sp-plans-modal-close:hover { background: var(--surface-3); color: var(--text-1); }
+
+/* Search */
+.sp-plans-modal-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border-xs);
+  flex-shrink: 0;
+}
+.sp-plans-modal-search {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  color: var(--text-1);
+  font-family: var(--font-body);
+}
+.sp-plans-modal-search::placeholder { color: var(--text-4); }
+
+/* List */
+.sp-plans-modal-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sp-plans-modal-list::-webkit-scrollbar { width: 4px; }
+.sp-plans-modal-list::-webkit-scrollbar-track { background: transparent; }
+.sp-plans-modal-list::-webkit-scrollbar-thumb { background: var(--border-sm); border-radius: 4px; }
+
+/* Plan cards */
+.sp-plan-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast);
+  position: relative;
+}
+.sp-plan-card:hover { background: var(--surface-3); }
+.sp-plan-card.active {
+  background: var(--surface-3);
+  border-color: var(--gold-border, rgba(232,172,46,0.25));
+}
+
+.sp-plan-card-left { flex-shrink: 0; }
+.sp-plan-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--surface-4, var(--surface-3));
+  border: 1px solid var(--border-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.sp-plan-card-icon.active { background: rgba(232,172,46,0.12); border-color: var(--gold-border, rgba(232,172,46,0.3)); color: var(--gold); }
+
+.sp-plan-card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.sp-plan-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sp-plan-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-4);
+}
+.sp-plan-card-active-badge {
+  background: rgba(232,172,46,0.15);
+  color: var(--gold);
+  border: 1px solid rgba(232,172,46,0.25);
+  border-radius: 20px;
+  padding: 1px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+.sp-plan-card-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.sp-plan-card-bar-track {
+  flex: 1;
+  height: 4px;
+  background: var(--surface-4, var(--border-xs));
+  border-radius: 4px;
+  overflow: hidden;
+}
+.sp-plan-card-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+  min-width: 0;
+}
+.sp-plan-card-bar-pct {
+  font-size: 10px;
+  font-weight: 600;
+  min-width: 28px;
+  text-align: right;
+}
+
+.sp-plan-card-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-4);
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity var(--t-fast), background var(--t-fast), color var(--t-fast);
+  flex-shrink: 0;
+}
+.sp-plan-card:hover .sp-plan-card-delete { opacity: 1; }
+.sp-plan-card-delete:hover { background: rgba(239,68,68,0.12); color: #f87171; }
+
+/* Empty state */
+.sp-plans-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  text-align: center;
+}
+
+/* Footer */
+.sp-plans-modal-footer {
+  padding: 12px 20px;
+  border-top: 1px solid var(--border-xs);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+.sp-plans-modal-new-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  background: var(--gold);
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: opacity var(--t-fast), transform var(--t-fast);
+}
+.sp-plans-modal-new-btn:hover { opacity: 0.88; transform: translateY(-1px); }
+
 /* ── Fix 2: Exam date row ── */
 #sp-exam-date-row { flex-wrap: wrap; }
 #sp-set-exam-date-btn:hover { color: var(--text-1) !important; border-color: var(--border-md) !important; }

@@ -1309,36 +1309,91 @@ export function spShowPlansMenu() {
   spLoadAllPlans();
   const overlay = document.getElementById('sp-plans-modal-overlay');
   const list = document.getElementById('sp-plans-menu-list');
+  const countEl = document.getElementById('sp-plans-modal-count');
   if (!overlay || !list) return;
+
+  // Clear search on open
+  const searchEl = document.getElementById('sp-plans-search');
+  if (searchEl) searchEl.value = '';
+
   const entries = Object.entries(_spAllPlans).sort((a, b) => b[1].savedAt - a[1].savedAt);
+  if (countEl) countEl.textContent = entries.length ? `${entries.length} plan${entries.length !== 1 ? 's' : ''}` : '';
+
   if (entries.length === 0) {
-    list.innerHTML = '<div style="padding:16px 18px;font-size:12px;color:var(--text-4);">No saved plans yet.</div>';
+    list.innerHTML = `
+      <div class="sp-plans-empty-state">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="color:var(--text-4);margin-bottom:10px;"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <div style="font-size:13px;color:var(--text-3);font-weight:500;">No saved plans yet</div>
+        <div style="font-size:11px;color:var(--text-4);margin-top:4px;">Create your first study plan to get started</div>
+      </div>`;
   } else {
-    list.innerHTML = entries.map(([id, entry]) => {
-      const isActive = id === _spActivePlanId;
-      const n = entry.plan?.concepts?.length || 0;
-      const mastered = Object.values(entry.mastery || {}).filter((m, i) => {
-        const score = Object.values(m || {}).reduce((s, v, idx) => {
-          const keys = ['explain','flash','pq','exam'];
-          const w = { explain:10, flash:20, pq:35, exam:35 };
-          return s + (v / 100) * (w[keys[idx]] || 0);
-        }, 0);
-        return score >= 80;
-      }).length;
-      const pct = n > 0 ? Math.round((mastered / n) * 100) : 0;
-      return `<button onclick="spSwitchToPlan('${id}');spHidePlansMenu();" style="width:100%;text-align:left;padding:10px 18px;background:${isActive ? 'var(--surface-3)' : 'none'};border:none;color:var(--text-1);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:10px;font-family:var(--font-body);border-left:3px solid ${isActive ? 'var(--gold)' : 'transparent'};transition:background var(--t-fast);" onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='${isActive ? 'var(--surface-3)' : 'none'}'">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${isActive ? 'var(--gold)' : 'var(--text-3)'}" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        <div style="flex:1;overflow:hidden;">
-          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:${isActive ? '600' : '400'}">${entry.topic || 'Untitled'}</div>
-          <div style="font-size:10px;color:var(--text-4);">${n} concepts · ${pct}% mastery</div>
-        </div>
-        <button onclick="event.stopPropagation();spDeletePlan('${id}');" style="background:none;border:none;cursor:pointer;color:var(--text-4);padding:2px;display:flex;align-items:center;" title="Delete plan">
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </button>`;
-    }).join('');
+    list.innerHTML = _spRenderPlanCards(entries);
   }
   overlay.style.display = 'flex';
+}
+
+function _spRenderPlanCards(entries) {
+  return entries.map(([id, entry]) => {
+    const isActive = id === _spActivePlanId;
+    const n = entry.plan?.concepts?.length || 0;
+    const masteryVals = Object.values(entry.mastery || {});
+    const mastered = masteryVals.filter(m => {
+      const keys = ['explain','flash','pq','exam'];
+      const w = { explain:10, flash:20, pq:35, exam:35 };
+      return Object.values(m || {}).reduce((s, v, idx) => s + (v / 100) * (w[keys[idx]] || 0), 0) >= 80;
+    }).length;
+    const inProgress = masteryVals.filter(m => {
+      const keys = ['explain','flash','pq','exam'];
+      const w = { explain:10, flash:20, pq:35, exam:35 };
+      const score = Object.values(m || {}).reduce((s, v, idx) => s + (v / 100) * (w[keys[idx]] || 0), 0);
+      return score > 0 && score < 80;
+    }).length;
+    const pct = n > 0 ? Math.round((mastered / n) * 100) : 0;
+    const savedDate = entry.savedAt ? new Date(entry.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+    // Color for mastery bar
+    const barColor = pct >= 80 ? 'var(--green, #4caf50)' : pct >= 40 ? 'var(--gold)' : 'var(--text-4)';
+
+    return `
+      <div class="sp-plan-card${isActive ? ' active' : ''}" onclick="spSwitchToPlan('${id}');spHidePlansMenu();" role="button" tabindex="0" onkeydown="if(event.key==='Enter')this.click()">
+        <div class="sp-plan-card-left">
+          <div class="sp-plan-card-icon${isActive ? ' active' : ''}">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+        </div>
+        <div class="sp-plan-card-body">
+          <div class="sp-plan-card-title">${entry.topic || 'Untitled'}</div>
+          <div class="sp-plan-card-meta">
+            <span>${n} concept${n !== 1 ? 's' : ''}</span>
+            ${savedDate ? `<span>·</span><span>${savedDate}</span>` : ''}
+            ${isActive ? `<span class="sp-plan-card-active-badge">Active</span>` : ''}
+          </div>
+          <div class="sp-plan-card-bar-wrap">
+            <div class="sp-plan-card-bar-track">
+              <div class="sp-plan-card-bar-fill" style="width:${pct}%;background:${barColor};"></div>
+            </div>
+            <span class="sp-plan-card-bar-pct" style="color:${pct > 0 ? barColor : 'var(--text-4)'};">${pct}%</span>
+          </div>
+        </div>
+        <button class="sp-plan-card-delete" onclick="event.stopPropagation();spDeletePlan('${id}');" title="Delete plan">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>`;
+  }).join('');
+}
+
+export function spFilterPlansMenu(query) {
+  spLoadAllPlans();
+  const list = document.getElementById('sp-plans-menu-list');
+  if (!list) return;
+  const entries = Object.entries(_spAllPlans).sort((a, b) => b[1].savedAt - a[1].savedAt);
+  const q = query.toLowerCase().trim();
+  const filtered = q ? entries.filter(([, e]) => (e.topic || '').toLowerCase().includes(q)) : entries;
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="sp-plans-empty-state"><div style="font-size:12px;color:var(--text-4);">No plans match "${query}"</div></div>`;
+  } else {
+    list.innerHTML = _spRenderPlanCards(filtered);
+  }
 }
 
 export function spHidePlansMenu() {
@@ -2191,6 +2246,7 @@ window.spInitScreen         = spInitScreen;
 // ── New function window bridges (Fixes 1-5) ──────────────────────────────
 window.spShowPlansMenu        = spShowPlansMenu;
 window.spHidePlansMenu        = spHidePlansMenu;
+window.spFilterPlansMenu      = spFilterPlansMenu;
 window.spSwitchToPlan         = spSwitchToPlan;
 window.spDeletePlan           = spDeletePlan;
 window.spSaveCurrentPlanToLibrary = spSaveCurrentPlanToLibrary;
