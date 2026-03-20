@@ -900,35 +900,109 @@
       text-align:center;font-size:15px;color:var(--text-3);
       max-width:440px;margin:0 auto 56px;line-height:1.7;
     }
-    .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+
+    /* Steps — vertical timeline layout */
+    .steps{display:flex;flex-direction:column;gap:0;max-width:760px;margin:0 auto;}
     .step{
+      display:grid;
+      grid-template-columns:56px 1fr;
+      gap:0 32px;
+      position:relative;
+    }
+
+    /* Connector line between steps */
+    .step:not(:last-child) .step-spine::after{
+      content:'';position:absolute;
+      left:27px;top:56px;bottom:-32px;
+      width:1px;background:var(--border-xs);
+    }
+
+    /* Left spine: number badge + line */
+    .step-spine{
+      display:flex;flex-direction:column;align-items:center;
+      position:relative;padding-top:4px;
+    }
+    .step-n{
+      width:36px;height:36px;border-radius:50%;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
+      font-size:11px;font-weight:700;
+      font-family:var(--font-mono);
+      position:relative;z-index:1;
+    }
+    .step:nth-child(1) .step-n{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(232,172,46,.22);}
+    .step:nth-child(2) .step-n{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(139,124,248,.22);}
+    .step:nth-child(3) .step-n{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(45,212,191,.22);}
+    .step:nth-child(4) .step-n{background:rgba(248,113,113,.08);color:var(--red);border:1px solid rgba(248,113,113,.22);}
+    .step:nth-child(5) .step-n{background:rgba(99,195,125,.08);color:#63c37d;border:1px solid rgba(99,195,125,.22);}
+
+    /* Right content */
+    .step-body{
+      padding:0 0 52px 0;
+    }
+    .step-header{
+      display:flex;align-items:center;gap:12px;
+      margin-bottom:12px;margin-top:6px;
+    }
+    .step-icon{
+      width:34px;height:34px;border-radius:var(--r-md);
+      display:flex;align-items:center;justify-content:center;
+      flex-shrink:0;font-size:16px;
+    }
+    .step:nth-child(1) .step-icon{background:var(--gold-dim);}
+    .step:nth-child(2) .step-icon{background:var(--purple-dim);}
+    .step:nth-child(3) .step-icon{background:var(--teal-dim);}
+    .step:nth-child(4) .step-icon{background:rgba(248,113,113,.08);}
+    .step:nth-child(5) .step-icon{background:rgba(99,195,125,.08);}
+    .step-label{
+      font-size:10px;font-family:var(--font-mono);letter-spacing:.1em;
+      text-transform:uppercase;
+    }
+    .step:nth-child(1) .step-label{color:var(--gold);}
+    .step:nth-child(2) .step-label{color:var(--purple);}
+    .step:nth-child(3) .step-label{color:var(--teal);}
+    .step:nth-child(4) .step-label{color:var(--red);}
+    .step:nth-child(5) .step-label{color:#63c37d;}
+
+    .step-title{
+      font-family:var(--font-head);font-size:20px;font-weight:800;
+      color:var(--text-1);letter-spacing:-.02em;
+      margin-bottom:10px;
+    }
+    .step-desc{
+      font-size:14px;color:var(--text-2);line-height:1.8;
+      margin-bottom:16px;
+    }
+    .step-pills{display:flex;flex-wrap:wrap;gap:6px;}
+    .step-pill{
+      font-size:11.5px;font-family:var(--font-mono);
+      color:var(--text-3);
+      background:var(--surface-2);
+      border:1px solid var(--border-xs);
+      border-radius:var(--r-pill);
+      padding:4px 11px;
+    }
+
+    .step-card{
       background:var(--surface-1);
       border:1px solid var(--border-xs);
-      border-radius:var(--r-xl);padding:28px 24px;
-      position:relative;overflow:hidden;
-      transition:border-color .25s,transform .25s;
+      border-radius:var(--r-lg);
+      padding:16px 18px;
+      margin-top:16px;
     }
-    .step::before{
-      content:'';position:absolute;inset:0;
-      opacity:0;transition:opacity .4s;
+    .step-card-row{
+      display:flex;align-items:center;gap:10px;
+      font-size:13px;color:var(--text-2);
+      padding:6px 0;
     }
-    .step:nth-child(1)::before{background:radial-gradient(ellipse at 0% 0%,rgba(232,172,46,.05),transparent 70%);}
-    .step:nth-child(2)::before{background:radial-gradient(ellipse at 0% 0%,rgba(139,124,248,.05),transparent 70%);}
-    .step:nth-child(3)::before{background:radial-gradient(ellipse at 0% 0%,rgba(45,212,191,.05),transparent 70%);}
-    .step:hover{transform:translateY(-2px);border-color:var(--border-sm);}
-    .step:hover::before{opacity:1;}
-    .step-n{
-      width:20px;height:20px;border-radius:50%;
-      display:flex;align-items:center;justify-content:center;
-      font-size:9.5px;font-weight:700;margin-bottom:16px;
-      font-family:var(--font-mono);
+    .step-card-row:not(:last-child){border-bottom:1px solid var(--border-xs);}
+    .step-card-dot{
+      width:6px;height:6px;border-radius:50%;flex-shrink:0;
     }
-    .step:nth-child(1) .step-n{background:var(--gold-dim);color:var(--gold);border:1px solid rgba(232,172,46,.16);}
-    .step:nth-child(2) .step-n{background:var(--purple-dim);color:var(--purple);border:1px solid rgba(139,124,248,.16);}
-    .step:nth-child(3) .step-n{background:var(--teal-dim);color:var(--teal);border:1px solid rgba(45,212,191,.16);}
-    .step-emoji{font-size:24px;margin-bottom:12px;}
-    .step-title{font-family:var(--font-head);font-size:15.5px;font-weight:700;color:var(--text-1);margin-bottom:8px;}
-    .step-desc{font-size:13px;color:var(--text-2);line-height:1.7;}
+    .step:nth-child(1) .step-card-dot{background:var(--gold);}
+    .step:nth-child(2) .step-card-dot{background:var(--purple);}
+    .step:nth-child(3) .step-card-dot{background:var(--teal);}
+    .step:nth-child(4) .step-card-dot{background:var(--red);}
+    .step:nth-child(5) .step-card-dot{background:#63c37d;}
 
     /* ── TABLET ── */
     @media(max-width:960px){
@@ -944,7 +1018,7 @@
       .auth-card{max-width:100%;}
       .used-by{text-align:center;}
       .used-by-tags{justify-content:center;}
-      .steps{grid-template-columns:1fr;}
+      .steps{gap:0;}
       .how{padding:60px 24px 80px;}
     }
 
@@ -968,7 +1042,7 @@
       .used-by-label{font-size:10px;}
       .how{padding:48px 16px 64px;}
       .how-title{font-size:clamp(22px,7vw,32px);}
-      .steps{gap:16px;}
+      .steps{gap:0;}
     }
 
     /* ─────────────────────────────────────────
@@ -1856,27 +1930,141 @@
     <span class="ey-text">How it works</span>
     <div class="ey-line"></div>
   </div>
-  <h2 class="s-title">From confused to confident<br>in three steps</h2>
-  <p class="s-sub">No more re-reading the same chapter twice. Chunks builds the system for you.</p>
+  <h2 class="s-title">From upload to mastery —<br>here's exactly how it works</h2>
+  <p class="s-sub">Five intelligent steps that replace every study habit you've been told to do.</p>
+
   <div class="steps">
+
+    <!-- Step 1 -->
     <div class="step">
-      <div class="step-n">1</div>
-      <div class="step-emoji">👁️</div>
-      <h3 class="step-title">See it visually</h3>
-      <p class="step-desc">Ask any topic. Chunks draws a diagram — concept maps, cycles, timelines — so you see the structure, not just the words.</p>
+      <div class="step-spine">
+        <div class="step-n">01</div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-icon">📂</div>
+          <span class="step-label">Upload</span>
+        </div>
+        <h3 class="step-title">Upload your material</h3>
+        <p class="step-desc">Drop in your textbook, lecture notes, slides, or any PDF. Chunks parses the content at a structural level — extracting chapters, topics, key concepts, and relationships between ideas. No reformatting needed. It reads what you have.</p>
+        <div class="step-pills">
+          <span class="step-pill">PDF textbooks</span>
+          <span class="step-pill">Lecture slides</span>
+          <span class="step-pill">Handwritten notes</span>
+          <span class="step-pill">Any chapter or section</span>
+        </div>
+        <div class="step-card">
+          <div class="step-card-row"><span class="step-card-dot"></span>Drag-and-drop or paste — no account setup required</div>
+          <div class="step-card-row"><span class="step-card-dot"></span>Supports multi-chapter PDFs up to full textbooks</div>
+          <div class="step-card-row"><span class="step-card-dot"></span>Content is parsed in seconds, ready immediately</div>
+        </div>
+      </div>
     </div>
+
+    <!-- Step 2 -->
     <div class="step">
-      <div class="step-n">2</div>
-      <div class="step-emoji">⚡</div>
-      <h3 class="step-title">Lock it in fast</h3>
-      <p class="step-desc">AI-generated flashcards appear instantly, tuned to your exact chapter and the concepts you keep getting wrong.</p>
+      <div class="step-spine">
+        <div class="step-n">02</div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-icon">🧠</div>
+          <span class="step-label">Understand</span>
+        </div>
+        <h3 class="step-title">See it explained visually</h3>
+        <p class="step-desc">Ask the AI tutor anything — a concept, a process, a mechanism — and it responds with a structured visual explanation. Not just text. Chunks draws concept maps, biological cycles, timelines, and flowcharts tailored to exactly what you asked. You see the structure of an idea, not just a wall of sentences.</p>
+        <div class="step-pills">
+          <span class="step-pill">Concept maps</span>
+          <span class="step-pill">Process diagrams</span>
+          <span class="step-pill">Timelines</span>
+          <span class="step-pill">Cause & effect chains</span>
+        </div>
+        <div class="step-card">
+          <div class="step-card-row"><span class="step-card-dot"></span>AI explains using your exact content — not generic web info</div>
+          <div class="step-card-row"><span class="step-card-dot"></span>Ask follow-up questions to go deeper on any node</div>
+          <div class="step-card-row"><span class="step-card-dot"></span>Visual format is proven to increase retention by 2–3×</div>
+        </div>
+      </div>
     </div>
+
+    <!-- Step 3 -->
     <div class="step">
-      <div class="step-n">3</div>
-      <div class="step-emoji">🎯</div>
-      <h3 class="step-title">Test yourself</h3>
-      <p class="step-desc">Adaptive practice exams zero in on weak spots — so you spend time on what matters, not what you already know.</p>
+      <div class="step-spine">
+        <div class="step-n">03</div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-icon">⚡</div>
+          <span class="step-label">Memorise</span>
+        </div>
+        <h3 class="step-title">Lock it in with smart flashcards</h3>
+        <p class="step-desc">Chunks generates a complete flashcard deck from your material — front and back, perfectly phrased, covering every key concept, definition, and relationship. Cards are ranked by importance and adapted over time: ones you struggle with come back more often. Ones you nail get spaced further apart.</p>
+        <div class="step-pills">
+          <span class="step-pill">AI-generated decks</span>
+          <span class="step-pill">Spaced repetition</span>
+          <span class="step-pill">Difficulty tracking</span>
+          <span class="step-pill">Progress per topic</span>
+        </div>
+        <div class="step-card">
+          <div class="step-card-row"><span class="step-card-dot"></span>Cards phrased like real exam questions — not textbook summaries</div>
+          <div class="step-card-row"><span class="step-card-dot"></span>The algorithm focuses your time where memory is weakest</div>
+          <div class="step-card-row"><span class="step-card-dot"></span>Full deck generated for a chapter in under 10 seconds</div>
+        </div>
+      </div>
     </div>
+
+    <!-- Step 4 -->
+    <div class="step">
+      <div class="step-spine">
+        <div class="step-n">04</div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-icon">🎯</div>
+          <span class="step-label">Test</span>
+        </div>
+        <h3 class="step-title">Practice with adaptive exams</h3>
+        <p class="step-desc">Take a full practice exam generated from your uploaded content — MCQs, true/false, short answer — formatted exactly like the real thing. After each session, Chunks analyses your results: which topics you're solid on, which ones need another pass, and where you're losing marks you shouldn't be.</p>
+        <div class="step-pills">
+          <span class="step-pill">MCQ & short answer</span>
+          <span class="step-pill">Timed or untimed</span>
+          <span class="step-pill">Instant answer explanations</span>
+          <span class="step-pill">Weak spot analysis</span>
+        </div>
+        <div class="step-card">
+          <div class="step-card-row"><span class="step-card-dot"></span>Questions drawn directly from your material — not generic banks</div>
+          <div class="step-card-row"><span class="step-card-dot"></span>Every wrong answer gets a full explanation with the correct reasoning</div>
+          <div class="step-card-row"><span class="step-card-dot"></span>Score trends tracked across sessions to measure real progress</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5 -->
+    <div class="step">
+      <div class="step-spine">
+        <div class="step-n">05</div>
+      </div>
+      <div class="step-body">
+        <div class="step-header">
+          <div class="step-icon">📅</div>
+          <span class="step-label">Plan</span>
+        </div>
+        <h3 class="step-title">Follow a personalised study plan</h3>
+        <p class="step-desc">Tell Chunks your exam date and which topics you're covering. It builds a day-by-day study schedule — allocating time based on topic difficulty, your past performance, and how much time you have left. The plan updates automatically as you progress, always keeping you on the most efficient path to your exam.</p>
+        <div class="step-pills">
+          <span class="step-pill">Deadline-aware scheduling</span>
+          <span class="step-pill">Daily task breakdown</span>
+          <span class="step-pill">Adapts as you study</span>
+          <span class="step-pill">Progress dashboard</span>
+        </div>
+        <div class="step-card">
+          <div class="step-card-row"><span class="step-card-dot"></span>Plan adjusts in real time if you skip a day or ace a topic early</div>
+          <div class="step-card-row"><span class="step-card-dot"></span>See exactly how many days until exam-ready at your current pace</div>
+          <div class="step-card-row"><span class="step-card-dot"></span>Works across multiple subjects and overlapping exam dates</div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </section>
 
