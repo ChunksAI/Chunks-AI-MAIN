@@ -993,18 +993,6 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Toast notification -->
 <div id="ws-toast"></div>
 
-<!-- ── Sync status pill (Phase 4) ───────────────────────────────────── -->
-<div id="sync-pill" aria-live="polite" aria-atomic="true">
-  <span id="sync-pill-icon"></span>
-  <span id="sync-pill-text"></span>
-</div>
-<!-- ── Sync conflict banner ─────────────────────────────────────────── -->
-<div id="sync-conflict-banner" role="alert">
-  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-  <span id="sync-conflict-text">Some settings were updated from another device.</span>
-  <button onclick="document.getElementById('sync-conflict-banner').classList.remove('show')" aria-label="Dismiss">✕</button>
-</div>
-
 <!-- #pd-help-submenu, #pd-terms-submenu → src/components/ProfileDropdown.js (Task 22) -->
 
 <!-- ══════════════════════════════════════════
