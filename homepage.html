@@ -323,7 +323,7 @@
       background:var(--surface-1);
       border:1px solid var(--border-sm);
       border-radius:var(--r-xl);
-      padding:18px 20px;
+      padding:24px 24px 20px;
       box-shadow:0 32px 80px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.25);
       animation:fadeUp .65s .36s var(--ease-out) both;
     }
@@ -354,7 +354,7 @@
     }
     .g-icon{width:15px;height:15px;flex-shrink:0;}
 
-    .divider{display:flex;align-items:center;gap:10px;margin:9px 0;}
+    .divider{display:flex;align-items:center;gap:10px;margin:14px 0;}
     .divider-line{flex:1;height:1px;background:var(--border-xs);}
     .divider-text{font-size:10px;color:var(--text-4);font-family:var(--font-mono);letter-spacing:.06em;}
 
@@ -404,23 +404,41 @@
       box-shadow:0 2px 12px rgba(232,172,46,.28);
     }
 
-    /* Trust signals — one clean row */
+    /* Trust signals — subtle, blended */
     .trust-signals{
       display:flex;align-items:center;justify-content:center;
       flex-wrap:nowrap;gap:0;
-      margin-top:10px;
+      margin-top:16px;
     }
     .trust-item{
-      font-size:10.5px;color:var(--text-3);
-      font-family:var(--font-mono);
-      display:flex;align-items:center;gap:4px;
-      padding:0 9px;white-space:nowrap;
+      font-size:11px;color:var(--text-3);
+      font-family:var(--font-body);font-weight:500;
+      display:flex;align-items:center;gap:5px;
+      padding:0 10px;white-space:nowrap;
     }
     .trust-item+.trust-item{border-left:1px solid var(--border-xs);}
-    .trust-check{color:var(--teal);font-size:10px;}
+    .trust-check{
+      width:14px;height:14px;border-radius:50%;
+      display:inline-flex;align-items:center;justify-content:center;
+      flex-shrink:0;
+    }
+    .trust-check::after{
+      content:'';width:5px;height:5px;border-radius:50%;
+      display:block;
+    }
+    /* Each badge gets its own accent */
+    .trust-item:nth-child(1) .trust-check{background:rgba(45,212,191,.12);}
+    .trust-item:nth-child(1) .trust-check::after{background:var(--teal);}
+    .trust-item:nth-child(1){color:var(--text-2);}
+    .trust-item:nth-child(2) .trust-check{background:rgba(232,172,46,.12);}
+    .trust-item:nth-child(2) .trust-check::after{background:var(--gold);}
+    .trust-item:nth-child(2){color:var(--text-2);}
+    .trust-item:nth-child(3) .trust-check{background:rgba(139,124,248,.12);}
+    .trust-item:nth-child(3) .trust-check::after{background:var(--purple);}
+    .trust-item:nth-child(3){color:var(--text-2);}
 
     .auth-footer{
-      margin-top:8px;text-align:center;
+      margin-top:14px;text-align:center;
       font-size:10px;color:var(--text-4);
     }
     .auth-footer a{color:var(--text-3);text-decoration:none;transition:color .15s;}
@@ -1419,9 +1437,9 @@
 
       <!-- Trust: answers the 3 hesitation questions -->
       <div class="trust-signals">
-        <span class="trust-item"><span class="trust-check">✔</span> No credit card</span>
-        <span class="trust-item"><span class="trust-check">✔</span> Free forever plan</span>
-        <span class="trust-item"><span class="trust-check">✔</span> Cancel anytime</span>
+        <span class="trust-item"><span class="trust-check"></span> No credit card</span>
+        <span class="trust-item"><span class="trust-check"></span> Free forever plan</span>
+        <span class="trust-item"><span class="trust-check"></span> Cancel anytime</span>
       </div>
       <p class="auth-footer"><a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms of Service</a></p>
     </div>
@@ -2441,11 +2459,15 @@ window.addEventListener('load',()=>{
 
 /* ── Company dropdown ── */
 (function(){
+  const wrapper = document.getElementById('nav-company-dropdown');
   const btn  = document.getElementById('nav-company-btn');
   const menu = document.getElementById('nav-company-menu');
-  if(!btn || !menu) return;
+  if(!btn || !menu || !wrapper) return;
+
+  let closeTimer = null;
 
   function open(){
+    clearTimeout(closeTimer);
     btn.classList.add('open');
     menu.classList.add('open');
     btn.setAttribute('aria-expanded','true');
@@ -2455,11 +2477,21 @@ window.addEventListener('load',()=>{
     menu.classList.remove('open');
     btn.setAttribute('aria-expanded','false');
   }
+  function scheduleClose(){
+    closeTimer = setTimeout(close, 120);
+  }
   function toggle(){ btn.classList.contains('open') ? close() : open(); }
 
+  // Hover — open on enter, close on leave (with small delay to allow moving into menu)
+  wrapper.addEventListener('mouseenter', open);
+  wrapper.addEventListener('mouseleave', scheduleClose);
+  menu.addEventListener('mouseenter', function(){ clearTimeout(closeTimer); });
+  menu.addEventListener('mouseleave', scheduleClose);
+
+  // Click toggle (for touch / keyboard users)
   btn.addEventListener('click', function(e){ e.stopPropagation(); toggle(); });
   document.addEventListener('click', function(e){
-    if(!document.getElementById('nav-company-dropdown').contains(e.target)) close();
+    if(!wrapper.contains(e.target)) close();
   });
   document.addEventListener('keydown', function(e){ if(e.key==='Escape') close(); });
 
