@@ -3,7 +3,7 @@
  *
  * ChunksDB — Shared Sync Layer
  * Central helper for all Supabase read/write operations.
- * Every feature (flashcards, exams, research, study plans))
+ * Every feature (flashcards, exams, research, study plans)
  * uses these helpers instead of talking to Supabase directly.
  *
  * RULES:
@@ -286,7 +286,9 @@ const chat = {
       _lsSet('chunks_pending_upload_sessions', [..._pending, sessionId]);
     }
 
-    if (!isLoggedIn()) return { data: null, error: null };
+    // Guard: _uid() must be non-null for the RPC — if not ready yet,
+    // the pending queue (_uploadLocalChatSessions on next pullAll) will catch it
+    if (!isLoggedIn() || !_uid()) return { data: null, error: null };
 
     return _rpc('append_chat_message', {
       p_session_id: sessionId,
@@ -294,6 +296,7 @@ const chat = {
       p_message:    message,
       p_book_id:    meta.bookId  || null,
       p_title:      meta.title   || null,
+      p_local_id:   meta.localId || null,
     });
   },
 
@@ -313,7 +316,7 @@ const chat = {
       id:         session.id,
       book_id:    session.bookId  || null,
       title:      session.title   || null,
-      messages:   session.messages || [],
+      messages:   session.messages || session.history || [],
       updated_at: session.updatedAt || new Date().toISOString(),
     }, 'id');
   },
@@ -381,13 +384,32 @@ const chat = {
       // Remote wins if newer or if no local copy exists
       if (remoteTime >= localTime) {
         _lsSet(localKey, {
-          id:        remote.id,
-          html:      localRaw?.html || '',   // keep local HTML render if present
+          id:        remote.id,        // UUID — used as Supabase key
+          html:      localRaw?.html || '',
           history:   remote.messages || [],
           bookId:    remote.book_id  || null,
           title:     remote.title    || null,
           updatedAt: remote.updated_at,
         });
+        // Also write under the r+timestamp localId key so the sidebar
+        // and active-session restore can find it on this device
+        if (remote.local_id) {
+          _lsSet('chunks_session_' + remote.local_id, {
+            id:         remote.local_id,
+            supabaseId: remote.id,
+            html:       localRaw?.html || '',
+            history:    remote.messages || [],
+            bookId:     remote.book_id  || null,
+            title:      remote.title    || null,
+            updatedAt:  remote.updated_at,
+          });
+          // Point active session at the familiar r+timestamp key
+          // so existing restore path works without changes
+          const currentActive = localStorage.getItem('chunks_active_home_session');
+          if (!currentActive || currentActive === remote.id) {
+            localStorage.setItem('chunks_active_home_session', remote.local_id);
+          }
+        }
         _notifyConflict('chat_sessions');
       }
 
@@ -806,9 +828,14 @@ async function _uploadLocalChatSessions() {
 
     for (const k of keys) {
       const s = _lsGet(k);
-      if (!s || !s.id) continue;
+      if (!s) continue;
+      // Use supabaseId (UUID) if available; skip r+timestamp IDs — Postgres rejects them
+      const supaId = s.supabaseId || s.id;
+      if (!supaId) continue;
+      if (/^r[0-9]+$/.test(supaId)) continue;
+      if (/^r\d+$/.test(supaId)) continue;
       await upsert('chat_sessions', {
-        id:         s.id,
+        id:         supaId,
         book_id:    s.bookId   || null,
         title:      s.title    || null,
         messages:   s.history  || s.messages || [],
