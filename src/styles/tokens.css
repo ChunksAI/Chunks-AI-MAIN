@@ -104,3 +104,118 @@
   --t-mid:   220ms;
   --t-slow:  380ms;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   STUDY MODE — Warm paper light theme
+   Applied via: <html data-theme="study">
+   Toggle: Settings → Appearance → Study Mode
+          or sidebar sun/moon button
+═══════════════════════════════════════════════════════════ */
+
+[data-theme="study"] {
+
+  /* ── Surfaces — warm parchment ─────────────────────────── */
+  --bg:          #f5f0e8;
+  --surface-0:   #f0ebe0;
+  --surface-1:   #faf7f2;
+  --surface-2:   #ede8dc;
+  --surface-3:   #e4ddd0;
+  --surface-4:   #d8d0c0;
+
+  /* ── Borders — dark-on-light ───────────────────────────── */
+  --border-xs:   rgba(0,0,0,0.05);
+  --border-sm:   rgba(0,0,0,0.08);
+  --border-md:   rgba(0,0,0,0.13);
+  --border-lg:   rgba(0,0,0,0.20);
+
+  /* ── Library modal legacy aliases — light versions ──────── */
+  --border:    rgba(0,0,0,0.08);
+  --surface:   #faf7f2;
+
+  /* ── Text — dark ink hierarchy ─────────────────────────── */
+  --text-1: #1a1610;
+  --text-2: #3d3830;
+  --text-3: #7a7060;
+  --text-4: #a89e8e;
+
+  /* ── Gold — richer, more saturated on light bg ─────────── */
+  --gold:        #b87a10;
+  --gold-bright: #d4920a;
+  --gold-muted:  rgba(184,122,16,0.12);
+  --gold-glow:   rgba(184,122,16,0.20);
+  --gold-border: rgba(184,122,16,0.25);
+
+  /* ── Accent (library modal) — light versions ───────────── */
+  --accent:      #b87a10;
+  --accent-dim:  rgba(184,122,16,0.12);
+  --accent-glow: rgba(184,122,16,0.22);
+
+  /* ── Teal — deeper on light ─────────────────────────────── */
+  --teal:       #0e7a6e;
+  --teal-muted: rgba(14,122,110,0.10);
+  --teal-dim:   rgba(14,122,110,0.10);
+
+  /* ── Violet — richer on light ───────────────────────────── */
+  --violet:        #5b4dd4;
+  --violet-muted:  rgba(91,77,212,0.10);
+  --violet-border: rgba(91,77,212,0.20);
+  --violet-dim:    rgba(91,77,212,0.10);
+
+  /* ── Red — deeper on light ──────────────────────────────── */
+  --red:   #c0392b;
+  --green: #1a8a58;
+
+  /* ── Library modal surfaces — light ─────────────────────── */
+  --lib-surface: #faf7f2;
+
+  /* ── Flashcard accent — warm default ───────────────────── */
+  --fc-accent: #b87a10;
+  --fc-accent-rgb: 184,122,16;
+}
+
+/* ── Study mode body ─────────────────────────────────────── */
+[data-theme="study"] body {
+  background: var(--bg);
+  color: var(--text-1);
+}
+
+/* ── Paper texture ───────────────────────────────────────── */
+[data-theme="study"] body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+  opacity: 0.5;
+}
+
+/* ── Scrollbars ──────────────────────────────────────────── */
+[data-theme="study"] ::-webkit-scrollbar { width: 6px; }
+[data-theme="study"] ::-webkit-scrollbar-track { background: var(--surface-2); }
+[data-theme="study"] ::-webkit-scrollbar-thumb { background: var(--surface-4); border-radius: 99px; }
+
+/* ── Sidebar toggle button ───────────────────────────────── */
+.theme-toggle-btn {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 7px 12px;
+  background: transparent; border: 1px solid var(--border-sm);
+  border-radius: var(--r-md); cursor: pointer;
+  font-family: var(--font-body); font-size: 12px;
+  color: var(--text-3);
+  transition: all .18s; margin-top: auto;
+}
+.theme-toggle-btn:hover {
+  background: var(--surface-2);
+  border-color: var(--border-md);
+  color: var(--text-1);
+}
+[data-theme="study"] .theme-toggle-btn {
+  border-color: rgba(184,122,16,.25);
+  color: var(--gold);
+  background: var(--gold-muted);
+}
+
+/* ── Smooth transition between themes ───────────────────── */
+html {
+  transition:
+    background-color .35s ease,
+    color .35s ease;
+}
