@@ -428,6 +428,12 @@ const chat = {
     }
 
     console.log(`[ChunksDB] chat.pullAndApply — ${remoteSessions.length} sessions downloaded`);
+    // Notify HomeScreen directly via CustomEvent — more reliable than window fn lookup
+    try {
+      window.dispatchEvent(new CustomEvent('chunks:sessions-ready', {
+        detail: { count: remoteSessions.length }
+      }));
+    } catch (_) {}
     return { data: remoteSessions, error: null };
   },
 
@@ -834,7 +840,6 @@ async function _uploadLocalChatSessions() {
       const supaId = s.supabaseId || s.id;
       if (!supaId) continue;
       if (/^r[0-9]+$/.test(supaId)) continue;
-      if (/^r\d+$/.test(supaId)) continue;
       await upsert('chat_sessions', {
         id:         supaId,
         book_id:    s.bookId   || null,
