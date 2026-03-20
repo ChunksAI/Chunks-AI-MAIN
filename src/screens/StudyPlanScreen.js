@@ -35,21 +35,26 @@ const STUDYPLAN_HTML = /* html */`
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
           My Plans
         </button>
+        <button class="sp-topbar-btn" id="btn-new-plan" data-action="spShowEmpty" style="display:none;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Plan
+        </button>
         <button class="sp-topbar-btn" id="btn-active-plan" data-action="spShowPlan" style="display:none;">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
           View Plan
         </button>
       </div>
 
-      <!-- Plans switcher dropdown -->
-      <div id="sp-plans-menu" style="display:none;position:absolute;top:52px;right:16px;z-index:200;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-lg);box-shadow:0 8px 24px rgba(0,0,0,0.35);min-width:260px;padding:8px 0;">
-        <div style="padding:8px 14px 6px;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-4);">Saved Plans</div>
-        <div id="sp-plans-menu-list"></div>
-        <div style="border-top:1px solid var(--border-xs);margin-top:6px;padding-top:6px;">
-          <button onclick="spShowEmpty();spHidePlansMenu();" style="width:100%;text-align:left;padding:8px 14px;background:none;border:none;color:var(--text-2);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:8px;font-family:var(--font-body);transition:background var(--t-fast);" onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='none'">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Create New Plan
-          </button>
+      <!-- Plans modal overlay -->
+      <div id="sp-plans-modal-overlay" style="display:none;position:fixed;inset:0;z-index:9990;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);align-items:center;justify-content:center;">
+        <div id="sp-plans-menu" style="background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-lg);box-shadow:0 16px 48px rgba(0,0,0,0.5);min-width:320px;max-width:420px;width:90%;overflow:hidden;">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px 12px;border-bottom:1px solid var(--border-xs);">
+            <div style="font-size:13px;font-weight:700;color:var(--text-1);font-family:var(--font-head);letter-spacing:0.02em;">My Plans</div>
+            <button data-action="spHidePlansMenu" style="background:none;border:none;cursor:pointer;color:var(--text-3);padding:4px;display:flex;align-items:center;border-radius:var(--r-sm);transition:color var(--t-fast);" title="Close">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
+          <div id="sp-plans-menu-list" style="max-height:360px;overflow-y:auto;padding:8px 0;"></div>
         </div>
       </div>
     </div>

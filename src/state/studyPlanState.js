@@ -587,6 +587,9 @@ export function spShowEmpty() {
   document.getElementById('toggle-plan')?.classList.remove('active-view');
   const btn = document.getElementById('sp-generate-btn');
   if (btn) { btn.disabled = false; btn.style.opacity = ''; }
+  // Hide New Plan button on empty/create state
+  const newBtn = document.getElementById('btn-new-plan');
+  if (newBtn) newBtn.style.display = 'none';
   // Deselect any active plan in the sidebar — we're starting a new session
   if (typeof window.setActivePlan === 'function') window.setActivePlan(null);
   // Clear the PDF upload so a new plan always starts with an empty form
@@ -598,6 +601,9 @@ export function spShowPlan() {
   document.getElementById('sp-active-state').style.display = 'flex';
   document.getElementById('toggle-plan')?.classList.add('active-view');
   document.getElementById('toggle-empty')?.classList.remove('active-view');
+  // Show New Plan button when viewing an active plan
+  const newBtn = document.getElementById('btn-new-plan');
+  if (newBtn) newBtn.style.display = '';
 }
 
 export function spSavePlanToSidebar(topic) {
@@ -1301,12 +1307,12 @@ export function spLoadAllPlans() {
 
 export function spShowPlansMenu() {
   spLoadAllPlans();
-  const menu = document.getElementById('sp-plans-menu');
+  const overlay = document.getElementById('sp-plans-modal-overlay');
   const list = document.getElementById('sp-plans-menu-list');
-  if (!menu || !list) return;
+  if (!overlay || !list) return;
   const entries = Object.entries(_spAllPlans).sort((a, b) => b[1].savedAt - a[1].savedAt);
   if (entries.length === 0) {
-    list.innerHTML = '<div style="padding:8px 14px;font-size:12px;color:var(--text-4);">No saved plans yet.</div>';
+    list.innerHTML = '<div style="padding:16px 18px;font-size:12px;color:var(--text-4);">No saved plans yet.</div>';
   } else {
     list.innerHTML = entries.map(([id, entry]) => {
       const isActive = id === _spActivePlanId;
@@ -1320,7 +1326,7 @@ export function spShowPlansMenu() {
         return score >= 80;
       }).length;
       const pct = n > 0 ? Math.round((mastered / n) * 100) : 0;
-      return `<button onclick="spSwitchToPlan('${id}');spHidePlansMenu();" style="width:100%;text-align:left;padding:8px 14px;background:${isActive ? 'var(--surface-3)' : 'none'};border:none;color:var(--text-1);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:10px;font-family:var(--font-body);border-left:2px solid ${isActive ? 'var(--gold)' : 'transparent'};" onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='${isActive ? 'var(--surface-3)' : 'none'}'">
+      return `<button onclick="spSwitchToPlan('${id}');spHidePlansMenu();" style="width:100%;text-align:left;padding:10px 18px;background:${isActive ? 'var(--surface-3)' : 'none'};border:none;color:var(--text-1);font-size:12px;cursor:pointer;display:flex;align-items:center;gap:10px;font-family:var(--font-body);border-left:3px solid ${isActive ? 'var(--gold)' : 'transparent'};transition:background var(--t-fast);" onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='${isActive ? 'var(--surface-3)' : 'none'}'">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${isActive ? 'var(--gold)' : 'var(--text-3)'}" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         <div style="flex:1;overflow:hidden;">
           <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:${isActive ? '600' : '400'}">${entry.topic || 'Untitled'}</div>
@@ -1332,12 +1338,12 @@ export function spShowPlansMenu() {
       </button>`;
     }).join('');
   }
-  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+  overlay.style.display = 'flex';
 }
 
 export function spHidePlansMenu() {
-  const menu = document.getElementById('sp-plans-menu');
-  if (menu) menu.style.display = 'none';
+  const overlay = document.getElementById('sp-plans-modal-overlay');
+  if (overlay) overlay.style.display = 'none';
 }
 
 export function spSwitchToPlan(id) {
@@ -2211,12 +2217,11 @@ window.spExportIcal           = spExportIcal;
 window.spConfidenceGet        = spConfidenceGet;
 window.spConfidenceBadge      = spConfidenceBadge;
 
-// Close plans menu on outside click
+// Close plans modal when clicking the backdrop overlay
 document.addEventListener('click', e => {
-  const menu = document.getElementById('sp-plans-menu');
-  const btn  = document.getElementById('btn-switch-plan');
-  if (menu && menu.style.display !== 'none' && !menu.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
-    menu.style.display = 'none';
+  const overlay = document.getElementById('sp-plans-modal-overlay');
+  if (overlay && overlay.style.display !== 'none' && e.target === overlay) {
+    spHidePlansMenu();
   }
 }, true);
 
