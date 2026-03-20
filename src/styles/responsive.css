@@ -1080,3 +1080,148 @@
     flex: 0 0 8px; /* right gutter so last card isn't flush */
   }
 }
+
+/* ══════════════════════════════════════════════════════════
+   SETTINGS MODAL — MOBILE
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+
+  /* ── Overlay: bottom sheet ── */
+  .settings-modal {
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+
+  .settings-content {
+    flex-direction: column !important;
+    border-radius: 20px 20px 0 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    height: 88dvh !important;
+    animation: settings-slide-up-mobile 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  @keyframes settings-slide-up-mobile {
+    from { transform: translateY(100%); opacity: 0.7; }
+    to   { transform: translateY(0);    opacity: 1;   }
+  }
+
+  /* ── Left nav → horizontal icon tab bar ── */
+  .settings-nav {
+    width: 100% !important;
+    height: auto !important;
+    flex-direction: row !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border-xs) !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none !important;
+    flex-shrink: 0 !important;
+    position: relative !important;
+  }
+  .settings-nav::-webkit-scrollbar { display: none !important; }
+
+  /* Close button: top-right corner pill */
+  .settings-close {
+    position: absolute !important;
+    top: 10px !important;
+    right: 10px !important;
+    left: auto !important;
+    width: 28px !important;
+    height: 28px !important;
+    background: var(--surface-3) !important;
+    border-radius: 50% !important;
+    z-index: 10 !important;
+  }
+
+  /* Spacer that was pushing content down for the close btn — hide it */
+  .settings-nav > div[style*="height:38px"] {
+    display: none !important;
+  }
+
+  /* nav wrapper */
+  .settings-nav nav {
+    display: flex !important;
+    flex-direction: row !important;
+    padding: 10px 44px 0 12px !important; /* right padding leaves room for close btn */
+    gap: 2px !important;
+    width: max-content !important;
+  }
+
+  /* Each tab item: stacked icon + label pill */
+  .settings-nav-item {
+    flex-direction: column !important;
+    gap: 4px !important;
+    padding: 8px 10px 10px !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    font-size: 10px !important;
+    white-space: nowrap !important;
+    align-items: center !important;
+    min-width: 58px !important;
+    border-bottom: 2px solid transparent !important;
+    border-radius: 0 !important;
+    transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast) !important;
+  }
+
+  .settings-nav-item svg {
+    width: 18px !important;
+    height: 18px !important;
+    opacity: 0.55 !important;
+  }
+
+  .settings-nav-item.active {
+    background: transparent !important;
+    color: var(--gold) !important;
+    font-weight: 600 !important;
+    border-bottom: 2px solid var(--gold) !important;
+  }
+  .settings-nav-item.active svg {
+    opacity: 1 !important;
+    stroke: var(--gold) !important;
+  }
+
+  .settings-nav-item:hover {
+    background: var(--surface-2) !important;
+  }
+
+  /* ── Right panel: fills remaining height ── */
+  .settings-panel {
+    flex: 1 !important;
+    padding: 20px 20px 32px !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .settings-page-title {
+    font-size: 16px !important;
+    margin-bottom: 16px !important;
+  }
+
+  /* Rows: let them breathe */
+  .settings-row {
+    padding: 14px 0 !important;
+    gap: 12px !important;
+  }
+
+  .settings-row-label {
+    font-size: 13px !important;
+  }
+
+  .settings-row-desc {
+    font-size: 11px !important;
+    max-width: none !important;
+  }
+
+  /* Selects: full width on mobile */
+  .settings-select-wrap {
+    min-width: 110px !important;
+  }
+
+  .settings-select-btn {
+    font-size: 12px !important;
+  }
+
+}
