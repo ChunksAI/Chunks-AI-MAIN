@@ -3,7 +3,7 @@
  *
  * ChunksDB — Shared Sync Layer
  * Central helper for all Supabase read/write operations.
- * Every feature (flashcards, exams, research, study plans)
+ * Every feature (flashcards, exams, research, study plans))
  * uses these helpers instead of talking to Supabase directly.
  *
  * RULES:
