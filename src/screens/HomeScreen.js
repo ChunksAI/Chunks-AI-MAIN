@@ -718,6 +718,8 @@ export function homeToggleThinking(mode) {
 
 export async function homeSendMessage() {
   if (homeIsTyping) return;
+  // Mark that the user is actively in this session — prevents sync from overwriting mid-conversation
+  window._homeLastInputTime = Date.now();
   const bar = document.getElementById('home-input-bar');
   const chatActive = bar && bar.style.display !== 'none';
   const inp     = document.getElementById(chatActive ? 'home-ask-input-bottom' : 'home-ask-input');
@@ -920,8 +922,12 @@ mountHomeScreen();
 let _sessionsReadyLastFired = 0;
 window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
   console.log('[HomeScreen] chunks:sessions-ready fired, homeHistory.length=', homeHistory.length);
-  // Skip if user is actively chatting
-  if (homeHistory.length > 0) return;
+
+  // Only skip if the user has ACTIVELY typed in this session within the last 2 minutes.
+  // A stale session restored from localStorage on page load does NOT count — we must
+  // allow the newer remote session from Supabase to replace it.
+  const userIsLive = homeHistory.length > 0 && (Date.now() - (window._homeLastInputTime || 0)) < 120_000;
+  if (userIsLive) return;
 
   // Debounce: TOKEN_REFRESHED triggers a second pullAll shortly after the first,
   // causing this event to fire twice in quick succession and mount the session twice.
@@ -940,7 +946,9 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
       if (!k?.startsWith('chunks_session_')) continue;
       let s;
       try { s = JSON.parse(localStorage.getItem(k)); } catch (_) { continue; }
-      const history = s?.history || s?.messages || [];
+      // Normalise: pullAndApply writes 'messages', _saveSession writes 'history'
+      if (!s.history && s.messages) s.history = s.messages;
+      const history = s?.history || [];
       if (!history.length) continue;
       const localId = k.replace('chunks_session_', '');
       // Prefer the r+timestamp key over the UUID key for the same session
