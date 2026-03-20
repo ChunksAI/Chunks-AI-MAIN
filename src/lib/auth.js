@@ -383,18 +383,16 @@ window._initAuth = async function _initAuth() {
     // Apply default settings for users who haven't been initialized yet
     if (session?.user) _applyDefaultSettings();
 
-    // ── Phase 2: cross-device sync pull ──────────────────────────────────
-    // Run after _applyUserProfile has set window._currentUser.id so that
-    // ChunksDB._uid() returns the correct value inside pullAll().
+    // ── Phase 4: cross-device sync via SyncManager ───────────────────────
     if (session?.user) {
       // Ensure user_settings row exists (idempotent, safe to call every login)
       getSupabaseClient().then(sb2 => {
         if (sb2) sb2.rpc('ensure_user_settings', { p_user_id: session.user.id }).catch(() => {});
       });
-      // Pull all synced state and merge with local (last-write-wins)
+      // SyncManager.loginSync shows the pill, retries on failure, reports conflicts
       setTimeout(() => {
-        window.ChunksDB?.pullAll?.().catch(() => {});
-      }, 1500); // after ChunksDB module has fully loaded
+        window.SyncManager?.loginSync?.().catch(() => {});
+      }, 800);
     }
     // ─────────────────────────────────────────────────────────────────────
 
@@ -469,11 +467,11 @@ window._initAuth = async function _initAuth() {
       // Apply default settings for new users (no-op if already initialized)
       _applyDefaultSettings();
 
-      // Phase 2: pull cross-device state on fresh sign-in
+      // Phase 4: full login sync with UI feedback
       if (session?.user) {
         setTimeout(() => {
-          window.ChunksDB?.pullAll?.().catch(() => {});
-        }, 1500);
+          window.SyncManager?.loginSync?.().catch(() => {});
+        }, 800);
       }
 
       const isLoginPage = window.location.pathname === '/login';
@@ -572,6 +570,11 @@ window.chunksSignOut = async function chunksSignOut() {
   // Set the flag immediately — suppresses all _applyUI calls triggered by
   // the Supabase SIGNED_OUT event that fires when sb.auth.signOut() runs.
   _signingOut = true;
+
+  // Phase 4: flush all pending writes before redirecting (max 3s wait)
+  try {
+    await window.SyncManager?.flushBeforeSignOut?.();
+  } catch (_) {}
 
   // Clean up state and storage BEFORE redirecting so the user never sees
   // a "Guest" flash — the page navigates away before any re-render happens.
