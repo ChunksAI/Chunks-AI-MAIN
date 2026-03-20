@@ -980,3 +980,103 @@
   .sp-activities { flex-wrap: wrap !important; gap: 6px !important; }
 
 }
+
+/* ══════════════════════════════════════════════════════════
+   UPGRADE / PRICING MODAL — MOBILE
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+
+  /* Bottom-sheet style: slides up from bottom */
+  .upgrade-modal {
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+
+  .upgrade-content {
+    border-radius: 20px 20px 0 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: 92dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    /* slide up animation override */
+    animation: upgrade-slide-up-mobile 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  @keyframes upgrade-slide-up-mobile {
+    from { transform: translateY(100%); opacity: 0.6; }
+    to   { transform: translateY(0);    opacity: 1;   }
+  }
+
+  /* Tighter header on mobile */
+  .upgrade-header {
+    padding: 20px 20px 0 !important;
+  }
+
+  .upgrade-title {
+    font-size: 18px !important;
+  }
+
+  /* Horizontal scroll carousel for plan cards */
+  .upgrade-plans {
+    display: flex !important;
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    scroll-snap-type: x mandatory !important;
+    -webkit-overflow-scrolling: touch !important;
+    gap: 12px !important;
+    padding: 18px 20px !important;
+    /* hide scrollbar but keep scroll */
+    scrollbar-width: none !important;
+  }
+  .upgrade-plans::-webkit-scrollbar { display: none !important; }
+
+  /* Each card: fixed width so they peek at edges (inviting swipe) */
+  .upgrade-plan {
+    flex: 0 0 72vw !important;
+    max-width: 280px !important;
+    scroll-snap-align: center !important;
+    /* Make featured card pop to center on load */
+  }
+
+  /* Scroll the featured (Pro) card into view by default via JS below,
+     but also give it a slightly larger visual weight */
+  .upgrade-plan.featured {
+    flex: 0 0 76vw !important;
+    max-width: 290px !important;
+  }
+
+  /* Bigger price text is fine on mobile */
+  .up-plan-price .amount {
+    font-size: 32px !important;
+  }
+
+  /* Feature text can breathe */
+  .up-feature {
+    font-size: 13px !important;
+    gap: 10px !important;
+  }
+  .up-feature svg {
+    width: 13px !important;
+    height: 13px !important;
+  }
+
+  /* Buttons full-width, comfortable tap target */
+  .up-plan-btn {
+    padding: 11px !important;
+    font-size: 13px !important;
+  }
+
+  /* Footer */
+  .upgrade-footer {
+    padding: 0 20px 28px !important;
+    font-size: 12px !important;
+  }
+
+  /* Dot indicators to hint at scrollability */
+  .upgrade-plans::after {
+    content: '';
+    display: block;
+    flex: 0 0 8px; /* right gutter so last card isn't flush */
+  }
+}
