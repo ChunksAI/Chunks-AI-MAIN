@@ -451,6 +451,8 @@ export function settingsFontSize(size, btn) {
   document.querySelectorAll('.font-size-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   try { localStorage.setItem('chunks-chat-font-size', size); } catch (e) {}
+  // Phase 3: sync to Supabase
+  window.ChunksDB?.settings?.patch?.({ chat_font_size: size });
 }
 
 // Restore font size CSS var immediately on load (before modal HTML exists)
@@ -514,6 +516,11 @@ export function settingsSelect(optionEl) {
 
   const key = menu.dataset.settingKey;
   if (key) { try { localStorage.setItem('chunks_setting_' + key, text); } catch (e) {} }
+  // Phase 3: sync language dropdowns to Supabase
+  const _dropdownSyncMap = { language: 'language', 'spoken-language': 'spoken_language' };
+  if (key && _dropdownSyncMap[key]) {
+    window.ChunksDB?.settings?.patch?.({ [_dropdownSyncMap[key]]: text });
+  }
 
   menu.classList.remove('open');
   btn.classList.remove('open');
@@ -533,6 +540,8 @@ export function applyAppearance(value) {
     root.setAttribute('data-theme', 'dark');
   }
   try { localStorage.setItem('chunks_setting_appearance', value); } catch(e) {}
+  // Phase 3: sync to Supabase
+  window.ChunksDB?.settings?.patch?.({ appearance: value });
   // Update sidebar toggle label if present
   const btn = document.getElementById('theme-toggle-btn');
   if (btn) _updateThemeBtn(btn, value === 'study');
@@ -609,6 +618,8 @@ export function settingsSelectAccent(optionEl, color, name) {
     localStorage.setItem('chunks_setting_accent', name);
     localStorage.setItem('chunks_setting_accent_color', color);
   } catch (e) {}
+  // Phase 3: sync to Supabase
+  window.ChunksDB?.settings?.patch?.({ accent: name });
 
   menu.classList.remove('open');
   btn.classList.remove('open');
@@ -622,6 +633,8 @@ export function settingsSelectVoice(optionEl) {
   const lbl = document.getElementById('voice-label');
   if (lbl) lbl.textContent = voice;
   try { localStorage.setItem('chunks_setting_voice', voice); } catch (e) {}
+  // Phase 3: sync to Supabase
+  window.ChunksDB?.settings?.patch?.({ voice });
 }
 
 export function settingsPlayVoice() {
@@ -646,6 +659,9 @@ export function settingsPlayVoice() {
 export function settingsToggleChanged(checkbox, key) {
   const val = checkbox.checked;
   localStorage.setItem('chunks_setting_' + key, val ? '1' : '0');
+  // Phase 3: sync syncable keys to Supabase
+  const _syncMap = { 'separate-voice': 'separate_voice', 'safe-content': 'safe_content' };
+  if (_syncMap[key]) window.ChunksDB?.settings?.patch?.({ [_syncMap[key]]: val });
   if (key === 'followups') {
     document.querySelectorAll('.followups').forEach(el => { el.style.display = val ? '' : 'none'; });
   }
