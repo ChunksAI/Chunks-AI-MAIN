@@ -26,9 +26,9 @@
       "permanent": true
     },
     {
-      "source": "/home",
-      "destination": "/app",
-      "permanent": true
+      "source": "/app",
+      "destination": "/home",
+      "permanent": false
     }
   ],
   "rewrites": [
@@ -37,7 +37,7 @@
       "destination": "/homepage.html"
     },
     {
-      "source": "/app",
+      "source": "/home",
       "destination": "/app.html"
     },
     {
@@ -69,7 +69,7 @@
       "destination": "/$1"
     },
     {
-      "source": "/app/(.*)",
+      "source": "/home/(.*)",
       "destination": "/app.html"
     },
     {
