@@ -45,36 +45,6 @@ const STUDYPLAN_HTML = /* html */`
         </button>
       </div>
 
-      <!-- Plans modal overlay -->
-      <div id="sp-plans-modal-overlay" style="display:none;position:fixed;inset:0;z-index:9990;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;" onclick="if(event.target===this)spHidePlansMenu()">
-        <div id="sp-plans-menu" class="sp-plans-modal-panel">
-          <!-- Header -->
-          <div class="sp-plans-modal-header">
-            <div class="sp-plans-modal-title">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-              My Plans
-            </div>
-            <div class="sp-plans-modal-meta" id="sp-plans-modal-count"></div>
-            <button data-action="spHidePlansMenu" class="sp-plans-modal-close" title="Close">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-            </button>
-          </div>
-          <!-- Search -->
-          <div class="sp-plans-modal-search-wrap">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input id="sp-plans-search" class="sp-plans-modal-search" type="text" placeholder="Search plans…" oninput="spFilterPlansMenu(this.value)" autocomplete="off" />
-          </div>
-          <!-- List -->
-          <div id="sp-plans-menu-list" class="sp-plans-modal-list"></div>
-          <!-- Footer -->
-          <div class="sp-plans-modal-footer">
-            <button class="sp-plans-modal-new-btn" data-action="spHidePlansMenu" onclick="setTimeout(()=>{ if(typeof spShowEmpty==='function') spShowEmpty(); },80)">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              New Plan
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- BODY -->
@@ -478,6 +448,37 @@ const STUDYPLAN_HTML = /* html */`
       </div>
     </div>
   </div>
+
+<!-- Plans modal — lives at screen root so position:fixed is unclipped -->
+<div id="sp-plans-modal-overlay" style="display:none;position:fixed;inset:0;z-index:9990;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;" onclick="if(event.target===this)spHidePlansMenu()">
+  <div id="sp-plans-menu" class="sp-plans-modal-panel">
+    <!-- Header -->
+    <div class="sp-plans-modal-header">
+      <div class="sp-plans-modal-title">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        My Plans
+      </div>
+      <div class="sp-plans-modal-meta" id="sp-plans-modal-count"></div>
+      <button data-action="spHidePlansMenu" class="sp-plans-modal-close" title="Close">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <!-- Search -->
+    <div class="sp-plans-modal-search-wrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--text-4);flex-shrink:0;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="sp-plans-search" class="sp-plans-modal-search" type="text" placeholder="Search plans…" oninput="spFilterPlansMenu(this.value)" autocomplete="off" />
+    </div>
+    <!-- List -->
+    <div id="sp-plans-menu-list" class="sp-plans-modal-list"></div>
+    <!-- Footer -->
+    <div class="sp-plans-modal-footer">
+      <button class="sp-plans-modal-new-btn" data-action="spHidePlansMenu" onclick="setTimeout(()=>{ if(typeof spShowEmpty==='function') spShowEmpty(); },80)">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New Plan
+      </button>
+    </div>
+  </div>
+</div>
 
 </div><!-- /#screen-studyplan -->
 `;
