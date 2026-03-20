@@ -1221,6 +1221,8 @@ export function spInitScreen() {
         // Restore exam date for this plan
         const storedDate = localStorage.getItem('sp_exam_date_' + (_spActivePlanId || 'default'));
         if (storedDate) _spExamDate = storedDate;
+        // Auto-clear if exam date has already passed
+        _spCheckAndExpireExamDate();
         spRenderPlanPatched(plan, plan.topic || 'Saved Plan');
         // Re-apply mastery visuals for each node
         plan.concepts.forEach((_, idx) => {
@@ -1425,6 +1427,8 @@ export function spSwitchToPlan(id) {
   // Highlight the active plan in all sidebars
   if (typeof window.setActivePlan === 'function') window.setActivePlan(id);
   _spExamDate = entry.examDate || null;
+  // Auto-clear if exam date has already passed
+  _spCheckAndExpireExamDate();
   try {
     localStorage.setItem('sp_active_plan_id', id);
     localStorage.setItem('sp_active_plan', JSON.stringify(entry.plan));
@@ -1492,6 +1496,14 @@ export function spSetExamDate(val) {
   // Validate the date is complete — year must be 4 digits (type="date" returns YYYY-MM-DD)
   const parts = val.split('-');
   if (parts.length !== 3 || parts[0].length !== 4 || parseInt(parts[0], 10) < 2020) return;
+
+  // Block dates that have already passed (end of that day)
+  const examEndOfDay = new Date(val + 'T00:00:00').setHours(23,59,59,999);
+  if (examEndOfDay < Date.now()) {
+    if (typeof wsShowToast === 'function') wsShowToast('📅', 'That date has already passed', 'rgba(248,113,113,0.3)');
+    return;
+  }
+
   _spExamDate = val;
   try { localStorage.setItem('sp_exam_date_' + (_spActivePlanId || 'default'), val); } catch (e) {}
   // save into the plan entry
@@ -1507,9 +1519,31 @@ export function spSetExamDate(val) {
   if (setBtn) setBtn.style.display = 'flex';
   // Regenerate daily schedule in detail panel
   spUpdateDailySchedule();
-  // Show reminder row now that an exam date is set
+  // Show reminder row — reminder is OFF by default, user must enable it manually
   spUpdateReminderUI();
 }
+
+/** Check if the current exam date has passed — if so, silently clear it and cancel reminders. */
+function _spCheckAndExpireExamDate() {
+  if (!_spExamDate) return;
+  const examEndOfDay = new Date(_spExamDate + 'T00:00:00').setHours(23,59,59,999);
+  if (examEndOfDay < Date.now()) {
+    // Silently clear the expired exam date
+    _spExamDate = null;
+    try { localStorage.removeItem('sp_exam_date_' + (_spActivePlanId || 'default')); } catch (_) {}
+    if (_spActivePlanId && _spAllPlans[_spActivePlanId]) {
+      _spAllPlans[_spActivePlanId].examDate = null;
+      try { localStorage.setItem('sp_all_plans', JSON.stringify(_spAllPlans)); } catch (_) {}
+    }
+    // Cancel reminders silently
+    window._chunksNotifications?.cancel?.();
+    // Update UI
+    spUpdateExamDateUI();
+    spUpdateReminderUI();
+    spUpdateDailySchedule();
+  }
+}
+window._spCheckAndExpireExamDate = _spCheckAndExpireExamDate;
 
 export function spClearExamDate() {
   _spExamDate = null;
@@ -2076,10 +2110,24 @@ export function spConfidenceBadge(conceptIdx) {
     },
   };
 
-  // Auto-restart on page load if reminders were previously enabled
+  // Auto-restart on page load only if reminders were previously enabled
+  // AND the exam date hasn't passed yet. If it has, cancel and clean up.
   if (localStorage.getItem(ENABLED_KEY) === '1') {
-    // Check immediately in case a reminder fired while page was closed
-    setTimeout(() => { _pingSWAndCheckPage(); _startTick(); }, 2000);
+    try {
+      const prefs = (() => { try { const p = localStorage.getItem(PREFS_KEY); return p ? JSON.parse(p) : null; } catch(_) { return null; } })();
+      const examDate = prefs?.examDate;
+      const examPassed = examDate
+        ? new Date(examDate + 'T00:00:00').setHours(23,59,59,999) < Date.now()
+        : false;
+      if (examPassed) {
+        // Exam date is in the past — cancel reminders silently
+        localStorage.removeItem(STORE_KEY);
+        localStorage.setItem(ENABLED_KEY, '0');
+      } else {
+        // Still valid — restart the tick
+        setTimeout(() => { _pingSWAndCheckPage(); _startTick(); }, 2000);
+      }
+    } catch (_) {}
   }
 })();
 
