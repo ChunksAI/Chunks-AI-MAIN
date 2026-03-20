@@ -1,4 +1,5 @@
 import { saveDoc, listDocs, deleteDoc } from '../lib/userDocDb.js';
+import { getBookProgress, formatLastStudied, calcReadPct } from '../lib/bookProgress.js';
 
 /**
  * src/screens/LibraryScreen.js
@@ -873,7 +874,56 @@ async function libRenderMyDocs() {
 // by mountLibraryScreen(), so the grid already exists at this point.
 document.addEventListener('DOMContentLoaded', () => {
   libRenderMyDocs();
+  _libInjectProgress();
 });
+
+// ── Per-book progress overlay ─────────────────────────────────────────────
+function _libInjectProgress() {
+  const BOOK_IDS = ['zumdahl','atkins','klein','harris','berg','netter','anaphy2e','biochem'];
+  BOOK_IDS.forEach(bookId => {
+    const card = document.querySelector(`.library-book-card[onclick*="${bookId}"]`);
+    if (!card) return;
+
+    const prog = getBookProgress(bookId);
+    if (!prog) return;
+
+    const pct       = calcReadPct(prog);
+    const label     = formatLastStudied(prog.lastOpened);
+    const sessions  = prog.openCount || 0;
+
+    // Remove existing progress block if re-injecting
+    card.querySelector('.lib-progress-block')?.remove();
+
+    const block = document.createElement('div');
+    block.className = 'lib-progress-block';
+    block.innerHTML = `
+      <div class="lib-progress-row">
+        <span class="lib-progress-label">${label ? '🕐 ' + label : ''}</span>
+        <span class="lib-progress-sessions">${sessions} session${sessions !== 1 ? 's' : ''}</span>
+      </div>
+      ${pct > 0 ? `
+      <div class="lib-progress-bar-wrap">
+        <div class="lib-progress-bar-fill" style="width:${pct}%"></div>
+      </div>
+      <div class="lib-progress-pct">${pct}% read</div>
+      ` : ''}
+    `;
+    card.appendChild(block);
+
+    // Add studied ring to cover
+    if (sessions > 0) {
+      const icon = card.querySelector('.library-book-icon');
+      if (icon && !icon.querySelector('.lib-studied-ring')) {
+        const ring = document.createElement('div');
+        ring.className = 'lib-studied-ring';
+        icon.appendChild(ring);
+      }
+    }
+  });
+}
+
+// Re-inject when screen is shown (in case user studied between visits)
+window._libInjectProgress = _libInjectProgress;
 
 // Also expose for external callers (e.g. after upload from workspace)
 window.libRenderMyDocs = libRenderMyDocs;
