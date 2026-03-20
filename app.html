@@ -483,35 +483,58 @@ function _deleteRecent(id, e) {
   // Find the item before removing it
   const item = _recentItems.find(r => r.id === id);
 
+  // Resolve the Supabase UUID for this session.
+  // item.uuid can be null if _hydrateRecentFromRemote never ran (fresh page load,
+  // session created before sync was set up, etc.). Without a UUID the Supabase DELETE
+  // never fires and the row survives — coming back on every subsequent sync.
+  // Fallback: read supabaseId from the localStorage session entry itself.
+  let resolvedUuid = item?.uuid || null;
+  if (!resolvedUuid) {
+    try {
+      const lsEntry = JSON.parse(localStorage.getItem('chunks_session_' + id) || 'null');
+      resolvedUuid = lsEntry?.supabaseId || null;
+      // Also scan for a UUID-keyed entry whose local_id or id matches
+      if (!resolvedUuid) {
+        const _isUUID = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k?.startsWith('chunks_session_')) continue;
+          const candidate = k.replace('chunks_session_', '');
+          if (!_isUUID(candidate)) continue;
+          try {
+            const e2 = JSON.parse(localStorage.getItem(k));
+            if (e2?.local_id === id || e2?.id === id) { resolvedUuid = candidate; break; }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
+
   // Remove from list and persist
   _recentItems = _recentItems.filter(r => r.id !== id);
   _saveRecent();
 
-  // Remove saved session data from localStorage.
-  // Sessions are stored under TWO keys after cross-device sync:
-  //   chunks_session_<r+timestamp>   — the local display key
-  //   chunks_session_<UUID>          — the Supabase primary key
-  // Both must be removed or pullAndApply will re-hydrate the local one from the UUID entry.
+  // Remove saved session data from localStorage — both the r+timestamp key AND UUID key.
   localStorage.removeItem('chunks_session_' + id);
-  if (item?.uuid) {
-    localStorage.removeItem('chunks_session_' + item.uuid);
+  if (resolvedUuid) {
+    localStorage.removeItem('chunks_session_' + resolvedUuid);
   }
   if (item && item.bookId) {
     localStorage.removeItem('chunks_ws_session_' + item.bookId);
   }
 
-  // Tombstone both the local id and the UUID so _uploadLocalChatSessions never
-  // re-uploads this session even if it had no supabaseId yet (fresh orphan sessions
-  // were previously getting a new UUID and re-uploaded, making deletes "come back").
+  // Tombstone BOTH the local id AND the resolved UUID so:
+  //   1. _uploadLocalChatSessions never re-uploads this session
+  //   2. pullAndApply never re-writes it to localStorage from Supabase
   try {
     const tombs = JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]');
-    [id, item?.uuid].filter(Boolean).forEach(v => { if (!tombs.includes(v)) tombs.push(v); });
+    [id, resolvedUuid].filter(Boolean).forEach(v => { if (!tombs.includes(v)) tombs.push(v); });
     localStorage.setItem('chunks_deleted_sessions', JSON.stringify(tombs.slice(-200)));
   } catch (_) {}
 
-  // Delete from Supabase so pullAndApply never re-downloads this session.
-  if (item?.uuid && window.ChunksDB?.chat?.deleteSession) {
-    window.ChunksDB.chat.deleteSession(item.uuid).catch(() => {});
+  // Delete from Supabase using the fully resolved UUID.
+  if (resolvedUuid && window.ChunksDB?.chat?.deleteSession) {
+    window.ChunksDB.chat.deleteSession(resolvedUuid).catch(() => {});
   }
   if (item && item.source === 'visual') {
     localStorage.removeItem('chunks_vt_session_' + id);
@@ -6447,7 +6470,6 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     'spShowEmpty':            ()      => spShowEmpty(),
     'spShowPlan':             ()      => spShowPlan(),
     'spShowPlansMenu':        ()      => spShowPlansMenu(),
-    'spHidePlansMenu':        ()      => spHidePlansMenu(),
     'spClearUpload':          ()      => spClearUpload(),
     'spOpenExplainDrawer':    ()      => spOpenExplainDrawer(),
     'spExamGenerate':         ()      => spExamGenerate(),
