@@ -129,3 +129,43 @@ input, textarea, [contenteditable] {
   -webkit-user-select: text;
   cursor: auto;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   STUDY MODE — base overrides
+   Replace the hardcoded dark body background + gradients
+═══════════════════════════════════════════════════════════ */
+
+[data-theme="study"] body {
+  background: #f5f0e8;
+  color: var(--text-1);
+}
+
+/* Replace the dark radial gradient with a warm paper glow */
+[data-theme="study"] body::before {
+  background:
+    radial-gradient(ellipse 70% 50% at 50% -5%,  rgba(200,135,26,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(180,120,10,0.05) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 0% 80%,   rgba(140,110,60,0.05) 0%, transparent 55%),
+    linear-gradient(160deg, #f2ece0 0%, #f5f0e8 40%, #ede8dc 100%);
+}
+
+/* Remove the dark vignette overlay */
+[data-theme="study"] body::after {
+  background: none;
+}
+
+/* Flashcard hardcoded dark theme backgrounds — override for study mode */
+[data-theme="study"] .fc-card-scene,
+[data-theme="study"] .fc-card-front,
+[data-theme="study"] .fc-card-back {
+  background: var(--surface-1) !important;
+  border-color: var(--border-md) !important;
+  color: var(--text-1) !important;
+}
+
+/* Flashcard streak/XP section hardcoded dark gradients */
+[data-theme="study"] [style*="#0d0d1a"],
+[data-theme="study"] [style*="#0a0a2e"],
+[data-theme="study"] [style*="#080c14"] {
+  background: var(--surface-2) !important;
+}
