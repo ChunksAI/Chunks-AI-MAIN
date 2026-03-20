@@ -161,7 +161,7 @@ const LIBRARY_SCREEN_HTML = /* html */`
 
           <div class="library-book-card" onclick="selectBook('zumdahl')">
             <div class="library-book-icon">
-              <img src="/public/covers/zumdahl.jpg" alt="General Chemistry cover" onerror="this.parentElement.innerHTML='📗'">
+              <img src="/covers/zumdahl.jpg" alt="General Chemistry cover" onerror="this.parentElement.innerHTML='📗'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">General Chemistry</div>
@@ -176,7 +176,7 @@ const LIBRARY_SCREEN_HTML = /* html */`
 
           <div class="library-book-card" onclick="selectBook('atkins')">
             <div class="library-book-icon">
-              <img src="/public/covers/atkins.jpg" alt="Physical Chemistry cover" onerror="this.parentElement.innerHTML='📘'">
+              <img src="/covers/atkins.jpg" alt="Physical Chemistry cover" onerror="this.parentElement.innerHTML='📘'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Physical Chemistry</div>
@@ -191,7 +191,7 @@ const LIBRARY_SCREEN_HTML = /* html */`
 
           <div class="library-book-card" onclick="selectBook('klein')">
             <div class="library-book-icon">
-              <img src="/public/covers/klein.jpg" alt="Organic Chemistry cover" onerror="this.parentElement.innerHTML='📙'">
+              <img src="/covers/klein.jpg" alt="Organic Chemistry cover" onerror="this.parentElement.innerHTML='📙'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Organic Chemistry</div>
@@ -206,7 +206,7 @@ const LIBRARY_SCREEN_HTML = /* html */`
 
           <div class="library-book-card" onclick="selectBook('harris')">
             <div class="library-book-icon">
-              <img src="/public/covers/harris.jpg" alt="Quantitative Chemical Analysis cover" onerror="this.parentElement.innerHTML='📒'">
+              <img src="/covers/harris.jpg" alt="Quantitative Chemical Analysis cover" onerror="this.parentElement.innerHTML='📒'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Quantitative Chemical Analysis</div>
@@ -262,7 +262,7 @@ const LIBRARY_SCREEN_HTML = /* html */`
 
           <div class="library-book-card" onclick="selectBook('netter')">
             <div class="library-book-icon">
-              <img src="/public/covers/netter.jpg" alt="Netter's Atlas cover" onerror="this.parentElement.innerHTML='📕'">
+              <img src="/covers/netter.jpg" alt="Netter's Atlas cover" onerror="this.parentElement.innerHTML='📕'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Netter's Atlas of Human Anatomy</div>
@@ -318,7 +318,7 @@ const LIBRARY_SCREEN_HTML = /* html */`
 
           <div class="library-book-card" onclick="selectBook('anaphy2e')">
             <div class="library-book-icon">
-              <img src="/public/covers/anaphy2e.jpg" alt="Anatomy & Physiology cover" onerror="this.parentElement.innerHTML='🧬'">
+              <img src="/covers/anaphy2e.jpg" alt="Anatomy & Physiology cover" onerror="this.parentElement.innerHTML='🧬'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Anatomy &amp; Physiology</div>
@@ -374,7 +374,7 @@ const LIBRARY_SCREEN_HTML = /* html */`
 
           <div class="library-book-card" onclick="selectBook('biochem')">
             <div class="library-book-icon">
-              <img src="/public/covers/Biochem.jpg" alt="Biochemistry cover" onerror="this.parentElement.innerHTML='💊'">
+              <img src="/covers/Biochem.jpg" alt="Biochemistry cover" onerror="this.parentElement.innerHTML='💊'">
             </div>
             <div class="lib-book-info">
               <div class="library-book-title">Biochemistry</div>
