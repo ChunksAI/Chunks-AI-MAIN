@@ -6,10 +6,10 @@
   <title>Chunks AI — Learn faster. Understand deeper.</title>
   <meta name="description" content="AI-powered flashcards, visual tutor, study plans, and exam prep. Upload your textbook and let AI help you learn faster. Used by 1,200+ students.">
   <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://chunks.online">
+  <link rel="canonical" href="https://chunks.online/ChunksAI">
   <meta property="og:title" content="Chunks AI — Learn faster. Understand deeper.">
   <meta property="og:description" content="AI-powered flashcards, visual tutor, study plans, and exam prep. Start for free.">
-  <meta property="og:url" content="https://chunks.online">
+  <meta property="og:url" content="https://chunks.online/ChunksAI">
   <meta property="og:type" content="website">
   <meta property="og:image" content="https://chunks.online/web-app-manifest-512x512.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -137,13 +137,16 @@
     ───────────────────────────────────────── */
     nav{
       position:fixed;top:0;left:0;right:0;z-index:100;
-      display:flex;align-items:center;
-      gap:0;
-      padding:0 44px;height:52px;
       background:rgba(9,9,15,.75);
       border-bottom:1px solid var(--border-xs);
       backdrop-filter:blur(28px);
       -webkit-backdrop-filter:blur(28px);
+    }
+    .nav-inner{
+      max-width:1240px;margin:0 auto;
+      display:flex;align-items:center;
+      gap:0;
+      padding:0 44px;height:52px;
     }
     .nav-logo{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0;}
     .logo-mark{width:24px;height:24px;}
@@ -1006,7 +1009,7 @@
 
     /* ── TABLET ── */
     @media(max-width:960px){
-      nav{padding:0 24px;}
+      .nav-inner{padding:0 24px;}
       .nav-links{display:none;}
       .hero{grid-template-columns:1fr;padding:80px 24px 60px;gap:36px;}
       .hero-right{display:none;}
@@ -1024,7 +1027,7 @@
 
     /* ── MOBILE ── */
     @media(max-width:480px){
-      nav{padding:0 16px;height:48px;}
+      .nav-inner{padding:0 16px;height:48px;}
       .logo-name{font-size:13px;}
       .btn-ghost{padding:4px 10px;font-size:12px;}
       .btn-nav-cta{padding:5px 12px;font-size:12px;}
@@ -1262,11 +1265,13 @@
     /* ─────────────────────────────────────────
        FOOTER
     ───────────────────────────────────────── */
-    footer{
+    .footer-wrap{
       position:relative;z-index:1;
       border-top:1px solid var(--border-xs);
-      padding:48px 48px 32px;
+    }
+    footer{
       max-width:1240px;margin:0 auto;
+      padding:48px 48px 32px;
     }
     .footer-top{display:grid;grid-template-columns:1.8fr 1fr 1fr 1fr;gap:40px;margin-bottom:40px;}
     .footer-brand{}
@@ -1388,6 +1393,7 @@
 
 <!-- Navbar -->
 <nav>
+  <div class="nav-inner">
   <a href="/" class="nav-logo">
     <svg class="logo-mark" viewBox="0 0 36 36" fill="none">
       <defs>
@@ -1445,7 +1451,7 @@
   <div class="nav-actions">
     <a href="/login" class="btn-ghost">Sign in</a>
     <a href="/login" class="btn-nav-cta" style="white-space:nowrap;">Get started free</a>
-  </div>
+  </div><!-- /.nav-inner -->
 </nav>
 
 <!-- HERO -->
@@ -2277,6 +2283,7 @@
 </div>
 
 <!-- ── FOOTER ────────────────────────────────────────────────────── -->
+<div class="footer-wrap">
 <footer>
   <div class="footer-top">
     <div class="footer-brand">
