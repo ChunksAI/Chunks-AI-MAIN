@@ -279,7 +279,8 @@ function _saveSession(id, historyArr) {
   if (supabaseId) {
     window.ChunksDB?.chat?.saveFull?.({
       id:        supabaseId,
-      localId:   id,           // keep r+timestamp so pullAndApply can link back
+      localId:   id,
+      title:     recentItem?.label || recentItem?.question?.slice(0, 80) || null,
       messages:  historyArr,
       updatedAt,
     });
@@ -879,9 +880,17 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
   // Walk newest-first (remoteSessions is already ordered by updated_at DESC).
   // We append to the END of _recentItems so the user's own local order is
   // preserved at the top; remote-only sessions appear below.
+  // Load tombstones once for this call
+  const _hydrateTombs = (() => {
+    try { return new Set(JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]')); }
+    catch(_) { return new Set(); }
+  })();
+
   for (const remote of remoteSessions) {
     if (!remote.id) continue;                     // malformed row — skip
     if (existingUuids.has(remote.id)) continue;   // already present — skip
+    // Skip deleted sessions — don't re-add them to the sidebar
+    if (_hydrateTombs.has(remote.id) || (remote.local_id && _hydrateTombs.has(remote.local_id))) continue;
 
     // Derive a stable local ID.
     // Prefer the local_id the originating device stored (r+timestamp string).
