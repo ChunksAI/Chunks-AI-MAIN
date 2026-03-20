@@ -364,7 +364,7 @@ const chat = {
 
     const { data: remoteSessions, error } = await get('chat_sessions', {
       order: { col: 'updated_at', asc: false },
-      limit: 50,
+      limit: 200,   // raised from 50 — user had 101 sessions, previous limit left half invisible
     });
 
     if (error || !remoteSessions?.length) return { data: null, error };
@@ -386,12 +386,13 @@ const chat = {
       // Remote wins if newer or if no local copy exists
       if (remoteTime >= localTime) {
         _lsSet(localKey, {
-          id:        remote.id,        // UUID — used as Supabase key
-          html:      localRaw?.html || '',
-          history:   remote.messages || [],
-          bookId:    remote.book_id  || null,
-          title:     remote.title    || null,
-          updatedAt: remote.updated_at,
+          id:         remote.id,        // UUID — used as Supabase key
+          supabaseId: remote.id,        // explicit so uploader never regenerates it
+          html:       localRaw?.html || '',
+          history:    remote.messages || [],
+          bookId:     remote.book_id  || null,
+          title:      remote.title    || null,
+          updatedAt:  remote.updated_at,
         });
         // Also write under the r+timestamp localId key so the sidebar
         // and active-session restore can find it on this device
@@ -921,16 +922,28 @@ async function _uploadLocalChatSessions() {
       const _tombs = (() => { try { return JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]'); } catch(_){return[];} })();
       if (_tombs.includes(s.id) || (s.supabaseId && _tombs.includes(s.supabaseId))) continue;
 
-      // Assign a UUID if missing (Bug #3 fix — see earlier comment)
+      // Resolve the supabaseId for this session.
+      // Priority: explicit supabaseId field → UUID-shaped s.id → generate new UUID.
+      // A UUID-shaped s.id means this entry was written by pullAndApply (it IS the
+      // Supabase row already) — never generate a new UUID for it or it will create
+      // a duplicate row on every login ("50 UUIDs generated" in the console).
+      const _isUUID = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
       if (!s.supabaseId || /^r[0-9]+$/.test(s.supabaseId)) {
-        s.supabaseId = (typeof crypto !== 'undefined' && crypto.randomUUID)
-          ? crypto.randomUUID()
-          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-              const r = Math.random() * 16 | 0;
-              return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-            });
-        _lsSet(k, s);
-        newlyAssigned.push({ id: s.id, uuid: s.supabaseId, title: s.title, bookId: s.bookId, updatedAt: s.updatedAt });
+        if (_isUUID(s.id)) {
+          // s.id is already the UUID — use it directly, no new UUID needed
+          s.supabaseId = s.id;
+          _lsSet(k, s);
+        } else {
+          // Genuinely new local-only session — assign a fresh UUID
+          s.supabaseId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+            ? crypto.randomUUID()
+            : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0;
+                return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+              });
+          _lsSet(k, s);
+          newlyAssigned.push({ id: s.id, uuid: s.supabaseId, title: s.title, bookId: s.bookId, updatedAt: s.updatedAt });
+        }
       }
 
       const messages = s.history || s.messages || [];
