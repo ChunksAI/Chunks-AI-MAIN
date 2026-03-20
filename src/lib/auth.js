@@ -383,6 +383,21 @@ window._initAuth = async function _initAuth() {
     // Apply default settings for users who haven't been initialized yet
     if (session?.user) _applyDefaultSettings();
 
+    // ── Phase 2: cross-device sync pull ──────────────────────────────────
+    // Run after _applyUserProfile has set window._currentUser.id so that
+    // ChunksDB._uid() returns the correct value inside pullAll().
+    if (session?.user) {
+      // Ensure user_settings row exists (idempotent, safe to call every login)
+      getSupabaseClient().then(sb2 => {
+        if (sb2) sb2.rpc('ensure_user_settings', { p_user_id: session.user.id }).catch(() => {});
+      });
+      // Pull all synced state and merge with local (last-write-wins)
+      setTimeout(() => {
+        window.ChunksDB?.pullAll?.().catch(() => {});
+      }, 1500); // after ChunksDB module has fully loaded
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     // ── Auth gate ────────────────────────────────────────────────────────
     const isGuest     = sessionStorage.getItem('chunks_guest_mode') === '1';
     const isLoginPage = window.location.pathname === '/login';
@@ -453,6 +468,13 @@ window._initAuth = async function _initAuth() {
       try { sessionStorage.removeItem('chunks_oauth_callback'); } catch(e) {}
       // Apply default settings for new users (no-op if already initialized)
       _applyDefaultSettings();
+
+      // Phase 2: pull cross-device state on fresh sign-in
+      if (session?.user) {
+        setTimeout(() => {
+          window.ChunksDB?.pullAll?.().catch(() => {});
+        }, 1500);
+      }
 
       const isLoginPage = window.location.pathname === '/login';
       if (isLoginPage) {
