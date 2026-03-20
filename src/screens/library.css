@@ -15,10 +15,9 @@
   --lib-surface: #13141a;
   --lib-radius:  12px;
   --lib-radius-lg: 18px;
-  --lib-accent:      #2dd4bf;
-  --lib-accent-dim:  rgba(45,212,191,0.10);
-  --lib-accent-glow: rgba(45,212,191,0.20);
-  --lib-accent-border: rgba(45,212,191,0.28);
+  --accent:      #f0b429;
+  --accent-dim:  rgba(240,180,41,0.12);
+  --accent-glow: rgba(240,180,41,0.25);
   --violet-dim:  rgba(139,124,248,0.12);
   --teal-dim:    rgba(45,212,191,0.10);
 }
@@ -90,10 +89,10 @@
 .lib-title-icon {
   width: 32px; height: 32px;
   border-radius: 9px;
-  background: var(--lib-accent-dim);
-  border: 1px solid var(--lib-accent-border);
+  background: var(--accent-dim);
+  border: 1px solid rgba(240,180,41,0.2);
   display: flex; align-items: center; justify-content: center;
-  color: var(--lib-accent);
+  color: var(--accent);
   flex-shrink: 0;
 }
 
@@ -193,9 +192,9 @@
   background: var(--surface-2);
 }
 .lib-pill.active {
-  background: var(--lib-accent-dim);
-  border-color: var(--lib-accent-border);
-  color: var(--lib-accent);
+  background: var(--accent-dim);
+  border-color: rgba(240,180,41,0.35);
+  color: var(--accent);
 }
 
 .lib-pill-dot {
@@ -280,7 +279,7 @@
   overflow: hidden;
 }
 .library-book-card:hover {
-  border-color: var(--lib-accent-border);
+  border-color: rgba(240,180,41,0.3);
   background: var(--surface-3);
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0,0,0,0.3);
@@ -357,9 +356,9 @@
 }
 
 .lib-badge-soon {
-  color: var(--lib-accent);
-  background: var(--lib-accent-dim);
-  border-color: var(--lib-accent-border);
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-color: rgba(240,180,41,0.25);
 }
 
 /* Coming soon overlay */
@@ -479,4 +478,249 @@
 /* Search sits flush in the page header, same width as content */
 #screen-library .lib-search-wrap {
   max-width: 420px;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MY DOCUMENTS — Option B: header upload button + row list
+═══════════════════════════════════════════════════════════ */
+
+/* Upload button — sits inline in the section header */
+.lib-upload-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: var(--r-pill);
+  background: var(--violet-muted);
+  border: 1px solid var(--violet-border);
+  color: var(--violet);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 120ms, border-color 120ms;
+}
+.lib-upload-btn:hover {
+  background: rgba(139,124,248,0.18);
+  border-color: rgba(139,124,248,0.4);
+}
+.lib-upload-btn:active { transform: scale(0.97); }
+.lib-upload-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Progress bar — full width under section header, hidden until uploading */
+.lib-upload-progress {
+  height: 3px;
+  background: var(--surface-4);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+  margin-top: 6px;
+}
+.lib-upload-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--violet);
+  border-radius: inherit;
+  transition: width 0.35s ease;
+}
+
+/* Drop zone — shown only while dragging over section */
+.lib-drop-zone {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1.5px dashed var(--violet-border);
+  border-radius: var(--r-md);
+  background: var(--violet-muted);
+  color: var(--violet);
+  font-size: 12px;
+  pointer-events: none;
+}
+.lib-my-docs-section.lib-upload-drag .lib-drop-zone,
+.lib-section--my-docs.lib-upload-drag .lib-drop-zone {
+  display: flex;
+}
+
+/* Empty state */
+.lib-docs-empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0 4px;
+  font-size: 12px;
+  color: var(--text-4);
+}
+
+/* Row list container */
+.lib-docs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* Individual document row */
+.lib-doc-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, transform 100ms;
+  position: relative;
+}
+.lib-doc-row:hover {
+  background: var(--surface-3);
+  border-color: rgba(139,124,248,0.3);
+  transform: translateX(2px);
+}
+
+/* File type icon box */
+.lib-doc-row-icon {
+  width: 36px;
+  height: 40px;
+  border-radius: 6px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Name + meta */
+.lib-doc-row-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lib-doc-row-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+.lib-doc-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  flex-wrap: wrap;
+}
+.lib-doc-row-badge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  padding: 1px 6px;
+  border-radius: var(--r-pill);
+  border: 1px solid;
+  font-weight: 600;
+}
+
+/* Delete button — right side, appears on hover */
+.lib-doc-row-delete {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 120ms, background 120ms, color 120ms, border-color 120ms;
+}
+.lib-doc-row:hover .lib-doc-row-delete {
+  opacity: 1;
+}
+.lib-doc-row-delete:hover {
+  background: rgba(248,113,113,0.12);
+  color: var(--red);
+  border-color: rgba(248,113,113,0.25);
+}
+
+/* ── Per-book study progress ─────────────────────────────────────────────── */
+.lib-progress-block {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lib-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lib-progress-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.lib-progress-sessions {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-4);
+  white-space: nowrap;
+}
+
+.lib-progress-bar-wrap {
+  width: 100%;
+  height: 3px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.lib-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--violet));
+  border-radius: 99px;
+  transition: width 0.6s var(--ease-out);
+}
+
+.lib-progress-pct {
+  font-size: 9.5px;
+  font-family: var(--font-mono);
+  color: var(--text-3);
+  letter-spacing: 0.03em;
+}
+
+/* Studied indicator ring on book cover */
+.library-book-icon {
+  position: relative;
+}
+
+.lib-studied-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  border: 2px solid rgba(232,172,46,0.45);
+  pointer-events: none;
+}
+
+/* "In progress" card gets a subtle gold left border */
+.library-book-card:has(.lib-progress-bar-fill) {
+  border-left: 2px solid rgba(232,172,46,0.35);
 }
