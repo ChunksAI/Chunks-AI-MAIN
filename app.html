@@ -486,10 +486,23 @@ function _deleteRecent(id, e) {
   _recentItems = _recentItems.filter(r => r.id !== id);
   _saveRecent();
 
-  // Remove saved session data from localStorage
+  // Remove saved session data from localStorage.
+  // Sessions are stored under TWO keys after cross-device sync:
+  //   chunks_session_<r+timestamp>   — the local display key
+  //   chunks_session_<UUID>          — the Supabase primary key
+  // Both must be removed or pullAndApply will re-hydrate the local one from the UUID entry.
   localStorage.removeItem('chunks_session_' + id);
+  if (item?.uuid) {
+    localStorage.removeItem('chunks_session_' + item.uuid);
+  }
   if (item && item.bookId) {
     localStorage.removeItem('chunks_ws_session_' + item.bookId);
+  }
+
+  // Delete from Supabase so pullAndApply never re-downloads this session.
+  // Without this, the session survives in the DB and comes back on every refresh/login.
+  if (item?.uuid && window.ChunksDB?.chat?.deleteSession) {
+    window.ChunksDB.chat.deleteSession(item.uuid).catch(() => {});
   }
   if (item && item.source === 'visual') {
     localStorage.removeItem('chunks_vt_session_' + id);
