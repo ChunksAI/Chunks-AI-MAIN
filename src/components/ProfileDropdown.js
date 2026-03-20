@@ -391,6 +391,13 @@ window._closeTerms           = _closeTerms;
 
 window.openUpgradeModal = function openUpgradeModal() {
   document.getElementById('upgrade-modal')?.classList.add('active');
+  // On mobile, scroll the featured (Pro) card into view
+  if (window.innerWidth <= 600) {
+    requestAnimationFrame(() => {
+      const featured = document.querySelector('.upgrade-plan.featured');
+      featured?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    });
+  }
 };
 
 window.closeUpgradeModal = function closeUpgradeModal() {
