@@ -806,6 +806,63 @@ window._renderRecentList  = _renderRecentList;
 window._setActiveRecent   = _setActiveRecent;
 window._saveRecent        = _saveRecent;
 window._saveSession       = _saveSession;
+
+// ── Cross-device session hydration ────────────────────────────────────────────
+// Called by ChunksDB.chat.pullAndApply() after it writes remote sessions into
+// localStorage.  Merges those sessions into _recentItems so that _saveSession
+// can find their uuid and route subsequent writes to Supabase.
+//
+// This is the fix for Bug #1: without this, supabaseId is always null on a
+// restored device, causing every new message to be written only to localStorage.
+//
+// @param {Array} remoteSessions  — raw rows from chat_sessions (Supabase shape)
+window._hydrateRecentFromRemote = function(remoteSessions) {
+  if (!Array.isArray(remoteSessions) || !remoteSessions.length) return;
+
+  // Build a fast-lookup set of UUIDs already in _recentItems so we never
+  // insert duplicates (idempotent — safe to call on every login).
+  const existingUuids = new Set(_recentItems.map(r => r.uuid).filter(Boolean));
+
+  let changed = false;
+
+  // Walk newest-first (remoteSessions is already ordered by updated_at DESC).
+  // We append to the END of _recentItems so the user's own local order is
+  // preserved at the top; remote-only sessions appear below.
+  for (const remote of remoteSessions) {
+    if (!remote.id) continue;                     // malformed row — skip
+    if (existingUuids.has(remote.id)) continue;   // already present — skip
+
+    // Derive a stable local ID.
+    // Prefer the local_id the originating device stored (r+timestamp string).
+    // Fall back to synthesising one so the session is always addressable locally.
+    const localId = remote.local_id || ('r' + new Date(remote.updated_at || Date.now()).getTime());
+
+    const title = remote.title || '';
+    const label = title.length > 32 ? title.slice(0, 32).trimEnd() + '…' : (title || 'Chat');
+
+    _recentItems.push({
+      id:       localId,    // r+timestamp — used as localStorage key suffix
+      uuid:     remote.id,  // UUID — used for Supabase writes (the critical link)
+      label,
+      question: title,
+      bookId:   remote.book_id || '',
+      source:   remote.book_id ? 'workspace' : 'general',
+    });
+
+    existingUuids.add(remote.id);
+    changed = true;
+  }
+
+  if (!changed) return;
+
+  // Trim to cap — keep the most-recent RECENT_MAX entries.
+  if (_recentItems.length > RECENT_MAX) {
+    _recentItems = _recentItems.slice(0, RECENT_MAX);
+  }
+
+  _saveRecent();         // persist to localStorage['chunks_recent']
+  _renderAllRecent();    // refresh sidebar UI
+};
 window._loadSession       = _loadSession;
 window._saveWsSession     = _saveWsSession;
 window._loadWsSession     = _loadWsSession;
