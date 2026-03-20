@@ -118,7 +118,7 @@
     .nav-links{display:flex;align-items:center;}
     .nav-link{font-size:13px;color:var(--text-3);text-decoration:none;padding:5px 11px;border-radius:var(--r-md);transition:color .18s,background .18s;}
     .nav-link:hover{color:var(--text-1);background:rgba(255,255,255,.04);}
-    .nav-actions{display:flex;align-items:center;gap:8px;}
+    .nav-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
     .btn-ghost{
       font-size:13px;color:var(--text-2);
       background:none;border:1px solid var(--border-sm);
@@ -830,13 +830,45 @@
     .step-title{font-family:var(--font-head);font-size:15.5px;font-weight:700;color:var(--text-1);margin-bottom:8px;}
     .step-desc{font-size:13px;color:var(--text-2);line-height:1.7;}
 
+    /* ── TABLET ── */
     @media(max-width:960px){
-      .hero{grid-template-columns:1fr;padding:100px 24px 60px;gap:44px;}
-      .hero-right{display:none;}
       nav{padding:0 24px;}
       .nav-links{display:none;}
+      .hero{grid-template-columns:1fr;padding:80px 24px 60px;gap:36px;}
+      .hero-right{display:none;}
+      .hero-left{align-items:center;text-align:center;}
+      .hero-badge{margin-bottom:14px;}
+      .hero-headline{font-size:clamp(32px,7vw,48px);}
+      .hero-sub{max-width:100%;text-align:center;}
+      .social-proof{justify-content:center;}
+      .auth-card{max-width:100%;}
+      .used-by{text-align:center;}
+      .used-by-tags{justify-content:center;}
       .steps{grid-template-columns:1fr;}
       .how{padding:60px 24px 80px;}
+    }
+
+    /* ── MOBILE ── */
+    @media(max-width:480px){
+      nav{padding:0 16px;height:48px;}
+      .logo-name{font-size:13px;}
+      .btn-ghost{padding:4px 10px;font-size:12px;}
+      .btn-nav-cta{padding:5px 12px;font-size:12px;}
+      .hero{padding:72px 16px 48px;gap:28px;}
+      .hero-headline{font-size:clamp(30px,9vw,40px);letter-spacing:-.025em;}
+      .hero-sub{font-size:13.5px;}
+      .auth-card{padding:16px;border-radius:var(--r-lg);}
+      .cta-hint{font-size:10.5px;}
+      .trust-signals{gap:0;flex-wrap:wrap;justify-content:center;}
+      .trust-item{font-size:10px;padding:0 7px;}
+      .social-proof{gap:8px;}
+      .proof-text{font-size:11px;}
+      .avatars .av{width:22px;height:22px;font-size:10px;}
+      .used-by{margin-top:12px;}
+      .used-by-label{font-size:10px;}
+      .how{padding:48px 16px 64px;}
+      .how-title{font-size:clamp(22px,7vw,32px);}
+      .steps{gap:16px;}
     }
   </style>
 </head>
@@ -869,7 +901,7 @@
   </div>
   <div class="nav-actions">
     <a href="/login" class="btn-ghost">Sign in</a>
-    <a href="/login" class="btn-nav-cta">Get started free</a>
+    <a href="/login" class="btn-nav-cta" style="white-space:nowrap;">Get started free</a>
   </div>
 </nav>
 
@@ -892,9 +924,7 @@
     </h1>
 
     <!-- Subtext: second thing, explains the value -->
-    <p class="hero-sub">
-      Chunks turns any topic into a <strong>visual diagram</strong>, then locks it in with smart flashcards, practice exams, and a personalized study plan.
-    </p>
+    <p class="hero-sub">Stop highlighting. Start chunking.</p>
 
     <!-- Social proof: before the ask, builds trust -->
     <div class="social-proof">
