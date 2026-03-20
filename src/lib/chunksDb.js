@@ -411,7 +411,15 @@ const chat = {
             localStorage.setItem('chunks_active_home_session', remote.local_id);
           }
         }
-        _notifyConflict('chat_sessions');
+        // Bug #5 fix: only fire conflict when local had content that got overwritten.
+        // remoteTime >= localTime is true on every normal pull (first-time sync,
+        // same-device refresh) — firing the banner in those cases is a false alarm
+        // that trains users to ignore it.
+        const hadLocalContent = (localRaw?.history?.length || localRaw?.messages?.length || 0) > 0;
+        const remoteIsMeaningfullyNewer = remoteTime > localTime + 1000; // >1s gap
+        if (hadLocalContent && remoteIsMeaningfullyNewer) {
+          _notifyConflict('chat_sessions');
+        }
       }
 
       // Track the most recently updated session to set as active
@@ -526,7 +534,9 @@ const settings = {
     }
 
     // Remote is newer — apply all columns to localStorage
-    _notifyConflict('user_settings');
+    // Bug #5 fix: only notify if the user had local settings from a prior session.
+    // A null localUpdatedAt means first-time sync on this device — not a conflict.
+    if (localUpdatedAt) _notifyConflict('user_settings');
     if (row.appearance)       try { localStorage.setItem('chunks_setting_appearance',       row.appearance); }        catch (_) {}
     if (row.chat_font_size)   _lsSet('chunks-chat-font-size', row.chat_font_size);
     if (row.accent)           try { localStorage.setItem('chunks_setting_accent',           row.accent); }            catch (_) {}
@@ -614,7 +624,8 @@ const streak = {
 
     if (_remoteIsNewer(row.updated_at, local.updatedAt)) {
       // Remote wins — overwrite local
-      _notifyConflict('streak_state');
+      // Bug #5 fix: only notify if local had meaningful data before being overwritten.
+      if (local.updatedAt) _notifyConflict('streak_state');
       _lsSet(_STREAK_LS_KEY, {
         count:         row.streak_count,
         longest:       row.longest_streak,
@@ -732,7 +743,8 @@ const ws = {
       const localBook  = _lsGet('chunks_active_ws_book');
       const localVisit = _lsGet('chunks_ws_last_visited');
       if (_remoteIsNewer(row.updated_at, localVisit)) {
-        _notifyConflict('ws_state');
+        // Bug #5 fix: only notify if this device had a prior ws position recorded.
+        if (localVisit) _notifyConflict('ws_state');
         _lsSet('chunks_active_ws_book', row.active_book_id);
         _lsSet('chunks_default_book',   row.active_book_id);
       }
