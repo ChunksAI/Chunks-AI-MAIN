@@ -499,8 +499,16 @@ function _deleteRecent(id, e) {
     localStorage.removeItem('chunks_ws_session_' + item.bookId);
   }
 
+  // Tombstone both the local id and the UUID so _uploadLocalChatSessions never
+  // re-uploads this session even if it had no supabaseId yet (fresh orphan sessions
+  // were previously getting a new UUID and re-uploaded, making deletes "come back").
+  try {
+    const tombs = JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]');
+    [id, item?.uuid].filter(Boolean).forEach(v => { if (!tombs.includes(v)) tombs.push(v); });
+    localStorage.setItem('chunks_deleted_sessions', JSON.stringify(tombs.slice(-200)));
+  } catch (_) {}
+
   // Delete from Supabase so pullAndApply never re-downloads this session.
-  // Without this, the session survives in the DB and comes back on every refresh/login.
   if (item?.uuid && window.ChunksDB?.chat?.deleteSession) {
     window.ChunksDB.chat.deleteSession(item.uuid).catch(() => {});
   }
