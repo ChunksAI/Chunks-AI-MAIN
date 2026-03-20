@@ -102,7 +102,12 @@
             // Give 60s buffer for clock skew
             if (expiresAt === 0 || expiresAt - nowSec > 60) {
               // Valid session — redirect instantly, no flash
-              location.replace('/app');
+              if (window.opener && !window.opener.closed) {
+        try { window.opener.postMessage('chunks_auth_success', 'https://chunks.online'); } catch(e) {}
+        setTimeout(function(){ window.close(); }, 100);
+      } else {
+        location.replace('/app');
+      }
               return;
             }
           }
@@ -111,7 +116,12 @@
 
       // Also check guest mode
       if (sessionStorage.getItem('chunks_guest_mode') === '1') {
+        if (window.opener && !window.opener.closed) {
+        try { window.opener.postMessage('chunks_auth_success', 'https://chunks.online'); } catch(e) {}
+        setTimeout(function(){ window.close(); }, 100);
+      } else {
         location.replace('/app');
+      }
         return;
       }
 
@@ -185,7 +195,7 @@
 <script>
   function continueAsGuest() {
     sessionStorage.setItem('chunks_guest_mode', '1');
-    window.location.href = '/app';
+    if (window.opener && !window.opener.closed) { try { window.opener.postMessage('chunks_auth_success','https://chunks.online'); } catch(e){} setTimeout(function(){ window.close(); },100); } else { window.location.href = '/app'; }
   }
   function showError(msg) {
     document.getElementById('auth-error').textContent = msg;
@@ -272,13 +282,24 @@
         if (session) {
           // ── Write user row immediately on sign-in ──────────────────────
           _syncUserRow(sb, session);
-          location.replace('/app'); return;
+          if (window.opener && !window.opener.closed) {
+            try { window.opener.postMessage('chunks_auth_success', 'https://chunks.online'); } catch(e) {}
+            setTimeout(function(){ window.close(); }, 100);
+          } else {
+            location.replace('/app');
+          }
+          return;
         }
         // Not ready — wait for auth state change
         sb.auth.onAuthStateChange(function(event, session) {
           if (event === 'SIGNED_IN' && session) {
             _syncUserRow(sb, session);
-            location.replace('/app');
+            if (window.opener && !window.opener.closed) {
+        try { window.opener.postMessage('chunks_auth_success', 'https://chunks.online'); } catch(e) {}
+        setTimeout(function(){ window.close(); }, 100);
+      } else {
+        location.replace('/app');
+      }
           } else if (event === 'SIGNED_IN' && !session) showError('Sign-in failed. Please try again.');
         });
       } catch(err) {
@@ -290,7 +311,15 @@
     // Normal load — check session (SDK path, for expired/refreshed tokens)
     var result2 = await sb.auth.getSession();
     var session2 = result2.data && result2.data.session;
-    if (session2) { location.replace('/app'); return; }
+    if (session2) {
+      if (window.opener && !window.opener.closed) {
+        try { window.opener.postMessage('chunks_auth_success', 'https://chunks.online'); } catch(e) {}
+        setTimeout(function(){ window.close(); }, 100);
+      } else {
+        location.replace('/app');
+      }
+      return;
+    }
     // No session — show login page
     document.body.classList.add('ready');
   };
