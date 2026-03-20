@@ -2,7 +2,7 @@
  * src/screens/HomeScreen.js — Task 25
  *
  * Owns:
- *   • #screen-home HTML injection (replaces data-home-screen placeholder)
+ *   • #screen-home HTML injection (replaces data-home-screen placeholder))
  *   • Home chat state: homeMode, homeHistory, _homeSessionId, homeIsTyping
  *   • All home chat functions: homeSetMode, homeSetInput, homeHandlePdfUpload,
  *     homeAutoResize, homeAppendUser, homeAppendThinking, homeRemoveThinking,
