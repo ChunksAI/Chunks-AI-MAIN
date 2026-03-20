@@ -421,6 +421,19 @@ function _fcNextMilestone(current) {
   return milestones.find(m => m > current) || null;
 }
 
+// Returns the full milestone array with unlock status — used by streak sync
+function _fcStreakMilestones() {
+  const streak = _fcGetStreak();
+  const current = streak.current || 0;
+  const MILESTONES = [3, 7, 14, 30, 60, 100];
+  return MILESTONES.map(day => ({
+    day,
+    theme: (['Ocean','Ember','Violet','Lava','Aurora','Legend'])[MILESTONES.indexOf(day)] || '',
+    unlocked: current >= day,
+  }));
+}
+window._fcStreakMilestones = _fcStreakMilestones;
+
 // Returns a dynamic flame SVG that grows with the streak level
 function _fcFlameSvg(current, state) {
   // state: 'active' | 'danger' | 'dead' | 'none'
@@ -1434,7 +1447,7 @@ Be warm, encouraging, and concise. No bullet points — write naturally like a t
 // ── Session completion ────────────────────────────────────────────────────────
 
 async function _fcFinishSession() {
-  // Record study day for streak
+  // Record study day for streak (local-only, immediate)
   _fcRecordStudyDay();
 
   // Award XP for this session
@@ -1459,6 +1472,13 @@ async function _fcFinishSession() {
   } catch (e) {
     console.warn('[flashState] session save error:', e);
   }
+
+  // Phase 3: sync streak + XP to Supabase (fire-and-forget)
+  // _fcAwardXp already wrote to localStorage; this pushes it cross-device.
+  window.ChunksDB?.streak?.recordSession?.({
+    xpEarned:   xpResult?.earned ?? 0,
+    milestones: _fcStreakMilestones?.(),   // returns current milestone array or null
+  }).catch?.(() => {});
 
   const { easy, ok, hard, skipped } = _fcStats;
   const total = _fcDeck.length;
