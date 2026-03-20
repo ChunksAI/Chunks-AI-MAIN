@@ -751,8 +751,9 @@ export async function homeSendMessage() {
     window._saveSession?.(_homeSessionId, homeHistory);
     localStorage.setItem('chunks_active_home_session', _homeSessionId);
     window._renderAllRecent?.();
-    // Phase 3: sync user turn to Supabase using stable UUID (not r+timestamp)
-    const _sbId1 = window._recentItems?.find(r => r.id === _homeSessionId)?.uuid;
+    // Phase 3: sync user turn to Supabase — get UUID from localStorage session
+    const _s1 = (() => { try { return JSON.parse(localStorage.getItem('chunks_session_' + _homeSessionId)); } catch(_){} return null; })();
+    const _sbId1 = _s1?.supabaseId || null;
     if (_sbId1) window.ChunksDB?.chat?.appendMessage?.(_sbId1,
       { role: 'user', content: question, ts: Date.now() },
       { bookId: null, title: question.slice(0, 80), localId: _homeSessionId }
@@ -798,8 +799,9 @@ export async function homeSendMessage() {
         window._saveSession?.(_homeSessionId, homeHistory);
         localStorage.setItem('chunks_active_home_session', _homeSessionId);
         window._renderAllRecent?.();
-        // Phase 3: sync AI turn to Supabase using stable UUID
-        const _sbId2 = window._recentItems?.find(r => r.id === _homeSessionId)?.uuid;
+        // Phase 3: sync AI turn to Supabase — get UUID from localStorage session
+        const _s2 = (() => { try { return JSON.parse(localStorage.getItem('chunks_session_' + _homeSessionId)); } catch(_){} return null; })();
+        const _sbId2 = _s2?.supabaseId || null;
         if (_sbId2) window.ChunksDB?.chat?.appendMessage?.(_sbId2,
           { role: 'assistant', content: answer, ts: Date.now() },
           { localId: _homeSessionId }
