@@ -269,16 +269,25 @@ const chat = {
    * @param {{ bookId?: string, title?: string }} [meta]
    */
   async appendMessage(sessionId, message, meta = {}) {
-    if (!isLoggedIn()) {
-      // Fallback: read-modify-write into localStorage
-      const key = 'chunks_session_' + sessionId;
-      const session = _lsGet(key, { id: sessionId, history: [], ...meta });
-      session.history = [...(session.history || []), message];
-      session.updatedAt = new Date().toISOString();
-      _lsSet(key, session);
-      _lsSet('chunks_active_home_session', sessionId);
-      return { data: null, error: null };
+    // Always write to localStorage first — this is the source of truth
+    // for the current device and the upload fallback if Supabase is unreachable.
+    const key = 'chunks_session_' + sessionId;
+    const session = _lsGet(key, { id: sessionId, history: [], ...meta });
+    session.history = [...(session.history || []), message];
+    session.updatedAt = new Date().toISOString();
+    if (meta.bookId) session.bookId = meta.bookId;
+    if (meta.title)  session.title  = meta.title;
+    _lsSet(key, session);
+    _lsSet('chunks_active_home_session', sessionId);
+
+    // Queue this session id for upload in case _uid() isn't ready yet
+    const _pending = _lsGet('chunks_pending_upload_sessions', []);
+    if (!_pending.includes(sessionId)) {
+      _lsSet('chunks_pending_upload_sessions', [..._pending, sessionId]);
     }
+
+    if (!isLoggedIn()) return { data: null, error: null };
+
     return _rpc('append_chat_message', {
       p_session_id: sessionId,
       p_user_id:    _uid(),
@@ -336,6 +345,67 @@ const chat = {
       order: { col: 'updated_at', asc: false },
       limit,
     });
+  },
+
+  /**
+   * Pull sessions from Supabase and write them to localStorage so the
+   * existing restore path (which reads from localStorage) finds them.
+   * Called on every login — safe to run on a device that already has data
+   * (existing local sessions are not overwritten if they are newer).
+   *
+   * @returns {{ data: Array|null, error }}
+   */
+  async pullAndApply() {
+    if (!isLoggedIn()) return { data: null, error: 'not_logged_in' };
+
+    const { data: remoteSessions, error } = await get('chat_sessions', {
+      order: { col: 'updated_at', asc: false },
+      limit: 50,
+    });
+
+    if (error || !remoteSessions?.length) return { data: null, error };
+
+    // Write each remote session into localStorage so the page restore path
+    // picks it up. Only overwrite if remote is newer than what's already local.
+    let newestId   = null;
+    let newestTime = 0;
+
+    for (const remote of remoteSessions) {
+      if (!remote.id) continue;
+
+      const localKey = 'chunks_session_' + remote.id;
+      const localRaw = _lsGet(localKey);
+      const localTime = localRaw?.updatedAt ? new Date(localRaw.updatedAt).getTime() : 0;
+      const remoteTime = remote.updated_at  ? new Date(remote.updated_at).getTime()  : 0;
+
+      // Remote wins if newer or if no local copy exists
+      if (remoteTime >= localTime) {
+        _lsSet(localKey, {
+          id:        remote.id,
+          html:      localRaw?.html || '',   // keep local HTML render if present
+          history:   remote.messages || [],
+          bookId:    remote.book_id  || null,
+          title:     remote.title    || null,
+          updatedAt: remote.updated_at,
+        });
+        _notifyConflict('chat_sessions');
+      }
+
+      // Track the most recently updated session to set as active
+      if (remoteTime > newestTime) {
+        newestTime = remoteTime;
+        newestId   = remote.id;
+      }
+    }
+
+    // Set the most recent session as the active one if nothing is set locally
+    const currentActive = localStorage.getItem('chunks_active_home_session');
+    if (newestId && !currentActive) {
+      localStorage.setItem('chunks_active_home_session', newestId);
+    }
+
+    console.log(`[ChunksDB] chat.pullAndApply — ${remoteSessions.length} sessions downloaded`);
+    return { data: remoteSessions, error: null };
   },
 
   /**
@@ -703,9 +773,9 @@ async function pullAll() {
       settings.pullAndApply(),
       streak.pullAndApply(),
       ws.pullAndApply(),
-      // Chat sessions: pull is implicit — getSessions() always reads from
-      // Supabase when logged in. We upload any unsync'd local sessions here.
+      // Chat: upload any local-only sessions, then download remote ones
       _uploadLocalChatSessions(),
+      chat.pullAndApply(),
     ]);
     console.log('[ChunksDB] pullAll — done ✦');
   } catch (e) {
@@ -721,20 +791,37 @@ async function pullAll() {
 async function _uploadLocalChatSessions() {
   if (!isLoggedIn()) return;
   try {
+    // Collect all session keys from localStorage
+    const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (!k || !k.startsWith('chunks_session_')) continue;
+      if (k && k.startsWith('chunks_session_')) keys.push(k);
+    }
+    // Also include any that were queued while logged out / uid not yet ready
+    const pending = _lsGet('chunks_pending_upload_sessions', []);
+    pending.forEach(id => {
+      const k = 'chunks_session_' + id;
+      if (!keys.includes(k)) keys.push(k);
+    });
+
+    for (const k of keys) {
       const s = _lsGet(k);
       if (!s || !s.id) continue;
-      // Fire-and-forget each session upsert
-      upsert('chat_sessions', {
-        id:       s.id,
-        book_id:  s.bookId  || null,
-        title:    s.title   || null,
-        messages: s.history || s.messages || [],
-      }, 'id').catch(() => {});
+      await upsert('chat_sessions', {
+        id:         s.id,
+        book_id:    s.bookId   || null,
+        title:      s.title    || null,
+        messages:   s.history  || s.messages || [],
+        updated_at: s.updatedAt || new Date().toISOString(),
+      }, 'id');
     }
-  } catch (_) {}
+
+    // Clear the pending queue now that everything is uploaded
+    _lsRemove('chunks_pending_upload_sessions');
+    console.log(`[ChunksDB] _uploadLocalChatSessions — ${keys.length} sessions uploaded`);
+  } catch (e) {
+    console.warn('[ChunksDB] _uploadLocalChatSessions error:', e.message);
+  }
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
