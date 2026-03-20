@@ -1,6 +1,11 @@
 {
   "redirects": [
     {
+      "source": "/",
+      "destination": "/home",
+      "permanent": true
+    },
+    {
       "source": "/index.html",
       "destination": "/ChunksAI",
       "permanent": true
@@ -27,23 +32,18 @@
     },
     {
       "source": "/app",
-      "destination": "/",
-      "permanent": true
-    },
-    {
-      "source": "/home",
-      "destination": "/",
+      "destination": "/home",
       "permanent": true
     }
   ],
   "rewrites": [
     {
-      "source": "/",
-      "destination": "/app.html"
-    },
-    {
       "source": "/ChunksAI",
       "destination": "/homepage.html"
+    },
+    {
+      "source": "/home",
+      "destination": "/app.html"
     },
     {
       "source": "/login",
@@ -72,6 +72,10 @@
     {
       "source": "/public/(.*)",
       "destination": "/$1"
+    },
+    {
+      "source": "/home/(.*)",
+      "destination": "/app.html"
     },
     {
       "source": "/(.*)",

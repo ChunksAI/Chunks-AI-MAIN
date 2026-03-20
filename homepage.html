@@ -2718,7 +2718,7 @@ function openAuthPopup() {
 
 function continueAsGuest() {
   sessionStorage.setItem('chunks_guest_mode', '1');
-  window.location.href = '/';
+  window.location.href = '/home';
 }
 
 // Listen for success message from the popup (login.html posts this)
@@ -2727,7 +2727,7 @@ window.addEventListener('message', function(e) {
   if (e.data === 'chunks_auth_success') {
     clearInterval(_popupPollTimer);
     if (_authPopup && !_authPopup.closed) _authPopup.close();
-    window.location.replace('/');
+    window.location.replace('/home');
   }
 });
 </script>

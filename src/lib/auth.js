@@ -493,7 +493,7 @@ window._initAuth = async function _initAuth() {
 
       const isLoginPage = window.location.pathname === '/login';
       if (isLoginPage) {
-        window.location.replace('/');
+        window.location.replace('/home');
         return;
       }
 
@@ -504,7 +504,7 @@ window._initAuth = async function _initAuth() {
         const hasOAuthInUrl = window.location.hash.includes('access_token') ||
                               window.location.search.includes('code=');
         if (hasOAuthInUrl) {
-          window.history.replaceState({ screen: 'home' }, '', '/');
+          window.history.replaceState({ screen: 'home' }, '', '/home');
         }
       } catch(e) {}
 
