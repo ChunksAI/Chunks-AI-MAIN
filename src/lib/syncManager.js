@@ -106,7 +106,7 @@ function _showConflictBanner(fields) {
  * @param {{ silent?: boolean }} [opts]  — silent=true skips the "Syncing…" pill
  * @returns {Promise<boolean>}  — true if sync succeeded
  */
-async function _runSync({ silent = false } = {}) {
+async function _runSync({ silent = false, force = false } = {}) {
   if (_inFlight) return false;
   if (!ChunksDB.isLoggedIn()) return false;
 
@@ -128,7 +128,7 @@ async function _runSync({ silent = false } = {}) {
     };
     window.addEventListener('chunksdb:conflict', conflictListener, { once: false });
 
-    await ChunksDB.pullAll();
+    await ChunksDB.pullAll({ force });
 
     window.removeEventListener('chunksdb:conflict', conflictListener);
 
@@ -184,23 +184,21 @@ const SyncManager = {
    * Full login merge — called on SIGNED_IN and session restore.
    * Shows the sync pill so the user knows their data is loading.
    *
-   * Waits for ChunksDB to be ready, then runs pullAll.
-   * If the app is offline at login time, queues a sync for when it reconnects.
+   * @param {{ force?: boolean }} [opts] — force:true bypasses the 60s pullAll cooldown
    */
-  async loginSync() {
+  async loginSync({ force = false } = {}) {
     if (!ChunksDB.isLoggedIn()) return;
 
     // If offline, queue for reconnect
     if (!navigator.onLine) {
       console.log('[SyncManager] Offline at login — queued for reconnect');
       _showPill('syncing', 'Offline — will sync when connected');
-      // The 'online' listener below will trigger
       return;
     }
 
     // Small delay so the page has painted before we show the pill
     await new Promise(r => setTimeout(r, 300));
-    await _runSync({ silent: false });
+    await _runSync({ silent: false, force });
 
     // After sync, apply any UI changes needed (e.g. re-render streak widget)
     _applyPostSyncUI();
