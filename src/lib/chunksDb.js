@@ -627,22 +627,11 @@ const settings = {
 
     const row = data[0];
 
-    // Compare updated_at vs last local write
-    const localUpdatedAt = _lsGet('chunks_settings_updated_at');
-    if (!_remoteIsNewer(row.updated_at, localUpdatedAt)) {
-      // Local is newer — push local up to Supabase instead
-      await settings.pushLocalToRemote();
-      return { data: row, error: null };
-    }
-
-    // Remote is newer — apply all columns to localStorage
-    // Bug #5 fix: only notify if the user had local settings from a prior session.
-    // A null localUpdatedAt means first-time sync on this device — not a conflict.
-    if (localUpdatedAt) _notifyConflict('user_settings');
-
-    // ── Restore server-side tombstones ───────────────────────────────────────
-    // deleted_sessions is stored inside the notifications JSONB so fresh logins on
-    // any device always know which sessions were deleted — even with empty localStorage.
+    // ── ALWAYS restore server-side tombstones first ──────────────────────────
+    // This must run regardless of whether local or remote settings are newer.
+    // If tombstones are only restored when "remote is newer", a user who changed
+    // any setting after deleting sessions will push local settings up and skip
+    // reading deleted_sessions — making deleted sessions come back on every login.
     try {
       const serverDeleted = row.notifications?.deleted_sessions || [];
       if (serverDeleted.length) {
@@ -652,6 +641,17 @@ const settings = {
         console.log(`[ChunksDB] restored ${serverDeleted.length} server-side tombstones`);
       }
     } catch (_) {}
+
+    // Compare updated_at vs last local write
+    const localUpdatedAt = _lsGet('chunks_settings_updated_at');
+    if (!_remoteIsNewer(row.updated_at, localUpdatedAt)) {
+      // Local is newer — push local up to Supabase instead
+      await settings.pushLocalToRemote();
+      return { data: row, error: null };
+    }
+
+    // Remote is newer — apply all columns to localStorage
+    if (localUpdatedAt) _notifyConflict('user_settings');
     if (row.appearance)       try { localStorage.setItem('chunks_setting_appearance',       row.appearance); }        catch (_) {}
     if (row.chat_font_size)   _lsSet('chunks-chat-font-size', row.chat_font_size);
     if (row.accent)           try { localStorage.setItem('chunks_setting_accent',           row.accent); }            catch (_) {}
