@@ -656,3 +656,71 @@
   color: var(--red);
   border-color: rgba(248,113,113,0.25);
 }
+
+/* ── Per-book study progress ─────────────────────────────────────────────── */
+.lib-progress-block {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lib-progress-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lib-progress-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.lib-progress-sessions {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-4);
+  white-space: nowrap;
+}
+
+.lib-progress-bar-wrap {
+  width: 100%;
+  height: 3px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.lib-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold), var(--violet));
+  border-radius: 99px;
+  transition: width 0.6s var(--ease-out);
+}
+
+.lib-progress-pct {
+  font-size: 9.5px;
+  font-family: var(--font-mono);
+  color: var(--text-3);
+  letter-spacing: 0.03em;
+}
+
+/* Studied indicator ring on book cover */
+.library-book-icon {
+  position: relative;
+}
+
+.lib-studied-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  border: 2px solid rgba(232,172,46,0.45);
+  pointer-events: none;
+}
+
+/* "In progress" card gets a subtle gold left border */
+.library-book-card:has(.lib-progress-bar-fill) {
+  border-left: 2px solid rgba(232,172,46,0.35);
+}
