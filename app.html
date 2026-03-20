@@ -926,7 +926,7 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
     if (existingUuids.has(remote.id)) continue;
     if (_hydrateTombs.has(remote.id) || (remote.local_id && _hydrateTombs.has(remote.local_id))) continue;
 
-    const localId = remote.local_id || ('r' + new Date(remote.updated_at || Date.now()).getTime());
+    const localId = remote.local_id || remote.id; // prefer local_id; fall back to UUID (never collides)
     const title = remote.title || '';
     const label = title.length > 32 ? title.slice(0, 32).trimEnd() + '…' : (title || 'Chat');
 
