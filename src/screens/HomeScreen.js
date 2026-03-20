@@ -751,13 +751,10 @@ export async function homeSendMessage() {
     window._saveSession?.(_homeSessionId, homeHistory);
     localStorage.setItem('chunks_active_home_session', _homeSessionId);
     window._renderAllRecent?.();
-    // Phase 3: sync user turn to Supabase — get UUID from localStorage session
-    const _s1 = (() => { try { return JSON.parse(localStorage.getItem('chunks_session_' + _homeSessionId)); } catch(_){} return null; })();
-    const _sbId1 = _s1?.supabaseId || null;
-    if (_sbId1) window.ChunksDB?.chat?.appendMessage?.(_sbId1,
-      { role: 'user', content: question, ts: Date.now() },
-      { bookId: null, title: question.slice(0, 80), localId: _homeSessionId }
-    );
+    // Supabase write is handled by _saveSession → saveFull (single write path).
+    // appendMessage was removed here to fix the double-write race (Bug #2):
+    // saveFull UPSERTs the full array while appendMessage appends a single turn —
+    // whichever resolves second wins and can duplicate or truncate messages.
   }
 
   homeIsTyping = true;
@@ -799,13 +796,8 @@ export async function homeSendMessage() {
         window._saveSession?.(_homeSessionId, homeHistory);
         localStorage.setItem('chunks_active_home_session', _homeSessionId);
         window._renderAllRecent?.();
-        // Phase 3: sync AI turn to Supabase — get UUID from localStorage session
-        const _s2 = (() => { try { return JSON.parse(localStorage.getItem('chunks_session_' + _homeSessionId)); } catch(_){} return null; })();
-        const _sbId2 = _s2?.supabaseId || null;
-        if (_sbId2) window.ChunksDB?.chat?.appendMessage?.(_sbId2,
-          { role: 'assistant', content: answer, ts: Date.now() },
-          { localId: _homeSessionId }
-        );
+        // Supabase write is handled by _saveSession → saveFull (single write path).
+        // appendMessage was removed here to fix the double-write race (Bug #2).
       }
     }
   } catch (e) {
