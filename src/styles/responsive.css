@@ -88,6 +88,70 @@
     padding-bottom: var(--mobile-nav-h) !important;
   }
 
+  /* ── Visual Tutor — reset sidebar offset on mobile ───── */
+  #screen-visual .vtp-screen {
+    left: 0 !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+  }
+  #screen-visual .entry-wrap,
+  #screen-visual .vtp-entry-inner {
+    padding: 16px !important;
+    max-width: 100% !important;
+  }
+  #screen-visual .entry-h {
+    font-size: clamp(22px, 7vw, 36px) !important;
+    text-align: center !important;
+  }
+  #screen-visual .entry-s {
+    font-size: 14px !important;
+    text-align: center !important;
+  }
+  #screen-visual .vtp-input-row {
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 0 16px 16px !important;
+  }
+  #screen-visual .vtp-gen-input {
+    width: 100% !important;
+    font-size: 15px !important;
+  }
+  #screen-visual .vtp-gen-btn {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  #screen-visual .vtp-example-cards {
+    grid-template-columns: 1fr 1fr !important;
+    padding: 0 16px !important;
+  }
+  #screen-visual .vtp-pills,
+  #screen-visual .entry-pills {
+    padding: 0 16px !important;
+    justify-content: center !important;
+  }
+  /* Lesson view */
+  #screen-visual .lesson-wrap {
+    flex-direction: column !important;
+  }
+  #screen-visual .lesson-header {
+    padding: 0 14px !important;
+    gap: 6px !important;
+  }
+  #screen-visual .vt-bubble-wrap,
+  #screen-visual .vt-canvas {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  #screen-visual .controls-bar {
+    padding: 8px 14px calc(8px + var(--mobile-nav-h)) !important;
+    gap: 8px !important;
+  }
+  #screen-visual .controls-bar button {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
   /* Override inline style="overflow:hidden" on flash/research/exam screens */
   #screen-flash,
   #screen-research,
