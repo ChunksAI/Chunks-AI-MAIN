@@ -2389,32 +2389,8 @@ window.addEventListener('load',()=>{
 </script>
 
 <script>
-/* ── Smooth scroll without hash ── */
-(function(){
-  const NAV_H = 60;
-  // html has overflow-y:scroll so the scroll container is documentElement, not window
-  const scroller = document.documentElement;
-
-  document.addEventListener('click', function(e) {
-    const a = e.target.closest('a[href^="#"]');
-    if (!a) return;
-    const id = a.getAttribute('href').replace('#', '');
-    if (!id || id === '') return;
-    const target = document.getElementById(id);
-    if (!target) return;
-
-    e.preventDefault();
-    const top = target.getBoundingClientRect().top + scroller.scrollTop - NAV_H;
-    scroller.scrollTop = top; // CSS scroll-behavior:smooth handles animation
-    setTimeout(function() {
-      history.replaceState(null, '', window.location.pathname);
-    }, 650);
-  });
-})();
-
 /* ── Scroll spy — highlight active nav link ── */
 (function(){
-  const scroller = document.documentElement; // html has overflow-y:scroll
   const links = document.querySelectorAll('.nav-link[href^="#"]');
   const linkMap = {};
   links.forEach(l => {
@@ -2430,26 +2406,37 @@ window.addEventListener('load',()=>{
     if (id && linkMap[id]) linkMap[id].classList.add('active');
   }
 
-  function getScrollTop() { return scroller.scrollTop || window.scrollY || 0; }
-
   function onScroll() {
-    const scrollTop = getScrollTop();
-    const mid = scrollTop + window.innerHeight * 0.4;
-    let best = null, bestDist = Infinity;
+    const y = window.scrollY + 80;
+    let best = null;
     sections.forEach(s => {
-      const top = s.getBoundingClientRect().top + scrollTop;
-      if (top <= mid) {
-        const dist = mid - top;
-        if (dist < bestDist) { bestDist = dist; best = s.id; }
-      }
+      const top = s.getBoundingClientRect().top + window.scrollY;
+      if (top <= y) best = s.id;
     });
     setActive(best);
   }
 
-  // Listen on both window and scroller to cover all browsers
   window.addEventListener('scroll', onScroll, {passive: true});
-  scroller.addEventListener('scroll', onScroll, {passive: true});
   onScroll();
+})();
+
+/* ── Mask hash from URL — always show clean https://chunks.online ── */
+(function(){
+  // After any anchor click, strip the hash from the address bar
+  document.addEventListener('click', function(e) {
+    const a = e.target.closest('a[href^="#"]');
+    if (!a) return;
+    const id = a.getAttribute('href').replace('#','');
+    if (!id || id === '') return;
+    // Let the browser do its native jump, then clean the URL
+    setTimeout(function() {
+      history.replaceState(null, '', window.location.pathname);
+    }, 0);
+  });
+  // Also clean on load if page was opened with a hash
+  if (window.location.hash) {
+    history.replaceState(null, '', window.location.pathname);
+  }
 })();
 
 /* ── Company dropdown ── */
