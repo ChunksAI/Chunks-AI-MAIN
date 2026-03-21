@@ -2835,7 +2835,7 @@ window.addEventListener('load',()=>{
     'company/contact': { title:'Contact — Chunks AI', name:'Contact' },
     'company/terms': { title:'Terms of Service — Chunks AI', name:'Terms of Service' },
     'company/privacy': { title:'Privacy Policy — Chunks AI', name:'Privacy Policy' },
-    'about': { title:'Chunks AI', name:'Chunks AI' },
+    'about': { title:'About — Chunks AI', name:'About' },
   };
 
 
@@ -2874,12 +2874,9 @@ window.addEventListener('load',()=>{
   function navigate(key){
     if(key === 'about'){
       showHomepage();
-      history.pushState(null, 'Chunks AI', '/');
-      document.title = 'Chunks AI — Learn faster. Understand deeper.';
-      setTimeout(function(){
-        var el = document.getElementById('about');
-        if(el) el.scrollIntoView({behavior:'smooth'});
-      }, 80);
+      history.pushState({spa:'about'}, 'About — Chunks AI', '/about');
+      document.title = 'About — Chunks AI';
+      window.scrollTo({top:0, behavior:'smooth'});
       return;
     }
     var page = pages[key];
@@ -2895,7 +2892,7 @@ window.addEventListener('load',()=>{
     showHomepage();
     document.title = 'Chunks AI — Learn faster. Understand deeper.';
     history.pushState(null, document.title, '/');
-    window.scrollTo(0,0);
+    window.scrollTo({top:0, behavior:'smooth'});
   }
 
   // ── Logo / home links → close SPA ──
