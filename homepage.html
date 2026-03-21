@@ -3005,7 +3005,8 @@ window.addEventListener('load',()=>{
       showHomepage();
       if(!skipHistory) history.pushState({spa:'about'}, 'About — Chunks AI', '/about');
       document.title = 'About — Chunks AI';
-      window.scrollTo({top:0, behavior:'instant'});
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
       return;
     }
 
@@ -3016,14 +3017,21 @@ window.addEventListener('load',()=>{
     if(!skipHistory) history.pushState({spa:key}, page.title, '/'+key);
     hideHomepage();
     spaSection.innerHTML = page.render ? page.render() : '<div class="spa-page-body"><div class="spa-page-name">'+page.name+'</div></div>';
-    window.scrollTo({top:0, behavior:'instant'});
+    // Force scroll after paint
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    requestAnimationFrame(function(){
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    });
   }
 
   function closeSpa(){
     showHomepage();
     document.title = 'Chunks AI — Learn faster. Understand deeper.';
     history.pushState(null, document.title, '/ChunksAI');
-    window.scrollTo({top:0, behavior:'instant'});
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   }
 
   // ── Logo / home links → close SPA ──
@@ -3041,13 +3049,18 @@ window.addEventListener('load',()=>{
     e.preventDefault();
     var key = el.dataset.spa;
     var currentKey = window.location.pathname.slice(1);
-    // Same page — re-render and scroll to top
+    // Same page — re-render and force scroll to top
     if(currentKey === key){
       var page = pages[key];
       if(page){
         hideHomepage();
         spaSection.innerHTML = page.render ? page.render() : '<div class="spa-page-body"><div class="spa-page-name">'+page.name+'</div></div>';
-        window.scrollTo({top:0, behavior:'instant'});
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+        requestAnimationFrame(function(){
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
+        });
       }
       return;
     }
