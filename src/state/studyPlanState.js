@@ -16,6 +16,7 @@
  */
 
 import { API_BASE } from '../lib/api.js';
+import { guestGate, recordUsage } from '../lib/guestLimits.js';
 
 // ── State ──────────────────────────────────────────────────────────────────
 
@@ -338,6 +339,7 @@ function _aiParams(base) {
 
 async function spHandleGenerate() {
   if (!spValidateInputs()) return;
+  if (!guestGate('studyplan')) return; // guest limit check
 
   let sourceContent = '', sourceName = '', sourceType = _spActiveTab;
   if (_spActiveTab === 'upload') {
@@ -433,6 +435,7 @@ Rules:
       localStorage.removeItem('sp_exam_date_default');
     } catch (_) {}
     _spActivePlanId = _spGenPlanId(); // new ID for new plan
+    recordUsage('studyplan'); // track guest usage
     if (typeof window.setActivePlan === 'function') window.setActivePlan(_spActivePlanId);
     spHideOverlay();
     spRenderPlanPatched(plan, sourceName);

@@ -2667,11 +2667,13 @@ function _bindLayerStepActions(layerId) {
 
 /* ── Generate paragraph (placeholder until backend) ── */
 function _generateParagraph(layerId) {
+  if (!window.guestGate?.('research')) return; // guest limit check
   const ls  = _layer(layerId);
   const btn = document.getElementById(`btn-generate-${layerId}`);
   if (!btn) return;
 
   // ── Button loading state ──
+  window.guestRecordUsage?.('research'); // track guest usage
   btn.disabled = true;
   btn.innerHTML = `<span style="display:inline-flex;gap:3px;align-items:center;">
     <span style="width:4px;height:4px;border-radius:50%;background:#090900;animation:blink 1s ease-in-out infinite;"></span>
@@ -4989,6 +4991,8 @@ function _examAdaptiveReorder() {
 }
 
 async function examStart() {
+  if (!window.guestGate?.('exam')) return; // guest limit check
+  window.enforceExamConstraints?.(); // MCQ only, max 5 questions
   const topic = document.getElementById('exam-topic-input').value.trim();
   const errEl = document.getElementById('exam-error');
   errEl.style.display = 'none';
@@ -5011,6 +5015,7 @@ async function examStart() {
   _examTopic    = topic || _examSourceLabel || 'Uploaded document';
   _examTimerSec = timeSec;
 
+  window.guestRecordUsage?.('exam'); // track guest usage
   document.getElementById('exam-start-btn').disabled = true;
   document.getElementById('exam-loading-topic').textContent = _examTopic;
   document.getElementById('exam-loading-text').textContent  =
@@ -6579,6 +6584,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
   <!-- ── Vite module entry point ── -->
   <script type="module" src="/src/main.js"></script>
+  <script type="module" src="/src/lib/guestLimits.js"></script>
 <script>
 // Failsafe: ensure body is visible after all modules load
 window.addEventListener('load', function() {

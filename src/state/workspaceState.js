@@ -15,6 +15,7 @@
  */
 
 import { API_BASE }    from '../lib/api.js';
+import { guestGate, recordUsage, renderUsageBar } from '../lib/guestLimits.js';
 import { trackBookOpen, trackBookPage } from '../lib/bookProgress.js';
 import { showToast }   from '../components/Toast.js';
 import { getDocBlob, getDocMeta, deleteDoc } from '../lib/userDocDb.js';
@@ -302,6 +303,16 @@ export async function selectBook(bookId) {
   if (typeof closeLibraryModal === 'function') closeLibraryModal();
   const meta = wsBookMeta[bookId];
   if (!meta) return;
+  // Guest: allow if this is the first book OR the same book as before
+  if (typeof window.isGuestMode === 'function' && window.isGuestMode()) {
+    const prevBook = localStorage.getItem('chunks_guest_book');
+    if (prevBook && prevBook !== bookId) {
+      // Different book — hits the limit
+      window.showGuestLoginWall?.('library');
+      return;
+    }
+    if (!prevBook) localStorage.setItem('chunks_guest_book', bookId);
+  }
 
   // Leave user-doc mode
   _wsUserDocId   = null;
@@ -1138,10 +1149,13 @@ export async function wsChatSend() {
   const inp = document.getElementById('ws-chat-input');
   const question = inp.value.trim();
   if (!question) return;
+  if (!guestGate('workspace')) return; // guest limit check
   inp.placeholder = 'Ask a follow-up about Chapter 3…';
   wsAppendUser(question, _wsSelectedText);
   inp.value = ''; wsAutoResize(inp); inp.focus();
   _wsChatHistory.push({ role: 'user', content: question });
+  recordUsage('workspace'); // track guest usage
+  renderUsageBar('ws-chat-input-area', 'workspace');
   await _wsAsk(question);
 }
 

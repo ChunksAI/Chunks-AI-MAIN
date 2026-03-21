@@ -30,6 +30,7 @@
  */
 
 import { API_BASE } from '../lib/api.js';
+import { guestGate, recordUsage, renderUsageBar } from '../lib/guestLimits.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -718,6 +719,7 @@ export function homeToggleThinking(mode) {
 
 export async function homeSendMessage() {
   if (homeIsTyping) return;
+  if (!guestGate('general')) return; // guest limit check
   // Mark that the user is actively in this session — prevents sync from overwriting mid-conversation
   window._homeLastInputTime = Date.now();
   const bar = document.getElementById('home-input-bar');
@@ -746,6 +748,8 @@ export async function homeSendMessage() {
   setTimeout(() => document.getElementById('home-ask-input-bottom')?.focus(), 60);
 
   homeHistory.push({ role: 'user', content: question });
+  recordUsage('general'); // track guest usage
+  renderUsageBar('home-input-area', 'general'); // show counter near input
 
   // Save immediately so refresh before AI responds still restores the chat.
   // _homeSessionId is now guaranteed to be set (created above if new).
