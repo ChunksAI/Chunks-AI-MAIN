@@ -87,9 +87,10 @@ function _applyUI(user) {
     document.querySelectorAll('.profile-dots').forEach(el => { el.style.display = 'none'; });
     const adminBtn = document.getElementById('pd-admin-btn');
     if (adminBtn) adminBtn.style.display = 'none';
-    // Guest mode: show upsell card, hide profile row
+    // Guest mode: show upsell card, hide profile row and history
     document.querySelectorAll('.guest-upsell-card').forEach(el => { el.style.display = 'flex'; });
     document.querySelectorAll('.profile-row').forEach(el => { el.style.display = 'none'; });
+    document.querySelectorAll('.sidebar-history-scroll').forEach(el => { el.style.display = 'none'; });
     return;
   }
 
@@ -134,9 +135,10 @@ function _applyUI(user) {
     }
   }
 
-  // Sidebar footer — logged-in: show profile row, hide guest upsell card
+  // Sidebar footer — logged-in: show profile row, hide guest upsell card, show history
   document.querySelectorAll('.guest-upsell-card').forEach(el => { el.style.display = 'none'; });
   document.querySelectorAll('.profile-row').forEach(el => { el.style.removeProperty('display'); });
+  document.querySelectorAll('.sidebar-history-scroll').forEach(el => { el.style.removeProperty('display'); });
   document.querySelectorAll('.profile-name').forEach(el => { el.textContent = user.name || user.email || 'User'; });
   document.querySelectorAll('.profile-plan').forEach(el => { el.textContent = planLabel; });
   document.querySelectorAll('.avatar').forEach(el => _setAvatar(el, user.avatar, initials));

@@ -285,13 +285,16 @@ function _aiParams(base) {
 const RECENT_MAX = 50;
 const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
-let _recentItems = JSON.parse(localStorage.getItem('chunks_recent') || 'null') || [];
+const _isGuestMode = () => sessionStorage.getItem('chunks_guest_mode') === '1';
+if (_isGuestMode()) document.body.classList.add('guest-mode');
+let _recentItems = _isGuestMode() ? [] : (JSON.parse(localStorage.getItem('chunks_recent') || 'null') || []);
 // Never restore active highlight from localStorage on page load.
 // The highlight is a transient UI state — it only makes sense when the user
 // is actively inside that session. On fresh load/refresh, start with no highlight.
 let _activeRecentId = null;
 
 function _saveRecent() {
+  if (_isGuestMode()) return; // guests: no history persistence
   localStorage.setItem('chunks_recent', JSON.stringify(_recentItems));
 }
 
@@ -462,6 +465,7 @@ function newChat() {
 // ── Add to recents (called on every send) ────────────────
 function recentAdd(question, bookId, source) {
   if (!question) return;
+  if (_isGuestMode()) return; // guests: no history tracking
   const label = question.length > 32 ? question.slice(0, 32).trimEnd() + '…' : question;
   // Don't duplicate if same as most recent of same source
   if (_recentItems.length && _recentItems[0].question === question && _recentItems[0].source === source) {

@@ -557,3 +557,6 @@
   border: 1px solid var(--border-xs);
 }
 .guest-signup-btn:hover { background: var(--surface-3); color: var(--text-1); }
+
+/* ── Guest mode: hide history sections ───────────────────────────────────── */
+body.guest-mode .sidebar-history-scroll { display: none !important; }

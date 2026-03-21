@@ -183,7 +183,7 @@ ${navHTML}
 
     <div class="sidebar-divider"></div>
 
-    <div class="sidebar-history-scroll">
+    <div class="sidebar-history-scroll" id="sidebar-history-scroll">
       <div class="sidebar-section sidebar-history-section" id="hist-section-general">
         <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="hist-section-general">
           General AI
