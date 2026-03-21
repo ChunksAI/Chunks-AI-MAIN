@@ -34,7 +34,7 @@
   font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com data:;
   img-src 'self' data: blob: https:;
   connect-src 'self' blob: https://api.chunks.online https://*.supabase.co wss://*.supabase.co https://cdnjs.cloudflare.com https://api.semanticscholar.org https://www.google-analytics.com https://analytics.google.com https://region1.google-analytics.com;
-  worker-src blob: https://cdnjs.cloudflare.com;
+  worker-src 'self' blob: https://cdnjs.cloudflare.com;
   frame-src 'none';
   object-src 'none';
   base-uri 'self';
