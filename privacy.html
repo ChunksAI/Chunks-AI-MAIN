@@ -126,7 +126,7 @@
     ───────────────────────────────────────── */
     nav{
       position:fixed;top:0;left:0;right:0;z-index:100;
-      display:flex;align-items:center;
+      display:flex;align-items:center;justify-content:center;
       gap:0;
       padding:0 44px;height:52px;
       background:rgba(9,9,15,.75);
@@ -134,6 +134,7 @@
       backdrop-filter:blur(28px);
       -webkit-backdrop-filter:blur(28px);
     }
+    .nav-inner{display:flex;align-items:center;width:100%;max-width:1240px;}
 
     .nav-logo{display:flex;align-items:center;gap:9px;text-decoration:none;flex-shrink:0;}
     .logo-mark{width:24px;height:24px;}
@@ -1419,7 +1420,7 @@
     transition: color .15s, background .15s;
     line-height: 1.4;
   }
-  .legal-toc a:hover, .legal-toc a.active {
+  .legal-toc a:hover {
     color: var(--text-1);
     background: rgba(255,255,255,.04);
   }
@@ -1431,7 +1432,7 @@
     min-width: 18px;
     transition: color .15s;
   }
-  .legal-toc a:hover .toc-num, .legal-toc a.active .toc-num {
+  .legal-toc a:hover .toc-num {
     color: var(--gold);
   }
   .sidebar-cta {
@@ -1554,6 +1555,7 @@
     padding-bottom: 40px;
     margin-bottom: 40px;
     border-bottom: 1px solid var(--border-xs);
+    scroll-margin-top: 80px;
   }
   .legal-section:last-child {
     border-bottom: none;
@@ -1916,9 +1918,8 @@
     </div>
 
   </div>
-  <div class="nav-actions">
-    <a href="/login" class="btn-ghost">Sign in</a>
-    <a href="/login" class="btn-nav-cta" style="white-space:nowrap;">Get started free</a>
+  <div class="nav-actions" style="margin-left:auto;">
+    <a href="/login" class="btn-nav-cta" style="white-space:nowrap;">Try Chunks AI</a>
   </div><!-- /.nav-actions -->
 </nav>
 
@@ -2527,25 +2528,7 @@ window.addEventListener('message', function(e) {
 });
 </script>
 
-<script>
-// Highlight active TOC item on scroll
-(function(){
-  var sections = document.querySelectorAll('.legal-section');
-  var links = document.querySelectorAll('.legal-toc a');
-  if(!sections.length || !links.length) return;
-  var observer = new IntersectionObserver(function(entries){
-    entries.forEach(function(entry){
-      if(entry.isIntersecting){
-        links.forEach(function(l){ l.classList.remove('active'); });
-        var id = entry.target.id;
-        var active = document.querySelector('.legal-toc a[href="#'+id+'"]');
-        if(active) active.classList.add('active');
-      }
-    });
-  }, { rootMargin: '-20% 0px -70% 0px' });
-  sections.forEach(function(s){ observer.observe(s); });
-})();
-</script>
+
 
 </body>
 </html>
