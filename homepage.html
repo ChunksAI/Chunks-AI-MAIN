@@ -1,25 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script>
-// Already signed in? Skip marketing and go straight to the app.
-(function() {
-  try {
-    var raw = localStorage.getItem('chunks-ai-auth');
-    if (!raw) return;
-    var p = JSON.parse(raw);
-    var s = p.access_token ? p : (p.currentSession ? p.currentSession : null);
-    if (s && s.access_token) {
-      var exp = s.expires_at || 0;
-      // Valid if not expired (60s clock-skew buffer)
-      if (exp === 0 || exp - Math.floor(Date.now() / 1000) > 60) {
-        location.replace('/home');
-      }
-    }
-  } catch(e) {}
-})();
-</script>
-
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Chunks AI — Learn faster. Understand deeper.</title>
