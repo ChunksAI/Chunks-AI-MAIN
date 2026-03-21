@@ -28,6 +28,9 @@ export default defineConfig({
   // ── Build ────────────────────────────────────────────────────────────────
   build: {
     outDir: 'dist',
+    assetsInlineLimit: 4096,
+    modulePreload: { polyfill: true },
+    minify: 'esbuild',
 
     // Hidden source maps — uploaded to server but not served to browsers.
     // Keeps bundle lean in production; use 'true' only during active debugging.
@@ -58,6 +61,10 @@ export default defineConfig({
         assetFileNames: 'assets/[name]-[hash][extname]',
 
         manualChunks(id) {
+          // ── Heavy vendor deps isolated for better caching ─────────────
+          if (id.includes('@supabase')) return 'vendor-supabase';
+          if (id.includes('katex'))    return 'vendor-katex';
+
           // ── Infrastructure (lib/) ─────────────────────────────────────
           // Loaded first; rarely changes — maximises cache hit rate.
           if (
