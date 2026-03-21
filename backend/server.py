@@ -230,10 +230,15 @@ CORS(app,
 
 @app.after_request
 def after_request(response):
-    # NOTE: CORS headers (Access-Control-Allow-Origin / Headers / Methods) are
-    # intentionally NOT set here. Flask-CORS (initialised above) manages them
-    # using the CORS_ORIGINS whitelist. Setting them here with a wildcard would
-    # override that whitelist on every response and render it useless.
+    # Flask-CORS handles 2xx/3xx but does NOT add CORS headers to 4xx/5xx responses.
+    # Without this, a 403 from verify-access shows as a CORS error in the browser
+    # instead of a clean "not an admin" failure — making it impossible to handle gracefully.
+    origin = request.headers.get('Origin', '')
+    allowed = CORS_ORIGINS == '*' or origin in (CORS_ORIGINS if isinstance(CORS_ORIGINS, list) else [])
+    if origin and (CORS_ORIGINS == '*' or allowed):
+        response.headers['Access-Control-Allow-Origin'] = origin if CORS_ORIGINS != '*' else '*'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     # ── Security headers ─────────────────────────────────────────────────────
     # Force HTTP -> HTTPS: Railway forwards requests as HTTP internally;
     # the original protocol is in X-Forwarded-Proto.
