@@ -44,10 +44,7 @@
 .sidebar.compact .sidebar-item span,
 .sidebar.compact .sidebar-new-btn span,
 .sidebar.compact .profile-text,
-.sidebar.compact .profile-dots,
-.sidebar.compact .guest-upsell-title,
-.sidebar.compact .guest-upsell-desc,
-.sidebar.compact .guest-auth-btns {
+.sidebar.compact .profile-dots {
   display: none;
 }
 .sidebar.compact .profile-row {
@@ -517,9 +514,29 @@
   background: var(--surface-2);
   border-radius: var(--r-lg);
   margin-bottom: 2px;
-  /* Prevent reflow animation when sidebar expands */
   overflow: hidden;
-  will-change: auto;
+}
+/* Guest card inner elements: hidden in compact, fade in after sidebar expands */
+.guest-upsell-title,
+.guest-upsell-desc,
+.guest-auth-btns {
+  opacity: 1;
+  max-height: 200px;
+  overflow: hidden;
+  transition: opacity 150ms ease, max-height 150ms ease;
+}
+.sidebar.compact .guest-upsell-title,
+.sidebar.compact .guest-upsell-desc,
+.sidebar.compact .guest-auth-btns {
+  opacity: 0;
+  max-height: 0;
+  transition: opacity 100ms ease, max-height 100ms ease;
+}
+/* When expanding: delay appearance until AFTER sidebar width transition (220ms) */
+.sidebar:not(.compact) .guest-upsell-title,
+.sidebar:not(.compact) .guest-upsell-desc,
+.sidebar:not(.compact) .guest-auth-btns {
+  transition-delay: 200ms;
 }
 .guest-upsell-title {
   font-size: 13px;
