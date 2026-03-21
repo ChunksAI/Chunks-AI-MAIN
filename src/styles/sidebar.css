@@ -546,9 +546,9 @@
   outline: none;
 }
 .guest-login-btn {
-  background: var(--surface-4, #fff);
-  color: var(--bg-base, #111);
-  border: 1.5px solid var(--border-sm);
+  background: #ededf0;
+  color: #111219;
+  border: none;
 }
 .guest-login-btn:hover { opacity: 0.85; }
 .guest-signup-btn {
@@ -558,5 +558,6 @@
 }
 .guest-signup-btn:hover { background: var(--surface-3); color: var(--text-1); }
 
-/* ── Guest mode: hide history sections ───────────────────────────────────── */
+/* ── Guest mode: hide history sections, push footer to bottom ───────────── */
 body.guest-mode .sidebar-history-scroll { display: none !important; }
+body.guest-mode .sidebar-footer { margin-top: auto; }
