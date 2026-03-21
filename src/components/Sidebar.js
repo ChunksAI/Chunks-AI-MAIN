@@ -221,10 +221,8 @@ ${navHTML}
       <div class="guest-upsell-card" id="guest-upsell-card">
         <!-- Compact mode: icon-only button -->
         <button class="guest-icon-btn" onclick="window.openAuthModal?.()" title="Sign in to your account" aria-label="Sign in">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-            <polyline points="10 17 15 12 10 7"/>
-            <line x1="15" y1="12" x2="3" y2="12"/>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zm0 13c-2.67 0-5.03-1.3-6.48-3.3C6.87 13.55 9.3 12.5 12 12.5s5.13 1.05 6.48 2.7C16.03 17.2 13.67 18.5 12 18.5z"/>
           </svg>
         </button>
         <!-- Expanded mode: full upsell card -->
