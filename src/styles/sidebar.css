@@ -588,19 +588,29 @@ body.guest-mode .sidebar-history-scroll { display: none !important; }
   display: none;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: var(--r-md);
-  background: var(--surface-3);
-  border: 1px solid var(--border-sm);
-  color: var(--text-2);
+  width: calc(100% - 12px);
+  height: 34px;
+  border-radius: var(--r-sm);
+  background: transparent;
+  border: none;
+  color: var(--text-3);
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  opacity: 0.75;
+  transition: background var(--t-fast), color var(--t-fast), opacity var(--t-fast);
   outline: none;
+  margin: 0 6px;
 }
 .guest-icon-btn:hover {
   background: var(--surface-2);
   color: var(--text-1);
-  border-color: var(--border-md);
+  opacity: 1;
+}
+.guest-icon-btn svg {
+  opacity: 0.55;
+  flex-shrink: 0;
+  transition: opacity var(--t-fast);
+}
+.guest-icon-btn:hover svg {
+  opacity: 1;
 }
 body.guest-mode .sidebar-footer { margin-top: auto; }
