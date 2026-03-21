@@ -93,8 +93,9 @@ window._renderAllRecent?.();
 // _navInit runs HERE — after ALL screen modules have mounted synchronously above.
 // This guarantees every screen element exists when showScreen() is called,
 // so refresh correctly restores whichever screen was active.
-_navInit();
+// Show the page immediately — don't block FCP on nav init or auth re-apply
 document.body.classList.add('chunks-ready');
+_navInit();
 
 // Re-apply user profile AFTER all components (sidebar, dropdowns) have mounted.
 // _initAuth() is async — getSession() may take >300ms on token refresh.
