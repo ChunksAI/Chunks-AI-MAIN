@@ -1988,6 +1988,7 @@ Rules:
       body: JSON.stringify({
         question:   prompt,
         mode:       'study',
+        task_type:  'research',
         ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(),
         bookId:     'none',
         history:    []
@@ -2846,7 +2847,7 @@ Output the paragraph text only. No heading, no label, no preamble.`;
     const resp = await fetch(API_BASE + '/ask', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
+      body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'research', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
     });
     const data = await resp.json();
     if (_handleGuestLimited(data)) return;
@@ -3476,6 +3477,7 @@ Ignore any textbook context. Output ONLY a raw JSON array — no markdown fences
       body: JSON.stringify({
         question:   searchPrompt,
         mode:       'study',
+        task_type:  'research',
         ...(() => { const p = _aiParams(5); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(),
         bookId:     'none',
         web_search: false,
@@ -4315,7 +4317,7 @@ async function _examCallAPI(prompt, retries = 3) {
     try {
       const resp = await fetch(API_BASE + '/ask', {
         method: 'POST', headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ question: prompt, mode: 'generate', ...(() => { const p = _aiParams(6); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
+        body: JSON.stringify({ question: prompt, mode: 'generate', task_type: 'exam', ...(() => { const p = _aiParams(6); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
       });
       if (resp.status === 429) {
         // Could be guest IP limit OR server rate limit — check body

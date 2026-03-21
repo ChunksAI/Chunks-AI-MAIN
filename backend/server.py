@@ -1550,17 +1550,21 @@ def ask():
         task_type     = data.get('task_type', None)
 
         # ── Guest IP rate limiting ────────────────────────────────────────────
-        # Map mode/task_type to a guest feature bucket, then gate.
+        # Map mode/task_type → guest feature bucket.
+        # task_type takes priority (explicit), then fall back to mode.
         # Logged-in users are never affected (guest_gate no-ops for them).
-        if mode == 'home_general' or task_type == 'home_general':
+        if task_type == 'home_general' or mode == 'home_general':
             _guest_feature = 'general'
+        elif task_type == 'exam' or mode == 'exam':
+            _guest_feature = 'exam'
+        elif task_type == 'research' or mode == 'research':
+            _guest_feature = 'research'
+        elif task_type == 'study_plan':
+            _guest_feature = 'studyplan'
         elif mode == 'visual_tutor':
             _guest_feature = 'visual'
-        elif mode == 'exam':
-            _guest_feature = 'exam'
-        elif mode == 'research':
-            _guest_feature = 'research'
         else:
+            # study / concise / detailed / generate without specific task_type = workspace
             _guest_feature = 'workspace'
         try:
             guest_gate(request, _guest_feature, _redis)
