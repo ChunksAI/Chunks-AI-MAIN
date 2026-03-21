@@ -44,7 +44,10 @@
 .sidebar.compact .sidebar-item span,
 .sidebar.compact .sidebar-new-btn span,
 .sidebar.compact .profile-text,
-.sidebar.compact .profile-dots {
+.sidebar.compact .profile-dots,
+.sidebar.compact .guest-upsell-title,
+.sidebar.compact .guest-upsell-desc,
+.sidebar.compact .guest-auth-btns {
   display: none;
 }
 .sidebar.compact .profile-row {
@@ -320,7 +323,7 @@
 .sidebar-divider { height: 1px; background: var(--border-xs); margin: 4px 16px; }
 
 /* ── Footer / profile row ─────────────────────────────────── */
-.sidebar-footer { flex-shrink: 0; border-top: 1px solid var(--border-xs); padding: 10px; }
+.sidebar-footer { flex-shrink: 0; border-top: 1px solid var(--border-xs); padding: 10px; overflow: hidden; }
 
 .profile-row {
   display: flex;
@@ -514,6 +517,9 @@
   background: var(--surface-2);
   border-radius: var(--r-lg);
   margin-bottom: 2px;
+  /* Prevent reflow animation when sidebar expands */
+  overflow: hidden;
+  will-change: auto;
 }
 .guest-upsell-title {
   font-size: 13px;
@@ -570,11 +576,6 @@ body.guest-mode .sidebar-history-scroll { display: none !important; }
   align-items: center;
   justify-content: center;
   width: 100%;
-}
-.sidebar.compact .guest-upsell-title,
-.sidebar.compact .guest-upsell-desc,
-.sidebar.compact .guest-auth-btns {
-  display: none;
 }
 .sidebar.compact .guest-upsell-card::after {
   content: '';
