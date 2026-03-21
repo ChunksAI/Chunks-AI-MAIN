@@ -1037,4 +1037,18 @@ Object.defineProperty(window, '_homeSessionId', {
   configurable: true,
 });
 
+// ── Guest mode banner ─────────────────────────────────────────────────────────
+// Show a subtle "Sign in to save your chats" notice when running as guest.
+
+(function _mountGuestBanner() {
+  if (sessionStorage.getItem('chunks_guest_mode') !== '1') return;
+  const landing = document.getElementById('home-landing');
+  if (!landing || document.getElementById('home-guest-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'home-guest-banner';
+  banner.style.cssText = 'display:flex;align-items:center;gap:10px;background:color-mix(in srgb,var(--gold,#f59e0b) 10%,var(--surface-2,#1e1e2e));border:1px solid color-mix(in srgb,var(--gold,#f59e0b) 25%,transparent);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--text-2,#aaa);margin:12px auto 0;max-width:560px;width:calc(100% - 32px);';
+  banner.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;opacity:.7"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span>You're in guest mode — chats won't be saved. <a href="/login" onclick="sessionStorage.removeItem('chunks_guest_mode')" style="color:var(--gold,#f59e0b);text-decoration:none;font-weight:500;">Sign in</a> to keep your history.</span>`;
+  landing.appendChild(banner);
+})();
+
 console.log('[HomeScreen] module loaded ✦');
