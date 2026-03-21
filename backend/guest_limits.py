@@ -25,14 +25,19 @@ Usage in any endpoint:
         ...
 
 guest_gate() is a no-op for logged-in users (Authorization header present).
+
+IMPORTANT — in-memory fallback:
+  When Redis is unavailable, counters fall back to a process-level dict.
+  This is NOT shared across Gunicorn workers or server restarts.
+  Set REDIS_URL in your Railway environment for production-grade enforcement.
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 from datetime import datetime, timezone
 from collections import defaultdict
-from typing import Optional
 
 from flask import request, jsonify
 
@@ -50,7 +55,10 @@ GUEST_LIMITS: dict[str, int] = {
 }
 
 # ── In-memory fallback (when Redis is unavailable) ────────────────────────────
-# Dict: key → count  (resets on restart — acceptable degraded mode)
+# Thread-safe counter dict: key → count
+# Resets on server restart — acceptable degraded mode.
+# In production always set REDIS_URL so this path is never hit.
+_mem_lock: threading.Lock = threading.Lock()
 _mem_counters: dict[str, int] = defaultdict(int)
 
 
@@ -58,7 +66,6 @@ _mem_counters: dict[str, int] = defaultdict(int)
 
 def _get_client_ip() -> str:
     """Return the real client IP, respecting Railway/Vercel proxy headers."""
-    # X-Forwarded-For may contain a chain: "client, proxy1, proxy2"
     xff = request.headers.get('X-Forwarded-For', '')
     if xff:
         return xff.split(',')[0].strip()
@@ -74,29 +81,47 @@ def _redis_key(ip: str, feature: str, day: str) -> str:
 
 
 def _is_guest() -> bool:
-    """Return True when the request has NO Authorization header (i.e. is a guest)."""
+    """Return True when the request has NO valid Authorization header (i.e. is a guest)."""
     auth = request.headers.get('Authorization', '').strip()
     return not auth or not auth.startswith('Bearer ')
 
 
-def _increment(key: str, redis_client) -> int:
+def _check_and_increment(key: str, limit: int, redis_client) -> tuple[int, int]:
     """
-    Atomically increment the counter for *key* and return the new value.
-    TTL is set to 25 hours on first write (a little over one calendar day).
-    Falls back to in-memory dict when Redis is unavailable.
+    Atomically check and increment the counter.
+    Returns (current_count_BEFORE_increment, new_count_AFTER_increment).
+    Uses a Lua script on Redis for true atomicity — no race conditions.
+    Falls back to thread-safe in-memory dict.
     """
+    # ── Redis path (atomic via Lua) ───────────────────────────────────────────
     if redis_client is not None:
+        lua_script = """
+local current = tonumber(redis.call('GET', KEYS[1])) or 0
+if current >= tonumber(ARGV[1]) then
+    return {current, current}
+end
+local new = redis.call('INCR', KEYS[1])
+if new == 1 then
+    redis.call('EXPIRE', KEYS[1], 90000)
+end
+return {current, new}
+"""
         try:
-            count = redis_client.incr(key)
-            if count == 1:
-                redis_client.expire(key, 90_000)   # 25 hours
-            return count
+            result = redis_client.eval(lua_script, 1, key, limit)
+            before = int(result[0])
+            after  = int(result[1])
+            return before, after
         except Exception as exc:
-            logger.warning("guest_limits: Redis error (%s) — using in-memory fallback", exc)
+            logger.warning("guest_limits: Redis Lua error (%s) — using in-memory fallback", exc)
 
-    # In-memory fallback
-    _mem_counters[key] += 1
-    return _mem_counters[key]
+    # ── In-memory fallback (thread-safe) ──────────────────────────────────────
+    with _mem_lock:
+        current = _mem_counters[key]
+        if current >= limit:
+            return current, current
+        _mem_counters[key] += 1
+        new_count = _mem_counters[key]
+        return current, new_count
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
@@ -132,12 +157,20 @@ def guest_gate(req, feature: str, redis_client=None) -> None:
     - If the user is logged in (Authorization header present): no-op.
     - If the feature is unknown: no-op (fail open for unrecognised features).
     - If the limit is exceeded: raises GuestLimitExceeded.
-    - Otherwise: increments the counter and returns normally.
+    - Otherwise: atomically increments the counter and returns normally.
 
+    Uses a single atomic Lua script on Redis — no peek-then-increment race.
     Call this at the TOP of an endpoint, before any expensive work.
     """
     if not _is_guest():
         return  # logged-in users are never rate-limited here
+
+    if redis_client is None:
+        logger.warning(
+            "guest_gate: Redis unavailable — using in-memory fallback. "
+            "Limits will NOT persist across workers or restarts. "
+            "Set REDIS_URL in Railway environment for production enforcement."
+        )
 
     limit = GUEST_LIMITS.get(feature)
     if limit is None:
@@ -148,30 +181,19 @@ def guest_gate(req, feature: str, redis_client=None) -> None:
     day = _today()
     key = _redis_key(ip, feature, day)
 
-    # Peek at current count without incrementing yet
-    current = 0
-    if redis_client is not None:
-        try:
-            raw = redis_client.get(key)
-            current = int(raw) if raw else 0
-        except Exception as exc:
-            logger.warning("guest_gate: Redis GET error (%s) — using in-memory", exc)
-            current = _mem_counters.get(key, 0)
-    else:
-        current = _mem_counters.get(key, 0)
+    before, after = _check_and_increment(key, limit, redis_client)
 
-    if current >= limit:
+    # If before == after, the Lua script didn't increment — limit was already hit
+    if before >= limit:
         logger.info(
             "guest_gate: BLOCKED ip=%s feature=%s count=%d limit=%d",
-            ip, feature, current, limit,
+            ip, feature, before, limit,
         )
-        raise GuestLimitExceeded(feature, limit, current)
+        raise GuestLimitExceeded(feature, limit, before)
 
-    # Increment (will now be current+1, which is ≤ limit)
-    new_count = _increment(key, redis_client)
     logger.debug(
         "guest_gate: ALLOWED ip=%s feature=%s count=%d/%d",
-        ip, feature, new_count, limit,
+        ip, feature, after, limit,
     )
 
 
