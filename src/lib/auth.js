@@ -218,14 +218,17 @@ function _applyDefaultSettings() {
 
 // ── Session → _currentUser ────────────────────────────────────────────────────
 
+// ── One-time guard: verify-access fires once per login, not on every auth event ──
+let _adminCheckDone = false;
+
 /**
  * Convert a Supabase session into window._currentUser and update UI.
  * Called by _initAuth and the onAuthStateChange listener.
- * Also called by chunksDb.js which patches this function to inject .id.
  */
 window._applyUserProfile = function _applyUserProfile(session) {
   if (!session?.user) {
     window._currentUser = null;
+    _adminCheckDone = false;
     _applyUI(null);
     return;
   }
@@ -233,14 +236,13 @@ window._applyUserProfile = function _applyUserProfile(session) {
   const u    = session.user;
   const meta = u.user_metadata || {};
 
-  // Build a flat user object
   window._currentUser = {
     id:      u.id,
     email:   u.email || '',
     name:    meta.full_name || meta.name || meta.display_name || u.email?.split('@')[0] || 'User',
     avatar:  (meta.avatar_url || meta.picture || '').replace(/^http:\/\//i, 'https://'),
     plan:    meta.plan || u.app_metadata?.plan || 'free',
-    isAdmin: u.app_metadata?.role === 'admin' || 
+    isAdmin: u.app_metadata?.role === 'admin' ||
              u.app_metadata?.role === 'owner' ||
              u.app_metadata?.role === 'superadmin' ||
              meta.is_admin === true ||
@@ -255,12 +257,10 @@ window._applyUserProfile = function _applyUserProfile(session) {
 
   _applyUI(window._currentUser);
 
-  // ── Admin cache is now checked inside _applyUI directly ─────────────────
-  // _applyUI already reads chunks_admin_email and shows the button instantly.
+  // Fire verify-access ONCE per login only — not on every TOKEN_REFRESHED / re-render
+  if (_adminCheckDone) return;
+  _adminCheckDone = true;
 
-  // ── Check admin role from backend (users table is source of truth) ────────
-  // JWT metadata may not have the role — verify via backend after a short delay
-  // to ensure Supabase client and API_BASE are ready
   setTimeout(async () => {
     try {
       const sb = await window._getChunksSb?.();
@@ -270,51 +270,42 @@ window._applyUserProfile = function _applyUserProfile(session) {
 
       const res = await fetch(`${window.API_BASE}/api/admin/verify-access`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${s.access_token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.access_token}` },
         body: JSON.stringify({})
       });
+      if (!res.ok) {
+        // Non-admin or CORS error — clear caches silently, no console spam
+        localStorage.removeItem('chunks_admin_email');
+        localStorage.removeItem('chunks_owner_email');
+        const adminBtn = document.getElementById('pd-admin-btn');
+        if (adminBtn) adminBtn.style.display = 'none';
+        return;
+      }
       const data = await res.json();
       if (data.success && (data.role === 'admin' || data.role === 'owner' || data.role === 'superadmin')) {
         if (window._currentUser) {
           window._currentUser.isAdmin = true;
           window._currentUser.isOwner = data.role === 'owner' || data.role === 'superadmin';
         }
-        // Cache admin + owner email so next refresh shows the correct label instantly
         localStorage.setItem('chunks_admin_email', window._currentUser.email);
-        if (window._currentUser.isOwner) {
-          localStorage.setItem('chunks_owner_email', window._currentUser.email);
-        } else {
-          localStorage.removeItem('chunks_owner_email');
-        }
+        if (window._currentUser.isOwner) localStorage.setItem('chunks_owner_email', window._currentUser.email);
+        else localStorage.removeItem('chunks_owner_email');
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = '';
-        // Re-apply profile so plan label updates to Owner/Admin immediately
         if (window._currentUser) _applyUI(window._currentUser);
       } else {
-        // Not admin — clear both caches
         localStorage.removeItem('chunks_admin_email');
         localStorage.removeItem('chunks_owner_email');
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = 'none';
       }
-    } catch (_) {} // silent fail
+    } catch (_) {}
   }, 500);
 };
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 window._initAuth = async function _initAuth() {
-  // ── Strip bare # from URL immediately (left over after Supabase consumes access_token) ──
-  try {
-    const h = window.location.hash;
-    const isHomePage = window.location.pathname === '/home';
-    if (isHomePage && h && !h.includes('access_token') && !h.includes('error')) {
-      window.history.replaceState(null, '', '/home');
-    }
-  } catch(_) {}
   // ── Helpers ───────────────────────────────────────────────────────────────
   const isGuest_         = sessionStorage.getItem('chunks_guest_mode') === '1';
   const isLoginPage_     = window.location.pathname === '/login';
@@ -509,11 +500,7 @@ window._initAuth = async function _initAuth() {
       try {
         const hasOAuthInUrl = window.location.hash.includes('access_token') ||
                               window.location.search.includes('code=');
-        // Also strip bare # left after Supabase consumes the access_token hash
-        const hasBareHash   = window.location.hash === '#' ||
-                              window.location.hash === '#/' ||
-                              (window.location.hash.length > 0 && !window.location.hash.includes('access_token'));
-        if (hasOAuthInUrl || hasBareHash) {
+        if (hasOAuthInUrl) {
           window.history.replaceState({ screen: 'home' }, '', '/home');
         }
       } catch(e) {}
