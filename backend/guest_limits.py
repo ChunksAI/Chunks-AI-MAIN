@@ -189,7 +189,7 @@ def guest_gate(req, feature: str, redis_client=None) -> None:
 
     limit = GUEST_LIMITS.get(feature)
     if limit is None:
-        logger.debug("guest_gate: unknown feature '%s' — skipping", feature)
+        logger.info("guest_gate: unknown feature '%s' — skipping", feature)
         return
 
     ip  = _get_client_ip()
@@ -206,7 +206,7 @@ def guest_gate(req, feature: str, redis_client=None) -> None:
         )
         raise GuestLimitExceeded(feature, limit, before)
 
-    logger.debug(
+    logger.info(
         "guest_gate: ALLOWED ip=%s feature=%s count=%d/%d",
         ip, feature, after, limit,
     )

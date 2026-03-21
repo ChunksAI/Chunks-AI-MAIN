@@ -1378,6 +1378,37 @@ def home():
     })
 
 
+@app.route('/api/debug-ip', methods=['GET'])
+def debug_ip():
+    """
+    Diagnostic endpoint — shows what IP the server sees for this request.
+    Use this to verify ProxyFix is working correctly.
+    Remove or restrict this endpoint after debugging.
+    """
+    from guest_limits import _get_client_ip, GUEST_LIMITS, _redis_key, _today
+    ip  = _get_client_ip()
+    day = _today()
+    # Show current Redis counters for this IP
+    counters = {}
+    if _redis:
+        for feature in GUEST_LIMITS:
+            key = _redis_key(ip, feature, day)
+            try:
+                val = _redis.get(key)
+                counters[feature] = int(val) if val else 0
+            except Exception:
+                counters[feature] = 'redis_error'
+    return jsonify({
+        'remote_addr':        request.remote_addr,
+        'x_forwarded_for':    request.headers.get('X-Forwarded-For', 'not set'),
+        'x_real_ip':          request.headers.get('X-Real-IP', 'not set'),
+        'resolved_ip':        ip,
+        'redis_connected':    _redis is not None,
+        'guest_counters':     counters,
+        'day':                day,
+    })
+
+
 @app.route('/ping', methods=['GET'])
 @limiter.limit('60 per minute')
 def ping():
