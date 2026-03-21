@@ -184,6 +184,15 @@ def sanitize_user_memory(text, max_len=500):
 
 app = Flask(__name__)
 
+# ── ProxyFix — trust exactly 1 upstream proxy (Railway's edge) ────────────────
+# Without this, request.remote_addr is Railway's internal proxy IP (same for all
+# users). With x_for=1, Werkzeug peels off 1 hop from X-Forwarded-For from the
+# RIGHT (the Railway-added hop), giving the real client IP. This also prevents
+# clients from spoofing their IP by injecting fake entries at the left of the
+# X-Forwarded-For chain.
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+
 # ── CORS ──────────────────────────────────────────────────────────────────────
 # FIX 8: Build allowed origins from environment so staging/preview URLs work.
 # FRONTEND_URL can be a comma-separated list of origins via ALLOWED_ORIGINS env var.

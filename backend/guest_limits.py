@@ -40,6 +40,10 @@ from datetime import datetime, timezone
 from collections import defaultdict
 
 from flask import request, jsonify
+try:
+    from redis.exceptions import WatchError as _RedisWatchError
+except ImportError:
+    _RedisWatchError = Exception
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +69,16 @@ _mem_counters: dict[str, int] = defaultdict(int)
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _get_client_ip() -> str:
-    """Return the real client IP, respecting Railway/Vercel proxy headers."""
-    xff = request.headers.get('X-Forwarded-For', '')
-    if xff:
-        return xff.split(',')[0].strip()
-    return request.headers.get('X-Real-IP', '') or request.remote_addr or '0.0.0.0'
+    """
+    Return the real client IP.
+
+    server.py applies ProxyFix(x_for=1) which peels exactly ONE hop off the
+    right of X-Forwarded-For (the hop Railway's edge proxy added).
+    After ProxyFix runs, request.remote_addr already contains the correct
+    client IP — we never touch X-Forwarded-For directly here, because the
+    raw header is client-controlled and trivially spoofable.
+    """
+    return request.remote_addr or '0.0.0.0'
 
 
 def _today() -> str:
@@ -90,29 +99,35 @@ def _check_and_increment(key: str, limit: int, redis_client) -> tuple[int, int]:
     """
     Atomically check and increment the counter.
     Returns (current_count_BEFORE_increment, new_count_AFTER_increment).
-    Uses a Lua script on Redis for true atomicity — no race conditions.
-    Falls back to thread-safe in-memory dict.
+
+    Uses a Redis pipeline with WATCH for optimistic locking — avoids Lua
+    scripting which can fail on some Redis ACL configs. Falls back to
+    thread-safe in-memory dict when Redis is unavailable.
     """
-    # ── Redis path (atomic via Lua) ───────────────────────────────────────────
+    # ── Redis path ────────────────────────────────────────────────────────────
     if redis_client is not None:
-        lua_script = """
-local current = tonumber(redis.call('GET', KEYS[1])) or 0
-if current >= tonumber(ARGV[1]) then
-    return {current, current}
-end
-local new = redis.call('INCR', KEYS[1])
-if new == 1 then
-    redis.call('EXPIRE', KEYS[1], 90000)
-end
-return {current, new}
-"""
         try:
-            result = redis_client.eval(lua_script, 1, key, limit)
-            before = int(result[0])
-            after  = int(result[1])
-            return before, after
+            pipe = redis_client.pipeline(True)   # True = WATCH-based transaction
+            for _attempt in range(3):
+                try:
+                    pipe.watch(key)
+                    raw     = pipe.get(key)
+                    current = int(raw) if raw else 0
+                    if current >= limit:
+                        pipe.reset()
+                        return current, current   # already at limit — don't increment
+                    pipe.multi()
+                    pipe.incr(key)
+                    pipe.expire(key, 90_000)      # ~25 h TTL
+                    results = pipe.execute()
+                    after   = int(results[0])
+                    return current, after
+                except _RedisWatchError:
+                    continue                      # concurrent write — retry
+            # All retries exhausted — fall through to in-memory
+            logger.warning("guest_limits: Redis pipeline retries exhausted — using in-memory")
         except Exception as exc:
-            logger.warning("guest_limits: Redis Lua error (%s) — using in-memory fallback", exc)
+            logger.warning("guest_limits: Redis error (%s) — using in-memory fallback", exc)
 
     # ── In-memory fallback (thread-safe) ──────────────────────────────────────
     with _mem_lock:
