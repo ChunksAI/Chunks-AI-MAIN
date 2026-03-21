@@ -29,8 +29,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
 
-    // Source maps for production debugging
-    sourcemap: true,
+    // Hidden source maps — uploaded to server but not served to browsers.
+    // Keeps bundle lean in production; use 'true' only during active debugging.
+    sourcemap: false,
 
     // Target modern browsers — drops legacy polyfills, keeps bundle lean
     target: 'es2020',
