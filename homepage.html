@@ -200,6 +200,10 @@
       width:16px;height:16px;flex-shrink:0;opacity:.5;
     }
     .nav-dropdown-item-icon svg{width:14px;height:14px;}
+    .nav-dropdown-menu.two-col{min-width:340px;display:flex;gap:0;padding:10px;}
+    .nav-dropdown-col{display:flex;flex-direction:column;flex:1;min-width:0;}
+    .nav-dropdown-col+.nav-dropdown-col{border-left:1px solid var(--border-sm);margin-left:4px;padding-left:4px;}
+    .nav-dropdown-col-title{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;padding:4px 10px 6px;}
 
     .nav-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto;}
     .btn-ghost{
@@ -1271,7 +1275,7 @@
       max-width:1240px;margin:0 auto;
       padding:48px 48px 32px;
     }
-    .footer-top{display:grid;grid-template-columns:1.8fr 1fr 1fr 1fr;gap:40px;margin-bottom:40px;}
+    .footer-top{display:grid;grid-template-columns:1.8fr 1fr 1fr 1fr 1fr;gap:40px;margin-bottom:40px;}
     .footer-brand{}
     .footer-logo{display:flex;align-items:center;gap:8px;margin-bottom:12px;text-decoration:none;}
     .footer-logo-name{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text-1);}
@@ -1391,7 +1395,7 @@
 
 <!-- Navbar -->
 <nav>
-  <a href="/" class="nav-logo">
+  <a href="/" class="nav-logo" data-spa-home="1">
     <svg class="logo-mark" viewBox="0 0 36 36" fill="none">
       <defs>
         <linearGradient id="lg1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e8ac2e"/><stop offset="100%" stop-color="#8b7cf8"/></linearGradient>
@@ -1406,44 +1410,170 @@
   </a>
   <div class="nav-links">
     <div class="nav-sep"></div>
-    <a href="#features" class="nav-link">Features</a>
-    <a href="#how" class="nav-link">How it works</a>
-    <a href="#pricing" class="nav-link">Pricing</a>
-    <a href="#about" class="nav-link">About</a>
-    <div class="nav-dropdown" id="nav-company-dropdown">
-      <button class="nav-dropdown-btn" id="nav-company-btn" aria-expanded="false" aria-haspopup="true">
-        Company
-        <svg class="nav-dropdown-chevron" viewBox="0 0 10 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+
+    <!-- ABOUT (plain link) -->
+    <a href="/about-overview" class="nav-link" data-spa="about-overview">About</a>
+
+    <!-- FEATURES DROPDOWN -->
+    <div class="nav-dropdown" id="nav-features-dropdown">
+      <button class="nav-dropdown-btn" id="nav-features-btn" aria-expanded="false" aria-haspopup="true">
+        Features
+        <svg class="nav-dropdown-chevron" viewBox="0 0 10 10" fill="none"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
-      <div class="nav-dropdown-menu" id="nav-company-menu" role="menu">
-        <a href="#about" class="nav-dropdown-item" role="menuitem">
-          <span class="nav-dropdown-item-icon">
-            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="5" r="2.2"/><path d="M2.5 12c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4"/></svg>
-          </span>
-          About Us
+      <div class="nav-dropdown-menu" id="nav-features-menu" role="menu">
+        <a href="/features-generative-ai" class="nav-dropdown-item" role="menuitem" data-spa="features-generative-ai">
+          <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v2M7 11v2M1 7h2M11 7h2M3.2 3.2l1.4 1.4M9.4 9.4l1.4 1.4M3.2 10.8l1.4-1.4M9.4 4.6l1.4-1.4"/></svg></span>
+          Generative AI
         </a>
-        <a href="/privacy" class="nav-dropdown-item" role="menuitem">
-          <span class="nav-dropdown-item-icon">
-            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1.5L2 3.5v3.8c0 2.8 2.2 5 5 5.2 2.8-.2 5-2.4 5-5.2V3.5L7 1.5z"/></svg>
-          </span>
-          Privacy Policy
+        <a href="/features-workplace" class="nav-dropdown-item" role="menuitem" data-spa="features-workplace">
+          <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="3.5" width="11" height="8" rx="1.5"/><path d="M4.5 3.5V2.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1"/></svg></span>
+          Workplace
         </a>
-        <a href="/terms" class="nav-dropdown-item" role="menuitem">
-          <span class="nav-dropdown-item-icon">
-            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="1.5" width="9" height="11" rx="1.5"/><path d="M4.5 5h5M4.5 7.5h5M4.5 10h3"/></svg>
-          </span>
-          Terms of Service
+        <a href="/features-library" class="nav-dropdown-item" role="menuitem" data-spa="features-library">
+          <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2.5h2v9H2zM5.5 2.5h2v9h-2zM9.5 2.5l1.8.6-2.6 8.4-1.8-.6z"/></svg></span>
+          Library
         </a>
-        <a href="/cdn-cgi/l/email-protection#f4979c819a9f87da959dda958484b49399959d98da979b99" class="nav-dropdown-item" role="menuitem">
-          <span class="nav-dropdown-item-icon">
-            <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="3" width="11" height="8" rx="1.5"/><path d="M1.5 4.5l5.5 4 5.5-4"/></svg>
-          </span>
-          Contact
+        <a href="/features-flashcard" class="nav-dropdown-item" role="menuitem" data-spa="features-flashcard">
+          <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="3" width="11" height="8" rx="1.5"/><path d="M4.5 7h5M7 5v4"/></svg></span>
+          Flashcard
+        </a>
+        <a href="/features-study-plan" class="nav-dropdown-item" role="menuitem" data-spa="features-study-plan">
+          <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="10" height="10" rx="1.5"/><path d="M2 5h10M5 2v3"/></svg></span>
+          Study Plan
+        </a>
+        <a href="/features-visual-tutor" class="nav-dropdown-item" role="menuitem" data-spa="features-visual-tutor">
+          <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="11" height="8" rx="1.5"/><path d="M5.5 9V5l4 2-4 2z"/></svg></span>
+          Visual Tutor
+        </a>
+        <a href="/features-research" class="nav-dropdown-item" role="menuitem" data-spa="features-research">
+          <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3.5"/><path d="M9 9l2.5 2.5"/></svg></span>
+          Research
+        </a>
+        <a href="/features-exam" class="nav-dropdown-item" role="menuitem" data-spa="features-exam">
+          <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="1.5" width="9" height="11" rx="1.5"/><path d="M4.5 5h5M4.5 7.5h3"/></svg></span>
+          Exam
         </a>
       </div>
     </div>
+
+    <!-- HOW IT WORKS DROPDOWN (2-col) -->
+    <div class="nav-dropdown" id="nav-how-dropdown">
+      <button class="nav-dropdown-btn" id="nav-how-btn" aria-expanded="false" aria-haspopup="true">
+        How it works
+        <svg class="nav-dropdown-chevron" viewBox="0 0 10 10" fill="none"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="nav-dropdown-menu two-col" id="nav-how-menu" role="menu">
+        <div class="nav-dropdown-col">
+          <div class="nav-dropdown-col-title">Learn</div>
+          <a href="/how-overview" class="nav-dropdown-item" role="menuitem" data-spa="how-overview">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="5"/><path d="M7 4.5v3l2 1.5"/></svg></span>
+            Overview
+          </a>
+          <a href="/how-faq" class="nav-dropdown-item" role="menuitem" data-spa="how-faq">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="5"/><path d="M5.5 5.5c0-1 .7-1.5 1.5-1.5s1.5.7 1.5 1.5c0 .8-.7 1.2-1.5 1.5V8.5M7 10v.5"/></svg></span>
+            FAQ
+          </a>
+        </div>
+        <div class="nav-dropdown-col">
+          <div class="nav-dropdown-col-title">Tutorials</div>
+          <a href="/how-tutorial-generative-ai" class="nav-dropdown-item" role="menuitem" data-spa="how-tutorial-generative-ai">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v2M7 11v2M1 7h2M11 7h2"/></svg></span>
+            Generative AI
+          </a>
+          <a href="/how-tutorial-workplace" class="nav-dropdown-item" role="menuitem" data-spa="how-tutorial-workplace">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="3.5" width="11" height="8" rx="1.5"/><path d="M4.5 3.5V2.5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1"/></svg></span>
+            Workplace
+          </a>
+          <a href="/how-tutorial-library" class="nav-dropdown-item" role="menuitem" data-spa="how-tutorial-library">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2.5h2v9H2zM5.5 2.5h2v9h-2z"/></svg></span>
+            Library
+          </a>
+          <a href="/how-tutorial-flashcard" class="nav-dropdown-item" role="menuitem" data-spa="how-tutorial-flashcard">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="3" width="11" height="8" rx="1.5"/><path d="M4.5 7h5"/></svg></span>
+            Flashcard
+          </a>
+          <a href="/how-tutorial-study-plan" class="nav-dropdown-item" role="menuitem" data-spa="how-tutorial-study-plan">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="10" height="10" rx="1.5"/><path d="M2 5h10"/></svg></span>
+            Study Plan
+          </a>
+          <a href="/how-tutorial-visual-tutor" class="nav-dropdown-item" role="menuitem" data-spa="how-tutorial-visual-tutor">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="11" height="8" rx="1.5"/><path d="M5.5 9V5l4 2-4 2z"/></svg></span>
+            Visual Tutor
+          </a>
+          <a href="/how-tutorial-research" class="nav-dropdown-item" role="menuitem" data-spa="how-tutorial-research">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3.5"/><path d="M9 9l2.5 2.5"/></svg></span>
+            Research
+          </a>
+          <a href="/how-tutorial-exam" class="nav-dropdown-item" role="menuitem" data-spa="how-tutorial-exam">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="1.5" width="9" height="11" rx="1.5"/><path d="M4.5 5h5M4.5 7.5h3"/></svg></span>
+            Exam
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRICING DROPDOWN -->
+    <div class="nav-dropdown" id="nav-pricing-dropdown">
+      <button class="nav-dropdown-btn" id="nav-pricing-btn" aria-expanded="false" aria-haspopup="true">
+        Pricing
+        <svg class="nav-dropdown-chevron" viewBox="0 0 10 10" fill="none"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="nav-dropdown-menu" id="nav-pricing-menu" role="menu">
+        <a href="/pricing-overview" class="nav-dropdown-item" role="menuitem" data-spa="pricing-overview">
+          <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="7" r="5"/><path d="M7 4.5v5M4.5 7h5"/></svg></span>
+          Overview
+        </a>
+        <a href="/pricing-free" class="nav-dropdown-item" role="menuitem" data-spa="pricing-free">
+          <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1.5l1.5 3 3.5.5-2.5 2.4.6 3.5L7 9.3l-3.1 1.6.6-3.5L2 5l3.5-.5z"/></svg></span>
+          Free Plan
+        </a>
+        <a href="/pricing-pro" class="nav-dropdown-item" role="menuitem" data-spa="pricing-pro">
+          <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1.5l1.5 3 3.5.5-2.5 2.4.6 3.5L7 9.3l-3.1 1.6.6-3.5L2 5l3.5-.5z" fill="currentColor" opacity=".3"/><path d="M7 1.5l1.5 3 3.5.5-2.5 2.4.6 3.5L7 9.3l-3.1 1.6.6-3.5L2 5l3.5-.5z"/></svg></span>
+          Pro Plan
+        </a>
+        <a href="/pricing-ultra" class="nav-dropdown-item" role="menuitem" data-spa="pricing-ultra">
+          <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1L9 5.5l5 .7-3.5 3.4.8 4.9L7 12.2l-4.3 2.3.8-4.9L0 6.2l5-.7z"/></svg></span>
+          Ultra Plan
+        </a>
+      </div>
+    </div>
+
+    <!-- COMPANY DROPDOWN (2-col) -->
+    <div class="nav-dropdown" id="nav-company-dropdown">
+      <button class="nav-dropdown-btn" id="nav-company-btn" aria-expanded="false" aria-haspopup="true">
+        Company
+        <svg class="nav-dropdown-chevron" viewBox="0 0 10 10" fill="none"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="nav-dropdown-menu two-col" id="nav-company-menu" role="menu">
+        <div class="nav-dropdown-col">
+          <div class="nav-dropdown-col-title">Get to Know</div>
+          <a href="/company-about" class="nav-dropdown-item" role="menuitem" data-spa="company-about">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="5" r="2.2"/><path d="M2.5 12c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4"/></svg></span>
+            About Us
+          </a>
+          <a href="/company-news" class="nav-dropdown-item" role="menuitem" data-spa="company-news">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="11" height="9" rx="1.5"/><path d="M4 5.5h6M4 7.5h4"/></svg></span>
+            News
+          </a>
+          <a href="/company-contact" class="nav-dropdown-item" role="menuitem" data-spa="company-contact">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="3" width="11" height="8" rx="1.5"/><path d="M1.5 4.5l5.5 4 5.5-4"/></svg></span>
+            Contact
+          </a>
+        </div>
+        <div class="nav-dropdown-col">
+          <div class="nav-dropdown-col-title">Terms &amp; Policies</div>
+          <a href="/terms" class="nav-dropdown-item" role="menuitem" data-spa="terms">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="1.5" width="9" height="11" rx="1.5"/><path d="M4.5 5h5M4.5 7.5h5M4.5 10h3"/></svg></span>
+            Terms of Service
+          </a>
+          <a href="/privacy" class="nav-dropdown-item" role="menuitem" data-spa="privacy">
+            <span class="nav-dropdown-item-icon"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1.5L2 3.5v3.8c0 2.8 2.2 5 5 5.2 2.8-.2 5-2.4 5-5.2V3.5L7 1.5z"/></svg></span>
+            Privacy Policy
+          </a>
+        </div>
+      </div>
+    </div>
+
   </div>
   <div class="nav-actions">
     <a href="/login" class="btn-ghost">Sign in</a>
@@ -1861,6 +1991,66 @@
   </div>
 </div>
 
+
+
+<!-- ── ABOUT US ─────────────────────────────────────────────────── -->
+<section class="about" id="about">
+  <div class="s-eyebrow">
+    <div class="ey-line"></div>
+    <span class="ey-text">About Chunks AI</span>
+    <div class="ey-line"></div>
+  </div>
+  <h2 class="s-title">Built by students,<br>for students.</h2>
+  <p class="s-sub">We got tired of studying the wrong way. So we built the tool we wished we had.</p>
+
+  <div class="about-grid">
+    <div class="about-left">
+      <p class="about-mission">We believe every student deserves to <span>actually understand</span> what they're studying — not just memorize it.</p>
+      <p class="about-body">Chunks AI was born out of frustration with traditional studying. Re-reading notes, highlighting textbooks, cramming the night before — none of it works. We built Chunks to replace all of that with one intelligent system that adapts to how you actually learn.</p>
+      <p class="about-body">Our AI doesn't just generate content — it builds a personalized path from confusion to mastery, using visual explanations, spaced repetition, and adaptive exams tuned to your exact curriculum.</p>
+
+      <div class="about-values">
+        <div class="about-value">
+          <div class="about-value-icon">👁️</div>
+          <div class="about-value-text">
+            <strong>Understanding over memorization</strong>
+            We build tools that explain the why, not just the what. Visual diagrams, analogies, and step-by-step breakdowns — not walls of text.
+          </div>
+        </div>
+        <div class="about-value">
+          <div class="about-value-icon">⚡</div>
+          <div class="about-value-text">
+            <strong>Efficiency above all</strong>
+            Every feature is designed to get you to mastery faster — so you can spend less time studying and more time living.
+          </div>
+        </div>
+        <div class="about-value">
+          <div class="about-value-icon">🎯</div>
+          <div class="about-value-text">
+            <strong>Built for real exams</strong>
+            We don't do generic. Every flashcard, quiz, and study plan is generated from your actual textbook content.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="about-right">
+      <div class="about-stat-card">
+        <div class="about-stat-num">1,<span>200</span>+</div>
+        <div class="about-stat-label">Students studying smarter with Chunks AI across nursing, pre-med, engineering, and more.</div>
+      </div>
+      <div class="about-stat-card">
+        <div class="about-stat-num"><span>50</span>K+</div>
+        <div class="about-stat-label">Flashcards generated from real textbook content — not generic question banks.</div>
+      </div>
+      <div class="about-built">
+        <div class="about-built-title">🌏 Based in the Philippines</div>
+        <div class="about-built-text">Chunks AI is built and maintained by a small, focused team that understands what it means to study hard for high-stakes exams. We ship fast, listen to students, and care deeply about outcomes.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ── FEATURES ───────────────────────────────────────────────────── -->
 <section class="features" id="features">
   <div class="s-eyebrow">
@@ -2202,65 +2392,6 @@
 </section>
 
 </section>
-
-<!-- ── ABOUT US ─────────────────────────────────────────────────── -->
-<section class="about" id="about">
-  <div class="s-eyebrow">
-    <div class="ey-line"></div>
-    <span class="ey-text">About Chunks AI</span>
-    <div class="ey-line"></div>
-  </div>
-  <h2 class="s-title">Built by students,<br>for students.</h2>
-  <p class="s-sub">We got tired of studying the wrong way. So we built the tool we wished we had.</p>
-
-  <div class="about-grid">
-    <div class="about-left">
-      <p class="about-mission">We believe every student deserves to <span>actually understand</span> what they're studying — not just memorize it.</p>
-      <p class="about-body">Chunks AI was born out of frustration with traditional studying. Re-reading notes, highlighting textbooks, cramming the night before — none of it works. We built Chunks to replace all of that with one intelligent system that adapts to how you actually learn.</p>
-      <p class="about-body">Our AI doesn't just generate content — it builds a personalized path from confusion to mastery, using visual explanations, spaced repetition, and adaptive exams tuned to your exact curriculum.</p>
-
-      <div class="about-values">
-        <div class="about-value">
-          <div class="about-value-icon">👁️</div>
-          <div class="about-value-text">
-            <strong>Understanding over memorization</strong>
-            We build tools that explain the why, not just the what. Visual diagrams, analogies, and step-by-step breakdowns — not walls of text.
-          </div>
-        </div>
-        <div class="about-value">
-          <div class="about-value-icon">⚡</div>
-          <div class="about-value-text">
-            <strong>Efficiency above all</strong>
-            Every feature is designed to get you to mastery faster — so you can spend less time studying and more time living.
-          </div>
-        </div>
-        <div class="about-value">
-          <div class="about-value-icon">🎯</div>
-          <div class="about-value-text">
-            <strong>Built for real exams</strong>
-            We don't do generic. Every flashcard, quiz, and study plan is generated from your actual textbook content.
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="about-right">
-      <div class="about-stat-card">
-        <div class="about-stat-num">1,<span>200</span>+</div>
-        <div class="about-stat-label">Students studying smarter with Chunks AI across nursing, pre-med, engineering, and more.</div>
-      </div>
-      <div class="about-stat-card">
-        <div class="about-stat-num"><span>50</span>K+</div>
-        <div class="about-stat-label">Flashcards generated from real textbook content — not generic question banks.</div>
-      </div>
-      <div class="about-built">
-        <div class="about-built-title">🌏 Based in the Philippines</div>
-        <div class="about-built-text">Chunks AI is built and maintained by a small, focused team that understands what it means to study hard for high-stakes exams. We ship fast, listen to students, and care deeply about outcomes.</div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <!-- ── CTA BANNER ────────────────────────────────────────────────── -->
 <div style="max-width:1240px;margin:0 auto;padding:0 48px 100px;position:relative;z-index:1;">
 <div class="cta-banner">
@@ -2321,14 +2452,25 @@
       </div>
     </div>
 
-    <div>
-      <div class="footer-col-title">Students</div>
-      <div class="footer-links">
-        <a href="/login" class="footer-link">🩺 Nursing</a>
-        <a href="/login" class="footer-link">⚗️ Pre-med</a>
-        <a href="/login" class="footer-link">🔬 Biology</a>
-        <a href="/login" class="footer-link">⚙️ Engineering</a>
-        <a href="/login" class="footer-link">🧪 Chemistry</a>
+    <div style="grid-column:span 2;display:flex;flex-direction:column;align-items:center;">
+      <div class="footer-col-title" style="text-align:center;width:100%;">Students</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px;width:100%;">
+        <div class="footer-links">
+          <a href="/login" class="footer-link">Nursing</a>
+          <a href="/login" class="footer-link">Pre-med</a>
+          <a href="/login" class="footer-link">Biology</a>
+          <a href="/login" class="footer-link">Engineering</a>
+          <a href="/login" class="footer-link">Chemistry</a>
+          <a href="/login" class="footer-link">Psychology</a>
+        </div>
+        <div class="footer-links">
+          <a href="/login" class="footer-link">Environmental Science</a>
+          <a href="/login" class="footer-link">Education</a>
+          <a href="/login" class="footer-link">Radio Technology</a>
+          <a href="/login" class="footer-link">Agriculture</a>
+          <a href="/login" class="footer-link">Computer Science &amp; IT</a>
+          <a href="/login" class="footer-link">Communication &amp; Media</a>
+        </div>
       </div>
     </div>
   </div>
@@ -2631,48 +2773,191 @@ window.addEventListener('load',()=>{
   }
 })();
 
-/* ── Company dropdown ── */
+/* ── Nav dropdowns (unified init) ── */
 (function(){
-  const wrapper = document.getElementById('nav-company-dropdown');
-  const btn  = document.getElementById('nav-company-btn');
-  const menu = document.getElementById('nav-company-menu');
-  if(!btn || !menu || !wrapper) return;
+  var dropdowns = [
+    { wrapperId:'nav-features-dropdown', btnId:'nav-features-btn', menuId:'nav-features-menu' },
+    { wrapperId:'nav-how-dropdown',      btnId:'nav-how-btn',      menuId:'nav-how-menu'      },
+    { wrapperId:'nav-pricing-dropdown',  btnId:'nav-pricing-btn',  menuId:'nav-pricing-menu'  },
+    { wrapperId:'nav-company-dropdown',  btnId:'nav-company-btn',  menuId:'nav-company-menu'  }
+  ];
 
-  let closeTimer = null;
-
-  function open(){
-    clearTimeout(closeTimer);
-    btn.classList.add('open');
-    menu.classList.add('open');
-    btn.setAttribute('aria-expanded','true');
+  function initDropdown(cfg){
+    var wrapper = document.getElementById(cfg.wrapperId);
+    var btn     = document.getElementById(cfg.btnId);
+    var menu    = document.getElementById(cfg.menuId);
+    if(!btn || !menu || !wrapper) return;
+    var closeTimer = null;
+    function open(){
+      // Close all other dropdowns first
+      dropdowns.forEach(function(d){
+        if(d.btnId !== cfg.btnId){
+          var b = document.getElementById(d.btnId);
+          var m = document.getElementById(d.menuId);
+          if(b){ b.classList.remove('open'); b.setAttribute('aria-expanded','false'); }
+          if(m){ m.classList.remove('open'); }
+        }
+      });
+      clearTimeout(closeTimer);
+      btn.classList.add('open'); menu.classList.add('open');
+      btn.setAttribute('aria-expanded','true');
+    }
+    function close(){
+      btn.classList.remove('open'); menu.classList.remove('open');
+      btn.setAttribute('aria-expanded','false');
+    }
+    function scheduleClose(){ closeTimer = setTimeout(close, 120); }
+    function toggle(){ btn.classList.contains('open') ? close() : open(); }
+    wrapper.addEventListener('mouseenter', open);
+    wrapper.addEventListener('mouseleave', scheduleClose);
+    menu.addEventListener('mouseenter', function(){ clearTimeout(closeTimer); });
+    menu.addEventListener('mouseleave', scheduleClose);
+    btn.addEventListener('click', function(e){ e.stopPropagation(); toggle(); });
+    document.addEventListener('click', function(e){ if(!wrapper.contains(e.target)) close(); });
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape') close(); });
+    menu.querySelectorAll('.nav-dropdown-item').forEach(function(item){
+      item.addEventListener('click', close);
+    });
   }
-  function close(){
-    btn.classList.remove('open');
-    menu.classList.remove('open');
-    btn.setAttribute('aria-expanded','false');
-  }
-  function scheduleClose(){
-    closeTimer = setTimeout(close, 120);
-  }
-  function toggle(){ btn.classList.contains('open') ? close() : open(); }
 
-  // Hover — open on enter, close on leave (with small delay to allow moving into menu)
-  wrapper.addEventListener('mouseenter', open);
-  wrapper.addEventListener('mouseleave', scheduleClose);
-  menu.addEventListener('mouseenter', function(){ clearTimeout(closeTimer); });
-  menu.addEventListener('mouseleave', scheduleClose);
+  dropdowns.forEach(initDropdown);
+})();
 
-  // Click toggle (for touch / keyboard users)
-  btn.addEventListener('click', function(e){ e.stopPropagation(); toggle(); });
+/* ── SPA Router ── */
+(function(){
+  // Page definitions
+  var pages = {
+    'features-generative-ai': { title:'Generative AI — Chunks AI', name:'Generative AI' },
+    'features-workplace': { title:'Workplace — Chunks AI', name:'Workplace' },
+    'features-library': { title:'Library — Chunks AI', name:'Library' },
+    'features-flashcard': { title:'Flashcard — Chunks AI', name:'Flashcard' },
+    'features-study-plan': { title:'Study Plan — Chunks AI', name:'Study Plan' },
+    'features-visual-tutor': { title:'Visual Tutor — Chunks AI', name:'Visual Tutor' },
+    'features-research': { title:'Research — Chunks AI', name:'Research' },
+    'features-exam': { title:'Exam — Chunks AI', name:'Exam' },
+    'how-overview': { title:'Overview — Chunks AI', name:'Overview' },
+    'how-faq': { title:'FAQ — Chunks AI', name:'FAQ' },
+    'how-tutorial-generative-ai': { title:'Generative AI Tutorial — Chunks AI', name:'Generative AI Tutorial' },
+    'how-tutorial-workplace': { title:'Workplace Tutorial — Chunks AI', name:'Workplace Tutorial' },
+    'how-tutorial-library': { title:'Library Tutorial — Chunks AI', name:'Library Tutorial' },
+    'how-tutorial-flashcard': { title:'Flashcard Tutorial — Chunks AI', name:'Flashcard Tutorial' },
+    'how-tutorial-study-plan': { title:'Study Plan Tutorial — Chunks AI', name:'Study Plan Tutorial' },
+    'how-tutorial-visual-tutor': { title:'Visual Tutor Tutorial — Chunks AI', name:'Visual Tutor Tutorial' },
+    'how-tutorial-research': { title:'Research Tutorial — Chunks AI', name:'Research Tutorial' },
+    'how-tutorial-exam': { title:'Exam Tutorial — Chunks AI', name:'Exam Tutorial' },
+    'pricing-overview': { title:'Pricing — Chunks AI', name:'Pricing' },
+    'pricing-free': { title:'Free Plan — Chunks AI', name:'Free Plan' },
+    'pricing-pro': { title:'Pro Plan — Chunks AI', name:'Pro Plan' },
+    'pricing-ultra': { title:'Ultra Plan — Chunks AI', name:'Ultra Plan' },
+    'company-about': { title:'About Us — Chunks AI', name:'About Us' },
+    'company-news': { title:'News — Chunks AI', name:'News' },
+    'company-contact': { title:'Contact — Chunks AI', name:'Contact' },
+    'terms': { title:'Terms of Service — Chunks AI', name:'Terms of Service' },
+    'privacy': { title:'Privacy Policy — Chunks AI', name:'Privacy Policy' },
+    'about-overview': { title:'Chunks AI', name:'Chunks AI' },
+  };
+
+
+  // ── Inject SPA styles ──
+  var style = document.createElement('style');
+  style.textContent = `
+    #spa-section { display:none; min-height:70vh; }
+    .spa-page-body { max-width:1240px;margin:0 auto;padding:120px 48px 100px;display:flex;align-items:center;justify-content:center; }
+    .spa-page-name { font-family:var(--font-head);font-size:clamp(32px,6vw,64px);font-weight:800;color:var(--text-1);letter-spacing:-.03em;text-align:center; }
+    @media(max-width:600px){ .spa-page-body{padding:80px 24px 60px;} }
+  `;
+  document.head.appendChild(style);
+
+  // ── SPA content section (between nav and footer) ──
+  var spaSection = document.createElement('div');
+  spaSection.id = 'spa-section';
+  var footerWrap = document.querySelector('.footer-wrap');
+  if(footerWrap) footerWrap.parentNode.insertBefore(spaSection, footerWrap);
+  else document.body.appendChild(spaSection);
+
+  // All homepage content to hide when SPA is active
+  function getHomeSections(){
+    return document.querySelectorAll('.hero, section, .cta-banner, [style*="cta-banner-wrapper"]');
+  }
+
+  function showHomepage(){
+    getHomeSections().forEach(function(el){ el.style.display = ''; });
+    spaSection.style.display = 'none';
+  }
+
+  function hideHomepage(){
+    getHomeSections().forEach(function(el){ el.style.display = 'none'; });
+    spaSection.style.display = 'block';
+  }
+
+  function navigate(key){
+    if(key === 'about-overview'){
+      showHomepage();
+      setTimeout(function(){
+        var el = document.getElementById('about');
+        if(el) el.scrollIntoView({behavior:'smooth'});
+      }, 50);
+      return;
+    }
+    var page = pages[key];
+    if(!page) return;
+    document.title = page.title;
+    history.pushState({spa:key}, page.title, '/'+key);
+    window.scrollTo(0,0);
+    hideHomepage();
+    spaSection.innerHTML = '<div class="spa-page-body"><div class="spa-page-name">'+page.name+'</div></div>';
+  }
+
+  function closeSpa(){
+    showHomepage();
+    document.title = 'Chunks AI — Learn faster. Understand deeper.';
+    history.pushState(null, document.title, '/');
+    window.scrollTo(0,0);
+  }
+
+  // ── Logo / home links → close SPA ──
   document.addEventListener('click', function(e){
-    if(!wrapper.contains(e.target)) close();
+    var el = e.target.closest('[data-spa-home]');
+    if(!el) return;
+    e.preventDefault();
+    closeSpa();
   });
-  document.addEventListener('keydown', function(e){ if(e.key==='Escape') close(); });
 
-  // Close menu when a dropdown item is clicked
-  menu.querySelectorAll('.nav-dropdown-item').forEach(function(item){
-    item.addEventListener('click', close);
+  // ── Wire all [data-spa] links — intercept real href navigation ──
+  document.addEventListener('click', function(e){
+    var el = e.target.closest('a[data-spa]');
+    if(!el) return;
+    e.preventDefault();
+    navigate(el.dataset.spa);
   });
+
+  // Also intercept any <a href="/key"> that matches a known SPA page
+  document.addEventListener('click', function(e){
+    var el = e.target.closest('a[href]');
+    if(!el || el.dataset.spa) return; // already handled above
+    var href = el.getAttribute('href');
+    if(!href || !href.startsWith('/')) return;
+    var key = href.slice(1); // strip leading /
+    if(pages[key]){
+      e.preventDefault();
+      navigate(key);
+    }
+  });
+
+  // Browser back/forward
+  window.addEventListener('popstate', function(e){
+    if(e.state && e.state.spa){
+      navigate(e.state.spa);
+    } else {
+      closeSpa();
+    }
+  });
+
+  // On load — check if URL matches a SPA page (e.g. direct link)
+  (function(){
+    var key = window.location.pathname.slice(1);
+    if(key && pages[key]) navigate(key);
+  })();
 })();
 
 /* ── Google OAuth Popup ───────────────────────────────────────────── */
