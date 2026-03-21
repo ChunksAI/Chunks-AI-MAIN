@@ -1282,8 +1282,8 @@
     .footer-logo-name span{color:var(--gold);}
     .footer-tagline{font-size:12.5px;color:var(--text-3);line-height:1.65;max-width:220px;}
     .footer-col-title{font-size:11px;font-family:var(--font-mono);color:var(--text-4);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px;}
-    .footer-links{display:flex;flex-direction:column;gap:8px;}
-    .footer-link{font-size:13px;color:var(--text-3);text-decoration:none;transition:color .18s;}
+    .footer-links{display:flex;flex-direction:column;gap:8px;align-items:flex-start;}
+    .footer-link{font-size:13px;color:var(--text-3);text-decoration:none;transition:color .18s;display:inline;width:fit-content;}
     .footer-link:hover{color:var(--text-1);}
     .footer-bottom{
       display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
@@ -1323,8 +1323,9 @@
     .about-value{display:flex;align-items:flex-start;gap:12px;}
     .about-value-icon{
       width:32px;height:32px;border-radius:var(--r-sm);flex-shrink:0;
-      display:flex;align-items:center;justify-content:center;font-size:14px;
+      display:flex;align-items:center;justify-content:center;
       background:var(--gold-dim);border:1px solid rgba(232,172,46,.16);margin-top:1px;
+      color:var(--gold);
     }
     .about-value-text{font-size:13px;color:var(--text-2);line-height:1.65;}
     .about-value-text strong{display:block;color:var(--text-1);font-weight:600;margin-bottom:2px;}
@@ -1380,7 +1381,9 @@
       .cta-banner-right{width:100%;}
       .btn-banner-primary,.btn-banner-ghost{width:100%;}
     }
-  </style>
+  
+    .footer-students-title{text-align:center;grid-column:1/-1;margin-bottom:14px;}
+</style>
 </head>
 <body>
 
@@ -1648,7 +1651,7 @@
         <span class="trust-item"><span class="trust-check"></span> Free forever plan</span>
         <span class="trust-item"><span class="trust-check"></span> Cancel anytime</span>
       </div>
-      <p class="auth-footer"><a href="/company/privacy">Privacy Policy</a> · <a href="/company/terms">Terms of Service</a></p>
+      <p class="auth-footer"><a href="/privacy.html">Privacy Policy</a> · <a href="/terms.html">Terms of Service</a></p>
     </div>
 
     <!-- Subjects: social relevance signal -->
@@ -1992,21 +1995,21 @@
 
       <div class="about-values">
         <div class="about-value">
-          <div class="about-value-icon">👁️</div>
+          <div class="about-value-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/></svg></div>
           <div class="about-value-text">
             <strong>Understanding over memorization</strong>
             We build tools that explain the why, not just the what. Visual diagrams, analogies, and step-by-step breakdowns — not walls of text.
           </div>
         </div>
         <div class="about-value">
-          <div class="about-value-icon">⚡</div>
+          <div class="about-value-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
           <div class="about-value-text">
             <strong>Efficiency above all</strong>
             Every feature is designed to get you to mastery faster — so you can spend less time studying and more time living.
           </div>
         </div>
         <div class="about-value">
-          <div class="about-value-icon">🎯</div>
+          <div class="about-value-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
           <div class="about-value-text">
             <strong>Built for real exams</strong>
             We don't do generic. Every flashcard, quiz, and study plan is generated from your actual textbook content.
@@ -2357,7 +2360,7 @@
         <span class="plan-amount">$8</span>
         <span class="plan-period">/ seat / month</span>
       </div>
-      <a href="/cdn-cgi/l/email-protection#e7848f92898c94c9868ec9869797a7808a868e8bc984888a" class="plan-cta cta-outline">Contact us</a>
+      <a href="mailto:chunks.ai.app@gmail.com" class="plan-cta cta-outline">Contact us</a>
       <div class="plan-divider"></div>
       <div class="plan-features">
         <div class="plan-feat"><span class="plan-check">✓</span> Everything in Pro</div>
@@ -2427,16 +2430,16 @@
       <div class="footer-col-title">Company</div>
       <div class="footer-links">
         <a href="/about" target="_blank" class="footer-link">About Us ↗</a>
-        <a href="/company/privacy" class="footer-link">Privacy Policy</a>
-        <a href="/company/terms" class="footer-link">Terms of Service</a>
-        <a href="/cdn-cgi/l/email-protection#d3b0bba6bdb8a0fdb2bafdb2a3a393b4beb2babffdb0bcbe" class="footer-link">Contact</a>
+        <a href="/privacy.html" class="footer-link">Privacy Policy</a>
+        <a href="/terms.html" class="footer-link">Terms of Service</a>
+        <a href="mailto:chunks.ai.app@gmail.com" class="footer-link">Contact</a>
       </div>
     </div>
 
-    <div style="grid-column:span 2;display:flex;flex-direction:column;align-items:center;">
-      <div class="footer-col-title" style="text-align:center;width:100%;">Students</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px;width:100%;">
-        <div class="footer-links">
+    <div style="grid-column:span 2;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 8px;">
+        <div class="footer-col-title" style="grid-column:1/-1;text-align:left;margin-bottom:14px;">Students</div>
+        <div class="footer-links" style="text-align:left;">
           <a href="/login" class="footer-link">Nursing</a>
           <a href="/login" class="footer-link">Pre-med</a>
           <a href="/login" class="footer-link">Biology</a>
@@ -2444,7 +2447,7 @@
           <a href="/login" class="footer-link">Chemistry</a>
           <a href="/login" class="footer-link">Psychology</a>
         </div>
-        <div class="footer-links">
+        <div class="footer-links" style="text-align:left;">
           <a href="/login" class="footer-link">Environmental Science</a>
           <a href="/login" class="footer-link">Education</a>
           <a href="/login" class="footer-link">Radio Technology</a>
@@ -2485,9 +2488,9 @@
       </a>
     </div>
     <div class="footer-legal">
-      <a href="/cdn-cgi/l/email-protection#c8aba0bda6a3bbe6a9a1e6a9b8b888afa5a9a1a4e6aba7a5" class="footer-email-link">
+      <a href="mailto:chunks.ai.app@gmail.com" class="footer-email-link">
         <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="3" width="11" height="8" rx="1.5"/><path d="M1.5 4.5l5.5 4 5.5-4"/></svg>
-        <span class="__cf_email__" data-cfemail="016269746f6a722f60682f60717141666c60686d2f626e6c">[email&#160;protected]</span>
+        chunks.ai.app@gmail.com
       </a>
     </div>
   </div>
@@ -2808,7 +2811,87 @@ window.addEventListener('load',()=>{
 (function(){
   // Page definitions
   var pages = {
-    'features/generative-ai': { title:'Generative AI — Chunks AI', name:'Generative AI' },
+    'features/generative-ai': { title:'Generative AI — Chunks AI', name:'Generative AI', render: function(){
+      return `<div class="feat-page">
+  <div class="feat-hero">
+    <div class="feat-hero-left">
+      <div class="feat-page-eyebrow">
+        <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 1v2M7 11v2M1 7h2M11 7h2M3.2 3.2l1.4 1.4M9.4 9.4l1.4 1.4M3.2 10.8l1.4-1.4M9.4 4.6l1.4-1.4"/></svg>
+        Feature
+      </div>
+      <h1 class="feat-page-title">Generative <span>AI</span></h1>
+      <p class="feat-page-desc">Chunks AI doesn't just retrieve text — it generates personalized study material directly from your textbook. Flashcards, summaries, visual explanations, and practice questions, all built from your actual content in seconds.</p>
+      <a href="/login" class="feat-page-cta">Try it free →</a>
+    </div>
+    <div class="feat-hero-visual">
+      <div class="feat-visual-card">
+        <div class="feat-visual-label">Generating from your textbook…</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div style="background:var(--surface-3);border-radius:10px;padding:14px 16px;">
+            <div style="font-size:11px;color:var(--text-3);font-family:var(--font-mono);margin-bottom:6px;">FLASHCARD GENERATED</div>
+            <div style="font-size:13px;color:var(--text-1);font-weight:600;margin-bottom:4px;">What is the Krebs Cycle?</div>
+            <div style="font-size:12px;color:var(--text-2);line-height:1.6;">A series of chemical reactions used by aerobic organisms to generate energy through the oxidation of acetyl-CoA derived from carbohydrates, fats, and proteins.</div>
+          </div>
+          <div style="background:var(--surface-3);border-radius:10px;padding:14px 16px;">
+            <div style="font-size:11px;color:var(--text-3);font-family:var(--font-mono);margin-bottom:6px;">SUMMARY GENERATED</div>
+            <div style="font-size:12px;color:var(--text-2);line-height:1.6;">Chapter 4 covers cellular respiration — the process cells use to convert glucose into ATP. Key stages: glycolysis, pyruvate oxidation, Krebs cycle, and oxidative phosphorylation.</div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;padding-top:4px;">
+            <span class="feat-visual-chip gold">✦ Flashcards</span>
+            <span class="feat-visual-chip violet">✦ Summaries</span>
+            <span class="feat-visual-chip teal">✦ Visual diagrams</span>
+            <span class="feat-visual-chip red">✦ Exam questions</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="feat-section-label">What it does</div>
+  <div class="feat-caps-grid">
+    <div class="feat-cap-card">
+      <div class="feat-cap-icon" style="background:rgba(232,172,46,.1);color:var(--gold);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="16" height="12" rx="2"/><path d="M6 6V4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-2"/></svg></div>
+      <div class="feat-cap-title">Instant Flashcard Generation</div>
+      <div class="feat-cap-desc">Select any chapter or topic and get a full deck of AI-generated flashcards based on the actual text — not generic content from the internet.</div>
+    </div>
+    <div class="feat-cap-card">
+      <div class="feat-cap-icon" style="background:rgba(139,124,248,.1);color:#8b7cf8;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg></div>
+      <div class="feat-cap-title">Chapter Summaries</div>
+      <div class="feat-cap-desc">Get concise, intelligent summaries of any chapter with key terms highlighted — perfect for fast review before an exam.</div>
+    </div>
+    <div class="feat-cap-card">
+      <div class="feat-cap-icon" style="background:rgba(45,212,191,.1);color:#2dd4bf;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/></svg></div>
+      <div class="feat-cap-title">Visual Explanations</div>
+      <div class="feat-cap-desc">Complex concepts get turned into step-by-step visual breakdowns — diagrams, analogies, and spatial explanations tailored to your topic.</div>
+    </div>
+    <div class="feat-cap-card">
+      <div class="feat-cap-icon" style="background:rgba(248,113,113,.1);color:#f87171;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></div>
+      <div class="feat-cap-title">Practice Questions</div>
+      <div class="feat-cap-desc">Generate exam-style questions with difficulty tuned to your level — multiple choice, true/false, and short answer, all from your textbook.</div>
+    </div>
+    <div class="feat-cap-card">
+      <div class="feat-cap-icon" style="background:rgba(232,172,46,.1);color:var(--gold);"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></div>
+      <div class="feat-cap-title">Adaptive Output</div>
+      <div class="feat-cap-desc">The AI adjusts its output based on your previous interactions — simpler explanations when you're confused, harder questions when you're ready.</div>
+    </div>
+    <div class="feat-cap-card">
+      <div class="feat-cap-icon" style="background:rgba(139,124,248,.1);color:#8b7cf8;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>
+      <div class="feat-cap-title">Textbook-Grounded</div>
+      <div class="feat-cap-desc">Every piece of generated content is anchored to your uploaded textbook — no hallucinated facts, no irrelevant information.</div>
+    </div>
+  </div>
+
+  <div class="feat-divider"></div>
+
+  <div class="feat-cta-banner">
+    <div>
+      <div class="feat-cta-title">Ready to stop re-reading?</div>
+      <div class="feat-cta-sub">Generate your first flashcards in under 30 seconds. Free forever plan available.</div>
+    </div>
+    <a href="/login" class="feat-page-cta">Get started free →</a>
+  </div>
+</div>`;
+    }},
     'features/workplace': { title:'Workplace — Chunks AI', name:'Workplace' },
     'features/library': { title:'Library — Chunks AI', name:'Library' },
     'features/flashcard': { title:'Flashcard — Chunks AI', name:'Flashcard' },
@@ -2846,6 +2929,47 @@ window.addEventListener('load',()=>{
     .spa-page-body { max-width:1240px;margin:0 auto;padding:120px 48px 100px;display:flex;align-items:center;justify-content:center; }
     .spa-page-name { font-family:var(--font-head);font-size:clamp(32px,6vw,64px);font-weight:800;color:var(--text-1);letter-spacing:-.03em;text-align:center; }
     @media(max-width:600px){ .spa-page-body{padding:80px 24px 60px;} }
+
+    /* ── Feature page styles ── */
+    .feat-page { max-width:1100px;margin:0 auto;padding:100px 48px 100px; }
+    .feat-page-eyebrow { display:inline-flex;align-items:center;gap:7px;font-size:11px;font-family:var(--font-mono);color:var(--gold);letter-spacing:.1em;text-transform:uppercase;margin-bottom:20px;padding:4px 12px 4px 8px;background:rgba(232,172,46,.08);border:1px solid rgba(232,172,46,.18);border-radius:999px; }
+    .feat-page-title { font-family:var(--font-head);font-size:clamp(40px,6vw,72px);font-weight:800;color:var(--text-1);line-height:1.05;letter-spacing:-.04em;margin-bottom:20px; }
+    .feat-page-title span { color:var(--gold); }
+    .feat-page-desc { font-size:16px;color:var(--text-2);line-height:1.8;max-width:620px;margin-bottom:40px; }
+    .feat-page-cta { display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:var(--gold);color:#0d0d10;font-size:14px;font-weight:700;border-radius:var(--r-md);text-decoration:none;transition:opacity .15s,transform .15s; }
+    .feat-page-cta:hover { opacity:.88;transform:translateY(-1px); }
+    .feat-hero { display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;margin-bottom:80px; }
+    .feat-hero-visual { position:relative; }
+    .feat-icon-big { width:80px;height:80px;border-radius:20px;background:rgba(232,172,46,.1);border:1px solid rgba(232,172,46,.2);display:flex;align-items:center;justify-content:center;color:var(--gold);margin-bottom:32px; }
+    .feat-icon-big svg { width:36px;height:36px; }
+    .feat-visual-card { background:var(--surface-2);border:1px solid var(--border-sm);border-radius:16px;padding:28px;position:relative;overflow:hidden; }
+    .feat-visual-card::before { content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(232,172,46,.04),transparent 60%);pointer-events:none; }
+    .feat-visual-label { font-size:10px;font-family:var(--font-mono);color:var(--text-3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px; }
+    .feat-visual-chip { display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:500;margin:4px; }
+    .feat-visual-chip.gold { background:rgba(232,172,46,.1);color:var(--gold);border:1px solid rgba(232,172,46,.2); }
+    .feat-visual-chip.violet { background:rgba(139,124,248,.1);color:#8b7cf8;border:1px solid rgba(139,124,248,.2); }
+    .feat-visual-chip.teal { background:rgba(45,212,191,.1);color:#2dd4bf;border:1px solid rgba(45,212,191,.2); }
+    .feat-visual-chip.red { background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.2); }
+    .feat-divider { height:1px;background:var(--border-xs);margin:64px 0; }
+    .feat-section-label { font-size:11px;font-family:var(--font-mono);color:var(--text-3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:24px; }
+    .feat-caps-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:64px; }
+    .feat-cap-card { background:var(--surface-1);border:1px solid var(--border-xs);border-radius:14px;padding:24px;transition:border-color .2s; }
+    .feat-cap-card:hover { border-color:var(--border-sm); }
+    .feat-cap-icon { width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;margin-bottom:16px; }
+    .feat-cap-title { font-size:14px;font-weight:700;color:var(--text-1);margin-bottom:6px;font-family:var(--font-head); }
+    .feat-cap-desc { font-size:13px;color:var(--text-2);line-height:1.7; }
+    .feat-how-list { display:flex;flex-direction:column;gap:0; }
+    .feat-how-item { display:flex;gap:20px;padding:24px 0;border-bottom:1px solid var(--border-xs); }
+    .feat-how-item:last-child { border-bottom:none; }
+    .feat-how-num { width:32px;height:32px;border-radius:50%;background:rgba(232,172,46,.1);border:1px solid rgba(232,172,46,.2);color:var(--gold);font-family:var(--font-mono);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px; }
+    .feat-how-title { font-size:15px;font-weight:700;color:var(--text-1);margin-bottom:4px;font-family:var(--font-head); }
+    .feat-how-desc { font-size:13.5px;color:var(--text-2);line-height:1.7; }
+    .feat-cta-banner { background:var(--surface-2);border:1px solid var(--border-sm);border-radius:20px;padding:48px;display:flex;align-items:center;justify-content:space-between;gap:40px;position:relative;overflow:hidden; }
+    .feat-cta-banner::before { content:'';position:absolute;width:400px;height:400px;border-radius:50%;background:radial-gradient(circle,rgba(232,172,46,.08),transparent 70%);top:-150px;right:-100px;pointer-events:none; }
+    .feat-cta-title { font-family:var(--font-head);font-size:28px;font-weight:800;color:var(--text-1);letter-spacing:-.02em;margin-bottom:8px; }
+    .feat-cta-sub { font-size:14px;color:var(--text-2); }
+    @media(max-width:860px){ .feat-hero{grid-template-columns:1fr;gap:40px;} .feat-caps-grid{grid-template-columns:1fr 1fr;} .feat-page{padding:90px 24px 60px;} .feat-cta-banner{flex-direction:column;text-align:center;padding:32px 24px;} }
+    @media(max-width:500px){ .feat-caps-grid{grid-template-columns:1fr;} }
   `;
   document.head.appendChild(style);
 
@@ -2872,6 +2996,10 @@ window.addEventListener('load',()=>{
   }
 
   function navigate(key){
+    // Terms and Privacy go to their own HTML files
+    if(key === 'company/terms'){ window.location.href = '/terms.html'; return; }
+    if(key === 'company/privacy'){ window.location.href = '/privacy.html'; return; }
+
     if(key === 'about'){
       showHomepage();
       history.pushState({spa:'about'}, 'About — Chunks AI', '/about');
@@ -2885,13 +3013,13 @@ window.addEventListener('load',()=>{
     history.pushState({spa:key}, page.title, '/'+key);
     window.scrollTo(0,0);
     hideHomepage();
-    spaSection.innerHTML = '<div class="spa-page-body"><div class="spa-page-name">'+page.name+'</div></div>';
+    spaSection.innerHTML = page.render ? page.render() : '<div class="spa-page-body"><div class="spa-page-name">'+page.name+'</div></div>';
   }
 
   function closeSpa(){
     showHomepage();
     document.title = 'Chunks AI — Learn faster. Understand deeper.';
-    history.pushState(null, document.title, '/');
+    history.pushState(null, document.title, '/ChunksAI');
     window.scrollTo({top:0, behavior:'smooth'});
   }
 
