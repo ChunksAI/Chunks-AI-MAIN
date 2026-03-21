@@ -315,6 +315,15 @@ window._applyUserProfile = function _applyUserProfile(session) {
 // ── Init ──────────────────────────────────────────────────────────────────────
 
 window._initAuth = async function _initAuth() {
+  // ── Post-signout: land as guest ───────────────────────────────────────────
+  // After chunksSignOut(), we redirect to / with chunks_signing_out='1'.
+  // The app.html gate already converted that into guest mode.
+  // Here we just clear the flag so subsequent loads are clean.
+  if (sessionStorage.getItem('chunks_signing_out') === '1') {
+    sessionStorage.removeItem('chunks_signing_out');
+    sessionStorage.setItem('chunks_guest_mode', '1');
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
   const isGuest_         = sessionStorage.getItem('chunks_guest_mode') === '1';
   const isLoginPage_     = window.location.pathname === '/login';
@@ -670,9 +679,10 @@ window.chunksSignOut = async function chunksSignOut() {
     // Reset the sync-fired flag so the next login triggers a fresh pull
     window._chunksSyncFired = false;
 
-    // Navigate immediately — do NOT call _applyUI(null) before this
-    // because that would flash "Guest" while the page is still visible.
-    window.location.replace('/login');
+    // Navigate to / (guest mode) instead of /login
+    // The app.html auth gate sees chunks_signing_out='1', allows the load,
+    // then the post-signout handler below sets guest mode automatically.
+    window.location.replace('/');
   }
 
   // Fire-and-forget Supabase signOut — don't await it before redirecting

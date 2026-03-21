@@ -85,47 +85,44 @@
       var isPostLogout = sessionStorage.getItem('chunks_signing_out') === '1';
       var hasCode      = location.search.includes('code=');
       var hasHash      = location.hash.includes('access_token');
-      if (isPostLogout || hasCode || hasHash) return; // need SDK for these cases
+      var isPopup      = !!(window.opener && !window.opener.closed);
+
+      // OAuth callback or popup — must stay on this page to handle auth
+      if (hasCode || hasHash) return;
 
       // Check for an existing non-expired Supabase session in localStorage
       try {
         var raw = localStorage.getItem('chunks-ai-auth');
         if (raw) {
           var parsed = JSON.parse(raw);
-          // Supabase session shape: { access_token, expires_at (unix seconds) }
           var session = parsed.access_token ? parsed
                       : parsed.currentSession ? parsed.currentSession
                       : null;
           if (session && session.access_token) {
             var expiresAt = session.expires_at || 0;
             var nowSec = Math.floor(Date.now() / 1000);
-            // Give 60s buffer for clock skew
             if (expiresAt === 0 || expiresAt - nowSec > 60) {
-              // Valid session — redirect instantly, no flash
-              if (window.opener && !window.opener.closed) {
-        try { window.opener.postMessage('chunks_auth_success', 'https://chunks.online'); } catch(e) {}
-        setTimeout(function(){ window.close(); }, 100);
-      } else {
-        location.replace('/home');
-      }
+              // Already logged in
+              if (isPopup) {
+                try { window.opener.postMessage('chunks_auth_success', 'https://chunks.online'); } catch(e) {}
+                setTimeout(function(){ window.close(); }, 100);
+              } else {
+                location.replace('/home');
+              }
               return;
             }
           }
         }
       } catch(e) {}
 
-      // Also check guest mode
-      if (sessionStorage.getItem('chunks_guest_mode') === '1') {
-        if (window.opener && !window.opener.closed) {
-        try { window.opener.postMessage('chunks_auth_success', 'https://chunks.online'); } catch(e) {}
-        setTimeout(function(){ window.close(); }, 100);
-      } else {
-        location.replace('/home');
-      }
+      // Post-logout or direct visit (not popup, not OAuth) — go to app as guest
+      if (!isPopup) {
+        sessionStorage.setItem('chunks_guest_mode', '1');
+        location.replace('/');
         return;
       }
 
-      // No session — show the login page
+      // Popup with no session — show the login card inside the popup
       document.addEventListener('DOMContentLoaded', function() {
         document.body.classList.add('ready');
       });
@@ -209,8 +206,14 @@
   var _isPostLogout = sessionStorage.getItem('chunks_signing_out') === '1';
 
   if (_isPostLogout) {
+    // Post-logout: go to app as guest instead of showing login page
     sessionStorage.removeItem('chunks_signing_out');
-    document.body.classList.add('ready');
+    sessionStorage.setItem('chunks_guest_mode', '1');
+    if (!window.opener || window.opener.closed) {
+      window.location.replace('/');
+    } else {
+      document.body.classList.add('ready');
+    }
   } else if (_hasCode || _hasHash) {
     // Show loading overlay immediately — user sees spinner not login form
     document.getElementById('cb-overlay').classList.add('show');
@@ -320,7 +323,13 @@
       }
       return;
     }
-    // No session — show login page
+    // No session — if not a popup, go to app as guest
+    var _isPopupNow = !!(window.opener && !window.opener.closed);
+    if (!_isPopupNow) {
+      sessionStorage.setItem('chunks_guest_mode', '1');
+      location.replace('/');
+      return;
+    }
     document.body.classList.add('ready');
   };
   document.head.appendChild(_sdkEl);
