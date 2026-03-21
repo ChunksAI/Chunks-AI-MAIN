@@ -223,14 +223,62 @@ function _burnFingerprint() {
 // ── Login wall modal ──────────────────────────────────────────────────────
 
 const FEATURE_LABELS = {
-  general:   { icon: '💬', title: 'General AI limit reached', desc: `You've used all ${GUEST_LIMITS.general} free messages.` },
-  workspace: { icon: '📖', title: 'Workspace limit reached',  desc: `You've used all ${GUEST_LIMITS.workspace} free workspace messages.` },
-  library:   { icon: '📚', title: 'Library limit reached',    desc: `Guests can open ${GUEST_LIMITS.library} book. Sign in to access the full library.` },
-  studyplan: { icon: '📅', title: 'Study Plan limit reached', desc: `Guests can create ${GUEST_LIMITS.studyplan} study plan. Sign in for unlimited plans.` },
-  visual:    { icon: '🎓', title: 'Visual Tutor limit reached', desc: `Guests can run ${GUEST_LIMITS.visual} visual lesson. Sign in for unlimited access.` },
-  research:  { icon: '🔬', title: 'Research limit reached',   desc: `Guests can generate ${GUEST_LIMITS.research} research section. Sign in for unlimited research.` },
-  exam:      { icon: '📝', title: 'Exam limit reached',       desc: `Guests can take ${GUEST_LIMITS.exam} practice exam. Sign in for unlimited exams.` },
-  abuse:     { icon: '🔒', title: 'Sign in to continue',      desc: 'You\'ve explored everything Chunks has to offer as a guest. Sign in to keep going!' },
+  general:   {
+    svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+    color: 'var(--violet)',
+    bg:    'var(--violet-muted)',
+    title: 'Message limit reached',
+    desc:  `You've used your ${GUEST_LIMITS.general} free AI messages for today.`,
+  },
+  workspace: {
+    svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>`,
+    color: 'var(--violet)',
+    bg:    'var(--violet-muted)',
+    title: 'Workspace limit reached',
+    desc:  `You've used your ${GUEST_LIMITS.workspace} free workspace messages for today.`,
+  },
+  library:   {
+    svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`,
+    color: 'var(--gold)',
+    bg:    'var(--gold-muted)',
+    title: 'Library limit reached',
+    desc:  `Guests can open ${GUEST_LIMITS.library} book. Sign in to access the full library.`,
+  },
+  studyplan: {
+    svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>`,
+    color: 'var(--green)',
+    bg:    'rgba(52,211,153,0.10)',
+    title: 'Study Plan limit reached',
+    desc:  `Guests can generate ${GUEST_LIMITS.studyplan} study plan. Sign in to create more.`,
+  },
+  visual:    {
+    svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`,
+    color: 'var(--violet)',
+    bg:    'var(--violet-muted)',
+    title: 'Visual Tutor limit reached',
+    desc:  `Guests can run ${GUEST_LIMITS.visual} visual lesson. Sign in for more sessions.`,
+  },
+  research:  {
+    svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>`,
+    color: 'var(--gold)',
+    bg:    'var(--gold-muted)',
+    title: 'Research limit reached',
+    desc:  `Guests can generate ${GUEST_LIMITS.research} research section. Sign in to continue researching.`,
+  },
+  exam:      {
+    svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
+    color: 'var(--gold)',
+    bg:    'var(--gold-muted)',
+    title: 'Exam limit reached',
+    desc:  `Guests can take ${GUEST_LIMITS.exam} practice exam. Sign in to take more.`,
+  },
+  abuse:     {
+    svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    color: 'var(--text-2,#9898ae)',
+    bg:    'rgba(152,152,174,0.10)',
+    title: 'Sign in to continue',
+    desc:  "You've explored everything Chunks has to offer as a guest. Sign in to keep going!",
+  },
 };
 
 export function showLoginWall(feature = 'general', opts = {}) {
@@ -250,46 +298,78 @@ export function showLoginWall(feature = 'general', opts = {}) {
 
   overlay.innerHTML = `
     <style>
-      @keyframes _gwFadeIn { from { opacity:0; transform:scale(0.96); } to { opacity:1; transform:scale(1); } }
+      @keyframes _gwFadeIn  { from { opacity:0; transform:translateY(8px) scale(0.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+      @keyframes _gwIconPop { 0%{transform:scale(0.7);opacity:0} 60%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
       #guest-login-wall .gw-card {
-        background:var(--surface-2, #171820);
-        border:1px solid var(--border-sm, #2a2b38);
-        border-radius:20px;
-        padding:36px 32px 28px;
-        max-width:380px;width:100%;
-        text-align:center;
-        box-shadow:0 24px 60px rgba(0,0,0,0.5);
+        background: var(--surface-2, #171820);
+        border: 1px solid var(--border-sm, #2a2b38);
+        border-radius: 24px;
+        padding: 36px 32px 28px;
+        max-width: 360px; width: 100%;
+        text-align: center;
+        box-shadow: 0 32px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.04) inset;
+        animation: _gwFadeIn 0.22s cubic-bezier(0.34,1.2,0.64,1) both;
       }
-      #guest-login-wall .gw-icon { font-size:40px; margin-bottom:14px; }
-      #guest-login-wall .gw-title { font-size:18px; font-weight:700; color:var(--text-1,#ededf0); margin-bottom:8px; }
-      #guest-login-wall .gw-desc  { font-size:13px; color:var(--text-3,#7c7c96); line-height:1.55; margin-bottom:24px; }
+      #guest-login-wall .gw-icon-wrap {
+        width: 64px; height: 64px; border-radius: 18px;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 20px;
+        animation: _gwIconPop 0.35s cubic-bezier(0.34,1.4,0.64,1) 0.05s both;
+      }
+      #guest-login-wall .gw-title {
+        font-size: 17px; font-weight: 700;
+        color: var(--text-1, #ededf0);
+        margin-bottom: 8px; letter-spacing: -0.2px;
+      }
+      #guest-login-wall .gw-desc {
+        font-size: 13px; color: var(--text-3, #7c7c96);
+        line-height: 1.6; margin-bottom: 8px;
+      }
+      #guest-login-wall .gw-cta {
+        font-size: 13px; font-weight: 600;
+        color: var(--text-2, #9898ae);
+        margin-bottom: 24px; display: block;
+      }
+      #guest-login-wall .gw-divider {
+        height: 1px; background: var(--border-sm, #2a2b38);
+        margin: 0 0 20px; border: none;
+      }
       #guest-login-wall .gw-btn-login {
-        width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;
-        background:#ededf0;color:#111219;font-size:14px;font-weight:700;
-        font-family:var(--font-body,inherit);margin-bottom:10px;
-        transition:opacity 0.15s;
+        width: 100%; padding: 12px; border-radius: 12px; border: none; cursor: pointer;
+        background: var(--text-1, #ededf0); color: #111219;
+        font-size: 14px; font-weight: 700;
+        font-family: var(--font-body, inherit); margin-bottom: 10px;
+        transition: opacity 0.15s, transform 0.1s;
       }
-      #guest-login-wall .gw-btn-login:hover { opacity:0.88; }
+      #guest-login-wall .gw-btn-login:hover  { opacity: 0.9; transform: translateY(-1px); }
+      #guest-login-wall .gw-btn-login:active { transform: translateY(0); }
       #guest-login-wall .gw-btn-signup {
-        width:100%;padding:11px;border-radius:12px;cursor:pointer;
-        background:transparent;border:1px solid var(--border-xs,#252633);
-        color:var(--text-2,#9898ae);font-size:13px;font-weight:600;
-        font-family:var(--font-body,inherit);margin-bottom:16px;
-        transition:background 0.15s,color 0.15s;
+        width: 100%; padding: 11px; border-radius: 12px; cursor: pointer;
+        background: transparent; border: 1px solid var(--border-xs, #252633);
+        color: var(--text-2, #9898ae); font-size: 13px; font-weight: 600;
+        font-family: var(--font-body, inherit); margin-bottom: 18px;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
       }
-      #guest-login-wall .gw-btn-signup:hover { background:var(--surface-3,#1e1f29);color:var(--text-1,#ededf0); }
+      #guest-login-wall .gw-btn-signup:hover {
+        background: var(--surface-3, #1e1f29);
+        color: var(--text-1, #ededf0);
+        border-color: var(--border-sm, #2a2b38);
+      }
       #guest-login-wall .gw-dismiss {
-        font-size:12px;color:var(--text-3,#7c7c96);cursor:pointer;
-        background:none;border:none;font-family:inherit;
-        text-decoration:underline;text-underline-offset:2px;
-        transition:color 0.15s;
+        font-size: 12px; color: var(--text-3, #7c7c96); cursor: pointer;
+        background: none; border: none; font-family: inherit;
+        transition: color 0.15s; padding: 4px 8px;
       }
-      #guest-login-wall .gw-dismiss:hover { color:var(--text-2,#9898ae); }
+      #guest-login-wall .gw-dismiss:hover { color: var(--text-2, #9898ae); }
     </style>
     <div class="gw-card">
-      <div class="gw-icon">${info.icon}</div>
+      <div class="gw-icon-wrap" style="background:${info.bg};color:${info.color};">
+        ${info.svg}
+      </div>
       <div class="gw-title">${info.title}</div>
-      <div class="gw-desc">${info.desc}<br><br><strong style="color:var(--text-2,#9898ae)">Sign in for unlimited access — it's free.</strong></div>
+      <div class="gw-desc">${info.desc}</div>
+      <span class="gw-cta">Sign in for more access — it's free.</span>
+      <hr class="gw-divider">
       <button class="gw-btn-login" onclick="window.location.href='/login'">Log in</button>
       <button class="gw-btn-signup" onclick="window.location.href='/login?signup=1'">Sign up for free</button>
       <br>
@@ -369,10 +449,10 @@ export function renderUsageBar(containerId, feature) {
   }
 
   if (remaining <= 3 && remaining > 0) {
-    existing.textContent = `${remaining} free message${remaining === 1 ? '' : 's'} left — Sign in for unlimited`;
+    existing.textContent = `${remaining} free message${remaining === 1 ? '' : 's'} left — Sign in for more`;
     existing.style.color = remaining === 1 ? 'var(--gold,#e8ac2e)' : 'var(--text-3)';
   } else if (remaining === 0) {
-    existing.textContent = 'Free limit reached — Sign in for unlimited';
+    existing.textContent = 'Free limit reached — Sign in for more access';
     existing.style.color = 'var(--gold,#e8ac2e)';
   } else {
     existing.textContent = '';
