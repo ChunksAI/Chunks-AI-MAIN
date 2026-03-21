@@ -560,4 +560,47 @@
 
 /* ── Guest mode: hide history sections, push footer to bottom ───────────── */
 body.guest-mode .sidebar-history-scroll { display: none !important; }
+
+/* ── Compact sidebar: guest upsell collapsed state ──────────────────────── */
+.sidebar.compact .guest-upsell-card {
+  padding: 0;
+  background: transparent;
+  gap: 0;
+  margin-bottom: 0;
+  align-items: center;
+  justify-content: center;
+}
+.sidebar.compact .guest-upsell-title,
+.sidebar.compact .guest-upsell-desc,
+.sidebar.compact .guest-auth-btns {
+  display: none;
+}
+.sidebar.compact .guest-upsell-card::after {
+  content: '';
+  display: none;
+}
+/* Show the icon-only button in compact mode */
+.sidebar.compact .guest-icon-btn {
+  display: flex !important;
+}
+/* Hide icon-only button in expanded mode */
+.guest-icon-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-md);
+  background: var(--surface-3);
+  border: 1px solid var(--border-sm);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  outline: none;
+}
+.guest-icon-btn:hover {
+  background: var(--surface-2);
+  color: var(--text-1);
+  border-color: var(--border-md);
+}
 body.guest-mode .sidebar-footer { margin-top: auto; }

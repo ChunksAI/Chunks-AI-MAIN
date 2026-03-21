@@ -219,6 +219,15 @@ ${navHTML}
 
       <!-- Guest upsell card (visible for guests, hidden for logged-in users) -->
       <div class="guest-upsell-card" id="guest-upsell-card">
+        <!-- Compact mode: icon-only button -->
+        <button class="guest-icon-btn" onclick="window.openAuthModal?.()" title="Sign in to your account" aria-label="Sign in">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+            <polyline points="10 17 15 12 10 7"/>
+            <line x1="15" y1="12" x2="3" y2="12"/>
+          </svg>
+        </button>
+        <!-- Expanded mode: full upsell card -->
         <div class="guest-upsell-title">Get responses tailored to you</div>
         <div class="guest-upsell-desc">Log in to get answers based on saved chats, plus create images and upload files.</div>
         <div class="guest-auth-btns">
