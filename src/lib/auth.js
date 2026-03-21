@@ -408,10 +408,6 @@ window._initAuth = async function _initAuth() {
                         window.location.hash.includes('access_token') ||
                         window.location.hash.includes('error_description') ||
                         sessionStorage.getItem('chunks_oauth_callback') === '1';
-    // Clear the OAuth flag once session is confirmed — prevents it lingering
-    if (session?.user && isOAuthCb) {
-      try { sessionStorage.removeItem('chunks_oauth_callback'); } catch(e) {}
-    }
 
     // Consider authenticated if:
     //   a) getSession() returned a live session, OR
