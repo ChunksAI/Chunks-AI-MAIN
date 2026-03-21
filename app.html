@@ -111,12 +111,16 @@
     var hasHash       = location.hash.includes('access_token');
     var isOAuthCb     = sessionStorage.getItem('chunks_oauth_callback') === '1';
     var isSigningOut  = sessionStorage.getItem('chunks_signing_out') === '1';
+    var isRootPath    = location.pathname === '/';
     // Never redirect during OAuth callback, guest mode, or sign-out flow
     if (isGuest || hasCode || hasHash || isOAuthCb || isSigningOut) return;
     try {
       var raw = localStorage.getItem('chunks-ai-auth');
-      // No session at all — redirect to /login
-      if (!raw) { location.replace('/login'); return; }
+      // No session — if landing on root /, auto-enter guest mode (like ChatGPT)
+      if (!raw) {
+        if (isRootPath) { sessionStorage.setItem('chunks_guest_mode', '1'); return; }
+        location.replace('/login'); return;
+      }
       var parsed  = JSON.parse(raw);
       // Handle both Supabase v2 session shapes:
       // Shape A (direct): { access_token, expires_at, user, ... }
@@ -125,12 +129,16 @@
                   : (parsed.currentSession && parsed.currentSession.access_token)
                     ? parsed.currentSession
                   : null;
-      if (!session || !session.access_token) { location.replace('/login'); return; }
+      if (!session || !session.access_token) {
+        if (isRootPath) { sessionStorage.setItem('chunks_guest_mode', '1'); return; }
+        location.replace('/login'); return;
+      }
       // Token expired? DO NOT redirect — auth.js will refresh it via Supabase SDK
       // Redirecting on expiry causes refresh loops; let the SDK handle it
     } catch(e) {
       // Corrupt localStorage entry — clear it and redirect cleanly
       try { localStorage.removeItem('chunks-ai-auth'); } catch(_) {}
+      if (isRootPath) { sessionStorage.setItem('chunks_guest_mode', '1'); return; }
       location.replace('/login');
     }
   })();
