@@ -111,9 +111,8 @@
     var hasHash       = location.hash.includes('access_token') || location.hash.includes('error_description');
     var isOAuthCb     = sessionStorage.getItem('chunks_oauth_callback') === '1';
     var isSigningOut  = sessionStorage.getItem('chunks_signing_out') === '1';
-    // If OAuth token just arrived in the hash, mark it so auth.js can process it
-    // This prevents the instant gate from bouncing the user back to /login
-    // before the SDK has had a chance to write the session to localStorage
+    // OAuth token just arrived — mark it so auth.js can process it safely
+    // without the instant gate bouncing the user back to /login first
     if (hasHash || hasCode) {
       try { sessionStorage.setItem('chunks_oauth_callback', '1'); } catch(e) {}
     }
