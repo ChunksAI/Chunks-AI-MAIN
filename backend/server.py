@@ -28,6 +28,7 @@ from enum import Enum
 from cachetools import TTLCache
 import redis as redis_lib
 from ai_router import route, route_for_mode
+from guest_limits import guest_gate, enforce_exam_constraints_for_guest, GuestLimitExceeded
 
 
 # ── Tier enum ─────────────────────────────────────────────────────────────────
@@ -1418,6 +1419,10 @@ def load_book():
     if request.method == 'OPTIONS':
         return jsonify({'ok': True})
     try:
+        try:
+            guest_gate(request, 'library', _redis)
+        except GuestLimitExceeded as _gle:
+            return _gle.response()
         data = request.json
         book_id = data.get('bookId')
         logger.info(f"Load book request: {book_id}")
@@ -1503,6 +1508,27 @@ def ask():
         user_memory   = sanitize_user_memory(data.get('user_memory', ''))
         # task_type from frontend (optional — falls back to mode-based routing)
         task_type     = data.get('task_type', None)
+
+        # ── Guest IP rate limiting ────────────────────────────────────────────
+        # Map mode/task_type to a guest feature bucket, then gate.
+        # Logged-in users are never affected (guest_gate no-ops for them).
+        if mode == 'home_general' or task_type == 'home_general':
+            _guest_feature = 'general'
+        elif mode == 'visual_tutor':
+            _guest_feature = 'visual'
+        elif mode == 'exam':
+            _guest_feature = 'exam'
+        elif mode == 'research':
+            _guest_feature = 'research'
+        else:
+            _guest_feature = 'workspace'
+        try:
+            guest_gate(request, _guest_feature, _redis)
+        except GuestLimitExceeded as _gle:
+            return _gle.response()
+
+
+
 
         # ── Redis query cache — check BEFORE auth/model to short-circuit cost ──
         # Cache hits skip the AI call entirely (and don't count against daily limit).
@@ -2166,7 +2192,10 @@ def generate_flashcards():
         data = request.json
         if not data:
             return jsonify({'success': False, 'error': 'Invalid or missing JSON body'}), 400
-
+        try:
+            guest_gate(request, 'workspace', _redis)
+        except GuestLimitExceeded as _gle:
+            return _gle.response()
         topic   = data.get('topic', 'chemistry').strip()
         count   = min(int(data.get('count', 10)), 20)
         book_id = data.get('bookId', 'zumdahl')
@@ -2383,6 +2412,10 @@ def generate_study_materials():
         return jsonify({'ok': True})
     try:
         data          = request.json
+        try:
+            guest_gate(request, 'studyplan', _redis)
+        except GuestLimitExceeded as _gle:
+            return _gle.response()
         slides        = data.get('slides', [])
         material_type = data.get('type', 'notes')
 
@@ -2623,6 +2656,11 @@ def generate_quiz():
         return jsonify({'ok': True})
     try:
         data       = request.json or {}
+        try:
+            guest_gate(request, 'exam', _redis)
+            data = enforce_exam_constraints_for_guest(data)
+        except GuestLimitExceeded as _gle:
+            return _gle.response()
         slides     = data.get('slides', [])
         count      = max(5, min(50, int(data.get('count', 10))))
         difficulty = data.get('difficulty', 'medium').lower().strip()

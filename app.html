@@ -1996,6 +1996,7 @@ Rules:
 
     if (!response.ok) throw new Error('API error: ' + response.status);
     const data = await response.json();
+    if (_handleGuestLimited(data)) return;
     if (!data.success) throw new Error(data.error || 'Backend returned failure');
     const raw = (data.answer || '').trim();
 
@@ -2848,6 +2849,7 @@ Output the paragraph text only. No heading, no label, no preamble.`;
       body: JSON.stringify({ question: prompt, mode: 'study', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
     });
     const data = await resp.json();
+    if (_handleGuestLimited(data)) return;
     if (!data.success) throw new Error(data.error);
     let para = (data.answer || '').trim().replace(/^#{1,3}[^\n]*\n/gm,'').trim();
     ls.paragraph = para;
@@ -3483,6 +3485,7 @@ Ignore any textbook context. Output ONLY a raw JSON array — no markdown fences
 
     if (!resp.ok) throw new Error(`Backend error ${resp.status}`);
     const backendData = await resp.json();
+    if (_handleGuestLimited(backendData)) return;
     if (!backendData.success) throw new Error(backendData.error || 'Search failed');
 
     const raw = (backendData.answer || '').trim();
@@ -4037,6 +4040,18 @@ function _exportPDF() {
 /* ══════════════════════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════════════════════ */
+// ── Server-side guest limit handler ─────────────────────────────────────────
+// Call this after any fetch() to check if the server returned guest_limited.
+// Returns true if the request was blocked (caller should abort further work).
+function _handleGuestLimited(data) {
+  if (!data || !data.guest_limited) return false;
+  const feature = data.feature || 'general';
+  if (typeof window.showGuestLoginWall === 'function') {
+    window.showGuestLoginWall(feature);
+  }
+  return true;
+}
+
 function _esc(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -4303,7 +4318,11 @@ async function _examCallAPI(prompt, retries = 3) {
         body: JSON.stringify({ question: prompt, mode: 'generate', ...(() => { const p = _aiParams(6); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
       });
       if (resp.status === 429) {
-        // Rate limited — wait 2s per attempt before retrying
+        // Could be guest IP limit OR server rate limit — check body
+        try {
+          const _429data = await resp.clone().json();
+          if (_handleGuestLimited(_429data)) return;
+        } catch(_) {}
         const wait = 2000 * (attempt + 1);
         if (attempt < retries) { await new Promise(r => setTimeout(r, wait)); continue; }
         throw new Error('Server is busy — please wait a moment and try again.');

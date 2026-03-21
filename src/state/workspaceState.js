@@ -1184,12 +1184,26 @@ export async function _wsAsk(question) {
       body: JSON.stringify(body),
     });
     wsRemoveThinking();
-    if (!res.ok) {
+    if (res.status === 429) {
+      const _d429 = await res.json().catch(() => ({}));
+      if (_d429.guest_limited && typeof window.showGuestLoginWall === 'function') {
+        window.showGuestLoginWall(_d429.feature || 'workspace');
+        _wsChatHistory.pop();
+        return;
+      }
+      wsAppendError('Too many requests — please wait a moment.');
+      _wsChatHistory.pop();
+    } else if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       wsAppendError(err.error || `Server error ${res.status}`);
       _wsChatHistory.pop();
     } else {
       const data   = await res.json();
+      if (data.guest_limited && typeof window.showGuestLoginWall === 'function') {
+        window.showGuestLoginWall(data.feature || 'workspace');
+        _wsChatHistory.pop();
+        return;
+      }
       const answer = data.answer || 'No response.';
       wsAppendAI(answer, data.sources || [], question, data.search_mode);
       _wsChatHistory.push({ role: 'assistant', content: answer });
