@@ -579,7 +579,7 @@ body.guest-mode .sidebar-history-scroll { display: none !important; }
   content: '';
   display: none;
 }
-/* Show the icon-only button in compact mode */
+/* Show the icon-only button in compact mode — matches sidebar-item exactly */
 .sidebar.compact .guest-icon-btn {
   display: flex !important;
 }
@@ -588,25 +588,24 @@ body.guest-mode .sidebar-history-scroll { display: none !important; }
   display: none;
   align-items: center;
   justify-content: center;
+  /* Same sizing as .sidebar.compact .sidebar-item */
   width: calc(100% - 12px);
-  height: 34px;
+  padding: 9px 0;
   border-radius: var(--r-sm);
+  margin: 0 6px;
   background: transparent;
   border: none;
-  color: var(--text-3);
+  color: var(--text-2);
   cursor: pointer;
-  opacity: 0.75;
-  transition: background var(--t-fast), color var(--t-fast), opacity var(--t-fast);
+  transition: background var(--t-fast), color var(--t-fast);
   outline: none;
-  margin: 0 6px;
 }
 .guest-icon-btn:hover {
   background: var(--surface-2);
   color: var(--text-1);
-  opacity: 1;
 }
 .guest-icon-btn svg {
-  opacity: 0.55;
+  opacity: 0.7;
   flex-shrink: 0;
   transition: opacity var(--t-fast);
 }
