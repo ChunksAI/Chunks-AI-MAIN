@@ -326,7 +326,10 @@ export async function pdAction(action) {
       break;
     }
     case 'signin':
-      window.location.href = '/login';
+      // Clear guest mode flag first — otherwise auth.js sees isGuest=true
+      // and the redirect to /login is suppressed, causing a page refresh instead.
+      sessionStorage.removeItem('chunks_guest_mode');
+      window.location.replace('/login');
       break;
     default:
       console.warn('[pdAction] Unknown action:', action);
