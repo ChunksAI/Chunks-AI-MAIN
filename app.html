@@ -113,7 +113,8 @@
     var isOAuthCb     = sessionStorage.getItem('chunks_oauth_callback') === '1';
     var isSigningOut  = sessionStorage.getItem('chunks_signing_out') === '1';
     var isRootPath    = location.pathname === '/';
-    // After sign-out, we redirect to / — set guest mode and clear the flag
+    // After sign-out, redirect goes to /ChunksAI (homepage), not here
+    // This block handles edge case if user lands on / while signing out
     if (isSigningOut && isRootPath) {
       sessionStorage.removeItem('chunks_signing_out');
       sessionStorage.setItem('chunks_guest_mode', '1');
