@@ -6932,5 +6932,287 @@ window.addEventListener('load', function() {
 })();
 </script>
 
+<!-- ── Auth Modal ──────────────────────────────────────────────────────────── -->
+<div id="auth-modal-overlay" style="display:none;" aria-modal="true" role="dialog">
+  <style>
+    #auth-modal-overlay {
+      position: fixed; inset: 0; z-index: 99998;
+      background: rgba(0,0,0,0.72); backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    @keyframes _amSlideUp { from { opacity:0; transform: translateY(16px) scale(0.97); } to { opacity:1; transform: translateY(0) scale(1); } }
+    #auth-modal-card {
+      background: var(--surface-2, #171820);
+      border: 1px solid var(--border-sm, #2a2b38);
+      border-radius: 24px;
+      padding: 40px 36px 32px;
+      max-width: 400px; width: 100%;
+      text-align: center;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04) inset;
+      animation: _amSlideUp 0.25s cubic-bezier(0.34,1.1,0.64,1) both;
+      position: relative;
+    }
+    #auth-modal-card .am-close {
+      position: absolute; top: 16px; right: 16px;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-3, #7c7c96); padding: 6px;
+      border-radius: 8px; transition: color 0.15s, background 0.15s;
+      display: flex; align-items: center;
+    }
+    #auth-modal-card .am-close:hover { color: var(--text-1,#ededf0); background: var(--surface-3,#1e1f29); }
+    #auth-modal-card .am-logo {
+      display: flex; align-items: center; justify-content: center;
+      gap: 8px; margin-bottom: 20px;
+    }
+    #auth-modal-card .am-logo-name {
+      font-size: 18px; font-weight: 700; color: var(--text-1,#ededf0);
+      font-family: var(--font-display, inherit);
+    }
+    #auth-modal-card .am-logo-name span { color: var(--gold, #e8ac2e); }
+    #auth-modal-card .am-title {
+      font-size: 20px; font-weight: 700; color: var(--text-1,#ededf0);
+      margin-bottom: 8px; letter-spacing: -0.3px;
+    }
+    #auth-modal-card .am-sub {
+      font-size: 13px; color: var(--text-3, #7c7c96);
+      line-height: 1.6; margin-bottom: 24px;
+    }
+    #auth-modal-card .am-pills {
+      display: flex; flex-wrap: wrap; gap: 6px;
+      justify-content: center; margin-bottom: 28px;
+    }
+    #auth-modal-card .am-pill {
+      font-size: 11px; font-weight: 600;
+      padding: 4px 10px; border-radius: 20px;
+      background: var(--surface-3, #1e1f29);
+      border: 1px solid var(--border-sm, #2a2b38);
+      color: var(--text-2, #9898ae);
+    }
+    #auth-modal-card .am-btn-google {
+      width: 100%; display: flex; align-items: center; justify-content: center;
+      gap: 10px; padding: 13px 20px; border-radius: 14px;
+      border: 1px solid var(--border-md, #32334a);
+      background: var(--surface-3, #1e1f29);
+      color: var(--text-1, #ededf0);
+      font-size: 14px; font-weight: 500;
+      font-family: var(--font-body, inherit);
+      cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.1s;
+      margin-bottom: 12px; text-decoration: none;
+    }
+    #auth-modal-card .am-btn-google:hover { background: #252636; border-color: var(--border-lg,#3d3e52); transform: translateY(-1px); }
+    #auth-modal-card .am-btn-google:active { transform: translateY(0); }
+    #auth-modal-card .am-divider {
+      display: flex; align-items: center; gap: 10px;
+      margin: 4px 0 12px; color: var(--text-3, #7c7c96); font-size: 12px;
+    }
+    #auth-modal-card .am-divider::before,
+    #auth-modal-card .am-divider::after {
+      content: ''; flex: 1; height: 1px;
+      background: var(--border-sm, #2a2b38);
+    }
+    #auth-modal-card .am-btn-guest {
+      width: 100%; padding: 11px; border-radius: 12px; cursor: pointer;
+      background: transparent; border: 1px solid var(--border-xs, #252633);
+      color: var(--text-2, #9898ae); font-size: 13px; font-weight: 500;
+      font-family: var(--font-body, inherit);
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      transition: background 0.15s, color 0.15s;
+    }
+    #auth-modal-card .am-btn-guest:hover { background: var(--surface-3,#1e1f29); color: var(--text-1,#ededf0); }
+    #auth-modal-card .am-footer {
+      font-size: 11px; color: var(--text-3,#7c7c96);
+      margin-top: 18px; line-height: 1.5;
+    }
+    #auth-modal-card .am-footer a { color: var(--text-2,#9898ae); text-decoration: none; }
+    #auth-modal-card .am-footer a:hover { color: var(--text-1,#ededf0); }
+    #auth-modal-card .am-loading {
+      display: none; flex-direction: column; align-items: center;
+      gap: 12px; padding: 20px 0;
+    }
+    #auth-modal-card .am-spinner {
+      width: 28px; height: 28px; border: 3px solid var(--border-sm,#2a2b38);
+      border-top-color: var(--gold,#e8ac2e); border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #auth-modal-card .am-loading-text { font-size: 13px; color: var(--text-2,#9898ae); }
+  </style>
+
+  <div id="auth-modal-card">
+    <!-- Close button -->
+    <button class="am-close" id="am-close-btn" aria-label="Close">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+
+    <!-- Logo -->
+    <div class="am-logo">
+      <svg width="22" height="22" viewBox="0 0 36 36" fill="none">
+        <circle cx="18" cy="18" r="16" fill="#e8ac2e" opacity="0.15"/>
+        <circle cx="18" cy="18" r="7" fill="#e8ac2e" opacity="0.5"/>
+        <circle cx="18" cy="18" r="3" fill="#e8ac2e"/>
+      </svg>
+      <span class="am-logo-name">Chunks <span>AI</span></span>
+    </div>
+
+    <!-- Main content -->
+    <div id="am-content">
+      <div class="am-title">Welcome back</div>
+      <div class="am-sub">Sign in to access your textbooks, flashcards, and full study history.</div>
+      <div class="am-pills">
+        <span class="am-pill">Workspace</span>
+        <span class="am-pill">Flashcards</span>
+        <span class="am-pill">Exam mode</span>
+        <span class="am-pill">AI tutor</span>
+        <span class="am-pill">Research</span>
+      </div>
+
+      <button class="am-btn-google" id="am-btn-google">
+        <svg width="18" height="18" viewBox="0 0 24 24">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        Continue with Google
+      </button>
+
+      <div class="am-divider">or</div>
+
+      <button class="am-btn-guest" id="am-btn-guest">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Continue as guest
+      </button>
+
+      <div class="am-footer">
+        By signing in you agree to our
+        <a href="/terms" target="_blank">Terms of Service</a> and
+        <a href="/privacy" target="_blank">Privacy Policy</a>
+      </div>
+    </div>
+
+    <!-- Loading state (shown while waiting for popup) -->
+    <div class="am-loading" id="am-loading">
+      <div class="am-spinner"></div>
+      <div class="am-loading-text">Waiting for sign in…</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var SUPABASE_URL  = 'https://wiwbfspsrgayvquzfryl.supabase.co';
+  var GOOGLE_OAUTH  = SUPABASE_URL + '/auth/v1/authorize?provider=google&redirect_to=https://chunks.online/login';
+  var overlay       = document.getElementById('auth-modal-overlay');
+  var content       = document.getElementById('am-content');
+  var loading       = document.getElementById('am-loading');
+  var _authPopup    = null;
+  var _pollTimer    = null;
+
+  // ── Open modal ─────────────────────────────────────────────────────────────
+  function openAuthModal() {
+    content.style.display = '';
+    loading.style.display = 'none';
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+  window.openAuthModal = openAuthModal;
+
+  // ── Close modal ────────────────────────────────────────────────────────────
+  function closeAuthModal() {
+    overlay.style.display = 'none';
+    document.body.style.overflow = '';
+    if (_authPopup && !_authPopup.closed) _authPopup.close();
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  }
+  window.closeAuthModal = closeAuthModal;
+
+  // ── Google sign-in popup ───────────────────────────────────────────────────
+  function startGoogleAuth() {
+    // Show loading state
+    content.style.display = 'none';
+    loading.style.display = 'flex';
+
+    // Open OAuth popup
+    var w = 480, h = 560;
+    var left = Math.max(0, (screen.width  - w) / 2);
+    var top  = Math.max(0, (screen.height - h) / 2);
+    _authPopup = window.open(
+      GOOGLE_OAUTH,
+      'chunks_auth_popup',
+      'width=' + w + ',height=' + h + ',left=' + left + ',top=' + top +
+      ',toolbar=no,menubar=no,scrollbars=yes,resizable=yes'
+    );
+
+    if (!_authPopup || _authPopup.closed) {
+      // Popup blocked — fall back to redirect
+      window.location.href = '/login';
+      return;
+    }
+
+    // Poll for popup close (fallback if postMessage fails)
+    _pollTimer = setInterval(function() {
+      if (_authPopup && _authPopup.closed) {
+        clearInterval(_pollTimer); _pollTimer = null;
+        // Popup closed — check if auth succeeded by refreshing session
+        _checkAuthAfterPopup();
+      }
+    }, 400);
+  }
+
+  // ── Check session after popup closes ──────────────────────────────────────
+  function _checkAuthAfterPopup() {
+    // Give Supabase a moment to write the session to localStorage
+    setTimeout(function() {
+      try {
+        var raw = localStorage.getItem('chunks-ai-auth');
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          var session = parsed.access_token ? parsed : (parsed.currentSession || null);
+          if (session && session.access_token) {
+            closeAuthModal();
+            window.location.reload();
+            return;
+          }
+        }
+      } catch(e) {}
+      // No session found — go back to login form
+      content.style.display = '';
+      loading.style.display = 'none';
+    }, 800);
+  }
+
+  // ── Listen for postMessage from login popup ────────────────────────────────
+  window.addEventListener('message', function(e) {
+    if (e.origin !== 'https://chunks.online') return;
+    if (e.data === 'chunks_auth_success') {
+      if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+      if (_authPopup && !_authPopup.closed) { try { _authPopup.close(); } catch(_) {} }
+      closeAuthModal();
+      window.location.reload();
+    }
+  });
+
+  // ── Continue as guest ──────────────────────────────────────────────────────
+  document.getElementById('am-btn-guest').addEventListener('click', function() {
+    sessionStorage.setItem('chunks_guest_mode', '1');
+    closeAuthModal();
+  });
+
+  // ── Google button ──────────────────────────────────────────────────────────
+  document.getElementById('am-btn-google').addEventListener('click', startGoogleAuth);
+
+  // ── Close button + backdrop ────────────────────────────────────────────────
+  document.getElementById('am-close-btn').addEventListener('click', closeAuthModal);
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeAuthModal();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && overlay.style.display !== 'none') closeAuthModal();
+  });
+})();
+</script>
+
+
 </body>
 </html>

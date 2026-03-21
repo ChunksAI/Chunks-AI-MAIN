@@ -222,8 +222,8 @@ ${navHTML}
         <div class="guest-upsell-title">Get responses tailored to you</div>
         <div class="guest-upsell-desc">Log in to get answers based on saved chats, plus create images and upload files.</div>
         <div class="guest-auth-btns">
-          <button class="guest-login-btn" onclick="window.location.href='/login'">Log in</button>
-          <button class="guest-signup-btn" onclick="window.location.href='/login?signup=1'">Sign up for free</button>
+          <button class="guest-login-btn" onclick="window.openAuthModal?.()">Log in</button>
+          <button class="guest-signup-btn" onclick="window.openAuthModal?.()">Sign up for free</button>
         </div>
       </div>
 

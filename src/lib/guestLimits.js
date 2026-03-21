@@ -370,8 +370,8 @@ export function showLoginWall(feature = 'general', opts = {}) {
       <div class="gw-desc">${info.desc}</div>
       <span class="gw-cta">Sign in for more access — it's free.</span>
       <hr class="gw-divider">
-      <button class="gw-btn-login" onclick="window.location.href='/login'">Log in</button>
-      <button class="gw-btn-signup" onclick="window.location.href='/login?signup=1'">Sign up for free</button>
+      <button class="gw-btn-login" onclick="if(typeof window.openAuthModal==='function'){document.getElementById('guest-login-wall')?.remove();window.openAuthModal();}else{window.location.href='/login';}">Log in</button>
+      <button class="gw-btn-signup" onclick="if(typeof window.openAuthModal==='function'){document.getElementById('guest-login-wall')?.remove();window.openAuthModal();}else{window.location.href='/login?signup=1';}">Sign up for free</button>
       <br>
       <button class="gw-dismiss" id="gw-dismiss-btn">Maybe later</button>
     </div>
