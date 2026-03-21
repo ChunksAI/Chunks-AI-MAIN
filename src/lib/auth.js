@@ -239,6 +239,8 @@ window._applyUserProfile = function _applyUserProfile(session) {
     _applyUI(null);
     return;
   }
+  // Clear guest mode — user is now authenticated
+  try { sessionStorage.removeItem('chunks_guest_mode'); } catch(e) {}
 
   const u    = session.user;
   const meta = u.user_metadata || {};
@@ -431,6 +433,8 @@ window._initAuth = async function _initAuth() {
     // Clear the OAuth callback flag once we have a confirmed session
     if (session?.user || _cachedSessionValid) {
       try { sessionStorage.removeItem('chunks_oauth_callback'); } catch(e) {}
+      // Also clear guest mode — a real session takes precedence
+      try { sessionStorage.removeItem('chunks_guest_mode'); } catch(e) {}
     }
     // ────────────────────────────────────────────────────────────────────
   } catch (e) {

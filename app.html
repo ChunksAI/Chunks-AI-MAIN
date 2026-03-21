@@ -7170,6 +7170,7 @@ window.addEventListener('load', function() {
           var parsed = JSON.parse(raw);
           var session = parsed.access_token ? parsed : (parsed.currentSession || null);
           if (session && session.access_token) {
+            try { sessionStorage.removeItem('chunks_guest_mode'); } catch(_) {}
             closeAuthModal();
             window.location.reload();
             return;
@@ -7188,6 +7189,8 @@ window.addEventListener('load', function() {
     if (e.data === 'chunks_auth_success') {
       if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
       if (_authPopup && !_authPopup.closed) { try { _authPopup.close(); } catch(_) {} }
+      // Clear guest mode before reload so the app renders as authenticated
+      try { sessionStorage.removeItem('chunks_guest_mode'); } catch(_) {}
       closeAuthModal();
       window.location.reload();
     }
