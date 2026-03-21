@@ -832,9 +832,13 @@ export async function _updateCacheSizeLabel() {
 function _restoreSettings() {
   // ── Font size button highlight ──────────────────────────
   const savedSize = localStorage.getItem('chunks-chat-font-size') || 'medium';
-  document.querySelectorAll('.font-size-btn').forEach(b => b.classList.remove('active'));
-  const activeBtn = document.querySelector(`.font-size-btn[onclick*="'${savedSize}'"]`);
-  if (activeBtn) activeBtn.classList.add('active');
+  document.querySelectorAll('.font-size-btn').forEach(b => {
+    b.classList.remove('active');
+    // Match by onclick content safely — extract value between first pair of quotes
+    const fn = b.getAttribute('onclick') || '';
+    const match = fn.match(/settingsFontSize\(['"]([^'"]+)['"]/);
+    if (match && match[1] === savedSize) b.classList.add('active');
+  });
   function applySelect(key, value) {
     const menu = document.querySelector(`.settings-select-menu[data-setting-key="${key}"]`);
     if (!menu || !value) return;
