@@ -108,14 +108,9 @@
   (function() {
     var isGuest       = sessionStorage.getItem('chunks_guest_mode') === '1';
     var hasCode       = location.search.includes('code=');
-    var hasHash       = location.hash.includes('access_token') || location.hash.includes('error_description');
+    var hasHash       = location.hash.includes('access_token');
     var isOAuthCb     = sessionStorage.getItem('chunks_oauth_callback') === '1';
     var isSigningOut  = sessionStorage.getItem('chunks_signing_out') === '1';
-    // OAuth token just arrived — mark it so auth.js can process it safely
-    // without the instant gate bouncing the user back to /login first
-    if (hasHash || hasCode) {
-      try { sessionStorage.setItem('chunks_oauth_callback', '1'); } catch(e) {}
-    }
     // Never redirect during OAuth callback, guest mode, or sign-out flow
     if (isGuest || hasCode || hasHash || isOAuthCb || isSigningOut) return;
     try {
