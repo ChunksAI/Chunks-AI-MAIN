@@ -3234,23 +3234,32 @@ document.getElementById('modal-google-btn').addEventListener('click', function()
       var raw = localStorage.getItem('chunks-ai-auth');
       if(!raw) return false;
       var parsed = JSON.parse(raw);
+      // Match app.html exactly — Shape A: { access_token } or Shape B: { currentSession: { access_token } }
       var session = parsed.access_token ? parsed
-                  : parsed.currentSession ? parsed.currentSession
+                  : (parsed.currentSession && parsed.currentSession.access_token)
+                    ? parsed.currentSession
                   : null;
-      if(!session || !session.access_token) return false;
-      var nowSec = Math.floor(Date.now() / 1000);
-      var expiresAt = session.expires_at || 0;
-      // Match auth.js: valid if not expired with 60s clock-skew buffer
-      return expiresAt === 0 || (expiresAt - nowSec > 60);
+      // Don't check expiry — let the SDK handle token refresh (same as app.html)
+      return !!(session && session.access_token);
     } catch(e){ return false; }
   }
+
+  // Update nav buttons if already logged in
+  (function(){
+    if(isLoggedIn()){
+      var ghost = document.querySelector('.btn-ghost');
+      var cta = document.querySelector('.btn-nav-cta');
+      if(ghost){ ghost.textContent = 'Open app'; ghost.href = '/home'; }
+      if(cta){ cta.textContent = 'Go to app →'; cta.href = '/home'; }
+    }
+  })();
 
   document.addEventListener('click', function(e){
     var el = e.target.closest('a[href="/login"]');
     if(!el) return;
     e.preventDefault();
     if(isLoggedIn()){
-      window.location.href = '/home';
+      window.location.replace('/home');
     } else {
       openLoginModal();
     }
