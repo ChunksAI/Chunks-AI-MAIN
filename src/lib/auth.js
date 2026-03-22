@@ -346,11 +346,12 @@ window._initAuth = async function _initAuth() {
     }
   } catch (e) { /* storage blocked or corrupt — fall through */ }
 
-  // ── Instant gate: redirect to /login if definitely no session ────────────
+  // ── Instant gate: redirect if definitely no session ─────────────────────
   // Skip during OAuth callback — session hasn't been written yet.
   if (!isLoginPage_ && !isOAuthCallback_) {
     if (!_cachedSession || !_cachedSession.access_token) {
-      window.location.replace('/login');
+      const _isRoot = window.location.pathname === '/';
+      window.location.replace(_isRoot ? '/guest/home' : '/login');
       return;
     }
     // If session exists but is expired, fall through to let Supabase refresh it.
@@ -428,7 +429,8 @@ window._initAuth = async function _initAuth() {
     const isAuthed = !!session?.user || _cachedSessionValid;
 
     if (!isAuthed && !isLoginPage && !isOAuthCb) {
-      window.location.replace('/login');
+      const _isRoot = window.location.pathname === '/';
+      window.location.replace(_isRoot ? '/guest/home' : '/login');
       return;
     }
 
