@@ -20,16 +20,26 @@
 // ── Screen map: pathname → screen name, and screen name → pathname ─────────
 
 const PATH_TO_SCREEN = {
-  '/':            'home',
-  '/home':        'home',
-  '/app':         'home',
-  '/workspace':   'workspace',
-  '/library':     'library',
-  '/flashcard':   'flash',
-  '/studyplan':   'studyplan',
-  '/visualtutor': 'visual',
-  '/research':    'research',
-  '/exam':        'exam',
+  '/':              'home',
+  '/home':          'home',
+  '/app':           'home',
+  '/workspace':     'workspace',
+  '/library':       'library',
+  '/flashcard':     'flash',
+  '/studyplan':     'studyplan',
+  '/visualtutor':   'visual',
+  '/research':      'research',
+  '/exam':          'exam',
+  // Guest-prefixed paths
+  '/guest':         'home',
+  '/guest/home':    'home',
+  '/guest/workspace':   'workspace',
+  '/guest/library':     'library',
+  '/guest/flashcard':   'flash',
+  '/guest/studyplan':   'studyplan',
+  '/guest/visualtutor': 'visual',
+  '/guest/research':    'research',
+  '/guest/exam':        'exam',
 };
 
 const SCREEN_TO_PATH = {
@@ -66,7 +76,8 @@ function _isOAuthHash() {
 function _setPath(name) {
   if (_isOAuthHash()) return;
   try {
-    const path = SCREEN_TO_PATH[name] || '/home';
+    const base = window._guestPage ? '/guest' : '';
+    const path = base + (SCREEN_TO_PATH[name] || '/home');
     if (window.location.pathname !== path) {
       window.history.pushState({ screen: name }, '', path);
     }

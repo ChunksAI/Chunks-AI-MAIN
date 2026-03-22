@@ -27,6 +27,7 @@
     { "source": "/home",                 "destination": "/app.html" },
     { "source": "/login",                "destination": "/login.html" },
     { "source": "/guest",                "destination": "/guest.html" },
+    { "source": "/guest/:path*",         "destination": "/guest.html" },
     { "source": "/privacy",              "destination": "/privacy.html" },
     { "source": "/terms",                "destination": "/terms.html" },
     { "source": "/admin",                "destination": "/admin.html" },
