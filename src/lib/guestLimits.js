@@ -53,9 +53,10 @@ function _maybeResetDaily() {
     const stored = localStorage.getItem(DATE_KEY);
     const today  = _today();
     if (stored === today) return; // same day — nothing to do
-    // New day → clear counts and abuse flag
+    // New day → clear counts, abuse flag, and burnt fingerprints
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(ABUSE_KEY);
+    localStorage.removeItem('chunks_burnt_fps');
     localStorage.setItem(DATE_KEY, today);
   } catch (_) {}
 }
@@ -235,10 +236,11 @@ function _burnFingerprint() {
   } catch (_) {}
 }
 
-// On load: check if this fingerprint was previously burnt
+// On load: reset daily limits first, then check if fingerprint is burnt
 (function _checkBurntOnLoad() {
   try {
     if (!isGuest()) return;
+    _maybeResetDaily(); // must run before reading ABUSE_KEY or burnt list
     const fp = getFingerprint();
     const burnt = JSON.parse(localStorage.getItem('chunks_burnt_fps') || '[]');
     if (burnt.includes(fp)) {
