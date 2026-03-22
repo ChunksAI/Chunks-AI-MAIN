@@ -113,7 +113,7 @@
     var isSigningOut  = sessionStorage.getItem('chunks_signing_out') === '1';
     var isRootPath    = location.pathname === '/';
     // After sign-out, send to /guest
-    if (isSigningOut && isRootPath) {
+    if (isSigningOut) {
       sessionStorage.removeItem('chunks_signing_out');
       location.replace('/guest/home');
       return;
@@ -123,8 +123,7 @@
     try {
       var raw = localStorage.getItem('chunks-ai-auth');
       if (!raw) {
-        if (isRootPath) { location.replace('/guest/home'); return; }
-        location.replace('/login'); return;
+        location.replace('/guest/home'); return;
       }
       var parsed  = JSON.parse(raw);
       var session = parsed.access_token ? parsed
@@ -132,14 +131,12 @@
                     ? parsed.currentSession
                   : null;
       if (!session || !session.access_token) {
-        if (isRootPath) { location.replace('/guest/home'); return; }
-        location.replace('/login'); return;
+        location.replace('/guest/home'); return;
       }
       // Token expired? DO NOT redirect — auth.js will refresh it via Supabase SDK
     } catch(e) {
       try { localStorage.removeItem('chunks-ai-auth'); } catch(_) {}
-      if (isRootPath) { location.replace('/guest/home'); return; }
-      location.replace('/login');
+      location.replace('/guest/home');
     }
   })();
 </script>
