@@ -495,3 +495,82 @@ window.showGuestLoginWall = showLoginWall;
 window.enforceExamConstraints = enforceExamConstraints;
 window.renderGuestUsageBar = renderUsageBar;
 window.isGuestMode     = isGuest;
+
+// ── Debug overlay (?debug=limits) ────────────────────────────────────────
+// Visit /guest?debug=limits to see a live overlay of current guest usage.
+
+(function _maybeShowDebugOverlay() {
+  if (!new URLSearchParams(window.location.search).has('debug') ||
+      new URLSearchParams(window.location.search).get('debug') !== 'limits') return;
+
+  function _renderDebug() {
+    const existing = document.getElementById('_dbg-limits');
+    if (existing) existing.remove();
+
+    _maybeResetDaily();
+    const usage   = _loadUsage();
+    const today   = localStorage.getItem(DATE_KEY) || '—';
+    const abused  = localStorage.getItem(ABUSE_KEY) === '1';
+    const fp      = localStorage.getItem(FP_KEY) || '—';
+    const burnt   = JSON.parse(localStorage.getItem('chunks_burnt_fps') || '[]');
+
+    const rows = Object.entries(GUEST_LIMITS).map(([feature, limit]) => {
+      const count     = usage[feature] || 0;
+      const remaining = Math.max(0, limit - count);
+      const pct       = Math.round((count / limit) * 100);
+      const color     = remaining === 0 ? '#ef4444' : remaining <= 2 ? '#f59e0b' : '#34d399';
+      return `
+        <tr>
+          <td style="padding:4px 10px 4px 0;color:#ededf0;text-transform:capitalize;">${feature}</td>
+          <td style="padding:4px 6px;text-align:center;color:${color};font-weight:600;">${count} / ${limit}</td>
+          <td style="padding:4px 0 4px 6px;">
+            <div style="width:80px;height:5px;background:#2a2b38;border-radius:3px;overflow:hidden;">
+              <div style="width:${pct}%;height:100%;background:${color};border-radius:3px;transition:width .3s;"></div>
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+
+    const el = document.createElement('div');
+    el.id = '_dbg-limits';
+    el.style.cssText = [
+      'position:fixed;bottom:16px;right:16px;z-index:999999',
+      'background:#111219;border:1px solid #2a2b38;border-radius:14px',
+      'padding:16px 18px;font-family:monospace;font-size:12px',
+      'box-shadow:0 8px 32px rgba(0,0,0,.6);min-width:260px',
+      'color:#9898ae;line-height:1.4',
+    ].join(';');
+
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <span style="color:#e8ac2e;font-weight:700;font-size:13px;">🔍 Guest Limits Debug</span>
+        <button onclick="document.getElementById('_dbg-limits').remove()"
+          style="background:none;border:none;color:#9898ae;cursor:pointer;font-size:16px;line-height:1;padding:0 0 0 10px;">×</button>
+      </div>
+      <table style="border-collapse:collapse;width:100%;">${rows}</table>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid #2a2b38;font-size:11px;color:#7c7c96;">
+        <div>📅 Reset date: <span style="color:#ededf0;">${today}</span></div>
+        <div>🕐 Next reset: <span style="color:#ededf0;">midnight local time</span></div>
+        <div>🛡 Abuse flag: <span style="color:${abused ? '#ef4444' : '#34d399'}">${abused ? 'YES' : 'no'}</span></div>
+        <div>🔑 Fingerprint: <span style="color:#ededf0;">${fp}</span></div>
+        <div>🔥 Burnt FPs: <span style="color:${burnt.length ? '#ef4444' : '#34d399'}">${burnt.length}</span></div>
+      </div>
+      <div style="margin-top:10px;text-align:center;">
+        <button onclick="(function(){localStorage.removeItem('chunks_guest_usage');localStorage.removeItem('chunks_guest_abused');localStorage.removeItem('chunks_guest_date');window._renderDebugLimits?.();})()"
+          style="background:#1e1f29;border:1px solid #2a2b38;color:#9898ae;font-family:monospace;font-size:11px;padding:4px 12px;border-radius:6px;cursor:pointer;">
+          ↺ Reset counts
+        </button>
+      </div>
+    `;
+    document.body.appendChild(el);
+  }
+
+  window._renderDebugLimits = _renderDebug;
+
+  // Mount after DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _renderDebug);
+  } else {
+    setTimeout(_renderDebug, 300);
+  }
+})();
