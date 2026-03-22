@@ -32,6 +32,33 @@ export const GUEST_LIMITS = {
 
 const STORAGE_KEY  = 'chunks_guest_usage';   // localStorage: usage counts
 const FP_KEY       = 'chunks_guest_fp';      // localStorage: device fingerprint
+const DATE_KEY     = 'chunks_guest_date';    // localStorage: last reset date (YYYY-MM-DD)
+const ABUSE_KEY    = 'chunks_guest_abused';  // localStorage: abuse flag
+
+// ── Daily reset ───────────────────────────────────────────────────────────
+
+/** Returns today's date as a YYYY-MM-DD string (local time). */
+function _today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * If the stored reset date is not today, wipe usage counts and the abuse flag
+ * so every guest gets a fresh set of limits each calendar day.
+ * Burnt fingerprints are intentionally preserved — they survive the daily reset.
+ */
+function _maybeResetDaily() {
+  try {
+    const stored = localStorage.getItem(DATE_KEY);
+    const today  = _today();
+    if (stored === today) return; // same day — nothing to do
+    // New day → clear counts and abuse flag
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(ABUSE_KEY);
+    localStorage.setItem(DATE_KEY, today);
+  } catch (_) {}
+}
 
 // ── Fingerprint ───────────────────────────────────────────────────────────
 
@@ -98,6 +125,7 @@ function getFingerprint() {
 // ── Usage storage ─────────────────────────────────────────────────────────
 
 function _loadUsage() {
+  _maybeResetDaily();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
@@ -173,7 +201,6 @@ export function guestGate(feature, opts = {}) {
 // ── Abuse prevention ──────────────────────────────────────────────────────
 
 const ABUSE_THRESHOLD = 3; // how many features must be maxed to flag as abuser
-const ABUSE_KEY = 'chunks_guest_abused';
 
 function _isAbuser() {
   // Check if already flagged
