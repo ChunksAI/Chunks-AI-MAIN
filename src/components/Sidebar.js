@@ -183,6 +183,13 @@ ${navHTML}
 
     <div class="sidebar-divider"></div>
 
+    <div class="sidebar-history-header">
+      <span class="sidebar-history-label">Recents</span>
+      <button class="sidebar-search-btn" data-action="openChatSearch-self" title="Search chats" aria-label="Search chats">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </button>
+    </div>
+
     <div class="sidebar-history-scroll" id="sidebar-history-scroll">
       <div class="sidebar-section sidebar-history-section" id="hist-section-general">
         <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="hist-section-general">
