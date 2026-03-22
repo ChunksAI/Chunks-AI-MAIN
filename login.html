@@ -184,7 +184,7 @@
 
 <script>
   function continueAsGuest() {
-    if (window.opener && !window.opener.closed) { try { window.opener.postMessage('chunks_auth_success','https://chunks.online'); } catch(e){} setTimeout(function(){ window.close(); },100); } else { window.location.href = '/guest'; }
+    if (window.opener && !window.opener.closed) { try { window.opener.postMessage('chunks_auth_success','https://chunks.online'); } catch(e){} setTimeout(function(){ window.close(); },100); } else { window.location.href = '/guest/home'; }
   }
   function showError(msg) {
     document.getElementById('auth-error').textContent = msg;
@@ -201,7 +201,7 @@
     // Post-logout: send to guest page
     sessionStorage.removeItem('chunks_signing_out');
     if (!window.opener || window.opener.closed) {
-      window.location.replace('/guest');
+      window.location.replace('/guest/home');
     } else {
       document.body.classList.add('ready');
     }

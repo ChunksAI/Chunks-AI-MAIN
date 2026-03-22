@@ -315,7 +315,7 @@ window._initAuth = async function _initAuth() {
   // Clear the signing_out flag if it somehow persists on app.html load.
   if (sessionStorage.getItem('chunks_signing_out') === '1') {
     sessionStorage.removeItem('chunks_signing_out');
-    window.location.replace('/guest');
+    window.location.replace('/guest/home');
     return;
   }
 
@@ -667,8 +667,8 @@ window.chunksSignOut = async function chunksSignOut() {
     // Reset the sync-fired flag so the next login triggers a fresh pull
     window._chunksSyncFired = false;
 
-    // Navigate to /ChunksAI (marketing homepage) after sign-out
-    window.location.replace('/ChunksAI');
+    // Navigate to guest home after sign-out
+    window.location.replace('/guest/home');
   }
 
   // Fire-and-forget Supabase signOut — don't await it before redirecting
