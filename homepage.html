@@ -3099,6 +3099,45 @@ window.addEventListener('load',()=>{
   })();
 })();
 
+/* ── Smart CTA handler — login modal if not authenticated, /home if logged in ── */
+(function(){
+  function isLoggedIn(){
+    try {
+      var raw = localStorage.getItem('chunks-ai-auth');
+      if(!raw) return false;
+      var parsed = JSON.parse(raw);
+      var session = parsed.access_token ? parsed : (parsed.currentSession || null);
+      if(!session || !session.access_token) return false;
+      var exp = session.expires_at;
+      if(exp && Date.now()/1000 > exp) return false;
+      return true;
+    } catch(e){ return false; }
+  }
+
+  document.addEventListener('click', function(e){
+    var el = e.target.closest('a[href="/login"]');
+    if(!el) return;
+    e.preventDefault();
+    if(isLoggedIn()){
+      window.location.href = '/home';
+    } else {
+      // Scroll to the login/auth card on the homepage, or open popup
+      var authCard = document.getElementById('btn-google-popup');
+      if(authCard){
+        // Show homepage if SPA is active, then scroll to auth card
+        if(typeof showHomepage === 'function') showHomepage();
+        setTimeout(function(){
+          authCard.closest('.auth-card') 
+            ? authCard.closest('.auth-card').scrollIntoView({behavior:'smooth', block:'center'})
+            : openAuthPopup();
+        }, 50);
+      } else {
+        openAuthPopup();
+      }
+    }
+  });
+})();
+
 /* ── Google OAuth Popup ───────────────────────────────────────────── */
 var SUPABASE_OAUTH = 'https://wiwbfspsrgayvquzfryl.supabase.co/auth/v1/authorize'
   + '?provider=google&redirect_to=https://chunks.online/login';
