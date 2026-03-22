@@ -3155,8 +3155,7 @@ function openAuthPopup() {
 }
 
 function continueAsGuest() {
-  sessionStorage.setItem('chunks_guest_mode', '1');
-  window.location.href = '/app';
+  window.location.href = '/guest';
 }
 
 // Listen for success message from the popup (login.html posts this)
