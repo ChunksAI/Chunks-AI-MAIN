@@ -3234,11 +3234,14 @@ document.getElementById('modal-google-btn').addEventListener('click', function()
       var raw = localStorage.getItem('chunks-ai-auth');
       if(!raw) return false;
       var parsed = JSON.parse(raw);
-      var session = parsed.access_token ? parsed : (parsed.currentSession || null);
+      var session = parsed.access_token ? parsed
+                  : parsed.currentSession ? parsed.currentSession
+                  : null;
       if(!session || !session.access_token) return false;
-      var exp = session.expires_at;
-      if(exp && Date.now()/1000 > exp) return false;
-      return true;
+      var nowSec = Math.floor(Date.now() / 1000);
+      var expiresAt = session.expires_at || 0;
+      // Match auth.js: valid if not expired with 60s clock-skew buffer
+      return expiresAt === 0 || (expiresAt - nowSec > 60);
     } catch(e){ return false; }
   }
 
