@@ -43,7 +43,9 @@
 
 .sidebar.compact .profile-row { justify-content: center; padding: 6px 0; width: 100%; border-radius: 0; gap: 0; }
 .sidebar-new-btn { transition: background var(--t-fast), transform var(--t-fast) var(--ease-spring), padding 280ms ease, margin 280ms ease, width 280ms ease; }
-.sidebar.compact .sidebar-new-btn { padding: 9px; width: 36px; margin: 10px auto; }
+.sidebar.compact .sidebar-new-btn { display: flex; padding: 0; width: 36px; height: 36px; margin: 10px auto; justify-content: center; align-items: center; gap: 0; }
+.sidebar.compact .sidebar-new-btn span { display: none; }
+.sidebar.compact .sidebar-new-btn svg { color: var(--text-3); opacity: 1; }
 .sidebar-item { transition: color var(--t-fast), background var(--t-fast), padding 280ms ease; }
 .sidebar.compact .sidebar-item { justify-content: center !important; padding: 9px 0 !important; width: 100%; gap: 0; }
 .sidebar.compact .sidebar-section { display: flex; flex-direction: column; align-items: center; padding: 4px 0; }
@@ -63,8 +65,9 @@
 .sidebar.compact .logo-link:hover .logo-mark { opacity: 0; transform: scale(0.6); }
 .sidebar.compact .sidebar-expand-btn { display: flex; position: absolute; inset: 0; align-items: center; justify-content: center; opacity: 0; transform: scale(0.7); pointer-events: none; transition: opacity var(--t-fast), transform var(--t-fast); background: transparent; border: none; color: var(--text-1); width: auto; height: auto; margin: 0; }
 .sidebar.compact .logo-link:hover .sidebar-expand-btn { opacity: 1; transform: scale(1); }
-.sidebar.compact .sidebar-new-btn { display: none; }
-.sidebar.compact .sidebar-item { border-radius: var(--r-sm); margin: 0 6px; padding: 8px 0 !important; width: calc(100% - 12px); }
+
+.sidebar.compact .sidebar-item { border-radius: var(--r-sm); margin: 0 6px; padding: 10px 0 !important; width: calc(100% - 12px); }
+.sidebar.compact .sidebar-item svg { width: 18px; height: 18px; opacity: 0.55; }
 
 /* ── Logo ───────────────────────────────────────────────── */
 .logo-mark { width: 24px; height: 24px; flex-shrink: 0; cursor: pointer; overflow: visible; }
