@@ -104,39 +104,31 @@
   window.scrollTo(0, 0);
 
   // ── Instant pre-render auth gate ─────────────────────────────────────────
-  // Runs synchronously before ANY HTML renders — zero flash for unauthed users.
-  // Unauthenticated users are sent to /guest; authenticated users stay here.
+  // app.html is for authenticated users only. Unauthenticated visitors go to /guest.
   (function() {
-    var hasCode       = location.search.includes('code=');
-    var hasHash       = location.hash.includes('access_token');
-    var isOAuthCb     = sessionStorage.getItem('chunks_oauth_callback') === '1';
-    var isSigningOut  = sessionStorage.getItem('chunks_signing_out') === '1';
-    var isRootPath    = location.pathname === '/';
-    // After sign-out, send to /guest
+    var hasCode      = location.search.includes('code=');
+    var hasHash      = location.hash.includes('access_token');
+    var isOAuthCb    = sessionStorage.getItem('chunks_oauth_callback') === '1';
+    var isSigningOut = sessionStorage.getItem('chunks_signing_out') === '1';
+    // Let OAuth callbacks complete in the app
+    if (hasCode || hasHash || isOAuthCb) return;
+    // Sign-out: go to guest page
     if (isSigningOut) {
       sessionStorage.removeItem('chunks_signing_out');
-      location.replace('/guest/home');
-      return;
+      location.replace('/guest'); return;
     }
-    // Never redirect during OAuth callback or sign-out flow
-    if (hasCode || hasHash || isOAuthCb || isSigningOut) return;
     try {
       var raw = localStorage.getItem('chunks-ai-auth');
-      if (!raw) {
-        location.replace('/guest/home'); return;
-      }
+      if (!raw) { location.replace('/guest'); return; }
       var parsed  = JSON.parse(raw);
       var session = parsed.access_token ? parsed
                   : (parsed.currentSession && parsed.currentSession.access_token)
-                    ? parsed.currentSession
-                  : null;
-      if (!session || !session.access_token) {
-        location.replace('/guest/home'); return;
-      }
-      // Token expired? DO NOT redirect — auth.js will refresh it via Supabase SDK
+                    ? parsed.currentSession : null;
+      if (!session || !session.access_token) { location.replace('/guest'); return; }
+      // Token expired? DO NOT redirect — auth.js will refresh via Supabase SDK
     } catch(e) {
       try { localStorage.removeItem('chunks-ai-auth'); } catch(_) {}
-      location.replace('/guest/home');
+      location.replace('/guest');
     }
   })();
 </script>
@@ -282,6 +274,8 @@ function _aiParams(base) {
 const RECENT_MAX = 50;
 const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
+// app.html is authenticated-only — guest mode never active here
+const _isGuestMode = () => false;
 let _recentItems = JSON.parse(localStorage.getItem('chunks_recent') || 'null') || [];
 // Never restore active highlight from localStorage on page load.
 // The highlight is a transient UI state — it only makes sense when the user
@@ -2119,6 +2113,7 @@ Rules:
 
     if (!response.ok) throw new Error('API error: ' + response.status);
     const data = await response.json();
+    if (_handleGuestLimited(data)) return;
     if (!data.success) throw new Error(data.error || 'Backend returned failure');
     const raw = (data.answer || '').trim();
 
@@ -2790,11 +2785,13 @@ function _bindLayerStepActions(layerId) {
 
 /* ── Generate paragraph (placeholder until backend) ── */
 function _generateParagraph(layerId) {
+  if (!window.guestGate?.('research')) return; // guest limit check
   const ls  = _layer(layerId);
   const btn = document.getElementById(`btn-generate-${layerId}`);
   if (!btn) return;
 
   // ── Button loading state ──
+  window.guestRecordUsage?.('research'); // track guest usage
   btn.disabled = true;
   btn.innerHTML = `<span style="display:inline-flex;gap:3px;align-items:center;">
     <span style="width:4px;height:4px;border-radius:50%;background:#090900;animation:blink 1s ease-in-out infinite;"></span>
@@ -2969,6 +2966,7 @@ Output the paragraph text only. No heading, no label, no preamble.`;
       body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'research', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
     });
     const data = await resp.json();
+    if (_handleGuestLimited(data)) return;
     if (!data.success) throw new Error(data.error);
     let para = (data.answer || '').trim().replace(/^#{1,3}[^\n]*\n/gm,'').trim();
     ls.paragraph = para;
@@ -3605,6 +3603,7 @@ Ignore any textbook context. Output ONLY a raw JSON array — no markdown fences
 
     if (!resp.ok) throw new Error(`Backend error ${resp.status}`);
     const backendData = await resp.json();
+    if (_handleGuestLimited(backendData)) return;
     if (!backendData.success) throw new Error(backendData.error || 'Search failed');
 
     const raw = (backendData.answer || '').trim();
@@ -4159,7 +4158,17 @@ function _exportPDF() {
 /* ══════════════════════════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════════════════════════ */
-
+// ── Server-side guest limit handler ─────────────────────────────────────────
+// Call this after any fetch() to check if the server returned guest_limited.
+// Returns true if the request was blocked (caller should abort further work).
+function _handleGuestLimited(data) {
+  if (!data || !data.guest_limited) return false;
+  const feature = data.feature || 'general';
+  if (typeof window.showGuestLoginWall === 'function') {
+    window.showGuestLoginWall(feature);
+  }
+  return true;
+}
 
 function _esc(str) {
   return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -4430,6 +4439,7 @@ async function _examCallAPI(prompt, retries = 3) {
         // Could be guest IP limit OR server rate limit — check body
         try {
           const _429data = await resp.clone().json();
+          if (_handleGuestLimited(_429data)) return;
         } catch(_) {}
         const wait = 2000 * (attempt + 1);
         if (attempt < retries) { await new Promise(r => setTimeout(r, wait)); continue; }
@@ -5118,6 +5128,8 @@ function _examAdaptiveReorder() {
 }
 
 async function examStart() {
+  if (!window.guestGate?.('exam')) return; // guest limit check
+  window.enforceExamConstraints?.(); // MCQ only, max 5 questions
   const topic = document.getElementById('exam-topic-input').value.trim();
   const errEl = document.getElementById('exam-error');
   errEl.style.display = 'none';
@@ -5140,6 +5152,7 @@ async function examStart() {
   _examTopic    = topic || _examSourceLabel || 'Uploaded document';
   _examTimerSec = timeSec;
 
+  window.guestRecordUsage?.('exam'); // track guest usage
   document.getElementById('exam-start-btn').disabled = true;
   document.getElementById('exam-loading-topic').textContent = _examTopic;
   document.getElementById('exam-loading-text').textContent  =
@@ -6708,6 +6721,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
   <!-- ── Vite module entry point ── -->
   <script type="module" src="/src/main.js"></script>
+  <script type="module" src="/src/lib/guestLimits.js"></script>
 <script>
 // Failsafe: ensure body is visible after all modules load
 window.addEventListener('load', function() {
@@ -7104,15 +7118,6 @@ window.addEventListener('load', function() {
     }
     #auth-modal-card .am-btn-google:hover { background: #252636; border-color: var(--border-lg,#3d3e52); transform: translateY(-1px); }
     #auth-modal-card .am-btn-google:active { transform: translateY(0); }
-    #auth-modal-card .am-divider {
-      display: flex; align-items: center; gap: 10px;
-      margin: 4px 0 12px; color: var(--text-3, #7c7c96); font-size: 12px;
-    }
-    #auth-modal-card .am-divider::before,
-    #auth-modal-card .am-divider::after {
-      content: ''; flex: 1; height: 1px;
-      background: var(--border-sm, #2a2b38);
-    }
     #auth-modal-card .am-footer {
       font-size: 11px; color: var(--text-3,#7c7c96);
       margin-top: 18px; line-height: 1.5;
@@ -7169,7 +7174,6 @@ window.addEventListener('load', function() {
         </svg>
         Continue with Google
       </button>
-
 
       <div class="am-footer">
         By signing in you agree to our
@@ -7275,6 +7279,7 @@ window.addEventListener('load', function() {
     if (e.data === 'chunks_auth_success') {
       if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
       if (_authPopup && !_authPopup.closed) { try { _authPopup.close(); } catch(_) {} }
+      // Clear guest mode before reload so the app renders as authenticated
       closeAuthModal();
       window.location.reload();
     }

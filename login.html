@@ -115,7 +115,14 @@
         }
       } catch(e) {}
 
-      // No session — show the login page (popup or direct visit)
+      // Post-logout or direct visit (not popup, not OAuth) — go to app as guest
+      if (!isPopup) {
+        sessionStorage.setItem('chunks_guest_mode', '1');
+        location.replace('/');
+        return;
+      }
+
+      // Popup with no session — show the login card inside the popup
       document.addEventListener('DOMContentLoaded', function() {
         document.body.classList.add('ready');
       });
@@ -184,7 +191,8 @@
 
 <script>
   function continueAsGuest() {
-    if (window.opener && !window.opener.closed) { try { window.opener.postMessage('chunks_auth_success','https://chunks.online'); } catch(e){} setTimeout(function(){ window.close(); },100); } else { window.location.href = '/guest/home'; }
+    sessionStorage.setItem('chunks_guest_mode', '1');
+    if (window.opener && !window.opener.closed) { try { window.opener.postMessage('chunks_auth_success','https://chunks.online'); } catch(e){} setTimeout(function(){ window.close(); },100); } else { window.location.href = '/home'; }
   }
   function showError(msg) {
     document.getElementById('auth-error').textContent = msg;
@@ -198,10 +206,11 @@
   var _isPostLogout = sessionStorage.getItem('chunks_signing_out') === '1';
 
   if (_isPostLogout) {
-    // Post-logout: send to guest page
+    // Post-logout: go to app as guest instead of showing login page
     sessionStorage.removeItem('chunks_signing_out');
+    sessionStorage.setItem('chunks_guest_mode', '1');
     if (!window.opener || window.opener.closed) {
-      window.location.replace('/guest/home');
+      window.location.replace('/');
     } else {
       document.body.classList.add('ready');
     }
@@ -314,7 +323,13 @@
       }
       return;
     }
-    // No session — show the login page
+    // No session — if not a popup, go to app as guest
+    var _isPopupNow = !!(window.opener && !window.opener.closed);
+    if (!_isPopupNow) {
+      sessionStorage.setItem('chunks_guest_mode', '1');
+      location.replace('/');
+      return;
+    }
     document.body.classList.add('ready');
   };
   document.head.appendChild(_sdkEl);

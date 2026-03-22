@@ -5,7 +5,8 @@
     { "source": "/privacy.html","destination": "/privacy",  "permanent": true },
     { "source": "/terms.html",  "destination": "/terms",    "permanent": true },
     { "source": "/admin.html",  "destination": "/admin",    "permanent": true },
-    { "source": "/app",         "destination": "/home",     "permanent": true }
+    { "source": "/app",         "destination": "/home",     "permanent": true },
+    { "source": "/guest.html",  "destination": "/guest",    "permanent": true }
   ],
   "rewrites": [
     { "source": "/",                     "destination": "/app.html" },
@@ -24,10 +25,8 @@
     { "source": "/company/privacy",      "destination": "/privacy.html" },
     { "source": "/company/terms",        "destination": "/terms.html" },
     { "source": "/home",                 "destination": "/app.html" },
-    { "source": "/guest",              "destination": "/guest.html" },
-    { "source": "/guest/home",         "destination": "/guest.html" },
-    { "source": "/guest/:path*",       "destination": "/guest.html" },
     { "source": "/login",                "destination": "/login.html" },
+    { "source": "/guest",                "destination": "/guest.html" },
     { "source": "/privacy",              "destination": "/privacy.html" },
     { "source": "/terms",                "destination": "/terms.html" },
     { "source": "/admin",                "destination": "/admin.html" },
@@ -39,7 +38,7 @@
   ],
   "headers": [
     {
-      "source": "/(home|login|admin|privacy|terms)",
+      "source": "/(home|guest|login|admin|privacy|terms)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
         { "key": "X-Content-Type-Options", "value": "nosniff" }
