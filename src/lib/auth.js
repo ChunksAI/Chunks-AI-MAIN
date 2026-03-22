@@ -49,8 +49,8 @@ function _applyUI(user) {
   // No-op while signing out — page is already navigating to /login
   if (_signingOut) return;
   if (!user) {
-    document.querySelectorAll('.profile-name').forEach(el => { el.textContent = ''; });
-    document.querySelectorAll('.profile-plan').forEach(el => { el.textContent = ''; });
+    document.querySelectorAll('.profile-name').forEach(el => { el.textContent = 'Guest'; });
+    document.querySelectorAll('.profile-plan').forEach(el => { el.textContent = 'Free Plan'; });
     // Clear avatar photo — neutral grey, no gradient bleed
     document.querySelectorAll('.avatar').forEach(el => {
       el.textContent = '?';
@@ -75,18 +75,20 @@ function _applyUI(user) {
       el.style.removeProperty('background-image');
       el.style.background = 'var(--surface-3)';
     });
-    document.querySelectorAll('.md-profile-name').forEach(el => { el.textContent = ''; });
-    document.querySelectorAll('.md-profile-plan').forEach(el => { el.textContent = ''; });
+    document.querySelectorAll('.md-profile-name').forEach(el => { el.textContent = 'Guest'; });
+    document.querySelectorAll('.md-profile-plan').forEach(el => { el.textContent = 'Free Plan'; });
     document.querySelectorAll('.md-avatar').forEach(el => {
       el.textContent = '?';
       el.classList.remove('has-initials');
       el.style.removeProperty('background-image');
       el.style.background = 'var(--surface-3)';
     });
-    // Hide the "..." dots — no profile menu for unauthenticated users
+    // Hide the "..." dots — no profile menu for unauthenticated guests
     document.querySelectorAll('.profile-dots').forEach(el => { el.style.display = 'none'; });
     const adminBtn = document.getElementById('pd-admin-btn');
     if (adminBtn) adminBtn.style.display = 'none';
+    // Guest mode: show upsell card, hide profile row and history
+    document.querySelectorAll('.guest-upsell-card').forEach(el => { el.style.display = 'flex'; });
     document.querySelectorAll('.profile-row').forEach(el => { el.style.display = 'none'; });
     document.querySelectorAll('.sidebar-history-scroll').forEach(el => { el.style.display = 'none'; });
     return;
@@ -133,7 +135,8 @@ function _applyUI(user) {
     }
   }
 
-  // Sidebar footer — logged-in: show profile row, show history
+  // Sidebar footer — logged-in: show profile row, hide guest upsell card, show history
+  document.querySelectorAll('.guest-upsell-card').forEach(el => { el.style.display = 'none'; });
   document.querySelectorAll('.profile-row').forEach(el => { el.style.removeProperty('display'); });
   document.querySelectorAll('.sidebar-history-scroll').forEach(el => { el.style.removeProperty('display'); });
   document.querySelectorAll('.profile-name').forEach(el => { el.textContent = user.name || user.email || 'User'; });
@@ -236,6 +239,8 @@ window._applyUserProfile = function _applyUserProfile(session) {
     _applyUI(null);
     return;
   }
+  // Clear guest mode — user is now authenticated
+  try { sessionStorage.removeItem('chunks_guest_mode'); } catch(e) {}
 
   const u    = session.user;
   const meta = u.user_metadata || {};
@@ -315,11 +320,11 @@ window._initAuth = async function _initAuth() {
   // Clear the signing_out flag if it somehow persists on app.html load.
   if (sessionStorage.getItem('chunks_signing_out') === '1') {
     sessionStorage.removeItem('chunks_signing_out');
-    window.location.replace('/guest/home');
-    return;
+    sessionStorage.setItem('chunks_guest_mode', '1');
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+  const isGuest_         = sessionStorage.getItem('chunks_guest_mode') === '1';
   const isLoginPage_     = window.location.pathname === '/login';
   const hasOAuthCode_    = window.location.search.includes('code=');
   const hasOAuthHash_    = window.location.hash.includes('access_token');
@@ -346,11 +351,11 @@ window._initAuth = async function _initAuth() {
     }
   } catch (e) { /* storage blocked or corrupt — fall through */ }
 
-  // ── Instant gate: redirect if definitely no session ─────────────────────
+  // ── Instant gate: redirect to /login if definitely no session ────────────
   // Skip during OAuth callback — session hasn't been written yet.
-  if (!isLoginPage_ && !isOAuthCallback_) {
+  if (!isGuest_ && !isLoginPage_ && !isOAuthCallback_) {
     if (!_cachedSession || !_cachedSession.access_token) {
-      window.location.replace('/guest/home');
+      window.location.replace('/login');
       return;
     }
     // If session exists but is expired, fall through to let Supabase refresh it.
@@ -414,6 +419,7 @@ window._initAuth = async function _initAuth() {
     // ─────────────────────────────────────────────────────────────────────
 
     // ── Auth gate ────────────────────────────────────────────────────────
+    const isGuest     = sessionStorage.getItem('chunks_guest_mode') === '1';
     const isLoginPage = window.location.pathname === '/login';
     const isOAuthCb   = window.location.search.includes('code=') ||
                         window.location.hash.includes('access_token') ||
@@ -427,14 +433,16 @@ window._initAuth = async function _initAuth() {
     //      Supabase client is initialised with wrong/missing credentials)
     const isAuthed = !!session?.user || _cachedSessionValid;
 
-    if (!isAuthed && !isLoginPage && !isOAuthCb) {
-      window.location.replace('/guest/home');
+    if (!isAuthed && !isGuest && !isLoginPage && !isOAuthCb) {
+      window.location.replace('/login');
       return;
     }
 
     // Clear the OAuth callback flag once we have a confirmed session
     if (session?.user || _cachedSessionValid) {
       try { sessionStorage.removeItem('chunks_oauth_callback'); } catch(e) {}
+      // Also clear guest mode — a real session takes precedence
+      try { sessionStorage.removeItem('chunks_guest_mode'); } catch(e) {}
     }
     // ────────────────────────────────────────────────────────────────────
   } catch (e) {
@@ -540,7 +548,7 @@ window._initAuth = async function _initAuth() {
 
 async function _trackPresence(sb) {
   try {
-
+    const isGuest = sessionStorage.getItem('chunks_guest_mode') === '1';
     const isLoginPage = window.location.pathname === '/login';
     if (isLoginPage) return; // don't track on login page
 
@@ -553,7 +561,9 @@ async function _trackPresence(sb) {
       config: { presence: { key: Math.random().toString(36).slice(2) } }
     });
 
-    const presenceData = {
+    const presenceData = isGuest
+      ? { type: 'guest', ts: Date.now() }
+      : {
           type:  'user',
           email: window._currentUser?.email || '',
           plan:  window._currentUser?.plan  || 'free',
@@ -662,13 +672,15 @@ window.chunksSignOut = async function chunksSignOut() {
     sessionStorage.removeItem('chunks_was_here');
     sessionStorage.removeItem('chunks_active_screen');
     sessionStorage.removeItem('chunks_is_refresh');
+    sessionStorage.removeItem('chunks_guest_mode');
     sessionStorage.removeItem('chunks_oauth_callback');
 
     // Reset the sync-fired flag so the next login triggers a fresh pull
     window._chunksSyncFired = false;
 
-    // Navigate to guest home after sign-out
-    window.location.replace('/guest/home');
+    // Navigate to /ChunksAI (marketing homepage) after sign-out
+    // The homepage has its own guest experience via the login CTA.
+    window.location.replace('/ChunksAI');
   }
 
   // Fire-and-forget Supabase signOut — don't await it before redirecting
