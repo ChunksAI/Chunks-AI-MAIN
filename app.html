@@ -757,8 +757,7 @@ function _buildRecentItem(item) {
   el.dataset.id = item.id;
   el.title = item.question;
   el.innerHTML = `
-    ${CHAT_SVG}
-    <span>${(item.pinned ? '📌 ' : '') + item.label.replace(/</g,'&lt;')}</span>
+    <span class="recent-title">${(item.pinned ? '📌 ' : '') + item.label.replace(/</g,'&lt;')}</span>
     <span class="recent-menu-btn" title="More options">···</span>`;
   el.addEventListener('click', () => _clickRecent(item));
   el.querySelector('.recent-menu-btn').addEventListener('click', e => {
@@ -926,6 +925,136 @@ window._renderRecentList  = _renderRecentList;
 window._setActiveRecent   = _setActiveRecent;
 window._saveRecent        = _saveRecent;
 window._saveSession       = _saveSession;
+
+// ── Chat search popup ─────────────────────────────────────────────────────
+(function() {
+  let _overlay = null;
+  let _focusedIdx = -1;
+
+  function _sourceLabel(source) {
+    if (!source || source === 'general') return 'General AI';
+    if (source === 'workspace') return 'Workspace';
+    if (source === 'visual') return 'Visual Tutor';
+    if (source === 'exam') return 'Exam';
+    return source;
+  }
+
+  function _highlight(text, query) {
+    if (!query) return text.replace(/</g, '&lt;');
+    const safe = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return text.replace(/</g, '&lt;').replace(new RegExp(`(${safe})`, 'gi'), '<mark>$1</mark>');
+  }
+
+  function _buildOverlay() {
+    const el = document.createElement('div');
+    el.className = 'chat-search-overlay';
+    el.innerHTML = `
+      <div class="chat-search-popup" role="dialog" aria-label="Search chats">
+        <div class="chat-search-input-row">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input class="chat-search-input" id="chat-search-input" placeholder="Search chats…" autocomplete="off" spellcheck="false" />
+          <span class="chat-search-kbd">Esc</span>
+        </div>
+        <div class="chat-search-results" id="chat-search-results"></div>
+        <div class="chat-search-footer">
+          <span><kbd>↑↓</kbd> navigate</span>
+          <span><kbd>↵</kbd> open</span>
+          <span><kbd>Esc</kbd> close</span>
+        </div>
+      </div>`;
+
+    el.addEventListener('click', e => {
+      if (!el.querySelector('.chat-search-popup').contains(e.target)) _closeSearch();
+    });
+
+    const input = el.querySelector('#chat-search-input');
+    input.addEventListener('input', () => _renderResults(input.value.trim()));
+    input.addEventListener('keydown', e => {
+      const items = el.querySelectorAll('.chat-search-result-item');
+      if (e.key === 'ArrowDown') { e.preventDefault(); _moveFocus(items, 1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); _moveFocus(items, -1); }
+      else if (e.key === 'Enter') { e.preventDefault(); const f = el.querySelector('.chat-search-result-item.focused'); if (f) f.click(); }
+      else if (e.key === 'Escape') _closeSearch();
+    });
+
+    document.body.appendChild(el);
+    _overlay = el;
+    requestAnimationFrame(() => el.classList.add('open'));
+    setTimeout(() => input.focus(), 80);
+    _renderResults('');
+  }
+
+  function _moveFocus(items, dir) {
+    items.forEach(i => i.classList.remove('focused'));
+    _focusedIdx = Math.max(0, Math.min(items.length - 1, _focusedIdx + dir));
+    if (items[_focusedIdx]) { items[_focusedIdx].classList.add('focused'); items[_focusedIdx].scrollIntoView({ block: 'nearest' }); }
+  }
+
+  function _renderResults(query) {
+    _focusedIdx = -1;
+    const resultsEl = _overlay.querySelector('#chat-search-results');
+    const lq = query.toLowerCase();
+    const all = typeof _recentItems !== 'undefined' ? _recentItems : [];
+    const filtered = lq ? all.filter(r => r.label.toLowerCase().includes(lq)) : all.slice(0, 30);
+
+    if (!filtered.length) {
+      resultsEl.innerHTML = `<div class="chat-search-empty">${query ? 'No chats match "' + query.replace(/</g,'&lt;') + '"' : 'No chats yet'}</div>`;
+      return;
+    }
+
+    // Group by source
+    const groups = {};
+    filtered.forEach(r => {
+      const src = r.source || 'general';
+      if (!groups[src]) groups[src] = [];
+      groups[src].push(r);
+    });
+
+    const ORDER = ['general', 'workspace', 'visual', 'exam'];
+    let html = '';
+    ORDER.forEach(src => {
+      if (!groups[src]) return;
+      html += `<div class="chat-search-section-label">${_sourceLabel(src)}</div>`;
+      groups[src].forEach(item => {
+        html += `<div class="chat-search-result-item" data-id="${item.id}">
+          <span class="chat-search-result-name">${_highlight(item.label, query)}</span>
+        </div>`;
+      });
+    });
+    resultsEl.innerHTML = html;
+
+    resultsEl.querySelectorAll('.chat-search-result-item').forEach(el => {
+      el.addEventListener('click', () => {
+        const item = all.find(r => r.id === el.dataset.id);
+        if (item) { _closeSearch(); _clickRecent(item); }
+      });
+    });
+  }
+
+  function _closeSearch() {
+    if (!_overlay) return;
+    _overlay.classList.remove('open');
+    setTimeout(() => { _overlay?.remove(); _overlay = null; }, 200);
+  }
+
+  function openChatSearch() {
+    if (_overlay) { _closeSearch(); return; }
+    _buildOverlay();
+  }
+
+  // Keyboard shortcut: Ctrl/Cmd+K
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openChatSearch(); }
+  });
+
+  // Wire up all search buttons (delegated — sidebars mount after this runs)
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-action="openChatSearch-self"]');
+    if (btn) openChatSearch();
+  });
+
+  window.openChatSearch = openChatSearch;
+})();
 
 // ── Cross-device session hydration ────────────────────────────────────────────
 // Called by ChunksDB.chat.pullAndApply() after it writes remote sessions into
