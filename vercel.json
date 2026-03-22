@@ -24,6 +24,7 @@
     { "source": "/company/privacy",      "destination": "/privacy.html" },
     { "source": "/company/terms",        "destination": "/terms.html" },
     { "source": "/home",                 "destination": "/app.html" },
+    { "source": "/guest",               "destination": "/guest.html" },
     { "source": "/login",                "destination": "/login.html" },
     { "source": "/privacy",              "destination": "/privacy.html" },
     { "source": "/terms",                "destination": "/terms.html" },

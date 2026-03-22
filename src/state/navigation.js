@@ -120,8 +120,6 @@ function showScreen(name) {
         _examShow('exam-setup');
         _activeExamRecentId = null;
         if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
-        // Apply guest exam constraints (MCQ only, max 5 questions)
-        setTimeout(() => window.enforceExamConstraints?.(), 50);
       }
     }
     // studyplan init is handled unconditionally outside this block

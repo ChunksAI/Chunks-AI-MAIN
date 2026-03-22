@@ -12,7 +12,6 @@
  */
 
 import { API_BASE } from '../lib/api.js';
-import { guestGate, recordUsage } from '../lib/guestLimits.js';
 
 // ── HTML ──────────────────────────────────────────────────────────────────────
 
@@ -814,7 +813,6 @@ function _vtpDrawSpec(spec) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function _vtpStartLesson() {
-  if (!guestGate('visual')) return; // guest limit check
   const inp = document.getElementById('vtp-entry-input');
   const t   = (inp ? inp.value.trim() : '').replace(/^(explain|what is|what are|how does|how do|tell me about)\s+/i, '').trim() || 'Photosynthesis';
   _vtpCurrentTopic  = t;
@@ -829,7 +827,6 @@ async function _vtpStartLesson() {
 
   // Always wipe any stale lesson DOM before starting fresh
   _vtpResetLessonDOM();
-  recordUsage('visual'); // track guest usage
 
   // Show loading screen
   const topicEl = document.getElementById('vtp-loading-topic');

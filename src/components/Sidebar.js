@@ -224,24 +224,6 @@ ${navHTML}
 
     <div class="sidebar-footer">
 
-      <!-- Guest upsell card (visible for guests, hidden for logged-in users) -->
-      <div class="guest-upsell-card" id="guest-upsell-card">
-        <!-- Compact mode: icon-only button -->
-        <button class="guest-icon-btn" onclick="window.openAuthModal?.()" title="Sign in to your account" aria-label="Sign in">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="8" r="4"/>
-            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-          </svg>
-        </button>
-        <!-- Expanded mode: full upsell card -->
-        <div class="guest-upsell-title">Get responses tailored to you</div>
-        <div class="guest-upsell-desc">Log in to get answers based on saved chats, plus create images and upload files.</div>
-        <div class="guest-auth-btns">
-          <button class="guest-login-btn" onclick="window.openAuthModal?.()">Log in</button>
-          <button class="guest-signup-btn" onclick="window.openAuthModal?.()">Sign up for free</button>
-        </div>
-      </div>
-
       <!-- Logged-in profile row (shown for authenticated users) -->
       <div class="profile-row" role="button" tabindex="0" aria-label="Open profile menu" aria-haspopup="true" onclick="toggleProfileDropdown(event)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleProfileDropdown(event)">
         <div class="avatar" aria-hidden="true"></div>

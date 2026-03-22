@@ -142,24 +142,6 @@ export function toggleProfileDropdown(e) {
   if (!_pdOpen) { _closeHelp(); _closeTerms(); }
   dd.classList.toggle('open', _pdOpen);
 
-  // Swap logout ↔ sign-in depending on whether this is a guest session
-  if (_pdOpen) {
-    const isGuest = sessionStorage.getItem('chunks_guest_mode') === '1' || !window._currentUser?.id;
-    const logoutBtn = dd.querySelector('[onclick*="logout"]');
-    if (logoutBtn) {
-      if (isGuest) {
-        logoutBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>Sign in`;
-        logoutBtn.classList.remove('danger');
-        logoutBtn.setAttribute('onclick', "pdAction('signin')");
-        logoutBtn.setAttribute('onkeydown', "if(event.key==='Enter'||event.key===' ')pdAction('signin')");
-      } else {
-        logoutBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Log out`;
-        logoutBtn.classList.add('danger');
-        logoutBtn.setAttribute('onclick', "pdAction('logout')");
-        logoutBtn.setAttribute('onkeydown', "if(event.key==='Enter'||event.key===' ')pdAction('logout')");
-      }
-    }
-  }
 
   if (_pdOpen) {
     const trigger  = e?.currentTarget;
@@ -325,12 +307,6 @@ export async function pdAction(action) {
       });
       break;
     }
-    case 'signin':
-      // Clear guest mode flag first — otherwise auth.js sees isGuest=true
-      // and the redirect to /login is suppressed, causing a page refresh instead.
-      sessionStorage.removeItem('chunks_guest_mode');
-      window.location.replace('/login');
-      break;
     default:
       console.warn('[pdAction] Unknown action:', action);
   }

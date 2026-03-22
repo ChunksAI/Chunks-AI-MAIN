@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chunks AI — Study Smarter</title>
+<meta name="description" content="Chunks AI — Study smarter with AI-powered flashcards, study plans, visual tutor, and exam prep.">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<script>
+  // If user is already authenticated, send them to the app
+  (function() {
+    try {
+      var raw = localStorage.getItem('chunks-ai-auth');
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        var session = parsed.access_token ? parsed : (parsed.currentSession || null);
+        if (session && session.access_token) {
+          window.location.replace('/home');
+          return;
+        }
+      }
+    } catch(e) {}
+  })();
+</script>
+<style>
+  :root {
+    --bg: #0f0f17;
+    --surface-1: #13131c;
+    --surface-2: #18181f;
+    --surface-3: #1e1e28;
+    --surface-4: #232330;
+    --border-xs: rgba(255,255,255,0.04);
+    --border-sm: rgba(255,255,255,0.07);
+    --border-md: rgba(255,255,255,0.11);
+    --gold: #e8ac2e;
+    --gold-muted: rgba(232,172,46,0.12);
+    --violet: #8b7cf8;
+    --violet-muted: rgba(139,124,248,0.12);
+    --green: #34d399;
+    --text-1: #ededf0;
+    --text-2: #9898ae;
+    --text-3: #5c5c78;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --sidebar-w: 248px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%; background: var(--bg); color: var(--text-1);
+    font-family: var(--font-body); -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  .app-shell { display: flex; height: 100vh; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: var(--sidebar-w); min-width: var(--sidebar-w);
+    height: 100vh; background: var(--surface-1);
+    border-right: 1px solid var(--border-sm);
+    display: flex; flex-direction: column;
+    overflow: hidden; flex-shrink: 0; z-index: 10;
+  }
+  .sidebar-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 12px 10px; flex-shrink: 0;
+  }
+  .sidebar-logo { display: flex; align-items: center; gap: 9px; text-decoration: none; }
+  .sidebar-logo-name { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--text-1); }
+  .sidebar-toggle {
+    background: none; border: none; cursor: pointer; color: var(--text-3);
+    padding: 4px; border-radius: 6px; display: flex; align-items: center;
+    transition: color 0.15s, background 0.15s;
+  }
+  .sidebar-toggle:hover { color: var(--text-1); background: var(--surface-3); }
+
+  .new-chat-btn {
+    margin: 4px 10px 10px; padding: 9px 14px;
+    background: var(--surface-3); border: 1px solid var(--border-sm);
+    border-radius: 10px; color: var(--text-2);
+    font-size: 13px; font-weight: 500; font-family: var(--font-body);
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px;
+    transition: background 0.15s, color 0.15s; flex-shrink: 0;
+  }
+  .new-chat-btn:hover { background: var(--surface-4); color: var(--text-1); }
+
+  .nav-section-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--text-3); padding: 6px 14px 4px; text-transform: uppercase;
+  }
+  .nav-list { list-style: none; padding: 2px 6px; }
+  .nav-item a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px; border-radius: 8px; color: var(--text-2);
+    text-decoration: none; font-size: 13.5px; font-weight: 450;
+    transition: background 0.12s, color 0.12s; position: relative;
+  }
+  .nav-item a:hover { background: var(--surface-3); color: var(--text-1); }
+  .nav-item.active a { background: var(--surface-3); color: var(--text-1); }
+  .nav-item.active a::before {
+    content: ''; position: absolute; left: 0; top: 20%; bottom: 20%;
+    width: 3px; border-radius: 2px; background: var(--gold);
+  }
+  .nav-icon { flex-shrink: 0; width: 16px; height: 16px; opacity: 0.7; }
+  .nav-item.active .nav-icon, .nav-item a:hover .nav-icon { opacity: 1; }
+
+  .recents-section {
+    flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0;
+  }
+  .recents-header {
+    display: flex; align-items: center; justify-content: space-between; padding: 10px 14px 4px;
+  }
+  .recents-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--text-3); text-transform: uppercase;
+  }
+
+  .sidebar-footer { padding: 10px 8px 12px; border-top: 1px solid var(--border-xs); flex-shrink: 0; }
+  .guest-upsell-card {
+    background: var(--surface-2); border: 1px solid var(--border-sm); border-radius: 12px; padding: 14px;
+  }
+  .guest-upsell-title { font-size: 12.5px; font-weight: 600; color: var(--text-1); margin-bottom: 5px; }
+  .guest-upsell-desc  { font-size: 11.5px; color: var(--text-3); line-height: 1.5; margin-bottom: 12px; }
+  .guest-auth-btns    { display: flex; flex-direction: column; gap: 7px; }
+  .guest-login-btn {
+    width: 100%; padding: 9px; background: var(--text-1); color: #111219;
+    border: none; border-radius: 9px; font-size: 13px; font-weight: 700;
+    font-family: var(--font-body); cursor: pointer; transition: opacity 0.15s;
+  }
+  .guest-login-btn:hover { opacity: 0.9; }
+  .guest-signup-btn {
+    width: 100%; padding: 8px; background: transparent; color: var(--text-2);
+    border: 1px solid var(--border-sm); border-radius: 9px; font-size: 12.5px;
+    font-weight: 500; font-family: var(--font-body); cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .guest-signup-btn:hover { background: var(--surface-3); color: var(--text-1); }
+
+  /* ── Main ── */
+  .main-content {
+    flex: 1; min-width: 0; height: 100vh;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+
+  .home-scroll-area {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .home-scroll-area::-webkit-scrollbar { width: 4px; }
+  .home-scroll-area::-webkit-scrollbar-thumb { background: var(--border-md); border-radius: 4px; }
+
+  /* Hero */
+  .home-hero {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 56px 20px 0; text-align: center;
+    width: 100%; max-width: 740px; margin: 0 auto;
+  }
+  .eyebrow-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--surface-3); border: 1px solid var(--border-sm);
+    border-radius: 9999px; padding: 5px 14px;
+    font-size: 12px; color: var(--text-2); margin-bottom: 22px;
+  }
+  .home-h1 {
+    font-family: var(--font-head); font-size: clamp(34px,5vw,58px);
+    font-weight: 800; line-height: 1.08; letter-spacing: -0.03em;
+    color: var(--text-1); margin-bottom: 14px;
+  }
+  .home-h1 em { font-style: normal; color: var(--gold); }
+  .home-sub { font-size: 15px; color: var(--text-2); line-height: 1.65; max-width: 460px; }
+
+  /* Chat history */
+  .home-chat-history {
+    display: none; width: 100%; max-width: 740px;
+    margin: 0 auto; padding: 20px 20px 0;
+  }
+  .home-chat-history.active { display: block; }
+
+  .hc-user {
+    background: var(--surface-3); border: 1px solid var(--border-sm);
+    border-radius: 18px 18px 4px 18px; padding: 10px 15px; margin-bottom: 16px;
+    font-size: 14px; line-height: 1.55; max-width: 78%; margin-left: auto; color: var(--text-1);
+  }
+  .hc-ai { display: flex; gap: 10px; margin-bottom: 18px; align-items: flex-start; }
+  .hc-ai-avatar {
+    width: 26px; height: 26px; background: var(--surface-3);
+    border: 1px solid var(--border-sm); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 2px;
+  }
+  .hc-ai-body { flex: 1; font-size: 14px; line-height: 1.7; color: var(--text-1); min-width: 0; }
+  .hc-ai-body p { margin-bottom: 10px; }
+  .hc-ai-body p:last-child { margin-bottom: 0; }
+  .hc-ai-body h2, .hc-ai-body h3 { font-weight: 600; margin: 12px 0 6px; }
+  .hc-ai-body ul, .hc-ai-body ol { padding-left: 20px; margin-bottom: 10px; }
+  .hc-ai-body li { margin-bottom: 3px; }
+  .hc-ai-body code { background: var(--surface-3); padding: 1px 5px; border-radius: 4px; font-size: 13px; font-family: monospace; }
+  .hc-ai-body pre { background: var(--surface-3); padding: 12px; border-radius: 8px; overflow-x: auto; margin-bottom: 10px; }
+  .hc-ai-body pre code { background: none; padding: 0; }
+  .hc-ai-body strong { font-weight: 600; }
+  .hc-ai-body blockquote { border-left: 3px solid var(--border-md); padding-left: 12px; color: var(--text-2); margin: 8px 0; }
+  .hc-thinking-dots { display: flex; gap: 5px; align-items: center; padding: 6px 0; }
+  .hc-thinking-dots span {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--text-3);
+    animation: thinkBounce 1.2s ease-in-out infinite;
+  }
+  .hc-thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .hc-thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes thinkBounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
+  .hc-error {
+    background: rgba(248,113,113,0.08); border: 1px solid rgba(248,113,113,0.2);
+    border-radius: 10px; padding: 10px 14px; font-size: 13px; color: #f87171; margin-bottom: 16px;
+  }
+
+  /* Landing */
+  #home-landing { width: 100%; max-width: 740px; margin: 0 auto; padding: 24px 20px 32px; }
+
+  /* Input */
+  .ask-box {
+    display: flex; align-items: flex-end;
+    background: var(--surface-2); border: 1px solid var(--border-md);
+    border-radius: 14px; padding: 8px 10px 8px 14px; gap: 8px;
+    margin-bottom: 6px; transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .ask-box:focus-within {
+    border-color: rgba(232,172,46,0.35); box-shadow: 0 0 0 3px rgba(232,172,46,0.07);
+  }
+  .ask-textarea {
+    flex: 1; background: none; border: none; outline: none;
+    color: var(--text-1); font-family: var(--font-body);
+    font-size: 14px; line-height: 1.5; resize: none;
+    min-height: 24px; max-height: 120px; overflow-y: auto;
+  }
+  .ask-textarea::placeholder { color: var(--text-3); }
+  .ask-send {
+    background: var(--gold); border: none; border-radius: 9px;
+    width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0; transition: opacity 0.15s, transform 0.1s;
+  }
+  .ask-send:hover { opacity: 0.88; transform: scale(1.04); }
+  .ask-send:active { transform: scale(0.97); }
+  .ask-send:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .guest-usage-bar {
+    font-size: 11px; color: var(--text-3); text-align: center;
+    padding: 2px 0 10px; min-height: 22px; transition: color 0.2s;
+  }
+
+  /* Feature cards */
+  .quick-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin: 18px 0 20px; }
+  .quick-card {
+    background: var(--surface-2); border: 1px solid var(--border-sm);
+    border-radius: 13px; padding: 16px 14px; cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.12s;
+  }
+  .quick-card:hover { background: var(--surface-3); border-color: var(--border-md); transform: translateY(-2px); }
+  .quick-card:active { transform: translateY(0); }
+  .qc-icon {
+    width: 36px; height: 36px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center; margin-bottom: 10px;
+  }
+  .qc-icon.gold   { background: var(--gold-muted); }
+  .qc-icon.violet { background: var(--violet-muted); }
+  .qc-icon.teal   { background: rgba(45,212,191,0.12); }
+  .qc-title { font-size: 13px; font-weight: 600; color: var(--text-1); margin-bottom: 4px; }
+  .qc-desc  { font-size: 11.5px; color: var(--text-3); line-height: 1.5; }
+
+  .prompts-label {
+    font-size: 10.5px; font-weight: 600; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--text-3); margin-bottom: 9px;
+  }
+  .prompts-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+  .prompt-chip {
+    background: var(--surface-2); border: 1px solid var(--border-sm);
+    border-radius: 9999px; padding: 6px 14px; font-size: 12.5px; color: var(--text-2);
+    cursor: pointer; font-family: var(--font-body);
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+  .prompt-chip:hover { background: var(--surface-3); color: var(--text-1); border-color: var(--border-md); }
+
+  .guest-banner {
+    display: flex; align-items: center; gap: 10px;
+    background: color-mix(in srgb, var(--gold) 9%, var(--surface-2));
+    border: 1px solid color-mix(in srgb, var(--gold) 22%, transparent);
+    border-radius: 10px; padding: 10px 14px; font-size: 12px; color: var(--text-2);
+  }
+  .guest-banner a { color: var(--gold); text-decoration: none; font-weight: 600; }
+  .guest-banner a:hover { text-decoration: underline; }
+
+  /* Sticky bottom bar */
+  .home-input-bar {
+    display: none; padding: 10px 16px 14px;
+    border-top: 1px solid var(--border-xs); background: var(--bg); flex-shrink: 0;
+  }
+  .home-input-bar.active { display: block; }
+  .home-input-bar .ask-box { max-width: 740px; margin: 0 auto 4px; }
+  .home-input-bar .guest-usage-bar { max-width: 740px; margin: 0 auto; padding-bottom: 0; }
+
+  /* Login wall */
+  #guest-login-wall {
+    position: fixed; inset: 0; z-index: 99999;
+    background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+  }
+  #guest-login-wall.open { display: flex; animation: _gwFadeIn 0.2s ease; }
+  @keyframes _gwFadeIn { from{opacity:0;transform:translateY(8px) scale(0.97)} to{opacity:1;transform:none} }
+  @keyframes _gwIconPop { 0%{transform:scale(0.7);opacity:0} 60%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+  .gw-card {
+    background: var(--surface-2); border: 1px solid var(--border-md);
+    border-radius: 24px; padding: 36px 32px 28px;
+    max-width: 360px; width: 100%; text-align: center;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.55);
+    animation: _gwFadeIn 0.22s cubic-bezier(0.34,1.2,0.64,1) both;
+  }
+  .gw-icon-wrap {
+    width: 64px; height: 64px; border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+    animation: _gwIconPop 0.35s cubic-bezier(0.34,1.4,0.64,1) 0.05s both;
+  }
+  .gw-title { font-size: 17px; font-weight: 700; color: var(--text-1); margin-bottom: 8px; }
+  .gw-desc  { font-size: 13px; color: var(--text-3); line-height: 1.6; margin-bottom: 8px; }
+  .gw-cta   { font-size: 13px; font-weight: 600; color: var(--text-2); margin-bottom: 24px; display: block; }
+  .gw-divider { height: 1px; background: var(--border-sm); margin: 0 0 20px; border: none; }
+  .gw-btn-login {
+    width: 100%; padding: 12px; border-radius: 12px; border: none; cursor: pointer;
+    background: var(--text-1); color: #111219; font-size: 14px; font-weight: 700;
+    font-family: var(--font-body); margin-bottom: 10px; transition: opacity 0.15s, transform 0.1s;
+  }
+  .gw-btn-login:hover { opacity: 0.9; transform: translateY(-1px); }
+  .gw-btn-signup {
+    width: 100%; padding: 11px; border-radius: 12px; cursor: pointer;
+    background: transparent; border: 1px solid var(--border-xs);
+    color: var(--text-2); font-size: 13px; font-weight: 600;
+    font-family: var(--font-body); margin-bottom: 18px;
+    transition: background 0.15s, color 0.15s;
+  }
+  .gw-btn-signup:hover { background: var(--surface-3); color: var(--text-1); }
+  .gw-dismiss {
+    font-size: 12px; color: var(--text-3); cursor: pointer;
+    background: none; border: none; font-family: inherit;
+    transition: color 0.15s; padding: 4px 8px;
+  }
+  .gw-dismiss:hover { color: var(--text-2); }
+
+  @media (max-width: 640px) { .sidebar { display: none; } .quick-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 840px) { .quick-grid { grid-template-columns: repeat(2,1fr); } }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <a class="sidebar-logo" href="/ChunksAI">
+        <svg width="28" height="28" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/>
+          <circle cx="50" cy="50" r="5" fill="#e8ac2e"/>
+        </svg>
+        <span class="sidebar-logo-name">Chunks</span>
+      </a>
+      <button class="sidebar-toggle" aria-label="Toggle sidebar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>
+        </svg>
+      </button>
+    </div>
+
+    <button class="new-chat-btn" onclick="window.location.reload()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      New Chat
+    </button>
+
+    <div class="nav-section-label">STUDY</div>
+    <ul class="nav-list">
+      <li class="nav-item active">
+        <a href="/guest">
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Home
+        </a>
+      </li>
+      <li class="nav-item"><a href="/login"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Workspace</a></li>
+      <li class="nav-item"><a href="/login"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>Library</a></li>
+      <li class="nav-item"><a href="/login"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12H8M12 8v8"/></svg>Flashcards</a></li>
+      <li class="nav-item"><a href="/login"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Study Plan</a></li>
+      <li class="nav-item"><a href="/login"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>Visual Tutor</a></li>
+      <li class="nav-item"><a href="/login"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>Research</a></li>
+      <li class="nav-item"><a href="/login"><svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Exam</a></li>
+    </ul>
+
+    <div class="recents-section">
+      <div class="recents-header"><span class="recents-label">RECENTS</span></div>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="guest-upsell-card">
+        <div class="guest-upsell-title">Get responses tailored to you</div>
+        <div class="guest-upsell-desc">Log in to get answers based on saved chats, plus create images and upload files.</div>
+        <div class="guest-auth-btns">
+          <button class="guest-login-btn" onclick="window.location.href='/login'">Log in</button>
+          <button class="guest-signup-btn" onclick="window.location.href='/login?signup=1'">Sign up for free</button>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main-content">
+    <div class="home-scroll-area" id="home-scroll-area">
+
+      <div class="home-hero">
+        <div class="eyebrow-pill">
+          <svg width="14" height="14" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+            <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/>
+            <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/>
+            <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/>
+            <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
+          </svg>
+          AI Study Assistant
+        </div>
+        <h1 class="home-h1">Study smarter,<br>not <em>harder</em></h1>
+        <p class="home-sub">Ask questions, explore your textbooks, and generate study tools — all in one place.</p>
+      </div>
+
+      <!-- Chat history (hidden until first message) -->
+      <div class="home-chat-history" id="home-chat-history"></div>
+
+      <!-- Landing -->
+      <div id="home-landing">
+        <div class="ask-box">
+          <textarea class="ask-textarea" id="home-ask-input" placeholder="Ask anything…" rows="1"
+            oninput="autoResize(this)" onkeydown="handleLandingKey(event)"></textarea>
+          <button class="ask-send" id="home-send-btn" onclick="sendMessage()">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#111219" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+        <div class="guest-usage-bar" id="guest-usage-bar-top"></div>
+
+        <div class="quick-grid">
+          <div class="quick-card" onclick="window.location.href='/login'">
+            <div class="qc-icon gold"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></div>
+            <div class="qc-title">Open Textbook</div>
+            <div class="qc-desc">Browse your library and study alongside AI</div>
+          </div>
+          <div class="quick-card" onclick="window.location.href='/login'">
+            <div class="qc-icon violet"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 12H8M12 8v8"/></svg></div>
+            <div class="qc-title">Flashcards</div>
+            <div class="qc-desc">Generate and review study cards from any chapter</div>
+          </div>
+          <div class="quick-card" onclick="window.location.href='/login'">
+            <div class="qc-icon teal"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2dd4bf" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg></div>
+            <div class="qc-title">Upload PDF</div>
+            <div class="qc-desc">Add your own notes or textbooks to chat with</div>
+          </div>
+        </div>
+
+        <p class="prompts-label">TRY ASKING</p>
+        <div class="prompts-chips">
+          <button class="prompt-chip" onclick="setInput('Photosynthesis')">Photosynthesis</button>
+          <button class="prompt-chip" onclick="setInput('Newton\'s Laws of Motion')">Newton's Laws of Motion</button>
+          <button class="prompt-chip" onclick="setInput('Cell Division')">Cell Division</button>
+          <button class="prompt-chip" onclick="setInput('The French Revolution')">The French Revolution</button>
+          <button class="prompt-chip" onclick="setInput('Supply and Demand')">Supply and Demand</button>
+          <button class="prompt-chip" onclick="setInput('Pythagorean Theorem')">Pythagorean Theorem</button>
+        </div>
+
+        <div class="guest-banner">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;opacity:0.7;"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <span>You're in guest mode — chats won't be saved. <a href="/login">Sign in</a> to keep your history.</span>
+        </div>
+      </div>
+
+    </div><!-- end scroll area -->
+
+    <!-- Sticky bottom input bar -->
+    <div class="home-input-bar" id="home-input-bar">
+      <div class="ask-box">
+        <textarea class="ask-textarea" id="home-ask-input-bottom" placeholder="Ask a follow-up…" rows="1"
+          oninput="autoResize(this)" onkeydown="handleBottomKey(event)"></textarea>
+        <button class="ask-send" id="home-send-btn-bottom" onclick="sendMessage()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#111219" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+      <div class="guest-usage-bar" id="guest-usage-bar-bottom"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ── Login wall modal ── -->
+<div id="guest-login-wall">
+  <div class="gw-card">
+    <div class="gw-icon-wrap" id="gw-icon-wrap"></div>
+    <div class="gw-title" id="gw-title"></div>
+    <div class="gw-desc"  id="gw-desc"></div>
+    <span class="gw-cta">Sign in for more access — it's free.</span>
+    <hr class="gw-divider">
+    <button class="gw-btn-login"  onclick="window.location.href='/login'">Log in</button>
+    <button class="gw-btn-signup" onclick="window.location.href='/login?signup=1'">Sign up for free</button>
+    <br>
+    <button class="gw-dismiss" id="gw-dismiss-btn" onclick="closeLoginWall()">Maybe later</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  ANTI-ABUSE SYSTEM  (inlined from src/lib/guestLimits.js)
+// ═══════════════════════════════════════════════════════════
+
+const GUEST_LIMITS = { general: 10, workspace: 5, library: 1, studyplan: 1, visual: 1, research: 1, exam: 1 };
+const STORAGE_KEY  = 'chunks_guest_usage';
+const FP_KEY       = 'chunks_guest_fp';
+const ABUSE_KEY    = 'chunks_guest_abused';
+const ABUSE_THRESHOLD = 3;
+
+// ── Fingerprint ──────────────────────────────────────────
+function _buildFingerprint() {
+  const parts = [];
+  try {
+    const c = document.createElement('canvas'); c.width=200; c.height=50;
+    const ctx = c.getContext('2d');
+    ctx.textBaseline='top'; ctx.font='14px Arial';
+    ctx.fillStyle='#f60'; ctx.fillRect(125,1,62,20);
+    ctx.fillStyle='#069'; ctx.fillText('Chunks🎓',2,15);
+    ctx.fillStyle='rgba(102,204,0,0.7)'; ctx.fillText('Chunks🎓',4,17);
+    parts.push(c.toDataURL().slice(-40));
+  } catch(_) { parts.push('nocanvas'); }
+  parts.push(`${screen.width}x${screen.height}x${screen.colorDepth}`);
+  try { parts.push(Intl.DateTimeFormat().resolvedOptions().timeZone); } catch(_) {}
+  parts.push(navigator.language||'');
+  parts.push(navigator.platform||'');
+  parts.push(String((navigator.plugins||[]).length));
+  parts.push(String(navigator.hardwareConcurrency||0));
+  parts.push(String('ontouchstart' in window));
+  return parts.join('|');
+}
+function _hash(str) {
+  let h=5381;
+  for(let i=0;i<str.length;i++) h=((h<<5)+h)^str.charCodeAt(i);
+  return (h>>>0).toString(16).padStart(8,'0');
+}
+function getFingerprint() {
+  try { const s=localStorage.getItem(FP_KEY); if(s) return s; } catch(_) {}
+  const fp = _hash(_buildFingerprint());
+  try { localStorage.setItem(FP_KEY,fp); } catch(_) {}
+  return fp;
+}
+
+// ── Usage storage ────────────────────────────────────────
+function _loadUsage() { try { const r=localStorage.getItem(STORAGE_KEY); if(r) return JSON.parse(r); } catch(_) {} return {}; }
+function _saveUsage(u) { try { localStorage.setItem(STORAGE_KEY,JSON.stringify(u)); } catch(_) {} }
+function getCount(feature)  { return _loadUsage()[feature]||0; }
+function increment(feature) { const u=_loadUsage(); u[feature]=(u[feature]||0)+1; _saveUsage(u); return u[feature]; }
+
+// ── Abuse detection ──────────────────────────────────────
+function _burnFingerprint() {
+  try {
+    const fp=getFingerprint();
+    const burnt=JSON.parse(localStorage.getItem('chunks_burnt_fps')||'[]');
+    if(!burnt.includes(fp)) { burnt.push(fp); localStorage.setItem('chunks_burnt_fps',JSON.stringify(burnt)); }
+  } catch(_) {}
+}
+function _isAbuser() {
+  try { if(localStorage.getItem(ABUSE_KEY)==='1') return true; } catch(_) {}
+  const usage=_loadUsage();
+  let maxed=0;
+  for(const[feat,lim] of Object.entries(GUEST_LIMITS)) { if((usage[feat]||0)>=lim) maxed++; }
+  if(maxed>=ABUSE_THRESHOLD) {
+    try { localStorage.setItem(ABUSE_KEY,'1'); } catch(_) {}
+    _burnFingerprint();
+    return true;
+  }
+  return false;
+}
+
+// On load: check if fingerprint was previously burnt → hard lock immediately
+(function _checkBurntOnLoad() {
+  try {
+    const fp=getFingerprint();
+    const burnt=JSON.parse(localStorage.getItem('chunks_burnt_fps')||'[]');
+    if(burnt.includes(fp)) { try { localStorage.setItem(ABUSE_KEY,'1'); } catch(_) {} }
+  } catch(_) {}
+  try { if(localStorage.getItem(ABUSE_KEY)==='1') showLoginWall('abuse'); } catch(_) {}
+})();
+
+// ── Public gate: call before any AI action ───────────────
+function guestGate(feature) {
+  if(_isAbuser()) { showLoginWall('abuse'); return false; }
+  const limit=GUEST_LIMITS[feature]||10;
+  if(getCount(feature)>=limit) { showLoginWall(feature); return false; }
+  return true;
+}
+function recordUsage(feature) { return increment(feature); }
+
+// ── Usage bar ────────────────────────────────────────────
+function renderUsageBar() {
+  const limit=GUEST_LIMITS.general, count=getCount('general');
+  const remaining=Math.max(0,limit-count);
+  const msg = remaining===0
+    ? 'Free limit reached — Sign in for more access'
+    : remaining<=3 ? `${remaining} free message${remaining===1?'':'s'} left — Sign in for more`
+    : '';
+  const color = remaining<=1 ? 'var(--gold)' : 'var(--text-3)';
+  ['guest-usage-bar-top','guest-usage-bar-bottom'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) { el.textContent=msg; el.style.color=color; }
+  });
+}
+
+// ── Login wall modal ─────────────────────────────────────
+const WALL_INFO = {
+  general:   { bg:'var(--violet-muted)', color:'var(--violet)',
+    icon:`<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`,
+    title:'Message limit reached', desc:`You've used your ${GUEST_LIMITS.general} free AI messages for today.`, dismissible:true },
+  abuse:     { bg:'rgba(152,152,174,0.10)', color:'var(--text-2)',
+    icon:`<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
+    title:'Sign in to continue', desc:"You've explored everything Chunks has to offer as a guest. Sign in to keep going!", dismissible:false },
+};
+function showLoginWall(feature) {
+  const info = WALL_INFO[feature] || WALL_INFO.general;
+  const wrap = document.getElementById('gw-icon-wrap');
+  wrap.style.background = info.bg; wrap.style.color = info.color; wrap.innerHTML = info.icon;
+  document.getElementById('gw-title').textContent = info.title;
+  document.getElementById('gw-desc').textContent  = info.desc;
+  document.getElementById('gw-dismiss-btn').style.display = info.dismissible ? '' : 'none';
+  const wall = document.getElementById('guest-login-wall');
+  wall.classList.add('open');
+  wall.onclick = info.dismissible ? e=>{ if(e.target===wall) closeLoginWall(); } : null;
+}
+function closeLoginWall() { document.getElementById('guest-login-wall').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════════
+//  LIGHTWEIGHT MARKDOWN RENDERER
+// ═══════════════════════════════════════════════════════════
+function renderMarkdown(text) {
+  let t = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  t = t.replace(/```[\w]*\n?([\s\S]*?)```/g,(_,c)=>`<pre><code>${c.trim()}</code></pre>`);
+  t = t.replace(/`([^`]+)`/g,'<code>$1</code>');
+  t = t.replace(/^### (.+)$/gm,'<h3>$1</h3>');
+  t = t.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  t = t.replace(/^# (.+)$/gm,  '<h2>$1</h2>');
+  t = t.replace(/\*\*\*(.+?)\*\*\*/g,'<strong><em>$1</em></strong>');
+  t = t.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+  t = t.replace(/\*(.+?)\*/g,'<em>$1</em>');
+  t = t.replace(/^---$/gm,'<hr>');
+  t = t.replace(/^> (.+)$/gm,'<blockquote>$1</blockquote>');
+  t = t.replace(/((?:^\d+\. .+\n?)+)/gm, block=>{
+    const items=block.trim().split('\n').map(l=>`<li>${l.replace(/^\d+\.\s+/,'')}</li>`).join('');
+    return `<ol>${items}</ol>`;
+  });
+  t = t.replace(/((?:^[-*] .+\n?)+)/gm, block=>{
+    const items=block.trim().split('\n').map(l=>`<li>${l.replace(/^[-*] /,'')}</li>`).join('');
+    return `<ul>${items}</ul>`;
+  });
+  t = t.split(/\n{2,}/).map(block=>{
+    block=block.trim(); if(!block) return '';
+    if(/^<(h[123]|ul|ol|pre|blockquote|hr)/.test(block)) return block;
+    return `<p>${block.replace(/\n/g,'<br>')}</p>`;
+  }).join('');
+  return t;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CHAT STATE & UI
+// ═══════════════════════════════════════════════════════════
+const API_BASE = window.CHUNKS_BACKEND_URL || 'https://api.chunks.online';
+let _history = [];
+let _isTyping = false;
+let _landingHidden = false;
+
+const AI_AVATAR = `<div class="hc-ai-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#c8a84b" stroke-width="7" opacity="0.95"/><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#a855f7" stroke-width="7" transform="rotate(60 50 50)" opacity="0.85"/><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#c8a84b" stroke-width="7" transform="rotate(120 50 50)" opacity="0.75"/><circle cx="50" cy="50" r="6" fill="#e8ac2e"/></svg></div>`;
+
+function hideLanding() {
+  if(_landingHidden) return; _landingHidden=true;
+  document.getElementById('home-landing').style.display='none';
+  document.getElementById('home-chat-history').classList.add('active');
+  document.getElementById('home-input-bar').classList.add('active');
+  setTimeout(()=>document.getElementById('home-ask-input-bottom')?.focus(),60);
+}
+function appendUser(text) {
+  const el=document.createElement('div'); el.className='hc-user'; el.textContent=text;
+  document.getElementById('home-chat-history').appendChild(el); scrollBottom();
+}
+function appendThinking() {
+  const w=document.createElement('div'); w.className='hc-ai'; w.id='hc-thinking';
+  w.innerHTML=`${AI_AVATAR}<div class="hc-ai-body"><div class="hc-thinking-dots"><span></span><span></span><span></span></div></div>`;
+  document.getElementById('home-chat-history').appendChild(w); scrollBottom();
+}
+function removeThinking() { document.getElementById('hc-thinking')?.remove(); }
+function appendAI(text) {
+  const w=document.createElement('div'); w.className='hc-ai';
+  w.innerHTML=`${AI_AVATAR}<div class="hc-ai-body">${renderMarkdown(text)}</div>`;
+  document.getElementById('home-chat-history').appendChild(w); scrollBottom();
+}
+function appendError(msg) {
+  const el=document.createElement('div'); el.className='hc-error'; el.textContent='⚠ '+msg;
+  document.getElementById('home-chat-history').appendChild(el); scrollBottom();
+}
+function scrollBottom() {
+  const a=document.getElementById('home-scroll-area'); if(a) a.scrollTop=a.scrollHeight;
+}
+function setSending(on) {
+  _isTyping=on;
+  ['home-send-btn','home-send-btn-bottom'].forEach(id=>{ const el=document.getElementById(id); if(el) el.disabled=on; });
+}
+
+function autoResize(el) { el.style.height='24px'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
+function handleLandingKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function handleBottomKey(e)  { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function setInput(text) {
+  const inp=document.getElementById('home-ask-input');
+  inp.value=text; inp.focus(); autoResize(inp);
+}
+
+// ── Main send ─────────────────────────────────────────────
+async function sendMessage() {
+  if(_isTyping) return;
+
+  // ── Anti-abuse gate ──
+  if(!guestGate('general')) return;
+
+  const chatActive=_landingHidden;
+  const inp=document.getElementById(chatActive?'home-ask-input-bottom':'home-ask-input');
+  const question=inp.value.trim();
+  if(!question) return;
+
+  hideLanding();
+  appendUser(question);
+  inp.value=''; inp.style.height='24px';
+  _history.push({role:'user',content:question});
+  setSending(true);
+  appendThinking();
+
+  try {
+    const res=await fetch(`${API_BASE}/ask`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        question, bookId:'', mode:'general', task_type:'home_general',
+        complexity:5, language:'Auto-detect', safe_content:false,
+        history:_history.slice(-12),
+      }),
+    });
+    removeThinking();
+
+    if(res.status===429) {
+      _history.pop();
+      showLoginWall('general');
+      return;
+    }
+    if(!res.ok) {
+      const err=await res.json().catch(()=>({}));
+      appendError(err.error||`Error ${res.status}`);
+      _history.pop();
+      return;
+    }
+    const data=await res.json();
+
+    // Server-side guest_limited enforcement
+    if(data.guest_limited) {
+      showLoginWall(data.feature||'general');
+      _history.pop();
+      return;
+    }
+
+    const answer=data.answer||'No response.';
+    appendAI(answer);
+    _history.push({role:'assistant',content:answer});
+
+    // Record usage AFTER successful response, then update bar
+    recordUsage('general');
+    renderUsageBar();
+
+  } catch(e) {
+    removeThinking();
+    appendError('Could not reach the server. Check your connection.');
+    _history.pop();
+  } finally {
+    setSending(false);
+    if(chatActive) setTimeout(()=>document.getElementById('home-ask-input-bottom')?.focus(),60);
+  }
+}
+
+// ── Boot ──────────────────────────────────────────────────
+renderUsageBar();
+</script>
+</body>
+</html>
