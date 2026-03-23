@@ -288,6 +288,11 @@ const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" st
 // app.html is authenticated-only — guest mode never active here
 const _isGuestMode = () => false;
 let _recentItems = JSON.parse(localStorage.getItem('chunks_recent') || 'null') || [];
+// In-memory set of IDs (both local and UUID) deleted during this page session.
+// Checked in _hydrateRecentFromRemote BEFORE the localStorage tombstone so that
+// a Supabase DELETE that hasn't propagated yet cannot re-inject the row.
+// Auto-cleared per entry after 15 s — enough for any realistic DELETE round-trip.
+const _justDeleted = new Set();
 // Never restore active highlight from localStorage on page load.
 // The highlight is a transient UI state — it only makes sense when the user
 // is actively inside that session. On fresh load/refresh, start with no highlight.
@@ -576,6 +581,14 @@ function _deleteRecent(id, e) {
   if (item && item.bookId) {
     localStorage.removeItem('chunks_ws_session_' + item.bookId);
   }
+
+  // In-memory guard — immune to Supabase DELETE propagation delay.
+  // _hydrateRecentFromRemote checks this BEFORE the localStorage tombstone,
+  // so a row that comes back from a sync that raced the DELETE is dropped here.
+  [id, resolvedUuid].filter(Boolean).forEach(v => {
+    _justDeleted.add(v);
+    setTimeout(() => _justDeleted.delete(v), 15000);
+  });
 
   // Tombstone BOTH the local id AND the resolved UUID so:
   //   1. _uploadLocalChatSessions never re-uploads this session
@@ -1101,6 +1114,9 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
   // already populated before sync ran.
   const before = _recentItems.length;
   _recentItems = _recentItems.filter(r => {
+    // _justDeleted is checked first — it's in-memory and immune to Supabase
+    // DELETE propagation delay that the localStorage tombstone is subject to.
+    if (_justDeleted.has(r.id) || (r.uuid && _justDeleted.has(r.uuid))) return false;
     if (_hydrateTombs.has(r.id) || (r.uuid && _hydrateTombs.has(r.uuid))) return false;
     return true;
   });
@@ -1152,6 +1168,8 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
   for (const remote of remoteSessions) {
     if (!remote.id) continue;
     if (existingUuids.has(remote.id)) continue;
+    // Check _justDeleted before tombstones — the DELETE may not have propagated yet.
+    if (_justDeleted.has(remote.id) || (remote.local_id && _justDeleted.has(remote.local_id))) continue;
     if (_hydrateTombs.has(remote.id) || (remote.local_id && _hydrateTombs.has(remote.local_id))) continue;
 
     const localId = remote.local_id || remote.id;
