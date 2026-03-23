@@ -23,13 +23,23 @@ import { getDocBlob, getDocMeta, deleteDoc } from '../lib/userDocDb.js';
 // ── Book metadata ──────────────────────────────────────────────────────────
 
 export const wsBookMeta = {
+  // Chemistry
   zumdahl:  { name: 'General Chemistry',              author: 'Zumdahl & Zumdahl' },
   atkins:   { name: 'Physical Chemistry',             author: 'Atkins & de Paula' },
   klein:    { name: 'Organic Chemistry',              author: 'David Klein' },
   harris:   { name: 'Quantitative Chemical Analysis', author: 'Daniel C. Harris' },
+  // Biology
   berg:     { name: 'Biochemistry',                   author: 'Berg, Tymoczko & Stryer' },
-  netter:   { name: 'Atlas of Human Anatomy',         author: 'Frank H. Netter' },
+  biochem:  { name: 'Biochemistry',                   author: 'Berg, Tymoczko & Stryer' },
   anaphy2e: { name: 'Anatomy & Physiology',           author: 'Patton & Thibodeau' },
+  biology2e:{ name: 'Biology',                        author: 'OpenStax' },
+  // Anatomy / Nursing
+  netter:   { name: 'Atlas of Human Anatomy',         author: 'Frank H. Netter' },
+  'nursing-skills-2e': { name: 'Nursing Skills',      author: 'OpenStax' },
+  // Physics
+  physics2e:{ name: 'College Physics',                author: 'OpenStax' },
+  // Psychology
+  psychology2e: { name: 'Psychology',                 author: 'OpenStax' },
 };
 
 // ── PDF state ──────────────────────────────────────────────────────────────
