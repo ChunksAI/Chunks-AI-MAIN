@@ -444,7 +444,16 @@ window._initAuth = async function _initAuth() {
       // Also clear guest mode — a real session takes precedence
       try { sessionStorage.removeItem('chunks_guest_mode'); } catch(e) {}
     }
-    // ────────────────────────────────────────────────────────────────────
+
+    // ── Popup self-close (step 1 path) ───────────────────────────────────
+    // getSession() exchanges ?code= directly (PKCE), so SIGNED_IN in
+    // onAuthStateChange may never fire. Close the popup here instead.
+    if (isOAuthCb && session?.user && window.opener && !window.opener.closed) {
+      try { window.opener.postMessage('chunks_auth_success', 'https://chunks.online'); } catch(_) {}
+      setTimeout(() => window.close(), 100);
+      return;
+    }
+    // ─────────────────────────────────────────────────────────────────────
   } catch (e) {
     console.warn('[auth] getSession failed:', e.message);
   }
