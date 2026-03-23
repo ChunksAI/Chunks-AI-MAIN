@@ -99,17 +99,6 @@
     ───────────────────────────────────────── */
     .bg-layer{position:fixed;inset:0;pointer-events:none;z-index:0;}
 
-    /* ── Login Modal ── */
-    .login-modal-overlay{position:fixed;inset:0;z-index:2000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);opacity:0;visibility:hidden;transition:opacity .2s,visibility .2s;}
-    .login-modal-overlay.open{opacity:1;visibility:visible;}
-    .login-modal{background:var(--surface-1);border:1px solid var(--border-sm);border-radius:20px;padding:32px 28px 24px;width:100%;max-width:400px;position:relative;box-shadow:0 32px 80px rgba(0,0,0,.6);transform:translateY(12px);transition:transform .2s;}
-    .login-modal-overlay.open .login-modal{transform:translateY(0);}
-    .login-modal-close{position:absolute;top:14px;right:14px;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.06);border:none;color:var(--text-3);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s;}
-    .login-modal-close:hover{background:rgba(255,255,255,.1);color:var(--text-1);}
-    .login-modal-close svg{width:14px;height:14px;}
-    .login-modal-title{font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--text-1);letter-spacing:-.02em;margin-bottom:4px;text-align:center;}
-    .login-modal-sub{font-size:13px;color:var(--text-3);text-align:center;margin-bottom:24px;}
-    @media(max-width:480px){.login-modal{margin:16px;padding:24px 20px 20px;}}
     .bg-grid{
       position:absolute;inset:0;
       background-image:
@@ -1631,7 +1620,7 @@
     </div>
 
     <!-- Auth card: the conversion unit -->
-    <div class="auth-card">
+    <div class="auth-card" id="hero-auth-card">
       <div class="cta-hint">⚡ Start learning in 30 seconds — it's free</div>
 
       <button class="btn-google" id="btn-google-popup" onclick="openAuthPopup()">
@@ -3169,63 +3158,8 @@ window.addEventListener('message', function(e) {
 });
 </script>
 
-<!-- ── Login Modal ── -->
-<div class="login-modal-overlay" id="login-modal-overlay">
-  <div class="login-modal">
-    <button class="login-modal-close" id="login-modal-close" aria-label="Close">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-    </button>
-    <div class="login-modal-title">Start learning free</div>
-    <div class="login-modal-sub">Join 1,200+ students studying smarter with Chunks AI</div>
-    <button class="btn-google" id="modal-google-btn" style="width:100%;justify-content:center;">
-      <svg class="g-icon" viewBox="0 0 18 18">
-        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#4285F4"/>
-        <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
-        <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-      </svg>
-      <span id="modal-google-label">Continue with Google</span>
-    </button>
-    <div class="divider" style="margin:16px 0;">
-      <div class="divider-line"></div>
-      <span class="divider-text">or</span>
-      <div class="divider-line"></div>
-    </div>
-    <button class="btn-guest" id="modal-guest-btn" style="width:100%;justify-content:center;" onclick="continueAsGuest();closeLoginModal();">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M3 21v-2a7 7 0 0 1 14 0v2"/></svg>
-      Continue as guest
-    </button>
-    <div class="trust-signals" style="margin-top:16px;">
-      <span class="trust-item"><span class="trust-check"></span> No credit card</span>
-      <span class="trust-item"><span class="trust-check"></span> Free forever plan</span>
-      <span class="trust-item"><span class="trust-check"></span> Cancel anytime</span>
-    </div>
-  </div>
-</div>
 
 <script>
-/* ── Login Modal ── */
-function openLoginModal(){
-  document.getElementById('login-modal-overlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-function closeLoginModal(){
-  document.getElementById('login-modal-overlay').classList.remove('open');
-  document.body.style.overflow = '';
-}
-// Close on overlay click
-document.getElementById('login-modal-overlay').addEventListener('click', function(e){
-  if(e.target === this) closeLoginModal();
-});
-// Close on X button
-document.getElementById('login-modal-close').addEventListener('click', closeLoginModal);
-// Close on Escape
-document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeLoginModal(); });
-// Google button in modal
-document.getElementById('modal-google-btn').addEventListener('click', function(){
-  openAuthPopup();
-});
-
 /* ── Smart CTA — all /login buttons ── */
 (function(){
   function isLoggedIn(){
@@ -3260,7 +3194,15 @@ document.getElementById('modal-google-btn').addEventListener('click', function()
     if(isLoggedIn()){
       window.location.replace('/home');
     } else {
-      openLoginModal();
+      // Scroll to the hero auth card — it already has all options (Google + guest)
+      var card = document.getElementById('hero-auth-card');
+      if(card){
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Briefly highlight the card so the user knows where to look
+        card.style.transition = 'box-shadow 0.3s';
+        card.style.boxShadow = '0 0 0 2px var(--gold, #e8ac2e)';
+        setTimeout(function(){ card.style.boxShadow = ''; }, 1200);
+      }
     }
   });
 })();
