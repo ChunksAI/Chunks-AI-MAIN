@@ -3,6 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="trustpilot-one-time-domain-verification-id" content="c2672e13-f1f4-4747-952c-fad9fbf788ed"/>
+<!-- Instantly hide page if this is an OAuth popup — prevents flash before window.close() -->
+<script>
+(function(){
+  var isPopup = !!(window.opener && !window.opener.closed);
+  var hasCode = location.search.includes('code=');
+  var hasHash = location.hash.includes('access_token');
+  if (isPopup && (hasCode || hasHash)) {
+    document.documentElement.style.visibility = 'hidden';
+  }
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests;">
 <meta name="referrer" content="strict-origin-when-cross-origin">
