@@ -944,35 +944,44 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
   if (now - _sessionsReadyLastFired < 3000) return;
   _sessionsReadyLastFired = now;
 
-  // Find the newest session in localStorage with actual content.
-  // Prefer the r+timestamp keyed entry (has supabaseId for future writes)
-  // over the UUID-keyed entry when both exist for the same session.
-  try {
-    let newest = null;
-    let newestTime = 0;
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (!k?.startsWith('chunks_session_')) continue;
-      let s;
-      try { s = JSON.parse(localStorage.getItem(k)); } catch (_) { continue; }
-      // Normalise: pullAndApply writes 'messages', _saveSession writes 'history'
-      if (!s.history && s.messages) s.history = s.messages;
-      const history = s?.history || [];
-      if (!history.length) continue;
-      const localId = k.replace('chunks_session_', '');
-      // Prefer the r+timestamp key over the UUID key for the same session
-      const isLocalKey = /^r[0-9]+$/.test(localId);
-      const t = new Date(s.updatedAt || 0).getTime();
-      if (t > newestTime || (t === newestTime && isLocalKey)) {
-        newestTime = t;
-        newest = { s, id: localId };
+  // Yield to the microtask queue so _hydrateRecentFromRemote can finish
+  // writing _recentItems before we attempt to restore the session.
+  // Without this delay, chunks:sessions-ready fires synchronously inside
+  // chat.pullAndApply() — immediately after _hydrateRecentFromRemote is
+  // called but before its internal localStorage / _recentItems writes have
+  // settled — causing _homeMountSession to see an empty _recentItems and
+  // fall back to the landing screen instead of the last chat.
+  setTimeout(function restoreSession() {
+    // Find the newest session in localStorage with actual content.
+    // Prefer the r+timestamp keyed entry (has supabaseId for future writes)
+    // over the UUID-keyed entry when both exist for the same session.
+    try {
+      let newest = null;
+      let newestTime = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k?.startsWith('chunks_session_')) continue;
+        let s;
+        try { s = JSON.parse(localStorage.getItem(k)); } catch (_) { continue; }
+        // Normalise: pullAndApply writes 'messages', _saveSession writes 'history'
+        if (!s.history && s.messages) s.history = s.messages;
+        const history = s?.history || [];
+        if (!history.length) continue;
+        const localId = k.replace('chunks_session_', '');
+        // Prefer the r+timestamp key over the UUID key for the same session
+        const isLocalKey = /^r[0-9]+$/.test(localId);
+        const t = new Date(s.updatedAt || 0).getTime();
+        if (t > newestTime || (t === newestTime && isLocalKey)) {
+          newestTime = t;
+          newest = { s, id: localId };
+        }
       }
-    }
-    if (newest) {
-      localStorage.setItem('chunks_active_home_session', newest.id);
-      window._homeMountSession?.(newest.s, newest.id);
-    }
-  } catch (_) {}
+      if (newest) {
+        localStorage.setItem('chunks_active_home_session', newest.id);
+        window._homeMountSession?.(newest.s, newest.id);
+      }
+    } catch (_) {}
+  }, 100);
 });
 
 window._homeMountLatestSession = function() {
