@@ -1071,10 +1071,62 @@ function _withTimeout(promise, ms, label) {
   return Promise.race([promise, timer]);
 }
 
+// ── Timestamp of the last successful upload ───────────────────────────────────
+// Persisted to localStorage so returning users only upload sessions changed
+// since their previous sync — skipping the full 189-session scan on every login.
+const _LAST_UPLOAD_TS_KEY = 'chunks_last_upload_ts';
+
+/** Retrieve the last successful upload timestamp (ms), or 0 if never synced. */
+function _getLastUploadTs() {
+  try { return parseInt(localStorage.getItem(_LAST_UPLOAD_TS_KEY) || '0', 10) || 0; }
+  catch (_) { return 0; }
+}
+
+/** Persist the last successful upload timestamp. */
+function _setLastUploadTs(ts) {
+  try { localStorage.setItem(_LAST_UPLOAD_TS_KEY, String(ts)); } catch (_) {}
+}
+
+/**
+ * Upload a pre-built batch array to Supabase in chunks of CHUNK_SIZE,
+ * with a small yield between each chunk so the browser event loop stays
+ * responsive and Supabase free-tier request limits are respected.
+ *
+ * @param {Object[]} rows    - fully-formed chat_sessions upsert payloads
+ * @param {number}   chunkSz - rows per round-trip (default 20)
+ * @returns {Promise<boolean>} true if all chunks succeeded
+ */
+const _UPLOAD_CHUNK_SIZE = 20;
+
+async function _uploadInChunks(rows, chunkSz = _UPLOAD_CHUNK_SIZE) {
+  const sb = await _sb();
+  if (!sb || !rows.length) return true;
+
+  let allOk = true;
+  for (let i = 0; i < rows.length; i += chunkSz) {
+    const chunk = rows.slice(i, i + chunkSz);
+    const { error } = await sb
+      .from('chat_sessions')
+      .upsert(chunk, { onConflict: 'id', ignoreDuplicates: false });
+    if (error) {
+      console.warn(`[ChunksDB] chunk upload error (rows ${i}–${i + chunk.length - 1}):`, error.message);
+      allOk = false;
+    }
+    // Yield between chunks so the browser stays responsive and we avoid
+    // hammering Supabase free-tier rate limits on large session sets.
+    if (i + chunkSz < rows.length) await new Promise(r => setTimeout(r, 50));
+  }
+  return allOk;
+}
+
 // Tracks the timestamp of the last completed pullAll so rapid re-calls
 // (from TOKEN_REFRESHED, visibilitychange, or online events) are suppressed.
 let _lastPullAllTime = 0;
 const PULLALL_COOLDOWN_MS = 60_000; // 60 seconds between full syncs
+
+// Tracks whether this is the very first pullAll of the current browser session.
+// First login gets a 60s upload timeout; subsequent syncs use 30s.
+let _isFirstPullAll = true;
 
 async function pullAll({ force = false } = {}) {
   if (!isLoggedIn()) return;
@@ -1088,10 +1140,16 @@ async function pullAll({ force = false } = {}) {
   }
   _lastPullAllTime = now;
 
+  // Raise the upload timeout to 60s on the very first pullAll (fresh login with
+  // potentially hundreds of unsynced sessions). Subsequent syncs keep 30s since
+  // the delta filter means only recently-changed sessions are uploaded.
+  const uploadTimeoutMs = _isFirstPullAll ? 60_000 : 30_000;
+  _isFirstPullAll = false;
+
   console.log('[ChunksDB] pullAll — merging cross-device state…');
   try {
     // Step 1: upload local-only sessions FIRST.
-    await _withTimeout(_uploadLocalChatSessions(), 30000, '_uploadLocalChatSessions');
+    await _withTimeout(_uploadLocalChatSessions(), uploadTimeoutMs, '_uploadLocalChatSessions');
 
     // Step 2: settings MUST complete before chat — it restores server-side tombstones
     // into localStorage so that chat.pullAndApply and _hydrateRecentFromRemote can
@@ -1211,13 +1269,24 @@ async function _uploadLocalChatSessions() {
       }
     }
 
-    if (dedupedBatch.length) {
-      const sb = await _sb();
-      if (sb) {
-        const { error } = await sb.from('chat_sessions')
-          .upsert(dedupedBatch, { onConflict: 'id', ignoreDuplicates: false });
-        if (error) console.warn('[ChunksDB] batch upload error:', error.message);
-      }
+    // ── Delta filter ─────────────────────────────────────────────────────────
+    // Returning users: only upload sessions changed since the last successful
+    // upload. This cuts the typical upload from 189 → low-single-digit rows,
+    // keeping the 30s wall well out of reach on every login after the first.
+    const lastUploadTs = _getLastUploadTs();
+    const filteredBatch = lastUploadTs > 0
+      ? dedupedBatch.filter(row => {
+          const ts = row.updated_at ? new Date(row.updated_at).getTime() : 0;
+          return ts > lastUploadTs;
+        })
+      : dedupedBatch; // first sync ever — upload everything
+
+    if (filteredBatch.length) {
+      console.log(`[ChunksDB] uploading ${filteredBatch.length}/${dedupedBatch.length} sessions (delta since ${new Date(lastUploadTs).toISOString()})`);
+      const ok = await _uploadInChunks(filteredBatch, _UPLOAD_CHUNK_SIZE);
+      if (ok) _setLastUploadTs(Date.now());
+    } else {
+      console.log('[ChunksDB] _uploadLocalChatSessions — no new sessions since last sync');
     }
 
     // Hydrate _recentItems with any sessions that just got a fresh UUID so that
@@ -1237,7 +1306,7 @@ async function _uploadLocalChatSessions() {
 
     // Clear the pending queue now that everything is uploaded
     _lsRemove('chunks_pending_upload_sessions');
-    console.log(`[ChunksDB] _uploadLocalChatSessions — ${keys.length} sessions uploaded (${newlyAssigned.length} UUIDs generated)`);
+    console.log(`[ChunksDB] _uploadLocalChatSessions — ${keys.length} candidates scanned, ${filteredBatch?.length ?? 0} uploaded in chunks of ${_UPLOAD_CHUNK_SIZE} (${newlyAssigned.length} UUIDs generated)`);
   } catch (e) {
     console.warn('[ChunksDB] _uploadLocalChatSessions error:', e.message);
   }
