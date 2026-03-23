@@ -7193,7 +7193,7 @@ window.addEventListener('load', function() {
 <script>
 (function() {
   var SUPABASE_URL  = 'https://wiwbfspsrgayvquzfryl.supabase.co';
-  var GOOGLE_OAUTH  = SUPABASE_URL + '/auth/v1/authorize?provider=google&redirect_to=https://chunks.online/login';
+  var GOOGLE_OAUTH  = SUPABASE_URL + '/auth/v1/authorize?provider=google&redirect_to=https://chunks.online/ChunksAI';
   var overlay       = document.getElementById('auth-modal-overlay');
   var content       = document.getElementById('am-content');
   var loading       = document.getElementById('am-loading');
@@ -7236,8 +7236,8 @@ window.addEventListener('load', function() {
     );
 
     if (!_authPopup || _authPopup.closed) {
-      // Popup blocked — fall back to redirect
-      window.location.href = '/login';
+      // Popup blocked — fall back to direct OAuth redirect (returns to /ChunksAI)
+      window.location.href = GOOGLE_OAUTH;
       return;
     }
 

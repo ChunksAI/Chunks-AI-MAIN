@@ -1,7 +1,6 @@
 {
   "redirects": [
     { "source": "/index.html",  "destination": "/ChunksAI", "permanent": true },
-    { "source": "/login.html",  "destination": "/login",    "permanent": true },
     { "source": "/privacy.html","destination": "/privacy",  "permanent": true },
     { "source": "/terms.html",  "destination": "/terms",    "permanent": true },
     { "source": "/admin.html",  "destination": "/admin",    "permanent": true },
@@ -25,7 +24,6 @@
     { "source": "/company/privacy",      "destination": "/privacy.html" },
     { "source": "/company/terms",        "destination": "/terms.html" },
     { "source": "/home",                 "destination": "/app.html" },
-    { "source": "/login",                "destination": "/login.html" },
     { "source": "/guest",                "destination": "/guest.html" },
     { "source": "/guest/:path*",         "destination": "/guest.html" },
     { "source": "/privacy",              "destination": "/privacy.html" },
@@ -39,7 +37,7 @@
   ],
   "headers": [
     {
-      "source": "/(home|guest|login|admin|privacy|terms|ChunksAI)",
+      "source": "/(home|guest|admin|privacy|terms|ChunksAI)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
         { "key": "X-Content-Type-Options", "value": "nosniff" }

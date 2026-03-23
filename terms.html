@@ -1919,7 +1919,7 @@
 
   </div>
   <div class="nav-actions" style="margin-left:auto;">
-    <a href="/login" class="btn-nav-cta" style="white-space:nowrap;">Try Chunks AI</a>
+    <a href="/ChunksAI" class="btn-nav-cta" style="white-space:nowrap;">Try Chunks AI</a>
   </div><!-- /.nav-actions -->
 </nav>
 
@@ -2229,20 +2229,20 @@
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 8px;">
         <div class="footer-col-title" style="grid-column:1/-1;text-align:left;margin-bottom:14px;">Students</div>
         <div class="footer-links" style="text-align:left;">
-          <a href="/login" class="footer-link">Nursing</a>
-          <a href="/login" class="footer-link">Pre-med</a>
-          <a href="/login" class="footer-link">Biology</a>
-          <a href="/login" class="footer-link">Engineering</a>
-          <a href="/login" class="footer-link">Chemistry</a>
-          <a href="/login" class="footer-link">Psychology</a>
+          <a href="/ChunksAI" class="footer-link">Nursing</a>
+          <a href="/ChunksAI" class="footer-link">Pre-med</a>
+          <a href="/ChunksAI" class="footer-link">Biology</a>
+          <a href="/ChunksAI" class="footer-link">Engineering</a>
+          <a href="/ChunksAI" class="footer-link">Chemistry</a>
+          <a href="/ChunksAI" class="footer-link">Psychology</a>
         </div>
         <div class="footer-links" style="text-align:left;">
-          <a href="/login" class="footer-link">Environmental Science</a>
-          <a href="/login" class="footer-link">Education</a>
-          <a href="/login" class="footer-link">Radio Technology</a>
-          <a href="/login" class="footer-link">Agriculture</a>
-          <a href="/login" class="footer-link">Computer Science &amp; IT</a>
-          <a href="/login" class="footer-link">Communication &amp; Media</a>
+          <a href="/ChunksAI" class="footer-link">Environmental Science</a>
+          <a href="/ChunksAI" class="footer-link">Education</a>
+          <a href="/ChunksAI" class="footer-link">Radio Technology</a>
+          <a href="/ChunksAI" class="footer-link">Agriculture</a>
+          <a href="/ChunksAI" class="footer-link">Computer Science &amp; IT</a>
+          <a href="/ChunksAI" class="footer-link">Communication &amp; Media</a>
         </div>
       </div>
     </div>
@@ -2527,7 +2527,7 @@
 
 /* ── Google OAuth Popup ───────────────────────────────────────────── */
 var SUPABASE_OAUTH = 'https://wiwbfspsrgayvquzfryl.supabase.co/auth/v1/authorize'
-  + '?provider=google&redirect_to=https://chunks.online/login';
+  + '?provider=google&redirect_to=https://chunks.online/ChunksAI';
 
 var _authPopup = null;
 var _popupPollTimer = null;
@@ -2551,8 +2551,8 @@ function openAuthPopup() {
   );
 
   if (!_authPopup) {
-    // Popup blocked — fall back to redirect
-    window.location.href = '/login';
+    // Popup blocked — fall back to direct OAuth redirect (returns to /ChunksAI)
+    window.location.href = SUPABASE_OAUTH;
     return;
   }
 
@@ -2575,7 +2575,7 @@ function continueAsGuest() {
   window.location.href = '/app';
 }
 
-// Listen for success message from the popup (login.html posts this)
+// Listen for success message from the auth popup
 window.addEventListener('message', function(e) {
   if (e.origin !== 'https://chunks.online') return;
   if (e.data === 'chunks_auth_success') {
