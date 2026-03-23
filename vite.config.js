@@ -49,7 +49,6 @@ export default defineConfig({
         homepage: resolve(__dirname, 'homepage.html'),
         app:      resolve(__dirname, 'app.html'),
         guest:    resolve(__dirname, 'guest.html'),
-        login:    resolve(__dirname, 'login.html'),
         admin:    resolve(__dirname, 'admin.html'),
         privacy:  resolve(__dirname, 'privacy.html'),
         terms:    resolve(__dirname, 'terms.html'),
