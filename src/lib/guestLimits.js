@@ -236,11 +236,14 @@ function _burnFingerprint() {
   } catch (_) {}
 }
 
-// On load: reset daily limits first, then check if fingerprint is burnt
+// On load: ALWAYS run the daily reset first (regardless of guest mode),
+// then check burnt fingerprint only if currently in guest mode.
+// This ensures counts are wiped at midnight even if the user doesn't
+// interact until after the date has already rolled over.
 (function _checkBurntOnLoad() {
   try {
+    _maybeResetDaily(); // always runs — clears stale counts on new day
     if (!isGuest()) return;
-    _maybeResetDaily(); // must run before reading ABUSE_KEY or burnt list
     const fp = getFingerprint();
     const burnt = JSON.parse(localStorage.getItem('chunks_burnt_fps') || '[]');
     if (burnt.includes(fp)) {
