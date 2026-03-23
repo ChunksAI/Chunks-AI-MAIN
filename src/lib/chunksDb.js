@@ -312,12 +312,25 @@ const chat = {
       _lsSet('chunks_active_home_session', session.id);
       return { data: null, error: null };
     }
+    const messages = session.messages || session.history || [];
+    // Title-only update — don't overwrite existing messages in Supabase
+    if (messages.length === 0 && session.title) {
+      try {
+        const sb = await getSupabaseClient();
+        if (sb) {
+          return sb.from('chat_sessions')
+            .update({ title: session.title, updated_at: session.updatedAt || new Date().toISOString() })
+            .eq('id', session.id);
+        }
+      } catch(e) { console.warn('[chunksDb] title-only update failed:', e.message); }
+      return { data: null, error: null };
+    }
     return upsert('chat_sessions', {
       id:         session.id,
       local_id:   session.localId  || null,
       book_id:    session.bookId   || null,
       title:      session.title    || null,
-      messages:   session.messages || session.history || [],
+      messages,
       updated_at: session.updatedAt || new Date().toISOString(),
     }, 'id');
   },

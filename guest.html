@@ -814,9 +814,20 @@ function _showRecentCtxMenu(item, e) {
     } else if (action === 'rename') {
       const newName = prompt('Rename chat:', item.label.replace(/…$/, ''));
       if (newName && newName.trim()) {
-        item.label = newName.trim().slice(0, 40);
+        item.label    = newName.trim().slice(0, 40);
+        item.question = item.question || item.label;
         _saveRecent();
         _renderAllRecent();
+        // Sync to Supabase if signed-in user has a uuid for this session
+        if (item.uuid) {
+          window.ChunksDB?.chat?.saveFull?.({
+            id:        item.uuid,
+            localId:   item.id,
+            title:     item.label,
+            messages:  [],
+            updatedAt: new Date().toISOString(),
+          });
+        }
       }
 
     } else if (action === 'pin') {
@@ -1373,7 +1384,7 @@ document.addEventListener('DOMContentLoaded', function() {
         <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>K</kbd></span>
       </div>
       <div class="shortcuts-row">
-        <span class="shortcuts-row-label">Incognito chat</span>
+        <span class="shortcuts-row-label">Sign in</span>
         <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>I</kbd></span>
       </div>
       <div class="shortcuts-row">
@@ -1543,12 +1554,10 @@ document.addEventListener('keydown', function(e) {
     return;
   }
 
-  // ── Ctrl+I — toggle incognito chat modal (always works, even while typing) ──
+  // ── Ctrl+I — guests: prompt sign-in (incognito is redundant in guest mode) ──
   if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'i') {
     e.preventDefault();
-    const modal = document.getElementById('incognito-modal');
-    if (modal?.classList.contains('active')) window.closeIncognitoChat?.();
-    else window.openIncognitoChat?.();
+    window.openAuthModal?.();
     return;
   }
 
@@ -1662,7 +1671,7 @@ document.addEventListener('keydown', function(e) {
           Are my chat conversations saved?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
-        <div class="faq-a">Yes. Your recent chat sessions are automatically saved to your browser's local storage and appear in the sidebar history. You can click any past chat to restore the full conversation. To clear history, go to <strong>Settings → Data controls → Clear chat history</strong>.</div>
+        <div class="faq-a">In guest mode, chats are saved temporarily to your browser's local storage for this session only — they won't persist after you close the browser or clear storage. To permanently save your history across devices, <a href="#" onclick="window.openAuthModal?.();return false;" style="color:var(--gold);text-decoration:none;font-weight:500;">sign in for free</a>.</div>
       </div>
 
       <div class="faq-item">
@@ -1670,7 +1679,7 @@ document.addEventListener('keydown', function(e) {
           How do I delete a chat from my history?
           <svg class="faq-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
         </div>
-        <div class="faq-a">Hover over any chat in the sidebar history and click the three-dot menu (⋯) that appears. Select <strong>Delete</strong> to permanently remove it. You can also pin or rename chats from the same menu.</div>
+        <div class="faq-a">Hover over any chat in the sidebar and click the three-dot menu (⋯). Select <strong>Delete</strong> to remove it. Note: in guest mode, all chats are already cleared when you close the browser. <a href="#" onclick="window.openAuthModal?.();return false;" style="color:var(--gold);text-decoration:none;font-weight:500;">Sign in</a> to keep and manage your history permanently.</div>
       </div>
 
       <div class="help-section-label">Flashcards & Exams</div>
@@ -1859,7 +1868,7 @@ function filterFAQs(query) {
       return;
     }
     const cat = document.querySelector('.bug-cat-btn.active')?.dataset.cat || 'Other';
-    const user = document.querySelector('.pd-handle')?.textContent?.trim() || 'anonymous';
+    const user = document.querySelector('.pd-handle')?.textContent?.trim() || window._currentUser?.email || 'guest (not signed in)';
     const submitBtn = document.getElementById('bug-submit-btn');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Sending…';

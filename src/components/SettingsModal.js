@@ -338,12 +338,12 @@ const SETTINGS_MODAL_HTML = `
           <div class="settings-row-left"><div class="settings-row-label">Plan</div><div class="settings-row-desc">Upgrade to unlock unlimited messages and all textbooks.</div></div>
           <div style="display:flex;align-items:center;gap:8px;">
             <span id="settings-account-plan" style="font-size:12px;color:var(--text-3);">Free</span>
-            <button onclick="closeSettings();openUpgradeModal()" style="padding:5px 12px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Upgrade</button>
+            <button id="settings-upgrade-btn" onclick="window._currentUser ? (closeSettings(),openUpgradeModal()) : (closeSettings(),window.openAuthModal?.())" style="padding:5px 12px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Upgrade</button>
           </div>
         </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label" style="color:var(--red);">Delete account</div><div class="settings-row-desc">Permanently delete your account and all data. This cannot be undone.</div></div>
-          <button onclick="settingsDeleteAccount()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Delete</button>
+          <button id="settings-delete-account-btn" onclick="settingsDeleteAccount()" style="padding:6px 14px;border-radius:var(--r-sm);background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:var(--red);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:background 120ms;">Delete</button>
         </div>
       </div>
 
@@ -383,15 +383,29 @@ export function openSettings(page) {
 
   // ── Populate account with live user data ──────────────
   const user = window._currentUser;
+  const isGuest = !user;
   const nameEl  = document.getElementById('settings-account-name');
   const emailEl = document.getElementById('settings-account-email');
   const planEl  = document.getElementById('settings-account-plan');
-  if (nameEl)  nameEl.textContent  = user?.name  || user?.email?.split('@')[0] || '—';
-  if (emailEl) emailEl.textContent = user?.email || '—';
+  if (nameEl)  nameEl.textContent  = user?.name  || user?.email?.split('@')[0] || (isGuest ? 'Guest' : '—');
+  if (emailEl) emailEl.textContent = user?.email || (isGuest ? 'Not signed in' : '—');
   if (planEl) {
     const plan = user?.plan || 'free';
-    planEl.textContent = plan.charAt(0).toUpperCase() + plan.slice(1);
-    planEl.style.color = plan === 'free' ? 'var(--text-3)' : 'var(--gold)';
+    planEl.textContent = isGuest ? 'Guest' : plan.charAt(0).toUpperCase() + plan.slice(1);
+    planEl.style.color = (!isGuest && plan !== 'free') ? 'var(--gold)' : 'var(--text-3)';
+  }
+
+  // ── Guest mode: disable auth-only actions ─────────────
+  const pwBtn  = document.getElementById('settings-change-password-btn');
+  const delBtn = document.getElementById('settings-delete-account-btn');
+  const delAllBtn = document.getElementById('delete-all-btn');
+  if (isGuest) {
+    if (pwBtn)  { pwBtn.disabled  = true; pwBtn.title  = 'Sign in to use this feature'; pwBtn.style.opacity  = '0.4'; pwBtn.style.cursor = 'not-allowed'; }
+    if (delBtn) { delBtn.disabled = true; delBtn.title = 'Sign in to use this feature'; delBtn.style.opacity = '0.4'; delBtn.style.cursor = 'not-allowed'; }
+    if (delAllBtn) { delAllBtn.disabled = false; /* guests CAN clear local history */ }
+  } else {
+    if (pwBtn)  { pwBtn.disabled  = false; pwBtn.title  = ''; pwBtn.style.opacity  = ''; pwBtn.style.cursor = ''; }
+    if (delBtn) { delBtn.disabled = false; delBtn.title = ''; delBtn.style.opacity = ''; delBtn.style.cursor = ''; }
   }
 
   if (page) {

@@ -305,7 +305,7 @@ export async function pdAction(action) {
   document.getElementById('profile-dropdown')?.classList.remove('open');
 
   switch (action) {
-    case 'upgrade':       window.openUpgradeModal?.();            break;
+    case 'upgrade':       window._currentUser ? window.openUpgradeModal?.() : window.openAuthModal?.(); break;
     case 'admin':         window.open('/admin', '_blank');         break;
     case 'personalization': window.openSettings?.('personalization'); break;
     case 'settings':      window.openSettings?.('general');       break;

@@ -338,6 +338,25 @@ function _saveWsSession(bookId, historyArr) {
   window.ChunksDB?.ws?.savePosition?.(bookId, {});
   // Track which book + recent item was last active
   localStorage.setItem('chunks_active_ws_book', bookId);
+
+  // ── Sync workspace chat to Supabase with title ───────────────────────────
+  // Find the recent item for this bookId to get its uuid and label
+  const recentItem = _recentItems.find(r => r.bookId === bookId && r.source === 'workspace');
+  const supabaseId = recentItem?.uuid || null;
+  if (supabaseId && historyArr?.length) {
+    const bookMeta = window.wsBookMeta?.[bookId];
+    const bookName = (typeof bookMeta === 'object' ? bookMeta?.name : bookMeta?.split?.('/')?.[0]) || bookId;
+    const firstUserMsg = historyArr.find(m => m.role === 'user');
+    const title = recentItem?.label || (firstUserMsg?.content?.slice(0, 80)) || bookName;
+    window.ChunksDB?.chat?.saveFull?.({
+      id:        supabaseId,
+      localId:   recentItem?.id,
+      title,
+      messages:  historyArr,
+      bookId,
+      updatedAt: new Date().toISOString(),
+    });
+  }
 }
 
 function _loadWsSession(bookId) {
@@ -819,9 +838,20 @@ function _showRecentCtxMenu(item, e) {
     } else if (action === 'rename') {
       const newName = prompt('Rename chat:', item.label.replace(/…$/, ''));
       if (newName && newName.trim()) {
-        item.label = newName.trim().slice(0, 40);
+        item.label    = newName.trim().slice(0, 40);
+        item.question = item.question || item.label;
         _saveRecent();
         _renderAllRecent();
+        // Sync renamed title to Supabase if session has a uuid
+        if (item.uuid) {
+          window.ChunksDB?.chat?.saveFull?.({
+            id:        item.uuid,
+            localId:   item.id,
+            title:     item.label,
+            messages:  [],   // empty — saveFull merges, never overwrites existing messages with []
+            updatedAt: new Date().toISOString(),
+          });
+        }
       }
 
     } else if (action === 'pin') {
