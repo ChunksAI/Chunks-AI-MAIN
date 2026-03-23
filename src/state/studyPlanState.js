@@ -84,6 +84,13 @@ export function spMasteryRecord(activityKey, score) {
   spUpdatePanel();
   // Keep localStorage in sync so mastery survives a refresh
   try { localStorage.setItem('sp_active_mastery', JSON.stringify(_spMastery)); } catch (_) {}
+  // Mirror to Supabase so mastery survives a browser clear or new device
+  if (_spActivePlanId && _spAllPlans[_spActivePlanId]) {
+    window.ChunksDB?.studyPlan?.save(_spActivePlanId, {
+      ..._spAllPlans[_spActivePlanId],
+      mastery: { ..._spMastery },
+    }).catch(() => {});
+  }
   // Also update sp_all_plans so clicking the plan from the sidebar loads current mastery
   try {
     if (_spActivePlanId && _spAllPlans[_spActivePlanId]) {
@@ -1310,6 +1317,8 @@ export function spSaveCurrentPlanToLibrary() {
     localStorage.setItem('sp_active_plan', JSON.stringify(_spCurrentPlan));
     localStorage.setItem('sp_active_mastery', JSON.stringify(_spMastery));
   } catch (e) { console.warn('Could not save plan library:', e); }
+  // Mirror to Supabase for cross-device persistence
+  window.ChunksDB?.studyPlan?.save(id, _spAllPlans[id]).catch(() => {});
 }
 
 export function spLoadAllPlans() {
@@ -1484,6 +1493,8 @@ export function spDeletePlan(id) {
 
   delete _spAllPlans[id];
   try { localStorage.setItem('sp_all_plans', JSON.stringify(_spAllPlans)); } catch (e) {}
+  // Soft-delete in Supabase so other devices stop showing this plan on next pull
+  window.ChunksDB?.studyPlan?.remove(id).catch(() => {});
 
   // Also remove from sp_recent_plans list
   if (deletedTopic) {
