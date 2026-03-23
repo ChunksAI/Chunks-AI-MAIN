@@ -6,8 +6,7 @@
     { "source": "/terms.html",  "destination": "/terms",    "permanent": true },
     { "source": "/admin.html",  "destination": "/admin",    "permanent": true },
     { "source": "/app",         "destination": "/home",     "permanent": true },
-    { "source": "/guest.html",  "destination": "/guest",    "permanent": true },
-    { "source": "/auth-callback.html", "destination": "/auth-callback", "permanent": true }
+    { "source": "/guest.html",  "destination": "/guest",    "permanent": true }
   ],
   "rewrites": [
     { "source": "/",                     "destination": "/app.html" },
@@ -29,7 +28,6 @@
     { "source": "/login",                "destination": "/login.html" },
     { "source": "/guest",                "destination": "/guest.html" },
     { "source": "/guest/:path*",         "destination": "/guest.html" },
-    { "source": "/auth-callback",        "destination": "/auth-callback.html" },
     { "source": "/privacy",              "destination": "/privacy.html" },
     { "source": "/terms",                "destination": "/terms.html" },
     { "source": "/admin",                "destination": "/admin.html" },
@@ -41,7 +39,7 @@
   ],
   "headers": [
     {
-      "source": "/(home|guest|auth-callback|login|admin|privacy|terms)",
+      "source": "/(home|guest|login|admin|privacy|terms|ChunksAI)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
         { "key": "X-Content-Type-Options", "value": "nosniff" }
