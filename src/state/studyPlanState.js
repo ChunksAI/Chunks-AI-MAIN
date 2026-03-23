@@ -416,7 +416,7 @@ Rules:
     });
     if (response.status === 429) {
       const _d429 = await response.json().catch(() => ({}));
-      if (_d429.guest_limited && typeof window.showGuestLoginWall === 'function') {
+      if (_d429.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') {
         window.showGuestLoginWall(_d429.feature || 'studyplan');
         return null;
       }
@@ -745,7 +745,7 @@ Use **bold** for key terms. Use ### headings to separate sections. Use bullet li
       headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
       body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'study_plan_explain', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }),
     });
-    if (resp.status === 429) { const _d = await resp.json().catch(()=>({})); if (_d.guest_limited && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'workspace'); return; } throw new Error('Server busy'); }
+    if (resp.status === 429) { const _d = await resp.json().catch(()=>({})); if (_d.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'workspace'); return; } throw new Error('Server busy'); }
     if (!resp.ok) throw new Error('API error ' + resp.status);
     const data = await resp.json();
     if (!data.success) throw new Error(data.error || 'Backend error');
@@ -804,7 +804,7 @@ export async function spFcGenerate() {
       method: 'POST', headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
       body: JSON.stringify({ topic: concept.title + (concept.description ? ': ' + concept.description : ''), bookId: null, count: 8 }),
     });
-    if (res.status === 429) { const _d = await res.json().catch(()=>({})); if (_d.guest_limited && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'workspace'); return; } throw new Error('Server busy'); }
+    if (res.status === 429) { const _d = await res.json().catch(()=>({})); if (_d.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'workspace'); return; } throw new Error('Server busy'); }
     if (!res.ok) throw new Error('Server error ' + res.status);
     const data = await res.json();
     if (!data.success || !data.flashcards?.length) throw new Error(data.error || 'No cards');
@@ -998,7 +998,7 @@ export async function spPqGenerate() {
   const prompt  = `Generate exactly 5 short-answer practice questions about: "${concept.title}".\n${concept.description ? 'Context: ' + concept.description : ''}\n${concept.keyTerms?.length ? 'Key terms: ' + concept.keyTerms.join(', ') : ''}\n\nRules:\n- Questions should test understanding, not just recall\n- Each should be answerable in 1-3 sentences\n- Vary difficulty: 2 easy, 2 medium, 1 hard\n- Output ONLY a raw JSON array, no markdown:\n[{"question":"...","ideal_answer":"...","key_points":["point1","point2"]}]`;
   try {
     const res  = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} }, body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'study_plan_practice', ...(() => { const p = _aiParams(6); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
-    if (res.status === 429) { const _d = await res.json().catch(()=>({})); if (_d.guest_limited && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'workspace'); return; } throw new Error('Server busy'); }
+    if (res.status === 429) { const _d = await res.json().catch(()=>({})); if (_d.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'workspace'); return; } throw new Error('Server busy'); }
     if (!res.ok) throw new Error('Server error ' + res.status);
     const data = await res.json();
     _spPqQuestions = JSON.parse((data.answer || data.response || data.text || '').trim().replace(/```(?:json)?/g,'').trim());
@@ -1039,7 +1039,7 @@ export async function spPqSubmit() {
   const prompt = `You are a tutor grading a student's short-answer response. Your job is to distinguish genuine understanding from guessing or pattern-matching.\n\nQuestion: ${q.question}\nIdeal answer covers: ${q.ideal_answer}\nKey points to check: ${(q.key_points || []).join('; ')}\n\nStudent's answer: "${answer}"\n\nEvaluate on these dimensions:\n1. Correctness — are the facts right?\n2. Understanding depth — does the student explain WHY, not just WHAT?\n3. Confidence signal — is the answer specific and assured, or vague/hedged?\n\nRespond ONLY as raw JSON (no markdown):\n{"correct": true/false, "score": 0-100, "understanding": "surface|partial|deep", "feedback": "1-2 sentences on what was right/wrong and the correct answer", "hint": "one specific thing they should review if understanding is surface or partial"}`;
   try {
     const res    = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} }, body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'study_plan_grade', ...(() => { const p = _aiParams(5); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
-    if (res.status === 429) { const _d = await res.json().catch(()=>({})); if (_d.guest_limited && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'workspace'); return; } throw new Error('Server busy'); }
+    if (res.status === 429) { const _d = await res.json().catch(()=>({})); if (_d.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'workspace'); return; } throw new Error('Server busy'); }
     const data   = await res.json();
     const result = JSON.parse((data.answer || data.response || data.text || '').trim().replace(/```(?:json)?/g,'').trim());
     // Depth-adjusted scoring: surface understanding penalised even if factually correct
@@ -1101,7 +1101,7 @@ export async function spExamGenerate() {
   const prompt  = `Generate exactly 10 multiple-choice exam questions about: "${concept.title}".\n${concept.description ? 'Context: ' + concept.description : ''}\n${concept.keyTerms?.length ? 'Key terms: ' + concept.keyTerms.join(', ') : ''}\n\nRules:\n- 4 options labeled A-D, one correct answer\n- Mix of easy, medium, and hard questions\n- Test understanding and application, not just definitions\n- Output ONLY a raw JSON array, no markdown:\n[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"1 sentence why this is correct"}]`;
   try {
     const res  = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} }, body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'study_plan_exam', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
-    if (res.status === 429) { const _d = await res.json().catch(()=>({})); if (_d.guest_limited && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'exam'); return; } throw new Error('Server busy'); }
+    if (res.status === 429) { const _d = await res.json().catch(()=>({})); if (_d.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'exam'); return; } throw new Error('Server busy'); }
     if (!res.ok) throw new Error('Server error ' + res.status);
     const data = await res.json();
     _spExamQuestions = JSON.parse((data.answer || data.response || data.text || '').trim().replace(/```(?:json)?/g,'').trim());

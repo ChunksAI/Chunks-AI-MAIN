@@ -1190,13 +1190,13 @@ export async function _wsAsk(question) {
     }
     const res = await fetch(`${API_BASE}/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
       body: JSON.stringify(body),
     });
     wsRemoveThinking();
     if (res.status === 429) {
       const _d429 = await res.json().catch(() => ({}));
-      if (_d429.guest_limited && typeof window.showGuestLoginWall === 'function') {
+      if (_d429.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') {
         window.showGuestLoginWall(_d429.feature || 'workspace');
         _wsChatHistory.pop();
         return;
@@ -1209,7 +1209,7 @@ export async function _wsAsk(question) {
       _wsChatHistory.pop();
     } else {
       const data   = await res.json();
-      if (data.guest_limited && typeof window.showGuestLoginWall === 'function') {
+      if (data.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') {
         window.showGuestLoginWall(data.feature || 'workspace');
         _wsChatHistory.pop();
         return;
