@@ -830,7 +830,9 @@ const ws = {
     if (pos.page  != null) _lsSet('chunks_ws_page_'  + bookId, pos.page);
     if (pos.zoom  != null) _lsSet('chunks_ws_zoom_'  + bookId, pos.zoom);
     _lsSet('chunks_active_ws_book', bookId);
-    _lsSet('chunks_default_book',   bookId);
+    // Use raw setItem (not _lsSet) so readers using localStorage.getItem() receive
+    // a plain string, not a JSON-stringified one (e.g. '"__user_doc__"').
+    try { localStorage.setItem('chunks_default_book', bookId); } catch (e) {}
 
     if (!isLoggedIn()) return { data: null, error: null };
 
@@ -878,7 +880,8 @@ const ws = {
         // Bug #5 fix: only notify if this device had a prior ws position recorded.
         if (localVisit) _notifyConflict('ws_state');
         _lsSet('chunks_active_ws_book', row.active_book_id);
-        _lsSet('chunks_default_book',   row.active_book_id);
+        // Use raw setItem — see savePosition comment above.
+        try { localStorage.setItem('chunks_default_book', row.active_book_id); } catch (e) {}
       }
     }
 
