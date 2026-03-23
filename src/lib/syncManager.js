@@ -140,6 +140,10 @@ function _applyPostSyncUI() {
 
     setTimeout(() => {
       window._homeMountLatestSession?.();
+      // Re-render sidebar history sections so newly-synced sessions appear
+      // immediately after login — without this, sections stay empty until next interaction.
+      window._renderAllRecent?.();
+      window._renderRecentPlansAllSidebars?.();
     }, 150);
 
   } catch (e) {

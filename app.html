@@ -1083,6 +1083,26 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
   // STEP 2: Add remote sessions not yet in _recentItems
   const existingUuids = new Set(_recentItems.map(r => r.uuid).filter(Boolean));
 
+  // Build uuid→source map from existing local items so we preserve
+  // 'exam' / 'visual' / 'workspace' source on sessions we already know about.
+  const _knownSource = {};
+  _recentItems.forEach(r => { if (r.uuid) _knownSource[r.uuid] = r.source; });
+
+  // Also update labels for existing items whose title may now be set (was '' before)
+  let labelUpdated = false;
+  _recentItems.forEach(r => {
+    if (!r.uuid) return;
+    const match = remoteSessions.find(s => s.id === r.uuid);
+    if (!match) return;
+    const newTitle = match.title || '';
+    const newLabel = newTitle.length > 32 ? newTitle.slice(0, 32).trimEnd() + '…' : (newTitle || r.label);
+    if (newLabel && newLabel !== r.label && newTitle) {
+      r.label    = newLabel;
+      r.question = newTitle;
+      labelUpdated = true;
+    }
+  });
+
   let changed = false;
 
   for (const remote of remoteSessions) {
@@ -1094,20 +1114,24 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
     const title = remote.title || '';
     const label = title.length > 32 ? title.slice(0, 32).trimEnd() + '…' : (title || 'Chat');
 
+    // Prefer locally-known source (preserves 'exam'/'visual'/'workspace').
+    // Fall back to book_id inference for sessions only seen on this device for first time.
+    const source = _knownSource[remote.id] || (remote.book_id ? 'workspace' : 'general');
+
     _recentItems.push({
       id:       localId,
       uuid:     remote.id,
       label,
       question: title,
       bookId:   remote.book_id || '',
-      source:   remote.book_id ? 'workspace' : 'general',
+      source,
     });
 
     existingUuids.add(remote.id);
     changed = true;
   }
 
-  if (!changed && before === _recentItems.length) return;
+  if (!changed && !labelUpdated && before === _recentItems.length) return;
 
   // Trim to cap — keep the most-recent RECENT_MAX entries.
   if (_recentItems.length > RECENT_MAX) {
