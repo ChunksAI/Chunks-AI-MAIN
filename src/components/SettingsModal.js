@@ -902,11 +902,15 @@ function _restoreSettings() {
   applySelect('spoken-language', localStorage.getItem('chunks_setting_spoken-language'));
 
   // Default book
-  const savedBook = localStorage.getItem('chunks_default_book');
-  if (savedBook) {
+  // Unwrap JSON-stringified values that may have been written by an older version
+  // of the app that used _lsSet (which JSON.stringifies).  Raw readers get e.g.
+  // '"__user_doc__"' instead of '__user_doc__', which breaks querySelector.
+  let savedBook = localStorage.getItem('chunks_default_book');
+  try { savedBook = JSON.parse(savedBook); } catch (e) { /* already a plain string */ }
+  if (savedBook && savedBook !== '__user_doc__') {
     const bookMenu = document.getElementById('default-book-menu');
     if (bookMenu) {
-      const match = bookMenu.querySelector(`[data-book-id="${savedBook}"]`);
+      const match = bookMenu.querySelector(`[data-book-id="${CSS.escape(savedBook)}"]`);
       if (match) {
         bookMenu.querySelectorAll('.settings-select-option').forEach(o => o.classList.remove('selected'));
         match.classList.add('selected');
