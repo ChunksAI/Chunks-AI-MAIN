@@ -1095,10 +1095,24 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
     const match = remoteSessions.find(s => s.id === r.uuid);
     if (!match) return;
     const newTitle = match.title || '';
-    const newLabel = newTitle.length > 32 ? newTitle.slice(0, 32).trimEnd() + '…' : (newTitle || r.label);
-    if (newLabel && newLabel !== r.label && newTitle) {
-      r.label    = newLabel;
-      r.question = newTitle;
+    // Try first user message if still no title
+    let bestLabel = newTitle;
+    if (!bestLabel) {
+      try {
+        const localRaw = localStorage.getItem('chunks_session_' + match.id) ||
+                         (match.local_id ? localStorage.getItem('chunks_session_' + match.local_id) : null);
+        if (localRaw) {
+          const parsed = JSON.parse(localRaw);
+          const msgs = parsed.history || parsed.messages || [];
+          const firstUser = msgs.find(m => m.role === 'user');
+          if (firstUser?.content) bestLabel = firstUser.content.slice(0, 60).trim();
+        }
+      } catch(_) {}
+    }
+    if (bestLabel && bestLabel.length > 32) bestLabel = bestLabel.slice(0, 32).trimEnd() + '…';
+    if (bestLabel && bestLabel !== r.label) {
+      r.label    = bestLabel;
+      r.question = newTitle || bestLabel;
       labelUpdated = true;
     }
   });
@@ -1110,9 +1124,26 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
     if (existingUuids.has(remote.id)) continue;
     if (_hydrateTombs.has(remote.id) || (remote.local_id && _hydrateTombs.has(remote.local_id))) continue;
 
-    const localId = remote.local_id || remote.id; // prefer local_id; fall back to UUID (never collides)
+    const localId = remote.local_id || remote.id;
     const title = remote.title || '';
-    const label = title.length > 32 ? title.slice(0, 32).trimEnd() + '…' : (title || 'Chat');
+
+    // Build label: prefer saved title → first user message → uuid prefix (never 'Chat')
+    let label = title;
+    if (!label) {
+      // Try to pull first user message from local session data
+      try {
+        const localRaw = localStorage.getItem('chunks_session_' + remote.id) ||
+                         (remote.local_id ? localStorage.getItem('chunks_session_' + remote.local_id) : null);
+        if (localRaw) {
+          const parsed = JSON.parse(localRaw);
+          const msgs = parsed.history || parsed.messages || [];
+          const firstUser = msgs.find(m => m.role === 'user');
+          if (firstUser?.content) label = firstUser.content.slice(0, 60).trim();
+        }
+      } catch(_) {}
+    }
+    if (!label) label = 'Session ' + remote.id.slice(0, 8);
+    if (label.length > 32) label = label.slice(0, 32).trimEnd() + '…';
 
     // Prefer locally-known source (preserves 'exam'/'visual'/'workspace').
     // Fall back to book_id inference for sessions only seen on this device for first time.

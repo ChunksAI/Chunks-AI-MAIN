@@ -234,6 +234,15 @@
   gap: 16px;
 }
 .settings-row:last-child { border-bottom: none; }
+/* Email / mono text values in settings rows — prevent overflow on long addresses */
+#settings-account-email,
+#settings-account-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+  min-width: 0;
+}
 .settings-row-left { flex: 1; }
 .settings-row-label {
   font-size: 14px;

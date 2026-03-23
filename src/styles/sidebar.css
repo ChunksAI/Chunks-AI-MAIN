@@ -374,11 +374,12 @@
 }
 .profile-dropdown.open { display: block; opacity: 1; transform: translateY(0) scale(1); pointer-events: all; }
 
-.pd-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px 11px; border-bottom: 1px solid var(--border-xs); }
+.pd-header { display: flex; align-items: center; gap: 10px; padding: 12px 14px 11px; border-bottom: 1px solid var(--border-xs); min-width: 0; }
+.pd-header > div:not(.pd-avatar) { min-width: 0; overflow: hidden; flex: 1; }
 .pd-avatar { width: 32px; height: 32px; border-radius: 8px; background: var(--surface-4); background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0; letter-spacing: -0.02em; overflow: hidden; }
 .pd-avatar.has-initials { background: linear-gradient(135deg, var(--violet), var(--gold)); color: #fff; }
-.pd-name { font-size: 13px; font-weight: 600; color: var(--text-1); line-height: 1.25; }
-.pd-handle { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); margin-top: 1px; }
+.pd-name { font-size: 13px; font-weight: 600; color: var(--text-1); line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pd-handle { font-size: 11px; color: var(--text-3); font-family: var(--font-mono); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .pd-menu { padding: 6px; }
 .pd-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; font-size: 13px; color: var(--text-2); cursor: pointer; border-radius: var(--r-sm); transition: background var(--t-fast), color var(--t-fast); position: relative; }
