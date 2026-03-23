@@ -941,6 +941,110 @@ const ws = {
 };
 
 // ══════════════════════════════════════════════════════════════════════════════
+// studyPlan — Cross-device study plan + mastery persistence
+// Table: study_plans  PK: (user_id, id)
+// ══════════════════════════════════════════════════════════════════════════════
+
+const studyPlan = {
+
+  /**
+   * Upsert one plan entry into Supabase.
+   * Called by spMasteryRecord (on every mastery write) and
+   * spSaveCurrentPlanToLibrary. localStorage is always written first
+   * by the caller — this is purely additive.
+   *
+   * @param {string} id     - client plan id, e.g. "plan_1710000000000_abc12"
+   * @param {{ plan, mastery, topic, examDate, savedAt }} entry
+   */
+  async save(id, entry) {
+    if (!isLoggedIn()) return { data: null, error: null };
+    return upsert('study_plans', {
+      id,
+      user_id:    _uid(),
+      plan:       entry.plan    || {},
+      mastery:    entry.mastery || {},
+      topic:      entry.topic   || null,
+      exam_date:  entry.examDate || null,
+      saved_at:   entry.savedAt || Date.now(),
+      is_deleted: false,
+    }, 'user_id,id');
+  },
+
+  /**
+   * Soft-delete a plan so the deletion propagates to other devices on next pull.
+   * @param {string} id
+   */
+  async remove(id) {
+    if (!isLoggedIn()) return { data: null, error: null };
+    const sb = await _sb();
+    if (!sb) return { data: null, error: 'no_client' };
+    return sb.from('study_plans')
+      .update({ is_deleted: true, updated_at: new Date().toISOString() })
+      .eq('user_id', _uid())
+      .eq('id', id);
+  },
+
+  /**
+   * Pull all plans from Supabase and merge into localStorage.
+   * Called by pullAll() on login — runs before spInitScreen reads localStorage,
+   * so the restore path always sees the latest remote data.
+   *
+   * Merge rule: remote wins on updated_at (same as chat / ws).
+   * Soft-deleted rows propagate deletes to this device.
+   *
+   * @returns {{ data: Object|null, error }}
+   */
+  async pullAndApply() {
+    if (!isLoggedIn()) return { data: null, error: 'not_logged_in' };
+
+    const { data, error } = await get('study_plans', {
+      order: { col: 'updated_at', asc: false },
+      limit: 200,
+    });
+    if (error || !data?.length) return { data: null, error };
+
+    let localPlans = {};
+    try { localPlans = JSON.parse(localStorage.getItem('sp_all_plans') || '{}'); } catch (_) {}
+
+    let changed = false;
+    for (const row of data) {
+      if (row.is_deleted) {
+        if (localPlans[row.id]) { delete localPlans[row.id]; changed = true; }
+        continue;
+      }
+      const local    = localPlans[row.id];
+      const localTs  = local?.savedAt || 0;
+      const remoteTs = new Date(row.updated_at).getTime();
+      if (remoteTs > localTs) {
+        localPlans[row.id] = {
+          plan:     row.plan,
+          mastery:  row.mastery,
+          topic:    row.topic,
+          examDate: row.exam_date,
+          savedAt:  row.saved_at || remoteTs,
+        };
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      try { localStorage.setItem('sp_all_plans', JSON.stringify(localPlans)); } catch (_) {}
+      // If the active plan was refreshed from remote, keep sp_active_plan +
+      // sp_active_mastery in sync so spInitScreen reads the right data.
+      const activeId = localStorage.getItem('sp_active_plan_id');
+      if (activeId && localPlans[activeId]) {
+        try {
+          localStorage.setItem('sp_active_plan',    JSON.stringify(localPlans[activeId].plan));
+          localStorage.setItem('sp_active_mastery', JSON.stringify(localPlans[activeId].mastery));
+        } catch (_) {}
+      }
+    }
+
+    return { data: localPlans, error: null };
+  },
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
 // pullAll — Login merge: run all four pull-and-apply in parallel
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -996,11 +1100,12 @@ async function pullAll({ force = false } = {}) {
     // back in the sidebar on every login.
     await _withTimeout(settings.pullAndApply(), 30000, 'settings.pullAndApply');
 
-    // Step 3: streak, ws, and chat can now run in parallel safely.
+    // Step 3: streak, ws, chat, and studyPlan can now run in parallel safely.
     await Promise.allSettled([
-      _withTimeout(streak.pullAndApply(), 30000, 'streak.pullAndApply'),
-      _withTimeout(ws.pullAndApply(),     30000, 'ws.pullAndApply'),
-      _withTimeout(chat.pullAndApply(),   30000, 'chat.pullAndApply'),
+      _withTimeout(streak.pullAndApply(),      30000, 'streak.pullAndApply'),
+      _withTimeout(ws.pullAndApply(),          30000, 'ws.pullAndApply'),
+      _withTimeout(chat.pullAndApply(),        30000, 'chat.pullAndApply'),
+      _withTimeout(studyPlan.pullAndApply(),   30000, 'studyPlan.pullAndApply'),
     ]);
 
     console.log('[ChunksDB] pullAll — done ✦');
@@ -1151,6 +1256,7 @@ export const ChunksDB = {
   settings,
   streak,
   ws,
+  studyPlan,
   pullAll,
 };
 
@@ -1161,4 +1267,4 @@ export const ChunksDB = {
 
 window.ChunksDB = ChunksDB;
 
-console.log('[ChunksDB] Sync layer ready ✦  (Phase 2: chat · settings · streak · ws)');
+console.log('[ChunksDB] Sync layer ready ✦  (Phase 2: chat · settings · streak · ws · studyPlan)');
