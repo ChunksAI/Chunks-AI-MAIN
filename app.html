@@ -271,6 +271,23 @@ function _aiParams(base) {
 </script>
 
 
+<!-- Auth header helper — injects Bearer token into every backend fetch so the
+     server knows this is a logged-in user (not a guest) and skips rate limits -->
+<script>
+function _getAuthHeader() {
+  try {
+    var raw     = localStorage.getItem('chunks-ai-auth');
+    if (!raw) return {};
+    var parsed  = JSON.parse(raw);
+    var token   = parsed.access_token
+                  || (parsed.currentSession && parsed.currentSession.access_token)
+                  || null;
+    if (token) return { 'Authorization': 'Bearer ' + token };
+  } catch(_) {}
+  return {};
+}
+</script>
+
 <!-- #library-modal → src/components/LibraryModal.js (Task 23) -->
 
 <script>
@@ -2214,7 +2231,7 @@ Rules:
 
     const response = await fetch(API_BASE + '/ask', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
       body: JSON.stringify({
         question:   prompt,
         mode:       'study',
@@ -2969,7 +2986,7 @@ function _generateParagraph(layerId) {
   // ── SSE stream ──
   fetch(API_BASE + '/api/stream-layer', {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
     body:    JSON.stringify(payload)
   })
   .then(resp => {
@@ -3074,7 +3091,7 @@ Output the paragraph text only. No heading, no label, no preamble.`;
   try {
     const resp = await fetch(API_BASE + '/ask', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
       body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'research', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
     });
     const data = await resp.json();
@@ -3700,7 +3717,7 @@ Ignore any textbook context. Output ONLY a raw JSON array — no markdown fences
 
     const resp = await fetch(API_BASE + '/ask', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
       signal: _searchAbortController.signal,
       body: JSON.stringify({
         question:   searchPrompt,
@@ -4274,12 +4291,10 @@ function _exportPDF() {
 // Call this after any fetch() to check if the server returned guest_limited.
 // Returns true if the request was blocked (caller should abort further work).
 function _handleGuestLimited(data) {
-  if (!data || !data.guest_limited) return false;
-  const feature = data.feature || 'general';
-  if (typeof window.showGuestLoginWall === 'function') {
-    window.showGuestLoginWall(feature);
-  }
-  return true;
+  // app.html is authenticated-only — never show the guest login wall here.
+  // Auth headers are now sent with every request so the backend should never
+  // return guest_limited:true, but this is a hard fallback just in case.
+  return false;
 }
 
 function _esc(str) {
@@ -4544,7 +4559,7 @@ async function _examCallAPI(prompt, retries = 3) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const resp = await fetch(API_BASE + '/ask', {
-        method: 'POST', headers: {'Content-Type':'application/json'},
+        method: 'POST', headers: {'Content-Type':'application/json', ..._getAuthHeader()},
         body: JSON.stringify({ question: prompt, mode: 'generate', task_type: 'exam', ...(() => { const p = _aiParams(6); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
       });
       if (resp.status === 429) {
