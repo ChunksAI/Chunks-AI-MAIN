@@ -355,7 +355,7 @@ window._initAuth = async function _initAuth() {
   // Skip during OAuth callback — session hasn't been written yet.
   if (!isGuest_ && !isLoginPage_ && !isOAuthCallback_) {
     if (!_cachedSession || !_cachedSession.access_token) {
-      window.location.replace('/login');
+      window.location.replace('/ChunksAI');
       return;
     }
     // If session exists but is expired, fall through to let Supabase refresh it.
@@ -434,7 +434,7 @@ window._initAuth = async function _initAuth() {
     const isAuthed = !!session?.user || _cachedSessionValid;
 
     if (!isAuthed && !isGuest && !isLoginPage && !isOAuthCb) {
-      window.location.replace('/login');
+      window.location.replace('/ChunksAI');
       return;
     }
 
@@ -512,6 +512,16 @@ window._initAuth = async function _initAuth() {
         window.location.replace('/home');
         return;
       }
+
+      // ── Popup self-close: if this page was opened as the OAuth popup ──────
+      // When redirect_to=/home and we're inside a window.open() popup,
+      // notify the opener and close — the opener handles navigating to /home.
+      if (window.opener && !window.opener.closed) {
+        try { window.opener.postMessage('chunks_auth_success', 'https://chunks.online'); } catch(_) {}
+        setTimeout(() => window.close(), 100);
+        return;
+      }
+      // ─────────────────────────────────────────────────────────────────────
 
       // Clean up OAuth params from the URL now that exchange is complete.
       // We deliberately did NOT strip these in navigation.js so Supabase could

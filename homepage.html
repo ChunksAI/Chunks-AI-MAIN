@@ -1393,25 +1393,9 @@
     }
   
     .footer-students-title{text-align:center;grid-column:1/-1;margin-bottom:14px;}
-
-    /* ── Auth callback overlay (shown while exchanging OAuth code) ── */
-    .auth-cb-overlay{display:none;position:fixed;inset:0;background:var(--bg);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:12px;}
-    .auth-cb-overlay.show{display:flex;}
-    .auth-cb-spinner{width:26px;height:26px;border:2px solid rgba(255,255,255,0.08);border-top-color:var(--gold);border-radius:50%;animation:auth-spin 0.7s linear infinite;}
-    .auth-cb-text{font-size:13px;color:var(--text-3);font-family:var(--font-body);}
-    @keyframes auth-spin{to{transform:rotate(360deg)}}
-    /* ── Auth error inside login modal ── */
-    .modal-auth-error{display:none;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:var(--r-sm);padding:10px 14px;font-size:12px;color:#f87171;margin-bottom:14px;text-align:center;}
-    .modal-auth-error.show{display:block;}
 </style>
 </head>
 <body>
-
-<!-- Auth callback overlay — shown while homepage handles OAuth code exchange -->
-<div class="auth-cb-overlay" id="auth-cb-overlay">
-  <div class="auth-cb-spinner"></div>
-  <div class="auth-cb-text">Signing you in…</div>
-</div>
 
 <div class="bg-layer">
   <div class="bg-grid"></div>
@@ -3128,9 +3112,9 @@ window.addEventListener('load',()=>{
 /* ── Google OAuth — self-contained, no login.html dependency ─────── */
 var SUPABASE_URL   = 'https://wiwbfspsrgayvquzfryl.supabase.co';
 var SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I';
-// redirect_to points back to this page — homepage handles its own callback
+// redirect_to=/home — app.html handles its own code exchange + popup close
 var SUPABASE_OAUTH = SUPABASE_URL + '/auth/v1/authorize'
-  + '?provider=google&redirect_to=https://chunks.online/ChunksAI';
+  + '?provider=google&redirect_to=https://chunks.online/home';
 
 var _authPopup      = null;
 var _popupPollTimer = null;
@@ -3164,72 +3148,6 @@ function _syncUserRow(sb, session) {
     }).catch(function(e) { console.warn('[hp-auth] _syncUserRow error:', e.message); });
   } catch(e) { console.warn('[hp-auth] _syncUserRow crashed:', e.message); }
 }
-
-// ── Finish auth — redirect or close popup ────────────────────────
-function _finishAuth() {
-  var isPopup = !!(window.opener && !window.opener.closed);
-  if (isPopup) {
-    try { window.opener.postMessage('chunks_auth_success', 'https://chunks.online'); } catch(e) {}
-    setTimeout(function(){ window.close(); }, 100);
-  } else {
-    location.replace('/home');
-  }
-}
-
-// ── Show auth error in modal ──────────────────────────────────────
-function _showAuthError(msg) {
-  var overlay = document.getElementById('auth-cb-overlay');
-  if (overlay) overlay.classList.remove('show');
-  openLoginModal();
-  var errEl = document.getElementById('login-modal-error');
-  if (errEl) { errEl.textContent = msg; errEl.classList.add('show'); }
-}
-
-// ── OAuth callback handler — runs when this page receives ?code= ──
-// This fires if the popup (or a direct redirect) lands back on /ChunksAI
-(function() {
-  var hasCode = location.search.includes('code=');
-  var hasHash = location.hash.includes('access_token');
-  if (!hasCode && !hasHash) return;
-
-  // Show full-screen spinner immediately so user sees feedback
-  var overlay = document.getElementById('auth-cb-overlay');
-  if (overlay) overlay.classList.add('show');
-
-  // Load Supabase SDK synchronously (user is waiting on spinner)
-  var sdkEl = document.createElement('script');
-  sdkEl.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
-  sdkEl.onload = async function() {
-    try {
-      var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-        auth: { persistSession:true, autoRefreshToken:true, storage:_hpStore, storageKey:'chunks-ai-auth' }
-      });
-      // getSession() triggers PKCE code exchange automatically
-      var result = await sb.auth.getSession();
-      var session = result.data && result.data.session;
-      if (session) {
-        _syncUserRow(sb, session);
-        _finishAuth();
-        return;
-      }
-      // Exchange not ready yet — wait for state change event
-      sb.auth.onAuthStateChange(function(event, sess) {
-        if (event === 'SIGNED_IN' && sess) {
-          _syncUserRow(sb, sess);
-          _finishAuth();
-        } else if (event === 'SIGNED_IN' && !sess) {
-          _showAuthError('Sign-in failed. Please try again.');
-        }
-      });
-    } catch(err) {
-      _showAuthError(err.message || 'Sign-in failed. Please try again.');
-    }
-  };
-  sdkEl.onerror = function() {
-    _showAuthError('Could not load sign-in module. Please refresh and try again.');
-  };
-  document.head.appendChild(sdkEl);
-})();
 
 // ── Open popup — or fall back to direct OAuth redirect ────────────
 // callerBtnId / callerLabelId let the modal pass its own button IDs
