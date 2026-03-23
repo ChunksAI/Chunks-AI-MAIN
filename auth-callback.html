@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Signing in — Chunks AI</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{height:100%;background:#0f0f17;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',system-ui,sans-serif;}
+  .wrap{display:flex;flex-direction:column;align-items:center;gap:20px;}
+  .logo{display:flex;align-items:center;gap:8px;}
+  .logo-text{font-size:16px;font-weight:700;color:#ededf0;letter-spacing:-.01em;}
+  .logo-text span{color:#e8ac2e;}
+  .spinner{width:32px;height:32px;border:3px solid #2a2b38;border-top-color:#e8ac2e;border-radius:50%;animation:spin .7s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .msg{font-size:13px;color:#7c7c96;}
+  .err{font-size:13px;color:#f87171;text-align:center;max-width:280px;line-height:1.5;display:none;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">
+    <svg width="20" height="20" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity=".95"/>
+      <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity=".88"/>
+      <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity=".80"/>
+      <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
+    </svg>
+    <span class="logo-text">Chunks <span>AI</span></span>
+  </div>
+  <div class="spinner"></div>
+  <div class="msg" id="msg">Signing you in…</div>
+  <div class="err" id="err"></div>
+</div>
+
+<script>
+  var SUPABASE_URL  = 'https://wiwbfspsrgayvquzfryl.supabase.co';
+  var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I';
+
+  var _hasCode = location.search.includes('code=');
+  var _hasHash = location.hash.includes('access_token');
+
+  // Not an OAuth callback — redirect away
+  if (!_hasCode && !_hasHash) {
+    window.location.replace('/');
+  }
+
+  // Shared storage — same key as app.html / login.html
+  var _mem = {};
+  var _store = (function() {
+    try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); return localStorage; } catch(e) {}
+    try { sessionStorage.setItem('__t','1'); sessionStorage.removeItem('__t'); return sessionStorage; } catch(e) {}
+    return { getItem:function(k){return _mem[k]||null;}, setItem:function(k,v){_mem[k]=String(v);}, removeItem:function(k){delete _mem[k];} };
+  })();
+
+  function _showError(msg) {
+    document.getElementById('msg').style.display = 'none';
+    document.querySelector('.spinner').style.display = 'none';
+    var el = document.getElementById('err');
+    el.textContent = msg + ' Redirecting…';
+    el.style.display = 'block';
+    setTimeout(function(){ window.location.replace('/'); }, 2500);
+  }
+
+  function _done(session) {
+    // Sync user row to Supabase users table (fire-and-forget)
+    try {
+      var u    = session.user;
+      var meta = u.user_metadata || {};
+      var name = meta.full_name || meta.name || meta.display_name
+                 || (u.email ? u.email.split('@')[0] : 'User');
+      var avatar = (meta.avatar_url || meta.picture || '').replace(/^http:\/\//i, 'https://');
+      var now  = new Date().toISOString();
+      sb.from('users').upsert(
+        { email: u.email, full_name: name, avatar: avatar,
+          plan: 'free', approved: true, paid: false, created_at: u.created_at || now },
+        { onConflict: 'email', ignoreDuplicates: true }
+      ).then(function() {
+        return sb.from('users').update({ full_name: name, avatar: avatar }).eq('email', u.email);
+      }).catch(function(){});
+    } catch(e) {}
+
+    // Notify opener (popup flow) or redirect directly
+    if (window.opener && !window.opener.closed) {
+      try { window.opener.postMessage('chunks_auth_success', 'https://chunks.online'); } catch(e) {}
+      setTimeout(function(){ window.close(); }, 100);
+    } else {
+      window.location.replace('/home');
+    }
+  }
+
+  var sb;
+  var _sdkEl = document.createElement('script');
+  _sdkEl.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
+  _sdkEl.onload = async function() {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: { persistSession: true, autoRefreshToken: true, storage: _store, storageKey: 'chunks-ai-auth' }
+    });
+
+    try {
+      var result = await sb.auth.getSession();
+      var session = result.data && result.data.session;
+      if (session) { _done(session); return; }
+
+      // getSession() may return null on first call while PKCE is still exchanging —
+      // wait for the SIGNED_IN event from onAuthStateChange
+      sb.auth.onAuthStateChange(function(event, session) {
+        if (event === 'SIGNED_IN' && session) {
+          _done(session);
+        } else if (event === 'SIGNED_IN' && !session) {
+          _showError('Sign-in failed. Please try again.');
+        }
+      });
+
+      // Timeout fallback — if nothing happens in 10s, give up
+      setTimeout(function() {
+        _showError('Sign-in timed out. Please try again.');
+      }, 10000);
+
+    } catch(err) {
+      _showError(err.message || 'Sign-in failed. Please try again.');
+    }
+  };
+  _sdkEl.onerror = function() {
+    _showError('Could not load authentication. Check your connection.');
+  };
+  document.head.appendChild(_sdkEl);
+</script>
+</body>
+</html>
