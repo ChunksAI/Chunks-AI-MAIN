@@ -92,6 +92,3 @@ export function trapFocus(modalEl) {
     try { if (prev && prev.focus) prev.focus(); } catch (_) {}
   };
 }
-
-// Legacy global bridge — inline script blocks call window.trapFocus directly
-window.trapFocus = trapFocus;

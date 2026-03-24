@@ -17,8 +17,8 @@
  * (lines ~6839–6852) and the 90+ raw localStorage calls scattered across
  * every script block.
  *
- * NOTE: window.* bridges are set at the bottom so inline script blocks
- * that haven't been migrated yet continue to work unchanged.
+ * NOTE: window.* bridges are centralised in src/globals.js so inline
+ * script blocks that haven't been migrated yet continue to work unchanged.
  */
 
 // ── localStorage helpers ───────────────────────────────────────────────────
@@ -181,15 +181,3 @@ export function setSetting(key, value) {
   } catch (_) {}
 }
 
-// ── Legacy global bridges ──────────────────────────────────────────────────
-// Inline script blocks that call localStorage directly continue to work.
-// These helpers are also exposed so ChunksDB can delegate to them in Task 31.
-window._lsGet    = lsGet;
-window._lsSet    = lsSet;
-window._lsRemove = lsRemove;
-window._ssGet    = ssGet;
-window._ssSet    = ssSet;
-window._ssRemove = ssRemove;
-window.getSetting = getSetting;
-window.setSetting = setSetting;
-window.STORAGE_KEYS = KEYS;
