@@ -19,19 +19,18 @@
  *       clearAllHistory / clearPdfCache / _updateCacheSizeLabel
  *       DOMContentLoaded restore handler
  *
- * window bridges set here:
- *   window.openSettings          window.closeSettings
- *   window.settingsNav           window.settingsFontSize
- *   window.settingsDropdown      window.settingsSelect
- *   window.applyAccentColor      window.settingsSelectAccent
- *   window.settingsSelectVoice   window.settingsPlayVoice
- *   window.settingsToggleChanged
- *   window.settingsSelectStudyMode
- *   window._getStudyMode         window._isFollowupsEnabled
- *   window._isAutoFlashEnabled
- *   window.dataToggleSaveHistory window.dataToggleImprove
- *   window.clearAllHistory       window.clearPdfCache
+ * Window bridges removed — now handled by src/globals.js.
  */
+
+import { _currentUser } from '../lib/auth.js';
+import { trapFocus } from '../utils/focusTrap.js';
+import { ChunksDB } from '../lib/chunksDb.js';
+import { _syncThemeToggleBtns } from './Sidebar.js';
+import { showToast } from './Toast.js';
+import { showConfirmModal, showSimpleNotif } from './ConfirmModal.js';
+import { getSupabaseClient } from '../lib/supabase.js';
+import { setActivePlan } from './Sidebar.js';
+import { _renderRecentPlansAllSidebars } from './Sidebar.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -365,7 +364,7 @@ export function openSettings(page) {
   modal.classList.add('active');
 
   // ── Populate account with live user data ──────────────
-  const user = window._currentUser;
+  const user = _currentUser;
   const isGuest = !user;
   const nameEl  = document.getElementById('settings-account-name');
   const emailEl = document.getElementById('settings-account-email');
@@ -417,7 +416,7 @@ export function openSettings(page) {
       navItems[idx]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     }
   }
-  _settingsFocusRelease = window.trapFocus?.(modal) ?? null;
+  _settingsFocusRelease = trapFocus?.(modal) ?? null;
 }
 
 export function closeSettings() {
@@ -449,7 +448,7 @@ export function settingsFontSize(size, btn) {
   btn.classList.add('active');
   try { localStorage.setItem('chunks-chat-font-size', size); } catch (e) {}
   // Phase 3: sync to Supabase
-  window.ChunksDB?.settings?.patch?.({ chat_font_size: size });
+  ChunksDB?.settings?.patch?.({ chat_font_size: size });
 }
 
 // Restore font size CSS var immediately on load (before modal HTML exists)
@@ -516,7 +515,7 @@ export function settingsSelect(optionEl) {
   // Phase 3: sync language dropdowns to Supabase
   const _dropdownSyncMap = { language: 'language', 'spoken-language': 'spoken_language' };
   if (key && _dropdownSyncMap[key]) {
-    window.ChunksDB?.settings?.patch?.({ [_dropdownSyncMap[key]]: text });
+    ChunksDB?.settings?.patch?.({ [_dropdownSyncMap[key]]: text });
   }
 
   menu.classList.remove('open');
@@ -538,7 +537,7 @@ export function applyAppearance(value) {
   }
   try { localStorage.setItem('chunks_setting_appearance', value); } catch(e) {}
   // Phase 3: sync to Supabase
-  window.ChunksDB?.settings?.patch?.({ appearance: value });
+  ChunksDB?.settings?.patch?.({ appearance: value });
   // Update sidebar toggle label if present
   const btn = document.getElementById('theme-toggle-btn');
   if (btn) _updateThemeBtn(btn, value === 'study');
@@ -559,7 +558,7 @@ export function toggleTheme() {
     opt.classList.toggle('selected', opt.dataset.appearance === next);
   });
   // Sync all sidebar toggle buttons
-  window._syncThemeToggleBtns?.();
+  _syncThemeToggleBtns?.();
 }
 
 // Restore appearance immediately on load
@@ -616,7 +615,7 @@ export function settingsSelectAccent(optionEl, color, name) {
     localStorage.setItem('chunks_setting_accent_color', color);
   } catch (e) {}
   // Phase 3: sync to Supabase
-  window.ChunksDB?.settings?.patch?.({ accent: name });
+  ChunksDB?.settings?.patch?.({ accent: name });
 
   menu.classList.remove('open');
   btn.classList.remove('open');
@@ -631,7 +630,7 @@ export function settingsSelectVoice(optionEl) {
   if (lbl) lbl.textContent = voice;
   try { localStorage.setItem('chunks_setting_voice', voice); } catch (e) {}
   // Phase 3: sync to Supabase
-  window.ChunksDB?.settings?.patch?.({ voice });
+  ChunksDB?.settings?.patch?.({ voice });
 }
 
 export function settingsPlayVoice() {
@@ -647,7 +646,7 @@ export function settingsPlayVoice() {
       btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Play`;
     };
   } else {
-    window.wsShowToast?.('🔊', 'Voice preview not supported in this browser', '');
+    showToast('🔊', 'Voice preview not supported in this browser', '');
   }
 }
 
@@ -658,12 +657,12 @@ export function settingsToggleChanged(checkbox, key) {
   localStorage.setItem('chunks_setting_' + key, val ? '1' : '0');
   // Phase 3: sync syncable keys to Supabase
   const _syncMap = { 'separate-voice': 'separate_voice', 'safe-content': 'safe_content' };
-  if (_syncMap[key]) window.ChunksDB?.settings?.patch?.({ [_syncMap[key]]: val });
+  if (_syncMap[key]) ChunksDB?.settings?.patch?.({ [_syncMap[key]]: val });
   if (key === 'followups') {
     document.querySelectorAll('.followups').forEach(el => { el.style.display = val ? '' : 'none'; });
   }
   const label = key.replace(/-/g, ' ').replace(/^./, c => c.toUpperCase());
-  window.wsShowToast?.(val ? '✓' : '✕', `${label} ${val ? 'enabled' : 'disabled'}`, val ? '' : '');
+  showToast(val ? '✓' : '✕', `${label} ${val ? 'enabled' : 'disabled'}`, val ? '' : '');
 }
 
 export function settingsSelectStudyMode(optionEl) {
@@ -671,7 +670,7 @@ export function settingsSelectStudyMode(optionEl) {
   const mode = optionEl.dataset.mode;
   if (mode) {
     localStorage.setItem('chunks_study_mode', mode);
-    window.wsShowToast?.('✓', `Study mode: ${optionEl.textContent.trim()}`, '');
+    showToast('✓', `Study mode: ${optionEl.textContent.trim()}`, '');
   }
 }
 
@@ -689,17 +688,17 @@ export function dataToggleSaveHistory(checkbox) {
   // Force the checkbox back on if somehow unchecked.
   if (checkbox) checkbox.checked = true;
   localStorage.removeItem('chunks_save_history');
-  window.wsShowToast?.('✓', 'Chat history is always saved', '');
+  showToast('✓', 'Chat history is always saved', '');
 }
 
 export function dataToggleImprove(checkbox) {
   const enabled = checkbox.checked;
   localStorage.setItem('chunks_improve_data', enabled ? '1' : '0');
-  window.wsShowToast?.(enabled ? '✓' : '✕', `Usage data sharing ${enabled ? 'enabled' : 'disabled'}`, '');
+  showToast(enabled ? '✓' : '✕', `Usage data sharing ${enabled ? 'enabled' : 'disabled'}`, '');
 }
 
 export function clearAllHistory() {
-  window.showConfirmModal?.({
+  showConfirmModal?.({
     title:        'Clear your chat history — are you sure?',
     desc:         'This will permanently delete all saved conversations and cannot be undone.',
     confirmLabel: 'Confirm deletion',
@@ -734,8 +733,8 @@ export function clearAllHistory() {
 
       // ── Clear in-memory study plan state and re-render sidebar ─
       if (typeof window.spShowEmpty === 'function') window.spShowEmpty();
-      if (typeof window.setActivePlan === 'function') window.setActivePlan(null);
-      if (typeof window._renderRecentPlansAllSidebars === 'function') window._renderRecentPlansAllSidebars();
+      setActivePlan?.(null);
+      _renderRecentPlansAllSidebars?.();
 
       // ── Reset Home screen to landing ──────────────────────
       const chatHist    = document.getElementById('home-chat-history');
@@ -769,17 +768,17 @@ export function clearAllHistory() {
       if (examRecentList) examRecentList.innerHTML = '<div style="padding:8px 12px;font-size:11px;color:var(--text-4);">No exams yet</div>';
 
       closeSettings();
-      setTimeout(() => window.showSimpleNotif?.('Chat history cleared'), 200);
+      setTimeout(() => showSimpleNotif?.('Chat history cleared'), 200);
     }
   });
 }
 
 export async function clearPdfCache() {
   if (!('caches' in window)) {
-    window.wsShowToast?.('⚠', 'Cache API not supported in this browser', '');
+    showToast('⚠', 'Cache API not supported in this browser', '');
     return;
   }
-  window.showConfirmModal?.({
+  showConfirmModal?.({
     title:        'Clear cached textbooks — are you sure?',
     desc:         'Textbooks will be re-downloaded the next time you open them in Workspace.',
     confirmLabel: 'Confirm deletion',
@@ -787,7 +786,7 @@ export async function clearPdfCache() {
       await caches.delete('chunks-pdf-v1');
       _updateCacheSizeLabel();
       closeSettings();
-      setTimeout(() => window.showSimpleNotif?.('PDF cache cleared'), 200);
+      setTimeout(() => showSimpleNotif?.('PDF cache cleared'), 200);
     }
   });
 }
@@ -954,67 +953,42 @@ function _initDropdownAria() {
 
 export async function settingsChangePassword() {
   const btn   = document.getElementById('settings-change-password-btn');
-  const email = window._currentUser?.email;
-  if (!email) { window.wsShowToast?.('⚠', 'No account email found', ''); return; }
+  const email = _currentUser?.email;
+  if (!email) { showToast('⚠', 'No account email found', ''); return; }
 
   if (btn) { btn.textContent = 'Sending…'; btn.disabled = true; }
   try {
-    const sb = window._getChunksSb?.();
+    const sb = await getSupabaseClient();
     if (sb) {
       const { error } = await sb.auth.resetPasswordForEmail(email, {
         redirectTo: window.location.origin + '/login.html',
       });
       if (error) throw error;
     }
-    window.wsShowToast?.('📧', `Reset link sent to ${email}`, '');
+    showToast('📧', `Reset link sent to ${email}`, '');
   } catch (e) {
-    window.wsShowToast?.('⚠', e.message || 'Failed to send reset link', '');
+    showToast('⚠', e.message || 'Failed to send reset link', '');
   } finally {
     if (btn) { btn.textContent = 'Send reset link'; btn.disabled = false; }
   }
 }
 
 export function settingsDeleteAccount() {
-  window.showConfirmModal?.({
+  showConfirmModal?.({
     title: 'Delete your account?',
     desc: 'This will permanently delete your account and all data. This cannot be undone.',
     confirmLabel: 'Delete account',
     onConfirm: async () => {
       try {
-        const sb = window._getChunksSb?.();
+        const sb = await getSupabaseClient();
         if (sb) await sb.auth.signOut();
         // Clear all local data
         localStorage.clear();
         sessionStorage.clear();
         window.location.replace('login.html');
       } catch (e) {
-        window.wsShowToast?.('⚠', 'Could not delete account — contact support', '');
+        showToast('⚠', 'Could not delete account — contact support', '');
       }
     }
   });
 }
-
-// ── Window bridges ────────────────────────────────────────────────────────────
-
-window.openSettings              = openSettings;
-window.closeSettings             = closeSettings;
-window.settingsNav               = settingsNav;
-window.settingsFontSize          = settingsFontSize;
-window.settingsDropdown          = settingsDropdown;
-window.settingsSelect            = settingsSelect;
-window.applyAccentColor          = applyAccentColor;
-window.applyAppearance           = applyAppearance;
-window.settingsSelectAccent      = settingsSelectAccent;
-window.settingsSelectVoice       = settingsSelectVoice;
-window.settingsPlayVoice         = settingsPlayVoice;
-window.settingsToggleChanged     = settingsToggleChanged;
-window.settingsSelectStudyMode   = settingsSelectStudyMode;
-window._getStudyMode             = _getStudyMode;
-window._isFollowupsEnabled       = _isFollowupsEnabled;
-window._isAutoFlashEnabled       = _isAutoFlashEnabled;
-window.dataToggleSaveHistory     = dataToggleSaveHistory;
-window.dataToggleImprove         = dataToggleImprove;
-window.clearAllHistory           = clearAllHistory;
-window.clearPdfCache             = clearPdfCache;
-window.settingsChangePassword    = settingsChangePassword;
-window.settingsDeleteAccount     = settingsDeleteAccount;
