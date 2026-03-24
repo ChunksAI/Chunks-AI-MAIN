@@ -9,6 +9,8 @@ import { spRenderPlan, spShowEmpty, spRenderRecentPlansSidebar } from './renderi
 import { spSrsLoad, spUpdateSrsPanel } from './srs.js';
 import { spUpdateExamDateUI, spUpdateDailySchedule, _spCheckAndExpireExamDate } from './calendar.js';
 import { spUpdateReminderUI } from './notifications.js';
+import { ChunksDB } from '../../lib/chunksDb.js';
+import { setActivePlan, _renderRecentPlansAllSidebars } from '../../components/Sidebar.js';
 
 export function _spGenPlanId() {
   return 'plan_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -31,7 +33,7 @@ export function spSaveCurrentPlanToLibrary() {
     localStorage.setItem('sp_active_plan', JSON.stringify(sp.currentPlan));
     localStorage.setItem('sp_active_mastery', JSON.stringify(sp.mastery));
   } catch (e) { console.warn('Could not save plan library:', e); }
-  window.ChunksDB?.studyPlan?.save(id, sp.allPlans[id]).catch(() => {});
+  ChunksDB?.studyPlan?.save(id, sp.allPlans[id]).catch(() => {});
 }
 
 export function spLoadAllPlans() {
@@ -157,7 +159,7 @@ export function spSwitchToPlan(id) {
     sp.mastery = entry.mastery || {};
   }
   sp.activePlanId = id;
-  if (typeof window.setActivePlan === 'function') window.setActivePlan(id);
+  if (typeof setActivePlan === 'function') setActivePlan(id);
   sp.examDate = entry.examDate || null;
   _spCheckAndExpireExamDate();
   try {
@@ -179,7 +181,7 @@ export function spDeletePlan(id) {
   const deletedTopic = sp.allPlans[id]?.topic;
   delete sp.allPlans[id];
   try { localStorage.setItem('sp_all_plans', JSON.stringify(sp.allPlans)); } catch (e) {}
-  window.ChunksDB?.studyPlan?.remove(id).catch(() => {});
+  ChunksDB?.studyPlan?.remove(id).catch(() => {});
   if (deletedTopic) {
     try {
       let recentPlans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]');
@@ -194,11 +196,11 @@ export function spDeletePlan(id) {
     localStorage.removeItem('sp_active_plan');
     localStorage.removeItem('sp_active_mastery');
     localStorage.removeItem('sp_active_plan_id');
-    if (typeof window.setActivePlan === 'function') window.setActivePlan(null);
+    if (typeof setActivePlan === 'function') setActivePlan(null);
     spShowEmpty();
   }
-  if (typeof window._renderRecentPlansAllSidebars === 'function') {
-    window._renderRecentPlansAllSidebars();
+  if (typeof _renderRecentPlansAllSidebars === 'function') {
+    _renderRecentPlansAllSidebars();
   }
   spShowPlansMenu();
 }

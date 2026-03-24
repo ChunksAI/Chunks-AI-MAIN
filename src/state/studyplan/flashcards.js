@@ -4,8 +4,9 @@
 
 import { sp } from './state.js';
 import { $el, hide, show, setText, setHtml, addClass, removeClass } from '../domHelpers.js';
-import { API_BASE } from '../../lib/api.js';
+import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 import { spMasteryRecord } from './mastery.js';
+import { isGuest, showLoginWall } from '../../lib/guestLimits.js';
 
 export async function spFcGenerate() {
   setHtml($el('sp-fc-loading'), '<div class="sp-explain-spinner"></div><div style="font-size:12px;">Generating flashcards…</div>');
@@ -15,10 +16,10 @@ export async function spFcGenerate() {
   try {
     const concept = sp.drawerConcept;
     const res = await fetch(API_BASE + '/generate-flashcards', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
+      method: 'POST', headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
       body: JSON.stringify({ topic: concept.title + (concept.description ? ': ' + concept.description : ''), bookId: null, count: 8 }),
     });
-    if (res.status === 429) { const _d = await res.json().catch(()=>({})); if (_d.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'workspace'); return; } throw new Error('Server busy'); }
+    if (res.status === 429) { const _d = await res.json().catch(()=>({})); if (_d.guest_limited && isGuest?.() && typeof showLoginWall === 'function') { showLoginWall(_d.feature||'workspace'); return; } throw new Error('Server busy'); }
     if (!res.ok) throw new Error('Server error ' + res.status);
     const data = await res.json();
     if (!data.success || !data.flashcards?.length) throw new Error(data.error || 'No cards');

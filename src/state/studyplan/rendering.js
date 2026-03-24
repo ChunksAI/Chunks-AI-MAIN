@@ -7,8 +7,9 @@ import { $el, $qs, $qsa, hide, show, setText, setHtml, addClass, removeClass } f
 import { spMasteryScore } from './mastery.js';
 import { spConfidenceBadge } from './srs.js';
 import { spClearUpload } from './input.js';
+import { setActivePlan, _renderRecentPlansAllSidebars } from '../../components/Sidebar.js';
 
-export function spRenderPlan(plan, sourceName) {
+export async function spRenderPlan(plan, sourceName) {
   const n = plan.concepts.length;
   setText($qs('.sp-plan-header-eyebrow'), `Study Plan · ${plan.subject || sourceName}`);
   setText($qs('.sp-plan-header-title'), plan.topic);
@@ -21,7 +22,8 @@ export function spRenderPlan(plan, sourceName) {
   });
 
   spUpdateStats(plan.concepts, []);
-  window.spUpdatePanel();
+  const { spUpdatePanel } = await import('./panel.js');
+  spUpdatePanel();
   spUpdateDetailPanel(plan.concepts, []);
   spShowPlan();
   setTimeout(animateBars, 150);
@@ -166,7 +168,7 @@ export function spShowEmpty() {
   if (btn) { btn.disabled = false; btn.style.opacity = ''; }
   const newBtn = $el('btn-new-plan');
   if (newBtn) hide(newBtn);
-  if (typeof window.setActivePlan === 'function') window.setActivePlan(null);
+  if (typeof setActivePlan === 'function') setActivePlan(null);
   if (typeof spClearUpload === 'function') spClearUpload();
 }
 
@@ -199,18 +201,18 @@ export function spSavePlanToSidebar(topic) {
 }
 
 export function spRenderRecentPlansSidebar(plans) {
-  if (typeof window._renderRecentPlansAllSidebars === 'function') {
-    window._renderRecentPlansAllSidebars();
+  if (typeof _renderRecentPlansAllSidebars === 'function') {
+    _renderRecentPlansAllSidebars();
   }
 }
 
 // Restore recent plans on load
 (function() {
   try {
-    if (typeof window._renderRecentPlansAllSidebars === 'function') {
-      window._renderRecentPlansAllSidebars();
+    if (typeof _renderRecentPlansAllSidebars === 'function') {
+      _renderRecentPlansAllSidebars();
     } else {
-      setTimeout(() => { window._renderRecentPlansAllSidebars?.(); }, 200);
+      setTimeout(() => { _renderRecentPlansAllSidebars?.(); }, 200);
     }
   } catch (_) {}
 })();

@@ -13,6 +13,7 @@ import { spUpdateExamDateUI, spUpdateDailySchedule, _spCheckAndExpireExamDate } 
 import { spLoadAllPlans } from './planLibrary.js';
 import { spUpdateReminderUI } from './notifications.js';
 import { spRenderPlanPatched } from './patches.js';
+import { setActivePlan } from '../../components/Sidebar.js';
 
 // ── Activity chip delegation ───────────────────────────────────────────────
 document.addEventListener('click', e => {
@@ -34,8 +35,8 @@ document.addEventListener('click', e => {
 export function spInitScreen() {
   if (sp.currentPlan) {
     if (typeof spShowPlan === 'function') spShowPlan();
-    if (sp.activePlanId && typeof window.setActivePlan === 'function') {
-      window.setActivePlan(sp.activePlanId);
+    if (sp.activePlanId && typeof setActivePlan === 'function') {
+      setActivePlan(sp.activePlanId);
     }
     setTimeout(() => { spUpdateExamDateUI(); spUpdateDailySchedule(); spUpdateReminderUI(); }, 100);
     return;
@@ -80,13 +81,13 @@ export function spInitScreen() {
           detailCol.appendChild(icalBtn);
         }
         spSrsLoad();
-        if (sp.activePlanId && typeof window.setActivePlan === 'function') {
-          window.setActivePlan(sp.activePlanId);
+        if (sp.activePlanId && typeof setActivePlan === 'function') {
+          setActivePlan(sp.activePlanId);
         } else {
           const storedPlanId = localStorage.getItem('sp_active_plan_id');
-          if (storedPlanId && typeof window.setActivePlan === 'function') {
+          if (storedPlanId && typeof setActivePlan === 'function') {
             sp.activePlanId = storedPlanId;
-            window.setActivePlan(storedPlanId);
+            setActivePlan(storedPlanId);
           }
         }
         setTimeout(() => { spUpdateExamDateUI(); spUpdateDailySchedule(); spUpdateSrsPanel(); spUpdateReminderUI(); }, 200);

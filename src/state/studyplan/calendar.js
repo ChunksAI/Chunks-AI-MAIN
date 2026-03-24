@@ -58,7 +58,7 @@ export function _spCheckAndExpireExamDate() {
     spUpdateDailySchedule();
   }
 }
-window._spCheckAndExpireExamDate = _spCheckAndExpireExamDate;
+// Global assignment removed — handled by globals.js
 
 export function spClearExamDate() {
   sp.examDate = null;
