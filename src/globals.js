@@ -457,11 +457,21 @@ import { wsMobileView } from './screens/WorkspaceScreen.js';
 window.wsMobileView = wsMobileView;
 
 // ── Screens · Library ────────────────────────────────────────────────────────
-// LibraryScreen registers its own inline window.* functions (filterLibraryPage,
-// filterLibPageSection, libTriggerUpload, libDragOver, libDragLeave, libDrop,
-// libDeleteDoc, _libInjectProgress, libRenderMyDocs) because they are defined
-// as `window.X = function(…) { … }` closures — not exported symbols.
-// They stay in LibraryScreen.js.
+import {
+  filterLibraryPage, filterLibPageSection,
+  libTriggerUpload, libDragOver, libDragLeave, libDrop,
+  libDeleteDoc, _libInjectProgress, libRenderMyDocs,
+} from './screens/LibraryScreen.js';
+
+window.filterLibraryPage   = filterLibraryPage;
+window.filterLibPageSection = filterLibPageSection;
+window.libTriggerUpload    = libTriggerUpload;
+window.libDragOver         = libDragOver;
+window.libDragLeave        = libDragLeave;
+window.libDrop             = libDrop;
+window.libDeleteDoc        = libDeleteDoc;
+window._libInjectProgress  = _libInjectProgress;
+window.libRenderMyDocs     = libRenderMyDocs;
 
 // ── Screens · VisualTutor ────────────────────────────────────────────────────
 // _vtClear, _vtOpenForConcept, _vtRestoreSession are registered directly in
@@ -550,10 +560,19 @@ window.toggleTheme               = toggleTheme;
 window._updateCacheSizeLabel     = _updateCacheSizeLabel;
 
 // ── Components · Library Modal ───────────────────────────────────────────────
-import { openLibraryModal, closeLibraryModal } from './components/LibraryModal.js';
+import {
+  openLibraryModal, closeLibraryModal,
+  libModalTriggerUpload, libModalDragOver, libModalDragLeave,
+  libModalDrop, libModalDeleteDoc,
+} from './components/LibraryModal.js';
 
-window.openLibraryModal  = openLibraryModal;
-window.closeLibraryModal = closeLibraryModal;
+window.openLibraryModal    = openLibraryModal;
+window.closeLibraryModal   = closeLibraryModal;
+window.libModalTriggerUpload = libModalTriggerUpload;
+window.libModalDragOver    = libModalDragOver;
+window.libModalDragLeave   = libModalDragLeave;
+window.libModalDrop        = libModalDrop;
+window.libModalDeleteDoc   = libModalDeleteDoc;
 
 // ── Sidebar theme sync ───────────────────────────────────────────────────
 // _syncThemeToggleBtns is a local function in Sidebar.js that registers

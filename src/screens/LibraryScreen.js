@@ -1,5 +1,7 @@
 import { saveDoc, listDocs, deleteDoc } from '../lib/userDocDb.js';
 import { getBookProgress, formatLastStudied, calcReadPct } from '../lib/bookProgress.js';
+import { API_BASE } from '../lib/api.js';
+import { _loadPdfJs } from '../state/workspace/pdf.js';
 
 /**
  * src/screens/LibraryScreen.js
@@ -281,7 +283,7 @@ mountLibraryScreen();
 
 // ── Search & filter (page-scoped, separate from modal's filterLibrary) ────────
 
-window.filterLibraryPage = function(query) {
+export function filterLibraryPage(query) {
   const q = query.trim().toLowerCase();
   const screen = document.getElementById('screen-library');
   if (!screen) return;
@@ -303,9 +305,9 @@ window.filterLibraryPage = function(query) {
 
   const emptyState = document.getElementById('lib-page-empty-state');
   if (emptyState) emptyState.style.display = anyVisible ? 'none' : 'flex';
-};
+}
 
-window.filterLibPageSection = function(cat, btn) {
+export function filterLibPageSection(cat, btn) {
   const screen = document.getElementById('screen-library');
   if (!screen) return;
 
@@ -327,7 +329,7 @@ window.filterLibPageSection = function(cat, btn) {
 
   const emptyState = document.getElementById('lib-page-empty-state');
   if (emptyState) emptyState.style.display = 'none';
-};
+}
 
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -352,17 +354,17 @@ function _libGetFileInput() {
   return _libFileInput;
 }
 
-window.libTriggerUpload = function() {
+export function libTriggerUpload() {
   _libGetFileInput().click();
-};
+}
 
-window.libDragOver = function(e) {
+export function libDragOver(e) {
   e.preventDefault();
   document.getElementById('lib-my-docs-section')?.classList.add('lib-upload-drag');
   const dz = document.getElementById('lib-drop-zone');
   if (dz) dz.style.display = 'flex';
-};
-window.libDragLeave = function(e) {
+}
+export function libDragLeave(e) {
   // Only hide if leaving the section entirely (not entering a child)
   const section = document.getElementById('lib-my-docs-section');
   if (section && !section.contains(e.relatedTarget)) {
@@ -370,15 +372,15 @@ window.libDragLeave = function(e) {
     const dz = document.getElementById('lib-drop-zone');
     if (dz) dz.style.display = 'none';
   }
-};
-window.libDrop = function(e) {
+}
+export function libDrop(e) {
   e.preventDefault();
   document.getElementById('lib-my-docs-section')?.classList.remove('lib-upload-drag');
   const dz = document.getElementById('lib-drop-zone');
   if (dz) dz.style.display = 'none';
   const file = e.dataTransfer?.files?.[0];
   if (file) libHandleFile(file);
-};
+}
 
 async function libHandleFile(file) {
   const allowed = /\.(pdf|pptx?|ppt)$/i;
@@ -413,7 +415,7 @@ async function libHandleFile(file) {
       if (bar) bar.style.width = '35%';
       const fd = new FormData();
       fd.append('file', file);
-      const res  = await fetch(`${window._API_BASE || 'https://api.chunks.online'}/upload-document`, { method: 'POST', body: fd });
+      const res  = await fetch(`${API_BASE}/upload-document`, { method: 'POST', body: fd });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Server extraction failed');
       // Store slides as JSON string so _wsRenderPptSlides can parse it
@@ -425,7 +427,7 @@ async function libHandleFile(file) {
       if (bar) bar.style.width = '25%';
       const buf = await file.arrayBuffer();
       if (bar) bar.style.width = '40%';
-      const pdfjsLib = await (window._loadPdfJs?.() || Promise.reject('PDF.js not loaded'));
+      const pdfjsLib = await (_loadPdfJs?.() || Promise.reject('PDF.js not loaded'));
       const pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
       pageCount = pdfDoc.numPages;
       const textParts = [];
@@ -470,15 +472,15 @@ async function libHandleFile(file) {
   }
 }
 
-window.libDeleteDoc = async function(e, docId) {
+export async function libDeleteDoc(e, docId) {
   e.stopPropagation(); // don't open doc when clicking delete
   if (!confirm('Remove this document from your library?')) return;
   await deleteDoc(docId);
   await libRenderMyDocs();
   wsShowToast?.('✦', 'Document removed', 'var(--text-3)');
-};
+}
 
-async function libRenderMyDocs() {
+export async function libRenderMyDocs() {
   const list  = document.getElementById('lib-my-docs-list');
   const count = document.getElementById('lib-my-docs-count');
   const empty = document.getElementById('lib-docs-empty');
@@ -543,7 +545,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ── Per-book progress overlay ─────────────────────────────────────────────
-function _libInjectProgress() {
+export function _libInjectProgress() {
   const BOOK_IDS = ['zumdahl','atkins','klein','harris','berg','netter','anaphy2e','biochem'];
   BOOK_IDS.forEach(bookId => {
     const card = document.querySelector(`.library-book-card[onclick*="${bookId}"]`);
@@ -587,8 +589,4 @@ function _libInjectProgress() {
   });
 }
 
-// Re-inject when screen is shown (in case user studied between visits)
-window._libInjectProgress = _libInjectProgress;
-
-// Also expose for external callers (e.g. after upload from workspace)
-window.libRenderMyDocs = libRenderMyDocs;
+// Window bridges for LibraryScreen functions are in globals.js.

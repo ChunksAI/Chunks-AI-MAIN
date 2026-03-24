@@ -1,4 +1,9 @@
 import { saveDoc, listDocs, deleteDoc } from '../lib/userDocDb.js';
+import { trapFocus } from '../utils/focusTrap.js';
+import { showToast } from './Toast.js';
+import { API_BASE } from '../lib/api.js';
+import { _loadPdfJs } from '../state/workspace/pdf.js';
+import { selectUserDoc } from '../state/workspace/userDocs.js';
 
 /**
  * src/components/LibraryModal.js — Task 23
@@ -349,7 +354,7 @@ export function openLibraryModal() {
   if (!modal) return;
   modal.classList.add('active');
   sessionStorage.setItem('chunks_library_open', '1');
-  _libraryFocusRelease = window.trapFocus?.(modal) ?? null;
+  _libraryFocusRelease = trapFocus?.(modal) ?? null;
 
   // Refresh My Documents list each time modal opens
   libModalRenderMyDocs().catch(() => {});
@@ -394,50 +399,50 @@ function _getLibModalFileInput() {
   return _libModalFileInput;
 }
 
-window.libModalTriggerUpload = function() {
+export function libModalTriggerUpload() {
   _getLibModalFileInput().click();
-};
+}
 
-window.libModalDragOver = function(e) {
+export function libModalDragOver(e) {
   e.preventDefault();
   document.getElementById('lib-modal-my-docs-section')?.classList.add('lib-upload-drag');
   const dz = document.getElementById('lib-modal-drop-zone');
   if (dz) dz.style.display = 'flex';
-};
-window.libModalDragLeave = function(e) {
+}
+export function libModalDragLeave(e) {
   const section = document.getElementById('lib-modal-my-docs-section');
   if (section && !section.contains(e.relatedTarget)) {
     section.classList.remove('lib-upload-drag');
     const dz = document.getElementById('lib-modal-drop-zone');
     if (dz) dz.style.display = 'none';
   }
-};
-window.libModalDrop = function(e) {
+}
+export function libModalDrop(e) {
   e.preventDefault();
   document.getElementById('lib-modal-my-docs-section')?.classList.remove('lib-upload-drag');
   const dz = document.getElementById('lib-modal-drop-zone');
   if (dz) dz.style.display = 'none';
   const file = e.dataTransfer?.files?.[0];
   if (file) libModalHandleFile(file);
-};
+}
 
-window.libModalDeleteDoc = async function(e, docId) {
+export async function libModalDeleteDoc(e, docId) {
   e.stopPropagation();
   if (!confirm('Remove this document from your library?')) return;
   await deleteDoc(docId);
   await libModalRenderMyDocs();
-  window.wsShowToast?.('✦', 'Document removed', 'var(--text-3)');
-};
+  showToast('✦', 'Document removed', 'var(--text-3)');
+}
 
 async function libModalHandleFile(file) {
   const allowed = /\.(pdf|pptx?|ppt)$/i;
   if (!allowed.test(file.name)) {
-    window.wsShowToast?.('⚠', 'Only PDF and PowerPoint files are supported', 'var(--red)');
+    showToast('⚠', 'Only PDF and PowerPoint files are supported', 'var(--red)');
     return;
   }
   const MAX = 80 * 1024 * 1024;
   if (file.size > MAX) {
-    window.wsShowToast?.('⚠', 'File too large (max 80 MB)', 'var(--red)');
+    showToast('⚠', 'File too large (max 80 MB)', 'var(--red)');
     return;
   }
 
@@ -459,7 +464,7 @@ async function libModalHandleFile(file) {
       if (bar) bar.style.width = '35%';
       const fd = new FormData();
       fd.append('file', file);
-      const res  = await fetch(`${window._API_BASE || 'https://api.chunks.online'}/upload-document`, { method: 'POST', body: fd });
+      const res  = await fetch(`${API_BASE}/upload-document`, { method: 'POST', body: fd });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || 'Server extraction failed');
       extractedText = JSON.stringify(json.slides || []);
@@ -469,7 +474,7 @@ async function libModalHandleFile(file) {
       if (bar) bar.style.width = '25%';
       const buf = await file.arrayBuffer();
       if (bar) bar.style.width = '40%';
-      const pdfjsLib = await (window._loadPdfJs?.() || Promise.reject('PDF.js not loaded'));
+      const pdfjsLib = await (_loadPdfJs?.() || Promise.reject('PDF.js not loaded'));
       const pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
       pageCount = pdfDoc.numPages;
       const textParts = [];
@@ -497,15 +502,15 @@ async function libModalHandleFile(file) {
     }, 600);
 
     await libModalRenderMyDocs();
-    window.wsShowToast?.('✦', `"${file.name}" added to your library`, 'var(--violet-border)');
+    showToast('✦', `"${file.name}" added to your library`, 'var(--violet-border)');
     // Auto-open the just-uploaded doc in workspace and close modal
-    if (typeof window.selectUserDoc === 'function') {
-      window.selectUserDoc(meta.id);
+    if (typeof selectUserDoc === 'function') {
+      selectUserDoc(meta.id);
       closeLibraryModal();
     }
   } catch (err) {
     console.error('[libModalHandleFile] error:', err);
-    window.wsShowToast?.('⚠', 'Upload failed: ' + err.message, 'var(--red)');
+    showToast('⚠', 'Upload failed: ' + err.message, 'var(--red)');
     if (prog) prog.style.display = 'none';
     if (bar)  bar.style.width = '0%';
     if (lbl)  lbl.textContent = 'Upload';
@@ -536,8 +541,8 @@ async function libModalRenderMyDocs() {
     const row = document.createElement('div');
     row.className = 'lib-doc-row';
     row.onclick   = () => {
-      if (typeof window.selectUserDoc === 'function') {
-        window.selectUserDoc(doc.id);
+      if (typeof selectUserDoc === 'function') {
+        selectUserDoc(doc.id);
         closeLibraryModal();
       }
     };
@@ -568,7 +573,4 @@ async function libModalRenderMyDocs() {
   });
 }
 
-// ── Window bridges ────────────────────────────────────────────────────────────
-
-window.openLibraryModal  = openLibraryModal;
-window.closeLibraryModal = closeLibraryModal;
+// Window bridges for openLibraryModal / closeLibraryModal are in globals.js.
