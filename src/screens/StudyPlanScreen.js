@@ -532,6 +532,49 @@ const SP_EXPLAIN_DRAWER_HTML = /* html */`
     <div id="sp-explain-body" style="flex:1;overflow-y:auto;padding:20px 22px 32px;font-size:13.5px;line-height:1.85;color:var(--text-2);">
       <div class="sp-explain-spinner"></div>
     </div>
+    <!-- Task 4: Study in Chat CTA at the bottom of each AI explanation -->
+    <div id="sp-study-in-chat-bar" style="
+      flex-shrink:0;
+      padding:12px 20px 16px;
+      border-top:1px solid var(--border-xs);
+      background:var(--surface-1);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    ">
+      <div style="font-size:11px;color:var(--text-3);line-height:1.4;">
+        Want to go deeper? Ask follow-up questions in the chat.
+      </div>
+      <button
+        id="sp-open-in-chat-btn"
+        data-action="spOpenInWorkspace"
+        style="
+          flex-shrink:0;
+          padding:7px 14px;
+          border-radius:var(--r-pill);
+          background:var(--surface-3);
+          border:1px solid var(--border-md);
+          color:var(--text-1);
+          font-size:11px;
+          font-weight:700;
+          cursor:pointer;
+          font-family:var(--font-body);
+          display:flex;
+          align-items:center;
+          gap:6px;
+          transition:background 0.15s,border-color 0.15s;
+          white-space:nowrap;
+        "
+        onmouseenter="this.style.background='var(--surface-4)';this.style.borderColor='var(--violet-border)'"
+        onmouseleave="this.style.background='var(--surface-3)';this.style.borderColor='var(--border-md)'"
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Study in Chat →
+      </button>
+    </div>
   </div>
 
   <!-- FLASHCARD VIEW -->
