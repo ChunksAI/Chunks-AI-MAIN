@@ -502,7 +502,7 @@ def _get_and_increment_daily_count(user_id: str, date_str: str) -> int:
     return count
 
 
-def _extract_verified_user(enforce_daily_limit: bool = False):
+def _extract_verified_user():
     """
     Extract and verify the Supabase JWT from the current request's
     Authorization header and look up the user's tier.
@@ -1374,35 +1374,8 @@ def home():
     })
 
 
-@app.route('/api/debug-ip', methods=['GET'])
-def debug_ip():
-    """
-    Diagnostic endpoint — shows what IP the server sees for this request.
-    Use this to verify ProxyFix is working correctly.
-    Remove or restrict this endpoint after debugging.
-    """
-    from guest_limits import _get_client_ip, GUEST_LIMITS, _redis_key, _today
-    ip  = _get_client_ip()
-    day = _today()
-    # Show current Redis counters for this IP
-    counters = {}
-    if _redis:
-        for feature in GUEST_LIMITS:
-            key = _redis_key(ip, feature, day)
-            try:
-                val = _redis.get(key)
-                counters[feature] = int(val) if val else 0
-            except Exception:
-                counters[feature] = 'redis_error'
-    return jsonify({
-        'remote_addr':        request.remote_addr,
-        'x_forwarded_for':    request.headers.get('X-Forwarded-For', 'not set'),
-        'x_real_ip':          request.headers.get('X-Real-IP', 'not set'),
-        'resolved_ip':        ip,
-        'redis_connected':    _redis is not None,
-        'guest_counters':     counters,
-        'day':                day,
-    })
+# /api/debug-ip removed — it exposed internal IP resolution, Redis keys, and
+# guest counter values. Use Railway logs for debugging ProxyFix / IP issues.
 
 
 @app.route('/ping', methods=['GET'])
@@ -1591,7 +1564,7 @@ def ask():
         # _extract_verified_user verifies the JWT, looks up the real tier in DB,
         # and atomically enforces the free-tier daily limit via Redis.
         # It aborts with 429 if the limit is exceeded.
-        verified_user_id, user_tier = _extract_verified_user(enforce_daily_limit=True)
+        verified_user_id, user_tier = _extract_verified_user()
 
         # Parse injected token flags from legacy frontend path
         token_flags = []
@@ -2247,7 +2220,7 @@ def generate_flashcards():
         book_id = data.get('bookId', 'zumdahl')
 
         # Verify JWT and enforce daily limit (shared across all AI endpoints)
-        _extract_verified_user(enforce_daily_limit=True)
+        _extract_verified_user()
 
         # ── Cache check: return instantly if already generated ────────────────
         cache_k = _cache_key(book_id, topic, 'flashcards', count)
@@ -2330,7 +2303,7 @@ def upload_document():
         return jsonify({'ok': True})
     try:
         # Verify JWT and enforce daily limit before doing any file I/O
-        _extract_verified_user(enforce_daily_limit=True)
+        _extract_verified_user()
 
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file uploaded'}), 400
@@ -2466,7 +2439,7 @@ def generate_study_materials():
         material_type = data.get('type', 'notes')
 
         # Verify JWT and enforce daily limit
-        _extract_verified_user(enforce_daily_limit=True)
+        _extract_verified_user()
 
         # ── Cache check ───────────────────────────────────────────────────────
         _sm_hash = hashlib.md5(str(slides).encode()).hexdigest()[:16]
@@ -2714,7 +2687,7 @@ def generate_quiz():
         existing_questions = data.get('existingQuestions', [])
 
         # Verify JWT and enforce daily limit
-        _extract_verified_user(enforce_daily_limit=True)
+        _extract_verified_user()
 
         if not slides:
             return jsonify({'success': False, 'error': 'No slide content provided'}), 400
@@ -2899,7 +2872,7 @@ def ask_image():
         )
 
         # Verify JWT and enforce daily limit
-        _extract_verified_user(enforce_daily_limit=True)
+        _extract_verified_user()
 
         # ── Input validation ───────────────────────────────────────────────────
         if not image_b64:

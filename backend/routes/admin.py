@@ -26,13 +26,23 @@ logger = logging.getLogger(__name__)
 admin_bp = Blueprint('admin', __name__, url_prefix='/api/admin')
 
 
-# ── Hardcoded admin email → role map (fallback when DB lookup fails) ──────────
-# These emails are also validated by the PIN hash check, so listing them here
-# is safe — an attacker still needs Google OAuth + correct PIN to get in.
-_ADMIN_EMAILS: dict[str, str] = {
-    'contridascharles91@gmail.com': 'owner',
-    'deffmichaeldawang@gmail.com':  'admin',
-}
+# ── Admin email → role map (loaded from environment variables) ───────────────
+# Set ADMIN_EMAIL_OWNER and ADMIN_EMAIL_ADMIN in your Railway / .env file.
+# Never hardcode emails in source — if this repo is ever public or leaked,
+# attackers would know exactly which accounts to target.
+def _load_admin_emails() -> dict[str, str]:
+    mapping: dict[str, str] = {}
+    owner_email = (os.environ.get('ADMIN_EMAIL_OWNER') or '').strip().lower()
+    admin_email = (os.environ.get('ADMIN_EMAIL_ADMIN') or '').strip().lower()
+    if owner_email:
+        mapping[owner_email] = 'owner'
+    if admin_email:
+        mapping[admin_email] = 'admin'
+    return mapping
+
+def _get_admin_emails() -> dict[str, str]:
+    """Return the current admin email map, always fresh from env vars."""
+    return _load_admin_emails()
 
 
 def _get_pin_hash_for_email(email: str) -> str:
@@ -41,13 +51,17 @@ def _get_pin_hash_for_email(email: str) -> str:
     Safely handles missing / None env vars — never raises.
     """
     try:
-        owner_hash = (os.environ.get('ADMIN_PIN_HASH_OWNER') or '').strip()
-        admin_hash = (os.environ.get('ADMIN_PIN_HASH_ADMIN') or '').strip()
+        owner_hash  = (os.environ.get('ADMIN_PIN_HASH_OWNER') or '').strip()
+        admin_hash  = (os.environ.get('ADMIN_PIN_HASH_ADMIN') or '').strip()
+        owner_email = (os.environ.get('ADMIN_EMAIL_OWNER') or '').strip().lower()
+        admin_email = (os.environ.get('ADMIN_EMAIL_ADMIN') or '').strip().lower()
 
-        mapping = {
-            'contridascharles91@gmail.com': owner_hash,
-            'deffmichaeldawang@gmail.com':  admin_hash,
-        }
+        mapping = {}
+        if owner_email:
+            mapping[owner_email] = owner_hash
+        if admin_email:
+            mapping[admin_email] = admin_hash
+
         result = (mapping.get((email or '').lower().strip()) or '').strip()
         logger.debug(
             f'_get_pin_hash_for_email: email={email!r} '
@@ -68,10 +82,11 @@ def _verify_admin_pin(email: str, pin: str) -> bool:
     try:
         expected = _get_pin_hash_for_email(email)
 
-        # No PIN hash configured → no PIN required, allow through
+        # No PIN hash configured → DENY. Default-deny is the safe choice.
+        # Set ADMIN_PIN_HASH_OWNER / ADMIN_PIN_HASH_ADMIN env vars to enable access.
         if not expected:
-            logger.info(f'PIN: no hash configured for {email} — skipping PIN check')
-            return True
+            logger.warning(f'PIN: no hash configured for {email} — denying (default-deny)')
+            return False
 
         # Coerce pin to string — may arrive as int from some JSON parsers
         pin_str    = str(pin if pin is not None else '').strip()
@@ -262,7 +277,7 @@ def _check_admin_role(jwt_token: str) -> tuple:
 
     # ── Fast path: check hardcoded list FIRST (avoids DB call for known admins) ─
     # This is safe: the PIN check is still enforced separately.
-    fast_role = _ADMIN_EMAILS.get(email)
+    fast_role = _get_admin_emails().get(email)
     if fast_role:
         logger.info(f'Admin check: fast-path match for {email} ({fast_role})')
         if verified is None:
