@@ -1527,7 +1527,13 @@ def get_library():
 # ============================================
 
 @app.route('/ask', methods=['POST', 'OPTIONS'])
-@limiter.limit('20 per minute; 100 per hour', exempt_when=lambda: request.method == 'OPTIONS')
+@limiter.limit(
+    '20 per minute; 100 per hour',
+    exempt_when=lambda: (
+        request.method == 'OPTIONS' or
+        request.headers.get('Authorization', '').strip().startswith('Bearer ')
+    )
+)
 def ask():
     if request.method == 'OPTIONS':
         return jsonify({'ok': True})

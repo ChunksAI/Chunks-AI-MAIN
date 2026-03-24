@@ -2149,9 +2149,12 @@ function _bindSetupForm() {
 // Retries up to 3 times on 429 with exponential backoff (2s, 4s, 8s).
 // Handles guest-limited responses before retrying.
 // Pass an AbortSignal as the second arg (e.g. for paper search cancellation).
-async function _researchFetchWithRetry(bodyObj, signal) {
+async function _researchFetchWithRetry(bodyObj, signal, _statusEl) {
+  // _statusEl (optional): a DOM element to show live countdown during rate-limit waits
+  const MAX_ATTEMPTS = 4;
+  const DELAYS = [2000, 4000, 8000]; // 2s, 4s, 8s between retries
   let res;
-  for (let attempt = 0; attempt <= 3; attempt++) {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     res = await fetch(API_BASE + '/ask', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
@@ -2159,16 +2162,30 @@ async function _researchFetchWithRetry(bodyObj, signal) {
       body:    JSON.stringify(bodyObj)
     });
     if (res.status !== 429) break;
-    // Check for guest rate-limit wall first
+    // Check for guest rate-limit wall first — don't retry, show login wall
     const d429 = await res.clone().json().catch(() => ({}));
     if (_handleGuestLimited(d429)) {
       throw Object.assign(new Error('guest_limited'), { _guestLimited: true });
     }
-    if (attempt < 3) {
-      await new Promise(r => setTimeout(r, Math.pow(2, attempt + 1) * 1000));
-      continue;
+    if (attempt >= MAX_ATTEMPTS - 1) {
+      throw new Error('Server is busy — please try again in a moment.');
     }
-    throw new Error('Server is busy — please try again in a moment.');
+    // Show live countdown so the UI doesn't look frozen
+    const waitMs = DELAYS[attempt] || 8000;
+    const waitSec = Math.ceil(waitMs / 1000);
+    if (_statusEl) {
+      let remaining = waitSec;
+      _statusEl.textContent = `Server busy — retrying in ${remaining}s…`;
+      const tick = setInterval(() => {
+        remaining--;
+        if (remaining > 0) _statusEl.textContent = `Server busy — retrying in ${remaining}s…`;
+        else clearInterval(tick);
+      }, 1000);
+      await new Promise(r => setTimeout(r, waitMs));
+      clearInterval(tick);
+    } else {
+      await new Promise(r => setTimeout(r, waitMs));
+    }
   }
   return res;
 }
@@ -2264,7 +2281,7 @@ Rules:
       ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(),
       bookId:     'none',
       history:    []
-    });
+    }, null, statusEl);
 
     if (!response.ok) throw new Error('Server error ' + response.status + ' — please try again.');
     const data = await response.json();
