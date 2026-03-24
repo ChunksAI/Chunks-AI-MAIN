@@ -279,7 +279,6 @@ export function setActivePlan(planId) {
     el.classList.toggle('active', !!_activePlanId && el.dataset.planId === _activePlanId);
   });
 }
-window.setActivePlan = setActivePlan;
 
 export function mountSidebars() {
   document.querySelectorAll('aside.sidebar[data-sidebar-screen]').forEach(el => {
@@ -385,7 +384,7 @@ if (document.readyState === 'loading') {
   _syncThemeToggleBtns();
 }
 
-function _syncThemeToggleBtns() {
+export function _syncThemeToggleBtns() {
   const isStudy = document.documentElement.getAttribute('data-theme') === 'study';
   document.querySelectorAll('#theme-toggle-btn').forEach(btn => {
     if (typeof window._updateThemeBtn === 'function') window._updateThemeBtn(btn, isStudy);
@@ -394,7 +393,6 @@ function _syncThemeToggleBtns() {
       : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg> Study Mode';
   });
 }
-window._syncThemeToggleBtns = _syncThemeToggleBtns;
 
 // Safety net: if screens mount asynchronously (e.g. code-split chunks),
 // re-run mountSidebars on the next tick so any <aside> elements that
@@ -408,7 +406,3 @@ setTimeout(() => {
   }
 }, 0);
 
-// Legacy global
-window.buildSidebar  = buildSidebar;
-window.mountSidebars = mountSidebars;
-window._renderRecentPlansAllSidebars = _renderRecentPlansAllSidebars;

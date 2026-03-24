@@ -9,7 +9,7 @@
  *   • index.html      → #simple-notif <style>/<div>/<script> block
  *                        + thin wrappers showConfirmModal / closeConfirmModal
  *
- * window bridges set here:
+ * Window bridges (moved to src/globals.js):
  *   window._showSharedConfirm   — called by showConfirmModal() in index.html
  *   window._closeSharedConfirm  — called by closeConfirmModal() in index.html
  *   window.showConfirmModal     — convenience alias (used by inline scripts)
@@ -148,10 +148,4 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ── Window bridges ────────────────────────────────────────────────────────────
 
-window._showSharedConfirm  = showConfirmModal;
-window._closeSharedConfirm = closeConfirmModal;
-window.showConfirmModal    = showConfirmModal;
-window.closeConfirmModal   = closeConfirmModal;
-window.showSimpleNotif     = showSimpleNotif;

@@ -1,3 +1,10 @@
+import { _currentUser }      from '../lib/auth.js';
+import { chunksSignOut }     from '../lib/auth.js';
+import { openSettings }      from './SettingsModal.js';
+import { openIncognitoChat } from '../screens/HomeScreen.js';
+import { showConfirmModal }  from './ConfirmModal.js';
+import { showToast }         from './Toast.js';
+
 /**
  * src/components/ProfileDropdown.js — Task 22
  *
@@ -8,7 +15,7 @@
  *   • #profile-dropdown                     HTML element  (~line 8663)
  *   • toggleProfileDropdown / pdAction / submenu logic  JS block (~lines 2646–2854)
  *
- * window bridges set here:
+ * Window bridges (moved to src/globals.js):
  *   window.toggleProfileDropdown
  *   window.pdAction
  *   window.pdOpenHelp
@@ -144,7 +151,7 @@ export function toggleProfileDropdown(e) {
 
   // Swap logout ↔ sign-in depending on whether this is a guest session
   if (_pdOpen) {
-    const isGuest = sessionStorage.getItem('chunks_guest_mode') === '1' || !window._currentUser?.id;
+    const isGuest = sessionStorage.getItem('chunks_guest_mode') === '1' || !_currentUser?.id;
     const logoutBtn = dd.querySelector('[onclick*="logout"]');
     if (logoutBtn) {
       if (isGuest) {
@@ -305,11 +312,11 @@ export async function pdAction(action) {
   document.getElementById('profile-dropdown')?.classList.remove('open');
 
   switch (action) {
-    case 'upgrade':       window._currentUser ? window.openUpgradeModal?.() : window.openAuthModal?.(); break;
+    case 'upgrade':       _currentUser ? window.openUpgradeModal?.() : window.openAuthModal?.(); break;
     case 'admin':         window.open('/admin', '_blank');         break;
-    case 'personalization': window.openSettings?.('personalization'); break;
-    case 'settings':      window.openSettings?.('general');       break;
-    case 'incognito':     window.openIncognitoChat?.();            break;
+    case 'personalization': openSettings?.('personalization'); break;
+    case 'settings':      openSettings?.('general');       break;
+    case 'incognito':     openIncognitoChat?.();            break;
     case 'help-center':   window.openHelpCenter?.();              break;
     case 'terms':         window.open('terms.html', '_blank');    break;
     case 'privacy':       window.open('privacy.html', '_blank');  break;
@@ -317,11 +324,11 @@ export async function pdAction(action) {
     case 'shortcuts':     window.openShortcuts?.();               break;
     case 'logout': {
       const email = document.querySelector('.pd-handle')?.textContent?.trim() || '';
-      window.showConfirmModal?.({
+      showConfirmModal?.({
         title:        'Are you sure you want to log out?',
         desc:         email ? `Log out of Chunks AI as ${email}?` : 'Log out of Chunks AI?',
         confirmLabel: 'Log out',
-        onConfirm:    () => window.chunksSignOut?.()
+        onConfirm:    () => chunksSignOut?.()
       });
       break;
     }
@@ -400,21 +407,11 @@ function _attachSubmenuListeners() {
   }
 }
 
-// ── Window bridges ────────────────────────────────────────────────────────────
-
-window.toggleProfileDropdown = toggleProfileDropdown;
-window.pdAction              = pdAction;
-window.pdOpenHelp            = pdOpenHelp;
-window.pdToggleHelp          = pdToggleHelp;
-window.pdOpenTerms           = pdOpenTerms;
-window._closeHelp            = _closeHelp;
-window._closeTerms           = _closeTerms;
-
 // ── Upgrade modal ─────────────────────────────────────────────────────────────
 // These were lost during monolith migration — restored in Task 38 smoke test.
 // The upgrade modal uses .active class to show/hide (see src/styles/modals.css).
 
-window.openUpgradeModal = function openUpgradeModal() {
+export function openUpgradeModal() {
   document.getElementById('upgrade-modal')?.classList.add('active');
   // On mobile, scroll the featured (Pro) card into view
   if (window.innerWidth <= 600) {
@@ -423,17 +420,15 @@ window.openUpgradeModal = function openUpgradeModal() {
       featured?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
     });
   }
-};
+}
 
-window.closeUpgradeModal = function closeUpgradeModal() {
+export function closeUpgradeModal() {
   document.getElementById('upgrade-modal')?.classList.remove('active');
-};
+}
 
-window.handleUpgradeClick = function handleUpgradeClick(plan) {
-  window.closeUpgradeModal();
+export function handleUpgradeClick(plan) {
+  closeUpgradeModal();
   // TODO: wire up payment / billing redirect when ready
   console.log('[upgrade] plan selected:', plan);
-  if (typeof wsShowToast === 'function') {
-    wsShowToast('⭐', `${plan === 'ultra' ? 'Ultra' : 'Pro'} — payment coming soon!`, 'var(--gold-border)');
-  }
-};
+  showToast('⭐', `${plan === 'ultra' ? 'Ultra' : 'Pro'} — payment coming soon!`, 'var(--gold-border)');
+}
