@@ -24,6 +24,30 @@ import { isQuotaError, showStorageError } from '../components/StorageErrorBanner
 const DB_NAME    = 'chunks-user-docs';
 const DB_VERSION = 1;
 
+// ── IndexedDB migration registry ──────────────────────────────────────────────
+// Each entry maps a *target* version to a function that upgrades the database
+// FROM the previous version.  The onupgradeneeded handler steps through all
+// needed migrations when the stored DB version is behind DB_VERSION.
+//
+// How to add a migration:
+//  1. Bump DB_VERSION by 1.
+//  2. Add a new entry here keyed by the new version number.
+//  3. The function receives (db, transaction) — use them to create/alter
+//     object stores or transform existing data.
+
+/** @type {Record<number, (db: IDBDatabase, tx: IDBTransaction) => void>} */
+const USERDOC_MIGRATIONS = {
+  // ── v0 → v1: create docs + blobs stores ────────────────────────────────
+  1: (db) => {
+    if (!db.objectStoreNames.contains('docs')) {
+      db.createObjectStore('docs', { keyPath: 'id' });
+    }
+    if (!db.objectStoreNames.contains('blobs')) {
+      db.createObjectStore('blobs', { keyPath: 'id' });
+    }
+  },
+};
+
 let _db = null;
 
 function _openDb() {
@@ -32,11 +56,10 @@ function _openDb() {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = e => {
       const db = e.target.result;
-      if (!db.objectStoreNames.contains('docs')) {
-        db.createObjectStore('docs', { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains('blobs')) {
-        db.createObjectStore('blobs', { keyPath: 'id' });
+      const oldVersion = e.oldVersion || 0;
+      for (let v = oldVersion + 1; v <= DB_VERSION; v++) {
+        const migrateFn = USERDOC_MIGRATIONS[v];
+        if (migrateFn) migrateFn(db, e.target.transaction);
       }
     };
     req.onsuccess = e => { _db = e.target.result; resolve(_db); };
