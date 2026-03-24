@@ -13,7 +13,7 @@
  *       _initDropdownAria IIFE
  *       settingsNav / settingsDropdown / settingsSelect
  *       applyAccentColor / settingsSelectAccent / settingsSelectVoice / settingsPlayVoice
- *       settingsToggleChanged / settingsSelectDefaultBook / settingsSelectStudyMode
+ *       settingsToggleChanged / settingsSelectStudyMode
  *       _getStudyMode / _isFollowupsEnabled / _isAutoFlashEnabled
  *       dataToggleSaveHistory / dataToggleImprove
  *       clearAllHistory / clearPdfCache / _updateCacheSizeLabel
@@ -25,7 +25,7 @@
  *   window.settingsDropdown      window.settingsSelect
  *   window.applyAccentColor      window.settingsSelectAccent
  *   window.settingsSelectVoice   window.settingsPlayVoice
- *   window.settingsToggleChanged window.settingsSelectDefaultBook
+ *   window.settingsToggleChanged
  *   window.settingsSelectStudyMode
  *   window._getStudyMode         window._isFollowupsEnabled
  *   window._isAutoFlashEnabled
@@ -219,23 +219,6 @@ const SETTINGS_MODAL_HTML = `
       <!-- Personalization -->
       <div class="settings-page" id="settings-page-personalization">
         <div class="settings-page-title">Personalization</div>
-        <div class="settings-row">
-          <div class="settings-row-left"><div class="settings-row-label">Default book</div><div class="settings-row-desc">The textbook that opens by default in Workspace.</div></div>
-          <div class="settings-select-wrap">
-            <div class="settings-select-btn" data-action="settingsDropdown-self">
-              <span>Atkins Chemistry</span>
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m6 9 6 6 6-6"/></svg>
-            </div>
-            <div class="settings-select-menu" id="default-book-menu">
-              <div class="settings-select-option selected" data-book-id="atkins" data-action="settingsSelectDefaultBook-self">Atkins Chemistry</div>
-              <div class="settings-select-option" data-book-id="zumdahl" data-action="settingsSelectDefaultBook-self">Zumdahl General Chemistry</div>
-              <div class="settings-select-option" data-book-id="klein" data-action="settingsSelectDefaultBook-self">Klein Organic Chemistry</div>
-              <div class="settings-select-option" data-book-id="harris" data-action="settingsSelectDefaultBook-self">Harris Analytical</div>
-              <div class="settings-select-option" data-book-id="anaphy2e" data-action="settingsSelectDefaultBook-self">Anatomy &amp; Physiology</div>
-              <div class="settings-select-option" data-book-id="netter" data-action="settingsSelectDefaultBook-self">Netter Anatomy</div>
-            </div>
-          </div>
-        </div>
         <div class="settings-row">
           <div class="settings-row-left"><div class="settings-row-label">Study mode</div><div class="settings-row-desc">Adjust AI response depth and detail level.</div></div>
           <div class="settings-select-wrap">
@@ -683,15 +666,6 @@ export function settingsToggleChanged(checkbox, key) {
   window.wsShowToast?.(val ? '✓' : '✕', `${label} ${val ? 'enabled' : 'disabled'}`, val ? '' : '');
 }
 
-export function settingsSelectDefaultBook(optionEl) {
-  settingsSelect(optionEl);
-  const bookId = optionEl.dataset.bookId;
-  if (bookId) {
-    localStorage.setItem('chunks_default_book', bookId);
-    window.wsShowToast?.('📚', `Default book set to ${optionEl.textContent.trim()}`, '');
-  }
-}
-
 export function settingsSelectStudyMode(optionEl) {
   settingsSelect(optionEl);
   const mode = optionEl.dataset.mode;
@@ -901,25 +875,6 @@ function _restoreSettings() {
   applySelect('language',        localStorage.getItem('chunks_setting_language'));
   applySelect('spoken-language', localStorage.getItem('chunks_setting_spoken-language'));
 
-  // Default book
-  // Unwrap JSON-stringified values that may have been written by an older version
-  // of the app that used _lsSet (which JSON.stringifies).  Raw readers get e.g.
-  // '"__user_doc__"' instead of '__user_doc__', which breaks querySelector.
-  let savedBook = localStorage.getItem('chunks_default_book');
-  try { savedBook = JSON.parse(savedBook); } catch (e) { /* already a plain string */ }
-  if (savedBook && savedBook !== '__user_doc__') {
-    const bookMenu = document.getElementById('default-book-menu');
-    if (bookMenu) {
-      const match = bookMenu.querySelector(`[data-book-id="${CSS.escape(savedBook)}"]`);
-      if (match) {
-        bookMenu.querySelectorAll('.settings-select-option').forEach(o => o.classList.remove('selected'));
-        match.classList.add('selected');
-        const btn = bookMenu.previousElementSibling;
-        if (btn) btn.querySelector('span').textContent = match.textContent.trim();
-      }
-    }
-  }
-
   // Study mode
   const savedMode = localStorage.getItem('chunks_study_mode');
   if (savedMode) {
@@ -1053,7 +1008,6 @@ window.settingsSelectAccent      = settingsSelectAccent;
 window.settingsSelectVoice       = settingsSelectVoice;
 window.settingsPlayVoice         = settingsPlayVoice;
 window.settingsToggleChanged     = settingsToggleChanged;
-window.settingsSelectDefaultBook = settingsSelectDefaultBook;
 window.settingsSelectStudyMode   = settingsSelectStudyMode;
 window._getStudyMode             = _getStudyMode;
 window._isFollowupsEnabled       = _isFollowupsEnabled;
