@@ -12,19 +12,20 @@
  *  • KEYS                      — typed constant object (prevents typos)
  *  • getSetting / setSetting   — shorthand for chunks_setting_* keys
  *
- * Task 13 — extracted from monolith.
- * Replaces the identical lsGet/lsSet/lsRemove helpers inside ChunksDB
- * (lines ~6839–6852) and the 90+ raw localStorage calls scattered across
- * every script block.
+ * Large, mutable data (chat sessions, flashcard decks/sessions, study
+ * plans) is transparently stored in IndexedDB via src/lib/idbStorage.js
+ * while small settings and flags remain in localStorage.
  *
  * NOTE: window.* bridges are centralised in src/globals.js so inline
  * script blocks that haven't been migrated yet continue to work unchanged.
  */
 
+import { isIdbKey, idbGet, idbSet, idbRemove } from '../lib/idbStorage.js';
+
 // ── localStorage helpers ───────────────────────────────────────────────────
 
 /**
- * Read a JSON value from localStorage.
+ * Read a JSON value from localStorage (or IndexedDB for large-data keys).
  * Returns `fallback` (default null) if the key is absent or parse fails.
  *
  * @template T
@@ -33,6 +34,7 @@
  * @returns {T}
  */
 export function lsGet(key, fallback = null) {
+  if (isIdbKey(key)) return idbGet(key, fallback);
   try {
     const raw = localStorage.getItem(key);
     return raw !== null ? JSON.parse(raw) : fallback;
@@ -42,13 +44,14 @@ export function lsGet(key, fallback = null) {
 }
 
 /**
- * Write a JSON-serialisable value to localStorage.
- * Silently swallows QuotaExceededError and SecurityError.
+ * Write a JSON-serialisable value to localStorage (or IndexedDB for
+ * large-data keys). Silently swallows QuotaExceededError and SecurityError.
  *
  * @param {string} key
  * @param {*}      value
  */
 export function lsSet(key, value) {
+  if (isIdbKey(key)) { idbSet(key, value); return; }
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (_) {
@@ -57,11 +60,12 @@ export function lsSet(key, value) {
 }
 
 /**
- * Remove a key from localStorage.
+ * Remove a key from localStorage (or IndexedDB for large-data keys).
  *
  * @param {string} key
  */
 export function lsRemove(key) {
+  if (isIdbKey(key)) { idbRemove(key); return; }
   try { localStorage.removeItem(key); } catch (_) {}
 }
 

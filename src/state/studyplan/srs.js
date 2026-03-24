@@ -5,6 +5,7 @@
 import { sp, SRS_MIN_INTERVAL, SRS_EASE_DEFAULT } from './state.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 import { spMasteryScore } from './mastery.js';
+import { lsGet, lsSet } from '../../utils/storage.js';
 
 export function spSrsUpdate(conceptIdx, examScore) {
   if (!sp.srsSchedule[conceptIdx]) {
@@ -23,15 +24,15 @@ export function spSrsUpdate(conceptIdx, examScore) {
   s.reviews++;
   s.lastScore = examScore;
   try {
-    localStorage.setItem('sp_srs_' + (sp.activePlanId || 'default'), JSON.stringify(sp.srsSchedule));
+    lsSet('sp_srs_' + (sp.activePlanId || 'default'), sp.srsSchedule);
   } catch(e) {}
   spUpdateSrsPanel();
 }
 
 export function spSrsLoad() {
   try {
-    const raw = localStorage.getItem('sp_srs_' + (sp.activePlanId || 'default'));
-    if (raw) sp.srsSchedule = JSON.parse(raw);
+    const parsed = lsGet('sp_srs_' + (sp.activePlanId || 'default'));
+    if (parsed) sp.srsSchedule = parsed;
   } catch(e) {}
 }
 

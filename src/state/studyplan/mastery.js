@@ -5,6 +5,7 @@
 import { sp, SP_WEIGHTS } from './state.js';
 import { $qs, $qsa, addClass } from '../domHelpers.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
+import { lsSet } from '../../utils/storage.js';
 
 export function spMasteryGet(idx) {
   if (!sp.mastery[idx]) sp.mastery[idx] = { explain: 0, flash: 0, pq: 0, exam: 0 };
@@ -33,7 +34,7 @@ export function spMasteryRecord(activityKey, score) {
   if (total >= 80) spMasteryUnlockNext(idx);
   // Dynamic import to avoid circular dep with panel.js
   import('./panel.js').then(({ spUpdatePanel }) => spUpdatePanel());
-  try { localStorage.setItem('sp_active_mastery', JSON.stringify(sp.mastery)); } catch (_) {}
+  try { lsSet('sp_active_mastery', sp.mastery); } catch (_) {}
   if (sp.activePlanId && sp.allPlans[sp.activePlanId]) {
     ChunksDB?.studyPlan?.save(sp.activePlanId, {
       ...sp.allPlans[sp.activePlanId],
@@ -43,7 +44,7 @@ export function spMasteryRecord(activityKey, score) {
   try {
     if (sp.activePlanId && sp.allPlans[sp.activePlanId]) {
       sp.allPlans[sp.activePlanId].mastery = { ...sp.mastery };
-      localStorage.setItem('sp_all_plans', JSON.stringify(sp.allPlans));
+      lsSet('sp_all_plans', sp.allPlans);
     }
   } catch (_) {}
 }

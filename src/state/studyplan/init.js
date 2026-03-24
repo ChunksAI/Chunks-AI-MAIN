@@ -14,6 +14,7 @@ import { spLoadAllPlans } from './planLibrary.js';
 import { spUpdateReminderUI } from './notifications.js';
 import { spRenderPlanPatched } from './patches.js';
 import { setActivePlan } from '../../components/Sidebar.js';
+import { lsGet } from '../../utils/storage.js';
 
 // ── Activity chip delegation ───────────────────────────────────────────────
 document.addEventListener('click', e => {
@@ -43,13 +44,13 @@ export function spInitScreen() {
   }
   spLoadAllPlans();
   try {
-    const savedPlan    = localStorage.getItem('sp_active_plan');
-    const savedMastery = localStorage.getItem('sp_active_mastery');
+    const savedPlan    = lsGet('sp_active_plan');
+    const savedMastery = lsGet('sp_active_mastery');
     if (savedPlan) {
-      const plan = JSON.parse(savedPlan);
+      const plan = savedPlan;
       if (plan && Array.isArray(plan.concepts) && plan.concepts.length > 0) {
         sp.currentPlan = plan;
-        sp.mastery     = savedMastery ? (JSON.parse(savedMastery) || {}) : {};
+        sp.mastery     = savedMastery || {};
         const storedDate = localStorage.getItem('sp_exam_date_' + (sp.activePlanId || 'default'));
         if (storedDate) sp.examDate = storedDate;
         _spCheckAndExpireExamDate();

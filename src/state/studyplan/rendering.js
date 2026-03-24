@@ -8,6 +8,7 @@ import { spMasteryScore } from './mastery.js';
 import { spConfidenceBadge } from './srs.js';
 import { spClearUpload } from './input.js';
 import { setActivePlan, _renderRecentPlansAllSidebars } from '../../components/Sidebar.js';
+import { lsSet } from '../../utils/storage.js';
 
 export async function spRenderPlan(plan, sourceName) {
   const n = plan.concepts.length;
@@ -188,14 +189,14 @@ export function spSavePlanToSidebar(topic) {
   plans = plans.filter(p => p !== topic);
   plans.unshift(topic);
   plans = plans.slice(0, 6);
-  localStorage.setItem('sp_recent_plans', JSON.stringify(plans));
+  lsSet('sp_recent_plans', plans);
   spRenderRecentPlansSidebar(plans);
   if (sp.currentPlan) {
     try {
-      localStorage.setItem('sp_active_plan', JSON.stringify(sp.currentPlan));
-      localStorage.setItem('sp_active_mastery', JSON.stringify(sp.mastery));
+      lsSet('sp_active_plan', sp.currentPlan);
+      lsSet('sp_active_mastery', sp.mastery);
     } catch (e) {
-      console.warn('Could not persist study plan to localStorage:', e);
+      console.warn('Could not persist study plan:', e);
     }
   }
 }

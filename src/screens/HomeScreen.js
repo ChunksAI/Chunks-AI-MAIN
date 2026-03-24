@@ -34,6 +34,7 @@ import { guestGate, recordUsage, renderUsageBar } from '../lib/guestLimits.js';
 import { showToast } from '../components/Toast.js';
 import { _getStudyMode } from '../components/SettingsModal.js';
 import { homeMarkdown, sanitize } from '../utils/render.js';
+import { lsGet } from '../utils/storage.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -921,7 +922,7 @@ mountHomeScreen();
   const savedId = localStorage.getItem('chunks_active_home_session');
   if (savedId && !(activeScreen && activeScreen !== 'home')) {
     try {
-      const s = JSON.parse(localStorage.getItem('chunks_session_' + savedId));
+      const s = lsGet('chunks_session_' + savedId);
       if (s) _mountSession(s, savedId);
     } catch (_) {}
   }

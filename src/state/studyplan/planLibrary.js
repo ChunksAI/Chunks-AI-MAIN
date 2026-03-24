@@ -11,6 +11,7 @@ import { spUpdateExamDateUI, spUpdateDailySchedule, _spCheckAndExpireExamDate } 
 import { spUpdateReminderUI } from './notifications.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
 import { setActivePlan, _renderRecentPlansAllSidebars } from '../../components/Sidebar.js';
+import { lsGet, lsSet, lsRemove } from '../../utils/storage.js';
 
 export function _spGenPlanId() {
   return 'plan_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
@@ -28,18 +29,18 @@ export function spSaveCurrentPlanToLibrary() {
     examDate: sp.examDate || null,
   };
   try {
-    localStorage.setItem('sp_all_plans', JSON.stringify(sp.allPlans));
+    lsSet('sp_all_plans', sp.allPlans);
     localStorage.setItem('sp_active_plan_id', id);
-    localStorage.setItem('sp_active_plan', JSON.stringify(sp.currentPlan));
-    localStorage.setItem('sp_active_mastery', JSON.stringify(sp.mastery));
+    lsSet('sp_active_plan', sp.currentPlan);
+    lsSet('sp_active_mastery', sp.mastery);
   } catch (e) { console.warn('Could not save plan library:', e); }
   ChunksDB?.studyPlan?.save(id, sp.allPlans[id]).catch(() => {});
 }
 
 export function spLoadAllPlans() {
   try {
-    const raw = localStorage.getItem('sp_all_plans');
-    if (raw) sp.allPlans = JSON.parse(raw);
+    const parsed = lsGet('sp_all_plans');
+    if (parsed) sp.allPlans = parsed;
     sp.activePlanId = localStorage.getItem('sp_active_plan_id') || null;
     const dateRaw = localStorage.getItem('sp_exam_date_' + sp.activePlanId);
     if (dateRaw) sp.examDate = dateRaw;
@@ -72,8 +73,7 @@ export function spShowPlansMenu() {
 function _spRenderPlanCards(entries) {
   let activeMastery = null;
   try {
-    const raw = localStorage.getItem('sp_active_mastery');
-    if (raw) activeMastery = JSON.parse(raw);
+    activeMastery = lsGet('sp_active_mastery');
   } catch (_) {}
 
   return entries.map(([id, entry]) => {
@@ -150,8 +150,8 @@ export function spSwitchToPlan(id) {
   try {
     const activeId = localStorage.getItem('sp_active_plan_id');
     if (activeId === id) {
-      const raw = localStorage.getItem('sp_active_mastery');
-      sp.mastery = raw ? (JSON.parse(raw) || {}) : (entry.mastery || {});
+      const mastery = lsGet('sp_active_mastery');
+      sp.mastery = mastery ? mastery : (entry.mastery || {});
     } else {
       sp.mastery = entry.mastery || {};
     }
@@ -164,8 +164,8 @@ export function spSwitchToPlan(id) {
   _spCheckAndExpireExamDate();
   try {
     localStorage.setItem('sp_active_plan_id', id);
-    localStorage.setItem('sp_active_plan', JSON.stringify(entry.plan));
-    localStorage.setItem('sp_active_mastery', JSON.stringify(sp.mastery));
+    lsSet('sp_active_plan', entry.plan);
+    lsSet('sp_active_mastery', sp.mastery);
   } catch (e) {}
   spRenderPlan(entry.plan, entry.plan.topic || 'Plan');
   entry.plan.concepts.forEach((_, idx) => spMasteryUpdateNode(idx, spMasteryScore(idx)));
@@ -180,7 +180,7 @@ export function spSwitchToPlan(id) {
 export function spDeletePlan(id) {
   const deletedTopic = sp.allPlans[id]?.topic;
   delete sp.allPlans[id];
-  try { localStorage.setItem('sp_all_plans', JSON.stringify(sp.allPlans)); } catch (e) {}
+  try { lsSet('sp_all_plans', sp.allPlans); } catch (e) {}
   ChunksDB?.studyPlan?.remove(id).catch(() => {});
   if (deletedTopic) {
     try {
@@ -193,8 +193,8 @@ export function spDeletePlan(id) {
     sp.activePlanId = null;
     sp.currentPlan = null;
     sp.mastery = {};
-    localStorage.removeItem('sp_active_plan');
-    localStorage.removeItem('sp_active_mastery');
+    lsRemove('sp_active_plan');
+    lsRemove('sp_active_mastery');
     localStorage.removeItem('sp_active_plan_id');
     if (typeof setActivePlan === 'function') setActivePlan(null);
     spShowEmpty();

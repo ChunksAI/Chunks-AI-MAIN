@@ -71,6 +71,7 @@ export default defineConfig({
             id.includes('/src/lib/supabase') ||
             id.includes('/src/lib/chunksDb') ||
             id.includes('/src/lib/flashcardDb') ||
+            id.includes('/src/lib/idbStorage') ||
             id.includes('/src/lib/auth')
           ) return 'lib';
 
