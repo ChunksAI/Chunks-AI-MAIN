@@ -6252,6 +6252,34 @@ function examGoToVisualTutor() {
   showScreen('visual');
 }
 
+/**
+ * Task 6: Navigate to Workspace Chat with weak concepts pre-filled and auto-sent.
+ */
+function examGoToChat() {
+  const concepts = (window._examWeakConcepts || []).map(c => c.label).slice(0, 5);
+  const topic    = window._examWeakTopic || _examTopic;
+
+  let prompt;
+  if (concepts.length === 0) {
+    prompt = `I just took a practice exam on "${topic}". Can you explain the key concepts I should review?`;
+  } else if (concepts.length === 1) {
+    prompt = `I got this concept wrong on my exam about "${topic}". Can you explain it clearly?\n\n• ${concepts[0]}`;
+  } else {
+    const list = concepts.map(c => `• ${c}`).join('\n');
+    prompt = `I got these ${concepts.length} concepts wrong on my exam about "${topic}". Can you explain each one?\n\n${list}`;
+  }
+
+  if (typeof showScreen === 'function') showScreen('workspace');
+  setTimeout(() => {
+    const inp = document.getElementById('ws-chat-input');
+    if (!inp) return;
+    inp.value = prompt;
+    if (typeof wsAutoResize === 'function') wsAutoResize(inp);
+    inp.focus();
+    setTimeout(() => { if (typeof window.wsChatSend === 'function') window.wsChatSend(); }, 350);
+  }, 250);
+}
+
 
 function examRetry() {
   const topicEl = document.getElementById('exam-topic-input');
@@ -6287,6 +6315,7 @@ window.examClearNotes     = examClearNotes;
 window._examToggleScanMode = _examToggleScanMode;
 window.examGoToFlashcards  = examGoToFlashcards;
 window.examGoToVisualTutor = examGoToVisualTutor;
+window.examGoToChat        = examGoToChat;
 window.examShowHistory     = examShowHistory;
 window.examHideHistory     = examHideHistory;
 window.examClearHistory    = examClearHistory;
