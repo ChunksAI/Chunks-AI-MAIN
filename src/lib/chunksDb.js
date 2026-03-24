@@ -24,6 +24,7 @@
 
 import { getSupabaseClient } from './supabase.js';
 import { lsGet as _lsGet, lsSet as _lsSet, lsRemove as _lsRemove } from '../utils/storage.js';
+import { idbKeys as _idbKeys } from './idbStorage.js';
 import { _currentUser, _applyUserProfile } from './auth.js';
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
@@ -320,15 +321,13 @@ const chat = {
    */
   async getSessions(limit = 50) {
     if (!isLoggedIn()) {
-      // Collect all chunks_session_* keys from localStorage
+      // Collect all chunks_session_* keys from IndexedDB / localStorage
       const sessions = [];
       try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.startsWith('chunks_session_')) {
-            const s = _lsGet(k);
-            if (s) sessions.push(s);
-          }
+        const keys = _idbKeys('chunks_session_');
+        for (const k of keys) {
+          const s = _lsGet(k);
+          if (s) sessions.push(s);
         }
       } catch (_) {}
       sessions.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
@@ -366,7 +365,7 @@ const chat = {
 
     // Load tombstone list once outside the loop (performance)
     const _pullTombs = (() => {
-      try { return new Set(JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]')); }
+      try { return new Set(_lsGet('chunks_deleted_sessions', [])); }
       catch(_) { return new Set(); }
     })();
 
@@ -495,10 +494,10 @@ const chat = {
     _lsRemove('chunks_session_' + sessionId);
 
     try {
-      const tombs = JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]');
+      const tombs = _lsGet('chunks_deleted_sessions', []);
       if (!tombs.includes(sessionId)) {
         tombs.push(sessionId);
-        localStorage.setItem('chunks_deleted_sessions', JSON.stringify(tombs.slice(-200)));
+        _lsSet('chunks_deleted_sessions', tombs.slice(-200));
       }
     } catch (_) {}
 
@@ -628,9 +627,9 @@ const settings = {
     try {
       const serverDeleted = row.notifications?.deleted_sessions || [];
       if (serverDeleted.length) {
-        const localTombs = JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]');
+        const localTombs = _lsGet('chunks_deleted_sessions', []);
         const merged = [...new Set([...localTombs, ...serverDeleted])].slice(-200);
-        localStorage.setItem('chunks_deleted_sessions', JSON.stringify(merged));
+        _lsSet('chunks_deleted_sessions', merged);
         console.log(`[ChunksDB] restored ${serverDeleted.length} server-side tombstones`);
       }
     } catch (_) {}
@@ -979,8 +978,7 @@ const studyPlan = {
     });
     if (error || !data?.length) return { data: null, error };
 
-    let localPlans = {};
-    try { localPlans = JSON.parse(localStorage.getItem('sp_all_plans') || '{}'); } catch (_) {}
+    let localPlans = _lsGet('sp_all_plans', {});
 
     let changed = false;
     for (const row of data) {
@@ -1004,15 +1002,13 @@ const studyPlan = {
     }
 
     if (changed) {
-      try { localStorage.setItem('sp_all_plans', JSON.stringify(localPlans)); } catch (_) {}
+      _lsSet('sp_all_plans', localPlans);
       // If the active plan was refreshed from remote, keep sp_active_plan +
       // sp_active_mastery in sync so spInitScreen reads the right data.
       const activeId = localStorage.getItem('sp_active_plan_id');
       if (activeId && localPlans[activeId]) {
-        try {
-          localStorage.setItem('sp_active_plan',    JSON.stringify(localPlans[activeId].plan));
-          localStorage.setItem('sp_active_mastery', JSON.stringify(localPlans[activeId].mastery));
-        } catch (_) {}
+        _lsSet('sp_active_plan',    localPlans[activeId].plan);
+        _lsSet('sp_active_mastery', localPlans[activeId].mastery);
       }
     }
 
@@ -1159,12 +1155,8 @@ async function pullAll({ force = false } = {}) {
 async function _uploadLocalChatSessions() {
   if (!isLoggedIn()) return;
   try {
-    // Collect all session keys from localStorage
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith('chunks_session_')) keys.push(k);
-    }
+    // Collect all session keys from IndexedDB / localStorage
+    const keys = _idbKeys('chunks_session_');
     // Also include any that were queued while logged out / uid not yet ready
     const pending = _lsGet('chunks_pending_upload_sessions', []);
     pending.forEach(id => {
@@ -1183,7 +1175,7 @@ async function _uploadLocalChatSessions() {
       // Skip sessions that were explicitly deleted by the user.
       // Without this guard, a session with no supabaseId would get a fresh UUID
       // and be re-uploaded, making deletes appear to "come back" after sync.
-      const _tombs = (() => { try { return JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]'); } catch(_){return[];} })();
+      const _tombs = _lsGet('chunks_deleted_sessions', []);
       if (_tombs.includes(s.id) || (s.supabaseId && _tombs.includes(s.supabaseId))) continue;
 
       // Resolve the supabaseId for this session.
