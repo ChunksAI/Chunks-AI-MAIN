@@ -393,6 +393,11 @@ const EXAM_HTML = /* html */`
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 Explain with Visual Tutor
               </button>
+              <!-- Task 6: Review weak concepts directly in workspace chat -->
+              <button class="exam-nav-btn secondary" id="exam-goto-chat-btn" onclick="examGoToChat()" style="font-size:11px;padding:7px 14px;display:flex;align-items:center;gap:6px;border-color:var(--border-md);color:var(--text-2);">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Review in Chat
+              </button>
             </div>
           </div>
 
