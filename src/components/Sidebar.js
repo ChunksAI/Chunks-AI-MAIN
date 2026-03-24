@@ -324,7 +324,14 @@ export function _renderRecentPlansAllSidebars() {
   try { plans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]'); } catch(_) {}
 
   let allPlans = {};
-  try { allPlans = JSON.parse(localStorage.getItem('sp_all_plans') || '{}'); } catch(_) {}
+  // sp_all_plans lives in IndexedDB — use the window._lsGet bridge (set by
+  // globals.js) which routes IDB keys through the in-memory cache, or fall
+  // back to raw localStorage for backward compat during early boot.
+  try {
+    allPlans = window._lsGet
+      ? window._lsGet('sp_all_plans', {})
+      : JSON.parse(localStorage.getItem('sp_all_plans') || '{}');
+  } catch(_) {}
 
   document.querySelectorAll('.sp-recent-plans-outer').forEach(section => {
     const listEl = section.querySelector('.sp-recent-plans-list');

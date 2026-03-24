@@ -11,6 +11,7 @@ import { FlashcardDB } from '../../lib/flashcardDb.js';
 import { showConfirmModal, closeConfirmModal } from '../../components/ConfirmModal.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
 import { showToast } from '../../components/Toast.js';
+import { lsGet, lsSet } from '../../utils/storage.js';
 
 export let _fcDecksCache = null;
 export let _fcLibraryCache = null;
@@ -44,9 +45,7 @@ async function _fcLoadLibraryDecks() {
 // ── Mastery storage ─────────────────────────────────────────────────────────
 
 export function _fcGetMasteryStore() {
-  try {
-    return JSON.parse(localStorage.getItem(MASTERY_KEY) || '{}');
-  } catch (e) { return {}; }
+  return lsGet(MASTERY_KEY, {});
 }
 
 export function _fcSaveMastery(deckId, stats, total) {
@@ -58,7 +57,7 @@ export function _fcSaveMastery(deckId, stats, total) {
   const pct   = rated > 0 ? Math.min(100, Math.round(((easy + ok) / rated) * 100)) : 0;
 
   store[deckId] = { easy, ok, hard, rated, total, pct, lastStudied: new Date().toISOString() };
-  try { localStorage.setItem(MASTERY_KEY, JSON.stringify(store)); } catch (e) {}
+  lsSet(MASTERY_KEY, store);
   return store[deckId];
 }
 
@@ -265,10 +264,10 @@ export async function _fcDeleteDeck(deckId, deckName) {
   if (!confirmed) return;
 
   const decks    = FlashcardDB.FC_LS_KEY
-    ? JSON.parse(localStorage.getItem(FlashcardDB.FC_LS_KEY) || '[]')
+    ? lsGet(FlashcardDB.FC_LS_KEY, [])
     : [];
   const filtered = decks.filter(d => d.id !== deckId);
-  localStorage.setItem(FlashcardDB.FC_LS_KEY, JSON.stringify(filtered));
+  lsSet(FlashcardDB.FC_LS_KEY, filtered);
 
   try {
     if (ChunksDB?.isLoggedIn()) {

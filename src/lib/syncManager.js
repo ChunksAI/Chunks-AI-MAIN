@@ -11,6 +11,8 @@
  */
 
 import { ChunksDB } from './chunksDb.js';
+import { lsGet as _lsGet } from '../utils/storage.js';
+import { idbKeys as _idbKeys } from './idbStorage.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -158,11 +160,10 @@ function _applyPostSyncUI() {
 
 async function _uploadPendingChatSessions() {
   try {
-    const tombs = new Set(JSON.parse(localStorage.getItem('chunks_deleted_sessions') || '[]'));
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (!k?.startsWith('chunks_session_')) continue;
-      const s = JSON.parse(localStorage.getItem(k) || 'null');
+    const tombs = new Set(_lsGet('chunks_deleted_sessions', []));
+    const keys = _idbKeys('chunks_session_');
+    for (const k of keys) {
+      const s = _lsGet(k);
       if (!s) continue;
       if (tombs.has(s.id) || (s.supabaseId && tombs.has(s.supabaseId))) continue;
       if (!s.supabaseId || /^r[0-9]+$/.test(s.supabaseId)) continue;
