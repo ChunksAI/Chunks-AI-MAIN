@@ -1,0 +1,23 @@
+/**
+ * src/state/studyplan/visualTutor.js — Visual Tutor bridge
+ */
+
+import { sp } from './state.js';
+import { spCloseExplainDrawer } from './explain.js';
+
+export function spOpenVisualTutor() {
+  if (!sp.drawerConcept) return;
+  spCloseExplainDrawer();
+  const q = sp.drawerConcept.title + (
+    sp.drawerConcept.description ? ' — ' + sp.drawerConcept.description.slice(0, 80) : ''
+  );
+  if (typeof window._vtOpenForConcept === 'function') {
+    window._vtOpenForConcept(sp.drawerConcept.title, q);
+  } else if (typeof window.showScreen === 'function') {
+    window._navFromHistory = true;
+    window.showScreen('visual');
+    setTimeout(() => {
+      if (window._vtAsk) window._vtAsk('explain ' + q);
+    }, 400);
+  }
+}
