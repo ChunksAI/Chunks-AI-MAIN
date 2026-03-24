@@ -11,8 +11,9 @@
  *   • Accessible from flashcard Hard rating, sidebar, and Exam weak-concept flow
  */
 
-import { API_BASE } from '../lib/api.js';
+import { API_BASE, _getAuthHeader } from '../lib/api.js';
 import { guestGate, recordUsage } from '../lib/guestLimits.js';
+import { showScreen, setNavFromHistory } from '../state/navigation/screens.js';
 
 // ── HTML ──────────────────────────────────────────────────────────────────────
 
@@ -446,7 +447,7 @@ async function _vtpFetchLesson(topic) {
   if (_vtpLessonCache[topic]) return _vtpLessonCache[topic];
 
   _vtpLoadingAbort = new AbortController();
-  const authHeader = await window._getAuthHeader?.() ?? {};
+  const authHeader = await _getAuthHeader?.() ?? {};
 
   const res = await fetch(`${API_BASE}/ask`, {
     method:  'POST',
@@ -1335,7 +1336,7 @@ async function _vtpSendAsk() {
   ]);
 
   try {
-    const authHeader = await window._getAuthHeader?.() ?? {};
+    const authHeader = await _getAuthHeader?.() ?? {};
     const res = await fetch(`${API_BASE}/ask`, {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', ...authHeader },
@@ -1603,8 +1604,8 @@ if (typeof window !== 'undefined') window._vtClear = function() {
  */
 if (typeof window !== 'undefined') window._vtOpenForConcept = function(front /*, back */) {
   // Set the flag first — navigation.js reads it inside showScreen()
-  window._navFromHistory = true;
-  if (window.showScreen) window.showScreen('visual');
+  setNavFromHistory(true);
+  showScreen('visual');
   setTimeout(() => {
     const inp = document.getElementById('vtp-entry-input');
     if (inp && front) inp.value = front;
@@ -1635,7 +1636,7 @@ function _vtpSaveSession() {
 if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId, question) {
   // _clickRecent already called _setActiveRecent and showScreen('visual') before us.
   // Just ensure _navFromHistory stays true so _vtClear doesn't fire after our setTimeout.
-  window._navFromHistory = true;
+  setNavFromHistory(true);
 
   setTimeout(() => {
     // Try to restore saved lesson data

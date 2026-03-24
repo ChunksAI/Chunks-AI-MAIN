@@ -1018,27 +1018,7 @@ if (document.readyState === 'loading') {
   _wireHomeListeners();
 }
 
-// ── Window bridges (keep un-migrated inline scripts working) ──────────────────
-
-window.homeSetMode        = homeSetMode;
-window.homeSetInput       = homeSetInput;
-window.homeHandlePdfUpload= homeHandlePdfUpload;
-window.homeAutoResize     = homeAutoResize;
-window.homeAppendUser     = homeAppendUser;
-window.homeAppendThinking = homeAppendThinking;
-window.homeRemoveThinking = homeRemoveThinking;
-window.homeAppendAI       = homeAppendAI;
-window.homeAppendError    = homeAppendError;
-window.homeScrollBottom   = homeScrollBottom;
-window.homeHideLanding    = homeHideLanding;
-window.homeSendMessage      = homeSendMessage;
-window.homeToggleWebSearch  = homeToggleWebSearch;
-window.homeToggleThinking   = homeToggleThinking;
-
-// ── Incognito chat bridges ────────────────────────────────────────────────────
-window.openIncognitoChat    = openIncognitoChat;
-window.closeIncognitoChat   = closeIncognitoChat;
-window.incognitoSendMessage = incognitoSendMessage;
+// Window bridges removed — now handled by src/globals.js
 
 // Export mutable state refs to window so cross-module code (goHome, newChat,
 // session-restore block) can read/write homeHistory and _homeSessionId.

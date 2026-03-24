@@ -49,7 +49,7 @@ import { API_BASE }          from './lib/api.js';       // Task 10 ✓ — also 
 import { getSupabaseClient } from './lib/supabase.js';  // Task 11 ✓ — also sets window._getChunksSb
 import { ChunksDB }          from './lib/chunksDb.js';  // Task 31 ✓ — sets window.ChunksDB
 import './lib/flashcardDb.js';                           // Task 33 ✓ — sets window.FlashcardDB
-import './lib/auth.js';                                  // Task 32 ✓ — sets window._currentUser, chunksSignOut, _initAuth
+import { _currentUser, _applyUserProfile } from './lib/auth.js';
 import './lib/syncManager.js';                           // Phase 4 ✓ — sets window.SyncManager (must be after ChunksDB + auth)
 import './utils/render.js';                             // Task 12 ✓ — sets window.{sanitize,wsRender,homeMarkdown,_renderMath,_spExplainMarkdown}
 import './utils/storage.js';                            // Task 13 ✓ — sets window.{_lsGet,_lsSet,getSetting,setSetting,STORAGE_KEYS}
@@ -83,6 +83,11 @@ import './components/ProfileDropdown.js';               // Task 22 ✓ — sets 
 import './components/LibraryModal.js';                  // Task 23 ✓ — sets window.openLibraryModal, closeLibraryModal
 import './components/SettingsModal.js';                 // Task 24 ✓ — sets window.openSettings, closeSettings, settingsNav, etc.
 
+// ── Centralized HTML-binding registry ─────────────────────────────────────
+// globals.js is the ONLY file that sets window.* for HTML onclick handlers.
+// Must be imported after all modules above so every export is available.
+import './globals.js';
+
 // ── Explicit sidebar mount ────────────────────────────────────────────────────
 // All screen modules have run synchronously above — every <aside.sidebar>
 // placeholder is now in the DOM. Mount here as the definitive call.
@@ -102,25 +107,25 @@ _navInit();
 // We poll until _currentUser is set rather than using a fixed timeout.
 // Also apply immediately at 100ms / 500ms / 1500ms as belt-and-suspenders.
 function _reapplyProfile() {
-  if (!window._currentUser) return;
-  window._applyUserProfile({ user: {
-    id: window._currentUser.id,
-    email: window._currentUser.email,
+  if (!_currentUser) return;
+  _applyUserProfile({ user: {
+    id: _currentUser.id,
+    email: _currentUser.email,
     user_metadata: {
-      full_name:  window._currentUser.name,
-      avatar_url: window._currentUser.avatar,
-      picture:    window._currentUser.avatar,
-      plan:       window._currentUser.plan,
+      full_name:  _currentUser.name,
+      avatar_url: _currentUser.avatar,
+      picture:    _currentUser.avatar,
+      plan:       _currentUser.plan,
       // Preserve resolved role so isOwner/isAdmin are never wiped by a re-apply
-      role: window._currentUser.isOwner ? 'owner'
-          : window._currentUser.isAdmin ? 'admin'
+      role: _currentUser.isOwner ? 'owner'
+          : _currentUser.isAdmin ? 'admin'
           : undefined,
     },
     app_metadata: {
-      plan: window._currentUser.plan,
+      plan: _currentUser.plan,
       // Mirror role into app_metadata too so both checks in auth.js pass
-      role: window._currentUser.isOwner ? 'owner'
-          : window._currentUser.isAdmin ? 'admin'
+      role: _currentUser.isOwner ? 'owner'
+          : _currentUser.isAdmin ? 'admin'
           : undefined,
     }
   }});
@@ -133,9 +138,9 @@ setTimeout(_reapplyProfile, 1500);
 
 // Poll until _currentUser is set — handles slow token refresh / network delays
 (function _pollProfile() {
-  if (window._currentUser) { _reapplyProfile(); return; }
+  if (_currentUser) { _reapplyProfile(); return; }
   const t = setInterval(() => {
-    if (window._currentUser) { clearInterval(t); _reapplyProfile(); }
+    if (_currentUser) { clearInterval(t); _reapplyProfile(); }
   }, 200);
   // Stop polling after 10s to avoid memory leak if auth permanently fails
   setTimeout(() => clearInterval(t), 10000);
