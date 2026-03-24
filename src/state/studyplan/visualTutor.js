@@ -5,6 +5,7 @@
 import { sp } from './state.js';
 import { spCloseExplainDrawer } from './explain.js';
 import { showScreen } from '../navigation/index.js';
+import { setNavFromHistory } from '../navigation/screens.js';
 
 export function spOpenVisualTutor() {
   if (!sp.drawerConcept) return;
@@ -15,7 +16,7 @@ export function spOpenVisualTutor() {
   if (typeof window._vtOpenForConcept === 'function') {
     window._vtOpenForConcept(sp.drawerConcept.title, q);
   } else if (typeof showScreen === 'function') {
-    window._navFromHistory = true;
+    setNavFromHistory(true);
     showScreen('visual');
     setTimeout(() => {
       if (window._vtAsk) window._vtAsk('explain ' + q);
