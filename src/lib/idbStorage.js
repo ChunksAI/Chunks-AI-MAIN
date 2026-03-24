@@ -33,6 +33,27 @@ const DB_NAME    = 'chunks-ai';
 const DB_VERSION = 1;
 const STORE      = 'kv';
 
+// ── IndexedDB migration registry ──────────────────────────────────────────────
+// Each entry maps a *target* version to a function that upgrades the database
+// FROM the previous version.  The upgrade callback steps through all needed
+// migrations when the stored DB version is behind DB_VERSION.
+//
+// How to add a migration:
+//  1. Bump DB_VERSION by 1.
+//  2. Add a new entry here keyed by the new version number.
+//  3. The function receives (db, transaction) — use them to create/alter
+//     object stores or transform existing data.
+
+/** @type {Record<number, (db: IDBDatabase, tx: IDBTransaction) => void>} */
+const IDB_MIGRATIONS = {
+  // ── v0 → v1: create the key-value store ────────────────────────────────
+  1: (db) => {
+    if (!db.objectStoreNames.contains(STORE)) {
+      db.createObjectStore(STORE);
+    }
+  },
+};
+
 // ── In-memory write-through cache ─────────────────────────────────────────────
 
 /** @type {Map<string, *>} */
@@ -196,9 +217,10 @@ export function init() {
 async function _doInit() {
   try {
     _db = await openDB(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains(STORE)) {
-          db.createObjectStore(STORE);
+      upgrade(db, oldVersion, _newVersion, tx) {
+        for (let v = oldVersion + 1; v <= DB_VERSION; v++) {
+          const migrateFn = IDB_MIGRATIONS[v];
+          if (migrateFn) migrateFn(db, tx);
         }
       },
     });
