@@ -3196,6 +3196,7 @@ function openAuthPopup(callerBtnId, callerLabelId) {
 }
 
 function continueAsGuest() {
+  sessionStorage.setItem('chunks_guest_mode', '1');
   window.location.href = '/guest';
 }
 

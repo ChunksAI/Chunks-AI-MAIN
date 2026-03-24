@@ -76,7 +76,7 @@ function _isOAuthHash() {
 function _setPath(name) {
   if (_isOAuthHash()) return;
   try {
-    const base = (window._guestPage || sessionStorage.getItem('chunks_guest_mode') === '1') ? '/guest' : '';
+    const base = sessionStorage.getItem('chunks_guest_mode') === '1' ? '/guest' : '';
     const path = base + (SCREEN_TO_PATH[name] || '/home');
     if (window.location.pathname !== path) {
       window.history.pushState({ screen: name }, '', path);
