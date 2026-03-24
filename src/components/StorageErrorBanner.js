@@ -69,7 +69,10 @@ export function showStorageError(kind) {
   if (_isDismissed(kind)) return;
 
   // If a banner is already showing, don't replace it
-  if (_activeKind) return;
+  if (_activeKind) {
+    console.warn('[StorageErrorBanner] "%s" suppressed — "%s" already visible', kind, _activeKind);
+    return;
+  }
   _activeKind = kind;
 
   let el = document.getElementById('storage-error-banner');

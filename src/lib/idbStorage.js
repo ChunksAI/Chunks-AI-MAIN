@@ -266,6 +266,8 @@ async function _doInit() {
     // the rest of the app continues using the localStorage fallback path
     // built into idbGet (since _ready stays false).
     console.warn('[idbStorage] init failed, using localStorage fallback:', e);
+    // Quota errors (even during migration) mean the device is out of space.
+    // Non-quota failures (private browsing, corrupt DB, etc.) are migration issues.
     if (isQuotaError(e)) {
       showStorageError('out-of-space');
     } else {
