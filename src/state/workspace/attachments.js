@@ -6,6 +6,9 @@ import { ws } from './state.js';
 import { wsChatSend, _wsAsk, wsAutoResize, wsScrollBottom } from './chat.js';
 import { $el, $qsa, removeClass, addClass } from '../domHelpers.js';
 
+export let _uploadedPdfFile = null;
+export let _uploadedPdfName = null;
+
 // ── Close all attachment menus ────────────────────────────────────────────
 
 export function _closeAllAttachMenus() {
@@ -139,7 +142,7 @@ export async function homeHandleAttach(input, type, slot) {
   _homeRenderPreview();
   if (type === 'pdf') {
     const name = file.name.replace(/\.pdf$/i, '');
-    window._uploadedPdfFile = file; window._uploadedPdfName = name;
+    _uploadedPdfFile = file; _uploadedPdfName = name;
     if (typeof homeSetInput === 'function') homeSetInput(`Summarize "${name}" for me`);
   }
 }
