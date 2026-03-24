@@ -19,6 +19,7 @@
  */
 
 import { API_BASE } from './api.js';
+import * as supabaseJs from '@supabase/supabase-js';
 
 // ── Safe storage fallback ──────────────────────────────────────────────────
 // Edge / Safari Tracking Prevention can block localStorage access from CDN
@@ -52,11 +53,11 @@ const _safeStorage = (() => {
   };
 })();
 
-// ── Wait for the deferred Supabase CDN script ──────────────────────────────
-// index.html loads <script src="https://cdn.jsdelivr.net/…/supabase.min.js">
-// asynchronously. This promise resolves as soon as window.supabase is set,
-// or rejects after 8 s if the CDN never loads.
+// ── Resolve the Supabase library ────────────────────────────────────────────
+// Prefer the npm-bundled import; fall back to the CDN-loaded global on window
+// (index.html loads supabase.min.js asynchronously) with an 8 s timeout.
 function _waitForSupabase() {
+  if (supabaseJs?.createClient) return Promise.resolve(supabaseJs);
   return new Promise(resolve => {
     if (window.supabase) return resolve(window.supabase);
     let waited = 0;
