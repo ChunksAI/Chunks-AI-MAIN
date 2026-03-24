@@ -189,7 +189,7 @@ export function spSavePlanToSidebar(topic) {
   plans = plans.filter(p => p !== topic);
   plans.unshift(topic);
   plans = plans.slice(0, 6);
-  try { localStorage.setItem('sp_recent_plans', JSON.stringify(plans)); } catch (_) {}
+  lsSet('sp_recent_plans', plans);
   spRenderRecentPlansSidebar(plans);
   if (sp.currentPlan) {
     try {

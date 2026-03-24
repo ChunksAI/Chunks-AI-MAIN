@@ -254,7 +254,7 @@ async function _doInit() {
     }
 
     _ready = true;
-    console.log(
+    console.info(
       `[idbStorage] ready — ${_cache.size} keys loaded, ` +
       `${keysToMigrate.length} migrated from localStorage`,
     );

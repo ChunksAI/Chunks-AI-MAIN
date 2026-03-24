@@ -9,6 +9,7 @@ import { spUpdateExamDateUI, spUpdateDailySchedule, spCheckAdaptiveReorder } fro
 import { spSrsLoad, spUpdateSrsPanel, spExportIcal } from './srs.js';
 import { spExamFinish } from './exam.js';
 import { _spGenPlanId, spSaveCurrentPlanToLibrary, spLoadAllPlans } from './planLibrary.js';
+import { lsGet, lsSet } from '../../utils/storage.js';
 
 export function spSavePlanToSidebarAndLibrary(topic) {
   if (!sp.activePlanId) sp.activePlanId = _spGenPlanId();
@@ -19,7 +20,7 @@ export function spSavePlanToSidebarAndLibrary(topic) {
   plans = plans.filter(p => p !== topic);
   plans.unshift(topic);
   plans = plans.slice(0, 6);
-  try { localStorage.setItem('sp_recent_plans', JSON.stringify(plans)); } catch (_) {}
+  lsSet('sp_recent_plans', plans);
   spRenderRecentPlansSidebar(plans);
 }
 
