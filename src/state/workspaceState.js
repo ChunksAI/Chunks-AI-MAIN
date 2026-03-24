@@ -53,7 +53,7 @@ export const ZOOM_STEP = 0.2, ZOOM_MIN = 0.6, ZOOM_MAX = 3.0;
 
 // ── Chat state ─────────────────────────────────────────────────────────────
 
-export let _wsBookId      = localStorage.getItem('chunks_default_book') || 'atkins';
+export let _wsBookId      = localStorage.getItem('chunks_default_book') || null;
 export let _wsChatHistory = [];
 export let _newChatIsIncognito = false;
 export let _wsTyping      = false;
@@ -1178,7 +1178,7 @@ export async function _wsAsk(question) {
   try {
     const mode = typeof _getStudyMode === 'function' ? _getStudyMode() : 'study';
     const complexity = mode === 'concise' ? 3 : mode === 'detailed' ? 8 : 5;
-    const body = { question, bookId: _wsBookId || 'atkins', mode, complexity, history: _wsChatHistory.slice(-10) };
+    const body = { question, bookId: _wsBookId || 'none', mode, complexity, history: _wsChatHistory.slice(-10) };
     if (_wsWebSearch)              body.web_search = true;
     if (_wsThinking === 'think')   body.thinking   = 'thinking';
     if (_wsThinking === 'deep')    body.thinking   = 'deep';
@@ -1188,21 +1188,33 @@ export async function _wsAsk(question) {
       body.doc_context = _wsUserDocText.slice(0, 80000); // ~80k chars fits comfortably in context
       body.bookId = '__user_doc__';
     }
-    const res = await fetch(`${API_BASE}/ask`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
-      body: JSON.stringify(body),
-    });
-    wsRemoveThinking();
-    if (res.status === 429) {
+    // Retry on 429 with exponential backoff (up to 3 attempts)
+    let res;
+    for (let _attempt = 0; _attempt <= 3; _attempt++) {
+      res = await fetch(`${API_BASE}/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
+        body: JSON.stringify(body),
+      });
+      if (res.status !== 429) break;
       const _d429 = await res.json().catch(() => ({}));
       if (_d429.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') {
         window.showGuestLoginWall(_d429.feature || 'workspace');
         _wsChatHistory.pop();
+        wsRemoveThinking();
         return;
       }
-      wsAppendError('Too many requests — please wait a moment.');
+      if (_attempt < 3) {
+        await new Promise(r => setTimeout(r, Math.pow(2, _attempt + 1) * 1000));
+        continue;
+      }
+      wsRemoveThinking();
+      wsAppendError('Server is busy — please wait a moment and try again.');
       _wsChatHistory.pop();
+    }
+    wsRemoveThinking();
+    if (res.status === 429) {
+      // already handled above
     } else if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       wsAppendError(err.error || `Server error ${res.status}`);
