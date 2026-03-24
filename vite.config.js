@@ -3,7 +3,12 @@
  *
  * Task 37 — Rollup manual chunks + vite build
  *
+ * Preact integration:
+ *   @preact/preset-vite enables JSX → h() transform for .jsx files.
+ *   Preact (~3 KB gzipped) is isolated in vendor-preact for caching.
+ *
  * Chunk strategy (all third-party libs are CDN — no npm vendor bundle needed):
+ *   vendor-preact — preact runtime (~3 KB gzipped)
  *   lib        — src/lib/*         infrastructure (api, supabase, chunksDb, auth …)
  *   utils      — src/utils/*       shared utilities (render, storage, focusTrap)
  *   state      — src/state/*       app-wide state machines
@@ -16,9 +21,14 @@
  */
 
 import { defineConfig } from 'vite';
+import preact from '@preact/preset-vite';
 import { resolve } from 'path';
 
 export default defineConfig({
+  // ── Plugins ────────────────────────────────────────────────────────────
+  plugins: [preact()],
+
+
   // ── Dev server ──────────────────────────────────────────────────────────
   server: {
     port: 5173,
@@ -63,6 +73,7 @@ export default defineConfig({
           // ── Heavy vendor deps isolated for better caching ─────────────
           if (id.includes('@supabase')) return 'vendor-supabase';
           if (id.includes('katex'))    return 'vendor-katex';
+          if (id.includes('preact'))   return 'vendor-preact';
 
           // ── Infrastructure (lib/) ─────────────────────────────────────
           // Loaded first; rarely changes — maximises cache hit rate.
