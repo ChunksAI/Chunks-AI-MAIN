@@ -2151,13 +2151,21 @@ function _bindSetupForm() {
 // Pass an AbortSignal as the second arg (e.g. for paper search cancellation).
 async function _researchFetchWithRetry(bodyObj, signal, _statusEl) {
   // _statusEl (optional): a DOM element to show live countdown during rate-limit waits
+  // Always use the async Supabase-backed auth header (same as workspace/flash/etc.)
+  // The synchronous _getAuthHeader() in app.html reads stale localStorage and can
+  // return {} even when the user is logged in, causing the backend to treat them
+  // as a guest and hit the 1-request/day research limit.
+  const _authHdr = (typeof window._getAuthHeader === 'function')
+    ? await window._getAuthHeader()
+    : _getAuthHeader();
+
   const MAX_ATTEMPTS = 4;
   const DELAYS = [2000, 4000, 8000]; // 2s, 4s, 8s between retries
   let res;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     res = await fetch(API_BASE + '/ask', {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
+      headers: { 'Content-Type': 'application/json', ..._authHdr },
       ...(signal ? { signal } : {}),
       body:    JSON.stringify(bodyObj)
     });
@@ -3025,11 +3033,14 @@ function _generateParagraph(layerId) {
   }
 
   // ── SSE stream ──
-  fetch(API_BASE + '/api/stream-layer', {
+  // Use async auth header to ensure logged-in token is always fresh
+  Promise.resolve(
+    typeof window._getAuthHeader === 'function' ? window._getAuthHeader() : _getAuthHeader()
+  ).then(_streamAuthHdr => fetch(API_BASE + '/api/stream-layer', {
     method:  'POST',
-    headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
+    headers: { 'Content-Type': 'application/json', ..._streamAuthHdr },
     body:    JSON.stringify(payload)
-  })
+  }))
   .then(resp => {
     if (!resp.ok) throw new Error(`Stream error ${resp.status}`);
     const reader  = resp.body.getReader();
@@ -4590,8 +4601,9 @@ function _examToggleScanMode(hasSource) {
 async function _examCallAPI(prompt, retries = 3) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
+      const _examAuthHdr = typeof window._getAuthHeader === 'function' ? await window._getAuthHeader() : _getAuthHeader();
       const resp = await fetch(API_BASE + '/ask', {
-        method: 'POST', headers: {'Content-Type':'application/json', ..._getAuthHeader()},
+        method: 'POST', headers: {'Content-Type':'application/json', ..._examAuthHdr},
         body: JSON.stringify({ question: prompt, mode: 'generate', task_type: 'exam', ...(() => { const p = _aiParams(6); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
       });
       if (resp.status === 429) {
