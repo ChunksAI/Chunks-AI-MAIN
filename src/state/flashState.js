@@ -1541,6 +1541,10 @@ async function _fcFinishSession() {
   const hardBtn = _el('fc-study-hard-btn');
   if (hardBtn) hardBtn.style.display = hard > 0 ? '' : 'none';
 
+  // Task 5: Review in Chat button — show when there are hard cards
+  const reviewChatBtn = _el('fc-review-in-chat-btn');
+  if (reviewChatBtn) reviewChatBtn.style.display = hard > 0 ? '' : 'none';
+
   _fcRemoveKeyboard();
 
   const modal = _el('fc-complete-modal');
@@ -1742,5 +1746,79 @@ window._fcStartDeck          = _fcStartDeck;
 window._fcRenderDeckList     = _fcRenderDeckList;
 window.wsMakeFlashcard       = wsMakeFlashcard;
 window._aiParams             = _aiParams;   // used by index.html inline scripts (research, exam)
+
+// ── Task 5: Flash → Workspace Chat bridges ────────────────────────────────
+
+/**
+ * Called from the AI Tutor panel's "Chat" button.
+ * Grabs the current card's question, closes tutor, navigates to workspace,
+ * and asks the AI to explain it in depth.
+ */
+window._fcStudyInChat = function() {
+  const question = _el('fc-card-question')?.textContent?.trim()
+    || _fcDeck[_fcIndex]?.front
+    || _fcDeck[_fcIndex]?.question
+    || '';
+  const answer = _el('fc-card-answer')?.textContent?.trim()
+    || _fcDeck[_fcIndex]?.back
+    || _fcDeck[_fcIndex]?.answer
+    || '';
+
+  // Dismiss the tutor panel first
+  _fcDismissTutor();
+
+  if (!question) return;
+  const prompt = `I got this flashcard wrong. Can you explain it in depth?\n\nQuestion: ${question}\nAnswer: ${answer}`;
+
+  if (typeof showScreen === 'function') showScreen('workspace');
+  setTimeout(() => {
+    const inp = document.getElementById('ws-chat-input');
+    if (!inp) return;
+    inp.value = prompt;
+    if (typeof wsAutoResize === 'function') wsAutoResize(inp);
+    inp.focus();
+    setTimeout(() => { if (typeof window.wsChatSend === 'function') window.wsChatSend(); }, 350);
+  }, 250);
+};
+
+/**
+ * Called from the "Review in Chat" button in the session complete modal.
+ * Collects all cards rated Hard and sends them to workspace as a review request.
+ */
+window._fcReviewHardInChat = function() {
+  _fcCloseCompleteModal();
+
+  // Gather hard-rated cards from this session
+  const hardCards = _fcRatings
+    .filter(r => r.rating === 'hard')
+    .map(r => {
+      const card = _fcDeck.find(c => c.id === r.card_id) || _fcDeck[_fcRatings.indexOf(r)];
+      return card?.front || card?.question || null;
+    })
+    .filter(Boolean)
+    .slice(0, 5); // limit to 5 so the prompt isn't huge
+
+  const deckName = _fcCurrentDeckMeta?.name || 'my flashcard deck';
+
+  let prompt;
+  if (hardCards.length === 0) {
+    prompt = `Can you give me a quick review of the key concepts from "${deckName}"?`;
+  } else if (hardCards.length === 1) {
+    prompt = `I struggled with this flashcard from "${deckName}". Can you explain it clearly?\n\n• ${hardCards[0]}`;
+  } else {
+    const list = hardCards.map(q => `• ${q}`).join('\n');
+    prompt = `I struggled with these ${hardCards.length} flashcards from "${deckName}". Can you explain each one clearly?\n\n${list}`;
+  }
+
+  if (typeof showScreen === 'function') showScreen('workspace');
+  setTimeout(() => {
+    const inp = document.getElementById('ws-chat-input');
+    if (!inp) return;
+    inp.value = prompt;
+    if (typeof wsAutoResize === 'function') wsAutoResize(inp);
+    inp.focus();
+    setTimeout(() => { if (typeof window.wsChatSend === 'function') window.wsChatSend(); }, 350);
+  }, 250);
+};
 
 console.log('[flashState] state engine ready ✦');
