@@ -171,5 +171,50 @@ input, textarea, [contenteditable] {
 }
 
 /* ══════════════════════════════════════════════════════════
+   STORAGE ERROR BANNER
+   ══════════════════════════════════════════════════════════ */
+#storage-error-banner {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 10050;
+  display: none;
+  background: color-mix(in srgb, var(--red, #f87171) 10%, var(--surface-2, #1e1e2e));
+  border-bottom: 1px solid color-mix(in srgb, var(--red, #f87171) 25%, transparent);
+  color: var(--text-1, #e0e0e0);
+  font-family: var(--font-body);
+  animation: seb-slide-down 0.25s ease forwards;
+}
+#storage-error-banner.seb-show { display: block; }
+
+@keyframes seb-slide-down {
+  from { opacity: 0; transform: translateY(-100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.seb-inner {
+  display: flex; align-items: center; gap: 10px;
+  max-width: 780px; margin: 0 auto;
+  padding: 10px 16px;
+  font-size: 12.5px; line-height: 1.5;
+}
+.seb-icon {
+  flex-shrink: 0; font-size: 16px;
+}
+.seb-text {
+  flex: 1; min-width: 0;
+}
+.seb-text strong {
+  color: var(--red, #f87171);
+  font-weight: 600;
+}
+.seb-close {
+  flex-shrink: 0;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-3, #888); font-size: 14px;
+  padding: 4px 6px; border-radius: 4px;
+  transition: color 120ms ease;
+}
+.seb-close:hover { color: var(--text-1, #e0e0e0); }
+
+/* ══════════════════════════════════════════════════════════
    PHASE 4 — SYNC STATUS INDICATOR
    ══════════════════════════════════════════════════════════ */

@@ -484,6 +484,12 @@ import { showToast } from './components/Toast.js';
 window._showToast  = showToast;
 window.wsShowToast = showToast;
 
+// ── Components · Storage Error Banner ────────────────────────────────────────
+import { showStorageError, dismissStorageError } from './components/StorageErrorBanner.js';
+
+window.showStorageError    = showStorageError;
+window.dismissStorageError = dismissStorageError;
+
 // ── Components · Confirm Modal ───────────────────────────────────────────────
 import {
   showConfirmModal, closeConfirmModal, showSimpleNotif,
