@@ -258,6 +258,11 @@ const FLASH_HTML = `
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><circle cx="12" cy="10" r="3"/></svg>
                   Visual
                 </button>
+                <!-- Task 5: Study in Chat button from flashcard tutor panel -->
+                <button class="fc-visual-tutor-btn" onclick="window._fcStudyInChat()" title="Go deeper in the Chat" style="border-color:var(--border-md);color:var(--text-2);">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  Chat
+                </button>
                 <button class="fc-tutor-close" onclick="window._fcDismissTutor()" title="Got it, next card">
                   Next card
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
@@ -327,6 +332,11 @@ const FC_COMPLETE_HTML = `
       </button>
       <button class="fc-modal-btn secondary" data-action="_fcStudyHardOnly" id="fc-study-hard-btn" style="display:none;">
         Study hard cards only
+      </button>
+      <!-- Task 5: Review hard cards in Chat -->
+      <button class="fc-modal-btn secondary" id="fc-review-in-chat-btn" onclick="window._fcReviewHardInChat()" style="display:none;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Review in Chat
       </button>
       <button class="fc-modal-btn secondary" data-action="_fcCreateNew">
         New deck
