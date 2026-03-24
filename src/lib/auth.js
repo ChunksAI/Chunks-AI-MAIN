@@ -20,6 +20,7 @@
  */
 
 import { getSupabaseClient } from './supabase.js';
+import { API_BASE } from './api.js';
 
 // ── User state ────────────────────────────────────────────────────────────────
 
@@ -275,12 +276,12 @@ export function _applyUserProfile(session) {
 
   setTimeout(async () => {
     try {
-      const sb = await window._getChunksSb?.();
+      const sb = await getSupabaseClient();
       if (!sb) return;
       const { data: { session: s } } = await sb.auth.getSession();
       if (!s?.access_token) return;
 
-      const res = await fetch(`${window.API_BASE}/api/admin/verify-access`, {
+      const res = await fetch(`${API_BASE}/api/admin/verify-access`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${s.access_token}` },
         body: JSON.stringify({})
@@ -412,10 +413,11 @@ export async function _initAuth() {
         } catch (_) { /* non-fatal — row may already exist */ }
         // Small delay so the page has painted, then force-sync bypassing cooldown
         setTimeout(() => {
-          window.SyncManager?.loginSync?.({ force: true }).catch(() => {
-            // Reset flag so the next page load retries rather than staying permanently blocked
-            _chunksSyncFired = false;
-          });
+          import('./syncManager.js').then(({ SyncManager }) => {
+            SyncManager.loginSync?.({ force: true }).catch(() => {
+              _chunksSyncFired = false;
+            });
+          }).catch(() => { _chunksSyncFired = false; });
         }, 200);
       })();
     }
@@ -512,9 +514,11 @@ export async function _initAuth() {
             if (sb2) await sb2.rpc('ensure_user_settings', { p_user_id: session.user.id });
           } catch (_) {}
           setTimeout(() => {
-            window.SyncManager?.loginSync?.({ force: true }).catch(() => {
-              _chunksSyncFired = false;
-            });
+            import('./syncManager.js').then(({ SyncManager }) => {
+              SyncManager.loginSync?.({ force: true }).catch(() => {
+                _chunksSyncFired = false;
+              });
+            }).catch(() => { _chunksSyncFired = false; });
           }, 200);
         })();
       }
@@ -548,7 +552,7 @@ export async function _initAuth() {
 
       // Give ChunksDB's DOMContentLoaded patcher time to run first
       setTimeout(() => {
-        window._fcRenderDeckList?.().catch?.(() => {});
+        import('../state/flash/index.js').then(m => m._fcRenderDeckList?.()).catch(() => {});
       }, 600);
     }
     // ────────────────────────────────────────────────────────────────────
@@ -628,7 +632,8 @@ export async function chunksSignOut() {
 
   // Phase 4: flush all pending writes before redirecting (max 3s wait)
   try {
-    await window.SyncManager?.flushBeforeSignOut?.();
+    const { SyncManager } = await import('./syncManager.js');
+    await SyncManager?.flushBeforeSignOut?.();
   } catch (_) {}
 
   // Clean up state and storage BEFORE redirecting so the user never sees

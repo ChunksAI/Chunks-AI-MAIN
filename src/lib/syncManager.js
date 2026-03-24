@@ -24,6 +24,7 @@ let _inFlight      = false;
 let _retryCount    = 0;
 let _retryTimer    = null;
 let _lastNudgeTime = 0;
+let _syncManagerDone = false;
 
 // ── Core sync with retry ──────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ async function _runSync({ force = false } = {}) {
 
   _inFlight = true;
   _status   = 'syncing';
-  window._syncManagerDone = false;
+  _syncManagerDone = false;
 
   try {
     await ChunksDB.pullAll({ force });
@@ -41,7 +42,7 @@ async function _runSync({ force = false } = {}) {
     _status     = 'success';
     _retryCount = 0;
     _inFlight   = false;
-    window._syncManagerDone = true;
+    _syncManagerDone = true;
 
     return true;
 
@@ -123,14 +124,18 @@ const SyncManager = {
 
 function _applyPostSyncUI() {
   try {
-    window._fcRenderStreak?.();
+    import('../state/flash/index.js').then(m => m._fcRenderStreak?.()).catch(() => {});
 
     const accent = localStorage.getItem('chunks_setting_accent');
     const color  = localStorage.getItem('chunks_setting_accent_color');
-    if (accent && color) window.applyAccentColor?.(color);
+    if (accent && color) {
+      import('../components/SettingsModal.js').then(m => m.applyAccentColor?.(color)).catch(() => {});
+    }
 
     const appearance = localStorage.getItem('chunks_setting_appearance');
-    if (appearance) window.applyAppearance?.(appearance);
+    if (appearance) {
+      import('../components/SettingsModal.js').then(m => m.applyAppearance?.(appearance)).catch(() => {});
+    }
 
     const fs = localStorage.getItem('chunks-chat-font-size');
     const fsMap = { small: '11px', medium: '13px', large: '15px', S: '11px', M: '13px', L: '15px' };
@@ -140,10 +145,8 @@ function _applyPostSyncUI() {
 
     setTimeout(() => {
       window._homeMountLatestSession?.();
-      // Re-render sidebar history sections so newly-synced sessions appear
-      // immediately after login — without this, sections stay empty until next interaction.
       window._renderAllRecent?.();
-      window._renderRecentPlansAllSidebars?.();
+      import('../components/Sidebar.js').then(m => m._renderRecentPlansAllSidebars?.()).catch(() => {});
     }, 150);
 
   } catch (e) {
@@ -198,9 +201,6 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-// ── Window bridge ─────────────────────────────────────────────────────────────
-
-window.SyncManager = SyncManager;
 console.log('[SyncManager] Phase 4 sync manager ready ✦');
 
-export { SyncManager };
+export { SyncManager, _syncManagerDone };

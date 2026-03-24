@@ -86,4 +86,4 @@ export function calcReadPct(progress) {
   return Math.min(100, Math.round((progress.lastPage / progress.totalPages) * 100));
 }
 
-window._bookProgress = { trackBookOpen, trackBookPage, getBookProgress, getAllBookProgress };
+export const _bookProgress = { trackBookOpen, trackBookPage, getBookProgress, getAllBookProgress };

@@ -491,16 +491,6 @@ export function renderUsageBar(containerId, feature) {
   }
 }
 
-// ── Export to window for non-module scripts ───────────────────────────────
-
-window.guestGate       = guestGate;
-window.guestCheckLimit = checkLimit;
-window.guestRecordUsage = recordUsage;
-window.showGuestLoginWall = showLoginWall;
-window.enforceExamConstraints = enforceExamConstraints;
-window.renderGuestUsageBar = renderUsageBar;
-window.isGuestMode     = isGuest;
-
 // ── Debug overlay (?debug=limits) ────────────────────────────────────────
 // Visit /guest?debug=limits to see a live overlay of current guest usage.
 
