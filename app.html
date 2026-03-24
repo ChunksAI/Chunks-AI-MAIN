@@ -2145,6 +2145,34 @@ function _bindSetupForm() {
   });
 }
 
+// ── Shared fetch helper for all research AI calls ─────────────────────────
+// Retries up to 3 times on 429 with exponential backoff (2s, 4s, 8s).
+// Handles guest-limited responses before retrying.
+// Pass an AbortSignal as the second arg (e.g. for paper search cancellation).
+async function _researchFetchWithRetry(bodyObj, signal) {
+  let res;
+  for (let attempt = 0; attempt <= 3; attempt++) {
+    res = await fetch(API_BASE + '/ask', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
+      ...(signal ? { signal } : {}),
+      body:    JSON.stringify(bodyObj)
+    });
+    if (res.status !== 429) break;
+    // Check for guest rate-limit wall first
+    const d429 = await res.clone().json().catch(() => ({}));
+    if (_handleGuestLimited(d429)) {
+      throw Object.assign(new Error('guest_limited'), { _guestLimited: true });
+    }
+    if (attempt < 3) {
+      await new Promise(r => setTimeout(r, Math.pow(2, attempt + 1) * 1000));
+      continue;
+    }
+    throw new Error('Server is busy — please try again in a moment.');
+  }
+  return res;
+}
+
 async function _researchStart() {
   const title   = document.getElementById('research-title-input')?.value.trim();
   const problem = document.getElementById('research-problem-input')?.value.trim() || '';
@@ -2229,20 +2257,16 @@ Rules:
 - For Mixed Methods: Introduction, Literature Review, Quantitative Methods, Qualitative Methods, Integrated Findings, Conclusion
 - Output ONLY the JSON array — nothing before or after it`;
 
-    const response = await fetch(API_BASE + '/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
-      body: JSON.stringify({
-        question:   prompt,
-        mode:       'study',
-        task_type:  'research',
-        ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(),
-        bookId:     'none',
-        history:    []
-      })
+    const response = await _researchFetchWithRetry({
+      question:   prompt,
+      mode:       'study',
+      task_type:  'research',
+      ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(),
+      bookId:     'none',
+      history:    []
     });
 
-    if (!response.ok) throw new Error('API error: ' + response.status);
+    if (!response.ok) throw new Error('Server error ' + response.status + ' — please try again.');
     const data = await response.json();
     if (_handleGuestLimited(data)) return;
     if (!data.success) throw new Error(data.error || 'Backend returned failure');
@@ -3089,11 +3113,7 @@ ${prevParagraphs ? '\nPrevious sections (maintain continuity, do not repeat):\n'
 Output the paragraph text only. No heading, no label, no preamble.`;
 
   try {
-    const resp = await fetch(API_BASE + '/ask', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
-      body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'research', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
-    });
+    const resp = await _researchFetchWithRetry({ question: prompt, mode: 'study', task_type: 'research', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] });
     const data = await resp.json();
     if (_handleGuestLimited(data)) return;
     if (!data.success) throw new Error(data.error);
@@ -3715,22 +3735,17 @@ Ignore any textbook context. Output ONLY a raw JSON array — no markdown fences
 - citationCount: realistic ballpark number
 - Start your response with [ and end with ] — nothing else`;
 
-    const resp = await fetch(API_BASE + '/ask', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ..._getAuthHeader() },
-      signal: _searchAbortController.signal,
-      body: JSON.stringify({
-        question:   searchPrompt,
-        mode:       'study',
-        task_type:  'research',
-        ...(() => { const p = _aiParams(5); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(),
-        bookId:     'none',
-        web_search: false,
-        history:    []
-      })
-    });
+    const resp = await _researchFetchWithRetry({
+      question:   searchPrompt,
+      mode:       'study',
+      task_type:  'research',
+      ...(() => { const p = _aiParams(5); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(),
+      bookId:     'none',
+      web_search: false,
+      history:    []
+    }, _searchAbortController.signal);
 
-    if (!resp.ok) throw new Error(`Backend error ${resp.status}`);
+    if (!resp.ok) throw new Error(`Server error ${resp.status} — please try again.`);
     const backendData = await resp.json();
     if (_handleGuestLimited(backendData)) return;
     if (!backendData.success) throw new Error(backendData.error || 'Search failed');
