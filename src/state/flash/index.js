@@ -56,6 +56,9 @@ export {
   _fcRenderDeckList,
   _fcDeckCardHTML,
   _fcDeleteDeck,
+  _fcDecksCache,
+  _fcLibraryCache,
+  _fcMasteryMap,
 } from './decks.js';
 
 export {

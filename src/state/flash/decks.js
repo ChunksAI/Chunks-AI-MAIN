@@ -6,12 +6,29 @@ import { $el, setText, setHtml, show, hide, toggleClass } from '../domHelpers.js
 import { MASTERY_KEY } from './state.js';
 import { _fcRenderStreak } from './streak.js';
 import { _fcStartDeck } from './session.js';
+import { getSupabaseClient } from '../../lib/supabase.js';
+import { FlashcardDB } from '../../lib/flashcardDb.js';
+import { showConfirmModal, closeConfirmModal } from '../../components/ConfirmModal.js';
+import { ChunksDB } from '../../lib/chunksDb.js';
+import { showToast } from '../../components/Toast.js';
+
+export let _fcDecksCache = null;
+export let _fcLibraryCache = null;
+export let _fcMasteryMap = null;
+
+// ── Cache lookup for dynamic data-deck-cache attributes ─────────────────────
+
+const _fcCacheMap = { _fcDecksCache: () => _fcDecksCache, _fcLibraryCache: () => _fcLibraryCache };
+
+function _fcGetCachedDeck(cacheKey, idx) {
+  return _fcCacheMap[cacheKey]?.()?.[idx] ?? null;
+}
 
 // ── Medical library loader ──────────────────────────────────────────────────
 
 async function _fcLoadLibraryDecks() {
   try {
-    const sb = await window._getChunksSb?.();
+    const sb = await getSupabaseClient?.();
     if (!sb) return [];
     const { data, error } = await sb
       .from('fc_decks')
@@ -64,16 +81,16 @@ export async function _fcRenderDeckList() {
   if (!grid) return;
 
   const [userDecks, libraryDecks] = await Promise.all([
-    window.FlashcardDB.fcLoadDecks(),
+    FlashcardDB.fcLoadDecks(),
     _fcLoadLibraryDecks(),
   ]);
 
   const deckIds    = userDecks.filter(d => d.id).map(d => d.id);
   const masteryMap = await _fcLoadMasteryMap(deckIds);
 
-  window._fcDecksCache   = userDecks;
-  window._fcLibraryCache = libraryDecks;
-  window._fcMasteryMap   = masteryMap;
+  _fcDecksCache   = userDecks;
+  _fcLibraryCache = libraryDecks;
+  _fcMasteryMap   = masteryMap;
 
   _fcRenderStreak();
 
@@ -147,7 +164,7 @@ export async function _fcRenderDeckList() {
       const deckId   = deleteBtn.dataset.deckId;
       const cacheKey = deleteBtn.dataset.deckCache;
       const idx      = parseInt(deleteBtn.dataset.deckIdx, 10);
-      const deck     = window[cacheKey]?.[idx];
+      const deck     = _fcGetCachedDeck(cacheKey, idx);
       const deckName = deck?.name || deckId;
       _fcDeleteDeck(deckId, deckName);
       return;
@@ -157,7 +174,7 @@ export async function _fcRenderDeckList() {
       e.stopPropagation();
       const cacheKey = startBtn.dataset.deckCache;
       const idx      = parseInt(startBtn.dataset.deckIdx, 10);
-      const deck     = window[cacheKey]?.[idx];
+      const deck     = _fcGetCachedDeck(cacheKey, idx);
       if (deck) _fcStartDeck(deck);
       return;
     }
@@ -165,7 +182,7 @@ export async function _fcRenderDeckList() {
     if (card) {
       const cacheKey = card.dataset.deckCache;
       const idx      = parseInt(card.dataset.deckIdx, 10);
-      const deck     = window[cacheKey]?.[idx];
+      const deck     = _fcGetCachedDeck(cacheKey, idx);
       if (deck) _fcStartDeck(deck);
     }
   }, { once: false });
@@ -228,8 +245,8 @@ export function _fcDeckCardHTML(d, i, cacheKey, mastery) {
 
 export async function _fcDeleteDeck(deckId, deckName) {
   const confirmed = await new Promise(resolve => {
-    if (window.showConfirmModal) {
-      window.showConfirmModal({
+    if (showConfirmModal) {
+      showConfirmModal({
         title:        'Delete deck?',
         desc:         `"${deckName}" and all its cards will be permanently deleted.`,
         confirmLabel: 'Delete',
@@ -247,25 +264,25 @@ export async function _fcDeleteDeck(deckId, deckName) {
   });
   if (!confirmed) return;
 
-  const decks    = window.FlashcardDB.FC_LS_KEY
-    ? JSON.parse(localStorage.getItem(window.FlashcardDB.FC_LS_KEY) || '[]')
+  const decks    = FlashcardDB.FC_LS_KEY
+    ? JSON.parse(localStorage.getItem(FlashcardDB.FC_LS_KEY) || '[]')
     : [];
   const filtered = decks.filter(d => d.id !== deckId);
-  localStorage.setItem(window.FlashcardDB.FC_LS_KEY, JSON.stringify(filtered));
+  localStorage.setItem(FlashcardDB.FC_LS_KEY, JSON.stringify(filtered));
 
   try {
-    if (window.ChunksDB?.isLoggedIn()) {
-      const sb = await window._getChunksSb?.();
+    if (ChunksDB?.isLoggedIn()) {
+      const sb = await getSupabaseClient?.();
       if (sb) {
         await sb.from('fc_cards').delete().eq('deck_id', deckId);
       }
-      await window.ChunksDB.remove('fc_decks', deckId);
+      await ChunksDB.remove('fc_decks', deckId);
     }
   } catch (e) {
     console.warn('[flashState] delete error:', e.message);
   }
 
-  window._showToast?.('✓', `"${deckName}" deleted`, 'var(--text-3)');
+  showToast?.('✓', `"${deckName}" deleted`, 'var(--text-3)');
   _fcRenderDeckList();
 }
 

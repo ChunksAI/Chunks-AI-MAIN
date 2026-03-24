@@ -9,13 +9,14 @@ import { _fcCloseCompleteModal } from './completion.js';
 import { _fcGenerateFromBar } from './generation.js';
 import { _fcInitAccent } from './accent.js';
 import { _fcRenderDeckList } from './decks.js';
+import { showScreen } from '../navigation/index.js';
 
 // ── Workspace make flashcard ────────────────────────────────────────────────
 
 export async function wsMakeFlashcard(el) {
   const topic = el?.dataset?.topic || '';
   if (!topic) return;
-  if (window.showScreen) window.showScreen('flash');
+  if (showScreen) showScreen('flash');
   const input = $el('fc-topic-input');
   if (input) {
     input.value = topic;
@@ -40,7 +41,7 @@ export function _fcStudyInChat() {
   if (!question) return;
   const prompt = `I got this flashcard wrong. Can you explain it in depth?\n\nQuestion: ${question}\nAnswer: ${answer}`;
 
-  if (typeof showScreen === 'function') showScreen('workspace');
+  if (showScreen) showScreen('workspace');
   setTimeout(() => {
     const inp = $el('ws-chat-input');
     if (!inp) return;
@@ -77,7 +78,7 @@ export function _fcReviewHardInChat() {
     prompt = `I struggled with these ${hardCards.length} flashcards from "${deckName}". Can you explain each one clearly?\n\n${list}`;
   }
 
-  if (typeof showScreen === 'function') showScreen('workspace');
+  if (showScreen) showScreen('workspace');
   setTimeout(() => {
     const inp = $el('ws-chat-input');
     if (!inp) return;

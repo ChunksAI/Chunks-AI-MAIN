@@ -4,6 +4,9 @@
 
 import { $el, setText, hide } from '../domHelpers.js';
 import { fc } from './state.js';
+import { FlashcardDB } from '../../lib/flashcardDb.js';
+import { getSupabaseClient } from '../../lib/supabase.js';
+import { showToast } from '../../components/Toast.js';
 
 let _fcEditSide = 'front';
 
@@ -55,7 +58,7 @@ export async function _fcSaveEditCard() {
   }
 
   try {
-    const lsKey = window.FlashcardDB?.FC_LS_KEY;
+    const lsKey = FlashcardDB?.FC_LS_KEY;
     if (lsKey) {
       const decks = JSON.parse(localStorage.getItem(lsKey) || '[]');
       const deckIdx = decks.findIndex(d => d.id === fc.currentDeckMeta?.id);
@@ -75,7 +78,7 @@ export async function _fcSaveEditCard() {
 
   if (card.id) {
     try {
-      const sb = await window._getChunksSb?.();
+      const sb = await getSupabaseClient?.();
       if (sb) {
         await sb.from('fc_cards').update({
           front: card.front || card.question || '',
@@ -88,5 +91,5 @@ export async function _fcSaveEditCard() {
   }
 
   _fcCloseEditCard();
-  window._showToast?.('✓', 'Card updated', 'var(--teal)');
+  showToast?.('✓', 'Card updated', 'var(--teal)');
 }

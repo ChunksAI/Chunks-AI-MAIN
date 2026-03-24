@@ -5,6 +5,8 @@
 import { $el, setText, setHtml, show, addClass, removeClass } from '../domHelpers.js';
 import { STREAK_KEY, FREEZE_KEY, XP_KEY, LEGEND_KEY } from './state.js';
 import { FC_ACCENTS, _fcCheckNewAccentUnlock } from './accent.js';
+import { showToast } from '../../components/Toast.js';
+import { _fcSound } from './session.js';
 
 // XP per rating
 const XP_PER_RATING = { easy: 10, ok: 7, hard: 3, skipped: 0 };
@@ -74,7 +76,7 @@ export function _fcCheckFreezeEarn(prevStreak, newStreak) {
   freeze.lastEarned = today;
   _fcSaveFreeze(freeze);
   setTimeout(() => {
-    window._showToast?.('🛡️', `Streak freeze earned! You can miss 1 day without losing your streak. (${freeze.tokens}/2 held)`, 'var(--fc-accent)');
+    showToast?.('🛡️', `Streak freeze earned! You can miss 1 day without losing your streak. (${freeze.tokens}/2 held)`, 'var(--fc-accent)');
   }, 2000);
 }
 
@@ -84,7 +86,7 @@ export function _fcTryUseFreeze(streak) {
   freeze.tokens--;
   _fcSaveFreeze(freeze);
   streak.lastStudyDate = _fcTodayStr();
-  window._showToast?.('🛡️', 'Streak freeze used! Your streak is protected.', 'var(--violet)');
+  showToast?.('🛡️', 'Streak freeze used! Your streak is protected.', 'var(--violet)');
   return true;
 }
 
@@ -324,8 +326,8 @@ export function _fcShowStreakMilestone(days) {
     100: "🏆 100-DAY STREAK! Hall of fame! Legend badge earned!",
   };
   const msg = messages[days] || `🔥 ${days}-day streak!`;
-  window._showToast?.('🔥', msg, 'var(--gold)');
-  setTimeout(() => window._fcSound?.combo(), 200);
+  showToast?.('🔥', msg, 'var(--gold)');
+  setTimeout(() => _fcSound?.combo(), 200);
 
   if (days >= 100) {
     _fcAwardLegendBadge();
