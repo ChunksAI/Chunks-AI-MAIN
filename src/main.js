@@ -60,7 +60,7 @@ import { _navInit } from './state/navigation/index.js';  // Task 15 ✓ — sets
 import './state/workspace/index.js';                     // Task 16 ✓ — sets window.selectBook, wsGoToPage, wsChatSend, etc.
 import './state/flash/index.js';
 import './styles/screens/visual-tutor.css';                         // Task 17 ✓ — sets window.wsMakeFlashcard, _fcRenderCard, etc.
-import './state/studyPlanState.js';                     // Task 18 ✓ — sets window.spHandleGenerate, spOpenExplainDrawer, etc.
+import './state/studyplan/index.js';                     // Task 18 ✓ — sets window.spHandleGenerate, spOpenExplainDrawer, etc.
 
 // ── Screens (added task-by-task) ───────────────────────────────────────────
 // Both screen modules MUST be imported before Sidebar.js. They mount
