@@ -9,7 +9,7 @@
  * and manages keyboard navigation (Escape, arrow keys) internally.
  */
 
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import {
   useState,
   useEffect,
@@ -108,7 +108,7 @@ const ConfirmModalIsland = forwardRef((_props, ref) => {
 
   // ── Render ────────────────────────────────────────────────────────────
   return h(
-    'Fragment',
+    Fragment,
     null,
 
     // Confirm modal overlay

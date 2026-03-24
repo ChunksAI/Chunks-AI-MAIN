@@ -47,7 +47,15 @@ export function mountIsland(Component, container, props = {}) {
 
   preactRender(h(Component, { ...props, ref }), el);
 
-  // Build the public handle — everything the ref exposes + unmount
+  // Build the public handle — everything the ref exposes + unmount.
+  //
+  // NOTE: ref.current is populated synchronously for simple components
+  // that call useImperativeHandle during the first render.  For async or
+  // lazily-initialized components the handle may initially be incomplete.
+  // In practice every island in this codebase is synchronous, so this is
+  // always safe.  If you add an async island, either:
+  //   (a) ensure the wrapper does a lazy _mount() before calling methods, or
+  //   (b) return a Proxy that defers to ref.current at call time.
   const handle = {
     /** Remove the Preact tree from the DOM. */
     unmount() {
@@ -55,9 +63,6 @@ export function mountIsland(Component, container, props = {}) {
     },
   };
 
-  // Proxy any imperative methods from the component ref
-  // (ref.current may not be set synchronously for async components,
-  //  but for simple components it is available immediately after render)
   if (ref.current) {
     Object.assign(handle, ref.current);
   }

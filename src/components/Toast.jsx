@@ -10,7 +10,7 @@
  * container for CSS animation compatibility.
  */
 
-import { h } from 'preact';
+import { h, Fragment } from 'preact';
 import {
   useState,
   useEffect,
@@ -60,7 +60,7 @@ const ToastIsland = forwardRef((_props, ref) => {
   if (!state.text) return null;
 
   return h(
-    'Fragment',
+    Fragment,
     null,
     h('span', { style: 'font-size:14px;' }, state.icon),
     h('span', null, state.text),
