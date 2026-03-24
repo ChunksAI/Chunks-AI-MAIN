@@ -14,16 +14,4 @@ export { showScreen, drawerNav, mobileNav, _currentScreen } from './screens.js';
 export { openMobileDrawer, closeMobileDrawer, toggleSidebar, handleLogoClick } from './mobile.js';
 export { _navInit } from './init.js';
 
-// ── Window bridges ────────────────────────────────────────────────────────────
-import { showScreen, drawerNav, mobileNav } from './screens.js';
-import { openMobileDrawer, closeMobileDrawer, toggleSidebar, handleLogoClick } from './mobile.js';
-
-window.showScreen        = showScreen;
-window.drawerNav         = drawerNav;
-window.mobileNav         = mobileNav;
-window.toggleSidebar     = toggleSidebar;
-window.handleLogoClick   = handleLogoClick;
-window.openMobileDrawer  = openMobileDrawer;
-window.closeMobileDrawer = closeMobileDrawer;
-
 console.log('[navigation] module loaded ✦');

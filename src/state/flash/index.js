@@ -105,98 +105,10 @@ export {
   _fcInit,
 } from './chatBridge.js';
 
-// ── Window bridges ──────────────────────────────────────────────────────────
-// Exactly matches the original flashState.js window.* assignments.
-
-import {
-  FC_ACCENTS,
-  _fcOpenAccentPicker,
-  _fcSelectAccent,
-  _fcInitAccent,
-  _fcCheckNewAccentUnlock,
-} from './accent.js';
-
-import {
-  _fcRecordStudyDay,
-  _fcRenderStreak,
-  _fcGetFreeze,
-  _fcGetStreak,
-  _fcFlameSvg,
-  _fcGetXp,
-  _fcXpMultiplier,
-  _fcIsLegend,
-  _fcAwardLegendBadge,
-  _fcHardBoostActive,
-  _fcStreakMilestones,
-} from './streak.js';
-
-import { _fcDeleteDeck, _fcRenderDeckList } from './decks.js';
-import { _fcOpenPdfUpload, _fcGenerateFromBar, _aiParams } from './generation.js';
-import { _fcSound, _fcNext, _fcFlip, _fcStartDeck, _fcDismissTutor } from './session.js';
-import {
-  _fcRestartDeck,
-  _fcStudyHardOnly,
-  _fcCreateNew,
-  _fcExitStudy,
-  _fcCloseCompleteModal,
-} from './completion.js';
-import { _fcOpenEditCard, _fcCloseEditCard, _fcSaveEditCard } from './editing.js';
-import { wsMakeFlashcard, _fcStudyInChat, _fcReviewHardInChat, _fcInit } from './chatBridge.js';
-
-// Accent
-window._fcOpenAccentPicker     = _fcOpenAccentPicker;
-window._fcSelectAccent         = _fcSelectAccent;
-window._fcInitAccent           = _fcInitAccent;
-window._fcCheckNewAccentUnlock = _fcCheckNewAccentUnlock;
-window.FC_ACCENTS              = FC_ACCENTS;
-
-// Streak
-window._fcRecordStudyDay   = _fcRecordStudyDay;
-window._fcRenderStreak     = _fcRenderStreak;
-window._fcGetFreeze        = _fcGetFreeze;
-window._fcGetStreak        = _fcGetStreak;
-window._fcFlameSvg         = _fcFlameSvg;
-window._fcGetXp            = _fcGetXp;
-window._fcXpMultiplier     = _fcXpMultiplier;
-window._fcIsLegend         = _fcIsLegend;
-window._fcAwardLegendBadge = _fcAwardLegendBadge;
-window._fcHardBoostActive  = _fcHardBoostActive;
-window._fcStreakMilestones = _fcStreakMilestones;
-
-// Session + Sound
-window._fcSound        = _fcSound;
-window._fcNext         = _fcNext;
-window._fcFlip         = _fcFlip;
-window._fcStartDeck    = _fcStartDeck;
-window._fcDismissTutor = _fcDismissTutor;
-
-// Decks
-window._fcDeleteDeck     = _fcDeleteDeck;
-window._fcRenderDeckList = _fcRenderDeckList;
-
-// Generation
-window._fcOpenPdfUpload   = _fcOpenPdfUpload;
-window._fcGenerateFromBar = _fcGenerateFromBar;
-window._aiParams          = _aiParams;
-
-// Completion
-window._fcRestartDeck        = _fcRestartDeck;
-window._fcStudyHardOnly      = _fcStudyHardOnly;
-window._fcCreateNew          = _fcCreateNew;
-window._fcExitStudy          = _fcExitStudy;
-window._fcCloseCompleteModal = _fcCloseCompleteModal;
-
-// Editing
-window._fcOpenEditCard  = _fcOpenEditCard;
-window._fcCloseEditCard = _fcCloseEditCard;
-window._fcSaveEditCard  = _fcSaveEditCard;
-
-// Chat bridges
-window.wsMakeFlashcard     = wsMakeFlashcard;
-window._fcStudyInChat      = _fcStudyInChat;
-window._fcReviewHardInChat = _fcReviewHardInChat;
-
 // ── Init ────────────────────────────────────────────────────────────────────
+
+import { _fcInit } from './chatBridge.js';
+
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', _fcInit);
