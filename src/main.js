@@ -57,8 +57,8 @@ import './utils/focusTrap.js';                          // Task 14 ✓ — sets 
 
 // ── State (added task-by-task) ─────────────────────────────────────────────
 import { _navInit } from './state/navigation/index.js';  // Task 15 ✓ — sets window.showScreen, toggleSidebar, mobileNav, etc.
-import './state/workspaceState.js';                     // Task 16 ✓ — sets window.selectBook, wsGoToPage, wsChatSend, etc.
-import './state/flashState.js';
+import './state/workspace/index.js';                     // Task 16 ✓ — sets window.selectBook, wsGoToPage, wsChatSend, etc.
+import './state/flash/index.js';
 import './styles/screens/visual-tutor.css';                         // Task 17 ✓ — sets window.wsMakeFlashcard, _fcRenderCard, etc.
 import './state/studyPlanState.js';                     // Task 18 ✓ — sets window.spHandleGenerate, spOpenExplainDrawer, etc.
 
