@@ -56,7 +56,7 @@ import './utils/storage.js';                            // Task 13 ✓ — sets 
 import './utils/focusTrap.js';                          // Task 14 ✓ — sets window.trapFocus
 
 // ── State (added task-by-task) ─────────────────────────────────────────────
-import { _navInit } from './state/navigation.js';       // Task 15 ✓ — sets window.showScreen, toggleSidebar, mobileNav, etc.
+import { _navInit } from './state/navigation/index.js';  // Task 15 ✓ — sets window.showScreen, toggleSidebar, mobileNav, etc.
 import './state/workspaceState.js';                     // Task 16 ✓ — sets window.selectBook, wsGoToPage, wsChatSend, etc.
 import './state/flashState.js';
 import './styles/screens/visual-tutor.css';                         // Task 17 ✓ — sets window.wsMakeFlashcard, _fcRenderCard, etc.
