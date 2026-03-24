@@ -1132,11 +1132,29 @@ export async function spExamGenerate() {
   });
   const concept = _spDrawerConcept;
   const prompt  = `Generate exactly 10 multiple-choice exam questions about: "${concept.title}".\n${concept.description ? 'Context: ' + concept.description : ''}\n${concept.keyTerms?.length ? 'Key terms: ' + concept.keyTerms.join(', ') : ''}\n\nRules:\n- 4 options labeled A-D, one correct answer\n- Mix of easy, medium, and hard questions\n- Test understanding and application, not just definitions\n- Output ONLY a raw JSON array, no markdown:\n[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"1 sentence why this is correct"}]`;
+  // Retry with exponential backoff for 429 rate limits
+  const _examFetchWithRetry = async (maxRetries = 3) => {
+    const loadingEl = document.getElementById('sp-exam-loading');
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      const res = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} }, body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'study_plan_exam', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
+      if (res.status === 429) {
+        const _d = await res.json().catch(() => ({}));
+        if (_d.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature || 'exam'); return null; }
+        if (attempt < maxRetries) {
+          const waitSec = Math.pow(2, attempt + 1);
+          if (loadingEl) loadingEl.querySelector('.sp-exam-loading-text') && (loadingEl.querySelector('.sp-exam-loading-text').textContent = `Server is busy — retrying in ${waitSec}s…`);
+          await new Promise(r => setTimeout(r, waitSec * 1000));
+          continue;
+        }
+        throw new Error('Server is busy — please wait a moment and try again.');
+      }
+      if (!res.ok) throw new Error('Server error ' + res.status);
+      return await res.json();
+    }
+  };
   try {
-    const res  = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} }, body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'study_plan_exam', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
-    if (res.status === 429) { const _d = await res.json().catch(()=>({})); if (_d.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'exam'); return; } throw new Error('Server busy'); }
-    if (!res.ok) throw new Error('Server error ' + res.status);
-    const data = await res.json();
+    const data = await _examFetchWithRetry();
+    if (!data) return;
     _spExamQuestions = JSON.parse((data.answer || data.response || data.text || '').trim().replace(/```(?:json)?/g,'').trim());
     document.getElementById('sp-exam-loading').style.display = 'none';
     document.getElementById('sp-exam-intro').style.display   = 'flex';
