@@ -114,33 +114,38 @@
   if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   window.scrollTo(0, 0);
 
-  // ── Instant pre-render auth gate ─────────────────────────────────────────
-  // app.html is for authenticated users only. Unauthenticated visitors go to /guest.
+  // ── Unified pre-render auth gate ───────────────────────────────────────────
+  // Single entry point for both authenticated and guest users.
+  // If no valid session exists, activate guest mode instead of redirecting.
   (function() {
     var hasCode      = location.search.includes('code=');
     var hasHash      = location.hash.includes('access_token');
     var isOAuthCb    = sessionStorage.getItem('chunks_oauth_callback') === '1';
     var isSigningOut = sessionStorage.getItem('chunks_signing_out') === '1';
-    // Let OAuth callbacks complete in the app
+    // Let OAuth callbacks land here safely before we decide
     if (hasCode || hasHash || isOAuthCb) return;
-    // Sign-out: go to guest page
+    // After sign-out we stay on the page in guest mode; just clear the flag
     if (isSigningOut) {
       sessionStorage.removeItem('chunks_signing_out');
-      location.replace('/guest'); return;
+      sessionStorage.setItem('chunks_guest_mode', '1');
+      return;
     }
+    // Check for an existing authenticated session
     try {
       var raw = localStorage.getItem('chunks-ai-auth');
-      if (!raw) { location.replace('/guest'); return; }
-      var parsed  = JSON.parse(raw);
-      var session = parsed.access_token ? parsed
-                  : (parsed.currentSession && parsed.currentSession.access_token)
-                    ? parsed.currentSession : null;
-      if (!session || !session.access_token) { location.replace('/guest'); return; }
-      // Token expired? DO NOT redirect — auth.js will refresh via Supabase SDK
+      if (raw) {
+        var parsed  = JSON.parse(raw);
+        var session = parsed.access_token ? parsed
+                    : (parsed.currentSession && parsed.currentSession.access_token)
+                      ? parsed.currentSession : null;
+        if (session && session.access_token) return; // authenticated — proceed
+        // Token expired? DO NOT redirect — auth.js will refresh via Supabase SDK
+      }
     } catch(e) {
       try { localStorage.removeItem('chunks-ai-auth'); } catch(_) {}
-      location.replace('/guest');
     }
+    // Not authenticated — activate guest mode
+    sessionStorage.setItem('chunks_guest_mode', '1');
   })();
 </script>
 <script>
@@ -302,9 +307,10 @@ function _getAuthHeader() {
 const RECENT_MAX = 50;
 const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
 
-// app.html is authenticated-only — guest mode never active here
-const _isGuestMode = () => false;
-let _recentItems = JSON.parse(localStorage.getItem('chunks_recent') || 'null') || [];
+// Runtime guest mode check — single source of truth
+const _isGuestMode = () => sessionStorage.getItem('chunks_guest_mode') === '1';
+if (_isGuestMode()) document.body.classList.add('guest-mode');
+let _recentItems = _isGuestMode() ? [] : (JSON.parse(localStorage.getItem('chunks_recent') || 'null') || []);
 // In-memory set of IDs (both local and UUID) deleted during this page session.
 // Checked in _hydrateRecentFromRemote BEFORE the localStorage tombstone so that
 // a Supabase DELETE that hasn't propagated yet cannot re-inject the row.
@@ -316,6 +322,7 @@ const _justDeleted = new Set();
 let _activeRecentId = null;
 
 function _saveRecent() {
+  if (_isGuestMode()) return; // guests: no history persistence
   localStorage.setItem('chunks_recent', JSON.stringify(_recentItems));
 }
 
@@ -505,6 +512,7 @@ function newChat() {
 // ── Add to recents (called on every send) ────────────────
 function recentAdd(question, bookId, source) {
   if (!question) return;
+  if (_isGuestMode()) return; // guests: no history tracking
   const label = question.length > 32 ? question.slice(0, 32).trimEnd() + '…' : question;
   // Don't duplicate if same as most recent of same source
   if (_recentItems.length && _recentItems[0].question === question && _recentItems[0].source === source) {
@@ -6916,8 +6924,18 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 </script>
 
 
+  <!-- ── Guest page flag — read by navigation.js to prefix paths ── -->
+  <script>
+    if (sessionStorage.getItem('chunks_guest_mode') === '1') window._guestPage = true;
+  </script>
   <!-- ── Vite module entry point ── -->
   <script type="module" src="/src/main.js"></script>
+  <script type="module">
+    // Load guest-limits module only when in guest mode
+    if (sessionStorage.getItem('chunks_guest_mode') === '1') {
+      import('/src/lib/guestLimits.js');
+    }
+  </script>
 <script>
 // Failsafe: ensure body is visible after all modules load
 window.addEventListener('load', function() {
@@ -7314,6 +7332,24 @@ window.addEventListener('load', function() {
     }
     #auth-modal-card .am-btn-google:hover { background: #252636; border-color: var(--border-lg,#3d3e52); transform: translateY(-1px); }
     #auth-modal-card .am-btn-google:active { transform: translateY(0); }
+    #auth-modal-card .am-divider {
+      display: flex; align-items: center; gap: 10px;
+      margin: 4px 0 12px; color: var(--text-3, #7c7c96); font-size: 12px;
+    }
+    #auth-modal-card .am-divider::before,
+    #auth-modal-card .am-divider::after {
+      content: ''; flex: 1; height: 1px;
+      background: var(--border-sm, #2a2b38);
+    }
+    #auth-modal-card .am-btn-guest {
+      width: 100%; padding: 11px; border-radius: 12px; cursor: pointer;
+      background: transparent; border: 1px solid var(--border-xs, #252633);
+      color: var(--text-2, #9898ae); font-size: 13px; font-weight: 500;
+      font-family: var(--font-body, inherit);
+      display: flex; align-items: center; justify-content: center; gap: 7px;
+      transition: background 0.15s, color 0.15s;
+    }
+    #auth-modal-card .am-btn-guest:hover { background: var(--surface-3,#1e1f29); color: var(--text-1,#ededf0); }
     #auth-modal-card .am-footer {
       font-size: 11px; color: var(--text-3,#7c7c96);
       margin-top: 18px; line-height: 1.5;
@@ -7371,6 +7407,13 @@ window.addEventListener('load', function() {
         Continue with Google
       </button>
 
+      <div class="am-divider" id="am-guest-divider" style="display:none">or</div>
+
+      <button class="am-btn-guest" id="am-btn-guest" style="display:none">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Continue as guest
+      </button>
+
       <div class="am-footer">
         By signing in you agree to our
         <a href="/terms" target="_blank">Terms of Service</a> and
@@ -7395,6 +7438,15 @@ window.addEventListener('load', function() {
   var loading       = document.getElementById('am-loading');
   var _authPopup    = null;
   var _pollTimer    = null;
+  var _isGuest      = sessionStorage.getItem('chunks_guest_mode') === '1';
+
+  // Show guest button + divider only when in guest mode
+  if (_isGuest) {
+    var guestDiv = document.getElementById('am-guest-divider');
+    var guestBtn = document.getElementById('am-btn-guest');
+    if (guestDiv) guestDiv.style.display = '';
+    if (guestBtn) guestBtn.style.display = '';
+  }
 
   // ── Open modal ─────────────────────────────────────────────────────────────
   function openAuthModal() {
@@ -7413,6 +7465,13 @@ window.addEventListener('load', function() {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
   }
   window.closeAuthModal = closeAuthModal;
+
+  // ── Successful auth handler (shared by popup poll + postMessage) ───────────
+  function _onAuthSuccess() {
+    try { sessionStorage.removeItem('chunks_guest_mode'); } catch(_) {}
+    closeAuthModal();
+    window.location.reload();
+  }
 
   // ── Google sign-in popup ───────────────────────────────────────────────────
   function startGoogleAuth() {
@@ -7457,8 +7516,7 @@ window.addEventListener('load', function() {
           var parsed = JSON.parse(raw);
           var session = parsed.access_token ? parsed : (parsed.currentSession || null);
           if (session && session.access_token) {
-            closeAuthModal();
-            window.location.reload();
+            _onAuthSuccess();
             return;
           }
         }
@@ -7475,10 +7533,13 @@ window.addEventListener('load', function() {
     if (e.data === 'chunks_auth_success') {
       if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
       if (_authPopup && !_authPopup.closed) { try { _authPopup.close(); } catch(_) {} }
-      // Clear guest mode before reload so the app renders as authenticated
-      closeAuthModal();
-      window.location.reload();
+      _onAuthSuccess();
     }
+  });
+
+  // ── Continue as guest — just close the modal ──────────────────────────────
+  document.getElementById('am-btn-guest')?.addEventListener('click', function() {
+    closeAuthModal();
   });
 
   // ── Google button ──────────────────────────────────────────────────────────

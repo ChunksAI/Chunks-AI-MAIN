@@ -657,7 +657,7 @@ window.chunksSignOut = async function chunksSignOut() {
         'fc_streak_last_study',  // legacy streak key
       ];
       const EXACT_KEYS = [
-        'chunks-ai-auth',            // our cached session copy — must be cleared so guest.html doesn't redirect to app
+        'chunks-ai-auth',            // our cached session copy — must be cleared so the auth gate re-enters guest mode
         'chunks_recent',
         'chunks_active_home_session',
         'chunks_active_ws_book',
