@@ -420,7 +420,8 @@ Rules:
         window.showGuestLoginWall(_d429.feature || 'studyplan');
         return null;
       }
-      throw Object.assign(new Error('Server is busy — please wait a moment and try again.'), { noRetry: true });
+      // Retry with backoff on 429 — the outer _spTryGenerate loop handles this
+      throw Object.assign(new Error('Server is busy — please wait a moment and try again.'), { noRetry: false, _is429: true });
     }
     if (!response.ok) {
       let errMsg = 'Server error ' + response.status;
@@ -778,7 +779,7 @@ Use **bold** for key terms. Use ### headings to separate sections. Use bullet li
       headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
       body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'study_plan_explain', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }),
     });
-    if (resp.status === 429) { const _d = await resp.json().catch(()=>({})); if (_d.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'workspace'); return; } throw new Error('Server busy'); }
+    if (resp.status === 429) { const _d = await resp.json().catch(()=>({})); if (_d.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'workspace'); return; } throw Object.assign(new Error('Server busy'), { _is429: true }); }
     if (!resp.ok) throw new Error('API error ' + resp.status);
     const data = await resp.json();
     if (!data.success) throw new Error(data.error || 'Backend error');
