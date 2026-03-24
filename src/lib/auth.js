@@ -24,7 +24,10 @@ import { getSupabaseClient } from './supabase.js';
 // ── User state ────────────────────────────────────────────────────────────────
 
 /** @type {{ id:string|null, email:string, name:string, avatar:string, plan:string }|null} */
-window._currentUser = null;
+export let _currentUser = null;
+export let _chunksSyncFired = false;
+export let _presenceChannel = null;
+export let _presenceHeartbeat = null;
 
 // Set to true the moment chunksSignOut() fires — suppresses all UI updates
 // so the user never sees a "Guest" flash while the page is navigating away.
@@ -163,8 +166,8 @@ function _applyUI(user) {
   const cachedOwner = localStorage.getItem('chunks_owner_email');
   const isAdminNow  = user.isAdmin || (cachedAdmin && cachedAdmin === user.email);
   const isOwnerNow  = user.isOwner || (cachedOwner && cachedOwner === user.email);
-  if (isOwnerNow && window._currentUser) { window._currentUser.isOwner = true; window._currentUser.isAdmin = true; }
-  else if (isAdminNow && window._currentUser) window._currentUser.isAdmin = true;
+  if (isOwnerNow && _currentUser) { _currentUser.isOwner = true; _currentUser.isAdmin = true; }
+  else if (isAdminNow && _currentUser) _currentUser.isAdmin = true;
   const adminBtn = document.getElementById('pd-admin-btn');
   if (adminBtn) adminBtn.style.display = (isAdminNow || isOwnerNow) ? '' : 'none';
 }
@@ -232,9 +235,9 @@ let _adminCheckDone = false;
  * Convert a Supabase session into window._currentUser and update UI.
  * Called by _initAuth and the onAuthStateChange listener.
  */
-window._applyUserProfile = function _applyUserProfile(session) {
+export function _applyUserProfile(session) {
   if (!session?.user) {
-    window._currentUser = null;
+    _currentUser = null;
     _adminCheckDone = false;
     _applyUI(null);
     return;
@@ -245,7 +248,7 @@ window._applyUserProfile = function _applyUserProfile(session) {
   const u    = session.user;
   const meta = u.user_metadata || {};
 
-  window._currentUser = {
+  _currentUser = {
     id:      u.id,
     email:   u.email || '',
     name:    meta.full_name || meta.name || meta.display_name || u.email?.split('@')[0] || 'User',
@@ -264,7 +267,7 @@ window._applyUserProfile = function _applyUserProfile(session) {
              meta.role === 'superadmin',
   };
 
-  _applyUI(window._currentUser);
+  _applyUI(_currentUser);
 
   // Fire verify-access ONCE per login only — not on every TOKEN_REFRESHED / re-render
   if (_adminCheckDone) return;
@@ -292,16 +295,16 @@ window._applyUserProfile = function _applyUserProfile(session) {
       }
       const data = await res.json();
       if (data.success && (data.role === 'admin' || data.role === 'owner' || data.role === 'superadmin')) {
-        if (window._currentUser) {
-          window._currentUser.isAdmin = true;
-          window._currentUser.isOwner = data.role === 'owner' || data.role === 'superadmin';
+        if (_currentUser) {
+          _currentUser.isAdmin = true;
+          _currentUser.isOwner = data.role === 'owner' || data.role === 'superadmin';
         }
-        localStorage.setItem('chunks_admin_email', window._currentUser.email);
-        if (window._currentUser.isOwner) localStorage.setItem('chunks_owner_email', window._currentUser.email);
+        localStorage.setItem('chunks_admin_email', _currentUser.email);
+        if (_currentUser.isOwner) localStorage.setItem('chunks_owner_email', _currentUser.email);
         else localStorage.removeItem('chunks_owner_email');
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = '';
-        if (window._currentUser) _applyUI(window._currentUser);
+        if (_currentUser) _applyUI(_currentUser);
       } else {
         localStorage.removeItem('chunks_admin_email');
         localStorage.removeItem('chunks_owner_email');
@@ -310,11 +313,11 @@ window._applyUserProfile = function _applyUserProfile(session) {
       }
     } catch (_) {}
   }, 500);
-};
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-window._initAuth = async function _initAuth() {
+export async function _initAuth() {
   // ── Post-signout: clear flag ────────────────────────────────────────────
   // After chunksSignOut(), we redirect to /ChunksAI (homepage).
   // Clear the signing_out flag if it somehow persists on app.html load.
@@ -370,7 +373,7 @@ window._initAuth = async function _initAuth() {
   // 1. Restore existing session
   try {
     const { data: { session } } = await sb.auth.getSession();
-    window._applyUserProfile(session);
+    _applyUserProfile(session);
 
     // ── Sync user row on session restore (returning user / page refresh) ──
     if (session?.user) {
@@ -400,8 +403,8 @@ window._initAuth = async function _initAuth() {
     if (session?.user) _applyDefaultSettings();
 
     // ── Phase 4: cross-device sync via SyncManager (run once per page load) ──
-    if (session?.user && !window._chunksSyncFired) {
-      window._chunksSyncFired = true;  // prevent duplicate calls from TOKEN_REFRESHED etc.
+    if (session?.user && !_chunksSyncFired) {
+      _chunksSyncFired = true;  // prevent duplicate calls from TOKEN_REFRESHED etc.
       (async () => {
         try {
           const sb2 = await getSupabaseClient();
@@ -411,7 +414,7 @@ window._initAuth = async function _initAuth() {
         setTimeout(() => {
           window.SyncManager?.loginSync?.({ force: true }).catch(() => {
             // Reset flag so the next page load retries rather than staying permanently blocked
-            window._chunksSyncFired = false;
+            _chunksSyncFired = false;
           });
         }, 200);
       })();
@@ -463,7 +466,7 @@ window._initAuth = async function _initAuth() {
     // Skip applying null profile on SIGNED_OUT during a page that has a valid
     // cached session — prevents "Guest" flash when Supabase fires intermediate events
     if (!session?.user && _cachedSessionValid && _event !== 'SIGNED_OUT') return;
-    window._applyUserProfile(session);
+    _applyUserProfile(session);
 
     // ── Register / sync user row in public users table ────────────────────
     // Every sign-in (new or returning) upserts a row so the admin panel
@@ -501,8 +504,8 @@ window._initAuth = async function _initAuth() {
       _applyDefaultSettings();
 
       // Phase 4: full login sync — guarded by _chunksSyncFired (set in session restore)
-      if (session?.user && !window._chunksSyncFired) {
-        window._chunksSyncFired = true;
+      if (session?.user && !_chunksSyncFired) {
+        _chunksSyncFired = true;
         (async () => {
           try {
             const sb2 = await getSupabaseClient();
@@ -510,7 +513,7 @@ window._initAuth = async function _initAuth() {
           } catch (_) {}
           setTimeout(() => {
             window.SyncManager?.loginSync?.({ force: true }).catch(() => {
-              window._chunksSyncFired = false;
+              _chunksSyncFired = false;
             });
           }, 200);
         })();
@@ -551,11 +554,11 @@ window._initAuth = async function _initAuth() {
     // ────────────────────────────────────────────────────────────────────
 
     if (_event === 'SIGNED_OUT') {
-      window._currentUser = null;
+      _currentUser = null;
       // Leave presence channel on sign out
-      if (window._presenceChannel) {
-        try { sb.removeChannel(window._presenceChannel); } catch(_) {}
-        window._presenceChannel = null;
+      if (_presenceChannel) {
+        try { sb.removeChannel(_presenceChannel); } catch(_) {}
+        _presenceChannel = null;
       }
     }
   });
@@ -563,7 +566,7 @@ window._initAuth = async function _initAuth() {
   // ── Presence tracking — broadcasts this user to admin panel ──────────────
   // Runs after auth is confirmed. Tracks both signed-in users and guests.
   _trackPresence(sb);
-};
+}
 
 async function _trackPresence(sb) {
   try {
@@ -572,8 +575,8 @@ async function _trackPresence(sb) {
     if (isLoginPage) return; // don't track on login page
 
     // Clean up any existing presence channel
-    if (window._presenceChannel) {
-      try { sb.removeChannel(window._presenceChannel); } catch(_) {}
+    if (_presenceChannel) {
+      try { sb.removeChannel(_presenceChannel); } catch(_) {}
     }
 
     const channel = sb.channel('app-presence', {
@@ -584,8 +587,8 @@ async function _trackPresence(sb) {
       ? { type: 'guest', ts: Date.now() }
       : {
           type:  'user',
-          email: window._currentUser?.email || '',
-          plan:  window._currentUser?.plan  || 'free',
+          email: _currentUser?.email || '',
+          plan:  _currentUser?.plan  || 'free',
           ts:    Date.now(),
         };
 
@@ -595,15 +598,15 @@ async function _trackPresence(sb) {
       }
     });
 
-    window._presenceChannel = channel;
+    _presenceChannel = channel;
 
     // Re-track every 4 minutes to keep presence fresh (Supabase presence
     // entries expire after ~5 minutes without a heartbeat)
-    if (window._presenceHeartbeat) clearInterval(window._presenceHeartbeat);
-    window._presenceHeartbeat = setInterval(async () => {
+    if (_presenceHeartbeat) clearInterval(_presenceHeartbeat);
+    _presenceHeartbeat = setInterval(async () => {
       try {
-        if (window._presenceChannel) {
-          await window._presenceChannel.track({
+        if (_presenceChannel) {
+          await _presenceChannel.track({
             ...presenceData,
             ts: Date.now(),
           });
@@ -618,7 +621,7 @@ async function _trackPresence(sb) {
 
 // ── Sign out ──────────────────────────────────────────────────────────────────
 
-window.chunksSignOut = async function chunksSignOut() {
+export async function chunksSignOut() {
   // Set the flag immediately — suppresses all _applyUI calls triggered by
   // the Supabase SIGNED_OUT event that fires when sb.auth.signOut() runs.
   _signingOut = true;
@@ -632,7 +635,7 @@ window.chunksSignOut = async function chunksSignOut() {
   // a "Guest" flash — the page navigates away before any re-render happens.
   function _cleanAndRedirect() {
     // Clear all state
-    window._currentUser = null;
+    _currentUser = null;
 
     // ── Wipe ALL user-scoped localStorage data ────────────────────────────────
     // Previously only 5 pointer keys were cleared, leaving behind chat sessions,
@@ -696,7 +699,7 @@ window.chunksSignOut = async function chunksSignOut() {
     sessionStorage.removeItem('chunks_oauth_callback');
 
     // Reset the sync-fired flag so the next login triggers a fresh pull
-    window._chunksSyncFired = false;
+    _chunksSyncFired = false;
 
     // Navigate to /ChunksAI (marketing homepage) after sign-out
     // The homepage has its own guest experience via the login CTA.
@@ -710,16 +713,16 @@ window.chunksSignOut = async function chunksSignOut() {
   } catch (e) {}
 
   _cleanAndRedirect();
-};
+}
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 // Run _initAuth after the DOM is ready (supabase.js client may not be
 // initialised until after the page parses).
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', window._initAuth);
+  document.addEventListener('DOMContentLoaded', _initAuth);
 } else {
-  window._initAuth();
+  _initAuth();
 }
 
 console.log('[auth] module loaded ✦');
