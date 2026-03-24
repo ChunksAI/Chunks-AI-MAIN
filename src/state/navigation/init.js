@@ -4,8 +4,9 @@
 
 import { $el, $qsa, hide, removeClass } from '../domHelpers.js';
 import { _isOAuthHash, _screenFromPath, SCREEN_MAP } from './routes.js';
-import { showScreen, _currentScreen } from './screens.js';
+import { showScreen, _currentScreen, setNavFromHistory } from './screens.js';
 import { closeMobileDrawer } from './mobile.js';
+import { spInitScreen } from '../studyplan/index.js';
 
 export function _navInit() {
   // ── Strip OAuth hash and land on /home ──────────────────────────────────
@@ -22,7 +23,7 @@ export function _navInit() {
     window.addEventListener('popstate', (e) => {
       const name = (e.state && e.state.screen) ? e.state.screen : _screenFromPath();
       if (name && name !== _currentScreen()) {
-        window._navFromHistory = true;
+        setNavFromHistory(true);
         showScreen(name);
       }
     });
@@ -37,11 +38,11 @@ export function _navInit() {
                     : 'home';
 
   $qsa('.screen').forEach(s => { hide(s); removeClass(s, 'active'); });
-  if (start !== 'home') window._navFromHistory = true;
+  if (start !== 'home') setNavFromHistory(true);
   showScreen(start);
 
   if (start === 'studyplan') {
-    setTimeout(() => { if (typeof window.spInitScreen === 'function') window.spInitScreen(); }, 0);
+    setTimeout(() => { if (typeof spInitScreen === 'function') spInitScreen(); }, 0);
   }
 
   const overlay = $el('mobile-drawer-overlay');
@@ -51,7 +52,7 @@ export function _navInit() {
   window.addEventListener('popstate', (e) => {
     const name = (e.state && e.state.screen) ? e.state.screen : _screenFromPath();
     if (name && name !== _currentScreen()) {
-      window._navFromHistory = true;
+      setNavFromHistory(true);
       showScreen(name);
     }
   });

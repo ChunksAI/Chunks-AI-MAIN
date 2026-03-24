@@ -4,9 +4,10 @@
 
 import { sp } from './state.js';
 import { $el, $qsa, hide, show, setText, setHtml, addClass, removeClass } from '../domHelpers.js';
-import { API_BASE } from '../../lib/api.js';
+import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 import { _aiParams } from './generation.js';
 import { spMasteryRecord } from './mastery.js';
+import { isGuest, showLoginWall } from '../../lib/guestLimits.js';
 
 export function spOpenExplainDrawer(concept, startTab) {
   const drawer   = $el('sp-explain-drawer');
@@ -71,10 +72,10 @@ Use **bold** for key terms. Use ### headings to separate sections. Use bullet li
   try {
     const resp = await fetch(API_BASE + '/ask', {
       method: 'POST', signal: sp.explainAbortCtrl.signal,
-      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
+      headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
       body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'study_plan_explain', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }),
     });
-    if (resp.status === 429) { const _d = await resp.json().catch(()=>({})); if (_d.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature||'workspace'); return; } throw Object.assign(new Error('Server busy'), { _is429: true }); }
+    if (resp.status === 429) { const _d = await resp.json().catch(()=>({})); if (_d.guest_limited && isGuest?.() && typeof showLoginWall === 'function') { showLoginWall(_d.feature||'workspace'); return; } throw Object.assign(new Error('Server busy'), { _is429: true }); }
     if (!resp.ok) throw new Error('API error ' + resp.status);
     const data = await resp.json();
     if (!data.success) throw new Error(data.error || 'Backend error');
@@ -90,7 +91,7 @@ Use **bold** for key terms. Use ### headings to separate sections. Use bullet li
 
 // ── Drawer tab switching ───────────────────────────────────────────────────
 
-export function spDrawerTab(tab) {
+export async function spDrawerTab(tab) {
   $qsa('.sp-drawer-tab').forEach(t => { t.classList.remove('active'); t.classList.remove('sp-drawer-tab-locked'); });
   $el('sp-tab-' + tab)?.classList.add('active');
   ['explain','flash','pq','exam'].forEach(v => {
@@ -112,10 +113,13 @@ export function spDrawerTab(tab) {
   if (icon)    { icon.innerHTML = m.svg; icon.style.background = m.bg; icon.style.borderColor = m.border; }
 
   if (tab === 'flash') {
-    if (sp.fcDeck.length === 0) window.spFcGenerate(); else window.spFcShowDeck();
+    const { spFcGenerate, spFcShowDeck } = await import('./flashcards.js');
+    if (sp.fcDeck.length === 0) spFcGenerate(); else spFcShowDeck();
   } else if (tab === 'pq') {
-    if (sp.pqQuestions.length === 0) window.spPqGenerate(); else window.spPqShowCurrent();
+    const { spPqGenerate, spPqShowCurrent } = await import('./practiceQuestions.js');
+    if (sp.pqQuestions.length === 0) spPqGenerate(); else spPqShowCurrent();
   } else if (tab === 'exam') {
-    if (sp.examQuestions.length === 0) window.spExamGenerate(); else window.spExamShowCurrent();
+    const { spExamGenerate, spExamShowCurrent } = await import('./exam.js');
+    if (sp.examQuestions.length === 0) spExamGenerate(); else spExamShowCurrent();
   }
 }

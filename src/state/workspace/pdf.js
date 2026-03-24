@@ -4,6 +4,9 @@
 
 import { ws, ZOOM_STEP, ZOOM_MIN, ZOOM_MAX } from './state.js';
 import { $el, $qs, setText } from '../domHelpers.js';
+import { ChunksDB } from '../../lib/chunksDb.js';
+
+let _wsSavePosTm, _wsSaveZoomTm;
 
 // ── PDF badge ─────────────────────────────────────────────────────────────
 
@@ -30,9 +33,9 @@ export function wsGoToPage(n) {
   const target = ws.pageContainers[n - 1];
   if (target && wrap) wrap.scrollTop = target.offsetTop - 16;
   // Phase 3: debounced position sync (avoids per-scroll-pixel writes)
-  clearTimeout(window._wsSavePosTm);
-  window._wsSavePosTm = setTimeout(() => {
-    window.ChunksDB?.ws?.savePosition?.(ws.bookId, { page: n, zoom: ws.scale });
+  clearTimeout(_wsSavePosTm);
+  _wsSavePosTm = setTimeout(() => {
+    ChunksDB?.ws?.savePosition?.(ws.bookId, { page: n, zoom: ws.scale });
   }, 1200);
 }
 export function wsJumpToPage() {
@@ -59,9 +62,9 @@ export async function _wsRescale(newScale) {
     await _wsRenderPage(i + 1, c);
   }
   // Phase 3: sync zoom change to Supabase
-  clearTimeout(window._wsSaveZoomTm);
-  window._wsSaveZoomTm = setTimeout(() => {
-    window.ChunksDB?.ws?.savePosition?.(ws.bookId, { zoom: newScale, page: ws.currentPage });
+  clearTimeout(_wsSaveZoomTm);
+  _wsSaveZoomTm = setTimeout(() => {
+    ChunksDB?.ws?.savePosition?.(ws.bookId, { zoom: newScale, page: ws.currentPage });
   }, 1200);
 }
 

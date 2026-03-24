@@ -13,10 +13,12 @@ import {
   _fcHardBoostActive,
   _fcStreakMilestones,
 } from './streak.js';
-import { _fcSaveMastery } from './decks.js';
+import { _fcSaveMastery, _fcDecksCache } from './decks.js';
 import { _fcRenderDeckList } from './decks.js';
 import { _fcRemoveKeyboard } from './keyboard.js';
 import { _fcSound, _fcStartDeck } from './session.js';
+import { FlashcardDB } from '../../lib/flashcardDb.js';
+import { ChunksDB } from '../../lib/chunksDb.js';
 
 // ── Session completion ──────────────────────────────────────────────────────
 
@@ -32,7 +34,7 @@ export async function _fcFinishSession() {
   _fcSound.complete();
 
   try {
-    await window.FlashcardDB.fcSaveSession({
+    await FlashcardDB.fcSaveSession({
       deckId:      fc.currentDeckMeta?.id   || null,
       deckName:    fc.currentDeckMeta?.name || 'Untitled',
       stats:       fc.stats,
@@ -43,7 +45,7 @@ export async function _fcFinishSession() {
     console.warn('[flashState] session save error:', e);
   }
 
-  window.ChunksDB?.streak?.recordSession?.({
+  ChunksDB?.streak?.recordSession?.({
     xpEarned:   xpResult?.earned ?? 0,
     milestones: _fcStreakMilestones?.(),
   }).catch?.(() => {});
@@ -117,13 +119,13 @@ export async function _fcFinishSession() {
 
 export function _fcRestartDeck() {
   _fcCloseCompleteModal();
-  const deck = window._fcDecksCache?.find(d => d.id === fc.currentDeckMeta?.id);
+  const deck = _fcDecksCache?.find(d => d.id === fc.currentDeckMeta?.id);
   if (deck) _fcStartDeck(deck, false);
 }
 
 export function _fcStudyHardOnly() {
   _fcCloseCompleteModal();
-  const deck = window._fcDecksCache?.find(d => d.id === fc.currentDeckMeta?.id);
+  const deck = _fcDecksCache?.find(d => d.id === fc.currentDeckMeta?.id);
   if (deck) _fcStartDeck(deck, true);
 }
 

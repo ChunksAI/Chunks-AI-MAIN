@@ -6,6 +6,10 @@ import { $el, createElement } from '../domHelpers.js';
 import { _fcSetGenBusy, _fcShowError } from './helpers.js';
 import { _fcRenderDeckList } from './decks.js';
 import { _fcStartDeck } from './session.js';
+import { showToast } from '../../components/Toast.js';
+import { API_BASE, _getAuthHeader } from '../../lib/api.js';
+import { FlashcardDB } from '../../lib/flashcardDb.js';
+import { _getStudyMode } from '../../components/SettingsModal.js';
 
 // ── PDF upload → flashcard deck ─────────────────────────────────────────────
 
@@ -27,14 +31,14 @@ export async function _fcProcessUploadedFile(file) {
   _fcShowError('');
 
   try {
-    window._showToast?.('⏳', `Extracting text from ${file.name}…`, 'var(--text-3)');
+    showToast?.('⏳', `Extracting text from ${file.name}…`, 'var(--text-3)');
 
     const formData = new FormData();
     formData.append('file', file);
 
-    const uploadRes = await fetch(`${window.API_BASE}/upload-document`, {
+    const uploadRes = await fetch(`${API_BASE}/upload-document`, {
       method: 'POST',
-      headers: { ...await window._getAuthHeader?.() ?? {} },
+      headers: { ...await _getAuthHeader?.() ?? {} },
       body:   formData,
     });
     const uploadData = await uploadRes.json();
@@ -46,11 +50,11 @@ export async function _fcProcessUploadedFile(file) {
     const slides = uploadData.slides || [];
     if (!slides.length) throw new Error('No readable content found in file');
 
-    window._showToast?.('⚡', 'Generating flashcards from your file…', 'var(--gold)');
+    showToast?.('⚡', 'Generating flashcards from your file…', 'var(--gold)');
 
-    const matRes = await fetch(`${window.API_BASE}/generate-study-materials`, {
+    const matRes = await fetch(`${API_BASE}/generate-study-materials`, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
+      headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
       body:    JSON.stringify({ slides, type: 'flashcards' }),
     });
     const matData = await matRes.json();
@@ -64,10 +68,10 @@ export async function _fcProcessUploadedFile(file) {
 
     if (!cards.length) throw new Error('Could not parse flashcards from file');
 
-    const deck = await window.FlashcardDB.fcSaveDeck(topicName, cards);
+    const deck = await FlashcardDB.fcSaveDeck(topicName, cards);
     _fcSetGenBusy(false);
 
-    window._showToast?.('✦', `${cards.length} cards created from "${file.name}"`, 'var(--gold)');
+    showToast?.('✦', `${cards.length} cards created from "${file.name}"`, 'var(--gold)');
     await _fcRenderDeckList();
     _fcStartDeck(deck);
 
@@ -108,7 +112,7 @@ export function _fcParseUploadedCards(rawText) {
 // ── Settings helpers ────────────────────────────────────────────────────────
 
 export function _aiParams(base) {
-  const m = (typeof window._getStudyMode === 'function' ? window._getStudyMode() : null)
+  const m = (typeof _getStudyMode === 'function' ? _getStudyMode() : null)
             || localStorage.getItem('chunks_study_mode') || 'balanced';
   const complexity = m === 'concise' ? Math.max(2, base - 2)
                    : m === 'detailed' ? Math.min(9, base + 2)
@@ -138,9 +142,9 @@ export async function _fcGenerateFromBar() {
   _fcSetGenBusy(true, topic);
 
   try {
-    const res  = await fetch(`${window.API_BASE}/generate-flashcards`, {
+    const res  = await fetch(`${API_BASE}/generate-flashcards`, {
       method:  'POST',
-      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
+      headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
       body:    JSON.stringify({ topic, count }),
     });
     const data = await res.json();
@@ -154,11 +158,11 @@ export async function _fcGenerateFromBar() {
       back:  c.back  || c.answer   || '',
     }));
 
-    const deck = await window.FlashcardDB.fcSaveDeck(topic, cards);
+    const deck = await FlashcardDB.fcSaveDeck(topic, cards);
 
     topicEl.value = '';
     _fcSetGenBusy(false);
-    window._showToast?.('✦', `${cards.length} cards created — "${topic}"`, 'var(--gold)');
+    showToast?.('✦', `${cards.length} cards created — "${topic}"`, 'var(--gold)');
 
     await _fcRenderDeckList();
     _fcStartDeck(deck);

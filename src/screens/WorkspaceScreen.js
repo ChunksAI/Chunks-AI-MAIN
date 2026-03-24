@@ -319,8 +319,6 @@ function _initResizer() {
 mountWorkspaceScreen();
 _initResizer();
 
-// ── Window bridges ────────────────────────────────────────────────────────────
-
-window.wsMobileView = wsMobileView;
+// Window bridge for wsMobileView is in globals.js.
 
 console.log('[WorkspaceScreen] module loaded ✦');

@@ -9,15 +9,20 @@ import { _fcHardBoostActive } from './streak.js';
 import { _fcBindKeyboard } from './keyboard.js';
 import { _fcFinishSession } from './completion.js';
 import { _aiParams } from './generation.js';
+import { FlashcardDB } from '../../lib/flashcardDb.js';
+import { showToast } from '../../components/Toast.js';
+import { API_BASE, _getAuthHeader } from '../../lib/api.js';
+
+let _fcTutorAbort = null;
 
 // ── Start a study session ───────────────────────────────────────────────────
 
 export async function _fcStartDeck(deck, hardOnly) {
   if (!deck) return;
 
-  const cards = await window.FlashcardDB.fcLoadCards(deck);
+  const cards = await FlashcardDB.fcLoadCards(deck);
   if (!cards.length) {
-    window._showToast?.('!', 'This deck has no cards.', 'var(--text-3)');
+    showToast?.('!', 'This deck has no cards.', 'var(--text-3)');
     return;
   }
 
@@ -26,7 +31,7 @@ export async function _fcStartDeck(deck, hardOnly) {
     : [...cards];
 
   if (hardOnly && !studyCards.length) {
-    window._showToast?.('✓', 'No hard cards to review!', 'var(--teal)');
+    showToast?.('✓', 'No hard cards to review!', 'var(--teal)');
     return;
   }
 
@@ -72,9 +77,9 @@ export function _fcRenderCard() {
     setText(tutorText, '');
     show(tutorLoading);
   }
-  if (window._fcTutorAbort) {
-    window._fcTutorAbort.abort();
-    window._fcTutorAbort = null;
+  if (_fcTutorAbort) {
+    _fcTutorAbort.abort();
+    _fcTutorAbort = null;
   }
 
   const q = $el('fc-card-question');
@@ -243,9 +248,9 @@ export function _fcDismissTutor() {
     hide(panel);
     removeClass(panel, 'fc-tutor-visible');
   }
-  if (window._fcTutorAbort) {
-    window._fcTutorAbort.abort();
-    window._fcTutorAbort = null;
+  if (_fcTutorAbort) {
+    _fcTutorAbort.abort();
+    _fcTutorAbort = null;
   }
   _fcAdvance();
 }
@@ -263,8 +268,8 @@ export async function _fcShowTutor(card) {
 
   setTimeout(() => panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
 
-  if (window._fcTutorAbort) window._fcTutorAbort.abort();
-  window._fcTutorAbort = new AbortController();
+  if (_fcTutorAbort) _fcTutorAbort.abort();
+  _fcTutorAbort = new AbortController();
 
   try {
     const prompt = `A student just marked this flashcard as HARD (they struggled with it).
@@ -279,10 +284,10 @@ Give a brief, helpful explanation in 2-3 sentences:
 
 Be warm, encouraging, and concise. No bullet points — write naturally like a tutor talking to a student.`;
 
-    const res = await fetch(`${window.API_BASE}/ask`, {
+    const res = await fetch(`${API_BASE}/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
-      signal: window._fcTutorAbort.signal,
+      headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
+      signal: _fcTutorAbort.signal,
       body: JSON.stringify({
         question:   prompt,
         mode:       'study',

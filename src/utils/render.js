@@ -20,6 +20,9 @@
  *   _spExplainMarkdown → line 12874
  */
 
+import katex     from 'katex';
+import DOMPurify from 'dompurify';
+
 // ── Math renderer ──────────────────────────────────────────────────────────
 
 /**
@@ -32,9 +35,9 @@
  * @returns {string} HTML string
  */
 export function renderMath(tex, display) {
-  if (window.katex) {
+  if (katex) {
     try {
-      return window.katex.renderToString(tex, {
+      return katex.renderToString(tex, {
         displayMode:  display,
         throwOnError: false,
         trust:        false,
@@ -52,9 +55,6 @@ export function renderMath(tex, display) {
     ? `<div class="ai-eq">${clean}</div>`
     : `<code style="color:var(--gold);background:var(--gold-muted);border:1px solid var(--gold-border);padding:1px 5px;border-radius:4px;font-size:0.92em;">${clean}</code>`;
 }
-
-// Keep legacy global for inline script blocks not yet migrated
-window._renderMath = renderMath;
 
 // ── DOMPurify sanitiser ────────────────────────────────────────────────────
 
@@ -99,9 +99,7 @@ const _sanitizeCfg = {
 
 // Re-allow onclick only on workspace page-jump chips we generated ourselves
 // (identified by the data-ws-chip marker set by wsRender).
-// Wrapped in DOMContentLoaded so the deferred DOMPurify CDN script has loaded.
 document.addEventListener('DOMContentLoaded', () => {
-  if (typeof DOMPurify === 'undefined') return;
   DOMPurify.addHook('afterSanitizeAttributes', node => {
     if (node.hasAttribute('data-ws-chip')) {
       const page = parseInt(node.getAttribute('data-ws-chip'), 10);
@@ -118,12 +116,8 @@ document.addEventListener('DOMContentLoaded', () => {
  * @returns {string}
  */
 export function sanitize(html) {
-  if (typeof DOMPurify === 'undefined') return html;
   return DOMPurify.sanitize(html, _sanitizeCfg);
 }
-
-// Legacy global
-window.sanitize = sanitize;
 
 // ── Shared math-extraction helper ──────────────────────────────────────────
 
@@ -215,9 +209,6 @@ export function homeMarkdown(text) {
   return _restoreMath(t, math);
 }
 
-// Legacy global
-window.homeMarkdown = homeMarkdown;
-
 // ── wsRender ───────────────────────────────────────────────────────────────
 
 /**
@@ -295,9 +286,6 @@ export function wsRender(raw) {
   html = html.replace(/<p>\s*<\/p>/g, '');
   return sanitize(html);
 }
-
-// Legacy global
-window.wsRender = wsRender;
 
 // ── spExplainMarkdown ──────────────────────────────────────────────────────
 
@@ -379,9 +367,6 @@ export function spExplainMarkdown(text) {
 
   return sanitize(html);
 }
-
-// Legacy global
-window._spExplainMarkdown = spExplainMarkdown;
 
 // ── Internal table renderer (shared) ──────────────────────────────────────
 

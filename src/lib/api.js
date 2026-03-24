@@ -27,9 +27,7 @@ export const API_BASE = (
   window.CHUNKS_BACKEND_URL || 'https://api.chunks.online'
 ).replace(/\/$/, '');
 
-// Expose on window so legacy inline script blocks can still read it until
-// Phase 5 completes and all callers are migrated to imports.
-window.API_BASE = API_BASE;
+// Window bridge removed — now handled by src/globals.js
 
 // ── Internal helpers ───────────────────────────────────────────────────────
 
@@ -37,7 +35,7 @@ window.API_BASE = API_BASE;
  * _getAuthHeader — return { Authorization: 'Bearer <token>' } if a valid
  * Supabase session exists, or {} if the user is not signed in.
  *
- * Reads the session from the Supabase client (window._getChunksSb) so the
+ * Reads the session from the Supabase client (getSupabaseClient) so the
  * token is always fresh — Supabase auto-refreshes expiring tokens and this
  * call picks up the new one without any extra work from callers.
  *
@@ -49,7 +47,8 @@ window.API_BASE = API_BASE;
  */
 export async function _getAuthHeader() {
   try {
-    const sb = await window._getChunksSb?.();
+    const { getSupabaseClient } = await import('./supabase.js');
+    const sb = await getSupabaseClient?.();
     if (!sb) return {};
     const { data: { session } } = await sb.auth.getSession();
     if (session?.access_token) {
@@ -346,7 +345,4 @@ export async function searchPapers(query, signal) {
 // ── Utility ────────────────────────────────────────────────────────────────
 function _sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// Expose _getAuthHeader on window so state modules that use window.API_BASE
-// and direct fetch() calls (flashState, studyPlanState) can attach the JWT
-// without importing this module a second time.
-window._getAuthHeader = _getAuthHeader;
+// Window bridge removed — now handled by src/globals.js

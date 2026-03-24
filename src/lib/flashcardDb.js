@@ -33,6 +33,7 @@
  */
 
 import { ChunksDB } from './chunksDb.js';
+import { getSupabaseClient } from './supabase.js';
 
 // ── Storage keys ─────────────────────────────────────────────────────────────
 
@@ -56,11 +57,11 @@ function _lsSet(key, value) {
 // Prefer ChunksDB wrappers (they share the same implementation) but fall back
 // gracefully during early module initialisation.
 function lsGet(key, fallback = null) {
-  return (window.ChunksDB?.lsGet ?? _lsGet)(key, fallback);
+  return (ChunksDB?.lsGet ?? _lsGet)(key, fallback);
 }
 
 function lsSet(key, value) {
-  return (window.ChunksDB?.lsSet ?? _lsSet)(key, value);
+  return (ChunksDB?.lsSet ?? _lsSet)(key, value);
 }
 
 // ── SRS calculation ───────────────────────────────────────────────────────────
@@ -124,7 +125,7 @@ export async function fcSaveDeck(topic, cards) {
 
   fcSaveDeckLocal(deck);
 
-  if (window.ChunksDB?.isLoggedIn()) {
+  if (ChunksDB?.isLoggedIn()) {
     const { data: deckRow, error: deckErr } = await ChunksDB.insert('fc_decks', {
       name: deck.name, card_count: deck.card_count,
     });
@@ -179,7 +180,7 @@ export function fcPatchLocalDeckId(name, supabaseId) {
 export async function fcLoadDecks() {
   const localDecks = lsGet(FC_LS_KEY, []);
 
-  if (window.ChunksDB?.isLoggedIn()) {
+  if (ChunksDB?.isLoggedIn()) {
     try {
       const { data, error } = await ChunksDB.get('fc_decks', {
         order: { col: 'created_at', asc: false },
@@ -209,7 +210,7 @@ export async function fcLoadDecks() {
 export async function fcLoadCards(deck) {
   if (deck.id) {
     try {
-      const sb = await window._getChunksSb?.();
+      const sb = await getSupabaseClient();
       if (sb) {
         // Query directly — bypasses ChunksDB user_id filter so library cards work too
         const { data, error } = await sb
@@ -256,7 +257,7 @@ export async function fcSaveSession({ deckId, deckName, stats, cardRatings, deck
 
   fcSaveSessionLocal(session);
 
-  if (window.ChunksDB?.isLoggedIn() && deckId) {
+  if (ChunksDB?.isLoggedIn() && deckId) {
     const ratableCards = (cardRatings || []).filter(r => r.card_id && r.rating !== 'skipped');
     if (ratableCards.length) {
       try {
@@ -304,7 +305,7 @@ export async function fcGetLastSession(deckId, deckName) {
   const local    = sessions.find(s => s.deck_id === deckId || s.deck_name === deckName);
   if (local) return local;
 
-  if (window.ChunksDB?.isLoggedIn() && deckId) {
+  if (ChunksDB?.isLoggedIn() && deckId) {
     try {
       const { data, error } = await ChunksDB.get('fc_progress', {
         eq:    { deck_id: deckId },
@@ -346,9 +347,5 @@ export const FlashcardDB = {
   fcSaveSessionLocal,
   fcGetLastSession,
 };
-
-// ── Window bridge ─────────────────────────────────────────────────────────────
-
-window.FlashcardDB = FlashcardDB;
 
 console.log('[FlashcardDB] Persistence layer ready ✦');

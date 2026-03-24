@@ -4,8 +4,8 @@
 
 import { ws } from './state.js';
 import { wsGoToPage } from './pdf.js';
-import { API_BASE }    from '../../lib/api.js';
-import { guestGate, recordUsage, renderUsageBar } from '../../lib/guestLimits.js';
+import { API_BASE, _getAuthHeader } from '../../lib/api.js';
+import { guestGate, recordUsage, renderUsageBar, isGuest, showLoginWall } from '../../lib/guestLimits.js';
 import { showToast }   from '../../components/Toast.js';
 import { $el, setText, setHtml, addClass, removeClass, toggleClass } from '../domHelpers.js';
 
@@ -272,13 +272,13 @@ export async function _wsAsk(question) {
     for (let _attempt = 0; _attempt <= 3; _attempt++) {
       res = await fetch(`${API_BASE}/ask`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
+        headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
         body: JSON.stringify(body),
       });
       if (res.status !== 429) break;
       const _d429 = await res.json().catch(() => ({}));
-      if (_d429.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') {
-        window.showGuestLoginWall(_d429.feature || 'workspace');
+      if (_d429.guest_limited && isGuest?.() && typeof showLoginWall === 'function') {
+        showLoginWall(_d429.feature || 'workspace');
         ws.chatHistory.pop();
         wsRemoveThinking();
         return;
@@ -300,8 +300,8 @@ export async function _wsAsk(question) {
       ws.chatHistory.pop();
     } else {
       const data   = await res.json();
-      if (data.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') {
-        window.showGuestLoginWall(data.feature || 'workspace');
+      if (data.guest_limited && isGuest?.() && typeof showLoginWall === 'function') {
+        showLoginWall(data.feature || 'workspace');
         ws.chatHistory.pop();
         return;
       }

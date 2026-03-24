@@ -9,7 +9,7 @@
  *
  * Now: one element (#ws-toast, already in HTML), one function, two window bridges.
  *
- * window bridges set here:
+ * Window bridges (moved to src/globals.js):
  *   window._showToast    — used by research / study-plan inline scripts
  *   window.wsShowToast   — re-exported from workspaceState.js (that module now
  *                          imports showToast from here, keeping its own name)
@@ -43,7 +43,4 @@ export function showToast(icon, text, color) {
   }, 2500);
 }
 
-// ── Window bridges ────────────────────────────────────────────────────────────
 
-window._showToast  = showToast;   // research / study-plan inline callers
-window.wsShowToast = showToast;   // workspace inline callers (workspaceState re-imports)

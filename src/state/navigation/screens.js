@@ -5,6 +5,13 @@
 import { $el, $qs, $qsa, hide, show, addClass, removeClass, toggleClass }
   from '../domHelpers.js';
 import { SCREEN_MAP, _setPath } from './routes.js';
+import { setActivePlan } from '../../components/Sidebar.js';
+import { spInitScreen, spShowEmpty } from '../studyplan/index.js';
+import { closeMobileDrawer, openMobileDrawer } from './mobile.js';
+
+// ── Shared navigation flag ────────────────────────────────────────────────────
+export let _navFromHistory = false;
+export function setNavFromHistory(v) { _navFromHistory = v; }
 
 // ── Core navigation ───────────────────────────────────────────────────────────
 
@@ -41,7 +48,7 @@ export function showScreen(name) {
   }
 
   // ── Fresh navigation resets ────────────────────────────────────────────────
-  if (!window._navFromHistory) {
+  if (!_navFromHistory) {
     if (name === 'exam') {
       if (typeof _examShow === 'function') {
         _examShow('exam-setup');
@@ -96,20 +103,20 @@ export function showScreen(name) {
   }
 
   // ── Always clear plan highlight when not on studyplan ─────────────────────
-  if (name !== 'studyplan' && typeof window.setActivePlan === 'function') {
-    window.setActivePlan(null);
+  if (name !== 'studyplan' && typeof setActivePlan === 'function') {
+    setActivePlan(null);
   }
   // ── Studyplan: fresh nav = new session, history nav = restore plan ─────────
   if (name === 'studyplan') {
-    if (window._navFromHistory) {
-      if (typeof window.spInitScreen === 'function') window.spInitScreen();
+    if (_navFromHistory) {
+      if (typeof spInitScreen === 'function') spInitScreen();
     } else {
-      if (typeof window.spShowEmpty === 'function') window.spShowEmpty();
-      if (typeof window.setActivePlan === 'function') window.setActivePlan(null);
+      if (typeof spShowEmpty === 'function') spShowEmpty();
+      if (typeof setActivePlan === 'function') setActivePlan(null);
     }
     if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
   }
-  window._navFromHistory = false;
+  _navFromHistory = false;
 
   $qsa('.md-item').forEach(el => {
     toggleClass(el, 'active', el.dataset.screen === name);
@@ -124,12 +131,12 @@ export function showScreen(name) {
 
 export function drawerNav(name) {
   // closeMobileDrawer is on window — avoid circular import
-  if (typeof window.closeMobileDrawer === 'function') window.closeMobileDrawer();
+  if (typeof closeMobileDrawer === 'function') closeMobileDrawer();
   showScreen(name);
 }
 
 export function mobileNav(name) {
-  if (name === 'more') { window.openMobileDrawer?.(); return; }
+  if (name === 'more') { openMobileDrawer?.(); return; }
   showScreen(name);
 }
 

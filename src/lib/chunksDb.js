@@ -24,12 +24,13 @@
 
 import { getSupabaseClient } from './supabase.js';
 import { lsGet as _lsGet, lsSet as _lsSet, lsRemove as _lsRemove } from '../utils/storage.js';
+import { _currentUser, _applyUserProfile } from './auth.js';
 
 // ── Internal helpers ──────────────────────────────────────────────────────────
 
 /** Get current user id (null if not logged in) */
 function _uid() {
-  return window._currentUser?.id || null;
+  return _currentUser?.id || null;
 }
 
 /** Get Supabase client (null if unavailable) */
@@ -182,34 +183,9 @@ function lsSet(key, value)           { return _lsSet(key, value); }
 function lsRemove(key)               { return _lsRemove(key); }
 
 // ── Auth state listener ───────────────────────────────────────────────────────
-// Patches window._currentUser.id from the Supabase session so _uid() works.
-// Must run after supabase.js and after auth.js sets up _applyUserProfile.
-
-(function _patchAuth() {
-  // Extend _applyUserProfile to also store the user's UUID
-  // (called automatically after login by _initAuth in auth.js / Task 32)
-  const _origApplyUserProfile = window._applyUserProfile;
-  window._applyUserProfile = function (session) {
-    if (_origApplyUserProfile) _origApplyUserProfile(session);
-    if (session?.user && window._currentUser) {
-      window._currentUser.id = session.user.id;
-    }
-  };
-
-  // Also patch _initAuth's session restore path
-  document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(async () => {
-      try {
-        const sb = await getSupabaseClient();
-        if (!sb) return;
-        const { data: { session } } = await sb.auth.getSession();
-        if (session?.user && window._currentUser) {
-          window._currentUser.id = session.user.id;
-        }
-      } catch (e) {}
-    }, 1200); // runs after _initAuth (1000ms delay)
-  });
-})();
+// _currentUser is imported as a live binding from auth.js.
+// _applyUserProfile (also from auth.js) already sets _currentUser.id from the
+// Supabase session, so no monkey-patching is needed.
 
 // ══════════════════════════════════════════════════════════════════════════════
 // PHASE 2 — CROSS-DEVICE SYNC
@@ -1328,12 +1304,5 @@ export const ChunksDB = {
   studyPlan,
   pullAll,
 };
-
-// ── Window bridge ─────────────────────────────────────────────────────────────
-// Keeps window.ChunksDB?.isLoggedIn() / window.ChunksDB?.lsGet() guards working
-// in flashState.js and any other modules that defensively check window.ChunksDB.
-// Phase 2 namespaces are also exposed so non-module scripts can call them.
-
-window.ChunksDB = ChunksDB;
 
 console.log('[ChunksDB] Sync layer ready ✦  (Phase 2: chat · settings · streak · ws · studyPlan)');

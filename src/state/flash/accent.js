@@ -8,6 +8,7 @@
 import { $el, $qs, $qsa, setText, createElement } from '../domHelpers.js';
 import { ACCENT_KEY } from './state.js';
 import { _fcGetStreak } from './streak.js';
+import { showToast } from '../../components/Toast.js';
 
 export const FC_ACCENTS = [
   {
@@ -82,7 +83,7 @@ export function _fcCheckNewAccentUnlock(prevStreak, newStreak) {
   );
   newUnlocks.forEach(accent => {
     setTimeout(() => {
-      window._showToast?.(accent.emoji, `New accent unlocked: ${accent.name}! Tap your streak to customize.`, 'var(--fc-accent)');
+      showToast?.(accent.emoji, `New accent unlocked: ${accent.name}! Tap your streak to customize.`, 'var(--fc-accent)');
     }, 1500);
   });
 }

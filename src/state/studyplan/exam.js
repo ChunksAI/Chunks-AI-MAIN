@@ -4,10 +4,11 @@
 
 import { sp } from './state.js';
 import { $el, $qsa, hide, show, setText, setHtml } from '../domHelpers.js';
-import { API_BASE } from '../../lib/api.js';
+import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 import { _aiParams } from './generation.js';
 import { spMasteryRecord } from './mastery.js';
 import { spSrsUpdate } from './srs.js';
+import { isGuest, showLoginWall } from '../../lib/guestLimits.js';
 
 export async function spExamGenerate() {
   sp.examQuestions = []; sp.examIndex = 0; sp.examAnswers = []; sp.examStarted = false;
@@ -21,10 +22,10 @@ export async function spExamGenerate() {
   const _examFetchWithRetry = async (maxRetries = 3) => {
     const loadingEl = $el('sp-exam-loading');
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      const res = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} }, body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'study_plan_exam', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
+      const res = await fetch(API_BASE + '/ask', { method: 'POST', headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} }, body: JSON.stringify({ question: prompt, mode: 'study', task_type: 'study_plan_exam', ...(() => { const p = _aiParams(7); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] }) });
       if (res.status === 429) {
         const _d = await res.json().catch(() => ({}));
-        if (_d.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') { window.showGuestLoginWall(_d.feature || 'exam'); return null; }
+        if (_d.guest_limited && isGuest?.() && typeof showLoginWall === 'function') { showLoginWall(_d.feature || 'exam'); return null; }
         if (attempt < maxRetries) {
           const waitSec = Math.pow(2, attempt + 1);
           if (loadingEl) loadingEl.querySelector('.sp-exam-loading-text') && (loadingEl.querySelector('.sp-exam-loading-text').textContent = `Server is busy — retrying in ${waitSec}s…`);

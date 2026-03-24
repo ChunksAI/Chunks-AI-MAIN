@@ -4,9 +4,16 @@
 
 import { sp } from './state.js';
 import { $el, setHtml } from '../domHelpers.js';
-import { API_BASE } from '../../lib/api.js';
-import { guestGate, recordUsage } from '../../lib/guestLimits.js';
+import { API_BASE, _getAuthHeader } from '../../lib/api.js';
+import { guestGate, recordUsage, isGuest, showLoginWall } from '../../lib/guestLimits.js';
 import { spValidateInputs, spShowValidationError } from './input.js';
+import { _getStudyMode } from '../../components/SettingsModal.js';
+import { setActivePlan } from '../../components/Sidebar.js';
+import { _spGenPlanId } from './planLibrary.js';
+import { spRenderPlanPatched } from './patches.js';
+import { spUpdateExamDateUI } from './calendar.js';
+import { spUpdateReminderUI } from './notifications.js';
+import { spSavePlanToSidebarAndLibrary } from './patches.js';
 
 export function spShowOverlay() {
   $el('sp-generating-overlay').style.display = 'flex';
@@ -26,7 +33,7 @@ export function spHideOverlay() {
 }
 
 export function _aiParams(base) {
-  const m = (typeof window._getStudyMode === 'function' ? window._getStudyMode() : null)
+  const m = (typeof _getStudyMode === 'function' ? _getStudyMode() : null)
             || localStorage.getItem('chunks_study_mode') || 'balanced';
   const complexity = m === 'concise' ? Math.max(2, base - 2)
                    : m === 'detailed' ? Math.min(9, base + 2)
@@ -95,7 +102,7 @@ Rules:
 
   let _authHeaders = { 'Content-Type': 'application/json' };
   try {
-    _authHeaders = { ..._authHeaders, ...await window._getAuthHeader?.() ?? {} };
+    _authHeaders = { ..._authHeaders, ...await _getAuthHeader?.() ?? {} };
   } catch (_) {}
 
   let _spAttempt = 0;
@@ -108,8 +115,8 @@ Rules:
     });
     if (response.status === 429) {
       const _d429 = await response.json().catch(() => ({}));
-      if (_d429.guest_limited && window.isGuestMode?.() && typeof window.showGuestLoginWall === 'function') {
-        window.showGuestLoginWall(_d429.feature || 'studyplan');
+      if (_d429.guest_limited && isGuest?.() && typeof showLoginWall === 'function') {
+        showLoginWall(_d429.feature || 'studyplan');
         return null;
       }
       throw Object.assign(new Error('Server is busy — please wait a moment and try again.'), { noRetry: false, _is429: true });
@@ -136,14 +143,14 @@ Rules:
     try {
       localStorage.removeItem('sp_exam_date_default');
     } catch (_) {}
-    sp.activePlanId = window._spGenPlanId();
+    sp.activePlanId = _spGenPlanId();
     recordUsage('studyplan');
-    if (typeof window.setActivePlan === 'function') window.setActivePlan(sp.activePlanId);
+    if (typeof setActivePlan === 'function') setActivePlan(sp.activePlanId);
     spHideOverlay();
-    window.spRenderPlan(plan, sourceName);
-    window.spUpdateExamDateUI();
-    window.spUpdateReminderUI();
-    window.spSavePlanToSidebar(plan.topic);
+    spRenderPlanPatched(plan, sourceName);
+    spUpdateExamDateUI();
+    spUpdateReminderUI();
+    spSavePlanToSidebarAndLibrary(plan.topic);
   };
 
   const _spRetry = async () => {
