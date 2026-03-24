@@ -502,21 +502,21 @@ def _get_and_increment_daily_count(user_id: str, date_str: str) -> int:
     return count
 
 
-def _extract_verified_user(enforce_daily_limit: bool = True):
+def _extract_verified_user(enforce_daily_limit: bool = False):
     """
     Extract and verify the Supabase JWT from the current request's
-    Authorization header, look up the user's tier, and optionally
-    enforce the free-tier daily message limit.
+    Authorization header and look up the user's tier.
 
     Returns (verified_user_id: str, server_tier: Tier).
     Never raises — on any failure it returns an IP-based fallback ID
     and Tier.FREE so callers can decide whether to block or allow.
 
+    Signed-in users (free, pro, or ultra) have NO daily message limit.
+    Guest limits are enforced separately via guest_gate() before this is called.
+
     Usage in any endpoint::
 
         user_id, tier = _extract_verified_user()
-        if not tier.is_paid:
-            return jsonify({'success': False, 'error': 'Upgrade required'}), 403
     """
     auth_header      = request.headers.get('Authorization', '')
     jwt_token        = auth_header[7:] if auth_header.startswith('Bearer ') else ''
@@ -529,12 +529,8 @@ def _extract_verified_user(enforce_daily_limit: bool = True):
         server_tier      = Tier.FREE
         verified_user_id = f'ip:{get_remote_address()}'
 
-    if enforce_daily_limit and not server_tier.is_paid:
-        day_key = datetime.utcnow().strftime('%Y-%m-%d')
-        count   = _get_and_increment_daily_count(verified_user_id, day_key)
-        if count > FREE_TIER_DAILY_LIMIT:
-            from flask import abort
-            abort(429, description='Daily message limit reached. Upgrade to Pro for unlimited messages.')
+    # No daily limit for signed-in users — free, pro, or ultra all get unlimited access.
+    # Guest limits are handled separately by guest_gate() before this function is called.
 
     return verified_user_id, server_tier
 

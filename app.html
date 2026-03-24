@@ -2170,7 +2170,7 @@ async function _researchFetchWithRetry(bodyObj, signal, _statusEl) {
       body:    JSON.stringify(bodyObj)
     });
     if (res.status !== 429) break;
-    // Check for guest rate-limit wall first — don't retry, show login wall
+    // Check for daily limit (signed-in free user) or guest wall — stop retrying and show upgrade modal
     const d429 = await res.clone().json().catch(() => ({}));
     if (_handleGuestLimited(d429)) {
       throw Object.assign(new Error('guest_limited'), { _guestLimited: true });
@@ -4334,9 +4334,9 @@ function _exportPDF() {
 // Call this after any fetch() to check if the server returned guest_limited.
 // Returns true if the request was blocked (caller should abort further work).
 function _handleGuestLimited(data) {
-  // app.html is authenticated-only — never show the guest login wall here.
-  // Auth headers are now sent with every request so the backend should never
-  // return guest_limited:true, but this is a hard fallback just in case.
+  // app.html is authenticated-only — signed-in users (free, pro, ultra) have no limits.
+  // This function is intentionally a no-op: the backend never returns guest_limited
+  // or daily_limit for users with a valid session token.
   return false;
 }
 

@@ -739,12 +739,24 @@ export async function _wsAsk(question) {
   try {
     const mode = typeof _getStudyMode === 'function' ? _getStudyMode() : 'study';
     const complexity = mode === 'concise' ? 3 : mode === 'detailed' ? 8 : 5;
+    // Always attach auth header so the backend recognises signed-in users and
+    // does NOT apply the free-tier daily message limit against their IP.
+    const _wsAuthHdr = (typeof window._getAuthHeader === 'function')
+      ? await window._getAuthHeader()
+      : {};
     const res = await fetch(`${API_BASE}/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ..._wsAuthHdr },
       body: JSON.stringify({ question, bookId: _wsBookId || 'none', mode, complexity, history: _wsChatHistory.slice(-10) }),
     });
     wsRemoveThinking();
+    if (res.status === 429) {
+      // Server rate limit (e.g. upstream model throttling) — shouldn't happen for
+      // signed-in users, but handle gracefully just in case.
+      _wsChatHistory.pop();
+      wsAppendError('Server is busy — please wait a moment and try again.');
+      return;
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       wsAppendError(err.error || `Server error ${res.status}`);
