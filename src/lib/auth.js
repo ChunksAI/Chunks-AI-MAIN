@@ -196,7 +196,7 @@ function _applyDefaultSettings() {
       'chunks_setting_notif-updates':     '0',
 
       // Personalization
-      'chunks_default_book':              'atkins',
+      'chunks_default_book':              null,
       'chunks_study_mode':                'balanced',
       'chunks_setting_followups':         '1',
       'chunks_setting_auto-flash':        '0',
