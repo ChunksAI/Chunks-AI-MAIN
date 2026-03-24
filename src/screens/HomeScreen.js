@@ -19,7 +19,7 @@
  *
  * Cross-module references (resolved via window.*):
  *   API_BASE            ← lib/api.js          (window.API_BASE)
- *   homeMarkdown        ← utils/render.js      (window.homeMarkdown)
+ *   homeMarkdown        ← utils/render.js      (homeMarkdown)
  *   sanitize            ← utils/render.js      (window.sanitize)
  *   wsShowToast         ← state/workspaceState.js (window.wsShowToast)
  *   recentAdd           ← large script block in index.html (window.recentAdd)
@@ -29,8 +29,11 @@
  *   homeHandleAttach    ← state/workspaceState.js (window.homeHandleAttach)
  */
 
-import { API_BASE } from '../lib/api.js';
+import { API_BASE, _getAuthHeader } from '../lib/api.js';
 import { guestGate, recordUsage, renderUsageBar } from '../lib/guestLimits.js';
+import { showToast } from '../components/Toast.js';
+import { _getStudyMode } from '../components/SettingsModal.js';
+import { homeMarkdown, sanitize } from '../utils/render.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -315,6 +318,7 @@ export let _homeThinking  = 'off'; // 'off' | 'think' | 'deep'
 export let homeHistory   = [];
 export let _homeSessionId = null;
 let homeIsTyping = false;
+let _homeLastInputTime = 0;
 
 // ── Incognito chat state (lives only in memory — never written to storage) ────
 let _incogHistory = [];
@@ -435,7 +439,7 @@ function _incogAppendAI(text) {
           <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
         </svg>
       </div>
-      <div class="incognito-ai-body">${window.homeMarkdown?.(text) ?? text.replace(/</g,'&lt;')}</div>
+      <div class="incognito-ai-body">${homeMarkdown?.(text) ?? text.replace(/</g,'&lt;')}</div>
     </div>`;
   inner.appendChild(d);
   _incogScrollBottom();
@@ -470,13 +474,13 @@ export async function incognitoSendMessage() {
   try {
     const res = await fetch(`${API_BASE}/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
+      headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
       body: JSON.stringify({
         question,
         bookId: '',
         mode: 'general',
         task_type: 'home_general',
-        complexity: (() => { const m = window._getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
+        complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
         language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
         safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
         history: _incogHistory.slice(-12),
@@ -569,7 +573,7 @@ export function homeHandlePdfUpload(input) {
   const name = file.name.replace(/\.pdf$/i, '');
   window._uploadedPdfFile = file;
   window._uploadedPdfName = name;
-  window.wsShowToast?.('📄', `"${name}" ready to chat`, '');
+  showToast('📄', `"${name}" ready to chat`, '');
   homeSetInput(`Summarize "${name}" for me`);
   input.value = '';
 }
@@ -638,7 +642,7 @@ export function homeAppendAI(text, sources) {
   }
   wrap.innerHTML = `
     ${_HOME_AI_AVATAR}
-    <div class="hc-ai-body">${window.homeMarkdown(text)}${sourceBadge}</div>`;
+    <div class="hc-ai-body">${homeMarkdown(text)}${sourceBadge}</div>`;
   document.getElementById('home-chat-history').appendChild(wrap);
   homeScrollBottom();
 }
@@ -721,7 +725,7 @@ export async function homeSendMessage() {
   if (homeIsTyping) return;
   if (!guestGate('general')) return; // guest limit check
   // Mark that the user is actively in this session — prevents sync from overwriting mid-conversation
-  window._homeLastInputTime = Date.now();
+  _homeLastInputTime = Date.now();
   const bar = document.getElementById('home-input-bar');
   const chatActive = bar && bar.style.display !== 'none';
   const inp     = document.getElementById(chatActive ? 'home-ask-input-bottom' : 'home-ask-input');
@@ -770,13 +774,13 @@ export async function homeSendMessage() {
   try {
     const res = await fetch(`${API_BASE}/ask`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...await window._getAuthHeader?.() ?? {} },
+      headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
       body: JSON.stringify({
         question,
         bookId: '',
         mode: 'general',
         task_type: 'home_general',
-        complexity: (() => { const m = window._getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
+        complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
         language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
         safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
         history: homeHistory.slice(-12),
@@ -864,8 +868,8 @@ mountHomeScreen();
       } else if (msg.role === 'assistant') {
         const wrap = document.createElement('div');
         wrap.className = 'hc-ai';
-        const rendered = window.homeMarkdown
-          ? window.homeMarkdown(msg.content || '')
+        const rendered = homeMarkdown
+          ? homeMarkdown(msg.content || '')
           : (msg.content || '').replace(/</g, '&lt;');
         wrap.innerHTML = `${_HOME_AI_AVATAR}<div class="hc-ai-body">${rendered}</div>`;
         chatHist.appendChild(wrap);
@@ -891,7 +895,7 @@ mountHomeScreen();
 
     if (session.html && chatHist) {
       // Local device — use cached rendered HTML
-      chatHist.innerHTML = window.sanitize?.(session.html) ?? session.html;
+      chatHist.innerHTML = sanitize?.(session.html) ?? session.html;
     } else if (history.length && chatHist) {
       // Cross-device restore — rebuild from message array
       _renderFromHistory(history);
@@ -907,7 +911,7 @@ mountHomeScreen();
     setTimeout(() => homeScrollBottom(true), 80);
   }
   // Expose so module-level listener can call it after IIFE exits
-  window._homeMountSession = _mountSession;
+  // _mountSession exposed via export below
 
   // ── Restore on page load ─────────────────────────────────────────────────
   // For logged-in users: don't block on sync — just restore what localStorage
@@ -935,7 +939,7 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
   // _homeSessionId being set just means a session was restored — that's fine
   // to override with a newer remote session. Only a live in-progress conversation
   // (user typed recently) should block the remote session from loading.
-  const userIsLive = _homeSessionId && (Date.now() - (window._homeLastInputTime || 0)) < 120_000;
+  const userIsLive = _homeSessionId && (Date.now() - (_homeLastInputTime || 0)) < 120_000;
   if (userIsLive) return;
 
   // Debounce: TOKEN_REFRESHED triggers a second pullAll shortly after the first,
@@ -978,15 +982,15 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
       }
       if (newest) {
         localStorage.setItem('chunks_active_home_session', newest.id);
-        window._homeMountSession?.(newest.s, newest.id);
+        _mountSession(newest.s, newest.id);
       }
     } catch (_) {}
   }, 100);
 });
 
-window._homeMountLatestSession = function() {
+export function _homeMountLatestSession() {
   window.dispatchEvent(new CustomEvent('chunks:sessions-ready'));
-};
+}
 
 // ── Wire input listeners (after DOM is interactive) ───────────────────────────
 function _wireHomeListeners() {
