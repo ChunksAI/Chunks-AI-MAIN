@@ -25,6 +25,7 @@
  */
 
 import { openDB } from 'idb';
+import { isQuotaError, showStorageError } from '../components/StorageErrorBanner.js';
 
 // ── Database constants ────────────────────────────────────────────────────────
 
@@ -119,8 +120,10 @@ export function idbGet(key, fallback = null) {
 export function idbSet(key, value) {
   _cache.set(key, value);
   if (_db) {
-    _db.put(STORE, value, key).catch(e =>
-      console.warn('[idbStorage] write error:', key, e));
+    _db.put(STORE, value, key).catch(e => {
+      console.warn('[idbStorage] write error:', key, e);
+      if (isQuotaError(e)) showStorageError('quota');
+    });
   } else {
     _dirty.add(key);
     _pendingDeletes.delete(key);
@@ -263,5 +266,12 @@ async function _doInit() {
     // the rest of the app continues using the localStorage fallback path
     // built into idbGet (since _ready stays false).
     console.warn('[idbStorage] init failed, using localStorage fallback:', e);
+    // Quota errors (even during migration) mean the device is out of space.
+    // Non-quota failures (private browsing, corrupt DB, etc.) are migration issues.
+    if (isQuotaError(e)) {
+      showStorageError('out-of-space');
+    } else {
+      showStorageError('migration');
+    }
   }
 }

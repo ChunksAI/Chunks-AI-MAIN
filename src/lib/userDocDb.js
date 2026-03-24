@@ -19,6 +19,8 @@
  *   deleteDoc(id)                            → { error }
  */
 
+import { isQuotaError, showStorageError } from '../components/StorageErrorBanner.js';
+
 const DB_NAME    = 'chunks-user-docs';
 const DB_VERSION = 1;
 
@@ -83,6 +85,7 @@ export async function saveDoc(file, extractedText = '', pageCount = 0) {
     return { data: meta, error: null };
   } catch (e) {
     console.warn('[UserDocDb] saveDoc error:', e);
+    if (isQuotaError(e)) showStorageError('quota');
     return { data: null, error: e.message };
   }
 }

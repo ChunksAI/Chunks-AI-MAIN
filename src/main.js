@@ -88,6 +88,7 @@ import './components/ConfirmModal.js';                  // Task 21 ✓ — sets 
 import './components/ProfileDropdown.js';               // Task 22 ✓ — sets window.toggleProfileDropdown, pdAction, pdOpenHelp, etc.
 import './components/LibraryModal.js';                  // Task 23 ✓ — sets window.openLibraryModal, closeLibraryModal
 import './components/SettingsModal.js';                 // Task 24 ✓ — sets window.openSettings, closeSettings, settingsNav, etc.
+import './components/StorageErrorBanner.js';            // Storage error UI — sets window.dismissStorageError
 
 // ── Centralized HTML-binding registry ─────────────────────────────────────
 // globals.js is the ONLY file that sets window.* for HTML onclick handlers.

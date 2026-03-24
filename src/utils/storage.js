@@ -21,6 +21,7 @@
  */
 
 import { isIdbKey, idbGet, idbSet, idbRemove } from '../lib/idbStorage.js';
+import { isQuotaError, showStorageError } from '../components/StorageErrorBanner.js';
 
 // ── localStorage helpers ───────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ export function lsGet(key, fallback = null) {
 
 /**
  * Write a JSON-serialisable value to localStorage (or IndexedDB for
- * large-data keys). Silently swallows QuotaExceededError and SecurityError.
+ * large-data keys). Shows a storage-error banner on QuotaExceededError.
  *
  * @param {string} key
  * @param {*}      value
@@ -54,8 +55,9 @@ export function lsSet(key, value) {
   if (isIdbKey(key)) { idbSet(key, value); return; }
   try {
     localStorage.setItem(key, JSON.stringify(value));
-  } catch (_) {
+  } catch (e) {
     console.warn('[storage] localStorage write failed:', key);
+    if (isQuotaError(e)) showStorageError('quota');
   }
 }
 
