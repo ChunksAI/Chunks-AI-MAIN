@@ -540,6 +540,38 @@ export function spBuildNode(concept, num, status, total) {
   const lockedNote  = (isLast && status === 'locked')
     ? `<div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-4);margin-top:10px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Unlock by completing all previous concepts</div>` : '';
 
+  // Task 4: "Study in Chat" shortcut — only shown on available/in-progress/mastered nodes
+  const chatShortcut = (status !== 'locked' && !isLast) ? `
+    <button
+      class="sp-chat-shortcut-btn"
+      data-concept-chat="${(concept.title || '').replace(/"/g, '&quot;')}"
+      style="
+        margin-top:10px;
+        width:100%;
+        padding:7px 12px;
+        border-radius:var(--r-md);
+        background:transparent;
+        border:1px dashed var(--border-md);
+        color:var(--text-3);
+        font-size:11px;
+        font-weight:600;
+        cursor:pointer;
+        font-family:var(--font-body);
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        gap:6px;
+        transition:background 0.15s,border-color 0.15s,color 0.15s;
+      "
+      onmouseenter="this.style.background='var(--surface-3)';this.style.borderColor='var(--violet-border)';this.style.color='var(--violet)'"
+      onmouseleave="this.style.background='transparent';this.style.borderColor='var(--border-md)';this.style.color='var(--text-3)'"
+    >
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      Study this in Chat
+    </button>` : '';
+
   wrapper.innerHTML = `
     <div class="sp-node-bullet ${effectiveStatus}">${effectiveStatus === 'mastered' ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>` : bulletIcon}</div>
     <div class="sp-node-card ${(effectiveStatus === 'ready' || effectiveStatus === 'in-progress') ? 'active-card' : ''}">
@@ -557,6 +589,7 @@ export function spBuildNode(concept, num, status, total) {
         <div class="sp-mastery-pct" style="${mastery > 0 ? 'color:'+barColor : ''}">${mastery > 0 ? mastery+'%' : (status === 'locked' ? '—' : '0%')}</div>
       </div>
       ${isLast ? lockedNote : `<div class="sp-activities" style="margin-top:10px;">${activitiesHTML}</div>`}
+      ${chatShortcut}
       ${concept.estimatedMinutes ? `<div style="margin-top:8px;font-size:10px;color:var(--text-4);font-family:var(--font-mono);">~${concept.estimatedMinutes} min</div>` : ''}
     </div>`;
   return wrapper;
@@ -2310,6 +2343,42 @@ window.spShowPlan           = spShowPlan;
 window.spSavePlanToSidebar  = spSavePlanToSidebar;
 window.spRenderRecentPlansSidebar = spRenderRecentPlansSidebar;
 window.animateBars          = animateBars;
+// ══════════════════════════════════════════════════════════════════════════════
+// TASK 4 — Study Plan → Workspace Chat
+// Closes the explain drawer, navigates to workspace, and pre-fills the
+// chat with an "Explain [concept]" prompt, then auto-sends it.
+// ══════════════════════════════════════════════════════════════════════════════
+
+export function spOpenInWorkspace() {
+  if (!_spDrawerConcept) return;
+
+  const title = _spDrawerConcept.title || '';
+  const desc  = _spDrawerConcept.description
+    ? ' — ' + _spDrawerConcept.description.slice(0, 100)
+    : '';
+  const prompt = `Explain "${title}"${desc}`;
+
+  // 1. Close the drawer cleanly
+  spCloseExplainDrawer();
+
+  // 2. Navigate to workspace
+  if (typeof showScreen === 'function') showScreen('workspace');
+
+  // 3. Pre-fill the chat input and auto-send
+  setTimeout(() => {
+    const inp = document.getElementById('ws-chat-input');
+    if (!inp) return;
+    inp.value = prompt;
+    if (typeof wsAutoResize === 'function') wsAutoResize(inp);
+    inp.focus();
+
+    // Animate briefly so the user sees the pre-fill before send
+    setTimeout(() => {
+      if (typeof window.wsChatSend === 'function') window.wsChatSend();
+    }, 350);
+  }, 250);
+}
+
 window.spOpenExplainDrawer  = spOpenExplainDrawer;
 window.spCloseExplainDrawer = spCloseExplainDrawer;
 window.spDrawerTab          = spDrawerTab;
@@ -2374,8 +2443,36 @@ document.addEventListener('click', e => {
   }
 }, true);
 
+// ── Task 4: "Study this in Chat" shortcut on node cards ───────────────────
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-concept-chat]');
+  if (!btn) return;
+  e.stopPropagation();
+  const title  = btn.dataset.conceptChat;
+  const prompt = `Explain "${title}"`;
+
+  if (typeof showScreen === 'function') showScreen('workspace');
+  setTimeout(() => {
+    const inp = document.getElementById('ws-chat-input');
+    if (!inp) return;
+    inp.value = prompt;
+    if (typeof wsAutoResize === 'function') wsAutoResize(inp);
+    inp.focus();
+    setTimeout(() => {
+      if (typeof window.wsChatSend === 'function') window.wsChatSend();
+    }, 350);
+  }, 250);
+});
+
 // Handle Visual Tutor tab click via data-action delegation
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-action="spOpenVisualTutor"]');
   if (el) spOpenVisualTutor();
 });
+
+// ── Task 4: "Study in Chat" button delegation ─────────────────────────────
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action="spOpenInWorkspace"]');
+  if (el) spOpenInWorkspace();
+});
+window.spOpenInWorkspace = spOpenInWorkspace;
