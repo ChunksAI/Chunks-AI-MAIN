@@ -27,7 +27,6 @@ _session = None
 SUPABASE_URL: str = ''
 SUPABASE_SERVICE_KEY: str = ''
 _redis = None
-_free_tier_counters: dict = {}
 
 FREE_TIER_DAILY_LIMIT = 20   # matches the 20-message client-side limit
 MAX_HISTORY_TURNS     = 10   # consistent conversation context window
@@ -175,16 +174,9 @@ def _get_and_increment_daily_count(user_id: str, date_str: str) -> int:
         except Exception as e:
             logger.warning("Supabase daily count error (falling through): %s", e)
 
-    # ── 3. In-memory fallback (dev / last resort) ─────────────────────────────
-    # Prune stale keys to prevent unbounded growth (only relevant in this path)
-    if len(_free_tier_counters) > 50000:
-        _old_day = (datetime.utcnow() - timedelta(days=2)).strftime('%Y-%m-%d')
-        for k in list(_free_tier_counters.keys()):
-            if _old_day in k:
-                del _free_tier_counters[k]
-    count = _free_tier_counters.get(key, 0) + 1
-    _free_tier_counters[key] = count
-    return count
+    # ── 3. No storage available — allow the request ─────────────────────────────
+    logger.warning("No counter storage available — allowing request")
+    return 1
 
 
 def _extract_verified_user():

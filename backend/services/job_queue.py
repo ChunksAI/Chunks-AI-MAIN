@@ -1,8 +1,7 @@
 """
 backend/services/job_queue.py — Lightweight async job queue.
 
-Provides an in-process thread-pool executor with Redis-backed job storage
-(in-memory ``dict`` fallback when Redis is unavailable).
+Provides an in-process thread-pool executor with Redis-backed job storage.
 
 Usage
 -----
@@ -15,11 +14,10 @@ from __future__ import annotations
 
 import json
 import logging
-import threading
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -35,29 +33,13 @@ STATUS_FAILED     = "failed"
 
 
 class _JobStore:
-    """Abstract job storage.  Two implementations below."""
+    """Abstract job storage."""
 
     def save(self, job_id: str, data: dict) -> None:  # pragma: no cover
         raise NotImplementedError
 
     def load(self, job_id: str) -> Optional[dict]:  # pragma: no cover
         raise NotImplementedError
-
-
-class _MemoryStore(_JobStore):
-    """Thread-safe in-memory dict store (single-process only)."""
-
-    def __init__(self) -> None:
-        self._data: Dict[str, dict] = {}
-        self._lock = threading.Lock()
-
-    def save(self, job_id: str, data: dict) -> None:
-        with self._lock:
-            self._data[job_id] = data
-
-    def load(self, job_id: str) -> Optional[dict]:
-        with self._lock:
-            return self._data.get(job_id)
 
 
 class _RedisStore(_JobStore):
@@ -82,25 +64,29 @@ class JobQueue:
     """In-process async job queue backed by a thread pool."""
 
     def __init__(self) -> None:
-        self._store: _JobStore = _MemoryStore()
+        self._store: Optional[_JobStore] = None
         self._pool: Optional[ThreadPoolExecutor] = None
         self._ready = False
 
     # ── lifecycle ─────────────────────────────────────────────────────────────
 
     def init(self, *, redis: Any = None, max_workers: int = 4) -> None:
-        """Initialise the queue.  Call once at application startup."""
+        """Initialise the queue.  Call once at application startup.
+
+        Requires a working Redis connection.  If Redis is unavailable the
+        queue is marked ready but ``enqueue()`` will raise ``RuntimeError``.
+        """
         if redis is not None:
             try:
                 redis.ping()
                 self._store = _RedisStore(redis)
                 logger.info("JobQueue: using Redis store")
             except Exception:
-                logger.warning("JobQueue: Redis unavailable, falling back to in-memory store")
-                self._store = _MemoryStore()
+                logger.warning("JobQueue: Redis unavailable — job queue will not function")
+                self._store = None
         else:
-            self._store = _MemoryStore()
-            logger.info("JobQueue: using in-memory store")
+            logger.warning("JobQueue: no Redis provided — job queue will not function")
+            self._store = None
 
         self._pool = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="job")
         self._ready = True
@@ -111,6 +97,8 @@ class JobQueue:
         """Submit *fn* for background execution. Returns the job ID."""
         if not self._ready:
             raise RuntimeError("JobQueue not initialised — call job_queue.init() first")
+        if self._store is None:
+            raise RuntimeError("JobQueue requires Redis — set REDIS_URL")
 
         job_id = uuid.uuid4().hex
         self._store.save(job_id, {

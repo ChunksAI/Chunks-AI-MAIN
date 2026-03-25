@@ -18,6 +18,8 @@ These are already in your environment (unchanged):
 import os
 import json
 import logging
+import base64
+import pickle
 import threading
 import requests as _requests
 
@@ -138,12 +140,69 @@ except ImportError:
         'anaphy2e': {'name': 'Anatomy & Physiology',           'author': 'Patton & Thibodeau',      'chunks_url': f'{R2_BUCKET_URL}/anaphy2e_chunks_with_embeddings.json'},
     }
 
-# ── In-memory caches ──────────────────────────────────────────────────────────
-_indexes:      dict = {}
-_fingerprints: dict = {}
-_graphs:       dict = {}
-_status:       dict = {}
-_lock = threading.Lock()
+# ── Redis client (injected by register_paev) ──────────────────────────────────
+_redis = None
+
+
+# ── Redis-backed PAEV cache helpers ───────────────────────────────────────────
+
+def _paev_pickle_set(key, obj):
+    if _redis is None:
+        return
+    try:
+        _redis.set(key, base64.b64encode(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)).decode())
+    except Exception as exc:
+        logger.warning("PAEV pickle SET error (%s): %s", key, exc)
+
+
+def _paev_pickle_get(key):
+    if _redis is None:
+        return None
+    try:
+        raw = _redis.get(key)
+        if raw is not None:
+            return pickle.loads(base64.b64decode(raw))
+    except Exception as exc:
+        logger.warning("PAEV pickle GET error (%s): %s", key, exc)
+    return None
+
+
+def _paev_status_set(book_id, status_dict):
+    if _redis is None:
+        return
+    try:
+        _redis.set(f"paev_status:{book_id}", json.dumps(status_dict))
+    except Exception:
+        pass
+
+
+def _paev_status_get(book_id):
+    if _redis is None:
+        return None
+    try:
+        raw = _redis.get(f"paev_status:{book_id}")
+        if raw:
+            return json.loads(raw)
+    except Exception:
+        pass
+    return None
+
+
+def _paev_cache_set(book_id, idx, fps, graph):
+    """Store all three PAEV objects in Redis."""
+    _paev_pickle_set(f"paev_idx:{book_id}", idx)
+    _paev_pickle_set(f"paev_fp:{book_id}", fps)
+    _paev_pickle_set(f"paev_graph:{book_id}", graph)
+
+
+def _paev_cache_get(book_id):
+    """Load all three PAEV objects from Redis.  Returns (idx, fps, graph) or (None, None, None)."""
+    idx = _paev_pickle_get(f"paev_idx:{book_id}")
+    fps = _paev_pickle_get(f"paev_fp:{book_id}")
+    graph = _paev_pickle_get(f"paev_graph:{book_id}")
+    if all([idx, fps, graph]):
+        return idx, fps, graph
+    return None, None, None
 
 _indexer    = HierarchicalIndexer(openrouter_api_key=API_KEY)
 _fp_builder = EpistemicFingerprintBuilder(api_key=API_KEY, model=MODEL)

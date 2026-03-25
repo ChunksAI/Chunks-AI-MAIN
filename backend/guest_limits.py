@@ -26,18 +26,15 @@ Usage in any endpoint:
 
 guest_gate() is a no-op for logged-in users (Authorization header present).
 
-IMPORTANT — in-memory fallback:
-  When Redis is unavailable, counters fall back to a process-level dict.
-  This is NOT shared across Gunicorn workers or server restarts.
+IMPORTANT — Redis is required for production enforcement.
+  When Redis is unavailable, guest_gate fails open (allows the request).
   Set REDIS_URL in your Railway environment for production-grade enforcement.
 """
 
 from __future__ import annotations
 
 import logging
-import threading
 from datetime import datetime, timezone
-from collections import defaultdict
 
 from flask import request, jsonify
 try:
@@ -57,13 +54,6 @@ GUEST_LIMITS: dict[str, int] = {
     'research':   1,
     'exam':       1,
 }
-
-# ── In-memory fallback (when Redis is unavailable) ────────────────────────────
-# Thread-safe counter dict: key → count
-# Resets on server restart — acceptable degraded mode.
-# In production always set REDIS_URL so this path is never hit.
-_mem_lock: threading.Lock = threading.Lock()
-_mem_counters: dict[str, int] = defaultdict(int)
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -101,8 +91,8 @@ def _check_and_increment(key: str, limit: int, redis_client) -> tuple[int, int]:
     Returns (current_count_BEFORE_increment, new_count_AFTER_increment).
 
     Uses a Redis pipeline with WATCH for optimistic locking — avoids Lua
-    scripting which can fail on some Redis ACL configs. Falls back to
-    thread-safe in-memory dict when Redis is unavailable.
+    scripting which can fail on some Redis ACL configs.  When Redis is
+    unavailable the request is allowed through (fail-open).
     """
     # ── Redis path ────────────────────────────────────────────────────────────
     if redis_client is not None:
@@ -124,19 +114,14 @@ def _check_and_increment(key: str, limit: int, redis_client) -> tuple[int, int]:
                     return current, after
                 except _RedisWatchError:
                     continue                      # concurrent write — retry
-            # All retries exhausted — fall through to in-memory
-            logger.warning("guest_limits: Redis pipeline retries exhausted — using in-memory")
+            # All retries exhausted — allow the request through
+            logger.warning("guest_limits: Redis pipeline retries exhausted — allowing request (fail-open)")
         except Exception as exc:
-            logger.warning("guest_limits: Redis error (%s) — using in-memory fallback", exc)
+            logger.warning("guest_limits: Redis error (%s) — allowing request (fail-open)", exc)
 
-    # ── In-memory fallback (thread-safe) ──────────────────────────────────────
-    with _mem_lock:
-        current = _mem_counters[key]
-        if current >= limit:
-            return current, current
-        _mem_counters[key] += 1
-        new_count = _mem_counters[key]
-        return current, new_count
+    # ── No Redis — fail open ──────────────────────────────────────────────────
+    logger.warning("guest_limits: Redis unavailable — allowing request (fail-open)")
+    return 0, 1
 
 
 # ── Public API ────────────────────────────────────────────────────────────────
