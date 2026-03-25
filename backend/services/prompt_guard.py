@@ -124,8 +124,11 @@ def check_injection_llm(text: str) -> bool:
             return False
 
         body = resp.json()
+        choices = body.get('choices') or []
+        if not choices:
+            return False
         content = (
-            body.get('choices', [{}])[0]
+            choices[0]
             .get('message', {})
             .get('content', '')
         )

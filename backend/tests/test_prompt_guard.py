@@ -193,7 +193,9 @@ class TestCheckInjectionLLM:
             long_text = 'a' * 5000
             pg.check_injection_llm(long_text)
             call_args = mock_session.post.call_args
-            sent_content = call_args[1]['json']['messages'][1]['content']
+            messages = call_args[1]['json']['messages']
+            assert len(messages) >= 2
+            sent_content = messages[1]['content']
             assert len(sent_content) == pg._MAX_CLASSIFY_LEN
         finally:
             pg._session, pg._api_key = original
