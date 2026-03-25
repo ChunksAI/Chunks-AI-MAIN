@@ -396,6 +396,7 @@ class TextbookSearch:
 
 # ── Per-book index cache (Redis-backed) ───────────────────────────────────────
 _BOOK_CACHE_PREFIX = "book_idx:"
+_BOOK_CACHE_TTL    = 86400            # 24 hours
 
 
 def get_book_index(book_id: str) -> TextbookSearch:
@@ -426,7 +427,7 @@ def get_book_index(book_id: str) -> TextbookSearch:
                 payload = base64.b64encode(
                     pickle.dumps(searcher, protocol=pickle.HIGHEST_PROTOCOL)
                 ).decode()
-                _redis.set(_BOOK_CACHE_PREFIX + book_id, payload)
+                _redis.setex(_BOOK_CACHE_PREFIX + book_id, _BOOK_CACHE_TTL, payload)
             except Exception as exc:
                 logger.warning("book_cache SET error for %s: %s", book_id, exc)
         mode = "hybrid (embeddings + TF-IDF)" if searcher.has_embeddings else "TF-IDF only"

@@ -146,11 +146,15 @@ _redis = None
 
 # ── Redis-backed PAEV cache helpers ───────────────────────────────────────────
 
+_PAEV_CACHE_TTL  = 86400              # 24 hours
+_PAEV_STATUS_TTL = 3600               # 1 hour
+
+
 def _paev_pickle_set(key, obj):
     if _redis is None:
         return
     try:
-        _redis.set(key, base64.b64encode(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)).decode())
+        _redis.setex(key, _PAEV_CACHE_TTL, base64.b64encode(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)).decode())
     except Exception as exc:
         logger.warning("PAEV pickle SET error (%s): %s", key, exc)
 
@@ -171,7 +175,7 @@ def _paev_status_set(book_id, status_dict):
     if _redis is None:
         return
     try:
-        _redis.set(f"paev_status:{book_id}", json.dumps(status_dict))
+        _redis.setex(f"paev_status:{book_id}", _PAEV_STATUS_TTL, json.dumps(status_dict))
     except Exception:
         pass
 
