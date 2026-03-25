@@ -15,6 +15,8 @@ import re
 from flask import Blueprint, jsonify, request
 
 from routes.shared import ctx
+from routes.validation import validate_request
+from routes.schemas import StudyMaterialsRequest, QuizRequest
 from guest_limits import GuestLimitExceeded, guest_gate, enforce_exam_constraints_for_guest
 
 logger = logging.getLogger(__name__)
@@ -23,6 +25,7 @@ study_bp = Blueprint('study', __name__)
 
 
 @study_bp.route('/generate-study-materials', methods=['POST', 'OPTIONS'])
+@validate_request(StudyMaterialsRequest)
 def generate_study_materials():
     if request.method == 'OPTIONS':
         return jsonify({'ok': True})
@@ -265,6 +268,7 @@ SLIDE CONTENT:
 
 
 @study_bp.route('/generate-quiz', methods=['POST', 'OPTIONS'])
+@validate_request(QuizRequest)
 def generate_quiz():
     if request.method == 'OPTIONS':
         return jsonify({'ok': True})

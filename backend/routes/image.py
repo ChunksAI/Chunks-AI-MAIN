@@ -13,6 +13,8 @@ import os
 from flask import Blueprint, jsonify, request
 
 from routes.shared import ctx
+from routes.validation import validate_request
+from routes.schemas import ImageRequest
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,7 @@ image_bp = Blueprint('image', __name__)
 
 
 @image_bp.route('/ask-image', methods=['POST', 'OPTIONS'])
+@validate_request(ImageRequest)
 def ask_image():
     if request.method == 'OPTIONS':
         return jsonify({'ok': True})

@@ -23,6 +23,9 @@ import requests as _requests
 
 from flask import Blueprint, request, jsonify
 
+from routes.validation import validate_request
+from routes.schemas import PaevBuildIndexRequest, PaevAskRequest
+
 logger = logging.getLogger(__name__)
 
 import sys
@@ -309,6 +312,7 @@ def get_status():
 
 
 @paev_bp.route('/build-index', methods=['POST', 'OPTIONS'])
+@validate_request(PaevBuildIndexRequest)
 def build_index():
     if request.method == 'OPTIONS':
         return jsonify({'ok': True})
@@ -381,6 +385,7 @@ def get_learning_path():
 
 
 @paev_bp.route('/ask', methods=['POST', 'OPTIONS'])
+@validate_request(PaevAskRequest)
 def paev_ask():
     if request.method == 'OPTIONS':
         return jsonify({'ok': True})

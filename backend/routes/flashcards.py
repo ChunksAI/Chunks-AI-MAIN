@@ -13,6 +13,8 @@ import re
 from flask import Blueprint, jsonify, request
 
 from routes.shared import ctx
+from routes.validation import validate_request
+from routes.schemas import FlashcardsRequest
 from guest_limits import GuestLimitExceeded, guest_gate
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,7 @@ flashcards_bp = Blueprint('flashcards', __name__)
 
 
 @flashcards_bp.route('/generate-flashcards', methods=['POST', 'OPTIONS'])
+@validate_request(FlashcardsRequest)
 def generate_flashcards():
     if request.method == 'OPTIONS':
         return jsonify({'ok': True})
