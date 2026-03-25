@@ -14,6 +14,8 @@ import logging
 from flask import Blueprint, Response, jsonify, request, stream_with_context
 
 from routes.shared import ctx
+from routes.validation import validate_request
+from routes.schemas import LoadBookRequest
 from guest_limits import GuestLimitExceeded, guest_gate
 
 logger = logging.getLogger(__name__)
@@ -32,6 +34,7 @@ def get_library():
 
 
 @library_bp.route('/load-book', methods=['POST', 'OPTIONS'])
+@validate_request(LoadBookRequest)
 def load_book():
     if request.method == 'OPTIONS':
         return jsonify({'ok': True})

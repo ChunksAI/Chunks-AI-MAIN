@@ -20,6 +20,8 @@ from flask import Blueprint, request, jsonify
 from urllib.parse import quote
 
 from routes.shared import ctx
+from routes.validation import validate_request
+from routes.schemas import AdminVerifyRequest, AdminUpdateUserRequest
 
 logger = logging.getLogger(__name__)
 
@@ -350,6 +352,7 @@ def _check_admin_role(jwt_token: str) -> tuple:
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @admin_bp.route('/verify-access', methods=['POST', 'OPTIONS'])
+@validate_request(AdminVerifyRequest, allow_empty=True)
 def verify_access():
     """
     Two-phase admin verification.
@@ -571,6 +574,7 @@ def get_users():
 
 
 @admin_bp.route('/users/<email>', methods=['PATCH', 'OPTIONS'])
+@validate_request(AdminUpdateUserRequest, allow_empty=True)
 def update_user(email):
     """Update a user row using service key (bypasses RLS)."""
     if request.method == 'OPTIONS':

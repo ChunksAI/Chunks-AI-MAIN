@@ -16,6 +16,8 @@ import re
 from flask import Blueprint, jsonify, request
 
 from routes.shared import ctx
+from routes.validation import validate_request
+from routes.schemas import AskRequest
 from guest_limits import GuestLimitExceeded, guest_gate
 
 logger = logging.getLogger(__name__)
@@ -24,6 +26,7 @@ chat_bp = Blueprint('chat', __name__)
 
 
 @chat_bp.route('/ask', methods=['POST', 'OPTIONS'])
+@validate_request(AskRequest)
 def ask():
     if request.method == 'OPTIONS':
         return jsonify({'ok': True})

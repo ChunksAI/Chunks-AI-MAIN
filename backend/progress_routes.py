@@ -17,6 +17,15 @@ import logging
 from datetime import datetime, date, timedelta
 from flask import Blueprint, request, jsonify
 
+from routes.validation import validate_request
+from routes.schemas import (
+    ProgressReadinessRequest,
+    ProgressWeakSpotsRequest,
+    ProgressStudyPlanRequest,
+    ProgressBadgesRequest,
+    ProgressStreakCheckRequest,
+)
+
 logger = logging.getLogger(__name__)
 
 progress_bp = Blueprint('progress', __name__, url_prefix='/progress')
@@ -57,6 +66,7 @@ def _best_quiz_score(p):
 
 
 @progress_bp.route('/readiness', methods=['POST', 'OPTIONS'])
+@validate_request(ProgressReadinessRequest)
 def compute_readiness():
     """
     Compute exam readiness score (0–100) from client-side progress data.
@@ -155,6 +165,7 @@ def compute_readiness():
 
 
 @progress_bp.route('/weak-spots', methods=['POST', 'OPTIONS'])
+@validate_request(ProgressWeakSpotsRequest)
 def get_weak_spots():
     """
     Rank topics by weakness. Returns topics that need most work.
@@ -224,6 +235,7 @@ def get_weak_spots():
 
 
 @progress_bp.route('/study-plan', methods=['POST', 'OPTIONS'])
+@validate_request(ProgressStudyPlanRequest)
 def generate_study_plan():
     """
     Generate a daily study plan.
@@ -338,6 +350,7 @@ def generate_study_plan():
 
 
 @progress_bp.route('/badges', methods=['POST', 'OPTIONS'])
+@validate_request(ProgressBadgesRequest)
 def compute_badges():
     """Compute which badges have been earned from progress data."""
     if request.method == 'OPTIONS':
@@ -376,6 +389,7 @@ def compute_badges():
 
 
 @progress_bp.route('/streak-check', methods=['POST', 'OPTIONS'])
+@validate_request(ProgressStreakCheckRequest)
 def streak_check():
     """
     Server-side streak validation.
