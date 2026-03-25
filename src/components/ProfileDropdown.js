@@ -429,7 +429,12 @@ export function closeUpgradeModal() {
 
 export function handleUpgradeClick(plan) {
   closeUpgradeModal();
-  // TODO: wire up payment / billing redirect when ready
-  console.log('[upgrade] plan selected:', plan);
-  showToast('⭐', `${plan === 'ultra' ? 'Ultra' : 'Pro'} — payment coming soon!`, 'var(--gold-border)');
+  // Navigate to the subscribe page for the selected plan
+  const url = `/subscribe?plan=${encodeURIComponent(plan)}`;
+  if (window._currentUser) {
+    window.location.href = url;
+  } else {
+    // Not logged in — open auth modal first
+    window.openAuthModal?.();
+  }
 }

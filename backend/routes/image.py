@@ -61,6 +61,13 @@ def ask_image():
         if _device_block is not None:
             return _device_block
 
+        # ── Plan-based usage limit ────────────────────────────────────────
+        from services.plan_limits import check_plan_limit, PlanLimitExceeded
+        try:
+            check_plan_limit(verified_user_id, _tier, 'daily_image_questions')
+        except PlanLimitExceeded as _ple:
+            return _ple.response()
+
         if not image_b64:
             return jsonify({'success': False, 'error': 'No image data provided'}), 400
 

@@ -380,6 +380,9 @@ _prompt_guard_svc.init(
 import services.token_budget as _token_budget_svc  # noqa: E402
 _token_budget_svc.init(redis=_redis)
 
+import services.plan_limits as _plan_limits_svc  # noqa: E402
+_plan_limits_svc.init(redis=_redis)
+
 import services.device_abuse as _device_abuse_svc  # noqa: E402
 _device_abuse_svc.init(redis=_redis)
 
