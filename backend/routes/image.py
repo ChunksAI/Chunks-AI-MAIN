@@ -53,7 +53,7 @@ def ask_image():
         )
 
         # Verify JWT and enforce daily limit
-        _extract_verified_user()
+        verified_user_id, _tier = _extract_verified_user()
 
         if not image_b64:
             return jsonify({'success': False, 'error': 'No image data provided'}), 400
@@ -141,7 +141,7 @@ def ask_image():
             answer = resp_json['choices'][0]['message']['content']
             # Record usage from the vision API call
             from services.ai import _record_usage_from_response
-            _record_usage_from_response(resp_json, vision_model, 'image')
+            _record_usage_from_response(resp_json, vision_model, 'image', user_id=verified_user_id)
             return jsonify({'success': True, 'answer': answer, 'model': vision_model})
         else:
             err_detail = response.text[:400]

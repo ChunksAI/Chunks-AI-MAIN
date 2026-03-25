@@ -253,7 +253,7 @@ def ask():
                 "Output only what the user message asks for."
             )
             answer = call_ai(question, system_prompt=vt_system, model=selected_model, history=history,
-                             endpoint='chat_visual')
+                             endpoint='chat_visual', user_id=verified_user_id)
             return jsonify({
                 'success':        True,
                 'mode':           'visual_tutor',
@@ -362,7 +362,7 @@ Rules:
 - Do NOT add any text before Q1 or after Q10's explanation"""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_exam')
+                             endpoint='chat_exam', user_id=verified_user_id)
             questions = _parse_mcq(answer)
             return jsonify({
                 'success':        True,
@@ -397,7 +397,7 @@ Structure your response like this:
 {latex_instruction}"""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_practice')
+                             endpoint='chat_practice', user_id=verified_user_id)
             return jsonify({
                 'success':        True,
                 'mode':           'practice',
@@ -429,7 +429,7 @@ Include these sections:
 Keep the summary focused, clear, and easy to review before an exam."""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_summary')
+                             endpoint='chat_summary', user_id=verified_user_id)
             _resp = {
                 'success':        True,
                 'mode':           'summary',
@@ -488,6 +488,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     ),
                     model=selected_model,
                     endpoint='chat_generate',
+                    user_id=verified_user_id,
                 )
             except RuntimeError as _ai_err:
                 logger.warning(
@@ -532,13 +533,14 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     "a source, include the full URL in the text so users can visit it."
                 )
                 answer, web_citations = call_ai_web_search(
-                    question, system_prompt=web_system, history=history
+                    question, system_prompt=web_system, history=history,
+                    user_id=verified_user_id,
                 )
                 if answer.startswith('Error:') or answer.startswith('Web search error:'):
                     logger.warning(f"Web search failed ({answer[:80]}), falling back to standard model")
                     fallback_prompt = f"STUDENT QUESTION: {question}\n\nAnswer helpfully and clearly."
                     answer = call_ai(fallback_prompt, system_prompt=base_system, model=selected_model, history=history,
-                                     endpoint='chat')
+                                     endpoint='chat', user_id=verified_user_id)
                     answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
                     web_citations = []
                 return jsonify({
@@ -592,7 +594,7 @@ FORMATTING: {latex_instruction}
 Answer helpfully and clearly."""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat')
+                             endpoint='chat', user_id=verified_user_id)
             _resp = {
                 'success':        True,
                 'mode':           'study',

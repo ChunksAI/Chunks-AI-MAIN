@@ -42,7 +42,7 @@ def generate_flashcards():
 
         # Verify JWT and enforce daily limit
         from services.auth import _extract_verified_user
-        _extract_verified_user()
+        verified_user_id, _tier = _extract_verified_user()
 
         from server import _cache_key, _cache_get, _cache_set
         from ai_router import route
@@ -83,7 +83,7 @@ Rules:
             "You are a chemistry flashcard generator. Output ONLY the CARD blocks in the exact format requested. "
             "No preamble, no extra commentary, no numbering outside the format."
         ), model=route('flashcard_complex' if count > 10 else 'flashcard_simple', complexity=5),
-           endpoint='flashcards')
+           endpoint='flashcards', user_id=verified_user_id)
 
         flashcards = []
         blocks = re.split(r'\bCARD\b', raw, flags=re.IGNORECASE)

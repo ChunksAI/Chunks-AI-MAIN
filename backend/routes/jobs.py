@@ -55,6 +55,7 @@ def _run_ask_job(data: dict) -> dict:
     doc_context   = data.get('doc_context', '').strip()[:80000]
     user_memory   = sanitize_user_memory(data.get('user_memory', ''))
     task_type     = data.get('task_type', None)
+    verified_user_id = data.get('_verified_user_id', '')
 
     # ── Redis query cache ─────────────────────────────────────────────────
     _cache_eligible = _ask_is_cacheable(mode, history, web_search, thinking_mode)
@@ -220,7 +221,7 @@ FORMATTING: {latex_instruction}
 Answer helpfully and clearly."""
 
     answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                     endpoint='async_chat')
+                     endpoint='async_chat', user_id=verified_user_id)
     _resp = {
         'success':        True,
         'mode':           mode,
@@ -252,6 +253,7 @@ def ask_async():
         return jsonify({'ok': True})
     try:
         from services.job_queue import job_queue
+        from services.auth import _extract_verified_user
 
         data = request.get_json(silent=True)
         if not data:
@@ -260,6 +262,10 @@ def ask_async():
         question = data.get('question', '').strip()
         if not question:
             return jsonify({'success': False, 'error': 'question is required'}), 400
+
+        # Capture user_id while we still have request context
+        verified_user_id, _tier = _extract_verified_user()
+        data['_verified_user_id'] = verified_user_id
 
         job_id = job_queue.enqueue(_run_ask_job, data)
 
