@@ -340,7 +340,7 @@ def _check_admin_role(jwt_token: str) -> tuple:
         )
 
     # ── Step 4: Hardcoded fallback ─────────────────────────────────────────────
-    fallback_role = _ADMIN_EMAILS.get(email)
+    fallback_role = _get_admin_emails().get(email)
     if fallback_role:
         logger.info(f'Admin verified via hardcoded fallback: {email} ({fallback_role})')
         return verified, fallback_role
@@ -505,7 +505,7 @@ def admin_ping():
         'owner_pin_hash_len':   len(owner_hash),
         'admin_pin_hash_set':   bool(admin_hash),
         'admin_pin_hash_len':   len(admin_hash),
-        'admin_emails_hardcoded': list(_ADMIN_EMAILS.keys()),
+        'admin_emails_hardcoded': list(_get_admin_emails().keys()),
     })
 
 
