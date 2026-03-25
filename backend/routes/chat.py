@@ -34,8 +34,9 @@ def ask():
         from services.auth import _extract_verified_user
         from services.ai import (
             call_ai, call_ai_web_search, sanitize_user_memory,
-            should_search_textbook, _INJECTION_PATTERNS,
+            should_search_textbook,
         )
+        from services.prompt_guard import screen_prompt
         from services.books import BOOK_LIBRARY, TextbookSearch, get_book_index
         from ai_router import route, route_for_mode
         from server import (
@@ -462,10 +463,11 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     'error': f'Prompt too long ({len(question)} chars). Maximum is {_GEN_MAX_LEN}.',
                 }), 400
 
-            if _INJECTION_PATTERNS.search(question):
+            _injection_flagged, _injection_method = screen_prompt(question, user_id=verified_user_id)
+            if _injection_flagged:
                 logger.warning(
-                    "generate mode: injection pattern detected in prompt (user %s): %r",
-                    verified_user_id, question[:120],
+                    "generate mode: injection detected (%s) in prompt (user %s): %r",
+                    _injection_method, verified_user_id, question[:120],
                 )
                 return jsonify({
                     'success': False,

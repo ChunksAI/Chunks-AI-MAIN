@@ -31,8 +31,9 @@ def _run_ask_job(data: dict) -> dict:
     from services.auth import _extract_verified_user, Tier
     from services.ai import (
         call_ai, call_ai_web_search, sanitize_user_memory,
-        should_search_textbook, _INJECTION_PATTERNS,
+        should_search_textbook,
     )
+    from services.prompt_guard import screen_prompt  # noqa: F811
     from services.books import BOOK_LIBRARY, TextbookSearch, get_book_index
     from ai_router import route, route_for_mode
     from server import (
