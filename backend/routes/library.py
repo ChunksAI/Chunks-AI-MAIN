@@ -87,7 +87,6 @@ def serve_pdf(book_id):
             content_type='application/pdf',
             headers={
                 'Content-Disposition': f'inline; filename="{book_id}.pdf"',
-                'Access-Control-Allow-Origin': '*'
             }
         )
     except Exception as e:
