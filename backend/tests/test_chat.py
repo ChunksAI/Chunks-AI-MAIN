@@ -274,6 +274,50 @@ def test_ask_generate_mode_prompt_too_long(client, monkeypatch, mock_guest_gate,
     assert 'too long' in data['error']
 
 
+def test_ask_generate_mode_exam_long_prompt_accepted(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """POST /ask with task_type=exam allows prompts up to 60_000 chars."""
+    import services.ai as ai_svc
+    import services.prompt_guard as pg
+    import services.device_abuse as device_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value='[{"q":"Q1"}]'))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    monkeypatch.setattr(pg, 'screen_prompt', MagicMock(return_value=(False, None)))
+
+    # 25 000 chars would be rejected without task_type=exam
+    resp = client.post('/ask', json={
+        'question': 'x' * 25_000,
+        'mode': 'generate',
+        'task_type': 'exam',
+        'complexity': 5,
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+
+
+def test_ask_generate_mode_exam_exceeds_limit(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """POST /ask with task_type=exam still rejects prompts over 60_000 chars."""
+    import services.ai as ai_svc
+    import services.device_abuse as device_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value='{}'))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+
+    resp = client.post('/ask', json={
+        'question': 'x' * 65_000,
+        'mode': 'generate',
+        'task_type': 'exam',
+        'complexity': 5,
+    })
+    assert resp.status_code == 400
+    data = resp.get_json()
+    assert data['success'] is False
+    assert 'too long' in data['error']
+
+
 def test_ask_generate_mode_ai_error(client, monkeypatch, mock_guest_gate, mock_extract_user):
     """POST /ask in generate mode returns 503 when call_ai raises RuntimeError."""
     import services.ai as ai_svc
