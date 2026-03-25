@@ -274,6 +274,7 @@ import services.books as _books_svc
 import services.embedding_cache as _embed_cache_svc
 import services.vector_store as _vector_store_svc
 import services.answer_cache as _answer_cache_svc
+import services.prompt_guard as _prompt_guard_svc
 
 _auth_svc.init(
     session              = _session,
@@ -300,6 +301,10 @@ _books_svc.init(
 )
 _embed_cache_svc.init(redis=_redis)
 _answer_cache_svc.init(redis=_redis)
+_prompt_guard_svc.init(
+    session            = _session,
+    openrouter_api_key = OPENROUTER_API_KEY,
+)
 
 import services.token_budget as _token_budget_svc  # noqa: E402
 _token_budget_svc.init(redis=_redis)

@@ -64,7 +64,8 @@ def sanitize_user_memory(text, max_len=500):
     if not text:
         return ''
     cleaned = str(text).replace('\x00', '').strip()[:max_len]
-    if _INJECTION_PATTERNS.search(cleaned):
+    from services.prompt_guard import check_injection_regex
+    if check_injection_regex(cleaned):
         logger.warning(
             "Prompt injection attempt in user_memory — field cleared. "
             "Preview: %r", cleaned[:120]
