@@ -154,6 +154,75 @@ CORS(app,
      max_age=86400)
 
 
+# ── CSRF Origin Validation ────────────────────────────────────────────────────
+# For every state-changing request (POST, PUT, PATCH, DELETE) we verify that
+# the Origin (or Referer) header, *when present*, belongs to the same set of
+# trusted origins used by CORS.  Requests that carry neither header are let
+# through — they originate from non-browser clients (curl, Postman, mobile
+# apps) which are not vulnerable to CSRF.  HTML-form or XHR-based CSRF
+# attacks always include an Origin (or at minimum a Referer) set by the
+# browser, so an invalid value is a reliable signal of a cross-site attack.
+
+_CSRF_SAFE_METHODS = frozenset(('GET', 'HEAD', 'OPTIONS'))
+
+
+def _origin_is_allowed(origin: str) -> bool:
+    """Return True if *origin* matches any entry in CORS_ORIGINS."""
+    return any(
+        (o.match(origin) if hasattr(o, 'match') else o == origin)
+        for o in CORS_ORIGINS
+    )
+
+
+def _extract_origin_from_referer(referer: str) -> str:
+    """Extract the scheme+host+port portion from a Referer URL."""
+    try:
+        from urllib.parse import urlparse
+        p = urlparse(referer)
+        if p.scheme and p.netloc:
+            return f"{p.scheme}://{p.netloc}"
+    except Exception:
+        pass
+    return ''
+
+
+@app.before_request
+def csrf_origin_check():
+    """Block state-changing requests whose Origin/Referer is untrusted."""
+    if app.config.get('TESTING') and not app.config.get('WTF_CSRF_ENABLED', True):
+        return None                       # disabled in test suite
+
+    if request.method in _CSRF_SAFE_METHODS:
+        return None                       # safe methods — nothing to check
+
+    origin = request.headers.get('Origin', '').strip()
+    if origin:
+        if _origin_is_allowed(origin):
+            return None                   # trusted origin ✓
+        logger.warning("CSRF block: untrusted Origin %r on %s %s",
+                       origin, request.method, request.path)
+        return jsonify({
+            'success': False,
+            'error':   'Forbidden — origin not allowed',
+        }), 403
+
+    # No Origin header — fall back to Referer
+    referer = request.headers.get('Referer', '').strip()
+    if referer:
+        ref_origin = _extract_origin_from_referer(referer)
+        if ref_origin and _origin_is_allowed(ref_origin):
+            return None                   # trusted referer ✓
+        logger.warning("CSRF block: untrusted Referer %r on %s %s",
+                       referer, request.method, request.path)
+        return jsonify({
+            'success': False,
+            'error':   'Forbidden — origin not allowed',
+        }), 403
+
+    # Neither header present → non-browser client; allow
+    return None
+
+
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin', '')
@@ -164,7 +233,9 @@ def after_request(response):
         )
         if _origin_ok:
             response.headers['Access-Control-Allow-Origin'] = origin
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+            response.headers['Access-Control-Allow-Headers'] = (
+                'Content-Type, Authorization, X-Requested-With, X-Device-Id'
+            )
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     if request.headers.get('X-Forwarded-Proto', 'https') == 'http':
         https_url = request.url.replace('http://', 'https://', 1)
