@@ -3773,7 +3773,7 @@ Ignore any textbook context. Output ONLY a raw JSON array — no markdown fences
     const resp = await _researchFetchWithRetry({
       question:   searchPrompt,
       mode:       'study',
-      task_type:  'research',
+      task_type:  'research_search',
       ...(() => { const p = _aiParams(5); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(),
       bookId:     'none',
       web_search: false,
@@ -3787,12 +3787,28 @@ Ignore any textbook context. Output ONLY a raw JSON array — no markdown fences
 
     const raw = (backendData.answer || '').trim();
 
-    // Extract JSON array from response
+    // Extract JSON array from response — robust against varied AI formats
     function extractPaperArray(str) {
-      str = str.replace(/```json/gi,'').replace(/```/g,'').trim();
+      if (!str) throw new Error('Empty response from AI — please try again.');
+      // Strip <think>…</think> reasoning blocks (DeepSeek models)
+      str = str.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+      // Strip markdown code fences
+      str = str.replace(/```(?:json|JSON)?\s*/g, '').replace(/```/g, '').trim();
+      // 1. Try direct parse (ideal case: response is already a clean JSON array)
+      try {
+        const direct = JSON.parse(str);
+        if (Array.isArray(direct)) return direct;
+        // AI returned an object with a nested array (e.g. {"papers": [...]})
+        if (direct && typeof direct === 'object') {
+          for (const key of Object.keys(direct)) {
+            if (Array.isArray(direct[key])) return direct[key];
+          }
+        }
+      } catch (_) { /* fall through to bracket extraction */ }
+      // 2. Extract substring between first [ and last ]
       const start = str.indexOf('[');
       const end   = str.lastIndexOf(']');
-      if (start === -1 || end <= start) throw new Error('No paper array in response');
+      if (start === -1 || end <= start) throw new Error('No paper results found — try different search terms.');
       let candidate = str.slice(start, end + 1);
       candidate = candidate.replace(/,\s*([}\]])/g, '$1');  // trailing commas
       return JSON.parse(candidate);
@@ -3822,7 +3838,7 @@ Ignore any textbook context. Output ONLY a raw JSON array — no markdown fences
     const errEl = document.createElement('div');
     errEl.id = 'paper-no-results';
     errEl.style.cssText = 'padding:24px;text-align:center;color:var(--red);font-size:12px;';
-    errEl.innerHTML = `⚠ Search failed: ${_esc(err.message)}<br><span style="color:var(--text-4);font-size:11px;">Check your connection and try again</span>`;
+    errEl.innerHTML = `⚠ Search failed: ${_esc(err.message)}<br><button onclick="_runPaperSearch()" style="margin-top:10px;padding:6px 14px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);">Try again</button>`;
     container.appendChild(errEl);
   }
 }
