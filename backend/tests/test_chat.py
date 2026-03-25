@@ -275,7 +275,7 @@ def test_ask_generate_mode_prompt_too_long(client, monkeypatch, mock_guest_gate,
 
 
 def test_ask_generate_mode_exam_long_prompt_accepted(client, monkeypatch, mock_guest_gate, mock_extract_user):
-    """POST /ask with task_type=exam allows prompts up to 60 000 chars."""
+    """POST /ask with task_type=exam allows prompts up to 60_000 chars."""
     import services.ai as ai_svc
     import services.prompt_guard as pg
     import services.device_abuse as device_mod
@@ -298,7 +298,7 @@ def test_ask_generate_mode_exam_long_prompt_accepted(client, monkeypatch, mock_g
 
 
 def test_ask_generate_mode_exam_exceeds_limit(client, monkeypatch, mock_guest_gate, mock_extract_user):
-    """POST /ask with task_type=exam still rejects prompts over 60 000 chars."""
+    """POST /ask with task_type=exam still rejects prompts over 60_000 chars."""
     import services.ai as ai_svc
     import services.device_abuse as device_mod
 
