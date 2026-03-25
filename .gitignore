@@ -2,3 +2,8 @@ dist/
 node_modules/
 __pycache__/
 *.pyc
+
+# Environment variables
+.env
+.env.local
+.env.*.local
