@@ -1,10 +1,140 @@
 /**
  * public/sw.js — Chunks AI Service Worker
- * Handles push notifications and notification click events.
+ *
+ * Responsibilities:
+ *   1. Push notifications + local alarm scheduling (original)
+ *   2. Static-asset & lazy-chunk caching for offline use
+ *   3. PDF cache fallback (works with the chunks-pdf-v1 cache
+ *      populated by the main thread in books.js)
+ *
+ * Caching strategies:
+ *   • Hashed assets (/assets/*-<hash>.js|css) → cache-first (immutable)
+ *   • Navigation requests (HTML)              → network-first, cache fallback
+ *   • Static files (images, manifest, etc.)   → stale-while-revalidate
+ *   • PDF responses (cross-origin /pdf/*)     → cache-first via chunks-pdf-v1
+ *   • API data requests                       → network-only (never cached)
  */
 
-self.addEventListener('install', () => self.skipWaiting());
-self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+// ── Cache names ───────────────────────────────────────────────────────────
+const STATIC_CACHE  = 'chunks-static-v1';
+const PDF_CACHE     = 'chunks-pdf-v1';         // shared with books.js
+const KNOWN_CACHES  = new Set([STATIC_CACHE, PDF_CACHE]);
+
+// Resources to pre-cache on install (app shell).
+// Hashed assets are NOT listed here — they are cached on first fetch.
+const APP_SHELL = [
+  '/app.html',
+  '/favicon.ico',
+  '/favicon-16x16.png',
+  '/favicon-32x32.png',
+  '/favicon-192x192.png',
+  '/favicon-512x512.png',
+  '/site.webmanifest',
+];
+
+// ── Install: pre-cache app shell ──────────────────────────────────────────
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(STATIC_CACHE)
+      .then(cache => cache.addAll(APP_SHELL))
+      .then(() => self.skipWaiting())
+  );
+});
+
+// ── Activate: clean obsolete caches, claim clients ────────────────────────
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.filter(k => !KNOWN_CACHES.has(k)).map(k => caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
+  );
+});
+
+// ── Fetch: routing strategies ─────────────────────────────────────────────
+self.addEventListener('fetch', event => {
+  const { request } = event;
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+
+  // 1. Never cache API data requests (except /pdf/ handled below)
+  if (url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/pdf/')) return;
+
+  // 2. Cross-origin PDF endpoint — cache-first from chunks-pdf-v1
+  if (url.pathname.match(/\/pdf\/[^/]+$/)) {
+    event.respondWith(_cacheFirst(request, PDF_CACHE));
+    return;
+  }
+
+  // 3. Hashed JS / CSS bundles (/assets/<name>-<hash>.js|css) — cache-first
+  if (/\/assets\/.+-[a-f0-9]{8,}\.(js|css)$/i.test(url.pathname)) {
+    event.respondWith(_cacheFirst(request, STATIC_CACHE));
+    return;
+  }
+
+  // 4. Navigation requests (HTML pages) — network-first
+  if (request.mode === 'navigate') {
+    event.respondWith(_networkFirst(request, STATIC_CACHE));
+    return;
+  }
+
+  // 5. Other same-origin static files (images, webmanifest, etc.)
+  if (url.origin === self.location.origin &&
+      /\.(png|jpg|jpeg|gif|svg|ico|webp|webmanifest|woff2?)$/i.test(url.pathname)) {
+    event.respondWith(_staleWhileRevalidate(request, STATIC_CACHE));
+    return;
+  }
+});
+
+// ── Strategy: cache-first (immutable hashed assets & PDFs) ────────────────
+async function _cacheFirst(request, cacheName) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (_) {
+    // Offline and not cached — return a basic offline response
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+  }
+}
+
+// ── Strategy: network-first (navigation / HTML) ──────────────────────────
+async function _networkFirst(request, cacheName) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(cacheName);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (_) {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    // Last resort: try app.html as a fallback for SPA-style routing
+    const fallback = await caches.match('/app.html');
+    return fallback || new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+  }
+}
+
+// ── Strategy: stale-while-revalidate (images, manifest, etc.) ────────────
+async function _staleWhileRevalidate(request, cacheName) {
+  const cache  = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  const fetchPromise = fetch(request)
+    .then(response => {
+      if (response.ok) cache.put(request, response.clone());
+      return response;
+    })
+    .catch(() => cached);   // swallow network error when we have a cached copy
+  return cached || fetchPromise;
+}
 
 // ── Push event ─────────────────────────────────────────────────────────────
 self.addEventListener('push', event => {
