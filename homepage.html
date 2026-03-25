@@ -3172,8 +3172,8 @@ function openAuthPopup(callerBtnId, callerLabelId) {
 
   // Config not loaded yet — tell the user to try again
   if (!SUPABASE_OAUTH) {
-    var errEl2 = document.getElementById('login-modal-error');
-    if (errEl2) { errEl2.textContent = 'Still loading — please try again in a moment.'; errEl2.classList.add('show'); }
+    var errEl = document.getElementById('login-modal-error');
+    if (errEl) { errEl.textContent = 'Still loading — please try again in a moment.'; errEl.classList.add('show'); }
     return;
   }
 
