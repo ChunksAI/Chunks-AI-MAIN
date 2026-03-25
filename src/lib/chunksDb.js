@@ -1075,6 +1075,19 @@ async function _uploadInChunks(rows, chunkSz = _UPLOAD_CHUNK_SIZE) {
   const sb = await _sb();
   if (!sb || !rows.length) return true;
 
+  // Verify session before attempting uploads — prevents 403 when the JWT
+  // is expired or the auth state hasn't fully initialised yet.
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) {
+      console.warn('[ChunksDB] _uploadInChunks — no valid session, skipping');
+      return false;
+    }
+  } catch (e) {
+    console.warn('[ChunksDB] _uploadInChunks — session check failed:', e.message);
+    return false;
+  }
+
   let allOk = true;
   for (let i = 0; i < rows.length; i += chunkSz) {
     const chunk = rows.slice(i, i + chunkSz);

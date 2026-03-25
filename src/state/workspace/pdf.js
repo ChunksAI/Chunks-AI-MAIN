@@ -114,25 +114,26 @@ export async function _wsRenderPage(pageNum, container) {
     await page.render({ canvasContext: ctx, viewport }).promise;
 
     // ── Text layer — transparent selectable text over the canvas ──────────
+    // PDF.js 3.x requires --scale-factor to equal viewport.scale.
+    // The canvas viewport includes dpr, but the text layer works in CSS
+    // pixels, so build a separate CSS-pixel viewport for it.
+    const textViewport = page.getViewport({ scale: ws.scale });
     let textDiv = $qs('.ws-text-layer', container);
     if (textDiv) textDiv.remove();
     textDiv = document.createElement('div');
     textDiv.className = 'ws-text-layer';
-    // PDF.js 3.x requires --scale-factor CSS var on the container
-    const cssW = viewport.width  / dpr;
-    const cssH = viewport.height / dpr;
     textDiv.style.cssText = [
       'position:absolute',
       'top:0',
       'left:0',
-      `width:${cssW}px`,
-      `height:${cssH}px`,
+      `width:${textViewport.width}px`,
+      `height:${textViewport.height}px`,
       'overflow:hidden',
       'line-height:1',
       'pointer-events:auto',
       'user-select:text',
       '-webkit-user-select:text',
-      `--scale-factor:${ws.scale}`,
+      `--scale-factor:${textViewport.scale}`,
     ].join(';');
     container.appendChild(textDiv);
 
@@ -145,7 +146,7 @@ export async function _wsRenderPage(pageNum, container) {
       const task = pdfjsLib.renderTextLayer({
         textContentSource: textStream,
         container:         textDiv,
-        viewport,
+        viewport:          textViewport,
         textDivs,
       });
       await task.promise;
@@ -160,7 +161,7 @@ export async function _wsRenderPage(pageNum, container) {
       console.warn('[ws] renderTextLayer failed, manual fallback:', layerErr.message);
       try {
         const textContent = await page.getTextContent();
-        _wsManualTextLayer(textDiv, textContent, viewport);
+        _wsManualTextLayer(textDiv, textContent, textViewport);
       } catch (_) { /* text selection unavailable for this page */ }
     }
   } catch (e) { console.warn('Page render error', pageNum, e); }
