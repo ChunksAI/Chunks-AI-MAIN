@@ -2526,8 +2526,19 @@
 })();
 
 /* ── Google OAuth Popup ───────────────────────────────────────────── */
-var SUPABASE_OAUTH = 'https://wiwbfspsrgayvquzfryl.supabase.co/auth/v1/authorize'
-  + '?provider=google&redirect_to=https://chunks.online/home';
+var SUPABASE_OAUTH = '';
+
+// Fetch Supabase config from backend (credentials never hardcoded client-side)
+(function() {
+  fetch('https://api.chunks.online/api/config')
+    .then(function(r) { return r.json(); })
+    .then(function(cfg) {
+      if (cfg && cfg.supabaseUrl) {
+        SUPABASE_OAUTH = cfg.supabaseUrl + '/auth/v1/authorize'
+          + '?provider=google&redirect_to=https://chunks.online/home';
+      }
+    }).catch(function(e) { console.warn('[auth] Config fetch failed:', e.message); });
+})();
 
 var _authPopup = null;
 var _popupPollTimer = null;
@@ -2538,6 +2549,9 @@ function openAuthPopup() {
 
   // Prevent double-clicks
   if (_authPopup && !_authPopup.closed) { _authPopup.focus(); return; }
+
+  // Config not loaded yet
+  if (!SUPABASE_OAUTH) { return; }
 
   // Open popup centered on screen
   var w = 480, h = 620;

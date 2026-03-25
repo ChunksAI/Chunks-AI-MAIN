@@ -145,10 +145,6 @@ export const KEYS = Object.freeze({
   // ── Study plan ─────────────────────────────────────────────────────
   SP_RECENT_PLANS: 'sp_recent_plans',
 
-  // ── Supabase credentials (set by admin.html / fetchConfig) ────────
-  SB_URL:          'chunks_sb_url',
-  SB_ANON:         'chunks_sb_anon',
-
   // ── sessionStorage keys ────────────────────────────────────────────
   SS_WAS_HERE:       'chunks_was_here',
   SS_IS_REFRESH:     'chunks_is_refresh',
