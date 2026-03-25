@@ -26,6 +26,7 @@ export async function spExamGenerate() {
       if (res.status === 429) {
         const _d = await res.json().catch(() => ({}));
         if (_d.guest_limited && isGuest?.() && typeof showLoginWall === 'function') { showLoginWall(_d.feature || 'exam'); return null; }
+        if (_d.plan_limited && _d.upgrade_needed) { if (typeof window.openUpgradeModal === 'function') window.openUpgradeModal(); return null; }
         if (attempt < maxRetries) {
           const waitSec = Math.pow(2, attempt + 1);
           if (loadingEl) loadingEl.querySelector('.sp-exam-loading-text') && (loadingEl.querySelector('.sp-exam-loading-text').textContent = `Server is busy — retrying in ${waitSec}s…`);

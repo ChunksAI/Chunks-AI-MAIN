@@ -284,6 +284,13 @@ export async function _wsAsk(question) {
         wsRemoveThinking();
         return;
       }
+      if (_d429.plan_limited && _d429.upgrade_needed) {
+        wsRemoveThinking();
+        wsAppendError(_d429.error || 'You\'ve reached your plan limit. Upgrade for unlimited access!');
+        ws.chatHistory.pop();
+        if (typeof window.openUpgradeModal === 'function') window.openUpgradeModal();
+        return;
+      }
       if (_attempt < 3) {
         await new Promise(r => setTimeout(r, Math.pow(2, _attempt + 1) * 1000));
         continue;

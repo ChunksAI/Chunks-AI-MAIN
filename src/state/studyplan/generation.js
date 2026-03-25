@@ -120,6 +120,10 @@ Rules:
         showLoginWall(_d429.feature || 'studyplan');
         return null;
       }
+      if (_d429.plan_limited && _d429.upgrade_needed) {
+        if (typeof window.openUpgradeModal === 'function') window.openUpgradeModal();
+        return null;
+      }
       throw Object.assign(new Error('Server is busy — please wait a moment and try again.'), { noRetry: false, _is429: true });
     }
     if (!response.ok) {

@@ -49,6 +49,15 @@ class TestPlanLimitsConfig:
         assert free['monthly_flashcard_sets'] > 0
         assert free['monthly_study_plans'] > 0
 
+    def test_storage_mb_present_in_all_tiers(self):
+        for tier in ('free', 'pro', 'ultra'):
+            assert 'storage_mb' in PLAN_LIMITS[tier], f'{tier} missing storage_mb'
+            assert PLAN_LIMITS[tier]['storage_mb'] > 0
+
+    def test_storage_tiers_ordered(self):
+        assert PLAN_LIMITS['free']['storage_mb'] < PLAN_LIMITS['pro']['storage_mb']
+        assert PLAN_LIMITS['pro']['storage_mb'] < PLAN_LIMITS['ultra']['storage_mb']
+
     def test_free_blocks_premium_features(self):
         free = PLAN_LIMITS['free']
         assert free['monthly_research'] == 0
@@ -57,12 +66,18 @@ class TestPlanLimitsConfig:
     def test_pro_is_unlimited(self):
         pro = PLAN_LIMITS['pro']
         for key, val in pro.items():
-            assert val == -1, f'pro.{key} should be -1 (unlimited), got {val}'
+            if key == 'storage_mb':
+                assert val > 0, f'pro.{key} should be a positive storage limit'
+            else:
+                assert val == -1, f'pro.{key} should be -1 (unlimited), got {val}'
 
     def test_ultra_is_unlimited(self):
         ultra = PLAN_LIMITS['ultra']
         for key, val in ultra.items():
-            assert val == -1, f'ultra.{key} should be -1 (unlimited), got {val}'
+            if key == 'storage_mb':
+                assert val > 0, f'ultra.{key} should be a positive storage limit'
+            else:
+                assert val == -1, f'ultra.{key} should be -1 (unlimited), got {val}'
 
 
 class TestGetPlanLimits:

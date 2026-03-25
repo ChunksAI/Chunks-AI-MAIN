@@ -63,6 +63,7 @@ PLAN_LIMITS: dict[str, dict[str, int]] = {
         'monthly_exam_prep':       0,     # not available on Free
         'max_workspaces':          3,
         'max_file_uploads':        3,
+        'storage_mb':             50,     # 50 MB
     },
     'pro': {
         'daily_messages':         -1,     # unlimited
@@ -74,6 +75,7 @@ PLAN_LIMITS: dict[str, dict[str, int]] = {
         'monthly_exam_prep':      -1,
         'max_workspaces':         -1,
         'max_file_uploads':       -1,
+        'storage_mb':          5_120,     # 5 GB
     },
     'ultra': {
         'daily_messages':         -1,
@@ -85,6 +87,7 @@ PLAN_LIMITS: dict[str, dict[str, int]] = {
         'monthly_exam_prep':      -1,
         'max_workspaces':         -1,
         'max_file_uploads':       -1,
+        'storage_mb':         51_200,     # 50 GB
     },
 }
 
@@ -99,6 +102,7 @@ _FEATURE_LABELS: dict[str, str] = {
     'monthly_exam_prep':      'exam prep',
     'max_workspaces':         'workspaces',
     'max_file_uploads':       'file uploads',
+    'storage_mb':             'storage',
 }
 
 
