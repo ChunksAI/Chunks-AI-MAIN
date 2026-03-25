@@ -22,12 +22,12 @@
  *   API_BASE            ← lib/api.js          (window.API_BASE)
  *   homeMarkdown        ← utils/render.js      (homeMarkdown)
  *   sanitize            ← utils/render.js      (window.sanitize)
- *   wsShowToast         ← state/workspaceState.js (window.wsShowToast)
+ *   wsShowToast         ← state/workspace/chat.js (window.wsShowToast)
  *   recentAdd           ← large script block in index.html (window.recentAdd)
  *   _saveSession        ← large script block in index.html (window._saveSession)
- *   homeToggleAttachMenu← state/workspaceState.js (window.homeToggleAttachMenu)
- *   homeAttachTrigger   ← state/workspaceState.js (window.homeAttachTrigger)
- *   homeHandleAttach    ← state/workspaceState.js (window.homeHandleAttach)
+ *   homeToggleAttachMenu← state/workspace/attachments.js (window.homeToggleAttachMenu)
+ *   homeAttachTrigger   ← state/workspace/attachments.js (window.homeAttachTrigger)
+ *   homeHandleAttach    ← state/workspace/attachments.js (window.homeHandleAttach)
  */
 
 import { API_BASE, _getAuthHeader } from '../lib/api.js';

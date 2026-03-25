@@ -15,7 +15,7 @@ import { selectUserDoc } from '../state/workspace/userDocs.js';
  *   • #library-modal HTML block (~lines 1257–1651, 395 lines)
  *   • openLibraryModal / closeLibraryModal JS (~lines 1658–1685)
  *
- * filterLibrary / filterLibSection are already in src/state/workspaceState.js (Task 16)
+ * filterLibrary / filterLibSection are already in src/state/workspace/library.js (Task 16)
  * and stay there — they are not moved here.
  *
  * window bridges set here:
