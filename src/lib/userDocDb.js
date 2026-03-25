@@ -21,6 +21,7 @@
  */
 
 import { isQuotaError, showStorageError } from '../components/StorageErrorBanner.js';
+import { checkStorageQuota } from '../utils/storageQuota.js';
 
 const DB_NAME    = 'chunks-user-docs';
 const DB_VERSION = 1;
@@ -92,6 +93,9 @@ function _uid() {
  */
 export async function saveDoc(file, extractedText = '', pageCount = 0) {
   try {
+    // Proactive quota check — warn the user before a large write that could fail
+    await checkStorageQuota(file.size);
+
     const id  = _uid();
     const buf = await file.arrayBuffer();
     const meta = {

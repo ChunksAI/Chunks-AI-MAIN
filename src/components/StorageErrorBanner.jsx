@@ -24,6 +24,11 @@ const ERRORS = {
     title: 'Storage is full',
     body: 'Some data may not be saved. Try clearing old chat sessions or documents in Settings \u2192 Data.',
   },
+  'near-quota': {
+    icon: '⚠',
+    title: 'Storage is almost full',
+    body: 'Your device is running low on space. New uploads or chat sessions may fail to save. Free up space in Settings \u2192 Data to avoid losing work.',
+  },
   migration: {
     icon: '⚠',
     title: 'Data migration incomplete',
