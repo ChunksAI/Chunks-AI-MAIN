@@ -101,12 +101,17 @@ app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 BACKEND_URL  = os.environ.get('BACKEND_URL',  'http://localhost:5000')
 
-_raw_origins = os.environ.get('ALLOWED_ORIGINS', '*')
+_is_production = os.environ.get('PRODUCTION', 'false').lower() == 'true'
 
-_ALWAYS_ALLOWED = [
+# Production domains — always allowed
+_PRODUCTION_ORIGINS = [
     "https://chunks.online",
     "https://www.chunks.online",
     "https://chunks-ai.vercel.app",
+]
+
+# Development-only origins — never allowed in production
+_DEV_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
     "http://localhost:5000",
@@ -114,16 +119,32 @@ _ALWAYS_ALLOWED = [
     "http://127.0.0.1:5500",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
-    "null",
 ]
-if FRONTEND_URL and FRONTEND_URL not in _ALWAYS_ALLOWED:
-    _ALWAYS_ALLOWED.append(FRONTEND_URL)
 
-CORS_ORIGINS = '*'
-if _raw_origins != '*':
-    _allowed_origins = [o.strip() for o in _raw_origins.split(',') if o.strip()]
-    CORS_ORIGINS = list(dict.fromkeys(_allowed_origins + _ALWAYS_ALLOWED))
-    CORS_ORIGINS.append(re.compile(r'^https://[a-zA-Z0-9-]+\.vercel\.app$'))
+_allowed = list(_PRODUCTION_ORIGINS)
+if not _is_production:
+    _allowed.extend(_DEV_ORIGINS)
+    if FRONTEND_URL and FRONTEND_URL not in _allowed:
+        _allowed.append(FRONTEND_URL)
+
+# Extra origins from env (comma-separated). Wildcard '*' is never accepted.
+_raw_origins = os.environ.get('ALLOWED_ORIGINS', '')
+if _raw_origins and _raw_origins != '*':
+    _allowed.extend(o.strip() for o in _raw_origins.split(',') if o.strip())
+elif _raw_origins == '*':
+    logger.warning(
+        "⚠️  ALLOWED_ORIGINS='*' is ignored — CORS is restricted to "
+        "explicit domains. Set specific origins or leave unset."
+    )
+
+# Deduplicate while preserving order
+CORS_ORIGINS = list(dict.fromkeys(_allowed))
+# Allow Vercel preview deployments scoped to this project only
+CORS_ORIGINS.append(re.compile(r'^https://chunks-ai(?:-[a-z0-9]+)*\.vercel\.app$'))
+
+logger.info("CORS mode: %s", 'PRODUCTION' if _is_production else 'DEVELOPMENT')
+logger.info("CORS allowed origins: %s",
+            [o if isinstance(o, str) else o.pattern for o in CORS_ORIGINS])
 
 CORS(app,
      origins=CORS_ORIGINS,
@@ -136,11 +157,15 @@ CORS(app,
 @app.after_request
 def after_request(response):
     origin = request.headers.get('Origin', '')
-    allowed = CORS_ORIGINS == '*' or origin in (CORS_ORIGINS if isinstance(CORS_ORIGINS, list) else [])
-    if origin and (CORS_ORIGINS == '*' or allowed):
-        response.headers['Access-Control-Allow-Origin'] = origin if CORS_ORIGINS != '*' else '*'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    if origin:
+        _origin_ok = any(
+            (o.match(origin) if hasattr(o, 'match') else o == origin)
+            for o in CORS_ORIGINS
+        )
+        if _origin_ok:
+            response.headers['Access-Control-Allow-Origin'] = origin
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, X-Requested-With'
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     if request.headers.get('X-Forwarded-Proto', 'https') == 'http':
         https_url = request.url.replace('http://', 'https://', 1)
         from flask import redirect as _redir
