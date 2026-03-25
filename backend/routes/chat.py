@@ -465,7 +465,10 @@ Keep the summary focused, clear, and easy to review before an exam."""
 
         # ── MODE: GENERATE ────────────────────────────────────────────────────
         elif mode == 'generate':
-            _GEN_MAX_LEN = 20_000
+            # Exam prompts embed user-uploaded source material (up to ~55 k
+            # chars) directly in the question field, so they need a higher
+            # ceiling than regular generate requests.
+            _GEN_MAX_LEN = 60_000 if task_type == 'exam' else 20_000
             if len(question) > _GEN_MAX_LEN:
                 logger.warning(
                     "generate mode: prompt rejected — length %d exceeds %d (user %s)",
