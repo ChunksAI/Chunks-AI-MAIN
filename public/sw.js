@@ -59,17 +59,22 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url);
 
-  // 1. Never cache API data requests (except /pdf/ handled below)
-  if (url.pathname.startsWith('/api/') && !url.pathname.startsWith('/api/pdf/')) return;
-
-  // 2. Cross-origin PDF endpoint — cache-first from chunks-pdf-v1
-  if (url.pathname.match(/\/pdf\/[^/]+$/)) {
+  // 1. PDF endpoint — cache-first from chunks-pdf-v1.
+  //    Matches both cross-origin (api.chunks.online/pdf/<id>) and
+  //    same-origin proxy paths (/api/pdf/<id>).
+  if (/\/pdf\/[^/]+$/.test(url.pathname)) {
     event.respondWith(_cacheFirst(request, PDF_CACHE));
     return;
   }
 
-  // 3. Hashed JS / CSS bundles (/assets/<name>-<hash>.js|css) — cache-first
-  if (/\/assets\/.+-[a-f0-9]{8,}\.(js|css)$/i.test(url.pathname)) {
+  // 2. Never cache other API data requests
+  if (url.pathname.startsWith('/api/')) return;
+
+  // 3. Vite build assets (/assets/*) — cache-first.
+  //    All files in /assets/ have content-hashed filenames, so they are
+  //    immutable and safe to serve from cache indefinitely.  This covers
+  //    both eagerly-loaded bundles and lazily-loaded dynamic-import chunks.
+  if (/\/assets\/.+\.(js|css)$/i.test(url.pathname)) {
     event.respondWith(_cacheFirst(request, STATIC_CACHE));
     return;
   }
