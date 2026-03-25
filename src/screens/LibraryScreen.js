@@ -18,7 +18,7 @@ import { _loadPdfJs } from '../state/workspace/pdf.js';
  * The workspace popup (openLibraryModal) is completely untouched and still
  * works — it pulls from LibraryModal.js as before.
  *
- * Window bridges: none (filterLibrary / filterLibSection live in workspaceState)
+ * Window bridges: none (filterLibrary / filterLibSection live in state/workspace/)
  */
 
 // ── HTML template ─────────────────────────────────────────────────────────────

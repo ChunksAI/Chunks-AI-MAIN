@@ -12,7 +12,7 @@
  *
  * All other workspace logic (selectBook, wsChatSend, wsPrevPage, wsNextPage,
  * wsZoomIn, wsZoomOut, wsJumpToPage, togglePdfOutline, wsHandleAttach, etc.)
- * is already owned by src/state/workspaceState.js (Task 16).
+ * is already owned by src/state/workspace/ (Task 16).
  */
 
 // ── HTML template ─────────────────────────────────────────────────────────────
