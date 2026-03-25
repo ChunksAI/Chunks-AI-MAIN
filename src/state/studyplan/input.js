@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/studyplan/input.js — Tab switching, PDF upload, validation
  */

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/studyplan/workspaceBridge.js — Study Plan → Workspace Chat integration
  */

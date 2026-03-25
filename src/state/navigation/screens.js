@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/navigation/screens.js — Core screen switching
  */

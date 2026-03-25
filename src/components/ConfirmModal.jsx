@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/components/ConfirmModal.jsx — Preact Confirm-Modal island
  *

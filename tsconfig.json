@@ -1,0 +1,30 @@
+{
+  "compilerOptions": {
+    /* ── Language & environment ──────────────────────────────────── */
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+
+    /* ── JS checking ────────────────────────────────────────────── */
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+
+    /* ── JSX — Preact ───────────────────────────────────────────── */
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+
+    /* ── Strictness (pragmatic for an existing JS codebase) ─────── */
+    "strict": false,
+    "skipLibCheck": true,
+
+    /* ── Interop ────────────────────────────────────────────────── */
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

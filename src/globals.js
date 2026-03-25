@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/globals.js — Centralized HTML-binding registry
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/components/SettingsModal.js — Task 24
  *

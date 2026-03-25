@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/main.js — Chunks AI entry point
  *

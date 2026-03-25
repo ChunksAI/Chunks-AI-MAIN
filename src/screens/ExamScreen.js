@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/screens/ExamScreen.js — Task 29
  *

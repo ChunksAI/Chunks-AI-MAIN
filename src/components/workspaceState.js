@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/workspaceState.js — Workspace state
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/workspace/pdf.js — PDF badge, page nav, zoom, PDF.js loader, page rendering
  */

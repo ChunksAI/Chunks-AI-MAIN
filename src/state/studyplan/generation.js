@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/studyplan/generation.js — Plan generation + overlay
  */

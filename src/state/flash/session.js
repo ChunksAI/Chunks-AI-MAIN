@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/flash/session.js — Study session: start, render, flip, advance, sound
  */

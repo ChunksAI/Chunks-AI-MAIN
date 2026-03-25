@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/flash/helpers.js — DOM helpers specific to flash
  */

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/flash/completion.js — Session completion + modal actions
  */

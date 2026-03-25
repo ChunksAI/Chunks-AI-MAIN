@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/screens/FlashScreen.js — Task 27
  *

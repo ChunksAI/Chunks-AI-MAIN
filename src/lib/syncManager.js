@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/lib/syncManager.js — Phase 4: login merge + sync
  *
