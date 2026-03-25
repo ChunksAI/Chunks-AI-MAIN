@@ -140,7 +140,7 @@ elif _raw_origins == '*':
 # Deduplicate while preserving order
 CORS_ORIGINS = list(dict.fromkeys(_allowed))
 # Allow Vercel preview deployments scoped to this project only
-CORS_ORIGINS.append(re.compile(r'^https://chunks-ai[a-z0-9-]*\.vercel\.app$'))
+CORS_ORIGINS.append(re.compile(r'^https://chunks-ai(?:-[a-z0-9]+)*\.vercel\.app$'))
 
 logger.info("CORS mode: %s", 'PRODUCTION' if _is_production else 'DEVELOPMENT')
 logger.info("CORS allowed origins: %s",

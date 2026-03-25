@@ -1,5 +1,4 @@
 """Tests for CORS origin restrictions."""
-import re
 import pytest
 
 
@@ -40,6 +39,9 @@ def test_vercel_regex_scoped_to_project():
     assert not pat.match('https://evil-site.vercel.app')
     assert not pat.match('https://other-project.vercel.app')
     assert not pat.match('https://malicious.vercel.app')
+    # Should NOT match invalid subdomains with trailing/double hyphens
+    assert not pat.match('https://chunks-ai-.vercel.app')
+    assert not pat.match('https://chunks-ai--.vercel.app')
 
 
 def test_dev_mode_includes_localhost(client):
@@ -47,6 +49,22 @@ def test_dev_mode_includes_localhost(client):
     import server
     str_origins = [o for o in server.CORS_ORIGINS if isinstance(o, str)]
     assert 'http://localhost:5173' in str_origins
+
+
+def test_production_excludes_localhost():
+    """Verify that production and dev origin lists are disjoint."""
+    import server
+    # In production mode _DEV_ORIGINS are not added to the allowed list.
+    # Verify the lists are properly separated so the conditional works.
+    prod_set = set(server._PRODUCTION_ORIGINS)
+    dev_set = set(server._DEV_ORIGINS)
+    assert prod_set.isdisjoint(dev_set), (
+        "Production and development origin lists must not overlap"
+    )
+    # localhost should never be a production origin
+    for origin in server._PRODUCTION_ORIGINS:
+        assert 'localhost' not in origin
+        assert '127.0.0.1' not in origin
 
 
 def test_allowed_origin_gets_cors_header(client):
@@ -58,8 +76,7 @@ def test_allowed_origin_gets_cors_header(client):
 def test_disallowed_origin_no_cors_header(client):
     """Requests from a disallowed origin must NOT receive CORS headers."""
     resp = client.get('/ping', headers={'Origin': 'https://evil-site.example.com'})
-    acao = resp.headers.get('Access-Control-Allow-Origin')
-    assert acao is None or acao != 'https://evil-site.example.com'
+    assert resp.headers.get('Access-Control-Allow-Origin') is None
 
 
 def test_wildcard_never_returned(client):
@@ -82,5 +99,4 @@ def test_arbitrary_vercel_origin_rejected(client):
     """Arbitrary Vercel app origins are rejected."""
     origin = 'https://random-app.vercel.app'
     resp = client.get('/ping', headers={'Origin': origin})
-    acao = resp.headers.get('Access-Control-Allow-Origin')
-    assert acao is None or acao != origin
+    assert resp.headers.get('Access-Control-Allow-Origin') is None
