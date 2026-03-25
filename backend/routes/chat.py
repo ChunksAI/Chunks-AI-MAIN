@@ -91,6 +91,12 @@ def ask():
         # ── Server-side tier + daily limit enforcement ────────────────────────
         verified_user_id, user_tier = _extract_verified_user()
 
+        # ── Per-user, per-device rate limiting ────────────────────────────────
+        from services.device_abuse import check_device_rate_limit
+        _device_block = check_device_rate_limit(verified_user_id)
+        if _device_block is not None:
+            return _device_block
+
         # Parse injected token flags from legacy frontend path
         token_flags = []
         if question.startswith('['):

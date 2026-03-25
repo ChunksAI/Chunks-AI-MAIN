@@ -266,6 +266,13 @@ def ask_async():
 
         # Capture user_id while we still have request context
         verified_user_id, _tier = _extract_verified_user()
+
+        # ── Per-user, per-device rate limiting ────────────────────────────
+        from services.device_abuse import check_device_rate_limit
+        _device_block = check_device_rate_limit(verified_user_id)
+        if _device_block is not None:
+            return _device_block
+
         data['_verified_user_id'] = verified_user_id
 
         job_id = job_queue.enqueue(_run_ask_job, data)
