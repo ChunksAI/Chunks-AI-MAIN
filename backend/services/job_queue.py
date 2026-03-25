@@ -114,6 +114,8 @@ class JobQueue:
 
     def get_status(self, job_id: str) -> Optional[dict]:
         """Return the current state of a job, or *None* if unknown."""
+        if self._store is None:
+            return None
         return self._store.load(job_id)
 
     # ── internal ──────────────────────────────────────────────────────────────

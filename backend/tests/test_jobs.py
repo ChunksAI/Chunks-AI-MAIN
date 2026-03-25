@@ -11,21 +11,38 @@ from services.job_queue import JobQueue, STATUS_QUEUED, STATUS_COMPLETED, STATUS
 class TestJobQueueUnit:
     """Low-level tests for the JobQueue class itself."""
 
-    def test_init_memory_store(self):
+    @staticmethod
+    def _make_mock_redis():
+        """Create a mock Redis client with a working dict-backed store."""
+        store = {}
+        r = MagicMock()
+        r.ping.return_value = True
+        r.setex.side_effect = lambda k, ttl, v: store.__setitem__(k, v)
+        r.get.side_effect = lambda k: store.get(k)
+        return r
+
+    def test_init_no_redis(self):
         q = JobQueue()
         q.init(redis=None)
         assert q._ready is True
+        assert q._store is None
+
+    def test_init_with_redis(self):
+        q = JobQueue()
+        q.init(redis=self._make_mock_redis())
+        assert q._ready is True
+        assert q._store is not None
 
     def test_enqueue_returns_job_id(self):
         q = JobQueue()
-        q.init()
+        q.init(redis=self._make_mock_redis())
         job_id = q.enqueue(lambda: {"ok": True})
         assert isinstance(job_id, str)
         assert len(job_id) == 32  # uuid4 hex
 
     def test_job_completes_successfully(self):
         q = JobQueue()
-        q.init()
+        q.init(redis=self._make_mock_redis())
         result_data = {"answer": "42"}
         job_id = q.enqueue(lambda: result_data)
         # Wait for the thread to finish
@@ -41,7 +58,7 @@ class TestJobQueueUnit:
 
     def test_job_failure_stored(self):
         q = JobQueue()
-        q.init()
+        q.init(redis=self._make_mock_redis())
 
         def _fail():
             raise ValueError("boom")
@@ -59,12 +76,18 @@ class TestJobQueueUnit:
 
     def test_unknown_job_returns_none(self):
         q = JobQueue()
-        q.init()
+        q.init(redis=self._make_mock_redis())
         assert q.get_status("nonexistent") is None
 
     def test_enqueue_before_init_raises(self):
         q = JobQueue()
         with pytest.raises(RuntimeError, match="not initialised"):
+            q.enqueue(lambda: {})
+
+    def test_enqueue_without_redis_raises(self):
+        q = JobQueue()
+        q.init(redis=None)
+        with pytest.raises(RuntimeError, match="requires Redis"):
             q.enqueue(lambda: {})
 
 

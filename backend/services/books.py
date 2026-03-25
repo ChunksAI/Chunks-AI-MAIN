@@ -5,7 +5,7 @@ Provides:
   - BOOK_LIBRARY dict
   - STOPWORDS, tokenize(), tfidf_score(), enhanced_score() — TF-IDF helpers
   - TextbookSearch class — hybrid TF-IDF + semantic search
-  - _book_cache / get_book_index() — per-book cached index
+  - get_book_index() — per-book cached index (Redis-backed)
   - ALLOWED_EXTENSIONS / allowed_file()
 
 Call init() once from server.py to inject shared state (session, API key, etc.).

@@ -223,9 +223,9 @@ def _fps_from_dict(raw):
 
 # ── Build pipeline ────────────────────────────────────────────────────────────
 def _build_book(book_id: str, fp_sample_rate: float = 0.3):
-    """Full build. Saves results to R2 + local /tmp."""
+    """Full build. Saves results to R2 + Redis."""
     try:
-        _status[book_id] = {'stage': 'loading_chunks', 'pct': 5}
+        _paev_status_set(book_id, {'stage': 'loading_chunks', 'pct': 5})
         book_info = BOOK_LIBRARY[book_id]
 
         # 1. Load chunks from R2 public URL
@@ -235,7 +235,7 @@ def _build_book(book_id: str, fp_sample_rate: float = 0.3):
         logger.info(f'[{book_id}] Loaded {len(chunks)} chunks')
 
         # 2. Build hierarchical index
-        _status[book_id] = {'stage': 'building_index', 'pct': 20}
+        _paev_status_set(book_id, {'stage': 'building_index', 'pct': 20})
         idx = _indexer.build_from_chunks(
             chunks, book_id=book_id,
             book_title=book_info['name'], book_author=book_info['author'],
@@ -246,7 +246,7 @@ def _build_book(book_id: str, fp_sample_rate: float = 0.3):
             _r2_upload(book_id, 'index', json.load(f))
 
         # 3. Build epistemic fingerprints
-        _status[book_id] = {'stage': 'fingerprinting', 'pct': 45}
+        _paev_status_set(book_id, {'stage': 'fingerprinting', 'pct': 45})
         fps = _fp_builder.build_fingerprints_for_index(idx, sample_rate=fp_sample_rate)
         fps = _fp_builder.detect_abstraction_supersessions(idx, fps)
         fps_dict = _fps_to_dict(fps)
@@ -255,44 +255,41 @@ def _build_book(book_id: str, fp_sample_rate: float = 0.3):
         _r2_upload(book_id, 'fingerprints', fps_dict)
 
         # 4. Build prerequisite graph
-        _status[book_id] = {'stage': 'building_graph', 'pct': 75}
+        _paev_status_set(book_id, {'stage': 'building_graph', 'pct': 75})
         graph = _fp_builder.build_prerequisite_graph(idx, fps)
         graph_dict = graph.to_dict()
         with open(_graph_path(book_id), 'w') as f:
             json.dump(graph_dict, f)
         _r2_upload(book_id, 'graph', graph_dict)
 
-        # 5. Cache in memory
-        with _lock:
-            _indexes[book_id]      = idx
-            _fingerprints[book_id] = fps
-            _graphs[book_id]       = graph
-            _status[book_id] = {
-                'stage': 'ready', 'pct': 100,
-                'paragraphs':   idx.total_paragraphs,
-                'chapters':     len(idx.chapters),
-                'concepts':     len(graph.nodes),
-                'fingerprints': len(fps),
-                'storage':      'r2' if _r2_client() else 'local',
-            }
+        # 5. Cache in Redis
+        _paev_cache_set(book_id, idx, fps, graph)
+        _paev_status_set(book_id, {
+            'stage': 'ready', 'pct': 100,
+            'paragraphs':   idx.total_paragraphs,
+            'chapters':     len(idx.chapters),
+            'concepts':     len(graph.nodes),
+            'fingerprints': len(fps),
+            'storage':      'r2' if _r2_client() else 'local',
+        })
         logger.info(f'[{book_id}] PAEV build complete')
 
     except Exception as e:
         logger.exception(f'[{book_id}] Build error')
-        _status[book_id] = {'stage': 'error', 'error': str(e)}
+        _paev_status_set(book_id, {'stage': 'error', 'error': str(e)})
 
 
 def _get_book(book_id: str):
     """
     Load order:
-      1. In-memory cache
+      1. Redis cache
       2. Local /tmp disk
       3. R2 download (survives restarts)
     """
-    # 1. Memory
-    with _lock:
-        if book_id in _indexes:
-            return _indexes[book_id], _fingerprints[book_id], _graphs[book_id]
+    # 1. Redis
+    idx, fps, graph = _paev_cache_get(book_id)
+    if idx is not None:
+        return idx, fps, graph
 
     # 2. Local disk
     if all(os.path.exists(p) for p in [_idx_path(book_id), _fp_path(book_id), _graph_path(book_id)]):
@@ -300,11 +297,8 @@ def _get_book(book_id: str):
             idx   = _indexer.load_index(_idx_path(book_id))
             fps   = _fps_from_dict(json.load(open(_fp_path(book_id))))
             graph = PrerequisiteGraph.from_dict(json.load(open(_graph_path(book_id))))
-            with _lock:
-                _indexes[book_id]      = idx
-                _fingerprints[book_id] = fps
-                _graphs[book_id]       = graph
-                _status[book_id]       = {'stage': 'ready', 'pct': 100}
+            _paev_cache_set(book_id, idx, fps, graph)
+            _paev_status_set(book_id, {'stage': 'ready', 'pct': 100})
             logger.info(f'[{book_id}] Loaded from local disk cache')
             return idx, fps, graph
         except Exception as e:
@@ -312,7 +306,7 @@ def _get_book(book_id: str):
 
     # 3. R2 download
     logger.info(f'[{book_id}] Downloading from R2...')
-    _status[book_id] = {'stage': 'loading_from_r2', 'pct': 10}
+    _paev_status_set(book_id, {'stage': 'loading_from_r2', 'pct': 10})
     try:
         idx_dict   = _r2_download(book_id, 'index')
         fps_dict   = _r2_download(book_id, 'fingerprints')
@@ -320,7 +314,7 @@ def _get_book(book_id: str):
 
         if not all([idx_dict, fps_dict, graph_dict]):
             logger.info(f'[{book_id}] Not found in R2')
-            _status[book_id] = {'stage': 'not_built'}
+            _paev_status_set(book_id, {'stage': 'not_built'})
             return None, None, None
 
         import tempfile, os as _os
@@ -336,17 +330,14 @@ def _get_book(book_id: str):
         with open(_fp_path(book_id), 'w') as f: json.dump(fps_dict, f)
         with open(_graph_path(book_id), 'w') as f: json.dump(graph_dict, f)
 
-        with _lock:
-            _indexes[book_id]      = idx
-            _fingerprints[book_id] = fps
-            _graphs[book_id]       = graph
-            _status[book_id]       = {'stage': 'ready', 'pct': 100, 'storage': 'r2'}
+        _paev_cache_set(book_id, idx, fps, graph)
+        _paev_status_set(book_id, {'stage': 'ready', 'pct': 100, 'storage': 'r2'})
         logger.info(f'[{book_id}] Loaded from R2 and cached locally')
         return idx, fps, graph
 
     except Exception as e:
         logger.error(f'[{book_id}] R2 load error: {e}')
-        _status[book_id] = {'stage': 'not_built'}
+        _paev_status_set(book_id, {'stage': 'not_built'})
         return None, None, None
 
 
@@ -359,8 +350,9 @@ def get_status():
     statuses = {}
     r2_ok = bool(_r2_client())
     for book_id in BOOK_LIBRARY:
-        if book_id in _status:
-            statuses[book_id] = _status[book_id]
+        st = _paev_status_get(book_id)
+        if st:
+            statuses[book_id] = st
         elif r2_ok and _r2_exists(book_id):
             statuses[book_id] = {'stage': 'cached_on_r2'}
         elif os.path.exists(_idx_path(book_id)):
@@ -383,7 +375,7 @@ def build_index():
     if book_id not in BOOK_LIBRARY:
         return jsonify({'success': False, 'error': f'Unknown book: {book_id}'}), 404
 
-    current = _status.get(book_id, {})
+    current = _paev_status_get(book_id) or {}
     stage   = current.get('stage') if isinstance(current, dict) else None
 
     if stage == 'ready':
@@ -392,7 +384,7 @@ def build_index():
     if stage not in (None, '', 'not_built', 'error'):
         return jsonify({'success': True, 'message': 'Build in progress', 'status': current})
 
-    _status[book_id] = {'stage': 'queued', 'pct': 0}
+    _paev_status_set(book_id, {'stage': 'queued', 'pct': 0})
     t = threading.Thread(target=_build_book, args=(book_id, sample), daemon=True)
     t.start()
 
@@ -480,7 +472,9 @@ def paev_ask():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-def register_paev(app):
+def register_paev(app, *, redis=None):
+    global _redis
+    _redis = redis
     app.register_blueprint(paev_bp)
     r2_ok = bool(_r2_client())
     logger.info(f'PAEV routes registered | R2: {"configured" if r2_ok else "NOT configured — add R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME"}')

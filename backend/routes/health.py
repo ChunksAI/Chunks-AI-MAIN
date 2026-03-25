@@ -54,17 +54,10 @@ def ping():
 
 @health_bp.route('/health', methods=['GET'])
 def health():
-    from services.books import _book_cache, BOOK_LIBRARY
-    book_status = {}
-    for bid, searcher in _book_cache.items():
-        book_status[bid] = {
-            'chunks': len(searcher.chunks),
-            'search_mode': 'hybrid' if searcher.has_embeddings else 'tfidf'
-        }
+    from services.books import BOOK_LIBRARY
     return jsonify({
         'status': 'healthy',
         'mode': 'production' if ctx.PRODUCTION else 'development',
-        'books_cached': book_status,
         'books_available': list(BOOK_LIBRARY.keys()),
         'r2_configured': ctx.R2_BUCKET_URL != 'https://pub-xxxxx.r2.dev',
         'api_configured': ctx.OPENROUTER_API_KEY != 'your-key-here'
