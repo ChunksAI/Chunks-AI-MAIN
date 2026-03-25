@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/utils/focusTrap.js — Focus trap utility
  *

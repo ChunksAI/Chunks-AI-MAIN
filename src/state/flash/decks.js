@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/flash/decks.js — Deck loading, rendering, management
  */

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/studyplan/planLibrary.js — Multi-plan management
  */

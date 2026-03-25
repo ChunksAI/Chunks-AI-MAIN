@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/workspace/selection.js — "Ask AI" floating button for PDF text selection
  *

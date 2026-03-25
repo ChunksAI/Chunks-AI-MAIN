@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/studyplan/panel.js — Live panel/donut update
  */

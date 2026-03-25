@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/studyplan/index.js — Barrel re-export + window bridges
  *

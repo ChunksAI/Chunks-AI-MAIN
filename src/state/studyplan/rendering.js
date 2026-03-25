@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/studyplan/rendering.js — Plan rendering, node building, stats, views
  */

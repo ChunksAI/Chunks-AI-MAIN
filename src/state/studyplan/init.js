@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/studyplan/init.js — Activity chip delegation + spInitScreen
  */

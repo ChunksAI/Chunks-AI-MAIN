@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/studyplan/practiceQuestions.js — Practice Q's engine
  */

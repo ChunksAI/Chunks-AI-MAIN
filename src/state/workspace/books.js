@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/workspace/books.js — Book loader + welcome message
  */

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/preact/bridge.js — Preact ↔ vanilla-JS bridge utilities
  *

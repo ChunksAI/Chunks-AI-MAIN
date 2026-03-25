@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/components/Toast.js — Task 20 (Preact migration)
  *

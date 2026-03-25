@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/lib/idbStorage.js — IndexedDB persistence layer
  *

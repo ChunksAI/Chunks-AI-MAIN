@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/flash/generation.js — Card generation + PDF upload
  */

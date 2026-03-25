@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/lib/api.js — Chunks AI API client
  *

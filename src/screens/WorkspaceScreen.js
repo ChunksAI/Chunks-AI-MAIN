@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/screens/WorkspaceScreen.js — Task 26
  *

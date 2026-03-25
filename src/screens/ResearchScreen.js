@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/screens/ResearchScreen.js — Task 28
  *

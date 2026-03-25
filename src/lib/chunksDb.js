@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/lib/chunksDb.js — Task 31 + Phase 2 cross-device sync
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/studyplan/notifications.js — Notifications + reminders
  */

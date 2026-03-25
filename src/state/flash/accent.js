@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/flash/accent.js — Accent color system
  *

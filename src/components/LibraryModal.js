@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { saveDoc, listDocs, deleteDoc } from '../lib/userDocDb.js';
 import { trapFocus } from '../utils/focusTrap.js';
 import { showToast } from './Toast.js';

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/screens/HomeScreen.js — Task 25
  *

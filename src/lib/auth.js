@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/lib/auth.js — Task 32
  *

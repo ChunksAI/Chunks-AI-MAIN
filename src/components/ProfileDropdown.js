@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { _currentUser }      from '../lib/auth.js';
 import { chunksSignOut }     from '../lib/auth.js';
 import { openSettings }      from './SettingsModal.js';

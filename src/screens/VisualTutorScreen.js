@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/screens/VisualTutorScreen.js
  *

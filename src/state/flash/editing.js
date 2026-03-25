@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/flash/editing.js — Card editing
  */

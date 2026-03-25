@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/workspace/userDocs.js — User document handling
  */

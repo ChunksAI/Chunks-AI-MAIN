@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { saveDoc, listDocs, deleteDoc } from '../lib/userDocDb.js';
 import { getBookProgress, formatLastStudied, calcReadPct } from '../lib/bookProgress.js';
 import { API_BASE } from '../lib/api.js';

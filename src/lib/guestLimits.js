@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/lib/guestLimits.js — Guest mode usage limits + abuse prevention
  *

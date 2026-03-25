@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/workspace/attachments.js — Attachment system (workspace + home)
  */

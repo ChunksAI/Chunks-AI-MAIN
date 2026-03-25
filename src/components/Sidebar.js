@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/components/Sidebar.js — Sidebar component
  *

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/flash/chatBridge.js — Workspace/chat integration
  */

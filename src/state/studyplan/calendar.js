@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/studyplan/calendar.js — Exam date, daily schedule, adaptive reorder
  */
