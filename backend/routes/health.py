@@ -71,3 +71,10 @@ def get_client_config():
         'supabaseUrl':     ctx.SUPABASE_URL,
         'supabaseAnonKey': ctx.SUPABASE_ANON_KEY,
     })
+
+
+@health_bp.route('/api/plan-limits', methods=['GET', 'OPTIONS'])
+def get_plan_limits():
+    """Return plan limits for all tiers (public — no auth required)."""
+    from services.plan_limits import PLAN_LIMITS
+    return jsonify({'success': True, 'plans': PLAN_LIMITS})

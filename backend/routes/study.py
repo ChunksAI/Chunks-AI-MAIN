@@ -49,6 +49,13 @@ def generate_study_materials():
         if _device_block is not None:
             return _device_block
 
+        # ── Plan-based usage limit ────────────────────────────────────────
+        from services.plan_limits import check_plan_limit, PlanLimitExceeded
+        try:
+            check_plan_limit(verified_user_id, _tier, 'monthly_study_plans')
+        except PlanLimitExceeded as _ple:
+            return _ple.response()
+
         from server import _cache_key, _cache_get, _cache_set
         from ai_router import route
         from services.ai import call_ai
@@ -301,6 +308,13 @@ def generate_quiz():
         _device_block = check_device_rate_limit(verified_user_id)
         if _device_block is not None:
             return _device_block
+
+        # ── Plan-based usage limit ────────────────────────────────────────
+        from services.plan_limits import check_plan_limit, PlanLimitExceeded
+        try:
+            check_plan_limit(verified_user_id, _tier, 'monthly_quizzes')
+        except PlanLimitExceeded as _ple:
+            return _ple.response()
 
         from ai_router import route
         from services.ai import call_ai

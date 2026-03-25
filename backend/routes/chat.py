@@ -97,6 +97,13 @@ def ask():
         if _device_block is not None:
             return _device_block
 
+        # ── Plan-based usage limit ────────────────────────────────────────────
+        from services.plan_limits import check_plan_limit, PlanLimitExceeded
+        try:
+            check_plan_limit(verified_user_id, user_tier, 'daily_messages')
+        except PlanLimitExceeded as _ple:
+            return _ple.response()
+
         # Parse injected token flags from legacy frontend path
         token_flags = []
         if question.startswith('['):
