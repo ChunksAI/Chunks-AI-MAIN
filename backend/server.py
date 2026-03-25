@@ -272,6 +272,7 @@ import services.auth as _auth_svc
 import services.ai   as _ai_svc
 import services.books as _books_svc
 import services.embedding_cache as _embed_cache_svc
+import services.vector_store as _vector_store_svc
 
 _auth_svc.init(
     session              = _session,
@@ -284,6 +285,11 @@ _ai_svc.init(
     openrouter_api_key = OPENROUTER_API_KEY,
     model              = MODEL,
     max_history_turns  = MAX_HISTORY_TURNS,
+)
+_vector_store_svc.init(
+    session              = _session,
+    supabase_url         = SUPABASE_URL,
+    supabase_service_key = SUPABASE_SERVICE_KEY,
 )
 _books_svc.init(
     session            = _session,
