@@ -7,10 +7,11 @@ GET  /             Home / index
 GET  /ping         Liveness check (no AI call)
 GET  /health       Full status report
 GET  /api/config   Public Supabase config for the frontend
+GET  /api/me/plan  Authenticated user's plan, limits, and usage
 """
 from __future__ import annotations
 
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 
 from routes.shared import ctx
 
@@ -78,3 +79,35 @@ def get_plan_limits():
     """Return plan limits for all tiers (public — no auth required)."""
     from services.plan_limits import PLAN_LIMITS
     return jsonify({'success': True, 'plans': PLAN_LIMITS})
+
+
+@health_bp.route('/api/me/plan', methods=['GET', 'OPTIONS'])
+def get_my_plan():
+    """Return the authenticated user's plan, limits, and current usage.
+
+    Requires a valid Supabase JWT in the Authorization header.
+    Returns 401 if no valid token is provided.
+    """
+    from services.auth import _extract_verified_user
+    from services.plan_limits import get_plan_limits, get_usage, PLAN_LIMITS
+
+    user_id, tier = _extract_verified_user()
+
+    # Unauthenticated (IP-based) users get a 401
+    if user_id.startswith('ip:'):
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+
+    tier_str = tier.value if hasattr(tier, 'value') else str(tier).lower()
+    limits = get_plan_limits(tier_str)
+
+    # Build usage map for countable features
+    usage = {}
+    for feature in limits:
+        usage[feature] = get_usage(user_id, feature)
+
+    return jsonify({
+        'success': True,
+        'plan':    tier_str,
+        'limits':  limits,
+        'usage':   usage,
+    })
