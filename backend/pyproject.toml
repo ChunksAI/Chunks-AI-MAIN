@@ -1,0 +1,13 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.coverage.run]
+source = [
+    "routes",
+    "paev_routes",
+    "progress_routes",
+]
+
+[tool.coverage.report]
+show_missing = true
