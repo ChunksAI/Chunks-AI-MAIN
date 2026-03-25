@@ -183,7 +183,8 @@ export function wsAppendError(msg) {
   const msgs = $el('ws-messages');
   const d = document.createElement('div');
   d.className = 'msg msg-ai';
-  d.innerHTML = `<div class="ai-row"><div class="ai-ava">${_wsAvatarSvg()}</div><div class="ai-body"><p class="ai-text" style="color:#f87171;">⚠ ${msg.replace(/</g,'&lt;')}</p></div></div>`;
+  const escaped = msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  d.innerHTML = `<div class="ai-row"><div class="ai-ava">${_wsAvatarSvg()}</div><div class="ai-body"><p class="ai-text" style="color:#f87171;">⚠ ${escaped}</p></div></div>`;
   msgs.appendChild(d); wsScrollBottom();
 }
 
@@ -197,6 +198,8 @@ export function wsCopyMsg(btn, msgId) {
       removeClass(btn, 'copied');
       btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
     }, 2000);
+  }).catch(() => {
+    showToast('⚠', 'Could not copy — check browser permissions', 'var(--red)');
   });
 }
 

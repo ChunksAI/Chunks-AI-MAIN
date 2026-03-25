@@ -428,13 +428,11 @@ export function closeUpgradeModal() {
 }
 
 export function handleUpgradeClick(plan) {
-  closeUpgradeModal();
-  // Navigate to the subscribe page for the selected plan
-  const url = `/subscribe?plan=${encodeURIComponent(plan)}`;
-  if (window._currentUser) {
-    window.location.href = url;
-  } else {
-    // Not logged in — open auth modal first
+  if (!window._currentUser) {
+    closeUpgradeModal();
     window.openAuthModal?.();
+    return;
   }
+  // Payment integration not yet available — show feedback and keep modal open
+  showToast('📬', `Thanks for your interest in ${plan.charAt(0).toUpperCase() + plan.slice(1)}! Subscriptions are coming soon.`, 'var(--gold)');
 }
