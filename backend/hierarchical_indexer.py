@@ -28,6 +28,8 @@ from dataclasses import dataclass, field, asdict
 from typing import Optional
 import requests
 
+from services import embedding_cache
+
 logger = logging.getLogger(__name__)
 
 # ── Semantic type detector ────────────────────────────────────────────────────
@@ -310,13 +312,32 @@ class HierarchicalIndexer:
         return re.sub(r'[^a-zA-Z0-9_]', '_', raw)
 
     def _embed_batch(self, texts: list[str], batch_size: int = 20) -> list[Optional[list[float]]]:
-        """Embed a batch of texts via OpenRouter. Returns None on failure."""
+        """Embed a batch of texts via OpenRouter, using a content-hash cache.
+
+        Cached vectors are returned immediately; only uncached texts are sent
+        to the API.  New vectors are written back to the cache after each
+        successful API call.
+        """
         if not self.api_key:
             return [None] * len(texts)
 
-        results = [None] * len(texts)
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i:i + batch_size]
+        # ── Check the cache for all texts at once ─────────────────────────
+        results = embedding_cache.mget(texts)
+        cache_hits = sum(1 for v in results if v is not None)
+        if cache_hits:
+            logger.info(f"  Embedding cache: {cache_hits}/{len(texts)} hits")
+
+        # Collect indices that still need embedding
+        miss_indices = [i for i, v in enumerate(results) if v is None]
+        if not miss_indices:
+            return results
+
+        # ── Call the API only for misses ──────────────────────────────────
+        miss_texts = [texts[i] for i in miss_indices]
+        api_results: list[Optional[list[float]]] = [None] * len(miss_texts)
+
+        for i in range(0, len(miss_texts), batch_size):
+            batch = miss_texts[i:i + batch_size]
             try:
                 resp = requests.post(
                     "https://openrouter.ai/api/v1/embeddings",
@@ -332,12 +353,18 @@ class HierarchicalIndexer:
                 if resp.status_code == 200:
                     data = resp.json()["data"]
                     for j, item in enumerate(data):
-                        results[i + j] = item["embedding"]
+                        api_results[i + j] = item["embedding"]
                 else:
                     logger.warning(f"Embedding API {resp.status_code}: {resp.text[:200]}")
                 time.sleep(0.1)  # Rate limit buffer
             except Exception as e:
                 logger.warning(f"Embedding batch failed: {e}")
+
+        # ── Merge API results back and update cache ───────────────────────
+        for idx, orig_i in enumerate(miss_indices):
+            results[orig_i] = api_results[idx]
+
+        embedding_cache.mset(miss_texts, api_results)
 
         return results
 
