@@ -82,7 +82,8 @@ Rules:
         raw = call_ai(prompt, system_prompt=(
             "You are a chemistry flashcard generator. Output ONLY the CARD blocks in the exact format requested. "
             "No preamble, no extra commentary, no numbering outside the format."
-        ), model=route('flashcard_complex' if count > 10 else 'flashcard_simple', complexity=5))
+        ), model=route('flashcard_complex' if count > 10 else 'flashcard_simple', complexity=5),
+           endpoint='flashcards')
 
         flashcards = []
         blocks = re.split(r'\bCARD\b', raw, flags=re.IGNORECASE)

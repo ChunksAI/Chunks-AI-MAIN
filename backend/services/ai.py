@@ -76,8 +76,28 @@ def sanitize_user_memory(text, max_len=500):
 # ── Core AI caller ────────────────────────────────────────────────────────────
 
 def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=None,
-            history=None, max_tokens_override=None):
+            history=None, max_tokens_override=None, endpoint: str = 'chat'):
+    """Call OpenRouter for a standard chat completion.
+
+    Parameters
+    ----------
+    endpoint : str
+        Key into ``token_budget.ENDPOINT_MAX_TOKENS`` used to resolve the
+        hard token ceiling for this request (default ``'chat'``).
+    """
+    from services import token_budget
+
+    # ── Budget gate ───────────────────────────────────────────────────────
+    if not token_budget.check_daily_budget():
+        raise RuntimeError("Daily AI cost budget exceeded. Please try again tomorrow.")
+
     use_model = model or MODEL
+
+    # ── Resolve max_tokens ────────────────────────────────────────────────
+    effective_max_tokens = token_budget.max_tokens_for_endpoint(
+        endpoint, override=max_tokens_override,
+    )
+
     try:
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -100,14 +120,19 @@ def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=No
             # FIX: lowered temperature from 0.4 → 0.15
             # Chemistry facts, equations, and constants must be deterministic.
             "temperature": 0.15,
-            "max_tokens": max_tokens_override if max_tokens_override else 6000
+            "max_tokens": effective_max_tokens,
         }
-        logger.info(f"Model: {use_model} | history: {len(history) if history else 0} turns")
+        logger.info(
+            "Model: %s | max_tokens: %d | endpoint: %s | history: %d turns",
+            use_model, effective_max_tokens, endpoint,
+            len(history) if history else 0,
+        )
         response = _session.post(OPENROUTER_URL, headers=headers, json=payload, timeout=55)
         if response.status_code == 200:
             resp_json = response.json()
             choices = resp_json.get('choices', [])
             if choices:
+                _record_usage_from_response(resp_json, use_model, endpoint)
                 return choices[0]['message']['content']
             err = resp_json.get('error', {})
             raise RuntimeError(f"Model returned no choices — {err.get('message', str(resp_json)[:200])}")
@@ -129,13 +154,45 @@ def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=No
         raise RuntimeError(str(e)) from e
 
 
+def _record_usage_from_response(
+    resp_json: dict, model: str, endpoint: str,
+) -> None:
+    """Extract usage stats from an OpenRouter response and record them."""
+    from services import token_budget
+
+    usage = resp_json.get('usage') or {}
+    prompt_tokens     = int(usage.get('prompt_tokens', 0) or 0)
+    completion_tokens = int(usage.get('completion_tokens', 0) or 0)
+    total_cost        = float(resp_json.get('total_cost', 0) or 0)
+
+    if prompt_tokens or completion_tokens or total_cost:
+        token_budget.record_usage(
+            model=model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_cost=total_cost,
+            endpoint=endpoint,
+        )
+        logger.info(
+            "Usage — model: %s | prompt: %d | completion: %d | cost: $%.6f | endpoint: %s",
+            model, prompt_tokens, completion_tokens, total_cost, endpoint,
+        )
+
+
 def call_ai_web_search(question, system_prompt=None, history=None):
     """
     Uses Perplexity Sonar via OpenRouter for real-time web search with citations.
     Returns (answer_text, citations_list)
     citations_list is a list of dicts: [{url, title}]
     """
+    from services import token_budget
+
+    if not token_budget.check_daily_budget():
+        return "Error: Daily AI cost budget exceeded. Please try again tomorrow.", []
+
     WEB_MODEL = os.environ.get('WEB_MODEL', 'perplexity/sonar')
+    effective_max_tokens = token_budget.max_tokens_for_endpoint('chat_web_search')
+
     try:
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -163,7 +220,7 @@ def call_ai_web_search(question, system_prompt=None, history=None):
             "model": WEB_MODEL,
             "messages": messages,
             "temperature": 0.2,
-            "max_tokens": 4000
+            "max_tokens": effective_max_tokens,
         }
 
         logger.info(f"Web search model: {WEB_MODEL} | Q: {question[:80]}")
@@ -177,6 +234,8 @@ def call_ai_web_search(question, system_prompt=None, history=None):
         choices   = resp_json.get('choices', [])
         if not choices:
             return "No results returned.", []
+
+        _record_usage_from_response(resp_json, WEB_MODEL, 'chat_web_search')
 
         answer = choices[0]['message']['content']
 

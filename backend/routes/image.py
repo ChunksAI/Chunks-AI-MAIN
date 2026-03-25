@@ -38,6 +38,7 @@ def ask_image():
     try:
         from services.auth import _extract_verified_user
         from services.ai import sanitize_text
+        from services import token_budget
 
         data = request.get_json(silent=True)
         if not data:
@@ -78,7 +79,14 @@ def ask_image():
                 'error': f'Unsupported image type "{image_type_clean}". Allowed: jpeg, png, gif, webp, bmp.',
             }), 415
 
+        if not token_budget.check_daily_budget():
+            return jsonify({
+                'success': False,
+                'error': 'Daily AI cost budget exceeded. Please try again tomorrow.',
+            }), 429
+
         vision_model = os.environ.get('VISION_MODEL', 'nvidia/nemotron-nano-12b-v2-vl:free')
+        effective_max_tokens = token_budget.max_tokens_for_endpoint('image')
 
         headers = {
             "Authorization": f"Bearer {ctx.OPENROUTER_API_KEY}",
@@ -122,14 +130,18 @@ def ask_image():
                 }
             ],
             "temperature": 0.15,
-            "max_tokens": 2000
+            "max_tokens": effective_max_tokens,
         }
 
-        logger.info(f"Vision model: {vision_model}")
+        logger.info(f"Vision model: {vision_model} | max_tokens: {effective_max_tokens}")
         response = ctx.session.post(ctx.OPENROUTER_URL, headers=headers, json=payload, timeout=55)
 
         if response.status_code == 200:
-            answer = response.json()['choices'][0]['message']['content']
+            resp_json = response.json()
+            answer = resp_json['choices'][0]['message']['content']
+            # Record usage from the vision API call
+            from services.ai import _record_usage_from_response
+            _record_usage_from_response(resp_json, vision_model, 'image')
             return jsonify({'success': True, 'answer': answer, 'model': vision_model})
         else:
             err_detail = response.text[:400]
