@@ -135,7 +135,13 @@ def test_options_with_untrusted_origin_not_blocked(csrf_client):
 
 def test_default_fixtures_bypass_csrf(client):
     """The standard test client (WTF_CSRF_ENABLED=False) bypasses CSRF."""
-    resp = client.post('/ask', content_type='application/json', data='')
+    resp = client.post(
+        '/ask',
+        headers={'Origin': 'https://evil-site.example.com'},
+        json={'question': 'test'},
+    )
+    # Should NOT be 403 — CSRF is disabled in the default test fixtures,
+    # so even an evil origin passes through to the route handler.
     assert resp.status_code != 403
 
 
