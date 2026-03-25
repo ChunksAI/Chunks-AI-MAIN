@@ -7,3 +7,8 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
