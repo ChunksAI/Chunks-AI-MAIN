@@ -478,9 +478,67 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
   background:var(--surface-3);border:1px solid var(--border-md);
 }
 
+/* ── HEALTH GRID ── */
+.health-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:28px;}
+.health-item{
+  background:var(--surface-1);border:1px solid var(--border-sm);border-radius:var(--r-md);
+  padding:16px 18px;display:flex;align-items:flex-start;gap:12px;
+  transition:border-color var(--t-fast),transform var(--t-fast);
+}
+.health-item:hover{border-color:var(--border-md);transform:translateY(-1px);}
+.health-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px;transition:background .3s,box-shadow .3s;}
+.health-dot.ok{background:var(--green);box-shadow:0 0 8px rgba(52,211,153,.5);}
+.health-dot.warn{background:var(--amber);box-shadow:0 0 8px rgba(232,172,46,.5);}
+.health-dot.err{background:var(--red);box-shadow:0 0 8px rgba(248,113,113,.5);}
+.health-dot.off{background:var(--surface-4);}
+.health-label{font-family:var(--font-mono);font-size:11px;font-weight:600;color:var(--text);letter-spacing:.02em;}
+.health-detail{font-family:var(--font-body);font-size:11px;color:var(--text3);margin-top:2px;line-height:1.5;}
+
+/* ── ROUTING TABLE ── */
+.rt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
+.rt-card{
+  background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-sm);
+  padding:14px 16px;transition:border-color var(--t-fast);
+}
+.rt-card:hover{border-color:var(--border-sm);}
+.rt-task{font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px;text-transform:capitalize;}
+.rt-tiers{display:flex;flex-direction:column;gap:4px;}
+.rt-tier{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.rt-tier-label{font-family:var(--font-mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;min-width:50px;}
+.rt-tier-model{font-family:var(--font-mono);font-size:11px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rt-models-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+.rt-model-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 12px;border-radius:var(--r-pill);
+  background:var(--surface-2);border:1px solid var(--border-xs);
+  font-family:var(--font-mono);font-size:11px;color:var(--text2);
+}
+.rt-model-pill .rt-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+
+/* ── USAGE REPORT ── */
+.usage-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px;}
+.usage-metric{background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:14px 16px;}
+.usage-metric-label{font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:6px;}
+.usage-metric-value{font-family:var(--font-head);font-size:20px;font-weight:800;letter-spacing:-.5px;color:var(--text);}
+.usage-table-wrap{overflow-x:auto;}
+.usage-table{width:100%;min-width:600px;border-collapse:collapse;}
+.usage-table thead tr{background:var(--surface-2);}
+.usage-table th{
+  padding:9px 14px;text-align:left;
+  font-family:var(--font-mono);font-size:10px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--text3);border-bottom:1px solid var(--border-xs);white-space:nowrap;
+}
+.usage-table td{padding:10px 14px;font-family:var(--font-body);font-size:12px;color:var(--text2);border-bottom:1px solid var(--border-xs);}
+.usage-table tbody tr:hover td{background:rgba(255,255,255,.015);}
+.usage-table .u-cost{font-family:var(--font-mono);font-weight:700;color:#ff6b6b;}
+.usage-table .u-tokens{font-family:var(--font-mono);color:var(--text2);}
+
+/* ── SECTION TIMESTAMP ── */
+.section-ts{font-family:var(--font-mono);font-size:10px;color:var(--text4);margin-left:auto;letter-spacing:.04em;white-space:nowrap;}
+
 /* RESPONSIVE */
-@media(max-width:1100px){.stats-row{grid-template-columns:repeat(3,1fr);}}
-@media(max-width:700px){.stats-row{grid-template-columns:repeat(2,1fr);}.page{padding:18px 14px 40px;}.nav{padding:0 16px;}td.hide-sm,th.hide-sm{display:none;}}
+@media(max-width:1100px){.stats-row{grid-template-columns:repeat(3,1fr);}.health-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:700px){.stats-row{grid-template-columns:repeat(2,1fr);}.page{padding:18px 14px 40px;}.nav{padding:0 16px;}td.hide-sm,th.hide-sm{display:none;}.health-grid{grid-template-columns:1fr;}.rt-grid{grid-template-columns:1fr;}.usage-summary{grid-template-columns:repeat(2,1fr);}}
 @keyframes adminPulse{0%,100%{opacity:1}50%{opacity:0.35}}
 
 /* ══════════════════════════════════════
@@ -826,6 +884,14 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
       </div>
     </div>
 
+    <div class="section-label">System Health <span class="section-ts" id="health-ts"></span></div>
+    <div class="health-grid" id="health-grid">
+      <div class="health-item">
+        <div class="health-dot off"></div>
+        <div><div class="health-label">Checking…</div><div class="health-detail">Connecting to backend</div></div>
+      </div>
+    </div>
+
     <div class="section-label">AI Billing</div>
     <div class="or-panel">
       <div class="or-head">
@@ -844,6 +910,25 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
         <div id="or-credit-body">
           <div class="or-loading"><div class="or-spinner"></div>Loading credit data…</div>
         </div>
+      </div>
+    </div>
+
+    <div class="section-label">AI Model Routing <span class="section-ts" id="routing-ts"></span></div>
+    <div class="or-panel" style="margin-bottom:28px;">
+      <div class="or-head">
+        <div class="or-title">
+          <div class="or-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </div>
+          Model Routing Configuration
+        </div>
+        <button class="or-refresh" id="rt-refresh-btn" onclick="loadRoutingTable()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+          Refresh
+        </button>
+      </div>
+      <div class="or-body" id="rt-body">
+        <div class="or-loading"><div class="or-spinner"></div>Loading routing table…</div>
       </div>
     </div>
 
@@ -874,6 +959,28 @@ tbody tr:hover td{background:rgba(255,255,255,.015);}
     </div>
 
 
+
+    <div class="section-label">Monthly Token Usage <span class="section-ts" id="usage-ts"></span></div>
+    <div class="or-panel" style="margin-bottom:28px;">
+      <div class="or-head">
+        <div class="or-title">
+          <div class="or-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+          </div>
+          Per-User Token Usage
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="month" id="usage-month-input" class="inp" style="padding:5px 10px;font-size:12px;width:160px;color-scheme:dark;" />
+          <button class="or-refresh" id="usage-refresh-btn" onclick="loadUsageReport()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+            Refresh
+          </button>
+        </div>
+      </div>
+      <div class="or-body" id="usage-body">
+        <div class="or-loading"><div class="or-spinner"></div>Loading usage data…</div>
+      </div>
+    </div>
 
     <div class="section-label">User Management</div>
     <div class="mgmt-card">
@@ -1416,6 +1523,9 @@ function _finalizeAdmin(email) {
   showApp();
   _ensureAdminApproved(email);
   loadUsers(); startRealtimeSync(); loadOpenRouterCredits();
+  // Load new monitoring sections
+  loadHealthStatus(); loadRoutingTable();
+  _initUsageMonth(); loadUsageReport();
   // Load PAEV status only after auth is complete
   setTimeout(paevRefreshAll, 800);
 }
@@ -1538,6 +1648,170 @@ async function doLogout(){
   sessionStorage.removeItem('chunks_pin_ok');
   window.removeEventListener('keydown', _pinKeyHandler);
   await sb.auth.signOut();_signingOut=false;showLogin();
+}
+
+// ── System Health Monitor ─────────────────────────────────────────────────────
+async function loadHealthStatus() {
+  const grid = document.getElementById('health-grid');
+  const ts   = document.getElementById('health-ts');
+  if (!grid) return;
+
+  const items = [];
+
+  // 1. Backend /health
+  try {
+    const res  = await fetch(`${getBackend()}/health`, { signal: AbortSignal.timeout(8000) });
+    const data = await res.json();
+    items.push({ label: 'Backend API', ok: data.status === 'ok', detail: `Mode: ${data.mode || 'unknown'} · Books: ${data.books_available ?? '?'}` });
+    items.push({ label: 'R2 Storage', ok: !!data.r2_configured, detail: data.r2_configured ? 'Connected' : 'Not configured' });
+    items.push({ label: 'AI Provider', ok: !!data.api_configured, detail: data.api_configured ? 'API key set' : 'Missing API key' });
+  } catch(e) {
+    items.push({ label: 'Backend API', ok: false, detail: `Unreachable: ${e.message}` });
+  }
+
+  // 2. Admin ping (config status)
+  try {
+    const res  = await fetch(`${getBackend()}/api/admin/ping`, { signal: AbortSignal.timeout(8000) });
+    const data = await res.json();
+    items.push({ label: 'Supabase', ok: !!data.supabase_url_set, detail: data.supabase_url_set ? 'URL + key configured' : 'Not configured' });
+    items.push({ label: 'Service Key', ok: !!data.service_key_set, detail: data.service_key_set ? 'Set' : 'Missing — DB writes limited' });
+    items.push({ label: 'OpenRouter Key', ok: !!data.openrouter_key_set, detail: data.openrouter_key_set ? 'Set' : 'Missing — AI calls disabled' });
+    items.push({ label: 'Admin PIN', ok: true, detail: `Owner: ${data.owner_pin_hash_set ? '✓' : '✗'} · Admin: ${data.admin_pin_hash_set ? '✓' : '✗'}`, warn: !data.owner_pin_hash_set });
+  } catch(e) {
+    items.push({ label: 'Admin Config', ok: false, detail: `Ping failed: ${e.message}` });
+  }
+
+  // 3. Realtime connection status
+  const rtOk = window._adminChannel && window._presenceChannel;
+  items.push({ label: 'Realtime Sync', ok: !!rtOk, detail: rtOk ? 'DB changes + Presence active' : 'Not connected yet' });
+
+  grid.innerHTML = items.map(i => `
+    <div class="health-item">
+      <div class="health-dot ${i.ok ? (i.warn ? 'warn' : 'ok') : 'err'}"></div>
+      <div>
+        <div class="health-label">${i.label}</div>
+        <div class="health-detail">${i.detail}</div>
+      </div>
+    </div>
+  `).join('');
+
+  if (ts) ts.textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+// ── AI Routing Table ──────────────────────────────────────────────────────────
+async function loadRoutingTable() {
+  const body = document.getElementById('rt-body');
+  const btn  = document.getElementById('rt-refresh-btn');
+  const ts   = document.getElementById('routing-ts');
+  if (!body) return;
+  body.innerHTML = '<div class="or-loading"><div class="or-spinner"></div>Loading routing table…</div>';
+  if (btn) btn.classList.add('loading');
+
+  try {
+    const json = await _adminFetch('/api/admin/routing-table');
+    const models = json.models || {};
+    const routes = json.routes || [];
+
+    // Model tier pills
+    const tierColors = { small: 'var(--text3)', medium: 'var(--green)', large: 'var(--gold)', think: 'var(--violet)', deep: '#ff6b6b' };
+    const modelPills = Object.entries(models)
+      .filter(([, v]) => v)
+      .map(([tier, model]) => `<div class="rt-model-pill"><div class="rt-dot" style="background:${tierColors[tier] || 'var(--text3)'}"></div><span style="color:${tierColors[tier] || 'var(--text3)'};font-weight:600;text-transform:uppercase;font-size:9px;letter-spacing:.06em;">${escHtml(tier)}</span><span>${escHtml(model.replace(/^[^/]+\//, ''))}</span></div>`)
+      .join('');
+
+    // Route cards
+    const routeCards = routes.map(r => {
+      const tiers = Object.entries(r.tiers || r)
+        .filter(([k]) => k !== 'task')
+        .map(([tier, model]) => `<div class="rt-tier"><span class="rt-tier-label" style="color:${tierColors[tier] || 'var(--text3)'}">${escHtml(tier)}</span><span class="rt-tier-model" title="${escHtml(model)}">${escHtml(model.replace(/^[^/]+\//, ''))}</span></div>`)
+        .join('');
+      return `<div class="rt-card"><div class="rt-task">${escHtml(r.task || 'unknown')}</div><div class="rt-tiers">${tiers}</div></div>`;
+    }).join('');
+
+    body.innerHTML = `
+      <div style="margin-bottom:14px;"><div class="or-mhead">Active Models</div><div class="rt-models-row">${modelPills || '<span class="or-empty">No models configured</span>'}</div></div>
+      ${routes.length ? `<div class="or-mhead">Task → Model Routing</div><div class="rt-grid">${routeCards}</div>` : '<div class="or-empty">No routing rules configured.</div>'}
+    `;
+    if (ts) ts.textContent = 'Updated ' + new Date().toLocaleTimeString();
+  } catch(e) {
+    body.innerHTML = `<div class="or-error"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Failed to load: ${e.message}</div>`;
+  } finally {
+    if (btn) btn.classList.remove('loading');
+  }
+}
+
+// ── Monthly Token Usage Report ────────────────────────────────────────────────
+function _initUsageMonth() {
+  const inp = document.getElementById('usage-month-input');
+  if (!inp) return;
+  const now = new Date();
+  inp.value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+async function loadUsageReport() {
+  const body = document.getElementById('usage-body');
+  const btn  = document.getElementById('usage-refresh-btn');
+  const ts   = document.getElementById('usage-ts');
+  const inp  = document.getElementById('usage-month-input');
+  if (!body) return;
+  body.innerHTML = '<div class="or-loading"><div class="or-spinner"></div>Loading usage data…</div>';
+  if (btn) btn.classList.add('loading');
+
+  const month = inp ? inp.value : '';
+
+  try {
+    const json = await _adminFetch(`/api/admin/usage-report${month ? '?month=' + month : ''}`);
+    const users  = json.users  || {};
+    const totals = json.totals || {};
+    const rMonth = json.month  || month || '—';
+
+    const formatUSD = v => v == null ? '—' : '$' + Number(v).toFixed(6).replace(/\.?0+$/, '');
+    const formatNum = v => v == null ? '—' : Number(v).toLocaleString();
+
+    // Summary metrics
+    const userCount = Object.keys(users).length;
+    const summaryHTML = `
+      <div class="usage-summary">
+        <div class="usage-metric"><div class="usage-metric-label">Month</div><div class="usage-metric-value" style="font-size:16px;">${rMonth}</div></div>
+        <div class="usage-metric"><div class="usage-metric-label">Active Users</div><div class="usage-metric-value">${userCount}</div></div>
+        <div class="usage-metric"><div class="usage-metric-label">Total Cost</div><div class="usage-metric-value" style="color:#ff6b6b;">${formatUSD(totals.total_cost_usd)}</div></div>
+        <div class="usage-metric"><div class="usage-metric-label">Total Requests</div><div class="usage-metric-value">${formatNum(totals.total_requests)}</div></div>
+        <div class="usage-metric"><div class="usage-metric-label">Prompt Tokens</div><div class="usage-metric-value" style="color:var(--gold);">${formatNum(totals.total_prompt_tokens)}</div></div>
+        <div class="usage-metric"><div class="usage-metric-label">Completion Tokens</div><div class="usage-metric-value" style="color:var(--green);">${formatNum(totals.total_completion_tokens)}</div></div>
+      </div>`;
+
+    // Per-user table (sorted by cost descending)
+    const sorted = Object.entries(users).sort((a, b) => (b[1].total_cost_usd || 0) - (a[1].total_cost_usd || 0));
+    let tableHTML = '';
+    if (sorted.length) {
+      const rows = sorted.map(([uid, u]) => {
+        // Find matching email from allUsers
+        const matched = allUsers.find(x => x.id === uid);
+        const label   = matched ? matched.email : uid.slice(0, 12) + '…';
+        return `<tr>
+          <td style="font-family:var(--font-mono);font-size:11px;color:var(--text2);" title="${uid}">${escHtml(label)}</td>
+          <td class="u-tokens">${formatNum(u.total_prompt_tokens)}</td>
+          <td class="u-tokens">${formatNum(u.total_completion_tokens)}</td>
+          <td class="u-tokens">${formatNum(u.total_requests)}</td>
+          <td class="u-cost">${formatUSD(u.total_cost_usd)}</td>
+        </tr>`;
+      }).join('');
+      tableHTML = `<div class="or-mhead" style="margin-top:4px;">Per-User Breakdown</div>
+        <div class="usage-table-wrap"><table class="usage-table">
+          <thead><tr><th>User</th><th>Prompt Tokens</th><th>Completion Tokens</th><th>Requests</th><th>Cost</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`;
+    } else {
+      tableHTML = '<div class="or-empty">No usage data for this month.</div>';
+    }
+
+    body.innerHTML = summaryHTML + tableHTML;
+    if (ts) ts.textContent = 'Updated ' + new Date().toLocaleTimeString();
+  } catch(e) {
+    body.innerHTML = `<div class="or-error"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Failed to load: ${e.message}</div>`;
+  } finally {
+    if (btn) btn.classList.remove('loading');
+  }
 }
 
 // OPENROUTER
@@ -1928,7 +2202,7 @@ function startRealtimeSync(){
 
   // ── Periodic full refresh every 20s as fallback ──────────────────────────
   if (window._statsRefreshInterval) clearInterval(window._statsRefreshInterval);
-  window._statsRefreshInterval = setInterval(() => { loadUsers(); }, 20000);
+  window._statsRefreshInterval = setInterval(() => { loadUsers(); loadHealthStatus(); }, 20000);
 }
 
 window.addEventListener('load',checkAdminSession);
