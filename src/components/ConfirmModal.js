@@ -1,151 +1,67 @@
 /**
- * src/components/ConfirmModal.js — Task 21
+ * src/components/ConfirmModal.js — Task 21 (Preact migration)
  *
- * Replaces the confirm modal stub in public/shared.js with a real
- * implementation, and owns the #simple-notif pill element.
+ * Backward-compatible wrapper around the Preact `<ConfirmModalIsland>`.
+ * Every existing caller — `showConfirmModal(opts)`, `closeConfirmModal()`,
+ * `showSimpleNotif(text)` — continues to work unchanged.
  *
- * Previously:
- *   • shared.js stub  → window.confirm() fallback
- *   • index.html      → #simple-notif <style>/<div>/<script> block
- *                        + thin wrappers showConfirmModal / closeConfirmModal
- *
- * Window bridges (moved to src/globals.js):
- *   window._showSharedConfirm   — called by showConfirmModal() in index.html
- *   window._closeSharedConfirm  — called by closeConfirmModal() in index.html
- *   window.showConfirmModal     — convenience alias (used by inline scripts)
- *   window.closeConfirmModal    — convenience alias
- *   window.showSimpleNotif      — simple pill notification (used by settings)
- *
- * opts shape for showConfirmModal:
- *   { title, desc, confirmLabel, onConfirm }
+ * Migration note:
+ *   The UI is now rendered declaratively by Preact in ConfirmModal.jsx.
+ *   This file mounts the Preact island into a dedicated container appended
+ *   to <body> and delegates imperative calls to the component's handle.
  */
 
-// ── Inject HTML ───────────────────────────────────────────────────────────────
+import { mountIsland } from '../preact/bridge.js';
+import { ConfirmModalIsland } from './ConfirmModal.jsx';
 
-function _injectHTML() {
-  if (document.getElementById('confirm-modal')) return; // already present
+// ── Mount Preact island ──────────────────────────────────────────────────────
 
-  const el = document.createElement('div');
-  el.id = 'confirm-modal';
-  el.setAttribute('role', 'dialog');
-  el.setAttribute('aria-modal', 'true');
-  el.innerHTML = `
-    <div class="confirm-box">
-      <p class="confirm-title" id="confirm-title"></p>
-      <p class="confirm-desc"  id="confirm-desc"></p>
-      <div class="confirm-actions">
-        <button class="confirm-cancel-btn" id="confirm-cancel-btn">Cancel</button>
-        <button class="confirm-ok-btn"     id="confirm-ok-btn">Confirm</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(el);
+let _handle = null;
 
-  // backdrop click → close
-  el.addEventListener('click', e => {
-    if (e.target === el) closeConfirmModal();
-  });
+function _mount() {
+  if (_handle) return;
 
-  // inject simple-notif pill (used by settings screen)
-  if (!document.getElementById('simple-notif')) {
-    const notif = document.createElement('div');
-    notif.id = 'simple-notif';
-    document.body.appendChild(notif);
-  }
+  // Remove any leftover vanilla-JS elements from a previous life
+  document.getElementById('confirm-modal')?.remove();
+  document.getElementById('simple-notif')?.remove();
+
+  // Create a dedicated Preact root — the component renders both elements inside
+  const root = document.createElement('div');
+  root.setAttribute('data-preact-root', 'confirm-modal');
+  document.body.appendChild(root);
+
+  _handle = mountIsland(ConfirmModalIsland, root);
 }
 
-// ── State ─────────────────────────────────────────────────────────────────────
+// Mount as soon as the DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _mount, { once: true });
+} else {
+  _mount();
+}
 
-let _pendingConfirm = null;
+// ── Public API (unchanged) ───────────────────────────────────────────────────
 
-// ── Core implementation ───────────────────────────────────────────────────────
-
+/**
+ * Show the confirm modal.
+ * @param {{ title?: string, desc?: string, confirmLabel?: string, onConfirm?: Function }} opts
+ */
 export function showConfirmModal(opts = {}) {
-  _injectHTML();
-
-  const modal   = document.getElementById('confirm-modal');
-  const titleEl = document.getElementById('confirm-title');
-  const descEl  = document.getElementById('confirm-desc');
-  const okBtn   = document.getElementById('confirm-ok-btn');
-  const cancelBtn = document.getElementById('confirm-cancel-btn');
-
-  if (!modal) return;
-
-  titleEl.textContent = opts.title        || 'Are you sure?';
-  descEl.textContent  = opts.desc         || '';
-  okBtn.textContent   = opts.confirmLabel || 'Confirm';
-
-  _pendingConfirm = typeof opts.onConfirm === 'function' ? opts.onConfirm : null;
-
-  // wire buttons (replace to remove old listeners)
-  const newOk     = okBtn.cloneNode(true);
-  const newCancel = cancelBtn.cloneNode(true);
-  okBtn.replaceWith(newOk);
-  cancelBtn.replaceWith(newCancel);
-
-  newOk.textContent = opts.confirmLabel || 'Confirm';
-  newOk.addEventListener('click', () => {
-    const cb = _pendingConfirm;   // capture BEFORE closeConfirmModal nulls it
-    closeConfirmModal();
-    if (typeof cb === 'function') cb();
-  });
-  newCancel.addEventListener('click', closeConfirmModal);
-
-  modal.classList.add('active');
-
-  // Focus Cancel by default, allow arrow keys to switch between buttons
-  newCancel.focus();
-
-  const handleArrows = (e) => {
-    if (!modal.classList.contains('active')) return;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-      e.preventDefault();
-      newOk.focus();
-    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-      e.preventDefault();
-      newCancel.focus();
-    } else if (e.key === 'Enter') {
-      // Let focused button handle it naturally
-    }
-  };
-  modal.addEventListener('keydown', handleArrows);
-  // Clean up listener when modal closes
-  const origClose = closeConfirmModal;
-  newOk._arrowCleanup = newCancel._arrowCleanup = () => modal.removeEventListener('keydown', handleArrows);
+  if (!_handle) _mount();
+  _handle?.show?.(opts);
 }
 
+/** Close the confirm modal. */
 export function closeConfirmModal() {
-  const modal = document.getElementById('confirm-modal');
-  if (modal) {
-    modal.classList.remove('active');
-    // Clean up arrow key listener if present
-    const okBtn = document.getElementById('confirm-ok-btn');
-    if (okBtn?._arrowCleanup) { okBtn._arrowCleanup(); okBtn._arrowCleanup = null; }
-  }
-  _pendingConfirm = null;
+  _handle?.close?.();
 }
 
-// ── Simple notif pill ─────────────────────────────────────────────────────────
-
-let _notifTimer = null;
-
+/**
+ * Show a simple pill notification for ~3 s.
+ * @param {string} text
+ */
 export function showSimpleNotif(text) {
-  _injectHTML();
-  const el = document.getElementById('simple-notif');
-  if (!el) return;
-  el.textContent = text;
-  el.classList.add('show');
-  clearTimeout(_notifTimer);
-  _notifTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  if (!_handle) _mount();
+  _handle?.notify?.(text);
 }
-
-// ── Keyboard: Escape closes ───────────────────────────────────────────────────
-
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    const modal = document.getElementById('confirm-modal');
-    if (modal?.classList.contains('active')) closeConfirmModal();
-  }
-});
-
 

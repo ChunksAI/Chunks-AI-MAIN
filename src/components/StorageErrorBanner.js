@@ -1,60 +1,45 @@
 /**
- * src/components/StorageErrorBanner.js — Persistent storage error banner
+ * src/components/StorageErrorBanner.js — Preact migration wrapper
  *
- * Shows a dismissible banner at the top of the app when:
- *  • localStorage or IndexedDB hits a quota / out-of-space error
- *  • The localStorage → IndexedDB data migration fails
+ * Backward-compatible wrapper around the Preact `<StorageErrorBannerIsland>`.
+ * All existing callers — `showStorageError(kind)`, `dismissStorageError()`,
+ * `isQuotaError(err)` — continue to work unchanged.
  *
- * Only one banner is shown at a time.  Dismissing sets a sessionStorage
- * flag so the same category of error doesn't reappear until the next
- * session.
- *
- * API
- * ───
- *  showStorageError(kind)    — display the banner for the given error kind
- *  dismissStorageError()     — close the banner (also used by the ✕ button)
+ * Migration note:
+ *   The UI is now rendered declaratively by Preact in StorageErrorBanner.jsx.
+ *   This file mounts the Preact island into a dedicated container prepended
+ *   to <body> and delegates imperative calls to the component's handle.
  */
 
-// ── Error kind definitions ───────────────────────────────────────────────────
+import { mountIsland } from '../preact/bridge.js';
+import { StorageErrorBannerIsland } from './StorageErrorBanner.jsx';
 
-const ERRORS = {
-  quota: {
-    icon: '⚠',
-    title: 'Storage is full',
-    body:  'Some data may not be saved. Try clearing old chat sessions or documents in Settings → Data.',
-  },
-  migration: {
-    icon: '⚠',
-    title: 'Data migration incomplete',
-    body:  'Some data could not be moved to faster storage and may only be available temporarily. Your data is still safe.',
-  },
-  'out-of-space': {
-    icon: '⚠',
-    title: 'Device storage is low',
-    body:  'There isn\u2019t enough space to save new data. Free up space on your device or clear old sessions in Settings.',
-  },
-};
+// ── Mount Preact island ──────────────────────────────────────────────────────
 
-// ── State ────────────────────────────────────────────────────────────────────
+let _handle = null;
 
-const SS_DISMISSED_PREFIX = 'chunks_storage_err_dismissed_';
+function _mount() {
+  if (_handle) return;
 
-/** @type {string | null} current error kind shown */
-let _activeKind = null;
+  // Remove any leftover vanilla-JS element
+  document.getElementById('storage-error-banner')?.remove();
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+  // Create a dedicated Preact root at the very top of <body>
+  const root = document.createElement('div');
+  root.setAttribute('data-preact-root', 'storage-error-banner');
+  document.body.prepend(root);
 
-function _isDismissed(kind) {
-  try { return sessionStorage.getItem(SS_DISMISSED_PREFIX + kind) === '1'; }
-  catch (_) { return false; }
+  _handle = mountIsland(StorageErrorBannerIsland, root);
 }
 
-function _setDismissed(kind) {
-  try { sessionStorage.setItem(SS_DISMISSED_PREFIX + kind, '1'); }
-  catch (_) { /* ignore */ }
+// Mount as soon as the DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _mount, { once: true });
+} else {
+  _mount();
 }
 
-// ── Public API ───────────────────────────────────────────────────────────────
+// ── Public API (unchanged) ───────────────────────────────────────────────────
 
 /**
  * Show the storage-error banner for a specific error kind.
@@ -64,37 +49,8 @@ function _setDismissed(kind) {
  * @param {'quota' | 'migration' | 'out-of-space'} kind
  */
 export function showStorageError(kind) {
-  const def = ERRORS[kind];
-  if (!def) return;
-  if (_isDismissed(kind)) return;
-
-  // If a banner is already showing, don't replace it
-  if (_activeKind) {
-    console.warn('[StorageErrorBanner] "%s" suppressed — "%s" already visible', kind, _activeKind);
-    return;
-  }
-  _activeKind = kind;
-
-  let el = document.getElementById('storage-error-banner');
-
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'storage-error-banner';
-    el.setAttribute('role', 'alert');
-    // Insert at the very start of <body> so it sits above everything
-    document.body.prepend(el);
-  }
-
-  el.innerHTML =
-    `<div class="seb-inner">` +
-      `<span class="seb-icon">${def.icon}</span>` +
-      `<div class="seb-text">` +
-        `<strong>${def.title}</strong> ` +
-        `<span>${def.body}</span>` +
-      `</div>` +
-      `<button class="seb-close" aria-label="Dismiss" onclick="dismissStorageError()">✕</button>` +
-    `</div>`;
-  el.classList.add('seb-show');
+  if (!_handle) _mount();
+  _handle?.show?.(kind);
 }
 
 /**
@@ -102,17 +58,10 @@ export function showStorageError(kind) {
  * Marks the error kind as dismissed for this session.
  */
 export function dismissStorageError() {
-  const el = document.getElementById('storage-error-banner');
-  if (el) {
-    el.classList.remove('seb-show');
-  }
-  if (_activeKind) {
-    _setDismissed(_activeKind);
-    _activeKind = null;
-  }
+  _handle?.dismiss?.();
 }
 
-// ── Utility for storage modules ──────────────────────────────────────────────
+// ── Utility for storage modules (pure function — unchanged) ──────────────────
 
 /**
  * Returns true if the error looks like a storage-quota / out-of-space error.
@@ -131,3 +80,4 @@ export function isQuotaError(err) {
   if (err.name === 'NS_ERROR_DOM_QUOTA_REACHED') return true;
   return false;
 }
+
