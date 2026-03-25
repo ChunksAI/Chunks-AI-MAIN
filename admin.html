@@ -1716,16 +1716,16 @@ async function loadRoutingTable() {
     const tierColors = { small: 'var(--text3)', medium: 'var(--green)', large: 'var(--gold)', think: 'var(--violet)', deep: '#ff6b6b' };
     const modelPills = Object.entries(models)
       .filter(([, v]) => v)
-      .map(([tier, model]) => `<div class="rt-model-pill"><div class="rt-dot" style="background:${tierColors[tier] || 'var(--text3)'}"></div><span style="color:${tierColors[tier] || 'var(--text3)'};font-weight:600;text-transform:uppercase;font-size:9px;letter-spacing:.06em;">${tier}</span><span>${model.replace(/^[^/]+\//, '')}</span></div>`)
+      .map(([tier, model]) => `<div class="rt-model-pill"><div class="rt-dot" style="background:${tierColors[tier] || 'var(--text3)'}"></div><span style="color:${tierColors[tier] || 'var(--text3)'};font-weight:600;text-transform:uppercase;font-size:9px;letter-spacing:.06em;">${escHtml(tier)}</span><span>${escHtml(model.replace(/^[^/]+\//, ''))}</span></div>`)
       .join('');
 
     // Route cards
     const routeCards = routes.map(r => {
       const tiers = Object.entries(r.tiers || r)
         .filter(([k]) => k !== 'task')
-        .map(([tier, model]) => `<div class="rt-tier"><span class="rt-tier-label" style="color:${tierColors[tier] || 'var(--text3)'}">${tier}</span><span class="rt-tier-model" title="${model}">${model.replace(/^[^/]+\//, '')}</span></div>`)
+        .map(([tier, model]) => `<div class="rt-tier"><span class="rt-tier-label" style="color:${tierColors[tier] || 'var(--text3)'}">${escHtml(tier)}</span><span class="rt-tier-model" title="${escHtml(model)}">${escHtml(model.replace(/^[^/]+\//, ''))}</span></div>`)
         .join('');
-      return `<div class="rt-card"><div class="rt-task">${r.task || 'unknown'}</div><div class="rt-tiers">${tiers}</div></div>`;
+      return `<div class="rt-card"><div class="rt-task">${escHtml(r.task || 'unknown')}</div><div class="rt-tiers">${tiers}</div></div>`;
     }).join('');
 
     body.innerHTML = `
@@ -1765,8 +1765,8 @@ async function loadUsageReport() {
     const totals = json.totals || {};
     const rMonth = json.month  || month || '—';
 
-    const fU = v => v == null ? '—' : '$' + Number(v).toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
-    const fN = v => v == null ? '—' : Number(v).toLocaleString();
+    const formatUSD = v => v == null ? '—' : '$' + Number(v).toFixed(6).replace(/\.?0+$/, '');
+    const formatNum = v => v == null ? '—' : Number(v).toLocaleString();
 
     // Summary metrics
     const userCount = Object.keys(users).length;
@@ -1774,10 +1774,10 @@ async function loadUsageReport() {
       <div class="usage-summary">
         <div class="usage-metric"><div class="usage-metric-label">Month</div><div class="usage-metric-value" style="font-size:16px;">${rMonth}</div></div>
         <div class="usage-metric"><div class="usage-metric-label">Active Users</div><div class="usage-metric-value">${userCount}</div></div>
-        <div class="usage-metric"><div class="usage-metric-label">Total Cost</div><div class="usage-metric-value" style="color:#ff6b6b;">${fU(totals.total_cost_usd)}</div></div>
-        <div class="usage-metric"><div class="usage-metric-label">Total Requests</div><div class="usage-metric-value">${fN(totals.total_requests)}</div></div>
-        <div class="usage-metric"><div class="usage-metric-label">Prompt Tokens</div><div class="usage-metric-value" style="color:var(--gold);">${fN(totals.total_prompt_tokens)}</div></div>
-        <div class="usage-metric"><div class="usage-metric-label">Completion Tokens</div><div class="usage-metric-value" style="color:var(--green);">${fN(totals.total_completion_tokens)}</div></div>
+        <div class="usage-metric"><div class="usage-metric-label">Total Cost</div><div class="usage-metric-value" style="color:#ff6b6b;">${formatUSD(totals.total_cost_usd)}</div></div>
+        <div class="usage-metric"><div class="usage-metric-label">Total Requests</div><div class="usage-metric-value">${formatNum(totals.total_requests)}</div></div>
+        <div class="usage-metric"><div class="usage-metric-label">Prompt Tokens</div><div class="usage-metric-value" style="color:var(--gold);">${formatNum(totals.total_prompt_tokens)}</div></div>
+        <div class="usage-metric"><div class="usage-metric-label">Completion Tokens</div><div class="usage-metric-value" style="color:var(--green);">${formatNum(totals.total_completion_tokens)}</div></div>
       </div>`;
 
     // Per-user table (sorted by cost descending)
@@ -1790,10 +1790,10 @@ async function loadUsageReport() {
         const label   = matched ? matched.email : uid.slice(0, 12) + '…';
         return `<tr>
           <td style="font-family:var(--font-mono);font-size:11px;color:var(--text2);" title="${uid}">${escHtml(label)}</td>
-          <td class="u-tokens">${fN(u.total_prompt_tokens)}</td>
-          <td class="u-tokens">${fN(u.total_completion_tokens)}</td>
-          <td class="u-tokens">${fN(u.total_requests)}</td>
-          <td class="u-cost">${fU(u.total_cost_usd)}</td>
+          <td class="u-tokens">${formatNum(u.total_prompt_tokens)}</td>
+          <td class="u-tokens">${formatNum(u.total_completion_tokens)}</td>
+          <td class="u-tokens">${formatNum(u.total_requests)}</td>
+          <td class="u-cost">${formatUSD(u.total_cost_usd)}</td>
         </tr>`;
       }).join('');
       tableHTML = `<div class="or-mhead" style="margin-top:4px;">Per-User Breakdown</div>
