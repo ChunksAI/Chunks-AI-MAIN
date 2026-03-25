@@ -47,3 +47,37 @@ def test_load_book_known_fails_gracefully(client, mock_guest_gate, mock_extract_
     assert resp.status_code in (200, 429, 500)
     data = resp.get_json()
     assert 'success' in data
+
+
+# ── PDF proxy success ────────────────────────────────────────────────────────
+
+def test_pdf_proxy_success(client, monkeypatch):
+    """GET /pdf/<book_id> proxies PDF from R2 successfully."""
+    from routes.shared import ctx
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.iter_content = MagicMock(return_value=iter([b'%PDF-1.4 fake content']))
+    mock_resp.raise_for_status = MagicMock()
+
+    mock_session = MagicMock()
+    mock_session.get.return_value = mock_resp
+    monkeypatch.setattr(ctx, 'session', mock_session)
+
+    resp = client.get('/pdf/zumdahl')
+    assert resp.status_code == 200
+    assert resp.content_type == 'application/pdf'
+
+
+def test_pdf_proxy_error(client, monkeypatch):
+    """GET /pdf/<book_id> returns 500 when R2 fetch fails."""
+    from routes.shared import ctx
+
+    mock_session = MagicMock()
+    mock_session.get.side_effect = Exception("Connection refused")
+    monkeypatch.setattr(ctx, 'session', mock_session)
+
+    resp = client.get('/pdf/zumdahl')
+    assert resp.status_code == 500
+    data = resp.get_json()
+    assert 'error' in data

@@ -202,3 +202,141 @@ def test_ask_async_validation(client):
         'complexity': 'not-an-int',
     })
     assert resp.status_code == 422
+
+
+# ── _run_ask_job unit tests ──────────────────────────────────────────────────
+
+def test_run_ask_job_basic(app, monkeypatch):
+    """_run_ask_job executes study mode and returns response dict."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+    from routes.jobs import _run_ask_job
+
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value="Job answer"))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    monkeypatch.setattr(ai_svc, 'sanitize_user_memory', MagicMock(return_value=''))
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    with app.app_context():
+        result = _run_ask_job({
+            'question': 'What is pH?',
+            'mode': 'study',
+            'complexity': 3,
+            'bookId': 'zumdahl',
+            '_verified_user_id': 'test-user',
+        })
+    assert result['success'] is True
+    assert result['mode'] == 'study'
+    assert result['answer'] == 'Job answer'
+
+
+def test_run_ask_job_with_doc_context(app, monkeypatch):
+    """_run_ask_job with doc_context uses uploaded document."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    from routes.jobs import _run_ask_job
+
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value="Document-based answer"))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    monkeypatch.setattr(ai_svc, 'sanitize_user_memory', MagicMock(return_value=''))
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    with app.app_context():
+        result = _run_ask_job({
+            'question': 'Summarize this',
+            'mode': 'study',
+            'complexity': 5,
+            'doc_context': 'This is a user-uploaded document about organic chemistry.',
+            '_verified_user_id': 'test-user',
+        })
+    assert result['success'] is True
+    assert result['is_relevant'] is True
+
+
+def test_run_ask_job_with_token_flags(app, monkeypatch):
+    """_run_ask_job parses token flags like [THINKING_MODE]."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    from routes.jobs import _run_ask_job
+
+    mock_ai = MagicMock(return_value="Thinking answer")
+    monkeypatch.setattr(ai_svc, 'call_ai', mock_ai)
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    monkeypatch.setattr(ai_svc, 'sanitize_user_memory', MagicMock(return_value=''))
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    with app.app_context():
+        result = _run_ask_job({
+            'question': '[THINKING_MODE] Explain entropy',
+            'mode': 'study',
+            'complexity': 5,
+            '_verified_user_id': 'test-user',
+        })
+    assert result['success'] is True
+
+
+def test_run_ask_job_with_selected_text(app, monkeypatch):
+    """_run_ask_job with selected_text builds a highlight-based prompt."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    from routes.jobs import _run_ask_job
+
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value="Highlight explanation"))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    monkeypatch.setattr(ai_svc, 'sanitize_user_memory', MagicMock(return_value=''))
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    with app.app_context():
+        result = _run_ask_job({
+            'question': 'What does this mean?',
+            'mode': 'study',
+            'complexity': 5,
+            'selected_text': 'The equilibrium constant is...',
+            '_verified_user_id': 'test-user',
+        })
+    assert result['success'] is True
+
+
+# ── Endpoint exception paths ─────────────────────────────────────────────────
+
+def test_ask_async_exception(client, monkeypatch, mock_guest_gate):
+    """POST /ask-async returns 500 when enqueue raises."""
+    import services.job_queue as jq_mod
+    monkeypatch.setattr(jq_mod.job_queue, 'enqueue', MagicMock(side_effect=RuntimeError("boom")))
+
+    resp = client.post('/ask-async', json={
+        'question': 'What is water?',
+        'mode': 'study',
+        'complexity': 3,
+    })
+    assert resp.status_code == 500
+    data = resp.get_json()
+    assert data['success'] is False
+
+
+def test_get_job_status_exception(client, monkeypatch):
+    """GET /jobs/<id> returns 500 when get_status raises."""
+    import services.job_queue as jq_mod
+    monkeypatch.setattr(jq_mod.job_queue, 'get_status', MagicMock(side_effect=RuntimeError("redis down")))
+
+    resp = client.get('/jobs/someid')
+    assert resp.status_code == 500
+    data = resp.get_json()
+    assert data['success'] is False
