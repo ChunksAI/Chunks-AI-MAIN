@@ -41,7 +41,7 @@ def generate_study_materials():
 
         # Verify JWT and enforce daily limit
         from services.auth import _extract_verified_user
-        _extract_verified_user()
+        verified_user_id, _tier = _extract_verified_user()
 
         from server import _cache_key, _cache_get, _cache_set
         from ai_router import route
@@ -257,7 +257,7 @@ SLIDE CONTENT:
             "what students most commonly get wrong, and what concepts are foundational vs peripheral. "
             "You write in a clear, structured format that students can scan quickly under exam pressure."
         ), model=route('study_plan', complexity=6), max_tokens_override=8000,
-           endpoint='study_materials')
+           endpoint='study_materials', user_id=verified_user_id)
 
         sm_payload = {'success': True, 'materials': {material_type: result}}
         _cache_set(_sm_cache_k, sm_payload)
@@ -288,7 +288,7 @@ def generate_quiz():
         existing_questions = data.get('existingQuestions', [])
 
         from services.auth import _extract_verified_user
-        _extract_verified_user()
+        verified_user_id, _tier = _extract_verified_user()
 
         from ai_router import route
         from services.ai import call_ai
@@ -418,7 +418,7 @@ Generate the quiz:"""
             'exam_easy'   if difficulty == 'easy'   else
             'exam_medium',
             complexity=8 if difficulty == 'hard' else 4 if difficulty == 'easy' else 6
-        ), max_tokens_override=12000, endpoint='quiz')
+        ), max_tokens_override=12000, endpoint='quiz', user_id=verified_user_id)
 
         questions = _parse_mcq(raw)
         if not questions:

@@ -126,6 +126,72 @@ class TestRecordAndGetUsage:
             tb._redis = None
 
 
+class TestUserMonthlyUsage:
+    """Test per-user monthly usage recording and retrieval."""
+
+    def setup_method(self):
+        tb._redis = None
+        tb._mem_usage.clear()
+        tb._mem_user_usage.clear()
+
+    def test_record_with_user_id_populates_monthly(self):
+        tb.record_usage('model/x', 100, 50, 0.01, 'chat', user_id='user-abc')
+        tb.record_usage('model/x', 200, 80, 0.02, 'quiz', user_id='user-abc')
+
+        usage = tb.get_user_monthly_usage('user-abc')
+        assert usage['user_id'] == 'user-abc'
+        assert usage['total_requests'] == 2
+        assert usage['total_prompt_tokens'] == 300
+        assert usage['total_completion_tokens'] == 130
+        assert abs(usage['total_cost_usd'] - 0.03) < 1e-6
+        assert 'model/x' in usage['model_breakdown']
+        assert 'chat' in usage['endpoint_breakdown']
+        assert 'quiz' in usage['endpoint_breakdown']
+
+    def test_empty_user_usage(self):
+        usage = tb.get_user_monthly_usage('nonexistent')
+        assert usage['total_requests'] == 0
+        assert usage['total_cost_usd'] == 0.0
+        assert usage['user_id'] == 'nonexistent'
+
+    def test_no_user_id_skips_monthly(self):
+        tb.record_usage('model/x', 100, 50, 0.01, 'chat', user_id='')
+        # Daily still recorded
+        daily = tb.get_daily_usage()
+        assert daily['total_requests'] == 1
+        # No user-monthly entries
+        assert tb._mem_user_usage == {}
+
+    def test_monthly_report_multiple_users(self):
+        tb.record_usage('m', 10, 5, 0.001, 'chat', user_id='alice')
+        tb.record_usage('m', 20, 10, 0.002, 'quiz', user_id='bob')
+        tb.record_usage('m', 30, 15, 0.003, 'chat', user_id='alice')
+
+        report = tb.get_monthly_usage_report()
+        assert 'alice' in report['users']
+        assert 'bob' in report['users']
+        assert report['users']['alice']['total_requests'] == 2
+        assert report['users']['bob']['total_requests'] == 1
+        assert report['totals']['total_requests'] == 3
+
+    def test_specific_month_query(self):
+        tb.record_usage('m', 10, 5, 0.001, 'chat', user_id='user1')
+        usage = tb.get_user_monthly_usage('user1', '2020-01')
+        assert usage['total_requests'] == 0
+        assert usage['month'] == '2020-01'
+
+    def test_record_with_user_id_redis(self):
+        """When Redis is available, per-user monthly entries are pushed."""
+        mock_redis = MagicMock()
+        tb._redis = mock_redis
+        try:
+            tb.record_usage('model/x', 10, 20, 0.001, 'chat', user_id='u1')
+            # Daily + user-monthly = 2 rpush calls
+            assert mock_redis.rpush.call_count == 2
+        finally:
+            tb._redis = None
+
+
 class TestInit:
     """Test init() injection."""
 

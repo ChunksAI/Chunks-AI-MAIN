@@ -7,9 +7,12 @@ Provides:
   - check_daily_budget()  verify daily spending is within the configured budget
   - record_usage()        record prompt/completion tokens + cost for a request
   - get_daily_usage()     return today's aggregated usage stats
+  - get_user_monthly_usage()  return per-user aggregated usage for a month
+  - get_monthly_usage_report()  return all-users aggregated usage for a month
 
-All state is Redis-backed (24 h TTL) with in-memory fallback when Redis is
-unavailable — identical resilience pattern to answer_cache / embedding_cache.
+All state is Redis-backed (24 h TTL daily / 35 d monthly) with in-memory
+fallback when Redis is unavailable — identical resilience pattern to
+answer_cache / embedding_cache.
 """
 from __future__ import annotations
 
@@ -97,13 +100,20 @@ def max_tokens_for_endpoint(
 
 _BUDGET_ENV = 'DAILY_COST_BUDGET_USD'
 _REDIS_DAILY_KEY_PREFIX = 'token_budget:daily:'
+_REDIS_USER_MONTH_KEY_PREFIX = 'token_usage:user:'
 
-# In-memory fallback accumulator (lost on process restart).
+# In-memory fallback accumulators (lost on process restart).
 _mem_usage: dict[str, dict] = {}
+_mem_user_usage: dict[str, list[dict]] = {}  # key: "{user_id}:{YYYY-MM}"
 
 
 def _today_key() -> str:
     return datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d')
+
+
+def _month_key() -> str:
+    """Return current UTC month as ``YYYY-MM``."""
+    return datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m')
 
 
 def _daily_budget_usd() -> float:
@@ -134,15 +144,18 @@ def record_usage(
     completion_tokens: int,
     total_cost: float,
     endpoint: str = '',
+    user_id: str = '',
 ) -> None:
-    """Record token usage + cost for today."""
+    """Record token usage + cost for today and per-user monthly."""
     day = _today_key()
+    month = _month_key()
     entry = {
         'model': model,
         'prompt_tokens': prompt_tokens,
         'completion_tokens': completion_tokens,
         'total_cost': total_cost,
         'endpoint': endpoint,
+        'user_id': user_id,
     }
 
     if _redis:
@@ -156,10 +169,27 @@ def record_usage(
     else:
         _mem_record(day, entry)
 
+    # ── Per-user monthly recording ────────────────────────────────────────
+    if user_id:
+        _record_user_month(user_id, month, entry)
+
 
 def _mem_record(day: str, entry: dict) -> None:
     _mem_usage.setdefault(day, {'entries': []})
     _mem_usage[day]['entries'].append(entry)
+
+
+def _record_user_month(user_id: str, month: str, entry: dict) -> None:
+    """Persist a usage entry to the per-user monthly store."""
+    if _redis:
+        try:
+            rkey = f'{_REDIS_USER_MONTH_KEY_PREFIX}{user_id}:{month}'
+            _redis.rpush(rkey, json.dumps(entry))
+            _redis.expire(rkey, 35 * 86_400)  # 35 days
+            return
+        except Exception:
+            logger.debug("token_budget: Redis user-month write failed, memory fallback")
+    _mem_user_usage.setdefault(f'{user_id}:{month}', []).append(entry)
 
 
 def get_daily_usage() -> dict:
@@ -216,3 +246,159 @@ def get_daily_usage() -> dict:
         'total_requests':           len(entries),
         'model_breakdown':          model_breakdown,
     }
+
+
+# ── Per-user monthly usage ────────────────────────────────────────────────────
+
+def _load_user_month_entries(user_id: str, month: str) -> list[dict]:
+    """Load raw entries for a user/month from Redis or memory."""
+    entries: list[dict] = []
+    if _redis:
+        try:
+            rkey = f'{_REDIS_USER_MONTH_KEY_PREFIX}{user_id}:{month}'
+            raw_list = _redis.lrange(rkey, 0, -1)
+            for raw in (raw_list or []):
+                try:
+                    entries.append(json.loads(raw))
+                except (json.JSONDecodeError, TypeError):
+                    pass
+            return entries
+        except Exception:
+            logger.debug("token_budget: Redis user-month read failed, memory fallback")
+    return list(_mem_user_usage.get(f'{user_id}:{month}', []))
+
+
+def _aggregate_entries(entries: list[dict]) -> dict:
+    """Aggregate a list of usage entries into a summary dict."""
+    total_cost = 0.0
+    total_prompt = 0
+    total_completion = 0
+    model_breakdown: dict[str, dict] = {}
+    endpoint_breakdown: dict[str, dict] = {}
+
+    for e in entries:
+        cost = float(e.get('total_cost', 0) or 0)
+        pt   = int(e.get('prompt_tokens', 0) or 0)
+        ct   = int(e.get('completion_tokens', 0) or 0)
+        mdl  = e.get('model', 'unknown')
+        ep   = e.get('endpoint', 'unknown')
+
+        total_cost += cost
+        total_prompt += pt
+        total_completion += ct
+
+        if mdl not in model_breakdown:
+            model_breakdown[mdl] = {'cost': 0.0, 'tokens': 0, 'requests': 0}
+        model_breakdown[mdl]['cost'] += cost
+        model_breakdown[mdl]['tokens'] += pt + ct
+        model_breakdown[mdl]['requests'] += 1
+
+        if ep not in endpoint_breakdown:
+            endpoint_breakdown[ep] = {'cost': 0.0, 'tokens': 0, 'requests': 0}
+        endpoint_breakdown[ep]['cost'] += cost
+        endpoint_breakdown[ep]['tokens'] += pt + ct
+        endpoint_breakdown[ep]['requests'] += 1
+
+    return {
+        'total_cost_usd':           round(total_cost, 6),
+        'total_prompt_tokens':      total_prompt,
+        'total_completion_tokens':  total_completion,
+        'total_requests':           len(entries),
+        'model_breakdown':          model_breakdown,
+        'endpoint_breakdown':       endpoint_breakdown,
+    }
+
+
+def get_user_monthly_usage(user_id: str, month: str | None = None) -> dict:
+    """Return aggregated usage for a single user in a given month.
+
+    Parameters
+    ----------
+    user_id : str
+        The user identifier (UUID or ``ip:<addr>``).
+    month : str | None
+        Month in ``YYYY-MM`` format.  Defaults to the current UTC month.
+
+    Returns
+    -------
+    dict
+        ``{user_id, month, total_cost_usd, total_prompt_tokens,
+           total_completion_tokens, total_requests,
+           model_breakdown, endpoint_breakdown}``
+    """
+    month = month or _month_key()
+    entries = _load_user_month_entries(user_id, month)
+    result = _aggregate_entries(entries)
+    result['user_id'] = user_id
+    result['month'] = month
+    return result
+
+
+def get_monthly_usage_report(month: str | None = None) -> dict:
+    """Return per-user aggregated usage for admin reporting.
+
+    Scans all per-user monthly keys for the given month and returns a
+    breakdown keyed by user_id.
+
+    Parameters
+    ----------
+    month : str | None
+        Month in ``YYYY-MM`` format.  Defaults to the current UTC month.
+
+    Returns
+    -------
+    dict
+        ``{month, users: {user_id: {total_cost_usd, ...}},
+           totals: {total_cost_usd, ...}}``
+    """
+    month = month or _month_key()
+    users: dict[str, dict] = {}
+
+    if _redis:
+        try:
+            pattern = f'{_REDIS_USER_MONTH_KEY_PREFIX}*:{month}'
+            cursor, keys = _redis.scan(0, match=pattern, count=500)
+            all_keys = list(keys or [])
+            while cursor:
+                cursor, keys = _redis.scan(cursor, match=pattern, count=500)
+                all_keys.extend(keys or [])
+
+            prefix_len = len(_REDIS_USER_MONTH_KEY_PREFIX)
+            suffix = f':{month}'
+            for rkey in all_keys:
+                key_str = rkey if isinstance(rkey, str) else rkey.decode('utf-8')
+                uid = key_str[prefix_len:]
+                if uid.endswith(suffix):
+                    uid = uid[:-len(suffix)]
+                entries = _load_user_month_entries(uid, month)
+                if entries:
+                    users[uid] = _aggregate_entries(entries)
+        except Exception:
+            logger.debug("token_budget: Redis scan failed, using memory fallback")
+            users = _scan_mem_user_month(month)
+    else:
+        users = _scan_mem_user_month(month)
+
+    # Compute totals across all users
+    all_entries: list[dict] = []
+    for uid, summary in users.items():
+        # Re-load raw entries for proper aggregation
+        all_entries.extend(_load_user_month_entries(uid, month))
+
+    return {
+        'month': month,
+        'users': users,
+        'totals': _aggregate_entries(all_entries),
+    }
+
+
+def _scan_mem_user_month(month: str) -> dict[str, dict]:
+    """Scan in-memory user-month store for all users in a given month."""
+    users: dict[str, dict] = {}
+    suffix = f':{month}'
+    for key, entries in _mem_user_usage.items():
+        if key.endswith(suffix):
+            uid = key[:-len(suffix)]
+            if entries:
+                users[uid] = _aggregate_entries(entries)
+    return users

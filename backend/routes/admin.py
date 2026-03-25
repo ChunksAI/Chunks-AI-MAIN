@@ -748,3 +748,74 @@ def openrouter_credits():
     except Exception as e:
         logger.exception('openrouter_credits error')
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@admin_bp.route('/usage-report', methods=['GET', 'OPTIONS'])
+def usage_report():
+    """Per-user monthly token usage report. Requires admin JWT.
+
+    Query params
+    ------------
+    month : str, optional
+        ``YYYY-MM`` format. Defaults to current UTC month.
+    user_id : str, optional
+        If provided, return usage for that single user only.
+    """
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    jwt_token = auth_header[7:]
+    verified, role = _check_admin_role(jwt_token)
+    if not verified or not role:
+        return jsonify({'success': False, 'error': 'Forbidden — admin required'}), 403
+
+    from services import token_budget
+
+    month   = (request.args.get('month') or '').strip() or None
+    user_id = (request.args.get('user_id') or '').strip()
+
+    if user_id:
+        report = token_budget.get_user_monthly_usage(user_id, month)
+    else:
+        report = token_budget.get_monthly_usage_report(month)
+
+    return jsonify({'success': True, **report})
+
+
+@admin_bp.route('/user-usage', methods=['GET', 'OPTIONS'])
+def user_usage():
+    """Authenticated user's own monthly token usage.
+
+    Any signed-in user can call this to see their own usage.
+
+    Query params
+    ------------
+    month : str, optional
+        ``YYYY-MM`` format. Defaults to current UTC month.
+    """
+    if request.method == 'OPTIONS':
+        return jsonify({}), 200
+
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return jsonify({'success': False, 'error': 'Unauthorized — sign in required'}), 401
+
+    jwt_token = auth_header[7:].strip()
+    if not jwt_token:
+        return jsonify({'success': False, 'error': 'Unauthorized — empty token'}), 401
+
+    from services.auth import _verify_supabase_jwt
+    from services import token_budget
+
+    user = _verify_supabase_jwt(jwt_token)
+    if not user or not user.get('id'):
+        return jsonify({'success': False, 'error': 'Invalid or expired token'}), 401
+
+    month = (request.args.get('month') or '').strip() or None
+    report = token_budget.get_user_monthly_usage(user['id'], month)
+
+    return jsonify({'success': True, **report})

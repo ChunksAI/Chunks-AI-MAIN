@@ -76,7 +76,8 @@ def sanitize_user_memory(text, max_len=500):
 # ── Core AI caller ────────────────────────────────────────────────────────────
 
 def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=None,
-            history=None, max_tokens_override=None, endpoint: str = 'chat'):
+            history=None, max_tokens_override=None, endpoint: str = 'chat',
+            user_id: str = ''):
     """Call OpenRouter for a standard chat completion.
 
     Parameters
@@ -84,6 +85,8 @@ def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=No
     endpoint : str
         Key into ``token_budget.ENDPOINT_MAX_TOKENS`` used to resolve the
         hard token ceiling for this request (default ``'chat'``).
+    user_id : str
+        Authenticated user identifier for per-user usage tracking.
     """
     from services import token_budget
 
@@ -132,7 +135,7 @@ def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=No
             resp_json = response.json()
             choices = resp_json.get('choices', [])
             if choices:
-                _record_usage_from_response(resp_json, use_model, endpoint)
+                _record_usage_from_response(resp_json, use_model, endpoint, user_id=user_id)
                 return choices[0]['message']['content']
             err = resp_json.get('error', {})
             raise RuntimeError(f"Model returned no choices — {err.get('message', str(resp_json)[:200])}")
@@ -155,7 +158,7 @@ def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=No
 
 
 def _record_usage_from_response(
-    resp_json: dict, model: str, endpoint: str,
+    resp_json: dict, model: str, endpoint: str, user_id: str = '',
 ) -> None:
     """Extract usage stats from an OpenRouter response and record them."""
     from services import token_budget
@@ -172,14 +175,15 @@ def _record_usage_from_response(
             completion_tokens=completion_tokens,
             total_cost=total_cost,
             endpoint=endpoint,
+            user_id=user_id,
         )
         logger.info(
-            "Usage — model: %s | prompt: %d | completion: %d | cost: $%.6f | endpoint: %s",
-            model, prompt_tokens, completion_tokens, total_cost, endpoint,
+            "Usage — model: %s | prompt: %d | completion: %d | cost: $%.6f | endpoint: %s | user: %s",
+            model, prompt_tokens, completion_tokens, total_cost, endpoint, user_id or 'anonymous',
         )
 
 
-def call_ai_web_search(question, system_prompt=None, history=None):
+def call_ai_web_search(question, system_prompt=None, history=None, user_id: str = ''):
     """
     Uses Perplexity Sonar via OpenRouter for real-time web search with citations.
     Returns (answer_text, citations_list)
@@ -235,7 +239,7 @@ def call_ai_web_search(question, system_prompt=None, history=None):
         if not choices:
             return "No results returned.", []
 
-        _record_usage_from_response(resp_json, WEB_MODEL, 'chat_web_search')
+        _record_usage_from_response(resp_json, WEB_MODEL, 'chat_web_search', user_id=user_id)
 
         answer = choices[0]['message']['content']
 
