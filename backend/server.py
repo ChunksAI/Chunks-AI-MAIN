@@ -34,10 +34,8 @@ import os
 import re
 import hashlib
 import logging
-import threading
 import time
 from datetime import datetime, timedelta
-from cachetools import TTLCache
 import redis as redis_lib
 from ai_router import route, route_for_mode
 from guest_limits import guest_gate, enforce_exam_constraints_for_guest, GuestLimitExceeded
@@ -265,27 +263,38 @@ _books_svc.init(
     session            = _session,
     openrouter_api_key = OPENROUTER_API_KEY,
     r2_bucket_url      = R2_BUCKET_URL,
+    redis              = _redis,
 )
 
 # ── Re-export BOOK_LIBRARY for backward compatibility ─────────────────────────
 # paev_routes.py and other existing modules do: from server import BOOK_LIBRARY
 from services.books import BOOK_LIBRARY  # noqa: E402 — re-export
 
-# ── In-memory material cache ───────────────────────────────────────────────────
-_material_cache: TTLCache = TTLCache(maxsize=500, ttl=86400)
-_material_cache_lock = threading.Lock()
+# ── Material cache (Redis-backed) ──────────────────────────────────────────────
+_MATERIAL_CACHE_TTL = 86400          # 24 hours
 
 def _cache_key(book_id: str, topic: str, mtype: str, count: int) -> str:
     norm = re.sub(r'[^a-z0-9]', '_', topic.lower().strip())[:60]
     return f"{mtype}:{book_id}:{norm}:{count}"
 
 def _cache_get(key: str):
-    with _material_cache_lock:
-        return _material_cache.get(key)
+    if _redis is None:
+        return None
+    try:
+        raw = _redis.get(key)
+        if raw is not None:
+            return json.loads(raw)
+    except Exception as exc:
+        logger.warning("material_cache GET error: %s", exc)
+    return None
 
 def _cache_set(key: str, value) -> None:
-    with _material_cache_lock:
-        _material_cache[key] = value
+    if _redis is None:
+        return
+    try:
+        _redis.setex(key, _MATERIAL_CACHE_TTL, json.dumps(value, default=str))
+    except Exception as exc:
+        logger.warning("material_cache SET error: %s", exc)
 
 
 # ── Redis query cache for /ask ─────────────────────────────────────────────────
@@ -307,10 +316,6 @@ def _ask_cache_get(key: str) -> dict | None:
                 return json.loads(raw)
         except Exception as e:
             logger.warning("ask_cache redis GET error: %s", e)
-    hit = _cache_get(key)
-    if hit:
-        logger.debug("ask_cache HIT (memory) key=%s", key)
-        return hit
     sb_hit = _sb_cache_get(key)
     if sb_hit:
         if _redis:
@@ -318,7 +323,6 @@ def _ask_cache_get(key: str) -> dict | None:
                 _redis.setex(key, _ASK_CACHE_TTL, json.dumps(sb_hit, default=str))
             except Exception:
                 pass
-        _cache_set(key, sb_hit)
         return sb_hit
     return None
 
@@ -330,7 +334,6 @@ def _ask_cache_set(key: str, payload: dict, *,
             _redis.setex(key, _ASK_CACHE_TTL, json.dumps(payload, default=str))
         except Exception as e:
             logger.warning("ask_cache redis SET error: %s", e)
-    _cache_set(key, payload)
     _sb_cache_set(key, payload, task_type=task_type, mode=mode,
                   book_id=book_id, model_used=model_used)
 
@@ -505,7 +508,7 @@ def internal_error(e):
 
 # ── PAEV and progress routes ──────────────────────────────────────────────────
 from paev_routes import register_paev
-register_paev(app)
+register_paev(app, redis=_redis)
 
 from progress_routes import register_progress
 register_progress(app)

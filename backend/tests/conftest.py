@@ -26,6 +26,7 @@ def app():
     # ping() response for Redis mock
     mock_redis = MagicMock()
     mock_redis.ping.return_value = True
+    mock_redis.get.return_value = None   # cache miss by default
 
     with patch('requests.Session', return_value=mock_session), \
          patch('redis.from_url', return_value=mock_redis):

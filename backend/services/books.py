@@ -5,21 +5,21 @@ Provides:
   - BOOK_LIBRARY dict
   - STOPWORDS, tokenize(), tfidf_score(), enhanced_score() — TF-IDF helpers
   - TextbookSearch class — hybrid TF-IDF + semantic search
-  - _book_cache / get_book_index() — per-book cached index
+  - get_book_index() — per-book cached index (Redis-backed)
   - ALLOWED_EXTENSIONS / allowed_file()
 
 Call init() once from server.py to inject shared state (session, API key, etc.).
 """
 from __future__ import annotations
 
+import base64
+import hashlib
 import logging
 import math
 import os
+import pickle
 import re
-import threading
 from collections import Counter
-
-from cachetools import TTLCache
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 _session = None
 OPENROUTER_API_KEY: str = ''
 R2_BUCKET_URL: str = 'https://pub-xxxxx.r2.dev'
+_redis = None
 
 try:
     import numpy as np
@@ -36,12 +37,14 @@ except ImportError:
     logger.warning("numpy not installed — semantic search disabled")
 
 
-def init(session, openrouter_api_key: str, r2_bucket_url: str) -> None:
+def init(session, openrouter_api_key: str, r2_bucket_url: str,
+         redis=None) -> None:
     """Inject shared dependencies. Call once from server.py at startup."""
-    global _session, OPENROUTER_API_KEY, R2_BUCKET_URL
+    global _session, OPENROUTER_API_KEY, R2_BUCKET_URL, _redis
     _session           = session
     OPENROUTER_API_KEY = openrouter_api_key
     R2_BUCKET_URL      = r2_bucket_url
+    _redis             = redis
     # Rebuild BOOK_LIBRARY with the real R2 URL
     _build_book_library()
 
@@ -171,12 +174,39 @@ def enhanced_score(query_tokens, chunk, chunk_tokens, idf_map):
     return base + bonus
 
 
-# ── Module-level query embedding cache ───────────────────────────────────────
-_global_query_cache: TTLCache = TTLCache(
-    maxsize=2000,   # ~2 000 unique questions; each vector ≈ 6 KB → ~12 MB max
-    ttl=4 * 3600,   # 4-hour TTL
-)
-_global_query_cache_lock = threading.Lock()
+# ── Query embedding cache (Redis-backed) ─────────────────────────────────────
+_QUERY_CACHE_TTL    = 4 * 3600        # 4-hour TTL
+_QUERY_CACHE_PREFIX = "qemb:"
+
+
+def _query_cache_key(text: str) -> str:
+    return _QUERY_CACHE_PREFIX + hashlib.sha256(text.encode()).hexdigest()[:32]
+
+
+def _query_cache_get(text: str):
+    """Return the cached embedding vector or None."""
+    if _redis is None:
+        return None
+    try:
+        raw = _redis.get(_query_cache_key(text))
+        if raw is not None:
+            return pickle.loads(base64.b64decode(raw))
+    except Exception:
+        pass
+    return None
+
+
+def _query_cache_set(text: str, vec) -> None:
+    """Cache an embedding vector in Redis."""
+    if _redis is None:
+        return
+    try:
+        payload = base64.b64encode(
+            pickle.dumps(vec, protocol=pickle.HIGHEST_PROTOCOL)
+        ).decode()
+        _redis.setex(_query_cache_key(text), _QUERY_CACHE_TTL, payload)
+    except Exception:
+        pass
 
 
 class TextbookSearch:
@@ -195,7 +225,6 @@ class TextbookSearch:
         self.book_id           = None
         self.embedding_matrix  = None
         self.has_embeddings    = False
-        self._query_cache      = _global_query_cache
 
     def load_chunks_from_url(self, url, book_id=None):
         try:
@@ -257,10 +286,9 @@ class TextbookSearch:
         """
         Embed a query string using OpenRouter. Returns a normalised float32
         vector of shape (1536,), or None if the call fails.
-        Results are cached in _query_cache.
+        Results are cached in Redis.
         """
-        with _global_query_cache_lock:
-            cached = self._query_cache.get(text)
+        cached = _query_cache_get(text)
         if cached is not None:
             return cached
 
@@ -284,8 +312,7 @@ class TextbookSearch:
                 norm = np.linalg.norm(vec)
                 if norm > 0:
                     vec /= norm
-                with _global_query_cache_lock:
-                    self._query_cache[text] = vec
+                _query_cache_set(text, vec)
                 return vec
             logger.warning(f"Embedding API {resp.status_code}: {resp.text[:200]}")
         except Exception as e:
@@ -369,36 +396,42 @@ class TextbookSearch:
         return scored[:top_k]
 
 
-# ── Per-book index cache ──────────────────────────────────────────────────────
-_book_cache: dict[str, TextbookSearch] = {}
-_book_cache_lock = threading.Lock()
+# ── Per-book index cache (Redis-backed) ───────────────────────────────────────
+_BOOK_CACHE_PREFIX = "book_idx:"
+_BOOK_CACHE_TTL    = 86400            # 24 hours
 
 
 def get_book_index(book_id: str) -> TextbookSearch:
-    """Return a cached (or freshly loaded) TextbookSearch for book_id.
+    """Return a cached (or freshly loaded) TextbookSearch for *book_id*.
 
-    Uses double-checked locking:
-      1. Fast check without lock — returns immediately for already-cached books.
-      2. Acquire lock — only one thread loads a given book at a time.
-      3. Check again inside lock — a concurrent thread may have finished
-         loading while we waited.
+    Checks Redis first; on a miss, loads from R2 and stores the result
+    in Redis so all workers share one copy.
     """
-    if book_id in _book_cache:
-        return _book_cache[book_id]
+    # 1. Redis cache check
+    if _redis is not None:
+        try:
+            raw = _redis.get(_BOOK_CACHE_PREFIX + book_id)
+            if raw is not None:
+                return pickle.loads(base64.b64decode(raw))
+        except Exception as exc:
+            logger.warning("book_cache GET error for %s: %s", book_id, exc)
 
     if book_id not in BOOK_LIBRARY:
         return TextbookSearch()  # empty — is_relevant will be False
 
-    with _book_cache_lock:
-        if book_id in _book_cache:
-            logger.debug(f"Book '{book_id}' loaded by concurrent thread — reusing cache.")
-            return _book_cache[book_id]
-
-        logger.info(f"Loading book index for '{book_id}' (no concurrent load in progress)")
-        searcher = TextbookSearch()
-        ok = searcher.load_chunks_from_url(BOOK_LIBRARY[book_id]['chunks_url'], book_id=book_id)
-        if ok:
-            _book_cache[book_id] = searcher
-            mode = "hybrid (embeddings + TF-IDF)" if searcher.has_embeddings else "TF-IDF only"
-            logger.info(f"✅ Cached [{mode}] index for: {book_id}")
-        return searcher
+    # 2. Load from R2 and cache in Redis
+    logger.info("Loading book index for '%s'", book_id)
+    searcher = TextbookSearch()
+    ok = searcher.load_chunks_from_url(BOOK_LIBRARY[book_id]['chunks_url'], book_id=book_id)
+    if ok:
+        if _redis is not None:
+            try:
+                payload = base64.b64encode(
+                    pickle.dumps(searcher, protocol=pickle.HIGHEST_PROTOCOL)
+                ).decode()
+                _redis.setex(_BOOK_CACHE_PREFIX + book_id, _BOOK_CACHE_TTL, payload)
+            except Exception as exc:
+                logger.warning("book_cache SET error for %s: %s", book_id, exc)
+        mode = "hybrid (embeddings + TF-IDF)" if searcher.has_embeddings else "TF-IDF only"
+        logger.info("✅ Cached [%s] index for: %s", mode, book_id)
+    return searcher
