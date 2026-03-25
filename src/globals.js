@@ -516,6 +516,7 @@ window._renderRecentPlansAllSidebars = _renderRecentPlansAllSidebars;
 import {
   toggleProfileDropdown, pdOpenHelp, pdToggleHelp,
   pdAction, _closeHelp, _closeTerms, pdOpenTerms,
+  openUpgradeModal, closeUpgradeModal, handleUpgradeClick,
 } from './components/ProfileDropdown.js';
 
 window.toggleProfileDropdown = toggleProfileDropdown;
@@ -525,6 +526,9 @@ window.pdToggleHelp          = pdToggleHelp;
 window.pdOpenTerms           = pdOpenTerms;
 window._closeHelp            = _closeHelp;
 window._closeTerms           = _closeTerms;
+window.openUpgradeModal      = openUpgradeModal;
+window.closeUpgradeModal     = closeUpgradeModal;
+window.handleUpgradeClick    = handleUpgradeClick;
 
 // ── Components · Settings Modal ──────────────────────────────────────────────
 import {
