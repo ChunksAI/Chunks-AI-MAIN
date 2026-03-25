@@ -154,7 +154,10 @@ def _paev_pickle_set(key, obj):
     if _redis is None:
         return
     try:
-        _redis.setex(key, _PAEV_CACHE_TTL, base64.b64encode(pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)).decode())
+        payload = base64.b64encode(
+            pickle.dumps(obj, protocol=pickle.HIGHEST_PROTOCOL)
+        ).decode()
+        _redis.setex(key, _PAEV_CACHE_TTL, payload)
     except Exception as exc:
         logger.warning("PAEV pickle SET error (%s): %s", key, exc)
 

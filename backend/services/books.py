@@ -179,13 +179,16 @@ _QUERY_CACHE_TTL    = 4 * 3600        # 4-hour TTL
 _QUERY_CACHE_PREFIX = "qemb:"
 
 
+def _query_cache_key(text: str) -> str:
+    return _QUERY_CACHE_PREFIX + hashlib.sha256(text.encode()).hexdigest()[:32]
+
+
 def _query_cache_get(text: str):
     """Return the cached embedding vector or None."""
     if _redis is None:
         return None
     try:
-        key = _QUERY_CACHE_PREFIX + hashlib.sha256(text.encode()).hexdigest()[:32]
-        raw = _redis.get(key)
+        raw = _redis.get(_query_cache_key(text))
         if raw is not None:
             return pickle.loads(base64.b64decode(raw))
     except Exception:
@@ -198,11 +201,10 @@ def _query_cache_set(text: str, vec) -> None:
     if _redis is None:
         return
     try:
-        key = _QUERY_CACHE_PREFIX + hashlib.sha256(text.encode()).hexdigest()[:32]
         payload = base64.b64encode(
             pickle.dumps(vec, protocol=pickle.HIGHEST_PROTOCOL)
         ).decode()
-        _redis.setex(key, _QUERY_CACHE_TTL, payload)
+        _redis.setex(_query_cache_key(text), _QUERY_CACHE_TTL, payload)
     except Exception:
         pass
 
