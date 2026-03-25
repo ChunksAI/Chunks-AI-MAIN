@@ -148,7 +148,7 @@ logger.info("CORS allowed origins: %s",
 
 CORS(app,
      origins=CORS_ORIGINS,
-     allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
+     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Device-Id"],
      methods=["GET", "POST", "OPTIONS"],
      supports_credentials=False,
      max_age=86400)
@@ -308,6 +308,9 @@ _prompt_guard_svc.init(
 
 import services.token_budget as _token_budget_svc  # noqa: E402
 _token_budget_svc.init(redis=_redis)
+
+import services.device_abuse as _device_abuse_svc  # noqa: E402
+_device_abuse_svc.init(redis=_redis)
 
 # ── Re-export BOOK_LIBRARY for backward compatibility ─────────────────────────
 # paev_routes.py and other existing modules do: from server import BOOK_LIBRARY

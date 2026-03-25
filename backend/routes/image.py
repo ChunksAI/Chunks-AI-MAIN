@@ -55,6 +55,12 @@ def ask_image():
         # Verify JWT and enforce daily limit
         verified_user_id, _tier = _extract_verified_user()
 
+        # ── Per-user, per-device rate limiting ────────────────────────────
+        from services.device_abuse import check_device_rate_limit
+        _device_block = check_device_rate_limit(verified_user_id)
+        if _device_block is not None:
+            return _device_block
+
         if not image_b64:
             return jsonify({'success': False, 'error': 'No image data provided'}), 400
 

@@ -43,6 +43,12 @@ def generate_study_materials():
         from services.auth import _extract_verified_user
         verified_user_id, _tier = _extract_verified_user()
 
+        # ── Per-user, per-device rate limiting ────────────────────────────
+        from services.device_abuse import check_device_rate_limit
+        _device_block = check_device_rate_limit(verified_user_id)
+        if _device_block is not None:
+            return _device_block
+
         from server import _cache_key, _cache_get, _cache_set
         from ai_router import route
         from services.ai import call_ai
@@ -289,6 +295,12 @@ def generate_quiz():
 
         from services.auth import _extract_verified_user
         verified_user_id, _tier = _extract_verified_user()
+
+        # ── Per-user, per-device rate limiting ────────────────────────────
+        from services.device_abuse import check_device_rate_limit
+        _device_block = check_device_rate_limit(verified_user_id)
+        if _device_block is not None:
+            return _device_block
 
         from ai_router import route
         from services.ai import call_ai
