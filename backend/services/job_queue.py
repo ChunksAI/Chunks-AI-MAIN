@@ -131,9 +131,12 @@ class JobQueue:
     # ── internal ──────────────────────────────────────────────────────────────
 
     def _run(self, job_id: str, fn: Callable[..., dict], *args: Any, **kwargs: Any) -> None:
+        # Preserve the original created_at timestamp
+        existing = self._store.load(job_id)
+        created_at = existing["created_at"] if existing else time.time()
         self._store.save(job_id, {
             "status": STATUS_PROCESSING,
-            "created_at": time.time(),
+            "created_at": created_at,
             "result": None,
             "error": None,
         })
@@ -141,6 +144,7 @@ class JobQueue:
             result = fn(*args, **kwargs)
             self._store.save(job_id, {
                 "status": STATUS_COMPLETED,
+                "created_at": created_at,
                 "completed_at": time.time(),
                 "result": result,
                 "error": None,
@@ -150,6 +154,7 @@ class JobQueue:
             logger.exception("JobQueue: job %s failed", job_id)
             self._store.save(job_id, {
                 "status": STATUS_FAILED,
+                "created_at": created_at,
                 "completed_at": time.time(),
                 "result": None,
                 "error": str(exc),

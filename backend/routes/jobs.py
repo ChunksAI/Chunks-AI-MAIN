@@ -39,7 +39,10 @@ def _run_ask_job(data: dict) -> dict:
         _ask_cache_key, _ask_cache_get, _ask_cache_set, _ask_is_cacheable,
         _parse_mcq,
     )
-    import os, re, json, random  # noqa: E401
+    import json  # noqa: E401
+    import os
+    import random
+    import re
 
     question      = data.get('question', '')
     complexity    = max(1, min(10, int(data.get('complexity', 3))))
