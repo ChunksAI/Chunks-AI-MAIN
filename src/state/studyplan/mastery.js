@@ -7,6 +7,9 @@ import { $qs, $qsa, addClass } from '../domHelpers.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
 import { lsSet } from '../../utils/storage.js';
 
+/** Escape HTML special chars for safe innerHTML insertion. */
+function _esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
 export function spMasteryGet(idx) {
   if (!sp.mastery[idx]) sp.mastery[idx] = { explain: 0, flash: 0, pq: 0, exam: 0 };
   return sp.mastery[idx];
@@ -33,7 +36,7 @@ export function spMasteryRecord(activityKey, score) {
   spMasteryUpdateNode(idx, total);
   if (total >= 80) spMasteryUnlockNext(idx);
   // Dynamic import to avoid circular dep with panel.js
-  import('./panel.js').then(({ spUpdatePanel }) => spUpdatePanel());
+  import('./panel.js').then(({ spUpdatePanel }) => spUpdatePanel()).catch(() => {});
   try { lsSet('sp_active_mastery', sp.mastery); } catch (_) {}
   if (sp.activePlanId && sp.allPlans[sp.activePlanId]) {
     ChunksDB?.studyPlan?.save(sp.activePlanId, {
@@ -91,7 +94,7 @@ export function spMasteryUpdateNode(idx, masteryPct) {
 export function spMasteryMarkChipsDone(node) {
   $qsa('.sp-activity-chip.available', node).forEach(chip => {
     chip.className = 'sp-activity-chip done';
-    chip.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> ${chip.textContent.trim()}`;
+    chip.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> ${_esc(chip.textContent.trim())}`;
   });
 }
 
@@ -124,7 +127,7 @@ export function spMasteryUnlockNext(idx) {
   $qsa('.sp-activity-chip.locked-chip', nextNode).forEach(chip => {
     const txt = chip.textContent.trim();
     chip.className = 'sp-activity-chip available';
-    chip.innerHTML = (actIcons[txt] || '') + ' ' + txt;
+    chip.innerHTML = (actIcons[txt] || '') + ' ' + _esc(txt);
   });
 
   const concept = sp.currentPlan.concepts[nextIdx];

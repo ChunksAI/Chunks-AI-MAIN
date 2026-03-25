@@ -441,7 +441,7 @@ function _incogAppendAI(text) {
           <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
         </svg>
       </div>
-      <div class="incognito-ai-body">${homeMarkdown?.(text) ?? text.replace(/</g,'&lt;')}</div>
+      <div class="incognito-ai-body">${homeMarkdown?.(text) ?? text.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
     </div>`;
   inner.appendChild(d);
   _incogScrollBottom();
@@ -872,7 +872,7 @@ mountHomeScreen();
         wrap.className = 'hc-ai';
         const rendered = homeMarkdown
           ? homeMarkdown(msg.content || '')
-          : (msg.content || '').replace(/</g, '&lt;');
+          : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
         wrap.innerHTML = `${_HOME_AI_AVATAR}<div class="hc-ai-body">${rendered}</div>`;
         chatHist.appendChild(wrap);
       }
@@ -897,7 +897,7 @@ mountHomeScreen();
 
     if (session.html && chatHist) {
       // Local device — use cached rendered HTML
-      chatHist.innerHTML = sanitize?.(session.html) ?? session.html;
+      chatHist.innerHTML = sanitize(session.html);
     } else if (history.length && chatHist) {
       // Cross-device restore — rebuild from message array
       _renderFromHistory(history);
