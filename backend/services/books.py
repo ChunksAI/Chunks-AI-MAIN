@@ -447,6 +447,14 @@ class TextbookSearch:
         scored.sort(key=lambda x: x['score'], reverse=True)
         return scored[:top_k]
 
+    def embed_query(self, text: str):
+        """Public wrapper around ``_embed_query``.
+
+        Returns a normalised float32 vector, or ``None`` on failure.
+        Results are cached in Redis so repeated calls are cheap.
+        """
+        return self._embed_query(text)
+
 
 # ── Per-book index cache (Redis-backed) ───────────────────────────────────────
 _BOOK_CACHE_PREFIX = "book_idx:"
