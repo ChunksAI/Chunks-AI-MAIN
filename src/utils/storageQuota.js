@@ -23,7 +23,7 @@ const WARN_USAGE_PCT = 90;
 
 // ── Throttle / de-duplicate ───────────────────────────────────────────────────
 
-/** Don't re-estimate more often than every 30 s */
+/** Don't re-estimate more often than every 30 seconds */
 const THROTTLE_MS = 30_000;
 
 let _lastCheckTs = 0;
@@ -44,7 +44,9 @@ let _warned = false;
  *   upcoming write requires.  When provided the function also checks
  *   whether the write is likely to exceed remaining space.
  * @returns {Promise<{ok: boolean, usage: number, quota: number, remaining: number, pctUsed: number} | null>}
- *   `null` when the API is unavailable or the check was throttled.
+ *   `ok` is `true` when storage is sufficient, `false` when low or the write
+ *   would likely exceed remaining space.  Returns `null` when the API is
+ *   unavailable or the check was throttled.
  */
 export async function checkStorageQuota(bytesNeeded = 0) {
   if (_warned) return null;                       // already warned this session
