@@ -46,7 +46,7 @@ if (document.readyState === 'loading') {
  * If the user already dismissed this kind during the current session, the
  * call is silently ignored.
  *
- * @param {'quota' | 'migration' | 'out-of-space'} kind
+ * @param {'quota' | 'near-quota' | 'migration' | 'out-of-space'} kind
  */
 export function showStorageError(kind) {
   if (!_handle) _mount();

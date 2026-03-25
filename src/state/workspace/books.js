@@ -10,6 +10,7 @@ import { API_BASE }    from '../../lib/api.js';
 import { trackBookOpen, trackBookPage } from '../../lib/bookProgress.js';
 import { isGuest, showLoginWall } from '../../lib/guestLimits.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
+import { checkStorageQuota } from '../../utils/storageQuota.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 
 let _wsSaveScrollTm;
@@ -143,6 +144,7 @@ export async function selectBook(bookId) {
 
       if ('caches' in window) {
         try {
+          await checkStorageQuota(pdfData.byteLength);   // warn before large cache write
           const cache = await caches.open(CACHE_NAME);
           await cache.put(pdfUrl, new Response(pdfData.slice(0), { headers: { 'Content-Type': 'application/pdf' } }));
         } catch (e) { console.warn('Cache write failed:', e); }

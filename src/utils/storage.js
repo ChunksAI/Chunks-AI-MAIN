@@ -22,6 +22,7 @@
 
 import { isIdbKey, idbGet, idbSet, idbRemove } from '../lib/idbStorage.js';
 import { isQuotaError, showStorageError } from '../components/StorageErrorBanner.js';
+import { checkStorageQuota } from './storageQuota.js';
 
 // ── localStorage helpers ───────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ export function lsGet(key, fallback = null) {
  */
 export function lsSet(key, value) {
   if (isIdbKey(key)) { idbSet(key, value); return; }
+  checkStorageQuota();   // fire-and-forget — warn before potential quota failure
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch (e) {

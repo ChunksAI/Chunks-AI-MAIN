@@ -32,6 +32,7 @@ import { showConfirmModal, showSimpleNotif } from './ConfirmModal.js';
 import { getSupabaseClient } from '../lib/supabase.js';
 import { setActivePlan } from './Sidebar.js';
 import { _renderRecentPlansAllSidebars } from './Sidebar.js';
+import { resetQuotaWarning } from '../utils/storageQuota.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -769,6 +770,7 @@ export function clearAllHistory() {
       if (examRecentList) examRecentList.innerHTML = '<div style="padding:8px 12px;font-size:11px;color:var(--text-4);">No exams yet</div>';
 
       closeSettings();
+      resetQuotaWarning();
       setTimeout(() => showSimpleNotif?.('Chat history cleared'), 200);
     }
   });
@@ -786,6 +788,7 @@ export async function clearPdfCache() {
     onConfirm: async () => {
       await caches.delete('chunks-pdf-v1');
       _updateCacheSizeLabel();
+      resetQuotaWarning();
       closeSettings();
       setTimeout(() => showSimpleNotif?.('PDF cache cleared'), 200);
     }

@@ -27,6 +27,7 @@
 
 import { openDB } from 'idb';
 import { isQuotaError, showStorageError } from '../components/StorageErrorBanner.js';
+import { checkStorageQuota } from '../utils/storageQuota.js';
 
 // ── Database constants ────────────────────────────────────────────────────────
 
@@ -141,6 +142,7 @@ export function idbGet(key, fallback = null) {
  */
 export function idbSet(key, value) {
   _cache.set(key, value);
+  checkStorageQuota();   // fire-and-forget — warn before potential quota failure
   if (_db) {
     _db.put(STORE, value, key).catch(e => {
       console.warn('[idbStorage] write error:', key, e);
