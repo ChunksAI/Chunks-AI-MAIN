@@ -271,7 +271,7 @@ class TestUpsertParagraphs:
         assert mock_session.post.call_count == 1
 
         body = mock_session.post.call_args[1]["json"]
-        assert body[0]["book_id"] == "paev:zumdahl"
+        assert body[0]["book_id"] == f"{vs.PAEV_PREFIX}zumdahl"
 
     def test_handles_dict_paragraphs(self):
         mock_session = MagicMock()

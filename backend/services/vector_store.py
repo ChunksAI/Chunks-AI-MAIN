@@ -15,6 +15,9 @@ from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# Namespace prefix for PAEV paragraph embeddings in the book_chunks table.
+PAEV_PREFIX = "paev:"
+
 # ── Module-level state (injected at startup) ──────────────────────────────────
 _session = None
 _supabase_url: str = ""
@@ -239,7 +242,7 @@ def upsert_paragraphs(
             para.get("text", "") if isinstance(para, dict) else ""
         )
         rows.append({
-            "book_id": f"paev:{book_id}",
+            "book_id": f"{PAEV_PREFIX}{book_id}",
             "chunk_index": i,
             "page": page,
             "text_preview": text[:200],

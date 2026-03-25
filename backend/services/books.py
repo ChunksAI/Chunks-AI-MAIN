@@ -404,9 +404,6 @@ class TextbookSearch:
 
     # ── Cosine scoring: pgvector → in-memory fallback ─────────────────────
 
-    # Number of candidates to retrieve from pgvector for re-ranking.
-    _PGVECTOR_CANDIDATE_K = 200
-
     def _cosine_scores(self, query_vec, top_k: int):
         """
         Return a list of cosine similarity scores (one per chunk), or None.
@@ -417,9 +414,11 @@ class TextbookSearch:
 
         # ── 1. pgvector (Supabase) path ──────────────────────────────────
         if self.book_id and vector_store.is_available():
-            candidate_k = max(self._PGVECTOR_CANDIDATE_K, n)
+            # Request all chunk scores so the hybrid TF-IDF + cosine
+            # re-ranking remains accurate.  pgvector's HNSW index keeps
+            # this fast even for large books.
             results = vector_store.search(
-                query_vec.tolist(), self.book_id, top_k=candidate_k,
+                query_vec.tolist(), self.book_id, top_k=n,
             )
             if results is not None:
                 cosine = [0.0] * n

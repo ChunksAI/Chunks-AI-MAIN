@@ -405,6 +405,9 @@ class EpistemicVerifier:
         stops = {'a','an','the','is','it','in','on','at','to','for','of','and','or','be','as','by'}
         return {w for w in re.findall(r'[a-z]+', text.lower()) if w not in stops and len(w) > 2}
 
+    # Maximum paragraphs to request from pgvector in a single query.
+    _PGVEC_MAX_PARAGRAPHS = 1000
+
     def _pgvector_similarity_map(
         self,
         query_vec: Optional[list[float]],
@@ -420,8 +423,11 @@ class EpistemicVerifier:
         book_id = getattr(index, "book_id", None)
         if not book_id:
             return None
+        top_k = min(len(all_paras), self._PGVEC_MAX_PARAGRAPHS)
         results = vector_store.search_paragraphs(
-            query_vec, f"paev:{book_id}", top_k=len(all_paras),
+            query_vec,
+            f"{vector_store.PAEV_PREFIX}{book_id}",
+            top_k=top_k,
         )
         if results is None:
             return None
