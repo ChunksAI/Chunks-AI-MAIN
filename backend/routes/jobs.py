@@ -115,7 +115,7 @@ def _run_ask_job(data: dict) -> dict:
     _sem_ctx_hash = None
     _query_emb_list = None
     if _sem_eligible:
-        _query_emb = searcher._embed_query(question)
+        _query_emb = searcher.embed_query(question)
         if _query_emb is not None:
             _query_emb_list = (
                 _query_emb.tolist()

@@ -25,6 +25,7 @@ _mem_store: dict[str, list[dict]] = {}   # context_hash → [{emb, ans}]
 _PREFIX = "semcache:"
 _TTL = 3600              # 1 hour  (matches _ASK_CACHE_TTL)
 _SIMILARITY_THRESHOLD = 0.97   # high — only near-duplicate queries
+_DEDUP_THRESHOLD = 0.99        # even stricter — skip storage for near-identical entries
 _MAX_ENTRIES = 20        # max entries per context hash
 
 
@@ -37,7 +38,12 @@ def init(redis=None) -> None:
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def context_hash(mode: str, complexity: int, context_text: str) -> str:
-    """Compute a stable hash over mode + complexity + retrieved context."""
+    """Compute a stable hash over mode + complexity + retrieved context.
+
+    Returns the first 32 hex characters of the SHA-256 digest (128 bits).
+    This truncation keeps Redis keys compact while providing ample
+    collision resistance for the expected key-space.
+    """
     canonical = f"{mode}|{complexity}|{context_text}"
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:32]
 
@@ -134,7 +140,7 @@ def store(
     # Avoid duplicates: if a near-identical embedding already exists, update it
     for entry in entries:
         emb = entry.get("emb")
-        if emb and _cosine_similarity(compact_emb, emb) >= 0.99:
+        if emb and _cosine_similarity(compact_emb, emb) >= _DEDUP_THRESHOLD:
             entry["ans"] = answer_payload
             _save_entries(ctx_hash, entries)
             return
