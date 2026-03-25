@@ -541,3 +541,151 @@ def test_admin_blueprints_registered(app):
     assert '/api/admin/routing-table' in rules
     assert '/api/admin/users' in rules
     assert '/api/admin/openrouter-credits' in rules
+    assert '/api/admin/usage-report' in rules
+    assert '/api/admin/user-usage' in rules
+
+
+# ── Usage report endpoints ───────────────────────────────────────────────────
+
+def test_usage_report_options(client):
+    """OPTIONS /api/admin/usage-report returns 200."""
+    r = client.options('/api/admin/usage-report')
+    assert r.status_code == 200
+
+
+def test_usage_report_no_auth(client):
+    """GET /api/admin/usage-report without auth returns 401."""
+    r = client.get('/api/admin/usage-report')
+    assert r.status_code == 401
+
+
+def test_usage_report_non_admin(client):
+    """GET /api/admin/usage-report with non-admin JWT returns 403."""
+    r = client.get(
+        '/api/admin/usage-report',
+        headers=_admin_headers('nobody@example.com'),
+    )
+    assert r.status_code == 403
+
+
+def test_usage_report_admin_all_users(client, monkeypatch):
+    """GET /api/admin/usage-report returns full usage report for admin."""
+    import services.token_budget as tb
+    email = 'owner@chunks.online'
+    env, headers = _setup_admin_ctx(email)
+    monkeypatch.setattr(tb, 'get_monthly_usage_report', MagicMock(return_value={
+        'month': '2025-01',
+        'users': [{'user_id': 'u1', 'total_cost': 0.5}],
+    }))
+
+    with patch.dict(os.environ, env):
+        r = client.get('/api/admin/usage-report', headers=headers)
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body['success'] is True
+        assert 'users' in body
+
+
+def test_usage_report_admin_single_user(client, monkeypatch):
+    """GET /api/admin/usage-report with user_id returns per-user report."""
+    import services.token_budget as tb
+    email = 'owner@chunks.online'
+    env, headers = _setup_admin_ctx(email)
+    monkeypatch.setattr(tb, 'get_user_monthly_usage', MagicMock(return_value={
+        'month': '2025-01',
+        'user_id': 'u1',
+        'total_cost': 0.3,
+    }))
+
+    with patch.dict(os.environ, env):
+        r = client.get('/api/admin/usage-report?user_id=u1', headers=headers)
+        assert r.status_code == 200
+        body = r.get_json()
+        assert body['success'] is True
+        assert body['user_id'] == 'u1'
+
+
+# ── User-usage endpoint ─────────────────────────────────────────────────────
+
+def test_user_usage_options(client):
+    """OPTIONS /api/admin/user-usage returns 200."""
+    r = client.options('/api/admin/user-usage')
+    assert r.status_code == 200
+
+
+def test_user_usage_no_auth(client):
+    """GET /api/admin/user-usage without auth returns 401."""
+    r = client.get('/api/admin/user-usage')
+    assert r.status_code == 401
+
+
+def test_user_usage_empty_token(client):
+    """GET /api/admin/user-usage with empty bearer returns 401."""
+    r = client.get(
+        '/api/admin/user-usage',
+        headers={'Authorization': 'Bearer   '},
+    )
+    assert r.status_code == 401
+
+
+def test_user_usage_invalid_token(client, monkeypatch):
+    """GET /api/admin/user-usage with invalid JWT returns 401."""
+    import services.auth as auth_svc
+    monkeypatch.setattr(auth_svc, '_verify_supabase_jwt', MagicMock(return_value=None))
+
+    r = client.get(
+        '/api/admin/user-usage',
+        headers={'Authorization': 'Bearer some-invalid-token'},
+    )
+    assert r.status_code == 401
+    body = r.get_json()
+    assert 'Invalid or expired' in body['error']
+
+
+def test_user_usage_success(client, monkeypatch):
+    """GET /api/admin/user-usage returns usage for authenticated user."""
+    import services.auth as auth_svc
+    import services.token_budget as tb
+
+    monkeypatch.setattr(auth_svc, '_verify_supabase_jwt', MagicMock(return_value={
+        'id': 'user-123',
+        'email': 'student@test.com',
+    }))
+    monkeypatch.setattr(tb, 'get_user_monthly_usage', MagicMock(return_value={
+        'month': '2025-01',
+        'user_id': 'user-123',
+        'total_cost': 0.1,
+    }))
+
+    r = client.get(
+        '/api/admin/user-usage',
+        headers={'Authorization': 'Bearer valid-token'},
+    )
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body['success'] is True
+    assert body['user_id'] == 'user-123'
+
+
+def test_user_usage_with_month(client, monkeypatch):
+    """GET /api/admin/user-usage with month query param."""
+    import services.auth as auth_svc
+    import services.token_budget as tb
+
+    monkeypatch.setattr(auth_svc, '_verify_supabase_jwt', MagicMock(return_value={
+        'id': 'user-456',
+        'email': 'student@test.com',
+    }))
+    monkeypatch.setattr(tb, 'get_user_monthly_usage', MagicMock(return_value={
+        'month': '2024-12',
+        'user_id': 'user-456',
+        'total_cost': 0.2,
+    }))
+
+    r = client.get(
+        '/api/admin/user-usage?month=2024-12',
+        headers={'Authorization': 'Bearer valid-token'},
+    )
+    assert r.status_code == 200
+    body = r.get_json()
+    assert body['success'] is True

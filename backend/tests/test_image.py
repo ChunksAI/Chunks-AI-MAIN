@@ -54,3 +54,98 @@ def test_image_blueprint_registered(app):
     """The image blueprint is registered."""
     rules = [r.rule for r in app.url_map.iter_rules()]
     assert '/ask-image' in rules
+
+
+# ── Successful image analysis ────────────────────────────────────────────────
+
+def test_image_success(client, monkeypatch, mock_extract_user):
+    """POST /ask-image with valid image returns analysis."""
+    import services.token_budget as tb
+    import services.device_abuse as device_mod
+    import services.ai as ai_svc
+    import services.plan_limits as plan_mod
+    from routes.shared import ctx
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(tb, 'check_daily_budget', MagicMock(return_value=True))
+    monkeypatch.setattr(tb, 'max_tokens_for_endpoint', MagicMock(return_value=2000))
+    monkeypatch.setattr(ai_svc, '_record_usage_from_response', MagicMock())
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {
+        'choices': [{'message': {'content': 'This is a molecule diagram.'}}],
+        'usage': {'prompt_tokens': 100, 'completion_tokens': 50},
+    }
+
+    mock_session = MagicMock()
+    mock_session.post.return_value = mock_resp
+    monkeypatch.setattr(ctx, 'session', mock_session)
+    monkeypatch.setattr(ctx, 'OPENROUTER_URL', 'https://openrouter.ai/api/v1/chat/completions')
+    monkeypatch.setattr(ctx, 'OPENROUTER_API_KEY', 'test-key')
+
+    resp = client.post('/ask-image', json={
+        'image_b64': 'dGVzdA==',
+        'image_type': 'image/jpeg',
+        'question': 'Describe this molecule',
+        'complexity': 5,
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    assert 'molecule diagram' in data['answer']
+
+
+def test_image_api_error(client, monkeypatch, mock_extract_user):
+    """POST /ask-image returns 500 when vision API returns non-200."""
+    import services.token_budget as tb
+    import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
+    from routes.shared import ctx
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(tb, 'check_daily_budget', MagicMock(return_value=True))
+    monkeypatch.setattr(tb, 'max_tokens_for_endpoint', MagicMock(return_value=2000))
+
+    mock_resp = MagicMock()
+    mock_resp.status_code = 429
+    mock_resp.text = 'Rate limited'
+
+    mock_session = MagicMock()
+    mock_session.post.return_value = mock_resp
+    monkeypatch.setattr(ctx, 'session', mock_session)
+    monkeypatch.setattr(ctx, 'OPENROUTER_URL', 'https://openrouter.ai/api/v1/chat/completions')
+    monkeypatch.setattr(ctx, 'OPENROUTER_API_KEY', 'test-key')
+
+    resp = client.post('/ask-image', json={
+        'image_b64': 'dGVzdA==',
+        'image_type': 'image/jpeg',
+        'question': 'Describe',
+    })
+    assert resp.status_code == 500
+    data = resp.get_json()
+    assert data['success'] is False
+    assert 'Vision API error' in data['error']
+
+
+def test_image_budget_exceeded(client, monkeypatch, mock_extract_user):
+    """POST /ask-image returns 503 when daily budget is exceeded."""
+    import services.token_budget as tb
+    import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(tb, 'check_daily_budget', MagicMock(return_value=False))
+
+    resp = client.post('/ask-image', json={
+        'image_b64': 'dGVzdA==',
+        'image_type': 'image/jpeg',
+        'question': 'Describe',
+    })
+    assert resp.status_code == 503
+    data = resp.get_json()
+    assert data['success'] is False
+    assert 'budget exceeded' in data['error']
