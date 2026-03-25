@@ -36,7 +36,7 @@ export function spMasteryRecord(activityKey, score) {
   spMasteryUpdateNode(idx, total);
   if (total >= 80) spMasteryUnlockNext(idx);
   // Dynamic import to avoid circular dep with panel.js
-  import('./panel.js').then(({ spUpdatePanel }) => spUpdatePanel()).catch(() => {});
+  import('./panel.js').then(({ spUpdatePanel }) => spUpdatePanel()).catch(err => console.warn('Panel update failed:', err));
   try { lsSet('sp_active_mastery', sp.mastery); } catch (_) {}
   if (sp.activePlanId && sp.allPlans[sp.activePlanId]) {
     ChunksDB?.studyPlan?.save(sp.activePlanId, {
