@@ -44,9 +44,9 @@ def test_readiness_empty_progress(client):
 
 
 def test_readiness_with_data(client):
-    tomorrow = (date.today() + timedelta(days=7)).strftime('%Y-%m-%d')
+    future_date = (date.today() + timedelta(days=7)).strftime('%Y-%m-%d')
     r = client.post('/progress/readiness', json={
-        'examDate': tomorrow,
+        'examDate': future_date,
         'progress': {
             'quizResults': [{'score': 80}, {'score': 90}],
             'topics': {'thermo': {}, 'kinetics': {}, 'acids': {}},

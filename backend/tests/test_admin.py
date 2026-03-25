@@ -533,6 +533,7 @@ def test_jwt_malformed(client):
     )
     assert r.status_code == 403
 
+
 def test_admin_blueprints_registered(app):
     rules = [r.rule for r in app.url_map.iter_rules()]
     assert '/api/admin/verify-access' in rules
