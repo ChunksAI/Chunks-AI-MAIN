@@ -1,6 +1,6 @@
 """Tests for the health blueprint (/, /ping, /health, /api/config, /api/me/plan)."""
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 
 def test_home(client):
