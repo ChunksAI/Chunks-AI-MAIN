@@ -55,10 +55,11 @@ _mem_counters: dict[str, list[float]] = {}
 
 # ── Configurable rate limits ──────────────────────────────────────────────────
 # Each tuple: (window_seconds, max_requests, redis_ttl_seconds)
+# TTL is set to ~2× the window to handle clock skew and ensure clean expiry.
 RATE_LIMITS: list[tuple[int, int, int]] = [
-    (60,    30,   120),     # 30 req / minute  (TTL 2 min)
-    (3600,  200,  7_200),   # 200 req / hour   (TTL 2 h)
-    (86400, 500,  90_000),  # 500 req / day    (TTL 25 h)
+    (60,    30,   120),     # 30 req / minute  (TTL 2 min  = 2× window)
+    (3600,  200,  7_200),   # 200 req / hour   (TTL 2 h    = 2× window)
+    (86400, 500,  172_800), # 500 req / day    (TTL 48 h   = 2× window)
 ]
 
 _REDIS_KEY_PREFIX = 'device_rl:'
@@ -73,8 +74,17 @@ def init(redis=None) -> None:
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _get_client_ip() -> str:
-    """Return the real client IP (ProxyFix-corrected)."""
-    return request.remote_addr or '0.0.0.0'
+    """Return the real client IP (ProxyFix-corrected).
+
+    Falls back to a per-request unique value so that requests without a
+    remote address don't share a single rate-limit bucket.
+    """
+    addr = request.remote_addr
+    if addr:
+        return addr
+    # No remote address — use hash of available headers to avoid a shared bucket
+    import uuid
+    return f'unknown:{uuid.uuid4().hex[:12]}'
 
 
 def _build_device_key(user_id: str) -> str:
