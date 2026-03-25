@@ -3110,11 +3110,21 @@ window.addEventListener('load',()=>{
 })();
 
 /* ── Google OAuth — self-contained, no login.html dependency ─────── */
-var SUPABASE_URL   = 'https://wiwbfspsrgayvquzfryl.supabase.co';
-var SUPABASE_ANON  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I';
+var SUPABASE_URL   = '';
 // redirect_to=/home — app.html handles its own code exchange + popup close
-var SUPABASE_OAUTH = SUPABASE_URL + '/auth/v1/authorize'
-  + '?provider=google&redirect_to=https://chunks.online/home';
+var SUPABASE_OAUTH = '';
+
+// Fetch Supabase config from backend (credentials never hardcoded client-side)
+(function() {
+  var API = 'https://api.chunks.online';
+  fetch(API + '/api/config').then(function(r) { return r.json(); }).then(function(cfg) {
+    if (cfg && cfg.supabaseUrl) {
+      SUPABASE_URL = cfg.supabaseUrl;
+      SUPABASE_OAUTH = SUPABASE_URL + '/auth/v1/authorize'
+        + '?provider=google&redirect_to=https://chunks.online/home';
+    }
+  }).catch(function(e) { console.warn('[hp] Config fetch failed:', e.message); });
+})();
 
 var _authPopup      = null;
 var _popupPollTimer = null;
@@ -3159,6 +3169,13 @@ function openAuthPopup(callerBtnId, callerLabelId) {
 
   // Prevent double-open
   if (_authPopup && !_authPopup.closed) { _authPopup.focus(); return; }
+
+  // Config not loaded yet — tell the user to try again
+  if (!SUPABASE_OAUTH) {
+    var errEl = document.getElementById('login-modal-error');
+    if (errEl) { errEl.textContent = 'Still loading — please try again in a moment.'; errEl.classList.add('show'); }
+    return;
+  }
 
   // Clear any previous modal error
   var errEl = document.getElementById('login-modal-error');

@@ -163,12 +163,10 @@
 <!-- DNS prefetch + preconnect for all critical third-party origins -->
 <link rel="dns-prefetch" href="https://fonts.googleapis.com">
 <link rel="dns-prefetch" href="https://fonts.gstatic.com">
-<link rel="dns-prefetch" href="https://wiwbfspsrgayvquzfryl.supabase.co">
 <link rel="dns-prefetch" href="https://api.chunks.online">
 <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://wiwbfspsrgayvquzfryl.supabase.co" crossorigin>
 <!-- Non-blocking font load: preload triggers parallel download, stylesheet loads async -->
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=optional" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&display=optional" rel="stylesheet"></noscript>
@@ -176,11 +174,6 @@
 <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"></noscript>
 
-<!-- Supabase credentials — injected so app works even if Railway /api/config is slow/down -->
-<script>
-  localStorage.setItem('chunks_sb_url',  'https://wiwbfspsrgayvquzfryl.supabase.co');
-  localStorage.setItem('chunks_sb_anon', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpd2Jmc3BzcmdheXZxdXpmcnlsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5MjgyNzUsImV4cCI6MjA4NzUwNDI3NX0.8ct39elZ_Xgivs5zgL2T98GyIG9W8N05XAZWkFRn07I');
-</script>
 
 <!-- All CSS → src/styles/ (Tasks 3–9, 35) -->
 
@@ -7431,8 +7424,19 @@ window.addEventListener('load', function() {
 
 <script>
 (function() {
-  var SUPABASE_URL  = 'https://wiwbfspsrgayvquzfryl.supabase.co';
-  var GOOGLE_OAUTH  = SUPABASE_URL + '/auth/v1/authorize?provider=google&redirect_to=https://chunks.online/home';
+  var SUPABASE_URL  = '';
+  var GOOGLE_OAUTH  = '';
+
+  // Fetch Supabase config from backend (credentials never hardcoded client-side)
+  fetch('https://api.chunks.online/api/config')
+    .then(function(r) { return r.json(); })
+    .then(function(cfg) {
+      if (cfg && cfg.supabaseUrl) {
+        SUPABASE_URL = cfg.supabaseUrl;
+        GOOGLE_OAUTH = SUPABASE_URL + '/auth/v1/authorize?provider=google&redirect_to=https://chunks.online/home';
+      }
+    }).catch(function(e) { console.warn('[auth-modal] Config fetch failed:', e.message); });
+
   var overlay       = document.getElementById('auth-modal-overlay');
   var content       = document.getElementById('am-content');
   var loading       = document.getElementById('am-loading');
@@ -7475,6 +7479,17 @@ window.addEventListener('load', function() {
 
   // ── Google sign-in popup ───────────────────────────────────────────────────
   function startGoogleAuth() {
+    if (!GOOGLE_OAUTH) {
+      // Config not loaded yet — show loading briefly then retry
+      content.style.display = 'none';
+      loading.style.display = 'flex';
+      setTimeout(function() {
+        content.style.display = '';
+        loading.style.display = 'none';
+      }, 1500);
+      return;
+    }
+
     // Show loading state
     content.style.display = 'none';
     loading.style.display = 'flex';

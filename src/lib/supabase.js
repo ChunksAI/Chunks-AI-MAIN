@@ -5,11 +5,10 @@
  * All other modules (auth.js, chunksDb.js, flashcardDb.js) call
  * getSupabaseClient() — they never call createClient() themselves.
  *
- * Credential priority:
- *   1. localStorage chunks_sb_url / chunks_sb_anon
- *      (written by admin.html after login — instant, works for guests)
- *   2. GET /api/config from backend
- *      (works in prod even without an admin session)
+ * Credentials are fetched from the backend GET /api/config on each page load
+ * and kept **in module memory only** — never persisted to localStorage or
+ * sessionStorage.  This avoids leaking the Supabase project URL / anon key
+ * into client-side storage where extensions or XSS could harvest them.
  *
  * Task 11 — extracted from monolith (plan+presence block, lines ~5280–5365).
  * Replaces the inline _waitForSupabase() + _getChunksSb() globals.
@@ -91,36 +90,30 @@ export async function getSupabaseClient() {
       return null;
     }
 
+    // ── Clean up legacy localStorage keys ──────────────────────────────
+    // Previous versions cached Supabase credentials in localStorage.
+    // Remove them so they no longer linger in client-side storage.
+    try { _safeStorage.removeItem('chunks_sb_url'); }  catch (_) {}
+    try { _safeStorage.removeItem('chunks_sb_anon'); } catch (_) {}
+
     let url = '', anon = '';
 
-    // Priority 1 — safe storage (set by admin.html)
-    try {
-      url  = _safeStorage.getItem('chunks_sb_url')  || '';
-      anon = _safeStorage.getItem('chunks_sb_anon') || '';
-    } catch (_) { /* storage fully blocked */ }
-
-    // Priority 2 — fetch /api/config from backend
+    // Fetch /api/config from backend — the only source of credentials.
     // NOTE: no AbortSignal here — it cannot be cloned via postMessage (used by
     // PDF.js worker) and causes console warnings on every PDF load.
-    if (!url || !anon) {
-      const backends = [API_BASE];
-      for (const base of backends) {
-        try {
-          const fetchP   = fetch(`${base}/api/config`).then(r => r.json());
-          const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000));
-          const config   = await Promise.race([fetchP, timeoutP]);
-          if (config?.supabaseUrl && config?.supabaseAnonKey) {
-            url  = config.supabaseUrl;
-            anon = config.supabaseAnonKey;
-            try {
-              _safeStorage.setItem('chunks_sb_url',  url);
-              _safeStorage.setItem('chunks_sb_anon', anon);
-            } catch (_) {}
-            break;
-          }
-        } catch (e) {
-          console.warn('[supabase] Config fetch failed from', base, e.message);
+    const backends = [API_BASE];
+    for (const base of backends) {
+      try {
+        const fetchP   = fetch(`${base}/api/config`).then(r => r.json());
+        const timeoutP = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 5000));
+        const config   = await Promise.race([fetchP, timeoutP]);
+        if (config?.supabaseUrl && config?.supabaseAnonKey) {
+          url  = config.supabaseUrl;
+          anon = config.supabaseAnonKey;
+          break;
         }
+      } catch (e) {
+        console.warn('[supabase] Config fetch failed from', base, e.message);
       }
     }
 
