@@ -301,6 +301,9 @@ _books_svc.init(
 _embed_cache_svc.init(redis=_redis)
 _answer_cache_svc.init(redis=_redis)
 
+import services.token_budget as _token_budget_svc  # noqa: E402
+_token_budget_svc.init(redis=_redis)
+
 # ── Re-export BOOK_LIBRARY for backward compatibility ─────────────────────────
 # paev_routes.py and other existing modules do: from server import BOOK_LIBRARY
 from services.books import BOOK_LIBRARY  # noqa: E402 — re-export

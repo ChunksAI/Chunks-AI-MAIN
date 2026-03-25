@@ -219,7 +219,8 @@ FORMATTING: {latex_instruction}
 
 Answer helpfully and clearly."""
 
-    answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history)
+    answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
+                     endpoint='async_chat')
     _resp = {
         'success':        True,
         'mode':           mode,

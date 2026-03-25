@@ -256,7 +256,8 @@ SLIDE CONTENT:
             "For exam reviewers, you think like a professor writing the exam: you identify what is most testable, "
             "what students most commonly get wrong, and what concepts are foundational vs peripheral. "
             "You write in a clear, structured format that students can scan quickly under exam pressure."
-        ), model=route('study_plan', complexity=6), max_tokens_override=8000)
+        ), model=route('study_plan', complexity=6), max_tokens_override=8000,
+           endpoint='study_materials')
 
         sm_payload = {'success': True, 'materials': {material_type: result}}
         _cache_set(_sm_cache_k, sm_payload)
@@ -417,7 +418,7 @@ Generate the quiz:"""
             'exam_easy'   if difficulty == 'easy'   else
             'exam_medium',
             complexity=8 if difficulty == 'hard' else 4 if difficulty == 'easy' else 6
-        ), max_tokens_override=12000)
+        ), max_tokens_override=12000, endpoint='quiz')
 
         questions = _parse_mcq(raw)
         if not questions:
