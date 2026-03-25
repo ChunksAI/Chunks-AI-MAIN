@@ -3,8 +3,6 @@ import json
 import os
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 import services.token_budget as tb
 
 
@@ -39,15 +37,12 @@ class TestMaxTokensForEndpoint:
 
     def test_absolute_max_caps_all(self):
         """Even the highest endpoint limit cannot exceed ABSOLUTE_MAX_TOKENS."""
-        with patch.dict(os.environ, {'ABSOLUTE_MAX_TOKENS': '1000'}):
-            # Reload to pick up the new env — but since the constant is read
-            # at module-load time, we need to patch the module attribute.
-            original = tb.ABSOLUTE_MAX_TOKENS
-            tb.ABSOLUTE_MAX_TOKENS = 1_000
-            try:
-                assert tb.max_tokens_for_endpoint('quiz') == 1_000
-            finally:
-                tb.ABSOLUTE_MAX_TOKENS = original
+        original = tb.ABSOLUTE_MAX_TOKENS
+        tb.ABSOLUTE_MAX_TOKENS = 1_000
+        try:
+            assert tb.max_tokens_for_endpoint('quiz') == 1_000
+        finally:
+            tb.ABSOLUTE_MAX_TOKENS = original
 
 
 class TestDailyBudget:

@@ -149,7 +149,7 @@ def record_usage(
         try:
             rkey = f'{_REDIS_DAILY_KEY_PREFIX}{day}'
             _redis.rpush(rkey, json.dumps(entry))
-            _redis.expire(rkey, 90_000)  # ~25 h
+            _redis.expire(rkey, 90_000)  # 25 h
         except Exception:
             logger.debug("token_budget: Redis write failed, using memory fallback")
             _mem_record(day, entry)

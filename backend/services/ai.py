@@ -89,7 +89,7 @@ def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=No
 
     # ── Budget gate ───────────────────────────────────────────────────────
     if not token_budget.check_daily_budget():
-        raise RuntimeError("Daily AI cost budget exceeded. Please try again tomorrow.")
+        raise RuntimeError("Daily AI cost budget exceeded. Please try again after midnight UTC.")
 
     use_model = model or MODEL
 
@@ -188,7 +188,7 @@ def call_ai_web_search(question, system_prompt=None, history=None):
     from services import token_budget
 
     if not token_budget.check_daily_budget():
-        return "Error: Daily AI cost budget exceeded. Please try again tomorrow.", []
+        return "Error: Daily AI cost budget exceeded. Please try again after midnight UTC.", []
 
     WEB_MODEL = os.environ.get('WEB_MODEL', 'perplexity/sonar')
     effective_max_tokens = token_budget.max_tokens_for_endpoint('chat_web_search')

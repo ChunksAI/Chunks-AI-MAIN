@@ -82,8 +82,8 @@ def ask_image():
         if not token_budget.check_daily_budget():
             return jsonify({
                 'success': False,
-                'error': 'Daily AI cost budget exceeded. Please try again tomorrow.',
-            }), 429
+                'error': 'Daily AI cost budget exceeded. Please try again after midnight UTC.',
+            }), 503
 
         vision_model = os.environ.get('VISION_MODEL', 'nvidia/nemotron-nano-12b-v2-vl:free')
         effective_max_tokens = token_budget.max_tokens_for_endpoint('image')
