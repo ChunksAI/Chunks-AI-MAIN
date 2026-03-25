@@ -39,6 +39,7 @@ from paev_fingerprint import (
     EpistemicFingerprint, PrerequisiteGraph, ConceptNode,
     detect_blooms_level, BLOOMS_LEVELS
 )
+import services.vector_store as vector_store
 
 logger = logging.getLogger(__name__)
 
@@ -404,6 +405,38 @@ class EpistemicVerifier:
         stops = {'a','an','the','is','it','in','on','at','to','for','of','and','or','be','as','by'}
         return {w for w in re.findall(r'[a-z]+', text.lower()) if w not in stops and len(w) > 2}
 
+    # Maximum paragraphs to request from pgvector in a single query.
+    _PGVEC_MAX_PARAGRAPHS = 1000
+
+    def _pgvector_similarity_map(
+        self,
+        query_vec: Optional[list[float]],
+        index,
+        all_paras: list,
+    ) -> Optional[dict[int, float]]:
+        """
+        Query pgvector for cosine similarities and return {para_index: score}.
+        Returns None when pgvector is unavailable or the query has no embedding.
+        """
+        if not query_vec or not vector_store.is_available():
+            return None
+        book_id = getattr(index, "book_id", None)
+        if not book_id:
+            return None
+        top_k = min(len(all_paras), self._PGVEC_MAX_PARAGRAPHS)
+        results = vector_store.search_paragraphs(
+            query_vec,
+            f"{vector_store.PAEV_PREFIX}{book_id}",
+            top_k=top_k,
+        )
+        if results is None:
+            return None
+        return {
+            r["chunk_index"]: max(0.0, min(1.0, r.get("similarity", 0.0)))
+            for r in results
+            if r.get("chunk_index") is not None
+        }
+
     # ── Source retrieval (Factor A) ───────────────────────────────────────────
 
     def _compute_source_score(
@@ -412,21 +445,33 @@ class EpistemicVerifier:
         """
         Compute source_score for a claim: how well does the textbook support it?
         Returns (score, best_paragraph_id, source_location_dict)
+
+        Uses pgvector (Supabase) for cosine similarity when available,
+        falling back to manual in-memory cosine computation.
         """
         query_tokens = self._tokenize(claim)
         query_vec = self._embed(claim)
         all_paras = index.all_paragraphs()
 
+        # Build a lookup for pgvector cosine scores (paragraph index → score)
+        pgvec_sims = self._pgvector_similarity_map(
+            query_vec, index, all_paras,
+        )
+
         scored = []
-        for para in all_paras:
+        for i, para in enumerate(all_paras):
             para_tokens = self._tokenize(para.text)
             kw = len(query_tokens & para_tokens) / len(query_tokens | para_tokens) if query_tokens | para_tokens else 0
+
             sem = 0.0
-            if query_vec and para.embedding:
-                sem = self._cosine(query_vec, para.embedding)
+            if query_vec:
+                if pgvec_sims is not None:
+                    sem = pgvec_sims.get(i, 0.0)
+                elif para.embedding:
+                    sem = self._cosine(query_vec, para.embedding)
             phrase = 0.3 if claim.lower()[:30] in para.text.lower() else 0.0
 
-            if query_vec and para.embedding:
+            if query_vec and (pgvec_sims is not None or para.embedding):
                 score = 0.60 * sem + 0.30 * kw + 0.10 * phrase
             else:
                 score = 0.70 * kw + 0.30 * phrase
@@ -689,15 +734,30 @@ class EpistemicVerifier:
     # ── Retrieval (adapted from VAKS) ─────────────────────────────────────────
 
     def retrieve(self, query: str, index, fingerprints: dict, top_k: int = 8) -> list:
+        """
+        Hybrid retrieval using pgvector cosine similarity when available,
+        falling back to in-memory cosine computation.
+        """
         query_tokens = self._tokenize(query)
         query_vec = self._embed(query)
+        all_paras = index.all_paragraphs()
+
+        # Build pgvector similarity map if available
+        pgvec_sims = self._pgvector_similarity_map(
+            query_vec, index, all_paras,
+        )
+
         scored = []
-        for para in index.all_paragraphs():
+        for i, para in enumerate(all_paras):
             para_tokens = self._tokenize(para.text)
             kw = len(query_tokens & para_tokens) / len(query_tokens | para_tokens) if query_tokens | para_tokens else 0
+
             sem = 0.0
-            if query_vec and para.embedding:
-                sem = self._cosine(query_vec, para.embedding)
+            if query_vec:
+                if pgvec_sims is not None:
+                    sem = pgvec_sims.get(i, 0.0)
+                elif para.embedding:
+                    sem = self._cosine(query_vec, para.embedding)
             phrase = 0.3 if query.lower()[:25] in para.text.lower() else 0.0
 
             fp = fingerprints.get(para.id)
@@ -709,7 +769,7 @@ class EpistemicVerifier:
                 if re.search(r'\bhow\b|\bcalculate\b', q_lower) and para.semantic_type in ("equation","procedure"):
                     type_boost = 0.05
 
-            if query_vec and para.embedding:
+            if query_vec and (pgvec_sims is not None or para.embedding):
                 final = 0.55 * sem + 0.30 * kw + 0.10 * phrase + type_boost
             else:
                 final = 0.65 * kw + 0.25 * phrase + type_boost

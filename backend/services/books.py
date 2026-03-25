@@ -21,6 +21,8 @@ import pickle
 import re
 from collections import Counter
 
+import services.vector_store as vector_store
+
 logger = logging.getLogger(__name__)
 
 # ── Module-level state injected at startup ─────────────────────────────────────
@@ -262,6 +264,16 @@ class TextbookSearch:
                         self.embedding_matrix = matrix / norms
                         self.has_embeddings   = True
                         logger.info(f"✅ Embedding matrix loaded: {matrix.shape}")
+
+                        # ── Upsert to pgvector (fire-and-forget) ─────────
+                        if book_id and vector_store.is_available():
+                            try:
+                                vector_store.upsert_chunks(book_id, chunks)
+                            except Exception as vs_exc:
+                                logger.warning(
+                                    "pgvector upsert failed (non-fatal): %s",
+                                    vs_exc,
+                                )
                     else:
                         logger.warning(
                             f"⚠️  Embedding dims={dims}, expected {self.EMBEDDING_DIMS}. "
@@ -323,6 +335,10 @@ class TextbookSearch:
     def smart_search(self, question: str, top_k: int = 5):
         """
         Return (context_str, score, is_relevant, best_source, all_sources).
+
+        Uses pgvector (Supabase) for cosine similarity when available,
+        falling back to in-memory numpy dot-product otherwise.
+        TF-IDF scoring is always computed locally.
         """
         if not self.chunks:
             return "No textbook loaded.", 0.0, False, None, []
@@ -348,14 +364,16 @@ class TextbookSearch:
         if self.has_embeddings:
             query_vec = self._embed_query(question)
             if query_vec is not None:
-                cosine = self.embedding_matrix.dot(query_vec)
-                cosine = cosine.clip(0, 1).tolist()
-                final_scores = [
-                    0.70 * cos + 0.30 * tfidf
-                    for cos, tfidf in zip(cosine, tfidf_norm)
-                ]
-                use_hybrid = True
-                low_conf   = self.LOW_CONFIDENCE_HYBRID
+                cosine = self._cosine_scores(query_vec, top_k)
+                if cosine is not None:
+                    final_scores = [
+                        0.70 * cos + 0.30 * tfidf
+                        for cos, tfidf in zip(cosine, tfidf_norm)
+                    ]
+                    use_hybrid = True
+                    low_conf   = self.LOW_CONFIDENCE_HYBRID
+                else:
+                    logger.warning("Both pgvector and in-memory cosine unavailable")
             else:
                 logger.warning("Query embedding failed — falling back to TF-IDF")
 
@@ -383,6 +401,40 @@ class TextbookSearch:
 
         best_source = all_sources[0] if all_sources else None
         return context, top_score, is_relevant, best_source, all_sources
+
+    # ── Cosine scoring: pgvector → in-memory fallback ─────────────────────
+
+    def _cosine_scores(self, query_vec, top_k: int):
+        """
+        Return a list of cosine similarity scores (one per chunk), or None.
+
+        Tries pgvector first; falls back to in-memory numpy dot-product.
+        """
+        n = len(self.chunks)
+
+        # ── 1. pgvector (Supabase) path ──────────────────────────────────
+        if self.book_id and vector_store.is_available():
+            # Request all chunk scores so the hybrid TF-IDF + cosine
+            # re-ranking remains accurate.  pgvector's HNSW index keeps
+            # this fast even for large books.
+            results = vector_store.search(
+                query_vec.tolist(), self.book_id, top_k=n,
+            )
+            if results is not None:
+                cosine = [0.0] * n
+                for r in results:
+                    idx = r.get("chunk_index")
+                    if idx is not None and 0 <= idx < n:
+                        cosine[idx] = max(0.0, min(1.0, r.get("similarity", 0.0)))
+                logger.debug("pgvector returned %d cosine scores", len(results))
+                return cosine
+
+        # ── 2. In-memory fallback ────────────────────────────────────────
+        if self.embedding_matrix is not None:
+            cosine = self.embedding_matrix.dot(query_vec)
+            return cosine.clip(0, 1).tolist()
+
+        return None
 
     def get_candidate_pages(self, topic: str, top_k: int = 5):
         if not self.chunks:
