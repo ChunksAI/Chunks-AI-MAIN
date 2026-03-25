@@ -106,14 +106,14 @@ def _get_user_tier_from_db(user_id: str) -> Tier:
     """
     Look up the user's subscription tier in Supabase.
     Returns a :class:`Tier` enum value; defaults to ``Tier.FREE`` on any error.
-    Expects a 'users' table with columns: id (uuid), tier (text).
+    Expects a 'users' table with columns: id (uuid), plan (text).
     """
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY or not user_id:
         return Tier.FREE
     try:
         resp = _session.get(
             f"{SUPABASE_URL}/rest/v1/users",
-            params={"id": f"eq.{user_id}", "select": "tier"},
+            params={"id": f"eq.{user_id}", "select": "plan"},
             headers={
                 "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
                 "apikey": SUPABASE_SERVICE_KEY,
@@ -123,7 +123,7 @@ def _get_user_tier_from_db(user_id: str) -> Tier:
         if resp.status_code == 200:
             rows = resp.json()
             if rows:
-                return Tier.from_db(rows[0].get('tier', ''))
+                return Tier.from_db(rows[0].get('plan', ''))
     except Exception as e:
         logger.warning(f"Tier lookup error: {e}")
     return Tier.FREE
