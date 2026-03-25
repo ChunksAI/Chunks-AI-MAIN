@@ -46,6 +46,25 @@ class AskRequest(_LenientBase):
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  /ask-async                                                                ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+class AskAsyncRequest(_LenientBase):
+    """Identical to AskRequest — used for the async /ask-async endpoint."""
+    question: str = ""
+    complexity: int = Field(default=3, ge=1, le=10)
+    mode: str = "study"
+    bookId: str = "zumdahl"
+    thinking: Optional[str] = None
+    web_search: bool = False
+    history: List[Any] = Field(default_factory=list)
+    selected_text: str = ""
+    doc_context: str = ""
+    user_memory: str = ""
+    task_type: Optional[str] = None
+
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
 # ║  /generate-flashcards                                                      ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
@@ -239,3 +258,20 @@ class LoadBookResponse(BaseModel):
     book_name: str = ""
     author: str = ""
     chunks_count: int = 0
+
+
+class AskAsyncResponse(BaseModel):
+    """Response from POST /ask-async."""
+    success: bool
+    jobId: str = ""
+    status: str = "queued"
+
+
+class JobStatusResponse(BaseModel):
+    """Response from GET /jobs/<job_id>."""
+    model_config = {"extra": "allow"}
+    success: bool
+    jobId: str = ""
+    status: str = ""
+    result: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None

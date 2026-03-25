@@ -538,6 +538,7 @@ from routes.upload    import upload_bp
 from routes.study     import study_bp
 from routes.image     import image_bp
 from routes.chat      import chat_bp
+from routes.jobs      import jobs_bp
 
 app.register_blueprint(admin_bp)
 app.register_blueprint(health_bp)
@@ -547,6 +548,11 @@ app.register_blueprint(upload_bp)
 app.register_blueprint(study_bp)
 app.register_blueprint(image_bp)
 app.register_blueprint(chat_bp)
+app.register_blueprint(jobs_bp)
+
+# ── Initialise async job queue ────────────────────────────────────────────────
+from services.job_queue import job_queue as _job_queue
+_job_queue.init(redis=_redis)
 
 # ── Rate-limit decorators for blueprints that use ctx.limiter ─────────────────
 # Apply per-endpoint limits directly here so limiter is available at startup.
@@ -589,6 +595,16 @@ limiter.limit('120 per minute; 500 per hour')(
 )
 limiter.limit('60 per minute')(
     app.view_functions['health.ping']
+)
+limiter.limit(
+    '20 per minute; 100 per hour',
+    exempt_when=lambda: (
+        request.method == 'OPTIONS' or
+        request.headers.get('Authorization', '').strip().startswith('Bearer ')
+    )
+)(app.view_functions['jobs.ask_async'])
+limiter.limit('120 per minute; 500 per hour')(
+    app.view_functions['jobs.get_job_status']
 )
 
 
