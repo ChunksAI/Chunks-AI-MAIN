@@ -152,19 +152,19 @@ const LIBRARY_SCREEN_HTML = /* html */`
         </div>
         <div class="library-grid">
           <div class="library-book-card" onclick="selectBook('zumdahl')">
-            <div class="library-book-icon"><img src="/covers/zumdahl.jpg" alt="General Chemistry cover" onerror="this.parentElement.innerHTML='📗'"></div>
+            <div class="library-book-icon"><img loading="lazy" decoding="async" src="/covers/zumdahl.jpg" alt="General Chemistry cover" onerror="this.parentElement.innerHTML='📗'"></div>
             <div class="lib-book-info"><div class="library-book-title">General Chemistry</div><div class="library-book-author">Zumdahl &amp; Zumdahl</div><div class="library-book-edition">9th Edition</div><div class="library-book-meta"><span class="library-book-badge lib-badge-avail">✓ Available</span><span class="library-book-badge">Chemistry</span></div></div>
           </div>
           <div class="library-book-card" onclick="selectBook('atkins')">
-            <div class="library-book-icon"><img src="/covers/atkins.jpg" alt="Physical Chemistry cover" onerror="this.parentElement.innerHTML='📘'"></div>
+            <div class="library-book-icon"><img loading="lazy" decoding="async" src="/covers/atkins.jpg" alt="Physical Chemistry cover" onerror="this.parentElement.innerHTML='📘'"></div>
             <div class="lib-book-info"><div class="library-book-title">Physical Chemistry</div><div class="library-book-author">Atkins &amp; de Paula</div><div class="library-book-edition">8th Edition</div><div class="library-book-meta"><span class="library-book-badge lib-badge-avail">✓ Available</span><span class="library-book-badge">Physical Chem</span></div></div>
           </div>
           <div class="library-book-card" onclick="selectBook('klein')">
-            <div class="library-book-icon"><img src="/covers/klein.jpg" alt="Organic Chemistry cover" onerror="this.parentElement.innerHTML='📙'"></div>
+            <div class="library-book-icon"><img loading="lazy" decoding="async" src="/covers/klein.jpg" alt="Organic Chemistry cover" onerror="this.parentElement.innerHTML='📙'"></div>
             <div class="lib-book-info"><div class="library-book-title">Organic Chemistry</div><div class="library-book-author">David Klein</div><div class="library-book-edition">4th Edition</div><div class="library-book-meta"><span class="library-book-badge lib-badge-avail">✓ Available</span><span class="library-book-badge">Organic</span></div></div>
           </div>
           <div class="library-book-card" onclick="selectBook('harris')">
-            <div class="library-book-icon"><img src="/covers/harris.jpg" alt="Quantitative Chemical Analysis cover" onerror="this.parentElement.innerHTML='📒'"></div>
+            <div class="library-book-icon"><img loading="lazy" decoding="async" src="/covers/harris.jpg" alt="Quantitative Chemical Analysis cover" onerror="this.parentElement.innerHTML='📒'"></div>
             <div class="lib-book-info"><div class="library-book-title">Quantitative Chemical Analysis</div><div class="library-book-author">Daniel C. Harris</div><div class="library-book-edition">10th Edition</div><div class="library-book-meta"><span class="library-book-badge lib-badge-avail">✓ Available</span><span class="library-book-badge">Analytical</span></div></div>
           </div>
         </div>
@@ -182,15 +182,15 @@ const LIBRARY_SCREEN_HTML = /* html */`
         </div>
         <div class="library-grid">
           <div class="library-book-card" onclick="selectBook('anaphy2e')">
-            <div class="library-book-icon"><img src="/covers/anaphy2e.jpg" alt="Anatomy &amp; Physiology cover" onerror="this.parentElement.innerHTML='🧬'"></div>
+            <div class="library-book-icon"><img loading="lazy" decoding="async" src="/covers/anaphy2e.jpg" alt="Anatomy &amp; Physiology cover" onerror="this.parentElement.innerHTML='🧬'"></div>
             <div class="lib-book-info"><div class="library-book-title">Anatomy &amp; Physiology</div><div class="library-book-author">Patton &amp; Thibodeau</div><div class="library-book-edition">2nd Edition</div><div class="library-book-meta"><span class="library-book-badge lib-badge-avail">✓ Available</span><span class="library-book-badge">Biology</span></div></div>
           </div>
           <div class="library-book-card" onclick="selectBook('biology2e')">
-            <div class="library-book-icon"><img src="/covers/biology2e.jpg" alt="Biology cover" onerror="this.parentElement.innerHTML='🌿'"></div>
+            <div class="library-book-icon"><img loading="lazy" decoding="async" src="/covers/biology2e.jpg" alt="Biology cover" onerror="this.parentElement.innerHTML='🌿'"></div>
             <div class="lib-book-info"><div class="library-book-title">Biology</div><div class="library-book-author">OpenStax</div><div class="library-book-edition">2nd Edition</div><div class="library-book-meta"><span class="library-book-badge lib-badge-avail">✓ Available</span><span class="library-book-badge">Biology</span></div></div>
           </div>
           <div class="library-book-card" onclick="selectBook('biochem')">
-            <div class="library-book-icon"><img src="/covers/Biochem.jpg" alt="Biochemistry cover" onerror="this.parentElement.innerHTML='🔬'"></div>
+            <div class="library-book-icon"><img loading="lazy" decoding="async" src="/covers/Biochem.jpg" alt="Biochemistry cover" onerror="this.parentElement.innerHTML='🔬'"></div>
             <div class="lib-book-info"><div class="library-book-title">Biochemistry</div><div class="library-book-author">Berg, Tymoczko &amp; Stryer</div><div class="library-book-edition">9th Edition</div><div class="library-book-meta"><span class="library-book-badge lib-badge-avail">✓ Available</span><span class="library-book-badge">Biochem</span></div></div>
           </div>
         </div>
@@ -208,11 +208,11 @@ const LIBRARY_SCREEN_HTML = /* html */`
         </div>
         <div class="library-grid">
           <div class="library-book-card" onclick="selectBook('netter')">
-            <div class="library-book-icon"><img src="/covers/netter.jpg" alt="Atlas of Human Anatomy cover" onerror="this.parentElement.innerHTML='🫀'"></div>
+            <div class="library-book-icon"><img loading="lazy" decoding="async" src="/covers/netter.jpg" alt="Atlas of Human Anatomy cover" onerror="this.parentElement.innerHTML='🫀'"></div>
             <div class="lib-book-info"><div class="library-book-title">Atlas of Human Anatomy</div><div class="library-book-author">Frank H. Netter</div><div class="library-book-edition">7th Edition</div><div class="library-book-meta"><span class="library-book-badge lib-badge-avail">✓ Available</span><span class="library-book-badge">Anatomy</span></div></div>
           </div>
           <div class="library-book-card" onclick="selectBook('nursing-skills-2e')">
-            <div class="library-book-icon"><img src="/covers/nursing-skills-2e.jpg" alt="Nursing Skills cover" onerror="this.parentElement.innerHTML='🩺'"></div>
+            <div class="library-book-icon"><img loading="lazy" decoding="async" src="/covers/nursing-skills-2e.jpg" alt="Nursing Skills cover" onerror="this.parentElement.innerHTML='🩺'"></div>
             <div class="lib-book-info"><div class="library-book-title">Nursing Skills</div><div class="library-book-author">OpenStax</div><div class="library-book-edition">2nd Edition</div><div class="library-book-meta"><span class="library-book-badge lib-badge-avail">✓ Available</span><span class="library-book-badge">Nursing</span></div></div>
           </div>
         </div>
@@ -230,7 +230,7 @@ const LIBRARY_SCREEN_HTML = /* html */`
         </div>
         <div class="library-grid">
           <div class="library-book-card" onclick="selectBook('physics2e')">
-            <div class="library-book-icon"><img src="/covers/physics2e.jpg" alt="College Physics cover" onerror="this.parentElement.innerHTML='⚛️'"></div>
+            <div class="library-book-icon"><img loading="lazy" decoding="async" src="/covers/physics2e.jpg" alt="College Physics cover" onerror="this.parentElement.innerHTML='⚛️'"></div>
             <div class="lib-book-info"><div class="library-book-title">College Physics</div><div class="library-book-author">OpenStax</div><div class="library-book-edition">2nd Edition</div><div class="library-book-meta"><span class="library-book-badge lib-badge-avail">✓ Available</span><span class="library-book-badge">Physics</span></div></div>
           </div>
         </div>
@@ -248,7 +248,7 @@ const LIBRARY_SCREEN_HTML = /* html */`
         </div>
         <div class="library-grid">
           <div class="library-book-card" onclick="selectBook('psychology2e')">
-            <div class="library-book-icon"><img src="/covers/psychology2e.jpg" alt="Psychology cover" onerror="this.parentElement.innerHTML='🧠'"></div>
+            <div class="library-book-icon"><img loading="lazy" decoding="async" src="/covers/psychology2e.jpg" alt="Psychology cover" onerror="this.parentElement.innerHTML='🧠'"></div>
             <div class="lib-book-info"><div class="library-book-title">Psychology</div><div class="library-book-author">OpenStax</div><div class="library-book-edition">2nd Edition</div><div class="library-book-meta"><span class="library-book-badge lib-badge-avail">✓ Available</span><span class="library-book-badge">Psychology</span></div></div>
           </div>
         </div>

@@ -41,14 +41,18 @@ self.addEventListener('install', event => {
   );
 });
 
-// ── Activate: clean obsolete caches, claim clients ────────────────────────
+// ── Activate: clean obsolete caches, claim clients, enable nav preload ────
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys()
-      .then(keys => Promise.all(
-        keys.filter(k => !KNOWN_CACHES.has(k)).map(k => caches.delete(k))
-      ))
-      .then(() => self.clients.claim())
+    Promise.all([
+      caches.keys()
+        .then(keys => Promise.all(
+          keys.filter(k => !KNOWN_CACHES.has(k)).map(k => caches.delete(k))
+        )),
+      // Enable Navigation Preload so the network fetch for navigations starts
+      // in parallel with SW boot, saving ~50-200 ms on cold starts.
+      self.registration.navigationPreload?.enable().catch(() => {}),
+    ]).then(() => self.clients.claim())
   );
 });
 
@@ -79,9 +83,9 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 4. Navigation requests (HTML pages) — network-first
+  // 4. Navigation requests (HTML pages) — network-first w/ Navigation Preload
   if (request.mode === 'navigate') {
-    event.respondWith(_networkFirst(request, STATIC_CACHE));
+    event.respondWith(_networkFirst(request, STATIC_CACHE, event.preloadResponse));
     return;
   }
 
@@ -111,9 +115,10 @@ async function _cacheFirst(request, cacheName) {
 }
 
 // ── Strategy: network-first (navigation / HTML) ──────────────────────────
-async function _networkFirst(request, cacheName) {
+async function _networkFirst(request, cacheName, preloadResponse) {
   try {
-    const response = await fetch(request);
+    // Use Navigation Preload response when available (started during SW boot)
+    const response = await (preloadResponse || fetch(request));
     if (response.ok) {
       const cache = await caches.open(cacheName);
       cache.put(request, response.clone());

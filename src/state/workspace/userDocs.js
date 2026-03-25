@@ -134,19 +134,24 @@ export async function selectUserDoc(docId) {
       }, { root: wrap, rootMargin: '300px' });
       ws.pageContainers.slice(2).forEach(c => observer.observe(c));
 
+      let _udScrollRaf = 0;
       wrap.addEventListener('scroll', () => {
-        const scrollMid = wrap.scrollTop + wrap.clientHeight / 2;
-        let closest = 1;
-        for (let i = 0; i < ws.pageContainers.length; i++) {
-          const c = ws.pageContainers[i];
-          if (c.offsetTop <= scrollMid) closest = i + 1;
-          else break;
-        }
-        if (closest !== ws.currentPage) {
-          ws.currentPage = closest;
-          _wsUpdateBadge(closest);
-        }
-      });
+        if (_udScrollRaf) return;
+        _udScrollRaf = requestAnimationFrame(() => {
+          _udScrollRaf = 0;
+          const scrollMid = wrap.scrollTop + wrap.clientHeight / 2;
+          let closest = 1;
+          for (let i = 0; i < ws.pageContainers.length; i++) {
+            const c = ws.pageContainers[i];
+            if (c.offsetTop <= scrollMid) closest = i + 1;
+            else break;
+          }
+          if (closest !== ws.currentPage) {
+            ws.currentPage = closest;
+            _wsUpdateBadge(closest);
+          }
+        });
+      }, { passive: true });
 
       hide($el('ws-pdf-loading'));
       hide($el('ws-default-content'));
@@ -213,18 +218,23 @@ async function _wsRenderPptSlides(meta) {
     ws.pageContainers.push(card);
   });
 
+  let _udSlideScrollRaf = 0;
   wrap.addEventListener('scroll', () => {
-    const scrollMid = wrap.scrollTop + wrap.clientHeight / 2;
-    let closest = 1;
-    for (let i = 0; i < ws.pageContainers.length; i++) {
-      if (ws.pageContainers[i].offsetTop <= scrollMid) closest = i + 1;
-      else break;
-    }
-    if (closest !== ws.currentPage) {
-      ws.currentPage = closest;
-      _wsUpdateBadge(closest);
-    }
-  });
+    if (_udSlideScrollRaf) return;
+    _udSlideScrollRaf = requestAnimationFrame(() => {
+      _udSlideScrollRaf = 0;
+      const scrollMid = wrap.scrollTop + wrap.clientHeight / 2;
+      let closest = 1;
+      for (let i = 0; i < ws.pageContainers.length; i++) {
+        if (ws.pageContainers[i].offsetTop <= scrollMid) closest = i + 1;
+        else break;
+      }
+      if (closest !== ws.currentPage) {
+        ws.currentPage = closest;
+        _wsUpdateBadge(closest);
+      }
+    });
+  }, { passive: true });
 
   hide($el('ws-pdf-loading'));
   hide($el('ws-default-content'));

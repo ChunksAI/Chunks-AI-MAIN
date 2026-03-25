@@ -208,25 +208,30 @@ export async function selectBook(bookId) {
     }, { root: wrap, rootMargin: '300px' });
     ws.pageContainers.slice(2).forEach(c => observer.observe(c));
 
+    let _booksScrollRaf = 0;
     wrap.addEventListener('scroll', () => {
-      const scrollMid = wrap.scrollTop + wrap.clientHeight / 2;
-      let closest = 1;
-      for (let i = 0; i < ws.pageContainers.length; i++) {
-        const c = ws.pageContainers[i];
-        if (c.offsetTop <= scrollMid) closest = i + 1;
-        else break;
-      }
-      if (closest !== ws.currentPage) {
-        ws.currentPage = closest;
-        _wsUpdateBadge(closest);
-        _wsUpdateOutlineActive(closest);
-        // Phase 3: debounced sync on scroll-based page change
-        clearTimeout(_wsSaveScrollTm);
-        _wsSaveScrollTm = setTimeout(() => {
-          ChunksDB?.ws?.savePosition?.(ws.bookId, { page: closest, zoom: ws.scale });
-        }, 2000);
-      }
-    });
+      if (_booksScrollRaf) return;
+      _booksScrollRaf = requestAnimationFrame(() => {
+        _booksScrollRaf = 0;
+        const scrollMid = wrap.scrollTop + wrap.clientHeight / 2;
+        let closest = 1;
+        for (let i = 0; i < ws.pageContainers.length; i++) {
+          const c = ws.pageContainers[i];
+          if (c.offsetTop <= scrollMid) closest = i + 1;
+          else break;
+        }
+        if (closest !== ws.currentPage) {
+          ws.currentPage = closest;
+          _wsUpdateBadge(closest);
+          _wsUpdateOutlineActive(closest);
+          // Phase 3: debounced sync on scroll-based page change
+          clearTimeout(_wsSaveScrollTm);
+          _wsSaveScrollTm = setTimeout(() => {
+            ChunksDB?.ws?.savePosition?.(ws.bookId, { page: closest, zoom: ws.scale });
+          }, 2000);
+        }
+      });
+    }, { passive: true });
 
     hide($el('ws-pdf-loading'));
     hide($el('ws-default-content'));

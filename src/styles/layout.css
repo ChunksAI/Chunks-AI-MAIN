@@ -5,7 +5,7 @@
 ═══════════════════════════════════════════════════════════ */
 
 /* ── Screen system ────────────────────────────────────────── */
-.screen { display: none; height: 100vh; overflow: hidden; }
+.screen { display: none; height: 100vh; overflow: hidden; contain: layout style paint; }
 .screen.active { display: flex; flex-direction: column; overflow: hidden; animation: screenIn var(--t-mid) var(--ease-snap) both; }
 
 /* ── Skeleton / shimmer loading utilities ─────────────────── */
@@ -33,6 +33,7 @@
 .bug-modal-overlay, .help-modal, .mobile-bottom-nav, .sp-topbar,
 #sp-generating-overlay, .mobile-drawer-overlay, #fc-complete-modal {
   will-change: transform;
+  contain: layout style;
 }
 
 /* Fallback for browsers without backdrop-filter support
