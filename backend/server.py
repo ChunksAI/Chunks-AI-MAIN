@@ -273,6 +273,7 @@ import services.ai   as _ai_svc
 import services.books as _books_svc
 import services.embedding_cache as _embed_cache_svc
 import services.vector_store as _vector_store_svc
+import services.answer_cache as _answer_cache_svc
 
 _auth_svc.init(
     session              = _session,
@@ -298,6 +299,7 @@ _books_svc.init(
     redis              = _redis,
 )
 _embed_cache_svc.init(redis=_redis)
+_answer_cache_svc.init(redis=_redis)
 
 # ── Re-export BOOK_LIBRARY for backward compatibility ─────────────────────────
 # paev_routes.py and other existing modules do: from server import BOOK_LIBRARY

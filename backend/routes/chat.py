@@ -133,6 +133,35 @@ def ask():
                 context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
                 logger.info("Chit-chat / no book loaded")
 
+        # ── Semantic answer cache check ───────────────────────────────────────
+        from services import answer_cache as _answer_cache
+        _sem_eligible = (
+            _cache_eligible
+            and mode != 'generate'
+            and use_textbook
+            and searcher.has_embeddings
+            and not selected_text
+            and not user_memory
+        )
+        _sem_ctx_hash = None
+        _query_emb_list = None
+        if _sem_eligible:
+            _query_emb = searcher._embed_query(question)
+            if _query_emb is not None:
+                _query_emb_list = (
+                    _query_emb.tolist()
+                    if hasattr(_query_emb, 'tolist')
+                    else list(_query_emb)
+                )
+                _sem_ctx_hash = _answer_cache.context_hash(mode, complexity, context)
+                _sem_hit = _answer_cache.lookup(_query_emb_list, _sem_ctx_hash)
+                if _sem_hit:
+                    _sem_hit['cached'] = True
+                    _sem_hit['semantic_cached'] = True
+                    return jsonify(_sem_hit)
+            else:
+                _sem_eligible = False
+
         # ── Shared prompt helpers ─────────────────────────────────────────────
         complexity_levels = {
             1:  "Explain in the simplest possible terms, like to a curious 10-year-old. Use everyday analogies only.",
@@ -412,6 +441,8 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 _ask_cache_set(_cache_key_val, _resp,
                                task_type=task_type, mode=mode,
                                book_id=book_id, model_used=selected_model)
+            if _sem_eligible and _sem_ctx_hash and _query_emb_list:
+                _answer_cache.store(_query_emb_list, _sem_ctx_hash, _resp)
             return jsonify(_resp)
 
         # ── MODE: GENERATE ────────────────────────────────────────────────────
@@ -571,6 +602,8 @@ Answer helpfully and clearly."""
                 _ask_cache_set(_cache_key_val, _resp,
                                task_type=task_type, mode=mode,
                                book_id=book_id, model_used=selected_model)
+            if _sem_eligible and _sem_ctx_hash and _query_emb_list:
+                _answer_cache.store(_query_emb_list, _sem_ctx_hash, _resp)
             return jsonify(_resp)
 
     except Exception as e:
