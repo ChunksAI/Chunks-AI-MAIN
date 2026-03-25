@@ -1766,7 +1766,11 @@ export function mountVisualTutorScreen() {
       }
 
       entryEl.addEventListener('scroll', _updateHint, { passive: true });
-      window.addEventListener('resize', _updateHint);
+      let _vtpHintResizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(_vtpHintResizeTimer);
+        _vtpHintResizeTimer = setTimeout(_updateHint, 150);
+      });
       // Check after a short delay to let layout settle
       setTimeout(_updateHint, 400);
     })();
@@ -1958,7 +1962,11 @@ function _vtpInitEntryAnimations() {
     canvas.height = screen ? screen.offsetHeight : window.innerHeight;
   }
   _resizeCanvas();
-  window.addEventListener('resize', _resizeCanvas);
+  let _vtpPartResizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(_vtpPartResizeTimer);
+    _vtpPartResizeTimer = setTimeout(_resizeCanvas, 150);
+  });
 
   const PART_COLORS = ['rgba(232,172,46,','rgba(139,124,248,','rgba(45,212,191,'];
   const _parts = Array.from({length: 55}, () => ({
