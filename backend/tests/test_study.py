@@ -273,3 +273,142 @@ def test_quiz_with_existing_questions(client, monkeypatch, mock_guest_gate, mock
     assert resp.status_code == 200
     data = resp.get_json()
     assert data['success'] is True
+
+
+# ── question_type field tests ────────────────────────────────────────────────
+
+
+def test_quiz_question_type_truefalse(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """Quiz with question_type='truefalse' succeeds and includes type instruction in prompt."""
+    import server as srv
+    import services.ai as ai_svc
+    mock_ai = _study_mocks(monkeypatch)
+    mock_ai.return_value = "Q1. Water is H2O.\nA) True\nB) False\nAnswer: A\nExplanation: Correct."
+    monkeypatch.setattr(srv, '_parse_mcq', MagicMock(return_value=[
+        {'question': 'Water is H2O.', 'options': {'A': 'True', 'B': 'False'}, 'answer': 'A'}
+    ]))
+
+    resp = client.post('/generate-quiz', json={
+        'slides': SAMPLE_SLIDES,
+        'count': 5,
+        'question_type': 'truefalse',
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    # Verify the AI was called with a prompt containing the true/false instruction
+    call_args = ai_svc.call_ai.call_args
+    prompt_text = call_args[0][0] if call_args[0] else ''
+    assert 'TRUE / FALSE' in prompt_text or 'true' in prompt_text.lower()
+
+
+def test_quiz_question_type_fillinblank(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """Quiz with question_type='fillinblank' succeeds and includes fill-in-blank instruction."""
+    import server as srv
+    import services.ai as ai_svc
+    mock_ai = _study_mocks(monkeypatch)
+    mock_ai.return_value = "Q1. The chemical formula for water is ___.\nA) H2O\nB) NaCl\nC) CO2\nD) N2\nAnswer: A\nExplanation: Correct."
+    monkeypatch.setattr(srv, '_parse_mcq', MagicMock(return_value=[
+        {'question': 'The chemical formula for water is ___.', 'options': {'A': 'H2O', 'B': 'NaCl', 'C': 'CO2', 'D': 'N2'}, 'answer': 'A'}
+    ]))
+
+    resp = client.post('/generate-quiz', json={
+        'slides': SAMPLE_SLIDES,
+        'count': 5,
+        'question_type': 'fillinblank',
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    call_args = ai_svc.call_ai.call_args
+    prompt_text = call_args[0][0] if call_args[0] else ''
+    assert 'FILL IN THE BLANK' in prompt_text
+
+
+def test_quiz_question_type_matching(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """Quiz with question_type='matching' succeeds and includes matching instruction."""
+    import server as srv
+    import services.ai as ai_svc
+    mock_ai = _study_mocks(monkeypatch)
+    mock_ai.return_value = "Q1. Match: H2O\nA) Water\nB) Salt\nC) Gas\nD) Metal\nAnswer: A\nExplanation: H2O is water."
+    monkeypatch.setattr(srv, '_parse_mcq', MagicMock(return_value=[
+        {'question': 'Match: H2O', 'options': {'A': 'Water', 'B': 'Salt', 'C': 'Gas', 'D': 'Metal'}, 'answer': 'A'}
+    ]))
+
+    resp = client.post('/generate-quiz', json={
+        'slides': SAMPLE_SLIDES,
+        'count': 5,
+        'question_type': 'matching',
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    call_args = ai_svc.call_ai.call_args
+    prompt_text = call_args[0][0] if call_args[0] else ''
+    assert 'MATCHING' in prompt_text
+
+
+def test_quiz_invalid_question_type_defaults_to_mcq(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """Quiz with invalid question_type falls back to mcq."""
+    import server as srv
+    mock_ai = _study_mocks(monkeypatch)
+    mock_ai.return_value = "Q1. What is water?\nA) H2O\nB) NaCl\nC) CO2\nD) N2\nAnswer: A\nExplanation: Water is H2O."
+    monkeypatch.setattr(srv, '_parse_mcq', MagicMock(return_value=[
+        {'question': 'What is water?', 'options': {'A': 'H2O'}, 'answer': 'A'}
+    ]))
+
+    resp = client.post('/generate-quiz', json={
+        'slides': SAMPLE_SLIDES,
+        'count': 5,
+        'question_type': 'invalid_type',
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+
+
+# ── _parse_mcq improvement tests ─────────────────────────────────────────────
+
+
+def test_parse_mcq_true_false():
+    """_parse_mcq can parse True/False questions with A-B options."""
+    from server import _parse_mcq
+    raw = (
+        "Q1. Water is composed of hydrogen and oxygen.\n"
+        "A) True\n"
+        "B) False\n"
+        "Answer: A\n"
+        "Explanation: Water (H2O) is indeed composed of hydrogen and oxygen.\n"
+        "\n"
+        "Q2. Salt is an element.\n"
+        "A) True\n"
+        "B) False\n"
+        "Answer: B\n"
+        "Explanation: Salt (NaCl) is a compound, not an element."
+    )
+    questions = _parse_mcq(raw)
+    assert len(questions) == 2
+    assert questions[0]['options'] == {'A': 'True', 'B': 'False'}
+    assert questions[0]['answer'] == 'A'
+    assert questions[1]['answer'] == 'B'
+
+
+def test_parse_mcq_extended_options():
+    """_parse_mcq can parse questions with E and F options."""
+    from server import _parse_mcq
+    raw = (
+        "Q1. Which elements are noble gases?\n"
+        "A) Helium\n"
+        "B) Neon\n"
+        "C) Argon\n"
+        "D) Krypton\n"
+        "E) All of the above\n"
+        "F) None of the above\n"
+        "Answer: E\n"
+        "Explanation: All listed elements are noble gases."
+    )
+    questions = _parse_mcq(raw)
+    assert len(questions) == 1
+    assert 'E' in questions[0]['options']
+    assert 'F' in questions[0]['options']
+    assert questions[0]['answer'] == 'E'

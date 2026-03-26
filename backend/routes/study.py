@@ -298,6 +298,7 @@ def generate_quiz():
         count              = max(5, min(50, int(data.get('count', 10))))
         difficulty         = data.get('difficulty', 'medium').lower().strip()
         quiz_mode          = data.get('mode', 'standard').lower().strip()
+        question_type      = data.get('question_type', 'mcq').lower().strip()
         existing_questions = data.get('existingQuestions', [])
 
         from services.auth import _extract_verified_user
@@ -392,6 +393,43 @@ def generate_quiz():
         else:
             mode_instruction = ""
 
+        # ── Question-type format instructions ─────────────────────────────
+        _VALID_QUESTION_TYPES = {
+            'mcq', 'truefalse', 'fillinblank', 'matching',
+            'situational', 'cbl', 'mixed', 'openended',
+        }
+        if question_type not in _VALID_QUESTION_TYPES:
+            question_type = 'mcq'
+
+        question_type_instructions = {
+            'truefalse': (
+                "\nQUESTION FORMAT: TRUE / FALSE\n"
+                "- Each question is a clear statement that is either True or False\n"
+                "- Options are exactly: A) True  B) False\n"
+                "- Answer is A or B\n"
+                "- Statements must be precise — avoid ambiguity\n"
+                "- Mix true and false answers roughly equally\n"
+                "- Use the same Q/A/Explanation output format as MCQ"
+            ),
+            'fillinblank': (
+                "\nQUESTION FORMAT: FILL IN THE BLANK\n"
+                "- Each question contains exactly one blank shown as ___\n"
+                "- Provide 4 options labeled A-D that could fill the blank\n"
+                "- Only one option correctly completes the statement\n"
+                "- Distractors should be plausible terms from the same domain\n"
+                "- Use the same Q/A/Explanation output format as MCQ"
+            ),
+            'matching': (
+                "\nQUESTION FORMAT: MATCHING\n"
+                "- Present a term or concept, then ask which description/definition matches it\n"
+                "- Provide 4 options labeled A-D, each a possible match\n"
+                "- Only one option is the correct match\n"
+                "- Distractors should be real definitions/descriptions of related concepts\n"
+                "- Use the same Q/A/Explanation output format as MCQ"
+            ),
+        }
+        qtype_instruction = question_type_instructions.get(question_type, "")
+
         slide_count = len([s for s in slides if any(s.get('content', []))])
         coverage_note = ""
         if slide_count > 5:
@@ -406,7 +444,7 @@ Below is the EXACT text from a student's lecture slides.
 
 YOUR TASK: Generate exactly {count} multiple-choice questions based STRICTLY on this content.
 
-{diff_text}{mode_instruction}{coverage_note}{no_repeat_block}
+{diff_text}{mode_instruction}{qtype_instruction}{coverage_note}{no_repeat_block}
 
 STRICT OUTPUT FORMAT — follow this exactly for every question, no deviations:
 Q1. [Question text — write a complete, grammatically correct question]
