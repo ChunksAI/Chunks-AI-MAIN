@@ -2158,33 +2158,55 @@ function _bindSetupForm() {
 // Pass an AbortSignal as the second arg (e.g. for paper search cancellation).
 async function _researchFetchWithRetry(bodyObj, signal, _statusEl) {
   // _statusEl (optional): a DOM element to show live countdown during rate-limit waits
-  // Always use the async Supabase-backed auth header (same as workspace/flash/etc.)
-  // The synchronous _getAuthHeader() in app.html reads stale localStorage and can
-  // return {} even when the user is logged in, causing the backend to treat them
-  // as a guest and hit the 1-request/day research limit.
-  const _authHdr = (typeof window._getAuthHeader === 'function')
-    ? await window._getAuthHeader()
-    : _getAuthHeader();
+  // Auth header is fetched inside the loop so each retry gets a fresh token,
+  // preventing stale-token 403s on long sessions.
 
   const MAX_ATTEMPTS = 4;
   const DELAYS = [2000, 4000, 8000]; // 2s, 4s, 8s between retries
   let res;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    // Refresh auth header on every attempt so an expired token is never re-used.
+    const _authHdr = (typeof window._getAuthHeader === 'function')
+      ? await window._getAuthHeader()
+      : _getAuthHeader();
+
     res = await fetch(API_BASE + '/ask', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', ..._authHdr },
       ...(signal ? { signal } : {}),
       body:    JSON.stringify(bodyObj)
     });
+
+    // 403 — CSRF / origin mismatch or auth failure.
+    // Retry once with a freshly-fetched token; give up on a second 403.
+    if (res.status === 403) {
+      if (attempt === 0) {
+        await new Promise(r => setTimeout(r, 500));
+        continue;
+      }
+      break; // second 403 — let the caller surface the error
+    }
+
     if (res.status !== 429) break;
-    // Check for daily limit (signed-in free user) or guest wall — stop retrying and show upgrade modal
+
+    // 429 — check why before deciding to retry.
     const d429 = await res.clone().json().catch(() => ({}));
+
+    // Guest wall — stop immediately and show login prompt.
     if (_handleGuestLimited(d429)) {
       throw Object.assign(new Error('guest_limited'), { _guestLimited: true });
     }
+
+    // Plan limit exceeded — opening the upgrade modal is more helpful than retrying.
+    if (d429.plan_limited && d429.upgrade_needed) {
+      if (typeof window.openUpgradeModal === 'function') window.openUpgradeModal();
+      throw Object.assign(new Error('plan_limited'), { _planLimited: true });
+    }
+
     if (attempt >= MAX_ATTEMPTS - 1) {
       throw new Error('Server is busy — please try again in a moment.');
     }
+
     // Show live countdown so the UI doesn't look frozen
     const waitMs = DELAYS[attempt] || 8000;
     const waitSec = Math.ceil(waitMs / 1000);
@@ -2369,9 +2391,19 @@ Rules:
     _showResearchView();
 
   } catch (err) {
+    clearInterval(_stageTimerHandle); _stageTimerHandle = null;
+
+    // Plan-limited: upgrade modal already opened by _researchFetchWithRetry — just reset the button.
+    // Guest-limited: login wall already shown — same.
+    if (err._planLimited || err._guestLimited) {
+      progress.style.display = 'none';
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      return;
+    }
+
     console.error('Outline generation failed:', err);
     console.error('Backend URL was:', API_BASE + '/ask');
-    clearInterval(_stageTimerHandle); _stageTimerHandle = null;
 
     // Show the REAL error so it's debuggable
     const errMsg = err?.message || String(err);
