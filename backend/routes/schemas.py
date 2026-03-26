@@ -100,6 +100,7 @@ class QuizRequest(_LenientBase):
     count: int = Field(default=10, ge=5, le=50)
     difficulty: str = "medium"
     mode: str = "standard"
+    question_type: str = "mcq"
     existingQuestions: List[str] = Field(default_factory=list)
 
 

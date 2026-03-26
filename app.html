@@ -4546,6 +4546,7 @@ let _examDiff        = 'medium';
 let _examStreakBest  = 0;
 let _examStreakCur   = 0;
 let _activeExamRecentId = null; // tracks sidebar entry for current exam session — retakes update it
+let _examAbortCtrl   = null;    // AbortController for in-flight exam API calls
 
 // ── Task 5: Adaptive difficulty ramp state ────────────────────────────────
 let _examAdaptiveDiff    = 'medium'; // current live difficulty level
@@ -4563,6 +4564,10 @@ function examSelectType(btn) {
   if (cblHint) cblHint.style.display = _examType === 'cbl' ? '' : 'none';
   const oeHint = document.getElementById('exam-openended-hint');
   if (oeHint) oeHint.style.display = _examType === 'openended' ? '' : 'none';
+  const fibHint = document.getElementById('exam-fillinblank-hint');
+  if (fibHint) fibHint.style.display = _examType === 'fillinblank' ? '' : 'none';
+  const matchHint = document.getElementById('exam-matching-hint');
+  if (matchHint) matchHint.style.display = _examType === 'matching' ? '' : 'none';
 }
 
 function examSelectDiff(btn) {
@@ -4625,10 +4630,12 @@ async function _examCallAPI(prompt, retries = 3) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const _examAuthHdr = typeof window._getAuthHeader === 'function' ? await window._getAuthHeader() : _getAuthHeader();
-      const resp = await fetch(API_BASE + '/ask', {
+      const fetchOpts = {
         method: 'POST', headers: {'Content-Type':'application/json', ..._examAuthHdr},
         body: JSON.stringify({ question: prompt, mode: 'generate', task_type: 'exam', ...(() => { const p = _aiParams(6); return { complexity: p.complexity, language: p.language, safe_content: p.safe_content }; })(), bookId: 'none', history: [] })
-      });
+      };
+      if (_examAbortCtrl) fetchOpts.signal = _examAbortCtrl.signal;
+      const resp = await fetch(API_BASE + '/ask', fetchOpts);
       if (resp.status === 429) {
         // Could be guest IP limit OR server rate limit — check body
         try {
@@ -4918,7 +4925,7 @@ ${_labeledSrc.slice(0, 55000)}
     } else {
       prompt = `You are creating an exam from the following source material.${topicClause}
 Generate exactly ${count} ${typeLabel} exam questions. Difficulty: ${_examDiff}.
-Base your questions ONLY on the content provided. Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
+Base your questions ONLY on the content provided. Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. Fill-in-the-blank questions must contain ___ in the question text with 4 options. Matching questions present a term and ask which definition fits. One correct answer each. Include a 1-2 sentence explanation per question.
 Each question MUST include a "ref" field citing the [BLOCK X of Y] it came from (e.g. "ref": "Block 3").
 Output ONLY a raw JSON array with no markdown:
 [{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
@@ -4960,9 +4967,9 @@ Output ONLY a raw JSON array with no markdown:
 [{"q":"...","ideal_answer":"...","rubric":["point 1","point 2","point 3"],"explanation":"..."}]`;
     } else {
       prompt = `Generate exactly ${count} ${typeLabel} exam questions about: "${topic}". Difficulty: ${_examDiff}.
-Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
+Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. Fill-in-the-blank questions must contain ___ in the question text with 4 options. Matching questions present a term and ask which definition fits. One correct answer each. Include a 1-2 sentence explanation per question.
 Output ONLY a raw JSON array with no markdown:
-[{"q":"SCENARIO: ...\n\nQuestion: What should you do?","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
+[{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
     }
   }
   return await _examBatchedGenerate(_examInjectWeak(prompt, weakContext), count);
@@ -4997,7 +5004,7 @@ Read the ENTIRE source material below (labeled by block) from start to finish.
 Identify EVERY distinct concept across ALL blocks — do not skip any block.
 Generate up to ${count} ${typeLabel} exam questions covering the FULL document evenly across all blocks.
 Difficulty: ${_examDiff}.
-Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
+Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. Fill-in-the-blank questions must contain ___ in the question text with 4 options. Matching questions present a term and ask which definition fits. One correct answer each. Include a 1-2 sentence explanation per question.
 Each question MUST include a "ref" field citing the block it came from (e.g. "ref": "Block 3").
 Output ONLY a raw JSON array with no markdown:
 [{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
@@ -5034,7 +5041,7 @@ Output ONLY a raw JSON array — no markdown, no extra fields:
     } else {
       prompt = `You are a thorough exam writer. Generate exactly ${count} ${typeLabel} exam questions about: "${topic}".
 Difficulty: ${_examDiff}. Cover a broad range of subtopics — do not focus only on the most obvious concepts.
-Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
+Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. Fill-in-the-blank questions must contain ___ in the question text with 4 options. Matching questions present a term and ask which definition fits. One correct answer each. Include a 1-2 sentence explanation per question.
 Output ONLY a raw JSON array with no markdown:
 [{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"..."}]`;
     }
@@ -5131,7 +5138,7 @@ ${conceptList}`;
     prompt = `You are a precise exam writer. ${topicLine}
 Generate exactly ${capped.length} ${typeLabel} exam questions — one per concept listed below.
 Each question must test the specific concept it corresponds to. Difficulty: ${_examDiff}.
-Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer each. Include a 1-2 sentence explanation per question.
+Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. Fill-in-the-blank questions must contain ___ in the question text with 4 options. Matching questions present a term and ask which definition fits. One correct answer each. Include a 1-2 sentence explanation per question.
 Each question MUST include the "ref" value from its concept entry (e.g. "ref": "Block 3 of 12").
 Output ONLY a raw JSON array with no markdown, in the same order as the concepts:
 [{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
@@ -5179,7 +5186,7 @@ ${batchList}`;
     } else {
       batchPrompt = `You are a precise exam writer. ${topicLine}
 Generate exactly ${batch.length} ${typeLabel} exam questions — one per concept listed below. Difficulty: ${_examDiff}.
-Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. One correct answer. Include a 1-2 sentence explanation.
+Rules: MCQ has 4 options labeled A-D. True/False options are exactly ["True","False"]. Fill-in-the-blank questions must contain ___ in the question text with 4 options. Matching questions present a term and ask which definition fits. One correct answer. Include a 1-2 sentence explanation.
 Each question MUST include the "ref" value from its concept entry.
 Output ONLY a raw JSON array with no markdown:
 [{"q":"...","options":["A. ...","B. ...","C. ...","D. ..."],"answer":"A","explanation":"...","ref":"Block X"}]
@@ -5322,6 +5329,8 @@ function _examAdaptiveReorder() {
 }
 
 async function examStart() {
+  const startBtn = document.getElementById('exam-start-btn');
+  if (startBtn.disabled) return; // prevent double-click race
   const topic = document.getElementById('exam-topic-input').value.trim();
   const errEl = document.getElementById('exam-error');
   errEl.style.display = 'none';
@@ -5344,7 +5353,7 @@ async function examStart() {
   _examTopic    = topic || _examSourceLabel || 'Uploaded document';
   _examTimerSec = timeSec;
 
-  document.getElementById('exam-start-btn').disabled = true;
+  startBtn.disabled = true;
   document.getElementById('exam-loading-topic').textContent = _examTopic;
   document.getElementById('exam-loading-text').textContent  =
     _examScanMode === 'deep' ? 'Deep scanning your document…' :
@@ -5374,10 +5383,14 @@ async function examStart() {
 
   _examShow('exam-loading');
 
-  const typeLabel = {mcq:'multiple-choice',truefalse:'true/false',situational:'situational',cbl:'case-based-learning',mixed:'mixed (include a variety: multiple-choice, true/false, and situational)',openended:'open-ended'}[_examType];
+  const typeLabel = {mcq:'multiple-choice',truefalse:'true/false',fillinblank:'fill-in-the-blank',matching:'matching',situational:'situational',cbl:'case-based-learning',mixed:'mixed (include a variety: multiple-choice, true/false, fill-in-the-blank, and situational)',openended:'open-ended'}[_examType];
 
   // ── Task 3: Build adaptive weak context from history ─────────────────────
   const _weakContext = _examGetWeakContext(_examTopic);
+
+  // Cancel any previous in-flight generation
+  if (_examAbortCtrl) _examAbortCtrl.abort();
+  _examAbortCtrl = new AbortController();
 
   try {
     let questions;
@@ -5432,11 +5445,13 @@ async function examStart() {
     else document.getElementById('exam-timer-display').style.display = 'none';
 
   } catch(err) {
+    if (err.name === 'AbortError') { _examShow('exam-setup'); return; }
     _examShow('exam-setup');
     errEl.textContent = err.message;
     errEl.style.display = 'block';
   } finally {
-    document.getElementById('exam-start-btn').disabled = false;
+    startBtn.disabled = false;
+    _examAbortCtrl = null;
   }
 }
 
@@ -6360,7 +6375,7 @@ function examRetry() {
   examStart();
 }
 function examNewTopic() { _activeExamRecentId = null; document.getElementById('exam-topic-input').value = ''; _examShow('exam-setup'); }
-function examAbort() { clearInterval(_examTimerHandle); _examShow('exam-setup'); }
+function examAbort() { clearInterval(_examTimerHandle); if (_examAbortCtrl) { _examAbortCtrl.abort(); _examAbortCtrl = null; } _examShow('exam-setup'); }
 
 // Expose for sidebar _clickRecent
 window._examLoadSnap = _examLoadSnap;

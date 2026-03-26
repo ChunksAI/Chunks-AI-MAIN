@@ -69,7 +69,7 @@ export function _spExamUpdateTimerDisplay(sec) {
   const str = Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0');
   ['sp-exam-timer','sp-exam-timer-display'].forEach(id => {
     const el = $el(id);
-    if (el) { setText(el, str); el.style.color = sec <= 60 ? 'var(--red)' : sec <= 120 ? 'var(--gold)' : 'var(--red)'; }
+    if (el) { setText(el, str); el.style.color = sec <= 60 ? 'var(--red)' : sec <= 120 ? 'var(--gold)' : 'var(--text-2)'; }
   });
 }
 

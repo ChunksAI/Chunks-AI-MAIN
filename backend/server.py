@@ -540,7 +540,11 @@ def _sb_cache_set(key: str, payload: dict, task_type: str | None,
 # ── MCQ parser (used by routes/chat.py and routes/study.py) ──────────────────
 
 def _parse_mcq(raw_text):
-    """Parse AI-generated MCQ text into a list of question dicts."""
+    """Parse AI-generated MCQ text into a list of question dicts.
+
+    Supports standard A-D multiple choice as well as A-B True/False
+    format (options regex accepts A-F to be lenient).
+    """
     questions = []
     blocks = re.split(r'\n(?=Q\d+\.)', raw_text.strip())
 
@@ -568,7 +572,7 @@ def _parse_mcq(raw_text):
                 active_field = 'question'
                 continue
 
-            m = re.match(r'^([A-D])[).]\s*(.*)', stripped)
+            m = re.match(r'^([A-F])[).]\s*(.*)', stripped)
             if m:
                 q_obj['options'][m.group(1)] = m.group(2)
                 active_field = 'option'

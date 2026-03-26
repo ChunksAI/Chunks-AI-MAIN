@@ -182,6 +182,12 @@ const EXAM_HTML = /* html */`
                 <button class="exam-type-btn" data-type="truefalse" data-action="examSelectType-self">
                   <span class="etb-icon">✅</span>True / False
                 </button>
+                <button class="exam-type-btn" data-type="fillinblank" data-action="examSelectType-self">
+                  <span class="etb-icon">📝</span>Fill in Blank
+                </button>
+                <button class="exam-type-btn" data-type="matching" data-action="examSelectType-self">
+                  <span class="etb-icon">🔗</span>Matching
+                </button>
                 <button class="exam-type-btn" data-type="situational" data-action="examSelectType-self">
                   <span class="etb-icon">⚡</span>Situational
                 </button>
@@ -202,6 +208,14 @@ const EXAM_HTML = /* html */`
               <!-- Situational hint -->
               <div id="exam-situational-hint" style="display:none;margin-top:8px;font-size:12px;color:#c8c0e0;padding:10px 14px;background:rgba(139,92,246,0.13);border:1px solid rgba(139,92,246,0.35);border-radius:var(--r-sm);line-height:1.6;">
                 📋 Situational questions present a real-world scenario (patient case, workplace event, academic problem) and ask what the <strong style="color:#b899ff;font-weight:700;">best course of action</strong> is. Great for clinical, professional, or applied exams.
+              </div>
+              <!-- Fill-in-the-Blank hint -->
+              <div id="exam-fillinblank-hint" style="display:none;margin-top:8px;font-size:12px;color:#c0d0e8;padding:10px 14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:var(--r-sm);line-height:1.6;">
+                📝 Fill-in-the-blank questions present a statement with a missing word or phrase. Pick the <strong style="color:#93bbff;font-weight:700;">correct term</strong> from four options. Great for testing vocabulary and key concepts.
+              </div>
+              <!-- Matching hint -->
+              <div id="exam-matching-hint" style="display:none;margin-top:8px;font-size:12px;color:#c8dcc0;padding:10px 14px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:var(--r-sm);line-height:1.6;">
+                🔗 Matching questions present a term and ask you to <strong style="color:#86efac;font-weight:700;">match it to the correct definition or description</strong> from four options. Tests associations between related concepts.
               </div>
               <!-- Open-Ended hint -->
               <div id="exam-openended-hint" style="display:none;margin-top:8px;font-size:12px;color:#c0d8c0;padding:10px 14px;background:rgba(45,212,191,0.08);border:1px solid rgba(45,212,191,0.25);border-radius:var(--r-sm);line-height:1.6;">
