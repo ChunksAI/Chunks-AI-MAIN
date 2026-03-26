@@ -487,7 +487,10 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 )
                 return jsonify({
                     'success': False,
-                    'error': 'Invalid prompt content.',
+                    'error': 'Your prompt was flagged by our content filter. '
+                             'If you uploaded a document, try shortening it or '
+                             'removing non-essential sections.',
+                    'reason': 'content_filter',
                 }), 400
 
             logger.info("generate mode: prompt len=%d user=%s", len(question), verified_user_id)

@@ -100,7 +100,7 @@ def test_ask_generate_mode_injection_blocked(client, monkeypatch, mock_guest_gat
     assert resp.status_code == 400
     data = resp.get_json()
     assert data['success'] is False
-    assert 'Invalid prompt content' in data['error']
+    assert 'flagged by our content filter' in data['error']
 
 
 # ── exam mode ─────────────────────────────────────────────────────────────────

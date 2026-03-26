@@ -39,6 +39,14 @@ class TestCheckInjectionRegex:
         'How does the immune system work?',
         'Hi, can you generate flashcards?',
         '',
+        # Educational content with "system:" that must NOT trigger false positives
+        'The nervous system: The brain controls voluntary movements.',
+        'The immune system: Response to pathogens involves antibodies.',
+        'Operating system: Windows uses the NT kernel.',
+        'File system: ext4 is a journaling file system.',
+        'Solar System: The sun is at the center.',
+        'Chapter 5: The Endocrine System: Hormones and Their Functions',
+        'Role: system administrator manages the network.',
     ])
     def test_passes_benign_prompts(self, text):
         assert pg.check_injection_regex(text) is False
