@@ -466,8 +466,8 @@ Keep the summary focused, clear, and easy to review before an exam."""
         # ── MODE: GENERATE ────────────────────────────────────────────────────
         elif mode == 'generate':
             # Exam prompts embed user-uploaded source material directly in
-            # the question field.  60+ slide decks can exceed 80 k chars, so
-            # the ceiling is set to 120 k for exam and 20 k for everything else.
+            # the question field.  60+ slide decks can exceed 80k chars, so
+            # the ceiling is set to 120k for exam and 20k for everything else.
             _GEN_MAX_LEN = 120_000 if task_type == 'exam' else 20_000
             if len(question) > _GEN_MAX_LEN:
                 logger.warning(
@@ -483,7 +483,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
             # document content.  Running the injection scanner on that body
             # causes false positives (educational docs may contain markup or
             # phrases that match injection patterns).  Screen only the
-            # bookend portions — the first 2 k and last 4 k chars — which
+            # bookend portions — the first 2k and last 4k chars — which
             # contain the actual instructions/topic.
             if task_type == 'exam' and len(question) > 8_000:
                 _screen_text = question[:2_000] + question[-4_000:]
