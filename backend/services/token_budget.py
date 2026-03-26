@@ -43,7 +43,7 @@ ENDPOINT_MAX_TOKENS: dict[str, int] = {
     # /ask-image
     'image':            2_000,
     # /generate-flashcards
-    'flashcards':       4_000,
+    'flashcards':       6_000,
     # /generate-study-materials
     'study_materials':  8_000,
     # /generate-quiz

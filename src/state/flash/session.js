@@ -88,6 +88,13 @@ export function _fcRenderCard() {
   setText(q, card.front || card.question || '');
   setText(a, card.back  || card.answer   || '');
 
+  const hintEl = $el('fc-card-hint');
+  const cardHint = card.hint || '';
+  if (hintEl) {
+    setText(hintEl, cardHint);
+    hintEl.style.display = cardHint ? '' : 'none';
+  }
+
   const total   = fc.deck.length;
   const current = fc.index + 1;
   const pct     = (current / total) * 100;

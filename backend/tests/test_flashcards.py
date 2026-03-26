@@ -22,10 +22,10 @@ def test_flashcards_success(client, monkeypatch, mock_guest_gate, mock_extract_u
     import services.ai as ai_svc
     import services.books as books_svc
 
-    # Mock AI to return a well-formed CARD block response
+    # Mock AI to return a well-formed CARD block response with hints
     ai_response = (
-        "CARD\nFRONT: What is an acid?\nBACK: A proton donor.\nEND\n"
-        "CARD\nFRONT: What is a base?\nBACK: A proton acceptor.\nEND\n"
+        "CARD\nFRONT: What is an acid?\nBACK: A proton donor.\nHINT: Think Brønsted-Lowry.\nEND\n"
+        "CARD\nFRONT: What is a base?\nBACK: A proton acceptor.\nHINT: Opposite of acid role.\nEND\n"
     )
     monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value=ai_response))
 
@@ -40,6 +40,32 @@ def test_flashcards_success(client, monkeypatch, mock_guest_gate, mock_extract_u
     assert data['success'] is True
     assert 'flashcards' in data
     assert len(data['flashcards']) >= 1
+    # Verify hint field is parsed when present
+    assert data['flashcards'][0].get('hint')
+
+
+def test_flashcards_success_without_hints(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """POST /generate-flashcards still works when AI omits HINT lines."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+
+    ai_response = (
+        "CARD\nFRONT: What is an acid?\nBACK: A proton donor.\nEND\n"
+        "CARD\nFRONT: What is a base?\nBACK: A proton acceptor.\nEND\n"
+    )
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value=ai_response))
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/generate-flashcards', json={'topic': 'acids and bases', 'count': 2})
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    assert len(data['flashcards']) == 2
+    # Cards without HINT lines should not have the hint key
+    assert 'hint' not in data['flashcards'][0]
 
 
 def test_flashcards_blueprint_registered(app):

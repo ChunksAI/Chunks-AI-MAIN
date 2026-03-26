@@ -78,7 +78,7 @@ TASK_TIERS: dict[str, str] = {
     'home_study':          'medium',   # home screen study questions
 
     # ── Flashcards ────────────────────────────────────────────────────────
-    'flashcard_simple':    'small',    # ≤ 10 cards, simple topic
+    'flashcard_simple':    'medium',   # ≤ 10 cards — medium for Anki-quality output
     'flashcard_complex':   'medium',   # > 10 cards or advanced topic
     'flashcard_tutor':     'medium',   # AI tutor explanation for a card
 
