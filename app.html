@@ -4487,15 +4487,15 @@ async function _examProcessPdf(file) {
 
     if (!fullText) throw new Error('No text found — the PDF may be scanned/image-based.');
 
-    _examSourceText  = fullText.slice(0, 60000); // ~15k tokens — covers large PDFs
+    _examSourceText  = fullText.slice(0, 100000); // ~25k tokens — covers 60+ slide PDFs
     _examSourceLabel = file.name.replace(/\.pdf$/i, '');
     _examToggleScanMode(true);
 
     const charCount  = _examSourceText.length.toLocaleString();
-    const truncated  = fullText.length > 28000;
+    const truncated  = fullText.length > 100000;
     statusEl.innerHTML =
       '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>' +
-      '<span style="color:var(--green);">Ready — ' + charCount + ' chars extracted' + (truncated ? ' (first 40 pages)' : '') + '</span>';
+      '<span style="color:var(--green);">Ready — ' + charCount + ' chars extracted' + (truncated ? ' (truncated)' : '') + '</span>';
 
   } catch (err) {
     _examSourceText  = '';
@@ -4889,7 +4889,7 @@ Output ONLY a raw JSON array with no markdown:
 
 SOURCE MATERIAL (labeled by block):
 ---
-${_labeledSrc.slice(0, 55000)}
+${_labeledSrc.slice(0, 100000)}
 ---`;
     } else if (typeLabel === 'case-based-learning') {
       prompt = `You are a rigorous medical educator. Create Case-Based Learning (CBL) questions from the following source material.${topicClause}
@@ -4913,7 +4913,7 @@ Output ONLY a raw JSON array — no markdown:
 
 SOURCE MATERIAL (labeled by block):
 ---
-${_labeledSrc.slice(0, 55000)}
+${_labeledSrc.slice(0, 100000)}
 ---`;
     } else if (typeLabel === 'open-ended') {
       prompt = `You are creating open-ended short-answer exam questions from the following source material.${topicClause}
@@ -4925,7 +4925,7 @@ Output ONLY a raw JSON array with no markdown:
 
 SOURCE MATERIAL (labeled by block):
 ---
-${_labeledSrc.slice(0, 55000)}
+${_labeledSrc.slice(0, 100000)}
 ---`;
     } else {
       prompt = `You are creating an exam from the following source material.${topicClause}
@@ -4937,7 +4937,7 @@ Output ONLY a raw JSON array with no markdown:
 
 SOURCE MATERIAL (labeled by block):
 ---
-${_labeledSrc.slice(0, 55000)}
+${_labeledSrc.slice(0, 100000)}
 ---`;
     }
   } else {
@@ -5001,7 +5001,7 @@ Output ONLY a raw JSON array with no markdown:
 
 SOURCE MATERIAL (labeled by block):
 ---
-${_labeledSrc.slice(0, 55000)}
+${_labeledSrc.slice(0, 100000)}
 ---`;
     } else {
       prompt = `You are a thorough exam writer.${topicClause}
@@ -5016,7 +5016,7 @@ Output ONLY a raw JSON array with no markdown:
 
 SOURCE MATERIAL (labeled by block):
 ---
-${_labeledSrc.slice(0, 55000)}
+${_labeledSrc.slice(0, 100000)}
 ---`;
     }
   } else {
@@ -5343,7 +5343,7 @@ async function examStart() {
   // Resolve notes source
   const notesVal = (document.getElementById('exam-notes-input')?.value || '').trim();
   if (_examSourceTab === 'notes' && notesVal) {
-    _examSourceText  = notesVal.slice(0, 60000);
+    _examSourceText  = notesVal.slice(0, 100000);
     _examSourceLabel = 'your notes';
   }
 

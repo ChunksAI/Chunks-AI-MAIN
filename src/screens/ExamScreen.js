@@ -485,7 +485,7 @@ export function mountExamScreen() {
       const len = notesEl.value.length;
       const countEl = document.getElementById('exam-notes-count');
       if (countEl) countEl.textContent = len.toLocaleString() + ' chars';
-      window._examSourceText  = notesEl.value.slice(0, 60000);
+      window._examSourceText  = notesEl.value.slice(0, 100000);
       window._examSourceLabel = 'your notes';
       if (typeof window._examToggleScanMode === 'function') window._examToggleScanMode(len > 0);
     });

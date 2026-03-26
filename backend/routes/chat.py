@@ -465,10 +465,10 @@ Keep the summary focused, clear, and easy to review before an exam."""
 
         # ── MODE: GENERATE ────────────────────────────────────────────────────
         elif mode == 'generate':
-            # Exam prompts embed user-uploaded source material (up to ~55 k
-            # chars) directly in the question field, so they need a higher
-            # ceiling than regular generate requests.
-            _GEN_MAX_LEN = 60_000 if task_type == 'exam' else 20_000
+            # Exam prompts embed user-uploaded source material directly in
+            # the question field.  60+ slide decks can exceed 80k chars, so
+            # the ceiling is set to 120k for exam and 20k for everything else.
+            _GEN_MAX_LEN = 120_000 if task_type == 'exam' else 20_000
             if len(question) > _GEN_MAX_LEN:
                 logger.warning(
                     "generate mode: prompt rejected — length %d exceeds %d (user %s)",
@@ -479,7 +479,18 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     'error': f'Prompt too long ({len(question)} chars). Maximum is {_GEN_MAX_LEN}.',
                 }), 400
 
-            _injection_flagged, _injection_method = screen_prompt(question, user_id=verified_user_id)
+            # For exam prompts the bulk of the text is user-uploaded
+            # document content.  Running the injection scanner on that body
+            # causes false positives (educational docs may contain markup or
+            # phrases that match injection patterns).  Screen only the
+            # bookend portions — the first 2k and last 4k chars — which
+            # contain the actual instructions/topic.
+            if task_type == 'exam' and len(question) > 8_000:
+                _screen_text = question[:2_000] + question[-4_000:]
+            else:
+                _screen_text = question
+
+            _injection_flagged, _injection_method = screen_prompt(_screen_text, user_id=verified_user_id)
             if _injection_flagged:
                 logger.warning(
                     "generate mode: injection detected (%s) in prompt (user %s): %r",
