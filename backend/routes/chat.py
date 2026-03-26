@@ -480,13 +480,17 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 }), 400
 
             # For exam prompts the bulk of the text is user-uploaded
-            # document content.  Running the injection scanner on that body
-            # causes false positives (educational docs may contain markup or
-            # phrases that match injection patterns).  Screen only the
-            # bookend portions — the first 2k and last 4k chars — which
-            # contain the actual instructions/topic.
-            if task_type == 'exam' and len(question) > 8_000:
-                _screen_text = question[:2_000] + question[-4_000:]
+            # document content.  Running the injection scanner on the full
+            # document body causes false positives — educational content may
+            # contain section headers or markup that matches injection patterns
+            # (e.g. "### Instructions", "<context>", "[INST]").
+            # For exam prompts, screen only the first 3k chars, which covers
+            # the user-supplied topic and all instruction preamble while
+            # keeping the source-material body out of scope.
+            # For all other generate prompts (no embedded document) the full
+            # prompt is short enough to screen entirely.
+            if task_type == 'exam':
+                _screen_text = question[:3_000]
             else:
                 _screen_text = question
 
@@ -498,9 +502,8 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 )
                 return jsonify({
                     'success': False,
-                    'error': 'Your prompt was flagged by our content filter. '
-                             'If you uploaded a document, try shortening it or '
-                             'removing non-essential sections.',
+                    'error': 'Your topic was flagged by our content filter. '
+                             'Please rephrase your topic and try again.',
                     'reason': 'content_filter',
                 }), 400
 
