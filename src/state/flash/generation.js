@@ -157,6 +157,7 @@ export async function _fcGenerateFromBar() {
     const cards = data.flashcards.map(c => ({
       front: c.front || c.question || '',
       back:  c.back  || c.answer   || '',
+      ...(c.hint ? { hint: c.hint } : {}),
     }));
 
     const deck = await FlashcardDB.fcSaveDeck(topic, cards);

@@ -23,7 +23,11 @@ export async function spFcGenerate() {
     if (!res.ok) throw new Error('Server error ' + res.status);
     const data = await res.json();
     if (!data.success || !data.flashcards?.length) throw new Error(data.error || 'No cards');
-    sp.fcDeck = data.flashcards; sp.fcIndex = 0; sp.fcStats = { easy: 0, ok: 0, hard: 0 }; sp.fcFlipped = false;
+    sp.fcDeck = data.flashcards.map(c => ({
+      front: c.front || c.question || '',
+      back:  c.back  || c.answer   || '',
+      ...(c.hint ? { hint: c.hint } : {}),
+    })); sp.fcIndex = 0; sp.fcStats = { easy: 0, ok: 0, hard: 0 }; sp.fcFlipped = false;
     spFcShowDeck();
   } catch (err) {
     setHtml($el('sp-fc-loading'), `<div style="color:var(--red);font-size:12px;text-align:center;padding:20px;">Failed to generate cards.<br><button onclick="spFcGenerate()" style="margin-top:10px;padding:6px 14px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);">Try again</button></div>`);

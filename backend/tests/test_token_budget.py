@@ -14,7 +14,7 @@ class TestMaxTokensForEndpoint:
         assert tb.max_tokens_for_endpoint('quiz') == 12_000
         assert tb.max_tokens_for_endpoint('image') == 2_000
         assert tb.max_tokens_for_endpoint('study_materials') == 8_000
-        assert tb.max_tokens_for_endpoint('flashcards') == 4_000
+        assert tb.max_tokens_for_endpoint('flashcards') == 6_000
         assert tb.max_tokens_for_endpoint('chat_web_search') == 4_000
         assert tb.max_tokens_for_endpoint('chat_exam') == 10_000
 

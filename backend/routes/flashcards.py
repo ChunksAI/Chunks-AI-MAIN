@@ -73,27 +73,39 @@ def generate_flashcards():
         context_block = ""
         searcher = get_book_index(book_id)
         if searcher.chunks:
-            context, score, is_relevant, _, _ = searcher.smart_search(topic, top_k=3)
+            context, score, is_relevant, _, _ = searcher.smart_search(topic, top_k=5)
             if is_relevant:
-                context_block = f"Use this textbook content as your primary source:\n{context}\n\n"
+                context_block = f"Use this source material as your primary reference:\n{context}\n\n"
 
         prompt = f"""{context_block}Create exactly {count} flashcards about: {topic}
 
-STRICT OUTPUT FORMAT — output ONLY this, no intro text, no numbering prose:
+Follow these Anki-style best practices for every card:
+- MINIMUM INFORMATION PRINCIPLE: Each card tests exactly ONE atomic concept.
+- ACTIVE RECALL: FRONT must be a specific question that forces retrieval, never a vague prompt.
+- Prefer "What/Why/How" questions over "Define X" when possible.
+- BACK should be a concise, precise answer (max 50 words). Start with the key fact, then add brief context if needed.
+- Include a short HINT (max 15 words) — a nudge that helps recall without giving the answer away (e.g. a category, related concept, or first-letter cue).
+- Use $LaTeX$ for all formulas and equations.
+
+STRICT OUTPUT FORMAT — output ONLY this, no intro text, no numbering:
 CARD
-FRONT: [concise question or term — max 20 words]
-BACK: [clear precise answer — max 60 words, use LaTeX for equations: $...$]
+FRONT: [specific recall question — max 20 words]
+BACK: [precise answer — max 50 words]
+HINT: [brief memory cue — max 15 words]
 END
 
-Repeat the CARD / FRONT / BACK / END block exactly {count} times.
+Repeat the CARD / FRONT / BACK / HINT / END block exactly {count} times.
 Rules:
-- Cover definitions, equations, mechanisms, and key facts
-- Each card must be self-contained
-- No duplicate questions
-- Use $LaTeX$ for all formulas/equations"""
+- Cover definitions, key mechanisms, relationships, and important facts
+- Each card must be self-contained and test a single concept
+- No duplicate or overlapping questions
+- Vary question types: definition, cause/effect, comparison, application"""
 
         raw = call_ai(prompt, system_prompt=(
-            "You are a chemistry flashcard generator. Output ONLY the CARD blocks in the exact format requested. "
+            "You are an expert flashcard creator following Anki best practices. "
+            "You apply the minimum information principle: one simple concept per card, "
+            "clear active-recall questions, and concise answers. "
+            "Output ONLY the CARD blocks in the exact format requested. "
             "No preamble, no extra commentary, no numbering outside the format."
         ), model=route('flashcard_complex' if count > 10 else 'flashcard_simple', complexity=5),
            endpoint='flashcards', user_id=verified_user_id)
@@ -104,13 +116,18 @@ Rules:
             block = block.strip()
             if not block:
                 continue
-            front_match = re.search(r'FRONT:\s*(.+?)(?=BACK:|$)', block, re.IGNORECASE | re.DOTALL)
-            back_match  = re.search(r'BACK:\s*(.+?)(?=END|CARD|$)', block, re.IGNORECASE | re.DOTALL)
+            front_match = re.search(r'FRONT:\s*(.+?)(?=BACK:|HINT:|$)', block, re.IGNORECASE | re.DOTALL)
+            back_match  = re.search(r'BACK:\s*(.+?)(?=HINT:|END|CARD|$)', block, re.IGNORECASE | re.DOTALL)
+            hint_match  = re.search(r'HINT:\s*(.+?)(?=END|CARD|$)', block, re.IGNORECASE | re.DOTALL)
             if front_match and back_match:
                 front = front_match.group(1).strip().rstrip('END').strip()
                 back  = back_match.group(1).strip().rstrip('END').strip()
+                hint  = hint_match.group(1).strip().rstrip('END').strip() if hint_match else ''
                 if front and back:
-                    flashcards.append({'front': front, 'back': back})
+                    card = {'front': front, 'back': back}
+                    if hint:
+                        card['hint'] = hint
+                    flashcards.append(card)
 
         if not flashcards:
             # Fallback: Q:/A: format
