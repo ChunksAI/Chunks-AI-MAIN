@@ -5452,7 +5452,14 @@ async function examStart() {
   } catch(err) {
     if (err.name === 'AbortError') { _examShow('exam-setup'); return; }
     _examShow('exam-setup');
-    errEl.textContent = err.message;
+    errEl.textContent = '';
+    errEl.appendChild(document.createTextNode(err.message));
+    errEl.appendChild(document.createElement('br'));
+    const _retryBtn = document.createElement('button');
+    _retryBtn.textContent = 'Try again';
+    _retryBtn.style.cssText = 'margin-top:7px;padding:4px 12px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:10px;cursor:pointer;font-family:var(--font-body);';
+    _retryBtn.onclick = examStart;
+    errEl.appendChild(_retryBtn);
     errEl.style.display = 'block';
   } finally {
     startBtn.disabled = false;
