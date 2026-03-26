@@ -58,7 +58,7 @@ _INJECTION_RE = re.compile(
     r'ignore\s+(all\s+)?(previous|prior|above|earlier)\s+instructions?'
     r'|you\s+are\s+now\s+(a|an|the|dan|jailbreak)'
     r'|forget\s+(everything|all|your|the)\s+(you|previous|prior|above|instructions?|rules?|context|system)'
-    r'|disregard\s+(all\s+)?(previous|prior|above|your)\s+(\w+\s+)?(instructions?|rules?|context|system|prompt)'
+    r'|disregard\s+(all\s+)?(previous|prior|above|your)\s+((previous|prior|earlier|original)\s+)?(instructions?|rules?|context|system|prompt)'
     r'|act\s+as\s+(if\s+you\s+are\s+)?(a\s+)?(dan|jailbreak|unrestricted|unfiltered|evil)'
     r'|(?:^|\n)\s*system\s*:\s*(?=\S)|<\s*/?system\s*>'
     r'|<\s*/?(?:instruction|prompt|context)\s*>'

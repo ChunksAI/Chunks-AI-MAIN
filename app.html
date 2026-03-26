@@ -4651,13 +4651,9 @@ async function _examCallAPI(prompt, retries = 3) {
         throw new Error('Server timeout (504) — Railway may be cold-starting, please try again.');
       }
       if (resp.status === 400) {
-        try {
-          const errData = await resp.json();
-          throw new Error(errData.error || 'Bad request — check your input and try again.');
-        } catch (e) {
-          if (e.message && !e.message.includes('Bad request')) throw e;
-          throw new Error('Bad request — check your input and try again.');
-        }
+        let errMsg = 'Bad request — check your input and try again.';
+        try { const errData = await resp.json(); if (errData.error) errMsg = errData.error; } catch (_) {}
+        throw new Error(errMsg);
       }
       if (!resp.ok) throw new Error('Server error ' + resp.status);
       const data = await resp.json();
