@@ -394,6 +394,9 @@ def generate_quiz():
             mode_instruction = ""
 
         # ── Question-type format instructions ─────────────────────────────
+        # Types with special format rules get explicit instructions below.
+        # mcq, situational, cbl, mixed, and openended use the default MCQ
+        # output format (or mode_instruction above) and need no extra block.
         _VALID_QUESTION_TYPES = {
             'mcq', 'truefalse', 'fillinblank', 'matching',
             'situational', 'cbl', 'mixed', 'openended',
