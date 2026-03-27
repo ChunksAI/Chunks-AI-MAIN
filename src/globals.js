@@ -36,11 +36,9 @@ window._getChunksSb = getSupabaseClient;
 // ── Lib · IndexedDB ──────────────────────────────────────────────────────────
 import { ChunksDB }    from './lib/chunksDb.js';
 import { FlashcardDB } from './lib/flashcardDb.js';
-import { idbKeys }     from './lib/idbStorage.js';
 
 window.ChunksDB    = ChunksDB;
 window.FlashcardDB = FlashcardDB;
-window._idbKeys    = idbKeys;
 
 // ── Lib · Auth ───────────────────────────────────────────────────────────────
 import {
@@ -146,6 +144,8 @@ import {
   wsToggleAttachMenu, wsAttachTrigger, wsHandleAttach,
   homeToggleAttachMenu, homeAttachTrigger, homeHandleAttach,
   _wsRenderPage, _wsUpdateOutlineActive, _loadPdfJs,
+  wsPromptYouTube, wsCloseYouTube, wsIngestYouTube,
+  wsToggleVoiceInput, wsReadAloud, wsStopReading,
 } from './state/workspace/index.js';
 
 window.wsBookMeta          = wsBookMeta;
@@ -191,6 +191,12 @@ window.homeHandleAttach    = homeHandleAttach;
 window._wsRenderPage          = _wsRenderPage;
 window._wsUpdateOutlineActive = _wsUpdateOutlineActive;
 window._loadPdfJs             = _loadPdfJs;
+window.wsPromptYouTube        = wsPromptYouTube;
+window.wsCloseYouTube         = wsCloseYouTube;
+window.wsIngestYouTube        = wsIngestYouTube;
+window.wsToggleVoiceInput     = wsToggleVoiceInput;
+window.wsReadAloud            = wsReadAloud;
+window.wsStopReading          = wsStopReading;
 
 // Forward-reference stub — flash/index.js overwrites this with the real impl
 window.wsMakeFlashcard = async function(btn, msgId, question) {
