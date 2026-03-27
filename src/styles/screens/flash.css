@@ -1008,6 +1008,38 @@
   background: rgba(248,113,113,0.1);
 }
 
+/* ── Share button on deck cards ─────────────────────────────────────────── */
+
+.fc-deck-share {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-4);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.fc-deck-card:hover .fc-deck-share {
+  opacity: 1;
+}
+
+.fc-deck-share:hover {
+  color: var(--gold);
+  background: var(--gold-muted);
+}
+
+.fc-deck-share:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* ── Generate actions row ───────────────────────────────────────────────── */
 
 .fc-gen-actions {
@@ -1987,3 +2019,5 @@
   background: var(--surface-4, var(--border-xs));
   color: var(--text-1);
 }
+
+@keyframes spin { to { transform: rotate(360deg); } }
