@@ -320,6 +320,23 @@ function _saveRecent() {
 }
 
 // ── Chat session save/restore ────────────────────────────
+
+// Helper: read a session by one or more IDs (e.g. local id, then UUID).
+// chunks_session_* keys live in IndexedDB after migration — use the IDB-aware
+// bridge (window._lsGet) when available, with a plain localStorage fallback.
+function _readSessionData(/* ...ids */) {
+  for (let i = 0; i < arguments.length; i++) {
+    const id = arguments[i];
+    if (!id) continue;
+    try {
+      const val = window._lsGet ? window._lsGet('chunks_session_' + id, null)
+                                : (() => { const r = localStorage.getItem('chunks_session_' + id); return r ? JSON.parse(r) : null; })();
+      if (val) return val;
+    } catch (_) {}
+  }
+  return null;
+}
+
 function _saveSession(id, historyArr) {
   // Always save — history is only deleted when user explicitly clears it
   const html = document.getElementById('home-chat-history')?.innerHTML || '';
@@ -327,9 +344,13 @@ function _saveSession(id, historyArr) {
   // Look up the stable UUID for this session (set on the recent item at creation time)
   const recentItem = _recentItems.find(r => r.id === id);
   const supabaseId = recentItem?.uuid || null;
-  localStorage.setItem('chunks_session_' + id, JSON.stringify({
-    id, supabaseId, html, history: historyArr, updatedAt
-  }));
+  const sessionData = { id, supabaseId, html, history: historyArr, updatedAt };
+  // chunks_session_* keys live in IndexedDB — use the IDB-aware bridge when available
+  if (window._lsSet) {
+    window._lsSet('chunks_session_' + id, sessionData);
+  } else {
+    localStorage.setItem('chunks_session_' + id, JSON.stringify(sessionData));
+  }
   localStorage.setItem('chunks_active_home_session', id);
   // Phase 3: sync to Supabase using the valid UUID (r+timestamp id is rejected by Postgres)
   if (supabaseId) {
@@ -337,7 +358,7 @@ function _saveSession(id, historyArr) {
       id:        supabaseId,
       localId:   id,
       title:     recentItem?.label || recentItem?.question?.slice(0, 80) ||
-               (() => { try { const h = JSON.parse(localStorage.getItem('chunks_session_'+id)||'{}'); const m = (h.history||h.messages||[]).find(x=>x.role==='user'); return m?.content?.slice(0,80)||null; } catch(_){return null;} })(),
+               (() => { try { const h = _readSessionData(id); const m = ((h?.history||h?.messages)||[]).find(x=>x.role==='user'); return m?.content?.slice(0,80)||null; } catch(_){return null;} })(),
       messages:  historyArr,
       updatedAt,
     });
@@ -345,10 +366,8 @@ function _saveSession(id, historyArr) {
 }
 
 function _loadSession(id) {
-  try {
-    const raw = localStorage.getItem('chunks_session_' + id);
-    return raw ? JSON.parse(raw) : null;
-  } catch(e) { return null; }
+  // chunks_session_* keys live in IndexedDB after migration — use IDB-aware read
+  return _readSessionData(id);
 }
 
 // ── Workspace session save/restore ───────────────────────
@@ -568,18 +587,21 @@ function _deleteRecent(id, e) {
   let resolvedUuid = item?.uuid || null;
   if (!resolvedUuid) {
     try {
-      const lsEntry = JSON.parse(localStorage.getItem('chunks_session_' + id) || 'null');
+      // Use IDB-aware read — chunks_session_* keys live in IndexedDB after migration
+      const lsEntry = _readSessionData(id);
       resolvedUuid = lsEntry?.supabaseId || null;
       // Also scan for a UUID-keyed entry whose local_id or id matches
       if (!resolvedUuid) {
         const _isUUID = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (!k?.startsWith('chunks_session_')) continue;
+        // Use IDB keys if available, fall back to localStorage scan
+        const allKeys = (window._idbKeys && typeof window._idbKeys === 'function')
+          ? window._idbKeys('chunks_session_')
+          : (() => { const ks = []; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k?.startsWith('chunks_session_')) ks.push(k); } return ks; })();
+        for (const k of allKeys) {
           const candidate = k.replace('chunks_session_', '');
           if (!_isUUID(candidate)) continue;
           try {
-            const e2 = JSON.parse(localStorage.getItem(k));
+            const e2 = _readSessionData(candidate);
             if (e2?.local_id === id || e2?.id === id) { resolvedUuid = candidate; break; }
           } catch (_) {}
         }
@@ -591,10 +613,12 @@ function _deleteRecent(id, e) {
   _recentItems = _recentItems.filter(r => r.id !== id);
   _saveRecent();
 
-  // Remove saved session data from localStorage — both the r+timestamp key AND UUID key.
-  localStorage.removeItem('chunks_session_' + id);
+  // Remove saved session data from IDB/localStorage — both the r+timestamp key AND UUID key.
+  // Use the IDB-aware bridge when available (chunks_session_* live in IndexedDB).
+  const _rmSession = k => { if (window._lsRemove) window._lsRemove(k); else localStorage.removeItem(k); };
+  _rmSession('chunks_session_' + id);
   if (resolvedUuid) {
-    localStorage.removeItem('chunks_session_' + resolvedUuid);
+    _rmSession('chunks_session_' + resolvedUuid);
   }
   if (item && item.bookId) {
     localStorage.removeItem('chunks_ws_session_' + item.bookId);
@@ -762,12 +786,40 @@ function _clickRecent(item) {
     showScreen('workspace');
 
     const _doRestore = () => {
-      const wsSession = _loadWsSession(item.bookId);
-      if (wsSession && wsSession.html) {
+      let wsSession = _loadWsSession(item.bookId);
+      // Fallback: look up by UUID in IDB (written by pullAndApply for cross-device / re-login)
+      if (!wsSession || (!wsSession.html && !(wsSession.history || []).length)) {
+        const idbSession = _readSessionData(item.uuid, item.id);
+        if (idbSession && (idbSession.history || idbSession.messages || []).length) {
+          wsSession = { html: idbSession.html || '', history: idbSession.history || idbSession.messages || [] };
+        }
+      }
+      const wsHistory = wsSession?.history || wsSession?.messages || [];
+      if (wsSession && (wsSession.html || wsHistory.length)) {
         // Restore saved messages HTML and history array
         const msgs = document.getElementById('ws-messages');
-        if (msgs) msgs.innerHTML = typeof sanitize === 'function' ? sanitize(wsSession.html) : wsSession.html;
-        _wsChatHistory = wsSession.history || [];
+        if (wsSession.html && msgs) {
+          msgs.innerHTML = typeof sanitize === 'function' ? sanitize(wsSession.html) : wsSession.html;
+        } else if (wsHistory.length && msgs) {
+          // Cross-device restore — rebuild from message array
+          msgs.innerHTML = '';
+          wsHistory.forEach(msg => {
+            const el = document.createElement('div');
+            if (msg.role === 'user') {
+              el.className = 'msg msg-user';
+              const escaped = (msg.content || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+              el.innerHTML = `<div class="bubble-user">${escaped}</div>`;
+            } else {
+              el.className = 'msg msg-ai';
+              const rendered = window.homeMarkdown
+                ? window.homeMarkdown(msg.content || '')
+                : (msg.content || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+              el.innerHTML = `<div class="ai-row"><div class="ai-body">${rendered}</div></div>`;
+            }
+            msgs.appendChild(el);
+          });
+        }
+        _wsChatHistory = wsHistory;
         localStorage.setItem('chunks_active_ws_book', item.bookId);
         // Phase 3: record active book in ws_state
         window.ChunksDB?.ws?.savePosition?.(item.bookId, {});
@@ -1163,11 +1215,9 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
     let bestLabel = newTitle;
     if (!bestLabel) {
       try {
-        const localRaw = localStorage.getItem('chunks_session_' + match.id) ||
-                         (match.local_id ? localStorage.getItem('chunks_session_' + match.local_id) : null);
-        if (localRaw) {
-          const parsed = JSON.parse(localRaw);
-          const msgs = parsed.history || parsed.messages || [];
+        const localSession = _readSessionData(match.id, match.local_id);
+        if (localSession) {
+          const msgs = localSession.history || localSession.messages || [];
           const firstUser = msgs.find(m => m.role === 'user');
           if (firstUser?.content) bestLabel = firstUser.content.slice(0, 60).trim();
         }
@@ -1198,11 +1248,9 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
     if (!label) {
       // Try to pull first user message from local session data
       try {
-        const localRaw = localStorage.getItem('chunks_session_' + remote.id) ||
-                         (remote.local_id ? localStorage.getItem('chunks_session_' + remote.local_id) : null);
-        if (localRaw) {
-          const parsed = JSON.parse(localRaw);
-          const msgs = parsed.history || parsed.messages || [];
+        const localSession = _readSessionData(remote.id, remote.local_id);
+        if (localSession) {
+          const msgs = localSession.history || localSession.messages || [];
           const firstUser = msgs.find(m => m.role === 'user');
           if (firstUser?.content) label = firstUser.content.slice(0, 60).trim();
         }

@@ -36,9 +36,11 @@ window._getChunksSb = getSupabaseClient;
 // ── Lib · IndexedDB ──────────────────────────────────────────────────────────
 import { ChunksDB }    from './lib/chunksDb.js';
 import { FlashcardDB } from './lib/flashcardDb.js';
+import { idbKeys }     from './lib/idbStorage.js';
 
 window.ChunksDB    = ChunksDB;
 window.FlashcardDB = FlashcardDB;
+window._idbKeys    = idbKeys;
 
 // ── Lib · Auth ───────────────────────────────────────────────────────────────
 import {

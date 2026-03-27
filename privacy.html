@@ -1974,7 +1974,7 @@
       </div>
       <div class="legal-summary-body">
         <div class="legal-summary-label">Plain English Summary</div>
-        <p class="legal-summary-text">Chunks AI is a study tool. We collect the minimum data needed to provide the service — your Google account info for login, a daily message counter to manage free-tier limits, and your chat history stored locally on your own device. We do not sell your data.</p>
+        <p class="legal-summary-text">Chunks AI is a study tool. We collect the minimum data needed to provide the service — your Google account info for login, a daily message counter to manage free-tier limits, and your chat history securely stored in our Supabase database. We do not sell your data.</p>
       </div>
     </div>
 
@@ -2025,7 +2025,7 @@
         <h2>Data Storage &amp; Retention</h2>
       </div>
       <p>Your account data (name, email, daily counter) is stored in our Supabase database hosted on secure cloud infrastructure.</p>
-      <p>Your chat history and study preferences are stored locally in your browser using <code style="font-family:var(--font-mono);font-size:12px;color:var(--violet);background:rgba(139,124,248,.1);padding:1px 5px;border-radius:3px;">localStorage</code> and <code style="font-family:var(--font-mono);font-size:12px;color:var(--violet);background:rgba(139,124,248,.1);padding:1px 5px;border-radius:3px;">IndexedDB</code>. This data never leaves your device and is not accessible to us.</p>
+      <p>Your chat history is stored in our Supabase database, allowing it to persist across devices and browser sessions. Study preferences and app state are also synced to Supabase for logged-in users. Browser storage (<code style="font-family:var(--font-mono);font-size:12px;color:var(--violet);background:rgba(139,124,248,.1);padding:1px 5px;border-radius:3px;">IndexedDB</code>) is used as a local cache for performance.</p>
       <p>We retain your account data for as long as your account exists. Upon account deletion, your data is permanently removed from our database within 30 days.</p>
     </div>
 
@@ -2054,8 +2054,8 @@
       <div class="legal-card violet">
         <div class="legal-card-bar"></div>
         <div class="legal-card-inner">
-          <div class="legal-card-label">Local Storage</div>
-          <p>Your conversation history is stored locally on your device (browser storage) and is not uploaded to our servers. Clearing your browser data will permanently delete your chat history.</p>
+          <div class="legal-card-label">Supabase Storage</div>
+          <p>Your conversation history is securely stored in our Supabase database and synced across your devices. This means your chat history is available even after clearing browser data, as long as you are signed in.</p>
         </div>
       </div>
       <p>We recommend not sharing sensitive personal information (passwords, financial data, health details) through the chat interface.</p>
@@ -2069,7 +2069,7 @@
       <p>Chunks AI uses:</p>
       <ul>
         <li><span style="color:var(--text-1);font-weight:600;">Session cookies</span> — set by Supabase to maintain your authenticated session. These are essential for the Service to function.</li>
-        <li><span style="color:var(--text-1);font-weight:600;">localStorage / IndexedDB</span> — used to store your chat history, flashcards, and preferences entirely on your device.</li>
+        <li><span style="color:var(--text-1);font-weight:600;">IndexedDB</span> — used as a local cache for chat history and preferences to improve performance. The authoritative copy of your data is stored in Supabase.</li>
       </ul>
       <p>We do not use advertising cookies, tracking pixels, or analytics cookies from third-party ad networks.</p>
     </div>
@@ -2084,7 +2084,7 @@
         <li class="allowed"><span style="color:var(--text-1);font-weight:600;">Access</span> — you can request a copy of the account data we hold about you</li>
         <li class="allowed"><span style="color:var(--text-1);font-weight:600;">Deletion</span> — you can delete your account at any time from Settings → Account → Delete account</li>
         <li class="allowed"><span style="color:var(--text-1);font-weight:600;">Correction</span> — your name and email are sourced from Google and can be updated through your Google account</li>
-        <li class="allowed"><span style="color:var(--text-1);font-weight:600;">Portability</span> — your local chat history can be exported through the app's settings</li>
+        <li class="allowed"><span style="color:var(--text-1);font-weight:600;">Portability</span> — your chat history stored in Supabase can be exported through the app's settings</li>
       </ul>
       <p>To exercise any of these rights or make a data request, contact us at <a href="mailto:chunks.ai.app@gmail.com" style="color:var(--gold)">chunks.ai.app@gmail.com</a>.</p>
     </div>
