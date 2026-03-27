@@ -178,6 +178,17 @@ export async function _fcRenderDeckList() {
       if (deck) _fcStartDeck(deck);
       return;
     }
+    const shareBtn = e.target.closest('.fc-deck-share[data-deck-cache]');
+    if (shareBtn) {
+      e.stopPropagation();
+      const cacheKey = shareBtn.dataset.deckCache;
+      const idx      = parseInt(shareBtn.dataset.deckIdx, 10);
+      const deck     = _fcGetCachedDeck(cacheKey, idx);
+      if (deck) {
+        import('../share.js').then(({ shareDeck }) => shareDeck(deck, shareBtn));
+      }
+      return;
+    }
     const card = e.target.closest('.fc-deck-card[data-deck-cache]');
     if (card) {
       const cacheKey = card.dataset.deckCache;
@@ -235,6 +246,9 @@ export function _fcDeckCardHTML(d, i, cacheKey, mastery) {
     '<button class="fc-deck-start" data-deck-idx="' + i + '" data-deck-cache="' + cacheKey + '">' +
     (pct === 100 ? 'Review' : 'Study') +
     '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>' +
+    '</button>' +
+    '<button class="fc-deck-share" title="Share deck" data-deck-idx="' + i + '" data-deck-cache="' + cacheKey + '">' +
+    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>' +
     '</button>' +
     deleteBtn +
     '</div></div>'

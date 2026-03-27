@@ -170,6 +170,8 @@ export function spShowEmpty() {
   if (btn) { btn.disabled = false; btn.style.opacity = ''; }
   const newBtn = $el('btn-new-plan');
   if (newBtn) hide(newBtn);
+  const shareBtn = $el('btn-share-plan');
+  if (shareBtn) hide(shareBtn);
   if (typeof setActivePlan === 'function') setActivePlan(null);
   if (typeof spClearUpload === 'function') spClearUpload();
 }
@@ -181,6 +183,8 @@ export function spShowPlan() {
   $el('toggle-empty')?.classList.remove('active-view');
   const newBtn = $el('btn-new-plan');
   if (newBtn) show(newBtn);
+  const shareBtn = $el('btn-share-plan');
+  if (shareBtn) show(shareBtn);
 }
 
 export function spSavePlanToSidebar(topic) {

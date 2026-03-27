@@ -585,6 +585,13 @@ window.libModalDragLeave   = libModalDragLeave;
 window.libModalDrop        = libModalDrop;
 window.libModalDeleteDoc   = libModalDeleteDoc;
 
+// ── Share ────────────────────────────────────────────────────────────────────
+import { shareDeck, shareExamResults, shareStudyPlan } from './state/share.js';
+
+window.shareDeck        = shareDeck;
+window.shareExamResults = shareExamResults;
+window.shareStudyPlan   = shareStudyPlan;
+
 // ── Sidebar theme sync ───────────────────────────────────────────────────
 // _syncThemeToggleBtns is a local function in Sidebar.js that registers
 // itself on window.  It cannot be imported — the registration stays in
