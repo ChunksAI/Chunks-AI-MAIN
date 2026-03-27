@@ -367,6 +367,9 @@ const VT_HTML = `
         <div class="related-next-chips" id="related-next-chips"></div>
       </div>
 
+    </div><!-- /.complete-card -->
+  </div><!-- /#screen-complete -->
+
   <!-- ── SCREEN: LOADING ─────────────────────────────────────────────── -->
   <div class="vtp-screen" id="screen-loading">
     <div class="orb orb-g" style="opacity:.05"></div>
