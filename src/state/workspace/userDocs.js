@@ -64,11 +64,11 @@ export async function selectUserDoc(docId) {
   setText($el('ws-loading-text'), 'Opening ' + meta.name + '…');
   setText($el('ws-loading-progress'), 'Reading from storage…');
 
-  const isPpt = meta.name.match(/\.(pptx?|ppt)$/i);
+  const isPpt = meta.name.match(/\.(pptx?|ppt|ytx)$/i);
 
   try {
     if (isPpt) {
-      // PPT: render as slide text cards (no PDF.js needed)
+      // PPT / YouTube transcript: render as slide text cards (no PDF.js needed)
       await _wsRenderPptSlides(meta);
     } else {
       // PDF: load bytes from IndexedDB → PDF.js
@@ -245,8 +245,8 @@ function _wsShowUserDocWelcome(meta) {
   const msgs = $el('ws-messages');
   if (!msgs) return;
   const name = meta.name.replace(/\.[^.]+$/, '');
-  const isPpt = meta.name.match(/\.(pptx?|ppt)$/i);
-  const icon = isPpt ? '📊' : '📄';
+  const isPpt = meta.name.match(/\.(pptx?|ppt|ytx)$/i);
+  const icon = isPpt ? (meta.name.match(/\.ytx$/i) ? '▶' : '📊') : '📄';
   setHtml(msgs, `
     <div style="display:flex;flex-direction:column;gap:14px;padding:20px 16px 8px;">
       <div class="hc-ai" style="align-items:flex-start;">
