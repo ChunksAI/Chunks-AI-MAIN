@@ -328,16 +328,16 @@ export async function _initAuth() {
     // Only enter guest mode if there's no valid auth session in localStorage.
     // When a user signs out and immediately signs back in (e.g. from homepage),
     // the new session already exists in localStorage — don't override it with guest mode.
-    let _hasValidSession = false;
+    let hasValidSession = false;
     try {
       const raw = localStorage.getItem('chunks-ai-auth');
       if (raw) {
         const p = JSON.parse(raw);
         const s = p?.access_token ? p : p?.currentSession;
-        _hasValidSession = !!(s?.access_token);
+        hasValidSession = !!(s?.access_token);
       }
-    } catch (_) {}
-    if (!_hasValidSession) {
+    } catch (_) { /* storage blocked or corrupt — fall through */ }
+    if (!hasValidSession) {
       sessionStorage.setItem('chunks_guest_mode', '1');
     }
   }
