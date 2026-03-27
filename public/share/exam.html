@@ -3,44 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Acid-Base Equilibrium — Exam · Chunks</title>
+<title>Shared Exam · Chunks</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:#080810; --surface-0:#0d0e14; --surface-1:#111219;
-    --surface-2:#171820; --surface-3:#1e1f29; --surface-4:#252633;
-    --border-xs:rgba(255,255,255,0.05); --border-sm:rgba(255,255,255,0.08); --border-md:rgba(255,255,255,0.13);
-    --gold:#e8ac2e; --gold-bright:#f5c842; --gold-muted:rgba(232,172,46,0.10);
-    --gold-glow:rgba(232,172,46,0.20); --gold-border:rgba(232,172,46,0.22);
-    --violet:#8b7cf8; --violet-muted:rgba(139,124,248,0.10); --violet-border:rgba(139,124,248,0.22);
-    --teal:#2dd4bf; --teal-muted:rgba(45,212,191,0.08);
-    --green:#34d399; --red:#f87171;
-    --text-1:#ededf0; --text-2:#9898ae; --text-3:#7c7c96; --text-4:#6a6a7e;
-    --font-head:'Syne',sans-serif; --font-body:'DM Sans',sans-serif; --font-mono:'DM Mono',monospace;
-    --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:20px; --r-pill:9999px;
-    --ease-snap:cubic-bezier(0.25,0.46,0.45,0.94);
-    --ease-spring:cubic-bezier(0.34,1.56,0.64,1);
-    --t-fast:120ms;
+    --bg:#080810;--surface-0:#0d0e14;--surface-1:#111219;--surface-2:#171820;--surface-3:#1e1f29;--surface-4:#252633;
+    --border-xs:rgba(255,255,255,0.05);--border-sm:rgba(255,255,255,0.08);--border-md:rgba(255,255,255,0.13);
+    --gold:#e8ac2e;--gold-bright:#f5c842;--gold-muted:rgba(232,172,46,0.10);--gold-glow:rgba(232,172,46,0.20);--gold-border:rgba(232,172,46,0.22);
+    --violet:#8b7cf8;--violet-muted:rgba(139,124,248,0.10);--violet-border:rgba(139,124,248,0.22);
+    --teal:#2dd4bf;--teal-muted:rgba(45,212,191,0.08);--green:#34d399;--red:#f87171;
+    --text-1:#ededf0;--text-2:#9898ae;--text-3:#7c7c96;--text-4:#6a6a7e;
+    --font-head:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;--font-mono:'DM Mono',monospace;
+    --r-sm:8px;--r-md:12px;--r-lg:16px;--r-xl:20px;--r-pill:9999px;
+    --ease-snap:cubic-bezier(0.25,0.46,0.45,0.94);--ease-spring:cubic-bezier(0.34,1.56,0.64,1);--t-fast:120ms;
   }
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:var(--font-body);background:var(--bg);color:var(--text-1);min-height:100vh;font-size:13px;line-height:1.6;}
-
-  /* ambient glow bg */
-  body::before{
-    content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
-    background:
-      radial-gradient(ellipse at 20% 15%, rgba(232,172,46,0.06) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 85%, rgba(139,124,248,0.05) 0%, transparent 50%);
-  }
-
-  /* ── Topbar ── */
-  .topbar{
-    position:sticky;top:0;z-index:100;
-    background:rgba(13,14,20,0.85);backdrop-filter:blur(16px);
-    border-bottom:1px solid var(--border-xs);
-    height:54px;display:flex;align-items:center;padding:0 24px;gap:12px;
-  }
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:radial-gradient(ellipse at 20% 15%,rgba(232,172,46,0.06) 0%,transparent 50%),radial-gradient(ellipse at 80% 85%,rgba(139,124,248,0.05) 0%,transparent 50%);}
+  .topbar{position:sticky;top:0;z-index:100;background:rgba(13,14,20,0.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border-xs);height:54px;display:flex;align-items:center;padding:0 24px;gap:12px;}
   .logo-row{display:flex;align-items:center;gap:9px;text-decoration:none;}
   .logo-name{font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);letter-spacing:-0.02em;}
   .topbar-sep{width:1px;height:18px;background:var(--border-sm);}
@@ -49,25 +30,11 @@
   .btn-ghost{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--r-pill);border:1px solid var(--border-sm);background:transparent;color:var(--text-2);font-family:var(--font-body);font-size:12px;font-weight:500;cursor:pointer;transition:color var(--t-fast),border-color var(--t-fast),background var(--t-fast);}
   .btn-ghost:hover{color:var(--text-1);border-color:var(--border-md);background:var(--surface-2);}
   .btn-gold{display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:var(--r-pill);border:none;background:var(--gold);color:#090900;font-family:var(--font-body);font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 2px 12px var(--gold-glow);transition:opacity var(--t-fast),transform var(--t-fast) var(--ease-spring);}
-  .btn-ghost:hover{opacity:.9;}
-
-  /* ── Page wrap ── */
   .page{max-width:680px;margin:0 auto;padding:40px 24px 80px;position:relative;z-index:1;}
-
-  /* ── Shared badge ── */
   .shared-badge{display:inline-flex;align-items:center;gap:6px;background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);font-family:var(--font-mono);font-size:10px;padding:3px 10px;border-radius:var(--r-pill);letter-spacing:.05em;text-transform:uppercase;margin-bottom:16px;}
-
-  /* ── Score hero ── */
-  .score-hero{
-    background:var(--surface-1);border:1px solid var(--border-sm);
-    border-radius:var(--r-xl);overflow:hidden;
-    margin-bottom:20px;position:relative;
-  }
+  .score-hero{background:var(--surface-1);border:1px solid var(--border-sm);border-radius:var(--r-xl);overflow:hidden;margin-bottom:20px;position:relative;}
   .score-hero::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,var(--gold-border),rgba(139,124,248,.3),transparent);}
-  .score-top{
-    padding:32px 28px 24px;
-    display:flex;align-items:center;gap:28px;flex-wrap:wrap;
-  }
+  .score-top{padding:32px 28px 24px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;}
   .score-ring-wrap{flex-shrink:0;position:relative;width:96px;height:96px;}
   .score-ring-wrap svg{transform:rotate(-90deg);}
   .ring-track{fill:none;stroke:var(--surface-4);stroke-width:7;}
@@ -75,7 +42,6 @@
   .ring-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
   .ring-score{font-family:var(--font-head);font-size:24px;font-weight:800;color:var(--teal);line-height:1;}
   .ring-label{font-family:var(--font-mono);font-size:9px;color:var(--text-4);letter-spacing:.05em;margin-top:2px;}
-
   .score-info{flex:1;min-width:180px;}
   .score-eyebrow{font-family:var(--font-mono);font-size:10px;color:var(--gold);letter-spacing:.09em;text-transform:uppercase;margin-bottom:6px;}
   .score-title{font-family:var(--font-head);font-size:20px;font-weight:800;color:var(--text-1);letter-spacing:-.02em;line-height:1.2;margin-bottom:6px;}
@@ -83,56 +49,29 @@
   .meta-chip{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-3);}
   .meta-chip svg{opacity:.5;flex-shrink:0;}
   .avatar-xs{width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,var(--gold-muted),var(--violet-muted));border:1px solid var(--border-sm);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--text-2);flex-shrink:0;}
-
   .score-stats{display:flex;border-top:1px solid var(--border-xs);}
   .score-stat{flex:1;padding:14px 12px;text-align:center;border-right:1px solid var(--border-xs);}
   .score-stat:last-child{border-right:none;}
   .score-stat-num{font-family:var(--font-mono);font-size:18px;font-weight:700;margin-bottom:3px;}
-  .score-stat-num.gold{color:var(--gold);}
-  .score-stat-num.green{color:var(--green);}
-  .score-stat-num.red{color:var(--red);}
-  .score-stat-num.teal{color:var(--teal);}
+  .score-stat-num.gold{color:var(--gold);}.score-stat-num.green{color:var(--green);}.score-stat-num.red{color:var(--red);}.score-stat-num.teal{color:var(--teal);}
   .score-stat-lbl{font-size:10px;color:var(--text-4);}
-
-  /* ── Actions ── */
   .action-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:28px;}
   .btn-primary{display:flex;align-items:center;gap:7px;padding:10px 20px;border-radius:var(--r-md);border:none;background:linear-gradient(135deg,var(--gold),var(--gold-bright));color:#090900;font-family:var(--font-body);font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px var(--gold-glow);transition:opacity var(--t-fast),transform var(--t-fast) var(--ease-spring);}
   .btn-primary:hover{opacity:.9;transform:translateY(-1px);}
   .btn-secondary{display:flex;align-items:center;gap:7px;padding:10px 16px;border-radius:var(--r-md);border:1px solid var(--border-sm);background:var(--surface-1);color:var(--text-2);font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;transition:color var(--t-fast),border-color var(--t-fast),background var(--t-fast);}
   .btn-secondary:hover{color:var(--text-1);border-color:var(--border-md);background:var(--surface-2);}
-
-  /* ── Section header ── */
   .section-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
   .section-title{font-family:var(--font-mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--text-4);}
   .section-pill{font-family:var(--font-mono);font-size:10px;color:var(--text-4);}
-
-  /* ── Preview exam — live questions ── */
-  .exam-q-card{
-    background:var(--surface-1);border:1px solid var(--border-xs);
-    border-radius:var(--r-md);overflow:hidden;margin-bottom:12px;
-    animation:fadeUp .25s ease;
-  }
+  .exam-q-card{background:var(--surface-1);border:1px solid var(--border-xs);border-radius:var(--r-md);overflow:hidden;margin-bottom:12px;animation:fadeUp .25s ease;}
   @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
   .exam-q-header{padding:16px 20px 12px;border-bottom:1px solid var(--border-xs);}
   .exam-q-num{font-family:var(--font-mono);font-size:10px;color:var(--text-4);margin-bottom:6px;letter-spacing:.06em;text-transform:uppercase;}
   .exam-q-text{font-size:14px;font-weight:600;color:var(--text-1);line-height:1.6;font-family:var(--font-head);}
   .exam-options{padding:12px 20px 16px;display:flex;flex-direction:column;gap:7px;}
-  .exam-option{
-    display:flex;align-items:flex-start;gap:11px;
-    padding:10px 13px;border-radius:var(--r-sm);
-    border:1px solid var(--border-xs);background:var(--surface-2);
-    text-align:left;width:100%;font-family:var(--font-body);cursor:pointer;
-    transition:all var(--t-fast);
-  }
+  .exam-option{display:flex;align-items:flex-start;gap:11px;padding:10px 13px;border-radius:var(--r-sm);border:1px solid var(--border-xs);background:var(--surface-2);text-align:left;width:100%;font-family:var(--font-body);cursor:pointer;transition:all var(--t-fast);}
   .exam-option:hover:not([disabled]){border-color:var(--border-md);background:var(--surface-3);}
-  .opt-letter{
-    width:22px;height:22px;border-radius:50%;
-    background:var(--surface-3);border:1px solid var(--border-xs);
-    display:flex;align-items:center;justify-content:center;
-    font-family:var(--font-mono);font-size:10px;font-weight:700;
-    color:var(--text-3);flex-shrink:0;margin-top:1px;
-    transition:all var(--t-fast);
-  }
+  .opt-letter{width:22px;height:22px;border-radius:50%;background:var(--surface-3);border:1px solid var(--border-xs);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:10px;font-weight:700;color:var(--text-3);flex-shrink:0;margin-top:1px;transition:all var(--t-fast);}
   .opt-text{font-size:13px;color:var(--text-2);line-height:1.5;}
   .exam-option.selected{border-color:var(--gold-border);background:var(--gold-muted);}
   .exam-option.selected .opt-letter{background:var(--gold);border-color:var(--gold);color:#090900;}
@@ -140,64 +79,34 @@
   .exam-option.correct .opt-letter{background:var(--teal);border-color:var(--teal);color:#090900;}
   .exam-option.wrong{border-color:rgba(248,113,113,.3);background:rgba(248,113,113,.05);}
   .exam-option.wrong .opt-letter{background:rgba(248,113,113,.3);border-color:transparent;color:#f87171;}
-  .exam-feedback{
-    margin:0 20px 14px;padding:10px 13px;border-radius:var(--r-sm);
-    font-size:12px;line-height:1.6;display:none;
-  }
+  .exam-feedback{margin:0 20px 14px;padding:10px 13px;border-radius:var(--r-sm);font-size:12px;line-height:1.6;display:none;}
   .exam-feedback.show{display:block;}
   .exam-feedback.correct-fb{background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.2);color:var(--teal);}
   .exam-feedback.wrong-fb{background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.2);color:#f87171;}
-
   .exam-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px;}
   .exam-nav-btn{padding:9px 20px;border-radius:var(--r-sm);font-family:var(--font-body);font-size:13px;font-weight:600;border:none;cursor:pointer;transition:all var(--t-fast);}
-  .exam-nav-btn.primary{background:var(--gold);color:#090900;}
-  .exam-nav-btn.primary:hover{background:var(--gold-bright);}
-  .exam-nav-btn.secondary{background:var(--surface-2);border:1px solid var(--border-xs);color:var(--text-2);}
-  .exam-nav-btn.secondary:hover{border-color:var(--border-md);color:var(--text-1);}
+  .exam-nav-btn.primary{background:var(--gold);color:#090900;}.exam-nav-btn.primary:hover{background:var(--gold-bright);}
+  .exam-nav-btn.secondary{background:var(--surface-2);border:1px solid var(--border-xs);color:var(--text-2);}.exam-nav-btn.secondary:hover{border-color:var(--border-md);color:var(--text-1);}
   .exam-nav-btn:disabled{opacity:.3;cursor:not-allowed;}
-
-  /* ── Progress bar ── */
   .exam-topbar-inner{display:flex;align-items:center;gap:14px;margin-bottom:20px;}
   .progress-label{font-family:var(--font-mono);font-size:10px;color:var(--text-4);display:flex;justify-content:space-between;margin-bottom:5px;}
   .progress-wrap{flex:1;}
   .progress-track{height:3px;background:var(--surface-4);border-radius:2px;overflow:hidden;}
   .progress-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--gold),var(--violet));transition:width .4s var(--ease-snap);}
-
-  /* ── Lock wall ── */
-  .lock-wall{
-    background:var(--surface-1);border:1px solid var(--border-sm);
-    border-radius:var(--r-lg);padding:20px 22px;
-    display:flex;align-items:center;gap:14px;
-    margin-top:4px;
-  }
+  .lock-wall{background:var(--surface-1);border:1px solid var(--border-sm);border-radius:var(--r-lg);padding:20px 22px;display:flex;align-items:center;gap:14px;margin-top:4px;}
   .lock-wall svg{color:var(--text-4);flex-shrink:0;}
   .lock-wall-text{flex:1;}
   .lock-wall-title{font-size:13px;font-weight:500;color:var(--text-1);margin-bottom:3px;}
   .lock-wall-sub{font-size:12px;color:var(--text-3);}
-
-  /* ── Review list ── */
   .review-list{display:flex;flex-direction:column;gap:10px;}
-  .review-item{
-    padding:16px 18px;border-radius:var(--r-sm);
-    border:1px solid var(--border-sm);background:var(--surface-2);
-  }
+  .review-item{padding:16px 18px;border-radius:var(--r-sm);border:1px solid var(--border-sm);background:var(--surface-2);}
   .review-q{font-size:13px;font-weight:600;color:var(--text-1);margin-bottom:10px;line-height:1.5;}
   .review-row{display:flex;gap:7px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px;}
   .review-lbl{color:var(--text-4);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-family:var(--font-mono);flex-shrink:0;}
-  .review-val{font-size:13px;font-weight:500;color:var(--text-2);}
-  .review-val.correct{color:var(--teal);}
-  .review-val.wrong{color:var(--red);}
+  .review-val{font-size:13px;font-weight:500;color:var(--text-2);}.review-val.correct{color:var(--teal);}.review-val.wrong{color:var(--red);}
   .review-explanation{font-size:12px;color:var(--text-3);line-height:1.65;margin-top:8px;padding-top:8px;border-top:1px solid var(--border-xs);}
   .review-item.blurred{filter:blur(4px);pointer-events:none;user-select:none;opacity:.6;}
-
-  /* ── Upsell ── */
-  .upsell-card{
-    background:var(--surface-1);border:1px solid var(--gold-border);
-    border-radius:var(--r-xl);padding:28px;
-    display:flex;align-items:center;gap:24px;flex-wrap:wrap;
-    margin-top:28px;box-shadow:0 0 40px rgba(232,172,46,.06);
-    position:relative;overflow:hidden;
-  }
+  .upsell-card{background:var(--surface-1);border:1px solid var(--gold-border);border-radius:var(--r-xl);padding:28px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-top:28px;box-shadow:0 0 40px rgba(232,172,46,.06);position:relative;overflow:hidden;}
   .upsell-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold-border),transparent);}
   .upsell-icon{width:48px;height:48px;border-radius:14px;background:var(--gold-muted);border:1px solid var(--gold-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
   .upsell-text{flex:1;min-width:200px;}
@@ -208,22 +117,21 @@
   .feat-chip svg{color:var(--green);opacity:.8;}
   .upsell-cta{display:flex;flex-direction:column;gap:8px;align-items:center;flex-shrink:0;}
   .upsell-note{font-size:10px;color:var(--text-4);}
-
+  .state-screen{max-width:680px;margin:80px auto;padding:0 24px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;position:relative;z-index:1;}
+  .state-icon{width:56px;height:56px;border-radius:16px;background:var(--surface-2);border:1px solid var(--border-sm);display:flex;align-items:center;justify-content:center;}
+  .state-title{font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text-1);}
+  .state-sub{font-size:13px;color:var(--text-3);max-width:380px;line-height:1.6;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .spinner{animation:spin 0.8s linear infinite;}
   .page-footer{border-top:1px solid var(--border-xs);padding:20px 24px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11.5px;color:var(--text-4);}
-  .page-footer a{color:var(--text-3);text-decoration:none;}
-  .page-footer a:hover{color:var(--text-1);}
-
-  @media(max-width:600px){
-    .score-top{flex-direction:column;align-items:flex-start;}
-    .topbar-crumb,.topbar-sep{display:none;}
-    .upsell-card{flex-direction:column;align-items:flex-start;}
-  }
+  .page-footer a{color:var(--text-3);text-decoration:none;}.page-footer a:hover{color:var(--text-1);}
+  @media(max-width:600px){.score-top{flex-direction:column;align-items:flex-start;}.topbar-crumb,.topbar-sep{display:none;}.upsell-card{flex-direction:column;align-items:flex-start;}}
 </style>
 </head>
 <body>
 
 <header class="topbar">
-  <a class="logo-row" href="#">
+  <a class="logo-row" href="/">
     <svg width="24" height="24" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
       <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity=".95"/>
       <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity=".88"/>
@@ -235,19 +143,34 @@
   <div class="topbar-sep"></div>
   <span class="topbar-crumb">Shared exam</span>
   <div class="topbar-actions">
-    <button class="btn-ghost">Log in</button>
-    <button class="btn-gold">Sign up free</button>
+    <button class="btn-ghost" onclick="window.location.href='/?login=1'">Log in</button>
+    <button class="btn-gold" onclick="window.location.href='/?signup=1'">Sign up free</button>
   </div>
 </header>
 
-<div class="page">
+<div class="state-screen" id="loading-state">
+  <div class="state-icon">
+    <svg class="spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e8ac2e" stroke-width="2" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+  </div>
+  <div class="state-title">Loading exam…</div>
+  <div class="state-sub">Fetching shared exam results.</div>
+</div>
 
+<div class="state-screen" id="error-state" style="display:none;">
+  <div class="state-icon">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  </div>
+  <div class="state-title">Exam not found</div>
+  <div class="state-sub" id="error-msg">This shared exam may have expired or the link is invalid.</div>
+</div>
+
+<div id="page-content" style="display:none;">
+<div class="page">
   <div class="shared-badge">
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
     Shared exam result
   </div>
 
-  <!-- Score hero -->
   <div class="score-hero">
     <div class="score-top">
       <div class="score-ring-wrap">
@@ -256,33 +179,33 @@
           <circle class="ring-pass" cx="48" cy="48" r="40" id="score-ring"/>
         </svg>
         <div class="ring-center">
-          <span class="ring-score">83%</span>
+          <span class="ring-score" id="ring-score-text">—%</span>
           <span class="ring-label">SCORE</span>
         </div>
       </div>
       <div class="score-info">
-        <div class="score-eyebrow">Acid-Base Equilibrium · Atkins Ch. 6</div>
+        <div class="score-eyebrow" id="score-eyebrow">—</div>
         <h1 class="score-title">Exam Results</h1>
         <div class="score-meta">
           <div class="meta-chip">
-            <div class="avatar-xs">D</div>
-            Deff Michael Dawang
+            <div class="avatar-xs" id="author-avatar">?</div>
+            <span id="author-name">—</span>
           </div>
           <div class="meta-chip">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            18 min 42 sec
+            <span id="exam-duration">—</span>
           </div>
           <div class="meta-chip">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Mar 22, 2026
+            <span id="exam-date">—</span>
           </div>
         </div>
         <div class="action-row" style="margin-bottom:0;">
-          <button class="btn-primary" id="take-btn">
+          <button class="btn-primary" onclick="window.location.href='/?signup=1'">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             Take this exam
           </button>
-          <button class="btn-secondary">
+          <button class="btn-secondary" id="share-btn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             Share
           </button>
@@ -290,70 +213,50 @@
       </div>
     </div>
     <div class="score-stats">
-      <div class="score-stat">
-        <div class="score-stat-num teal">83%</div>
-        <div class="score-stat-lbl">Final score</div>
-      </div>
-      <div class="score-stat">
-        <div class="score-stat-num green">10</div>
-        <div class="score-stat-lbl">Correct</div>
-      </div>
-      <div class="score-stat">
-        <div class="score-stat-num red">2</div>
-        <div class="score-stat-lbl">Wrong</div>
-      </div>
-      <div class="score-stat">
-        <div class="score-stat-num gold">12</div>
-        <div class="score-stat-lbl">Questions</div>
-      </div>
+      <div class="score-stat"><div class="score-stat-num teal" id="stat-score">—%</div><div class="score-stat-lbl">Final score</div></div>
+      <div class="score-stat"><div class="score-stat-num green" id="stat-correct">—</div><div class="score-stat-lbl">Correct</div></div>
+      <div class="score-stat"><div class="score-stat-num red" id="stat-wrong">—</div><div class="score-stat-lbl">Wrong</div></div>
+      <div class="score-stat"><div class="score-stat-num gold" id="stat-total">—</div><div class="score-stat-lbl">Questions</div></div>
     </div>
   </div>
 
-  <!-- Try the exam section -->
   <div style="margin-bottom:28px;">
     <div class="section-hd">
       <span class="section-title">Try the exam</span>
-      <span class="section-pill">3 preview questions</span>
+      <span class="section-pill" id="preview-pill">— preview questions</span>
     </div>
-
     <div class="exam-topbar-inner">
       <div class="progress-wrap">
         <div class="progress-label">
-          <span id="q-label">Question 1 of 3</span>
-          <span id="q-score-live">0 / 3</span>
+          <span id="q-label">Question 1 of —</span>
+          <span id="q-score-live">0 / —</span>
         </div>
-        <div class="progress-track">
-          <div class="progress-fill" id="q-progress" style="width:33%"></div>
-        </div>
+        <div class="progress-track"><div class="progress-fill" id="q-progress" style="width:0%"></div></div>
       </div>
     </div>
-
     <div id="question-area"></div>
-
     <div class="exam-nav">
       <button class="exam-nav-btn secondary" id="q-prev" onclick="prevQ()" disabled>← Prev</button>
       <button class="exam-nav-btn primary" id="q-next" onclick="nextQ()">Next →</button>
     </div>
   </div>
 
-  <!-- Review section -->
   <div>
     <div class="section-hd">
       <span class="section-title">Question review</span>
-      <span class="section-pill">12 questions · showing 3</span>
+      <span class="section-pill" id="review-pill">— questions · showing —</span>
     </div>
     <div class="review-list" id="review-list"></div>
-    <div class="lock-wall" style="margin-top:10px;">
+    <div class="lock-wall" id="lock-wall" style="margin-top:10px;display:none;">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
       <div class="lock-wall-text">
-        <div class="lock-wall-title">9 more questions with full explanations</div>
+        <div class="lock-wall-title" id="lock-title">More questions with full explanations</div>
         <div class="lock-wall-sub">Sign up free to see every question, correct answer, and AI explanation</div>
       </div>
-      <button class="btn-primary" style="flex-shrink:0;">Unlock all</button>
+      <button class="btn-primary" style="flex-shrink:0;" onclick="window.location.href='/?signup=1'">Unlock all</button>
     </div>
   </div>
 
-  <!-- Upsell -->
   <div class="upsell-card">
     <div class="upsell-icon">
       <svg width="22" height="22" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -365,144 +268,155 @@
     </div>
     <div class="upsell-text">
       <div class="upsell-title">Generate your own exam from any textbook</div>
-      <div class="upsell-desc">Pick a chapter, choose question type and difficulty — Chunks generates a full exam with AI explanations for every answer. Track your scores and see how you improve over time.</div>
+      <div class="upsell-desc">Pick a chapter, choose question type and difficulty — Chunks generates a full exam with AI explanations for every answer.</div>
       <div class="feat-chips">
         <span class="feat-chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>MCQ, True/False, Short answer</span>
         <span class="feat-chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>AI explanations per question</span>
-        <span class="feat-chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Score history & trends</span>
+        <span class="feat-chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Score history &amp; trends</span>
         <span class="feat-chip"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>Share results with friends</span>
       </div>
     </div>
     <div class="upsell-cta">
-      <button class="btn-primary">Create free account</button>
+      <button class="btn-primary" onclick="window.location.href='/?signup=1'">Create free account</button>
       <span class="upsell-note">No credit card required</span>
     </div>
   </div>
-
+</div>
 </div>
 
 <footer class="page-footer">
-  Made with <span style="color:var(--gold);margin:0 3px;">Chunks</span> · <a href="#">chunks.online</a> · <a href="#">Privacy</a>
+  Made with <span style="color:var(--gold);margin:0 3px;">Chunks</span> · <a href="/">chunks.online</a> · <a href="/privacy.html">Privacy</a>
 </footer>
 
 <script>
-const QS = [
-  {
-    q: "What is the Henderson-Hasselbalch equation?",
-    opts: ["pH = pKa + log([A⁻]/[HA])", "pH = Ka × [HA] / [A⁻]", "pH = pKb − log([BH⁺]/[B])", "pH = −log([H⁺]) × Ka"],
-    correct: 0,
-    feedback: "Correct! pH = pKa + log([A⁻]/[HA]) is the Henderson-Hasselbalch equation. It relates buffer pH to the pKa of the weak acid and the ratio of conjugate base to acid concentrations.",
-    wrongFeedback: "Not quite. The Henderson-Hasselbalch equation is pH = pKa + log([A⁻]/[HA])."
-  },
-  {
-    q: "A buffer is most effective within what pH range relative to the pKa?",
-    opts: ["±0.5 pH units", "±1 pH unit", "±2 pH units", "±3 pH units"],
-    correct: 1,
-    feedback: "Correct! A buffer works best within ±1 pH unit of the pKa. Beyond this range, the ratio of acid to conjugate base becomes too extreme to resist pH changes.",
-    wrongFeedback: "A buffer is most effective within ±1 pH unit of the pKa — not the range you selected."
-  },
-  {
-    q: "When [A⁻]/[HA] = 10, what is the relationship between pH and pKa?",
-    opts: ["pH = pKa − 1", "pH = pKa", "pH = pKa + 1", "pH = pKa + 2"],
-    correct: 2,
-    feedback: "Correct! log(10) = 1, so pH = pKa + 1. This is a direct application of the Henderson-Hasselbalch equation.",
-    wrongFeedback: "log([A⁻]/[HA]) = log(10) = 1, so pH = pKa + 1."
+const API_BASE = (window.CHUNKS_BACKEND_URL || 'https://api.chunks.online').replace(/\/$/,'');
+const PREVIEW_Q = 3;
+let QS = [], REVIEW_ITEMS = [], cur = 0, answered = {}, score = 0;
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+async function loadShare() {
+  const shareId = new URLSearchParams(location.search).get('id');
+  if (!shareId) { showError('No share ID in URL.'); return; }
+  try {
+    const resp = await fetch(`${API_BASE}/api/share/${encodeURIComponent(shareId)}`);
+    if (!resp.ok) { const b=await resp.json().catch(()=>{}); showError((b&&b.error)||`Error ${resp.status}`); return; }
+    const json = await resp.json();
+    if (!json.success || json.type !== 'exam') { showError('This link does not point to a valid exam.'); return; }
+    renderExam(json.data);
+  } catch(_) { showError('Could not load the exam. Please check your connection.'); }
+}
+
+function showError(msg) {
+  document.getElementById('loading-state').style.display='none';
+  document.getElementById('error-msg').textContent=msg;
+  document.getElementById('error-state').style.display='';
+}
+
+function renderExam(data) {
+  QS = (data.questions || []).slice(0, PREVIEW_Q);
+  REVIEW_ITEMS = (data.review || []).slice(0, PREVIEW_Q);
+  const total = data.total || (data.questions||[]).length;
+  const correct = data.correct ?? 0;
+  const wrong = data.wrong ?? 0;
+  const pct = data.score ?? (total>0?Math.round(correct/total*100):0);
+
+  document.title = (data.title||'Exam') + ' — Results · Chunks';
+  const subtitle = data.subtitle ? data.title+' · '+data.subtitle : (data.title||'Exam');
+  document.getElementById('score-eyebrow').textContent = subtitle;
+  const author = data.author||'Anonymous';
+  document.getElementById('author-name').textContent = author;
+  document.getElementById('author-avatar').textContent = author.charAt(0).toUpperCase();
+  document.getElementById('exam-duration').textContent = data.duration||'—';
+  document.getElementById('exam-date').textContent = data.date||'—';
+  document.getElementById('ring-score-text').textContent = pct+'%';
+  document.getElementById('stat-score').textContent = pct+'%';
+  document.getElementById('stat-correct').textContent = correct;
+  document.getElementById('stat-wrong').textContent = wrong;
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('preview-pill').textContent = QS.length+' preview question'+(QS.length===1?'':'s');
+  document.getElementById('review-pill').textContent = total+' questions · showing '+REVIEW_ITEMS.length;
+
+  const hiddenReview = total - REVIEW_ITEMS.length;
+  if (hiddenReview > 0) {
+    document.getElementById('lock-title').textContent = hiddenReview+' more question'+(hiddenReview===1?'':'s')+' with full explanations';
+    document.getElementById('lock-wall').style.display='';
   }
-];
 
-const REVIEW_ITEMS = [
-  { q: "What is the Henderson-Hasselbalch equation?", yours: "pH = pKa + log([A⁻]/[HA])", correct: "pH = pKa + log([A⁻]/[HA])", isCorrect: true, explanation: "The Henderson-Hasselbalch equation relates buffer pH to the pKa and the ratio of conjugate base to weak acid concentrations. It's derived directly from the Ka expression." },
-  { q: "Which buffer system maintains blood plasma pH?", yours: "H₂CO₃ / HCO₃⁻", correct: "H₂CO₃ / HCO₃⁻", isCorrect: true, explanation: "The bicarbonate buffer system (carbonic acid / bicarbonate ion, pKa ≈ 6.1) is the primary extracellular buffer in blood plasma, working alongside respiratory regulation of CO₂." },
-  { q: "A weak acid has Ka = 1.8 × 10⁻⁵. What is its pKa?", yours: "4.74", correct: "4.74", isCorrect: true, explanation: "pKa = −log(Ka) = −log(1.8 × 10⁻⁵) = 4.74. This is the pKa of acetic acid — a commonly used example in buffer calculations." },
-];
+  document.getElementById('share-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(location.href).then(()=>{
+      const btn=document.getElementById('share-btn');
+      const orig=btn.innerHTML; btn.textContent='✓ Copied!';
+      setTimeout(()=>{btn.innerHTML=orig;},2000);
+    });
+  });
 
-let cur = 0;
-const answered = {};
-let score = 0;
+  renderQuestion();
+  renderReview();
+
+  setTimeout(() => {
+    const ring=document.getElementById('score-ring');
+    const circ=2*Math.PI*40;
+    ring.style.strokeDashoffset=circ-(circ*pct/100);
+  }, 300);
+
+  document.getElementById('loading-state').style.display='none';
+  document.getElementById('page-content').style.display='';
+}
 
 function renderQuestion() {
-  const q = QS[cur];
-  const area = document.getElementById('question-area');
-  const isAnswered = answered[cur] !== undefined;
-  const chosen = answered[cur];
-
-  const optsHTML = q.opts.map((o, i) => {
-    let cls = '';
-    if (isAnswered) {
-      if (i === q.correct) cls = 'correct';
-      else if (i === chosen && i !== q.correct) cls = 'wrong';
-    } else if (chosen === i) cls = 'selected';
-    const letters = ['A','B','C','D'];
-    return `<button class="exam-option ${cls}" onclick="selectOption(${i})" ${isAnswered ? 'disabled' : ''}>
-      <span class="opt-letter">${letters[i]}</span>
-      <span class="opt-text">${o}</span>
+  if (!QS.length) { document.getElementById('question-area').innerHTML='<p style="color:var(--text-3);padding:16px">No preview questions available.</p>'; return; }
+  const q=QS[cur], isAnswered=answered[cur]!==undefined, chosen=answered[cur];
+  const letters=['A','B','C','D','E'];
+  const optsHTML=(q.opts||[]).map((o,i)=>{
+    let cls='';
+    if(isAnswered){if(i===q.correct)cls='correct';else if(i===chosen&&i!==q.correct)cls='wrong';}
+    else if(chosen===i)cls='selected';
+    return `<button class="exam-option ${cls}" onclick="selectOption(${i})" ${isAnswered?'disabled':''}>
+      <span class="opt-letter">${letters[i]||i+1}</span>
+      <span class="opt-text">${esc(o)}</span>
     </button>`;
   }).join('');
-
-  const fbClass = isAnswered ? (chosen === q.correct ? 'correct-fb show' : 'wrong-fb show') : '';
-  const fbText = isAnswered ? (chosen === q.correct ? q.feedback : q.wrongFeedback) : '';
-
-  area.innerHTML = `
-    <div class="exam-q-card" style="animation-delay:0s">
+  const fbClass=isAnswered?(chosen===q.correct?'correct-fb show':'wrong-fb show'):'';
+  const fbText=isAnswered?(chosen===q.correct?(q.feedback||'Correct!'):(q.wrongFeedback||'Incorrect.')):'';
+  document.getElementById('question-area').innerHTML=`
+    <div class="exam-q-card">
       <div class="exam-q-header">
-        <div class="exam-q-num">Question ${cur + 1} of ${QS.length}</div>
-        <div class="exam-q-text">${q.q}</div>
+        <div class="exam-q-num">Question ${cur+1} of ${QS.length}</div>
+        <div class="exam-q-text">${esc(q.q)}</div>
       </div>
       <div class="exam-options">${optsHTML}</div>
-      <div class="exam-feedback ${fbClass}">${fbText}</div>
+      <div class="exam-feedback ${fbClass}">${esc(fbText)}</div>
     </div>`;
-
-  const pct = ((cur + 1) / QS.length * 100).toFixed(0);
-  document.getElementById('q-progress').style.width = pct + '%';
-  document.getElementById('q-label').textContent = `Question ${cur + 1} of ${QS.length}`;
-  document.getElementById('q-score-live').textContent = `${score} / ${QS.length}`;
-  document.getElementById('q-prev').disabled = cur === 0;
-  document.getElementById('q-next').textContent = cur === QS.length - 1 ? 'Finish ✓' : 'Next →';
-  document.getElementById('q-next').disabled = !isAnswered;
+  const pct=((cur+1)/QS.length*100).toFixed(0);
+  document.getElementById('q-progress').style.width=pct+'%';
+  document.getElementById('q-label').textContent=`Question ${cur+1} of ${QS.length}`;
+  document.getElementById('q-score-live').textContent=`${score} / ${QS.length}`;
+  document.getElementById('q-prev').disabled=cur===0;
+  document.getElementById('q-next').textContent=cur===QS.length-1?'Finish ✓':'Next →';
+  document.getElementById('q-next').disabled=!isAnswered;
 }
 
-function selectOption(i) {
-  if (answered[cur] !== undefined) return;
-  answered[cur] = i;
-  if (i === QS[cur].correct) score++;
-  renderQuestion();
-}
+function selectOption(i){if(answered[cur]!==undefined)return;answered[cur]=i;if(i===QS[cur].correct)score++;renderQuestion();}
+function nextQ(){if(cur<QS.length-1){cur++;renderQuestion();}}
+function prevQ(){if(cur>0){cur--;renderQuestion();}}
 
-function nextQ() {
-  if (cur < QS.length - 1) { cur++; renderQuestion(); }
-}
-function prevQ() {
-  if (cur > 0) { cur--; renderQuestion(); }
-}
-
-// Render review
-function renderReview() {
-  const list = document.getElementById('review-list');
-  REVIEW_ITEMS.forEach((item, i) => {
-    const el = document.createElement('div');
-    el.className = 'review-item' + (i === 2 ? ' blurred' : '');
-    el.innerHTML = `
-      <div class="review-q">${item.q}</div>
-      <div class="review-row">
-        <span class="review-lbl">Your answer</span>
-        <span class="review-val ${item.isCorrect ? 'correct' : 'wrong'}">${item.yours}</span>
-      </div>
-      ${!item.isCorrect ? `<div class="review-row"><span class="review-lbl">Correct</span><span class="review-val correct">${item.correct}</span></div>` : ''}
-      <div class="review-explanation">${item.explanation}</div>`;
+function renderReview(){
+  const list=document.getElementById('review-list');
+  list.innerHTML='';
+  REVIEW_ITEMS.forEach((item,i)=>{
+    const el=document.createElement('div');
+    el.className='review-item'+(i===REVIEW_ITEMS.length-1&&REVIEW_ITEMS.length>1?' blurred':'');
+    el.innerHTML=`
+      <div class="review-q">${esc(item.q)}</div>
+      <div class="review-row"><span class="review-lbl">Your answer</span><span class="review-val ${item.isCorrect?'correct':'wrong'}">${esc(item.yours||'—')}</span></div>
+      ${!item.isCorrect?`<div class="review-row"><span class="review-lbl">Correct</span><span class="review-val correct">${esc(item.correct||'—')}</span></div>`:''}
+      <div class="review-explanation">${esc(item.explanation||'—')}</div>`;
     list.appendChild(el);
   });
 }
 
-// Animate score ring
-setTimeout(() => {
-  const ring = document.getElementById('score-ring');
-  const pct = 83;
-  const circ = 2 * Math.PI * 40;
-  ring.style.strokeDashoffset = circ - (circ * pct / 100);
-}, 300);
-
-renderQuestion();
-renderReview();
+loadShare();
 </script>
 </body>
 </html>
