@@ -36,6 +36,7 @@ import { showToast } from '../components/Toast.js';
 import { _getStudyMode } from '../components/SettingsModal.js';
 import { homeMarkdown, sanitize } from '../utils/render.js';
 import { lsGet } from '../utils/storage.js';
+import { idbKeys } from '../lib/idbStorage.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -958,17 +959,23 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
   // settled — causing _homeMountSession to see an empty _recentItems and
   // fall back to the landing screen instead of the last chat.
   setTimeout(function restoreSession() {
-    // Find the newest session in localStorage with actual content.
+    // Find the newest session in IDB (or localStorage fallback) with actual content.
     // Prefer the r+timestamp keyed entry (has supabaseId for future writes)
     // over the UUID-keyed entry when both exist for the same session.
+    // chunks_session_* keys live in IndexedDB — scan IDB keys, fall back to localStorage.
     try {
       let newest = null;
       let newestTime = 0;
+      const sessionKeys = idbKeys('chunks_session_');
+      // Also include any keys that may still be in localStorage (pre-migration)
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (!k?.startsWith('chunks_session_')) continue;
+        if (k?.startsWith('chunks_session_') && !sessionKeys.includes(k)) sessionKeys.push(k);
+      }
+      for (const k of sessionKeys) {
         let s;
-        try { s = JSON.parse(localStorage.getItem(k)); } catch (_) { continue; }
+        try { s = lsGet(k); } catch (_) { continue; }
+        if (!s) continue;
         // Normalise: pullAndApply writes 'messages', _saveSession writes 'history'
         if (!s.history && s.messages) s.history = s.messages;
         const history = s?.history || [];
