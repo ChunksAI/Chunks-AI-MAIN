@@ -146,6 +146,7 @@ import {
   _wsRenderPage, _wsUpdateOutlineActive, _loadPdfJs,
   wsPromptYouTube, wsCloseYouTube, wsIngestYouTube,
   wsToggleVoiceInput, wsReadAloud, wsStopReading,
+  wsListenPdf, wsStopListenPdf,
 } from './state/workspace/index.js';
 
 window.wsBookMeta          = wsBookMeta;
@@ -197,6 +198,8 @@ window.wsIngestYouTube        = wsIngestYouTube;
 window.wsToggleVoiceInput     = wsToggleVoiceInput;
 window.wsReadAloud            = wsReadAloud;
 window.wsStopReading          = wsStopReading;
+window.wsListenPdf            = wsListenPdf;
+window.wsStopListenPdf        = wsStopListenPdf;
 
 // Forward-reference stub — flash/index.js overwrites this with the real impl
 window.wsMakeFlashcard = async function(btn, msgId, question) {
