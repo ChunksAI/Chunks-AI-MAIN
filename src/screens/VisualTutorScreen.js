@@ -248,6 +248,24 @@ const VT_HTML = `
         </div>
       </div>
 
+      <!-- ── Step Challenge (retrieval practice) ──────────── -->
+      <div class="step-challenge" id="step-challenge">
+        <div class="challenge-prompt">
+          <span class="challenge-icon">⚡</span>
+          <span class="challenge-q" id="challenge-q"></span>
+        </div>
+        <div class="challenge-input-row" id="challenge-input-row">
+          <input class="challenge-input" id="challenge-input" placeholder="Type your answer…">
+          <button class="challenge-submit" id="challenge-submit">→</button>
+        </div>
+        <div class="challenge-reveal" id="challenge-reveal">
+          <div class="challenge-hint-label">Model answer</div>
+          <div class="challenge-model-answer" id="challenge-model-answer"></div>
+          <button class="challenge-continue" id="challenge-continue">Continue →</button>
+        </div>
+        <button class="challenge-skip" id="challenge-skip">Skip</button>
+      </div>
+
       <!-- Got it? row — PRIMARY CTA -->
       <div class="gotit-row" id="gotit-row">
         <button class="gotit-yes" id="vtp-gotit-yes">
@@ -326,6 +344,29 @@ const VT_HTML = `
         <button class="btn-sec-action" id="vtp-new-btn">Learn Something New →</button>
       </div>
 
+      <!-- ── Teach It Back (active recall) ──────────────── -->
+      <div class="ttb-section" id="ttb-section">
+        <div class="ttb-header">
+          <div class="ttb-title">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            Teach It Back
+          </div>
+          <div class="ttb-desc">Explain <strong id="ttb-topic-label">this topic</strong> in your own words — the AI will score your understanding.</div>
+        </div>
+        <textarea class="ttb-textarea" id="ttb-textarea" placeholder="Write 2–3 sentences about what you just learned…"></textarea>
+        <button class="ttb-submit-btn" id="ttb-submit-btn">Check my understanding →</button>
+        <div class="ttb-result" id="ttb-result">
+          <div class="ttb-score-badge" id="ttb-score-badge"></div>
+          <div class="ttb-feedback-text" id="ttb-feedback-text"></div>
+        </div>
+      </div>
+
+      <!-- ── What to learn next ──────────────────────────── -->
+      <div class="related-next" id="related-next">
+        <div class="related-next-title">What to learn next</div>
+        <div class="related-next-chips" id="related-next-chips"></div>
+      </div>
+
   <!-- ── SCREEN: LOADING ─────────────────────────────────────────────── -->
   <div class="vtp-screen" id="screen-loading">
     <div class="orb orb-g" style="opacity:.05"></div>
@@ -389,6 +430,7 @@ Return ONLY valid JSON — no markdown fences, no explanation text, just the raw
 {
   "hook": "One punchy sentence — why this confuses students or why it matters",
   "summary": ["takeaway 1", "takeaway 2", "takeaway 3", "takeaway 4"],
+  "relatedTopics": ["Related concept 1", "Related concept 2", "Related concept 3"],
   "quiz": {
     "onStep": 3,
     "q": "A specific multiple-choice question testing the core concept",
@@ -406,6 +448,7 @@ Return ONLY valid JSON — no markdown fences, no explanation text, just the raw
       "label": "Step 1 — Short Title",
       "text": "<strong>Hook sentence.</strong> 2-3 clear educational sentences. Use <em>key terms</em>.",
       "simple": "One plain-English sentence. No jargon.",
+      "challenge": "One specific question testing this step (end with ?) — under 12 words",
       "draw": { ... see draw types below ... },
       "contextualReplies": [
         "Direct answer to likely student question about this step",
@@ -441,7 +484,9 @@ Rules:
 - Use a DIFFERENT draw type for each step where possible.
 - Make content specific and accurate for "${topic}" — NOT generic filler.
 - contextualReplies must be real, specific answers a tutor would give — not "great question!".
-- quiz options must be specific to the topic, not abstract.`;
+- quiz options must be specific to the topic, not abstract.
+- relatedTopics: 3 closely related concepts the student should learn next (short names only).
+- challenge: a retrieval-practice question that tests the core idea of THAT step (end with ?), max 12 words.`;
 
 async function _vtpFetchLesson(topic) {
   // Cache hit — instant
@@ -900,6 +945,7 @@ let _vtpCtxReplyStep = 0;
 let _vtpWeakSteps    = [];
 let _vtpResizeTimer  = null;
 let _vtpAskHistory   = []; // [{q: string, a: string}] — in-lesson Q&A thread
+let _vtpChallengeRevealed = false; // true once the model answer is shown
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SOUND ENGINE  (Web Audio API — no file assets needed)
@@ -1096,7 +1142,7 @@ function _vtpRenderStep(idx) {
     _vtpStepBusy = false;
     if (simpBtn) simpBtn.disabled = false;
     if (askEl)   { askEl.disabled = false; askEl.placeholder = 'Ask anything…'; }
-    _vtpShowGotItRow();
+    _vtpShowStepChallenge(step);
   });
 }
 
@@ -1285,7 +1331,192 @@ function _vtpSimplify() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ASK — context-aware tutor replies
+// STEP CHALLENGE — retrieval-practice question after each step
+// Shows the step's challenge question, accepts a typed answer, then reveals
+// the model answer from contextualReplies[0] before showing the Got-it row.
+// Skipped entirely when autoplay is on.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpShowStepChallenge(step) {
+  const panel    = document.getElementById('step-challenge');
+  const qEl      = document.getElementById('challenge-q');
+  const inputRow = document.getElementById('challenge-input-row');
+  const revealEl = document.getElementById('challenge-reveal');
+  const inputEl  = document.getElementById('challenge-input');
+
+  // Skip challenge when autoplay is on or no challenge question provided
+  const question = step && step.challenge;
+  if (!panel || !question || _vtpAutoplay) {
+    _vtpShowGotItRow();
+    return;
+  }
+
+  _vtpChallengeRevealed = false;
+  if (qEl)      qEl.textContent         = question;
+  if (inputRow) inputRow.style.display  = 'flex';
+  if (revealEl) revealEl.style.display  = 'none';
+  if (inputEl)  { inputEl.value = ''; inputEl.disabled = false; }
+  if (panel)    panel.classList.add('active');
+}
+
+function _vtpSubmitChallenge() {
+  if (_vtpChallengeRevealed) return;
+  _vtpChallengeRevealed = true;
+
+  const step     = _vtpLesson.steps[_vtpStepIdx];
+  // Use contextualReplies[0] first; fall back to the pre-built plain-text "simple" field
+  // (avoids any HTML-stripping regex on step.text).
+  const modelAns = (step.contextualReplies && step.contextualReplies[0]) ||
+    step.simple ||
+    step.label.split('—')[1]?.trim() ||
+    `Focus on the diagram — that illustrates the key idea for this step.`;
+
+  const inputRow  = document.getElementById('challenge-input-row');
+  const revealEl  = document.getElementById('challenge-reveal');
+  const modelEl   = document.getElementById('challenge-model-answer');
+  const skipBtn   = document.getElementById('challenge-skip');
+  const inputEl   = document.getElementById('challenge-input');
+
+  if (inputEl)  inputEl.disabled = true;
+  if (inputRow) inputRow.style.display  = 'none';
+  if (modelEl)  modelEl.textContent     = modelAns;
+  if (revealEl) revealEl.style.display  = 'block';
+  if (skipBtn)  skipBtn.style.display   = 'none';
+}
+
+function _vtpContinueChallenge() {
+  const panel = document.getElementById('step-challenge');
+  if (panel) panel.classList.remove('active');
+  _vtpShowGotItRow();
+}
+
+function _vtpSkipChallenge() {
+  const panel = document.getElementById('step-challenge');
+  if (panel) panel.classList.remove('active');
+  _vtpShowGotItRow();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TEACH IT BACK — active-recall evaluation after lesson completion
+// The student writes a free-form explanation of the topic and the AI scores it.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Index 0–4 maps directly to score values 0–4 returned by the AI evaluator.
+const TTB_SCORE_LABELS = ['Needs work', 'Getting there', 'Good', 'Excellent', 'Perfect'];
+
+async function _vtpTeachItBack() {
+  const textarea  = document.getElementById('ttb-textarea');
+  const submitBtn = document.getElementById('ttb-submit-btn');
+  const resultEl  = document.getElementById('ttb-result');
+  const badgeEl   = document.getElementById('ttb-score-badge');
+  const feedbackEl = document.getElementById('ttb-feedback-text');
+  if (!textarea) return;
+
+  const explanation = textarea.value.trim();
+  if (!explanation) { textarea.focus(); return; }
+
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Checking…'; }
+
+  const summary = (_vtpLesson && _vtpLesson.summary) ? _vtpLesson.summary.join('; ') : _vtpCurrentTopic;
+
+  const evalPrompt =
+    `You are evaluating a student's self-explanation of "${_vtpCurrentTopic}" after a visual lesson.\n` +
+    `Key concepts from the lesson: ${summary}\n\n` +
+    `Student wrote:\n"${explanation}"\n\n` +
+    `Score their explanation (0–4 concepts covered) and give 1-sentence feedback.\n` +
+    `Return ONLY valid JSON (no markdown): {"score":3,"max":4,"label":"Good","feedback":"You explained X well; also mention Y next time."}`;
+
+  // Local fallback score — used if API call fails.
+  // Formula: ~30 words expected for a reasonable answer → scale to max 3 (capped at 4).
+  const words = explanation.split(/\s+/).length;
+  const localScore = Math.min(4, Math.max(0, Math.round((words / 30) * 3)));
+  const localLabel = TTB_SCORE_LABELS[localScore] || 'Good';
+  const localFeedback = `You covered the main idea. Review the key takeaways to deepen your understanding.`;
+
+  try {
+    const authHeader = await _getAuthHeader?.() ?? {};
+    const res = await fetch(`${API_BASE}/ask`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader },
+      body: JSON.stringify({
+        question:   evalPrompt,
+        mode:       'visual_tutor',
+        bookId:     'none',
+        complexity: 3,
+        history:    [],
+      }),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data  = await res.json();
+    const raw   = (data.answer ?? data.response ?? data.text ?? '').trim();
+    const clean = raw.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/i,'').trim();
+
+    let parsed;
+    try { parsed = JSON.parse(clean); }
+    catch (_) {
+      const m = clean.match(/\{[\s\S]*?\}/);
+      parsed = m ? JSON.parse(m[0]) : null;
+    }
+
+    const score    = (parsed && typeof parsed.score === 'number')
+      ? Math.min(4, Math.max(0, Math.round(parsed.score)))  // clamp to 0–4
+      : localScore;
+    const max      = (parsed && typeof parsed.max === 'number' && parsed.max > 0) ? parsed.max : 4;
+    const label    = (parsed && parsed.label)    ? parsed.label    : localLabel;
+    const feedback = (parsed && parsed.feedback) ? parsed.feedback : localFeedback;
+
+    _vtpRenderTTBResult(score, max, label, feedback);
+
+  } catch (_err) {
+    _vtpRenderTTBResult(localScore, 4, localLabel, localFeedback);
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = 'Try again ↺'; }
+  }
+
+  function _vtpRenderTTBResult(score, max, label, feedback) {
+    const safePct = max > 0 ? Math.round((score / max) * 100) : 0;
+    const color = safePct >= 75 ? 'var(--teal)' : safePct >= 50 ? 'var(--gold)' : 'var(--red)';
+    if (badgeEl) {
+      badgeEl.innerHTML =
+        `<span style="color:${color};font-weight:700;font-size:22px;">${score}/${max}</span>` +
+        `<span style="color:var(--t3);font-size:12px;margin-left:6px;">${label}</span>`;
+    }
+    if (feedbackEl) feedbackEl.textContent = feedback;
+    if (resultEl)   resultEl.classList.add('visible');
+    if (textarea)   textarea.disabled = true;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RELATED TOPICS — "What to learn next" chips on the complete screen
+// ─────────────────────────────────────────────────────────────────────────────
+
+function _vtpRenderRelatedTopics(topics) {
+  const wrap  = document.getElementById('related-next');
+  const chips = document.getElementById('related-next-chips');
+  if (!chips || !topics || !topics.length) return;
+
+  // Build chips via DOM to avoid any XSS from AI-generated topic names
+  chips.innerHTML = '';
+  topics.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'related-chip';
+    btn.textContent = t;
+    btn.addEventListener('click', () => {
+      const inp = document.getElementById('vtp-entry-input');
+      if (inp) inp.value = t;
+      _vtpShowScreen('screen-entry');
+      // Brief delay lets the screen transition start before kicking off the lesson fetch
+      setTimeout(() => _vtpStartLesson(), 80);
+    });
+    chips.appendChild(btn);
+  });
+
+  if (wrap) wrap.style.display = 'block';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //   • Includes all steps the student has already seen
 //   • Carries the full in-lesson Q&A thread so AI can say "as I mentioned…"
 //   • Falls back to built-in contextualReplies if offline / server error
@@ -1477,6 +1708,27 @@ function _vtpFinishLesson() {
     reviewBtn.className = _vtpWeakSteps.length > 0 ? 'btn-review-weak' : 'btn-review-weak hidden';
   }
 
+  // ── Reset Teach-It-Back UI ────────────────────────────────────────────────
+  const ttbTopicLabel = document.getElementById('ttb-topic-label');
+  const ttbTextarea   = document.getElementById('ttb-textarea');
+  const ttbSubmitBtn  = document.getElementById('ttb-submit-btn');
+  const ttbResult     = document.getElementById('ttb-result');
+  const ttbBadge      = document.getElementById('ttb-score-badge');
+  const ttbFeedback   = document.getElementById('ttb-feedback-text');
+  if (ttbTopicLabel) ttbTopicLabel.textContent = _vtpCurrentTopic;
+  if (ttbTextarea)   { ttbTextarea.value = ''; ttbTextarea.disabled = false; }
+  if (ttbSubmitBtn)  { ttbSubmitBtn.disabled = false; ttbSubmitBtn.textContent = 'Check my understanding →'; }
+  if (ttbResult)     ttbResult.classList.remove('visible');
+  if (ttbBadge)      ttbBadge.innerHTML = '';
+  if (ttbFeedback)   ttbFeedback.textContent = '';
+
+  // ── Render related topics ────────────────────────────────────────────────
+  const relatedWrap = document.getElementById('related-next');
+  if (relatedWrap) relatedWrap.style.display = 'none';
+  if (_vtpLesson && _vtpLesson.relatedTopics) {
+    _vtpRenderRelatedTopics(_vtpLesson.relatedTopics);
+  }
+
   // ── Update sidebar recent item label to show completion ───────────────────
   // Find the matching recent item and append ✓ so students can see what
   // they've finished at a glance in the sidebar history.
@@ -1565,6 +1817,17 @@ function _vtpResetLessonDOM() {
   if (ar) ar.classList.remove('open');
   const simpWrap = document.getElementById('simplified-wrap');
   if (simpWrap) simpWrap.style.display = 'none';
+
+  // Step challenge — hide and reset
+  const challengePanel = document.getElementById('step-challenge');
+  if (challengePanel) challengePanel.classList.remove('active');
+  const challengeReveal = document.getElementById('challenge-reveal');
+  if (challengeReveal) challengeReveal.style.display = 'none';
+  const challengeInputRow = document.getElementById('challenge-input-row');
+  if (challengeInputRow) challengeInputRow.style.display = 'flex';
+  const challengeSkipBtn = document.getElementById('challenge-skip');
+  if (challengeSkipBtn) challengeSkipBtn.style.display = '';
+  _vtpChallengeRevealed = false;
 
   // Ask input — re-enable in case it was disabled mid-step
   const askEl  = document.getElementById('ask-input');
@@ -1804,6 +2067,20 @@ export function mountVisualTutorScreen() {
     const autoplayToggle = document.getElementById('autoplay-toggle');
     if (autoplayToggle) autoplayToggle.addEventListener('click', _vtpToggleAutoplay);
 
+    // ── Step Challenge ───────────────────────────────────────────────────────
+    const challengeInput  = document.getElementById('challenge-input');
+    const challengeSubmit = document.getElementById('challenge-submit');
+    const challengeCont   = document.getElementById('challenge-continue');
+    const challengeSkip   = document.getElementById('challenge-skip');
+    if (challengeInput) {
+      challengeInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') _vtpSubmitChallenge();
+      });
+    }
+    if (challengeSubmit) challengeSubmit.addEventListener('click', _vtpSubmitChallenge);
+    if (challengeCont)   challengeCont.addEventListener('click', _vtpContinueChallenge);
+    if (challengeSkip)   challengeSkip.addEventListener('click', _vtpSkipChallenge);
+
     // ── Quiz ────────────────────────────────────────────────────────────────
     const quizContinue = document.getElementById('quiz-continue');
     if (quizContinue) quizContinue.addEventListener('click', _vtpCloseQuiz);
@@ -1817,6 +2094,10 @@ export function mountVisualTutorScreen() {
 
     const reviewBtn = document.getElementById('btn-review-weak');
     if (reviewBtn) reviewBtn.addEventListener('click', _vtpReviewWeak);
+
+    // ── Teach It Back ────────────────────────────────────────────────────────
+    const ttbSubmitBtn = document.getElementById('ttb-submit-btn');
+    if (ttbSubmitBtn) ttbSubmitBtn.addEventListener('click', _vtpTeachItBack);
 
     // ── Loading screen ───────────────────────────────────────────────────
     const cancelBtn = document.getElementById('vtp-loading-cancel');
