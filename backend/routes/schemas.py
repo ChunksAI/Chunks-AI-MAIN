@@ -276,3 +276,13 @@ class JobStatusResponse(BaseModel):
     status: str = ""
     result: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  /api/share                                                                ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+class ShareCreateRequest(_LenientBase):
+    """Body for POST /api/share — create a shareable link."""
+    type: Literal["deck", "exam", "plan"]
+    data: Dict[str, Any] = Field(default_factory=dict)

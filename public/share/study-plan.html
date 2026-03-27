@@ -3,295 +3,123 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Atkins Physical Chemistry — 8-Week Study Plan · Chunks</title>
+<title>Shared Study Plan · Chunks</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:        #080810;
-    --surface-0: #0d0e14;
-    --surface-1: #111219;
-    --surface-2: #171820;
-    --surface-3: #1e1f29;
-    --surface-4: #252633;
-    --border-xs: rgba(255,255,255,0.05);
-    --border-sm: rgba(255,255,255,0.08);
-    --border-md: rgba(255,255,255,0.13);
-    --gold:        #e8ac2e;
-    --gold-bright: #f5c842;
-    --gold-muted:  rgba(232,172,46,0.10);
-    --gold-glow:   rgba(232,172,46,0.20);
-    --gold-border: rgba(232,172,46,0.22);
-    --violet:        #8b7cf8;
-    --violet-muted:  rgba(139,124,248,0.10);
-    --violet-border: rgba(139,124,248,0.22);
-    --teal:      #2dd4bf;
-    --teal-muted: rgba(45,212,191,0.08);
-    --green: #34d399;
-    --red:   #f87171;
-    --text-1: #ededf0;
-    --text-2: #9898ae;
-    --text-3: #7c7c96;
-    --text-4: #6a6a7e;
-    --font-head: 'Syne', sans-serif;
-    --font-body: 'DM Sans', sans-serif;
-    --font-mono: 'DM Mono', monospace;
-    --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-pill: 9999px;
-    --ease-snap: cubic-bezier(0.25,0.46,0.45,0.94);
-    --ease-spring: cubic-bezier(0.34,1.56,0.64,1);
-    --t-fast: 120ms;
+    --bg:#080810;--surface-0:#0d0e14;--surface-1:#111219;--surface-2:#171820;--surface-3:#1e1f29;--surface-4:#252633;
+    --border-xs:rgba(255,255,255,0.05);--border-sm:rgba(255,255,255,0.08);--border-md:rgba(255,255,255,0.13);
+    --gold:#e8ac2e;--gold-bright:#f5c842;--gold-muted:rgba(232,172,46,0.10);--gold-glow:rgba(232,172,46,0.20);--gold-border:rgba(232,172,46,0.22);
+    --violet:#8b7cf8;--violet-muted:rgba(139,124,248,0.10);--violet-border:rgba(139,124,248,0.22);
+    --teal:#2dd4bf;--teal-muted:rgba(45,212,191,0.08);--green:#34d399;--red:#f87171;
+    --text-1:#ededf0;--text-2:#9898ae;--text-3:#7c7c96;--text-4:#6a6a7e;
+    --font-head:'Syne',sans-serif;--font-body:'DM Sans',sans-serif;--font-mono:'DM Mono',monospace;
+    --r-sm:8px;--r-md:12px;--r-lg:16px;--r-xl:20px;--r-pill:9999px;
+    --ease-snap:cubic-bezier(0.25,0.46,0.45,0.94);--ease-spring:cubic-bezier(0.34,1.56,0.64,1);--t-fast:120ms;
   }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: var(--font-body);
-    background: var(--bg);
-    color: var(--text-1);
-    min-height: 100vh;
-    font-size: 13px;
-    line-height: 1.6;
-  }
-
-  /* ── Topbar ── */
-  .topbar {
-    position: sticky; top: 0; z-index: 100;
-    background: rgba(13,14,20,0.85);
-    backdrop-filter: blur(16px);
-    border-bottom: 1px solid var(--border-xs);
-    height: 54px;
-    display: flex; align-items: center;
-    padding: 0 24px; gap: 12px;
-  }
-  .logo-row { display: flex; align-items: center; gap: 9px; text-decoration: none; }
-  .logo-name { font-family: var(--font-head); font-size: 15px; font-weight: 700; color: var(--text-1); letter-spacing: -0.02em; }
-  .topbar-sep { width: 1px; height: 18px; background: var(--border-sm); }
-  .topbar-crumb { font-size: 12px; color: var(--text-3); }
-  .topbar-actions { margin-left: auto; display: flex; gap: 8px; }
-  .btn-ghost { display: flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: var(--r-pill); border: 1px solid var(--border-sm); background: transparent; color: var(--text-2); font-family: var(--font-body); font-size: 12px; font-weight: 500; cursor: pointer; transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast); }
-  .btn-ghost:hover { color: var(--text-1); border-color: var(--border-md); background: var(--surface-2); }
-  .btn-gold { display: flex; align-items: center; gap: 6px; padding: 7px 16px; border-radius: var(--r-pill); border: none; background: var(--gold); color: #090900; font-family: var(--font-body); font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 2px 12px var(--gold-glow); transition: opacity var(--t-fast), transform var(--t-fast) var(--ease-spring); }
-  .btn-gold:hover { opacity: 0.9; transform: translateY(-1px); }
-
-  /* ── Page layout ── */
-  .page { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
-
-  /* ── Plan header card ── */
-  .plan-header {
-    background: var(--surface-1);
-    border: 1px solid var(--border-sm);
-    border-radius: var(--r-xl);
-    padding: 24px 26px;
-    margin-bottom: 28px;
-    display: flex; align-items: flex-start; gap: 22px; flex-wrap: wrap;
-    position: relative; overflow: hidden;
-  }
-  .plan-header::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, var(--gold-border), transparent 60%);
-  }
-  .plan-header-main { flex: 1; min-width: 200px; }
-  .plan-eyebrow {
-    font-family: var(--font-mono); font-size: 10px;
-    color: var(--gold); letter-spacing: 0.09em; text-transform: uppercase;
-    margin-bottom: 6px;
-    display: flex; align-items: center; gap: 8px;
-  }
-  .shared-badge {
-    display: inline-flex; align-items: center; gap: 5px;
-    background: var(--violet-muted); border: 1px solid var(--violet-border);
-    color: var(--violet);
-    font-family: var(--font-mono); font-size: 10px;
-    padding: 2px 8px; border-radius: var(--r-pill);
-    letter-spacing: 0.05em;
-  }
-  .plan-title {
-    font-family: var(--font-head); font-size: 22px; font-weight: 800;
-    color: var(--text-1); letter-spacing: -0.03em;
-    margin-bottom: 5px; line-height: 1.2;
-  }
-  .plan-sub { font-size: 12.5px; color: var(--text-3); margin-bottom: 16px; }
-  .plan-meta-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
-  .stat-chip {
-    display: flex; align-items: center; gap: 7px;
-    padding: 6px 12px; background: var(--surface-2);
-    border: 1px solid var(--border-xs); border-radius: var(--r-md);
-    font-size: 12px; color: var(--text-2);
-  }
-  .stat-chip-dot { width: 6px; height: 6px; border-radius: 50%; }
-
-  /* Readiness ring */
-  .readiness-block {
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    flex-shrink: 0;
-  }
-  .ring-wrap { position: relative; width: 80px; height: 80px; }
-  .ring-wrap svg { transform: rotate(-90deg); }
-  .ring-track { fill: none; stroke: var(--surface-3); stroke-width: 6; }
-  .ring-fill { fill: none; stroke: var(--gold); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 201; stroke-dashoffset: 80; transition: stroke-dashoffset 1s var(--ease-snap); }
-  .ring-label {
-    position: absolute; inset: 0;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-  }
-  .ring-pct { font-family: var(--font-head); font-size: 18px; font-weight: 800; color: var(--gold); line-height: 1; }
-  .ring-sub { font-family: var(--font-mono); font-size: 8px; color: var(--text-4); letter-spacing: 0.05em; margin-top: 2px; }
-  .readiness-label { font-family: var(--font-mono); font-size: 9px; color: var(--text-4); letter-spacing: 0.06em; text-transform: uppercase; }
-
-  /* Action row */
-  .plan-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-  .btn-primary { display: flex; align-items: center; gap: 7px; padding: 10px 20px; border-radius: var(--r-md); border: none; background: linear-gradient(135deg, var(--gold), var(--gold-bright)); color: #090900; font-family: var(--font-body); font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: 0 4px 16px var(--gold-glow); transition: opacity var(--t-fast), transform var(--t-fast) var(--ease-spring); }
-  .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
-  .btn-secondary { display: flex; align-items: center; gap: 7px; padding: 10px 16px; border-radius: var(--r-md); border: 1px solid var(--border-sm); background: var(--surface-1); color: var(--text-2); font-family: var(--font-body); font-size: 13px; font-weight: 500; cursor: pointer; transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast); }
-  .btn-secondary:hover { color: var(--text-1); border-color: var(--border-md); background: var(--surface-2); }
-
-  /* ── Stats row ── */
-  .stats-grid {
-    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
-    margin-bottom: 28px;
-  }
-  .stats-card {
-    background: var(--surface-1); border: 1px solid var(--border-xs);
-    border-radius: var(--r-md); padding: 14px 16px;
-  }
-  .stats-val { font-family: var(--font-head); font-size: 22px; font-weight: 800; color: var(--text-1); margin-bottom: 3px; }
-  .stats-val.gold { color: var(--gold); }
-  .stats-val.green { color: var(--green); }
-  .stats-val.violet { color: var(--violet); }
-  .stats-lbl { font-size: 11px; color: var(--text-4); line-height: 1.4; }
-
-  /* ── Roadmap ── */
-  .roadmap-label {
-    font-family: var(--font-mono); font-size: 10px;
-    color: var(--text-4); letter-spacing: 0.09em; text-transform: uppercase;
-    margin-bottom: 18px;
-  }
-  .roadmap {
-    position: relative;
-    display: flex; flex-direction: column; gap: 10px;
-  }
-  .roadmap::before {
-    content: '';
-    position: absolute; left: 23px; top: 46px; bottom: 46px; width: 1px;
-    background: linear-gradient(to bottom, var(--gold-border) 0%, rgba(139,124,248,0.3) 50%, var(--border-xs) 100%);
-    z-index: 0;
-  }
-  .node {
-    display: flex; align-items: flex-start; gap: 16px;
-    position: relative; z-index: 1;
-    animation: nodeIn 0.35s var(--ease-snap) both;
-  }
-  .node:nth-child(1){animation-delay:.04s}
-  .node:nth-child(2){animation-delay:.08s}
-  .node:nth-child(3){animation-delay:.13s}
-  .node:nth-child(4){animation-delay:.17s}
-  .node:nth-child(5){animation-delay:.21s}
-  .node:nth-child(6){animation-delay:.26s}
-  .node:nth-child(7){animation-delay:.30s}
-  .node:nth-child(8){animation-delay:.34s}
-  @keyframes nodeIn { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
-
-  .bullet {
-    flex-shrink: 0; width: 46px; height: 46px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 11px; font-weight: 700; font-family: var(--font-mono);
-    cursor: pointer;
-    transition: transform var(--t-fast) var(--ease-spring);
-  }
-  .bullet:hover { transform: scale(1.08); }
-  .bullet.mastered { background: rgba(52,211,153,0.15); border: 2px solid rgba(52,211,153,0.4); color: var(--green); }
-  .bullet.in-progress { background: var(--gold-muted); border: 2px solid var(--gold-border); color: var(--gold); box-shadow: 0 0 16px var(--gold-glow); animation: pulse 2.4s ease-in-out infinite; }
-  .bullet.ready { background: var(--violet-muted); border: 2px solid var(--violet-border); color: var(--violet); }
-  .bullet.locked { background: var(--surface-2); border: 2px solid var(--border-xs); color: var(--text-4); }
-  @keyframes pulse { 0%{box-shadow:0 0 0 0 var(--gold-glow)} 70%{box-shadow:0 0 0 8px transparent} 100%{box-shadow:0 0 0 0 transparent} }
-
-  .node-card {
-    flex: 1; min-width: 0;
-    background: var(--surface-1); border: 1px solid var(--border-xs);
-    border-radius: var(--r-lg); padding: 14px 16px;
-    cursor: pointer;
-    transition: border-color var(--t-fast), background var(--t-fast), transform var(--t-fast);
-  }
-  .node-card:hover { border-color: var(--border-md); background: var(--surface-2); transform: translateX(2px); }
-  .node-card.active { border-color: var(--gold-border); background: var(--surface-2); }
-  .node-card.locked-card { opacity: 0.55; }
-
-  .node-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
-  .node-title { font-family: var(--font-head); font-size: 14px; font-weight: 700; color: var(--text-1); letter-spacing: -0.01em; line-height: 1.3; }
-  .status-badge {
-    flex-shrink: 0; font-family: var(--font-mono); font-size: 9px; font-weight: 500;
-    padding: 3px 8px; border-radius: var(--r-pill);
-    letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap;
-  }
-  .status-badge.mastered { background: rgba(52,211,153,0.1); color: var(--green); border: 1px solid rgba(52,211,153,0.2); }
-  .status-badge.in-progress { background: var(--gold-muted); color: var(--gold); border: 1px solid var(--gold-border); }
-  .status-badge.ready { background: var(--violet-muted); color: var(--violet); border: 1px solid var(--violet-border); }
-  .status-badge.locked { background: var(--surface-3); color: var(--text-4); border: 1px solid var(--border-xs); }
-
-  .node-desc { font-size: 12px; color: var(--text-3); line-height: 1.6; margin-bottom: 12px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 5px 10px; border-radius: var(--r-pill);
-    border: 1px solid var(--border-sm); background: var(--surface-2);
-    font-size: 11px; font-weight: 500; color: var(--text-2);
-    cursor: pointer; transition: all var(--t-fast); white-space: nowrap;
-  }
-  .chip:hover { border-color: var(--border-md); color: var(--text-1); background: var(--surface-3); }
-  .chip.done { color: var(--green); border-color: rgba(52,211,153,0.2); background: rgba(52,211,153,0.05); }
-  .chip.active { color: var(--gold); border-color: var(--gold-border); background: var(--gold-muted); }
-  .chip.locked { color: var(--text-4); border-color: var(--border-xs); cursor: default; opacity: 0.5; }
-
-  .mastery-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
-  .mastery-track { flex: 1; height: 4px; background: var(--surface-3); border-radius: var(--r-pill); overflow: hidden; }
-  .mastery-fill { height: 100%; border-radius: var(--r-pill); transition: width 600ms var(--ease-snap); }
-  .mastery-pct { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); width: 30px; text-align: right; }
-
-  /* ── Lock overlay for bottom nodes ── */
-  .lock-notice {
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    padding: 14px 20px;
-    background: var(--surface-1); border: 1px solid var(--border-xs);
-    border-radius: var(--r-lg);
-    font-size: 12px; color: var(--text-3);
-    margin-top: 4px;
-  }
-
-  /* ── Upsell ── */
-  .upsell-card {
-    background: var(--surface-1);
-    border: 1px solid var(--gold-border);
-    border-radius: var(--r-xl);
-    padding: 28px;
-    display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
-    margin-top: 32px;
-    box-shadow: 0 0 40px rgba(232,172,46,0.06);
-    position: relative; overflow: hidden;
-  }
-  .upsell-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--gold-border), transparent); }
-  .upsell-icon { width: 48px; height: 48px; border-radius: 14px; background: var(--gold-muted); border: 1px solid var(--gold-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .upsell-text { flex: 1; min-width: 200px; }
-  .upsell-title { font-family: var(--font-head); font-size: 16px; font-weight: 700; color: var(--text-1); letter-spacing: -0.01em; margin-bottom: 5px; }
-  .upsell-desc { font-size: 12.5px; color: var(--text-3); line-height: 1.6; margin-bottom: 10px; }
-  .feat-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .feat-chip { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-2); background: var(--surface-2); border: 1px solid var(--border-xs); padding: 3px 9px; border-radius: var(--r-pill); }
-  .feat-chip svg { color: var(--green); opacity: 0.8; }
-  .upsell-cta { display: flex; flex-direction: column; gap: 8px; align-items: center; flex-shrink: 0; }
-  .upsell-note { font-size: 10px; color: var(--text-4); }
-
-  .page-footer { border-top: 1px solid var(--border-xs); padding: 20px 24px; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 11.5px; color: var(--text-4); }
-  .page-footer a { color: var(--text-3); text-decoration: none; }
-  .page-footer a:hover { color: var(--text-1); }
-
-  @media (max-width: 600px) {
-    .stats-grid { grid-template-columns: repeat(2, 1fr); }
-    .plan-header { flex-direction: column; }
-    .topbar-crumb, .topbar-sep { display: none; }
-  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--font-body);background:var(--bg);color:var(--text-1);min-height:100vh;font-size:13px;line-height:1.6;}
+  .topbar{position:sticky;top:0;z-index:100;background:rgba(13,14,20,0.85);backdrop-filter:blur(16px);border-bottom:1px solid var(--border-xs);height:54px;display:flex;align-items:center;padding:0 24px;gap:12px;}
+  .logo-row{display:flex;align-items:center;gap:9px;text-decoration:none;}
+  .logo-name{font-family:var(--font-head);font-size:15px;font-weight:700;color:var(--text-1);letter-spacing:-0.02em;}
+  .topbar-sep{width:1px;height:18px;background:var(--border-sm);}
+  .topbar-crumb{font-size:12px;color:var(--text-3);}
+  .topbar-actions{margin-left:auto;display:flex;gap:8px;}
+  .btn-ghost{display:flex;align-items:center;gap:6px;padding:6px 14px;border-radius:var(--r-pill);border:1px solid var(--border-sm);background:transparent;color:var(--text-2);font-family:var(--font-body);font-size:12px;font-weight:500;cursor:pointer;transition:color var(--t-fast),border-color var(--t-fast),background var(--t-fast);}
+  .btn-ghost:hover{color:var(--text-1);border-color:var(--border-md);background:var(--surface-2);}
+  .btn-gold{display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:var(--r-pill);border:none;background:var(--gold);color:#090900;font-family:var(--font-body);font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 2px 12px var(--gold-glow);transition:opacity var(--t-fast),transform var(--t-fast) var(--ease-spring);}
+  .btn-gold:hover{opacity:0.9;transform:translateY(-1px);}
+  .page{max-width:860px;margin:0 auto;padding:40px 24px 80px;}
+  .plan-header{background:var(--surface-1);border:1px solid var(--border-sm);border-radius:var(--r-xl);padding:24px 26px;margin-bottom:28px;display:flex;align-items:flex-start;gap:22px;flex-wrap:wrap;position:relative;overflow:hidden;}
+  .plan-header::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,var(--gold-border),transparent 60%);}
+  .plan-header-main{flex:1;min-width:200px;}
+  .plan-eyebrow{font-family:var(--font-mono);font-size:10px;color:var(--gold);letter-spacing:0.09em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+  .shared-badge{display:inline-flex;align-items:center;gap:5px;background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);font-family:var(--font-mono);font-size:10px;padding:2px 8px;border-radius:var(--r-pill);letter-spacing:0.05em;}
+  .plan-title{font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--text-1);letter-spacing:-0.03em;margin-bottom:5px;line-height:1.2;}
+  .plan-sub{font-size:12.5px;color:var(--text-3);margin-bottom:16px;}
+  .plan-meta-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;}
+  .stat-chip{display:flex;align-items:center;gap:7px;padding:6px 12px;background:var(--surface-2);border:1px solid var(--border-xs);border-radius:var(--r-md);font-size:12px;color:var(--text-2);}
+  .stat-chip-dot{width:6px;height:6px;border-radius:50%;}
+  .readiness-block{display:flex;flex-direction:column;align-items:center;gap:8px;flex-shrink:0;}
+  .ring-wrap{position:relative;width:80px;height:80px;}
+  .ring-wrap svg{transform:rotate(-90deg);}
+  .ring-track{fill:none;stroke:var(--surface-3);stroke-width:6;}
+  .ring-fill{fill:none;stroke:var(--gold);stroke-width:6;stroke-linecap:round;stroke-dasharray:201;stroke-dashoffset:201;transition:stroke-dashoffset 1s var(--ease-snap);}
+  .ring-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .ring-pct{font-family:var(--font-head);font-size:18px;font-weight:800;color:var(--gold);line-height:1;}
+  .ring-sub{font-family:var(--font-mono);font-size:8px;color:var(--text-4);letter-spacing:0.05em;margin-top:2px;}
+  .readiness-label{font-family:var(--font-mono);font-size:9px;color:var(--text-4);letter-spacing:0.06em;text-transform:uppercase;}
+  .plan-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .btn-primary{display:flex;align-items:center;gap:7px;padding:10px 20px;border-radius:var(--r-md);border:none;background:linear-gradient(135deg,var(--gold),var(--gold-bright));color:#090900;font-family:var(--font-body);font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px var(--gold-glow);transition:opacity var(--t-fast),transform var(--t-fast) var(--ease-spring);}
+  .btn-primary:hover{opacity:0.9;transform:translateY(-1px);}
+  .btn-secondary{display:flex;align-items:center;gap:7px;padding:10px 16px;border-radius:var(--r-md);border:1px solid var(--border-sm);background:var(--surface-1);color:var(--text-2);font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;transition:color var(--t-fast),border-color var(--t-fast),background var(--t-fast);}
+  .btn-secondary:hover{color:var(--text-1);border-color:var(--border-md);background:var(--surface-2);}
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:28px;}
+  .stats-card{background:var(--surface-1);border:1px solid var(--border-xs);border-radius:var(--r-md);padding:14px 16px;}
+  .stats-val{font-family:var(--font-head);font-size:22px;font-weight:800;color:var(--text-1);margin-bottom:3px;}
+  .stats-val.gold{color:var(--gold);}.stats-val.green{color:var(--green);}.stats-val.violet{color:var(--violet);}
+  .stats-lbl{font-size:11px;color:var(--text-4);line-height:1.4;}
+  .roadmap-label{font-family:var(--font-mono);font-size:10px;color:var(--text-4);letter-spacing:0.09em;text-transform:uppercase;margin-bottom:18px;}
+  .roadmap{position:relative;display:flex;flex-direction:column;gap:10px;}
+  .roadmap::before{content:'';position:absolute;left:23px;top:46px;bottom:46px;width:1px;background:linear-gradient(to bottom,var(--gold-border) 0%,rgba(139,124,248,0.3) 50%,var(--border-xs) 100%);z-index:0;}
+  .node{display:flex;align-items:flex-start;gap:16px;position:relative;z-index:1;animation:nodeIn 0.35s var(--ease-snap) both;}
+  @keyframes nodeIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:translateX(0)}}
+  .bullet{flex-shrink:0;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;font-family:var(--font-mono);cursor:pointer;transition:transform var(--t-fast) var(--ease-spring);}
+  .bullet:hover{transform:scale(1.08);}
+  .bullet.mastered{background:rgba(52,211,153,0.15);border:2px solid rgba(52,211,153,0.4);color:var(--green);}
+  .bullet.in-progress{background:var(--gold-muted);border:2px solid var(--gold-border);color:var(--gold);box-shadow:0 0 16px var(--gold-glow);animation:pulse 2.4s ease-in-out infinite;}
+  .bullet.ready{background:var(--violet-muted);border:2px solid var(--violet-border);color:var(--violet);}
+  .bullet.locked{background:var(--surface-2);border:2px solid var(--border-xs);color:var(--text-4);}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 var(--gold-glow)}70%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+  .node-card{flex:1;min-width:0;background:var(--surface-1);border:1px solid var(--border-xs);border-radius:var(--r-lg);padding:14px 16px;cursor:pointer;transition:border-color var(--t-fast),background var(--t-fast),transform var(--t-fast);}
+  .node-card:hover{border-color:var(--border-md);background:var(--surface-2);transform:translateX(2px);}
+  .node-card.active{border-color:var(--gold-border);background:var(--surface-2);}
+  .node-card.locked-card{opacity:0.55;}
+  .node-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px;}
+  .node-title{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text-1);letter-spacing:-0.01em;line-height:1.3;}
+  .status-badge{flex-shrink:0;font-family:var(--font-mono);font-size:9px;font-weight:500;padding:3px 8px;border-radius:var(--r-pill);letter-spacing:0.06em;text-transform:uppercase;white-space:nowrap;}
+  .status-badge.mastered{background:rgba(52,211,153,0.1);color:var(--green);border:1px solid rgba(52,211,153,0.2);}
+  .status-badge.in-progress{background:var(--gold-muted);color:var(--gold);border:1px solid var(--gold-border);}
+  .status-badge.ready{background:var(--violet-muted);color:var(--violet);border:1px solid var(--violet-border);}
+  .status-badge.locked{background:var(--surface-3);color:var(--text-4);border:1px solid var(--border-xs);}
+  .node-desc{font-size:12px;color:var(--text-3);line-height:1.6;margin-bottom:12px;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:var(--r-pill);border:1px solid var(--border-sm);background:var(--surface-2);font-size:11px;font-weight:500;color:var(--text-2);white-space:nowrap;}
+  .chip.done{color:var(--green);border-color:rgba(52,211,153,0.2);background:rgba(52,211,153,0.05);}
+  .chip.active{color:var(--gold);border-color:var(--gold-border);background:var(--gold-muted);}
+  .chip.locked{color:var(--text-4);border-color:var(--border-xs);opacity:0.5;}
+  .mastery-row{display:flex;align-items:center;gap:10px;margin-top:12px;}
+  .mastery-track{flex:1;height:4px;background:var(--surface-3);border-radius:var(--r-pill);overflow:hidden;}
+  .mastery-fill{height:100%;border-radius:var(--r-pill);transition:width 600ms var(--ease-snap);}
+  .mastery-pct{font-family:var(--font-mono);font-size:10px;color:var(--text-3);width:30px;text-align:right;}
+  .lock-notice{display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 20px;background:var(--surface-1);border:1px solid var(--border-xs);border-radius:var(--r-lg);font-size:12px;color:var(--text-3);margin-top:4px;}
+  .upsell-card{background:var(--surface-1);border:1px solid var(--gold-border);border-radius:var(--r-xl);padding:28px;display:flex;align-items:center;gap:24px;flex-wrap:wrap;margin-top:32px;box-shadow:0 0 40px rgba(232,172,46,0.06);position:relative;overflow:hidden;}
+  .upsell-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold-border),transparent);}
+  .upsell-icon{width:48px;height:48px;border-radius:14px;background:var(--gold-muted);border:1px solid var(--gold-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .upsell-text{flex:1;min-width:200px;}
+  .upsell-title{font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);letter-spacing:-0.01em;margin-bottom:5px;}
+  .upsell-desc{font-size:12.5px;color:var(--text-3);line-height:1.6;margin-bottom:10px;}
+  .feat-chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .feat-chip{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border-xs);padding:3px 9px;border-radius:var(--r-pill);}
+  .feat-chip svg{color:var(--green);opacity:0.8;}
+  .upsell-cta{display:flex;flex-direction:column;gap:8px;align-items:center;flex-shrink:0;}
+  .upsell-note{font-size:10px;color:var(--text-4);}
+  .state-screen{max-width:860px;margin:80px auto;padding:0 24px;display:flex;flex-direction:column;align-items:center;gap:16px;text-align:center;}
+  .state-icon{width:56px;height:56px;border-radius:16px;background:var(--surface-2);border:1px solid var(--border-sm);display:flex;align-items:center;justify-content:center;}
+  .state-title{font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text-1);}
+  .state-sub{font-size:13px;color:var(--text-3);max-width:380px;line-height:1.6;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .spinner{animation:spin 0.8s linear infinite;}
+  .page-footer{border-top:1px solid var(--border-xs);padding:20px 24px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:11.5px;color:var(--text-4);}
+  .page-footer a{color:var(--text-3);text-decoration:none;}.page-footer a:hover{color:var(--text-1);}
+  @media(max-width:600px){.stats-grid{grid-template-columns:repeat(2,1fr);}.plan-header{flex-direction:column;}.topbar-crumb,.topbar-sep{display:none;}}
 </style>
 </head>
 <body>
 
 <header class="topbar">
-  <a class="logo-row" href="#">
+  <a class="logo-row" href="/">
     <svg width="24" height="24" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
       <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity=".95"/>
       <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity=".88"/>
@@ -303,14 +131,29 @@
   <div class="topbar-sep"></div>
   <span class="topbar-crumb">Shared study plan</span>
   <div class="topbar-actions">
-    <button class="btn-ghost">Log in</button>
-    <button class="btn-gold">Sign up free</button>
+    <button class="btn-ghost" onclick="window.location.href='/?login=1'">Log in</button>
+    <button class="btn-gold" onclick="window.location.href='/?signup=1'">Sign up free</button>
   </div>
 </header>
 
-<div class="page">
+<div class="state-screen" id="loading-state">
+  <div class="state-icon">
+    <svg class="spinner" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e8ac2e" stroke-width="2" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+  </div>
+  <div class="state-title">Loading study plan…</div>
+  <div class="state-sub">Fetching shared plan data.</div>
+</div>
 
-  <!-- Plan header -->
+<div class="state-screen" id="error-state" style="display:none;">
+  <div class="state-icon">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f87171" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  </div>
+  <div class="state-title">Plan not found</div>
+  <div class="state-sub" id="error-msg">This shared study plan may have expired or the link is invalid.</div>
+</div>
+
+<div id="page-content" style="display:none;">
+<div class="page">
   <div class="plan-header">
     <div class="plan-header-main">
       <div class="plan-eyebrow">
@@ -320,34 +163,20 @@
           Shared
         </span>
       </div>
-      <h1 class="plan-title">Atkins Physical Chemistry<br>8-Week Master Plan</h1>
-      <p class="plan-sub">Shared by Deff Michael Dawang · Board exam in 57 days</p>
-      <div class="plan-meta-row">
-        <div class="stat-chip">
-          <div class="stat-chip-dot" style="background: var(--green)"></div>
-          3 chapters mastered
-        </div>
-        <div class="stat-chip">
-          <div class="stat-chip-dot" style="background: var(--gold)"></div>
-          Ch. 6 in progress
-        </div>
-        <div class="stat-chip">
-          <div class="stat-chip-dot" style="background: var(--text-4)"></div>
-          5 chapters remaining
-        </div>
-      </div>
+      <h1 class="plan-title" id="plan-title">Loading…</h1>
+      <p class="plan-sub" id="plan-sub">—</p>
+      <div class="plan-meta-row" id="plan-meta-row"></div>
       <div class="plan-actions">
-        <button class="btn-primary">
+        <button class="btn-primary" onclick="window.location.href='/?signup=1'">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Copy this plan
         </button>
-        <button class="btn-secondary">
+        <button class="btn-secondary" id="share-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
           Share
         </button>
       </div>
     </div>
-
     <div class="readiness-block">
       <div class="ring-wrap">
         <svg width="80" height="80" viewBox="0 0 80 80">
@@ -355,7 +184,7 @@
           <circle class="ring-fill" cx="40" cy="40" r="32" id="ring-fill"/>
         </svg>
         <div class="ring-label">
-          <span class="ring-pct">60%</span>
+          <span class="ring-pct" id="ring-pct">—%</span>
           <span class="ring-sub">ready</span>
         </div>
       </div>
@@ -363,37 +192,16 @@
     </div>
   </div>
 
-  <!-- Stats -->
-  <div class="stats-grid">
-    <div class="stats-card">
-      <div class="stats-val gold">8</div>
-      <div class="stats-lbl">Week study plan</div>
-    </div>
-    <div class="stats-card">
-      <div class="stats-val green">3</div>
-      <div class="stats-lbl">Chapters mastered</div>
-    </div>
-    <div class="stats-card">
-      <div class="stats-val violet">47</div>
-      <div class="stats-lbl">Flashcards generated</div>
-    </div>
-    <div class="stats-card">
-      <div class="stats-val" style="color: var(--teal)">12h</div>
-      <div class="stats-lbl">Total study time logged</div>
-    </div>
-  </div>
+  <div class="stats-grid" id="stats-grid"></div>
 
-  <!-- Roadmap -->
-  <div class="roadmap-label">Learning roadmap · 9 topics</div>
+  <div class="roadmap-label" id="roadmap-label">Learning roadmap</div>
   <div class="roadmap" id="roadmap"></div>
 
-  <!-- Lock notice -->
-  <div class="lock-notice" style="margin-top: 12px;">
+  <div class="lock-notice" style="margin-top:12px;">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
     Sign up to see the full plan, track your own progress, and generate study materials for each topic
   </div>
 
-  <!-- Upsell -->
   <div class="upsell-card">
     <div class="upsell-icon">
       <svg width="22" height="22" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -414,83 +222,139 @@
       </div>
     </div>
     <div class="upsell-cta">
-      <button class="btn-primary">Create free account</button>
+      <button class="btn-primary" onclick="window.location.href='/?signup=1'">Create free account</button>
       <span class="upsell-note">No credit card required</span>
     </div>
   </div>
-
+</div>
 </div>
 
 <footer class="page-footer">
-  Made with <span style="color: var(--gold); margin: 0 3px;">Chunks</span> · <a href="#">chunks.online</a> · <a href="#">Privacy</a>
+  Made with <span style="color:var(--gold);margin:0 3px;">Chunks</span> · <a href="/">chunks.online</a> · <a href="/privacy.html">Privacy</a>
 </footer>
 
 <script>
-const NODES = [
-  { week: "W1", title: "Thermodynamic Foundations", desc: "State functions, first law, internal energy, enthalpy, heat capacity.", status: "mastered", mastery: 92, chips: ["Read", "Flashcards", "Practice quiz", "Summary"], chipStatus: ["done","done","done","done"] },
-  { week: "W2", title: "Entropy & Second Law", desc: "Entropy, Carnot cycle, Gibbs and Helmholtz free energy.", status: "mastered", mastery: 85, chips: ["Read", "Flashcards", "Practice quiz", "Summary"], chipStatus: ["done","done","done","done"] },
-  { week: "W3", title: "Phase Equilibria", desc: "Phase diagrams, Clapeyron equation, colligative properties.", status: "mastered", mastery: 78, chips: ["Read", "Flashcards", "Practice quiz", "Summary"], chipStatus: ["done","done","done","done"] },
-  { week: "W4", title: "Chemical Equilibrium", desc: "Equilibrium constant, Le Chatelier's principle, reaction quotient.", status: "mastered", mastery: 70, chips: ["Read", "Flashcards", "Practice quiz"], chipStatus: ["done","done","done"] },
-  { week: "W5", title: "Acid-Base Equilibrium", desc: "pH, buffer solutions, Henderson-Hasselbalch, titration curves.", status: "in-progress", mastery: 42, chips: ["Read", "Flashcards", "Practice quiz", "Summary"], chipStatus: ["done","active","",""] },
-  { week: "W6", title: "Electrochemistry", desc: "Electrode potentials, Nernst equation, electrochemical cells.", status: "ready", mastery: 0, chips: ["Read", "Flashcards", "Practice quiz"], chipStatus: ["","",""] },
-  { week: "W7", title: "Chemical Kinetics", desc: "Rate laws, reaction mechanisms, Arrhenius equation.", status: "locked", mastery: 0, chips: ["Read", "Flashcards", "Practice quiz"], chipStatus: ["locked","locked","locked"] },
-  { week: "W8", title: "Quantum Chemistry", desc: "Wave-particle duality, Schrödinger equation, atomic orbitals.", status: "locked", mastery: 0, chips: ["Read", "Flashcards", "Practice quiz"], chipStatus: ["locked","locked","locked"] },
-  { week: "W9", title: "Spectroscopy & Final Review", desc: "Rotational, vibrational, and electronic spectroscopy. Full review.", status: "locked", mastery: 0, chips: ["Read", "Flashcards", "Mock exam"], chipStatus: ["locked","locked","locked"] },
-];
+const API_BASE = (window.CHUNKS_BACKEND_URL || 'https://api.chunks.online').replace(/\/$/,'');
 
-const CHIP_ICONS = {
-  "Read": `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>`,
-  "Flashcards": `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>`,
-  "Practice quiz": `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
-  "Summary": `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
-  "Mock exam": `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`,
-};
-const MASTERY_COLORS = { mastered: '#34d399', 'in-progress': '#e8ac2e', ready: '#8b7cf8', locked: '#252633' };
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
-const roadmap = document.getElementById('roadmap');
-NODES.forEach((n, i) => {
-  const isLocked = n.status === 'locked';
-  const isActive = n.status === 'in-progress';
+async function loadShare() {
+  const shareId = new URLSearchParams(location.search).get('id');
+  if (!shareId) { showError('No share ID in URL.'); return; }
+  try {
+    const resp = await fetch(`${API_BASE}/api/share/${encodeURIComponent(shareId)}`);
+    if (!resp.ok) { const b=await resp.json().catch(()=>{}); showError((b&&b.error)||`Error ${resp.status}`); return; }
+    const json = await resp.json();
+    if (!json.success || json.type !== 'plan') { showError('This link does not point to a valid study plan.'); return; }
+    renderPlan(json.data);
+  } catch(_) { showError('Could not load the plan. Please check your connection.'); }
+}
 
-  const chipsHTML = n.chips.map((ch, ci) => {
-    const cs = n.chipStatus[ci];
-    const cls = cs === 'done' ? 'done' : cs === 'active' ? 'active' : cs === 'locked' ? 'locked' : '';
-    const icon = CHIP_ICONS[ch] || '';
-    const check = cs === 'done' ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>` : icon;
-    return `<span class="chip ${cls}">${check}${ch}</span>`;
-  }).join('');
+function showError(msg) {
+  document.getElementById('loading-state').style.display='none';
+  document.getElementById('error-msg').textContent=msg;
+  document.getElementById('error-state').style.display='';
+}
 
-  const masteryHTML = n.mastery > 0 ? `
-    <div class="mastery-row">
-      <div class="mastery-track">
-        <div class="mastery-fill" style="width:${n.mastery}%;background:${MASTERY_COLORS[n.status]}"></div>
-      </div>
-      <span class="mastery-pct">${n.mastery}%</span>
-    </div>` : '';
+function renderPlan(data) {
+  const nodes = data.nodes || [];
+  const stats = data.stats || {};
+  const readiness = data.readiness ?? 0;
 
-  const el = document.createElement('div');
-  el.className = 'node';
-  el.innerHTML = `
-    <div class="bullet ${n.status}">${n.week}</div>
-    <div class="node-card ${isActive ? 'active' : ''} ${isLocked ? 'locked-card' : ''}">
-      <div class="node-top">
-        <div class="node-title">${n.title}</div>
-        <span class="status-badge ${n.status}">${n.status.replace('-',' ')}</span>
-      </div>
-      <div class="node-desc">${n.desc}</div>
-      <div class="chips">${chipsHTML}</div>
-      ${masteryHTML}
-    </div>`;
-  roadmap.appendChild(el);
-});
+  document.title = (data.title||'Study Plan') + ' · Chunks';
+  document.getElementById('plan-title').textContent = (data.title||'Study Plan') + (data.subtitle ? '\n' + data.subtitle : '');
+  if (data.subtitle) {
+    document.getElementById('plan-title').innerHTML = esc(data.title||'Study Plan') + '<br>' + esc(data.subtitle);
+  } else {
+    document.getElementById('plan-title').textContent = data.title || 'Study Plan';
+  }
 
-// Animate ring on load
-setTimeout(() => {
-  const fill = document.getElementById('ring-fill');
-  const pct = 60;
-  const circ = 2 * Math.PI * 32;
-  fill.style.strokeDashoffset = circ - (circ * pct / 100);
-}, 300);
+  const author = data.author || 'Anonymous';
+  const subText = `Shared by ${author}` + (data.daysUntilExam ? ` · Exam in ${data.daysUntilExam} days` : '');
+  document.getElementById('plan-sub').textContent = subText;
+
+  const mastered = nodes.filter(n=>n.status==='mastered').length;
+  const inProg   = nodes.find(n=>n.status==='in-progress');
+  const remaining = nodes.filter(n=>n.status==='locked').length;
+  const metaRow = document.getElementById('plan-meta-row');
+  if (mastered>0) metaRow.innerHTML += `<div class="stat-chip"><div class="stat-chip-dot" style="background:var(--green)"></div>${mastered} chapter${mastered===1?'':'s'} mastered</div>`;
+  if (inProg)     metaRow.innerHTML += `<div class="stat-chip"><div class="stat-chip-dot" style="background:var(--gold)"></div>${esc(inProg.title)} in progress</div>`;
+  if (remaining>0)metaRow.innerHTML += `<div class="stat-chip"><div class="stat-chip-dot" style="background:var(--text-4)"></div>${remaining} chapter${remaining===1?'':'s'} remaining</div>`;
+
+  document.getElementById('ring-pct').textContent = readiness + '%';
+  setTimeout(() => {
+    const fill = document.getElementById('ring-fill');
+    const circ = 2 * Math.PI * 32;
+    fill.style.strokeDashoffset = circ - (circ * readiness / 100);
+  }, 300);
+
+  const statsGrid = document.getElementById('stats-grid');
+  const statItems = [
+    { val: stats.weeks||nodes.length, cls: 'gold',   lbl: 'Week study plan' },
+    { val: stats.mastered??mastered,  cls: 'green',  lbl: 'Chapters mastered' },
+    { val: stats.flashcards||0,       cls: 'violet', lbl: 'Flashcards generated' },
+    { val: stats.studyTime||'—',      cls: '',       lbl: 'Total study time logged', style:'color:var(--teal)' },
+  ];
+  statsGrid.innerHTML = statItems.map(s =>
+    `<div class="stats-card"><div class="stats-val ${s.cls}" ${s.style?`style="${s.style}"`:''}>${esc(String(s.val))}</div><div class="stats-lbl">${esc(s.lbl)}</div></div>`
+  ).join('');
+
+  document.getElementById('roadmap-label').textContent = `Learning roadmap · ${nodes.length} topic${nodes.length===1?'':'s'}`;
+
+  const CHIP_ICONS = {
+    'Read':         '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>',
+    'Flashcards':   '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>',
+    'Practice quiz':'<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+    'Summary':      '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
+    'Mock exam':    '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+  };
+  const CHECK = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  const MASTERY_COLORS = { mastered:'#34d399', 'in-progress':'#e8ac2e', ready:'#8b7cf8', locked:'#252633' };
+
+  const roadmap = document.getElementById('roadmap');
+  nodes.forEach((n, i) => {
+    const isLocked = n.status==='locked', isActive = n.status==='in-progress';
+    const chips = (n.chips||[]);
+    const chipStatuses = (n.chipStatus||[]);
+    const chipsHTML = chips.map((ch,ci)=>{
+      const cs=chipStatuses[ci]||'';
+      const cls=cs==='done'?'done':cs==='active'?'active':cs==='locked'?'locked':'';
+      const icon=CHIP_ICONS[ch]||'';
+      const check=cs==='done'?CHECK:icon;
+      return `<span class="chip ${cls}">${check}${esc(ch)}</span>`;
+    }).join('');
+    const mastery=n.mastery||0;
+    const masteryHTML=mastery>0?`<div class="mastery-row"><div class="mastery-track"><div class="mastery-fill" style="width:${mastery}%;background:${MASTERY_COLORS[n.status]||'#252633'}"></div></div><span class="mastery-pct">${mastery}%</span></div>`:'';
+    const el=document.createElement('div');
+    el.className='node';
+    el.style.animationDelay=(i*0.04+0.04)+'s';
+    el.innerHTML=`
+      <div class="bullet ${n.status||'locked'}">${esc(n.week||String(i+1))}</div>
+      <div class="node-card ${isActive?'active':''} ${isLocked?'locked-card':''}">
+        <div class="node-top">
+          <div class="node-title">${esc(n.title||'')}</div>
+          <span class="status-badge ${n.status||'locked'}">${esc((n.status||'locked').replace('-',' '))}</span>
+        </div>
+        <div class="node-desc">${esc(n.desc||'')}</div>
+        <div class="chips">${chipsHTML}</div>
+        ${masteryHTML}
+      </div>`;
+    roadmap.appendChild(el);
+  });
+
+  document.getElementById('share-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(location.href).then(()=>{
+      const btn=document.getElementById('share-btn');
+      const orig=btn.innerHTML; btn.textContent='✓ Copied!';
+      setTimeout(()=>{btn.innerHTML=orig;},2000);
+    });
+  });
+
+  document.getElementById('loading-state').style.display='none';
+  document.getElementById('page-content').style.display='';
+}
+
+loadShare();
 </script>
 </body>
 </html>

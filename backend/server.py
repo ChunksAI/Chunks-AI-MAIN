@@ -665,7 +665,8 @@ from routes.upload    import upload_bp
 from routes.study     import study_bp
 from routes.image     import image_bp
 from routes.chat      import chat_bp
-from routes.jobs      import jobs_bp
+from routes.jobs          import jobs_bp
+from routes.share_content import share_bp
 
 app.register_blueprint(admin_bp)
 app.register_blueprint(health_bp)
@@ -676,10 +677,15 @@ app.register_blueprint(study_bp)
 app.register_blueprint(image_bp)
 app.register_blueprint(chat_bp)
 app.register_blueprint(jobs_bp)
+app.register_blueprint(share_bp)
 
 # ── Initialise async job queue ────────────────────────────────────────────────
 from services.job_queue import job_queue as _job_queue
 _job_queue.init(redis=_redis)
+
+# ── Initialise share store ────────────────────────────────────────────────────
+import services.share_store as _share_store_svc
+_share_store_svc.init(redis=_redis)
 
 # ── Rate-limit decorators for blueprints that use ctx.limiter ─────────────────
 # Apply per-endpoint limits directly here so limiter is available at startup.
