@@ -4,7 +4,7 @@
  *
  * Visual AI Tutor — step-based lesson player with canvas whiteboard.
  * Entry → Lesson (5 steps + quiz) → Complete.
- *
+ *,
  * Architecture:
  *   • 2 built-in lessons (pH Scale, Newton's Laws) + generic fallback
  *   • Canvas2D drawing engine (no SVG library dependency)
