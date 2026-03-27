@@ -449,6 +449,13 @@ export async function _initAuth() {
       try { sessionStorage.removeItem('chunks_oauth_callback'); } catch(e) {}
       // Also clear guest mode — a real session takes precedence
       try { sessionStorage.removeItem('chunks_guest_mode'); } catch(e) {}
+      // Fix URL if _navInit() already pushed a /guest prefix before auth resolved
+      try {
+        if (window.location.pathname.startsWith('/guest')) {
+          const fixed = window.location.pathname.replace(/^\/guest/, '') || '/home';
+          window.history.replaceState(window.history.state, '', fixed);
+        }
+      } catch(e) {}
     }
 
     // ── Popup self-close (step 1 path) ───────────────────────────────────
@@ -548,6 +555,10 @@ export async function _initAuth() {
                               window.location.search.includes('code=');
         if (hasOAuthInUrl) {
           window.history.replaceState({ screen: 'home' }, '', '/home');
+        } else if (window.location.pathname.startsWith('/guest')) {
+          // Fix URL if _navInit() pushed a /guest prefix before auth resolved
+          const fixed = window.location.pathname.replace(/^\/guest/, '') || '/home';
+          window.history.replaceState(window.history.state, '', fixed);
         }
       } catch(e) {}
 

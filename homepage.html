@@ -3221,6 +3221,7 @@ function openAuthPopup(callerBtnId, callerLabelId) {
       // If the user is now logged in after the popup closed, redirect to the app.
       // This is the fallback for cases where postMessage didn't fire or was blocked.
       if (isLoggedIn()) {
+        try { sessionStorage.removeItem('chunks_guest_mode'); } catch(ex) {}
         window.location.replace('/home');
         return;
       }
@@ -3241,6 +3242,7 @@ window.addEventListener('message', function(e) {
   if (e.data === 'chunks_auth_success') {
     clearInterval(_popupPollTimer);
     if (_authPopup && !_authPopup.closed) _authPopup.close();
+    try { sessionStorage.removeItem('chunks_guest_mode'); } catch(ex) {}
     window.location.replace('/home');
   }
 });
