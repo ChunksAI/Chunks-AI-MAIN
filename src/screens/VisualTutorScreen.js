@@ -861,7 +861,12 @@ function _vtpDrawSpec(spec) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function _vtpStartLesson() {
-  if (!guestGate('visual')) return; // guest limit check
+  const startBtn = document.getElementById('vtp-entry-start');
+  if (startBtn) { startBtn.textContent = 'Generating…'; startBtn.classList.add('loading'); }
+  if (!guestGate('visual')) {
+    if (startBtn) { startBtn.textContent = 'Visualize →'; startBtn.classList.remove('loading'); }
+    return;
+  }
   const inp = document.getElementById('vtp-entry-input');
   const t   = (inp ? inp.value.trim() : '').replace(/^(explain|what is|what are|how does|how do|tell me about)\s+/i, '').trim() || 'Photosynthesis';
   _vtpCurrentTopic  = t;
@@ -996,6 +1001,10 @@ function _vtpShowScreen(id) {
   document.querySelectorAll('.vtp-screen').forEach(s => s.classList.remove('active'));
   const el = document.getElementById(id);
   if (el) el.classList.add('active');
+  if (id === 'screen-entry') {
+    const startBtn = document.getElementById('vtp-entry-start');
+    if (startBtn) { startBtn.textContent = 'Visualize →'; startBtn.classList.remove('loading'); }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
