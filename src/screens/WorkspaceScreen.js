@@ -92,6 +92,17 @@ const WORKSPACE_HTML = /* html */`
         style="width:32px;height:32px;color:var(--text-3);background:transparent;border:1px solid transparent;border-radius:var(--r-sm);flex-shrink:0;transition:color var(--t-fast),background var(--t-fast),border-color var(--t-fast);">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
       </button>
+
+      <!-- Listen button — reads current page aloud -->
+      <button class="icon-btn ws-listen-btn" id="ws-listen-btn" aria-pressed="false"
+        title="Listen to current page" onclick="wsListenPdf()"
+        style="width:32px;height:32px;color:var(--text-3);background:transparent;border:1px solid transparent;border-radius:var(--r-sm);flex-shrink:0;transition:color var(--t-fast),background var(--t-fast),border-color var(--t-fast);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        </svg>
+      </button>
     </div>
 
     <div class="pdf-body">

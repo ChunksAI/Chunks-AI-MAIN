@@ -461,6 +461,17 @@
   0%, 100% { box-shadow: 0 0 0 0 rgba(255,68,68,0.35); }
   50%       { box-shadow: 0 0 0 5px rgba(255,68,68,0); }
 }
+.ws-listen-btn:hover { color: var(--text-1); background: var(--surface-3); }
+.ws-listen-btn.listen-active {
+  color: var(--violet);
+  background: var(--violet-muted);
+  border-color: var(--violet-border) !important;
+  animation: listen-pulse 1.4s ease-in-out infinite;
+}
+@keyframes listen-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(130,80,255,0.3); }
+  50%       { box-shadow: 0 0 0 5px rgba(130,80,255,0); }
+}
 
 /* ── Attachment popup menu ── */
 .attach-menu {

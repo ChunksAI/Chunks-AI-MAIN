@@ -59,11 +59,17 @@ def _chunk_transcript(entries: list[dict], chunk_size: int = _CHUNK_SIZE) -> lis
         return f"{h}:{m:02d}:{sec:02d}" if h else f"{m}:{sec:02d}"
 
     for entry in entries:
-        text = (entry.get('text') or '').strip()
+        # Support both dict entries and FetchedTranscriptSnippet dataclass objects
+        if isinstance(entry, dict):
+            text = (entry.get('text') or '').strip()
+            start_val = entry.get('start', 0.0)
+        else:
+            text = (getattr(entry, 'text', '') or '').strip()
+            start_val = getattr(entry, 'start', 0.0)
         if not text:
             continue
         if not buf:
-            chunk_start = entry.get('start', 0.0)
+            chunk_start = start_val
         buf.append(text)
         buf_chars += len(text) + 1  # +1 for space
 
@@ -117,29 +123,35 @@ def ingest_youtube():
             return jsonify({'success': False, 'error': 'Server transcript support not installed'}), 500
 
         try:
-            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-            # Prefer manually created transcripts in any language; fall back to auto-generated
+            api = YouTubeTranscriptApi()
+            transcript_list = api.list(video_id)
+            # Prefer manually created transcripts; fall back to any auto-generated one
             try:
-                transcript = transcript_list.find_manually_created_transcript(
-                    transcript_list._manually_created_transcripts.keys()
-                    or ['en']
-                )
+                transcript = transcript_list.find_manually_created_transcript(['en', 'en-US', 'en-GB'])
             except Exception:
-                transcript = transcript_list.find_generated_transcript(
-                    list(transcript_list._generated_transcripts.keys()) or ['en']
-                )
-            entries = transcript.fetch()
+                try:
+                    transcript = transcript_list.find_generated_transcript(['en', 'en-US', 'en-GB'])
+                except Exception:
+                    # Last resort: grab whichever transcript is first in the list
+                    transcript = next(iter(transcript_list))
+            fetched = transcript.fetch()
+            # Support both old list-of-dicts API and new FetchedTranscript iterable
+            if hasattr(fetched, 'to_raw_data'):
+                entries = fetched.to_raw_data()
+            else:
+                entries = list(fetched)
         except (NoTranscriptFound, TranscriptsDisabled) as e:
-            return jsonify({'success': False, 'error': f'No transcript available: {e}'}), 422
+            return jsonify({'success': False, 'error': f'No transcript available for this video'}), 422
         except Exception as e:
             logger.warning("Transcript fetch failed for %s: %s", video_id, e)
-            return jsonify({'success': False, 'error': f'Could not fetch transcript: {e}'}), 422
+            return jsonify({'success': False, 'error': f'Could not fetch transcript: {str(e)}'}), 422
 
         slides = _chunk_transcript(entries)
 
         # Build a flat transcript string (capped) for the extractedText field
         full_text = ' '.join(
-            e.get('text', '') for e in entries
+            (e.get('text', '') if isinstance(e, dict) else getattr(e, 'text', ''))
+            for e in entries
         )[:_MAX_TRANSCRIPT_CHARS]
 
         # Attempt to get the video title via oEmbed (no API key required)
