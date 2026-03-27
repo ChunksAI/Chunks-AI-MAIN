@@ -325,7 +325,21 @@ export async function _initAuth() {
   // Clear the signing_out flag if it somehow persists on app.html load.
   if (sessionStorage.getItem('chunks_signing_out') === '1') {
     sessionStorage.removeItem('chunks_signing_out');
-    sessionStorage.setItem('chunks_guest_mode', '1');
+    // Only enter guest mode if there's no valid auth session in localStorage.
+    // When a user signs out and immediately signs back in (e.g. from homepage),
+    // the new session already exists in localStorage — don't override it with guest mode.
+    let _hasValidSession = false;
+    try {
+      const raw = localStorage.getItem('chunks-ai-auth');
+      if (raw) {
+        const p = JSON.parse(raw);
+        const s = p?.access_token ? p : p?.currentSession;
+        _hasValidSession = !!(s?.access_token);
+      }
+    } catch (_) {}
+    if (!_hasValidSession) {
+      sessionStorage.setItem('chunks_guest_mode', '1');
+    }
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -642,7 +656,7 @@ export async function chunksSignOut() {
   // the Supabase SIGNED_OUT event that fires when sb.auth.signOut() runs.
   _signingOut = true;
 
-  // Phase 4: flush all pending writes before redirecting (max 3s wait)
+  // Phase 4: flush all pending writes before redirecting (max 1.5s wait)
   try {
     const { SyncManager } = await import('./syncManager.js');
     await SyncManager?.flushBeforeSignOut?.();

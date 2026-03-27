@@ -3222,13 +3222,14 @@ function openAuthPopup(callerBtnId, callerLabelId) {
       // This is the fallback for cases where postMessage didn't fire or was blocked.
       if (isLoggedIn()) {
         try { sessionStorage.removeItem('chunks_guest_mode'); } catch(ex) {}
+        try { sessionStorage.removeItem('chunks_signing_out'); } catch(ex) {}
         window.location.replace('/home');
         return;
       }
       if (btn)   btn.disabled = false;
       if (label) label.textContent = 'Continue with Google';
     }
-  }, 400);
+  }, 200);
 }
 
 function continueAsGuest() {
@@ -3243,6 +3244,7 @@ window.addEventListener('message', function(e) {
     clearInterval(_popupPollTimer);
     if (_authPopup && !_authPopup.closed) _authPopup.close();
     try { sessionStorage.removeItem('chunks_guest_mode'); } catch(ex) {}
+    try { sessionStorage.removeItem('chunks_signing_out'); } catch(ex) {}
     window.location.replace('/home');
   }
 });

@@ -93,12 +93,12 @@ const SyncManager = {
 
   /**
    * Flush all pending local data to Supabase before sign-out.
-   * Max 3s wait.
+   * Max 1.5s wait.
    */
   async flushBeforeSignOut() {
     if (!ChunksDB.isLoggedIn()) return;
 
-    const timeout = new Promise(r => setTimeout(r, 3000));
+    const timeout = new Promise(r => setTimeout(r, 1500));
     const flush   = Promise.allSettled([
       ChunksDB.settings.pushLocalToRemote?.(),
       ChunksDB.streak.pushLocalToRemote?.(),
