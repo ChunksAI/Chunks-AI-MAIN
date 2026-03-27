@@ -39,4 +39,11 @@ export {
   homeToggleAttachMenu, homeAttachTrigger, homeHandleAttach, _homeRenderPreview,
 } from './attachments.js';
 
+export { wsPromptYouTube, wsCloseYouTube, wsIngestYouTube } from './youtube.js';
+
+export {
+  wsToggleVoiceInput, wsReadAloud, wsStopReading,
+  wsVoiceSupported, wsTtsSupported,
+} from './voice.js';
+
 

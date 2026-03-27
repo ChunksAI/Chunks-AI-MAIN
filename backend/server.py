@@ -663,6 +663,7 @@ from routes.library   import library_bp
 from routes.flashcards import flashcards_bp
 from routes.upload    import upload_bp
 from routes.study     import study_bp
+from routes.youtube   import youtube_bp
 from routes.image     import image_bp
 from routes.chat      import chat_bp
 from routes.jobs          import jobs_bp
@@ -678,6 +679,7 @@ app.register_blueprint(image_bp)
 app.register_blueprint(chat_bp)
 app.register_blueprint(jobs_bp)
 app.register_blueprint(share_bp)
+app.register_blueprint(youtube_bp)
 
 # ── Initialise async job queue ────────────────────────────────────────────────
 from services.job_queue import job_queue as _job_queue
