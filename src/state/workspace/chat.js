@@ -1,6 +1,6 @@
 // @ts-nocheck
 /**
- * src/state/workspace/chat.js — Chat helpers, messages, send
+ * src/state/workspace/chat.js — Chat helpers, messages, sendm
  */
 
 import { ws } from './state.js';
