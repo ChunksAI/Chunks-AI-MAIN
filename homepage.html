@@ -3126,6 +3126,22 @@ var SUPABASE_OAUTH = '';
 var _authPopup      = null;
 var _popupPollTimer = null;
 
+// ── Session check — shared by openAuthPopup and Smart CTA ────────
+function isLoggedIn(){
+  try {
+    var raw = localStorage.getItem('chunks-ai-auth');
+    if(!raw) return false;
+    var parsed = JSON.parse(raw);
+    // Match app.html exactly — Shape A: { access_token } or Shape B: { currentSession: { access_token } }
+    var session = parsed.access_token ? parsed
+                : (parsed.currentSession && parsed.currentSession.access_token)
+                  ? parsed.currentSession
+                : null;
+    // Don't check expiry — let the SDK handle token refresh (same as app.html)
+    return !!(session && session.access_token);
+  } catch(e){ return false; }
+}
+
 // ── localStorage helper (same as app.html / login.html) ───────────
 var _hpMem = {};
 var _hpStore = (function() {
@@ -3202,6 +3218,12 @@ function openAuthPopup(callerBtnId, callerLabelId) {
   _popupPollTimer = setInterval(function() {
     if (_authPopup && _authPopup.closed) {
       clearInterval(_popupPollTimer);
+      // If the user is now logged in after the popup closed, redirect to the app.
+      // This is the fallback for cases where postMessage didn't fire or was blocked.
+      if (isLoggedIn()) {
+        window.location.replace('/home');
+        return;
+      }
       if (btn)   btn.disabled = false;
       if (label) label.textContent = 'Continue with Google';
     }
@@ -3284,21 +3306,6 @@ document.getElementById('modal-google-btn').addEventListener('click', function()
 
 /* ── Smart CTA — all /login buttons ── */
 (function(){
-  function isLoggedIn(){
-    try {
-      var raw = localStorage.getItem('chunks-ai-auth');
-      if(!raw) return false;
-      var parsed = JSON.parse(raw);
-      // Match app.html exactly — Shape A: { access_token } or Shape B: { currentSession: { access_token } }
-      var session = parsed.access_token ? parsed
-                  : (parsed.currentSession && parsed.currentSession.access_token)
-                    ? parsed.currentSession
-                  : null;
-      // Don't check expiry — let the SDK handle token refresh (same as app.html)
-      return !!(session && session.access_token);
-    } catch(e){ return false; }
-  }
-
   // Update nav buttons if already logged in
   (function(){
     if(isLoggedIn()){
