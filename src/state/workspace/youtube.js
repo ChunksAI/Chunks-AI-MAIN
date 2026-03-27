@@ -157,8 +157,9 @@ export async function wsIngestYouTube() {
     _setStatus('Saving to library…');
 
     // Build a synthetic File from the transcript text so saveDoc can store it
-    const { title, slides, transcript } = json;
-    const storedText = JSON.stringify(slides);          // reuse PPT rendering path
+    const { title, video_id, slides, transcript } = json;
+    // Store video_id alongside slides so the viewer can embed the YouTube player
+    const storedText = JSON.stringify({ video_id, slides });
     const blob = new Blob([transcript], { type: 'text/plain' });
     // Use .ytx extension so userDocs.js routes to the transcript viewer
     const safeName = title.replace(/[/\\?%*:|"<>]/g, '-').slice(0, 80);

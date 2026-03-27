@@ -20,6 +20,7 @@
 import { $el, addClass, removeClass } from '../domHelpers.js';
 import { wsAutoResize } from './chat.js';
 import { showToast } from '../../components/Toast.js';
+import { ws } from './state.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -301,20 +302,19 @@ export async function wsListenPdf() {
 
   wsStopListenPdf();
 
-  // Get ws state from global (avoids circular import)
-  const wsState = window.ws || (typeof ws !== 'undefined' ? ws : null);
-  if (!wsState) {
+  // Get ws state — imported directly from state.js (not window.ws)
+  if (!ws) {
     showToast('🔊', 'No document open', '');
     return;
   }
 
   let textToRead = '';
 
-  if (wsState.pdfDoc) {
+  if (ws.pdfDoc) {
     // Real PDF — extract text from the current page via PDF.js
     try {
-      const pageNum = wsState.currentPage || 1;
-      const page = await wsState.pdfDoc.getPage(pageNum);
+      const pageNum = ws.currentPage || 1;
+      const page = await ws.pdfDoc.getPage(pageNum);
       const content = await page.getTextContent();
       textToRead = content.items.map(it => it.str).join(' ').trim();
       if (!textToRead) {
@@ -326,11 +326,21 @@ export async function wsListenPdf() {
       showToast('🔊', 'Could not extract page text', 'var(--red)');
       return;
     }
-  } else if (wsState.userDocText) {
+  } else if (ws.userDocText) {
     // User-uploaded doc / YouTube transcript — read the full text
-    textToRead = _stripMarkup(wsState.userDocText);
+    textToRead = _stripMarkup(ws.userDocText);
     if (!textToRead) { showToast('🔊', 'No text found in this document', ''); return; }
     showToast('🔊', 'Reading document…', '');
+  } else if (ws.totalPages > 0) {
+    // Slide-based doc (PPT / .ytx) — read the current slide text from the DOM
+    const pageContainers = ws.pageContainers || [];
+    const idx = (ws.currentPage || 1) - 1;
+    const container = pageContainers[idx] || pageContainers[0];
+    if (container) {
+      textToRead = (container.innerText || '').replace(/\s+/g, ' ').trim();
+    }
+    if (!textToRead) { showToast('🔊', 'No readable text on this slide', ''); return; }
+    showToast('🔊', `Reading slide ${ws.currentPage}…`, '');
   } else {
     showToast('🔊', 'Open a document first', '');
     return;

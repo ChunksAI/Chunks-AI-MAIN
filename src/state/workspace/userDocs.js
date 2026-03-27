@@ -190,10 +190,38 @@ async function _wsRenderPptSlides(meta) {
   wrap.innerHTML = '';
 
   let slides = [];
-  try { slides = JSON.parse(meta.extractedText || '[]'); } catch (_) {}
+  let videoId = null;
+  try {
+    const parsed = JSON.parse(meta.extractedText || '[]');
+    if (Array.isArray(parsed)) {
+      // Legacy format: just an array of slides
+      slides = parsed;
+    } else if (parsed && Array.isArray(parsed.slides)) {
+      // New format: { video_id, slides }
+      slides = parsed.slides;
+      videoId = parsed.video_id || null;
+    }
+  } catch (_) {}
   if (!Array.isArray(slides) || !slides.length) {
     // Fall back: show raw text
     slides = [{ slide_number: 1, title: meta.name, content: [meta.extractedText || 'No content'], notes: '' }];
+  }
+
+  // YouTube embed — shown above the transcript slides when video_id is available
+  if (videoId) {
+    const embedWrap = document.createElement('div');
+    embedWrap.style.cssText = 'width:100%;max-width:760px;flex-shrink:0;border-radius:var(--r-lg);overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.4);';
+    embedWrap.innerHTML = `<div style="position:relative;padding-top:56.25%;background:#000;">
+      <iframe
+        src="https://www.youtube-nocookie.com/embed/${videoId}?rel=0"
+        style="position:absolute;inset:0;width:100%;height:100%;border:none;"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowfullscreen
+        title="YouTube video player"
+        loading="lazy"
+      ></iframe>
+    </div>`;
+    wrap.appendChild(embedWrap);
   }
 
   ws.totalPages  = slides.length;
