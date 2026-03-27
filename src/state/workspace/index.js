@@ -1,7 +1,7 @@
 /**
  * src/state/workspace/index.js — Barrel re-exports + window bridges
  *
- * Re-exports every public symbol from the workspace sub-modules and
+ * Re-exports every public symbol from the workspace sub-modules and.
  * wires up legacy `window.*` bridges exactly as the original monolith did.
  */
 
