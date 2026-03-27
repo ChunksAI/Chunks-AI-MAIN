@@ -7,7 +7,7 @@
  *,
  * Architecture:
  *   • 2 built-in lessons (pH Scale, Newton's Laws) + generic fallback
- *   • Canvas2D drawing engine (no SVG library dependency)
+ *   • Canvas2D drawing engine (no SVG library dependency),
  *   • "Ask anything" wired to POST /ask with mode: visual_tutor
  *   • Accessible from flashcard Hard rating, sidebar, and Exam weak-concept flow
  */
