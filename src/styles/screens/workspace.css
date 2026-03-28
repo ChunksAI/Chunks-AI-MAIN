@@ -720,3 +720,22 @@
 [data-theme="study"] .ws-pdf-scroll {
   background: var(--bg-warm, #ede8dc);
 }
+
+/* ── TTS word highlighting ───────────────────────────────────────────────── */
+.tts-word {
+  border-radius: 2px;
+  transition: background 80ms ease, color 80ms ease;
+}
+.tts-highlight {
+  background: rgba(232, 172, 46, 0.35);
+  color: var(--text-1);
+  outline: 1px solid rgba(232, 172, 46, 0.5);
+  border-radius: 2px;
+}
+
+/* ── Listen button active state ─────────────────────────────────────────── */
+#ws-listen-btn.listen-active {
+  color: var(--violet);
+  background: var(--violet-muted);
+  border-color: var(--violet-border);
+}

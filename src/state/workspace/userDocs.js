@@ -190,10 +190,48 @@ async function _wsRenderPptSlides(meta) {
   wrap.innerHTML = '';
 
   let slides = [];
-  try { slides = JSON.parse(meta.extractedText || '[]'); } catch (_) {}
+  let videoId = null;
+  try {
+    const parsed = JSON.parse(meta.extractedText || '[]');
+    if (Array.isArray(parsed)) {
+      // Legacy format: plain array of slides (PPT or old .ytx)
+      slides = parsed;
+    } else if (parsed && Array.isArray(parsed.slides)) {
+      // New .ytx format: { video_id, slides }
+      slides = parsed.slides;
+      videoId = parsed.video_id || null;
+    }
+  } catch (_) {}
   if (!Array.isArray(slides) || !slides.length) {
     // Fall back: show raw text
     slides = [{ slide_number: 1, title: meta.name, content: [meta.extractedText || 'No content'], notes: '' }];
+  }
+
+  // ── YouTube player embed ────────────────────────────────────────────────
+  // Validate video ID: YouTube IDs are exactly 11 alphanumeric/-/_ chars
+  const validVideoId = videoId && /^[A-Za-z0-9_-]{11}$/.test(videoId) ? videoId : null;
+  if (validVideoId) {
+    const playerWrap = document.createElement('div');
+    playerWrap.id = 'yt-player-wrap';
+    playerWrap.style.cssText = [
+      'width:100%;max-width:760px;flex-shrink:0;',
+      'background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-lg);',
+      'overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.4);',
+    ].join('');
+    // 16:9 responsive container using youtube-nocookie for privacy
+    const iframe = document.createElement('iframe');
+    iframe.id = 'yt-iframe';
+    iframe.src = `https://www.youtube-nocookie.com/embed/${validVideoId}?rel=0&modestbranding=1&enablejsapi=1`;
+    iframe.title = 'YouTube video player';
+    iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    iframe.allowFullscreen = true;
+    iframe.loading = 'lazy';
+    iframe.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;border:none;';
+    const ratio = document.createElement('div');
+    ratio.style.cssText = 'position:relative;padding-bottom:56.25%;height:0;overflow:hidden;';
+    ratio.appendChild(iframe);
+    playerWrap.appendChild(ratio);
+    wrap.appendChild(playerWrap);
   }
 
   ws.totalPages  = slides.length;
@@ -204,15 +242,18 @@ async function _wsRenderPptSlides(meta) {
   slides.forEach((slide, idx) => {
     const card = document.createElement('div');
     card.dataset.pageNum = idx + 1;
+    card.id = `ws-slide-card-${idx + 1}`;
     card.style.cssText = 'width:100%;max-width:760px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-lg);padding:28px 32px;box-shadow:0 4px 24px rgba(0,0,0,0.4);flex-shrink:0;';
     const num = slide.slide_number ?? (idx + 1);
     const title = slide.title || `Slide ${num}`;
     const body = (slide.content || []).join('\n\n');
     const notes = slide.notes ? `<div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border-xs);font-size:11px;color:var(--text-4);font-style:italic;">${slide.notes}</div>` : '';
+    // Wrap each word in a span for TTS word-level highlighting
+    const bodyHtml = _wrapWordsInSpans(body);
     card.innerHTML = `
       <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-4);margin-bottom:10px;letter-spacing:0.08em;">SLIDE ${num}</div>
       <div style="font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--text-1);margin-bottom:14px;line-height:1.3;">${title}</div>
-      <div style="font-size:13px;color:var(--text-2);line-height:1.7;white-space:pre-wrap;">${body}</div>
+      <div class="ws-slide-body" style="font-size:13px;color:var(--text-2);line-height:1.7;white-space:pre-wrap;">${bodyHtml}</div>
       ${notes}`;
     wrap.appendChild(card);
     ws.pageContainers.push(card);
@@ -239,6 +280,21 @@ async function _wsRenderPptSlides(meta) {
   hide($el('ws-pdf-loading'));
   hide($el('ws-default-content'));
   wrap.style.display = 'flex';
+}
+
+/**
+ * Wrap every whitespace-separated word in a <span class="tts-word"> for
+ * TTS word-level highlighting. Non-word tokens (newlines, whitespace) are
+ * passed through verbatim. Word content is HTML-escaped.
+ */
+function _wrapWordsInSpans(text) {
+  return text.replace(/[^\s]+/g, (word) => {
+    const escaped = word
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    return `<span class="tts-word">${escaped}</span>`;
+  });
 }
 
 function _wsShowUserDocWelcome(meta) {
