@@ -1,3 +1,4 @@
+
 """
 backend/routes/youtube.py — YouTube transcript ingestion endpoint.
 
@@ -11,6 +12,7 @@ POST /ingest-youtube
 from __future__ import annotations
 
 import logging
+import os
 import re
 
 from flask import Blueprint, jsonify, request
@@ -34,6 +36,35 @@ def _extract_video_id(url: str) -> str | None:
         m = re.search(pat, url)
         if m:
             return m.group(1)
+    return None
+
+
+def _build_proxy_config():
+    """
+    Return a youtube_transcript_api ProxyConfig based on environment variables,
+    or None if no proxy is configured.
+
+    Priority:
+    1. WEBSHARE_PROXY_USERNAME + WEBSHARE_PROXY_PASSWORD → WebshareProxyConfig
+       (rotating residential proxies, most reliable for bypassing IP bans)
+    2. YOUTUBE_PROXY_URL → GenericProxyConfig
+       (any HTTP/HTTPS/SOCKS proxy URL, e.g. "http://user:pass@host:port")
+    3. No proxy configured → None
+    """
+    try:
+        from youtube_transcript_api.proxies import GenericProxyConfig, WebshareProxyConfig
+    except ImportError:
+        return None
+
+    ws_user = os.environ.get('WEBSHARE_PROXY_USERNAME', '').strip()
+    ws_pass = os.environ.get('WEBSHARE_PROXY_PASSWORD', '').strip()
+    if ws_user and ws_pass:
+        return WebshareProxyConfig(proxy_username=ws_user, proxy_password=ws_pass)
+
+    proxy_url = os.environ.get('YOUTUBE_PROXY_URL', '').strip()
+    if proxy_url:
+        return GenericProxyConfig(http_url=proxy_url, https_url=proxy_url)
+
     return None
 
 
@@ -117,13 +148,20 @@ def ingest_youtube():
             return jsonify({'success': False, 'error': 'Could not parse a YouTube video ID from that URL'}), 400
 
         try:
-            from youtube_transcript_api import YouTubeTranscriptApi, NoTranscriptFound, TranscriptsDisabled
+            from youtube_transcript_api import (
+                YouTubeTranscriptApi,
+                IpBlocked,
+                NoTranscriptFound,
+                RequestBlocked,
+                TranscriptsDisabled,
+            )
         except ImportError:
             logger.error("youtube-transcript-api not installed")
             return jsonify({'success': False, 'error': 'Server transcript support not installed'}), 500
 
         try:
-            api = YouTubeTranscriptApi()
+            proxy_config = _build_proxy_config()
+            api = YouTubeTranscriptApi(proxy_config=proxy_config)
             transcript_list = api.list(video_id)
             # Prefer manually created transcripts; fall back to any auto-generated one
             try:
@@ -141,7 +179,18 @@ def ingest_youtube():
             else:
                 entries = list(fetched)
         except (NoTranscriptFound, TranscriptsDisabled) as e:
-            return jsonify({'success': False, 'error': f'No transcript available for this video'}), 422
+            return jsonify({'success': False, 'error': 'No transcript available for this video'}), 422
+        except (IpBlocked, RequestBlocked) as e:
+            logger.warning("YouTube blocked transcript request for %s: %s", video_id, e)
+            return jsonify({
+                'success': False,
+                'error': (
+                    'YouTube is blocking transcript requests from this server. '
+                    'To fix this, set the YOUTUBE_PROXY_URL environment variable '
+                    'to a residential proxy URL, or set WEBSHARE_PROXY_USERNAME '
+                    'and WEBSHARE_PROXY_PASSWORD to use Webshare rotating proxies.'
+                ),
+            }), 422
         except Exception as e:
             logger.warning("Transcript fetch failed for %s: %s", video_id, e)
             return jsonify({'success': False, 'error': f'Could not fetch transcript: {str(e)}'}), 422
