@@ -43,6 +43,6 @@ export { wsPromptYouTube, wsCloseYouTube, wsIngestYouTube } from './youtube.js';
 
 export {
   wsToggleVoiceInput, wsReadAloud, wsStopReading,
-  wsListenPdf, wsStopListenPdf,
+  wsListenPdf, wsStopListenPdf, wsListenPdfSetRate,
   wsVoiceSupported, wsTtsSupported,
 } from './voice.js';
