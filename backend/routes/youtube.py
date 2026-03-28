@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import time
 
 from flask import Blueprint, jsonify, request
 
@@ -25,6 +26,9 @@ youtube_bp = Blueprint('youtube', __name__)
 _MAX_TRANSCRIPT_CHARS = 120_000
 # Target characters per chunk (shown as one "slide" card in the viewer)
 _CHUNK_SIZE = 1_200
+# Retry settings for transient YouTube rate-limit (429) errors
+_MAX_RETRIES = 3
+_BACKOFF_BASE = 1  # seconds; doubles each attempt (1 s, 2 s, …)
 
 
 def _extract_video_id(url: str) -> str | None:
@@ -37,6 +41,12 @@ def _extract_video_id(url: str) -> str | None:
         if m:
             return m.group(1)
     return None
+
+
+def _is_rate_limited(exc: Exception) -> bool:
+    """Return True when *exc* looks like a YouTube HTTP 429 / rate-limit error."""
+    msg = str(exc).lower()
+    return '429' in msg or 'too many' in msg
 
 
 def _build_proxy_config():
@@ -162,22 +172,40 @@ def ingest_youtube():
         try:
             proxy_config = _build_proxy_config()
             api = YouTubeTranscriptApi(proxy_config=proxy_config)
-            transcript_list = api.list(video_id)
-            # Prefer manually created transcripts; fall back to any auto-generated one
-            try:
-                transcript = transcript_list.find_manually_created_transcript(['en', 'en-US', 'en-GB'])
-            except Exception:
+
+            entries: list[dict] = []
+            for attempt in range(_MAX_RETRIES):
                 try:
-                    transcript = transcript_list.find_generated_transcript(['en', 'en-US', 'en-GB'])
-                except Exception:
-                    # Last resort: grab whichever transcript is first in the list
-                    transcript = next(iter(transcript_list))
-            fetched = transcript.fetch()
-            # Support both old list-of-dicts API and new FetchedTranscript iterable
-            if hasattr(fetched, 'to_raw_data'):
-                entries = fetched.to_raw_data()
-            else:
-                entries = list(fetched)
+                    transcript_list = api.list(video_id)
+                    # Prefer manually created transcripts; fall back to any auto-generated one
+                    try:
+                        transcript = transcript_list.find_manually_created_transcript(['en', 'en-US', 'en-GB'])
+                    except Exception:
+                        try:
+                            transcript = transcript_list.find_generated_transcript(['en', 'en-US', 'en-GB'])
+                        except Exception:
+                            # Last resort: grab whichever transcript is first in the list
+                            transcript = next(iter(transcript_list))
+                    fetched = transcript.fetch()
+                    # Support both old list-of-dicts API and new FetchedTranscript iterable
+                    if hasattr(fetched, 'to_raw_data'):
+                        entries = fetched.to_raw_data()
+                    else:
+                        entries = list(fetched)
+                    break  # success — exit retry loop
+                except (NoTranscriptFound, TranscriptsDisabled):
+                    raise  # never retry these
+                except Exception as retry_exc:
+                    if _is_rate_limited(retry_exc) and attempt < _MAX_RETRIES - 1:
+                        delay = _BACKOFF_BASE * (2 ** attempt)
+                        logger.warning(
+                            "YouTube rate-limited for %s (attempt %d/%d); retrying in %ds",
+                            video_id, attempt + 1, _MAX_RETRIES, delay,
+                        )
+                        time.sleep(delay)
+                    else:
+                        raise
+
         except (NoTranscriptFound, TranscriptsDisabled) as e:
             return jsonify({'success': False, 'error': 'No transcript available for this video'}), 422
         except (IpBlocked, RequestBlocked) as e:
@@ -192,6 +220,22 @@ def ingest_youtube():
                 ),
             }), 422
         except Exception as e:
+            if _is_rate_limited(e):
+                logger.warning("YouTube rate-limited for %s after %d attempts: %s", video_id, _MAX_RETRIES, e)
+                if _build_proxy_config() is not None:
+                    err_msg = (
+                        'YouTube is rate-limiting requests through your proxy (HTTP 429). '
+                        'The proxy IP may be temporarily blocked — wait a few minutes and try again, '
+                        'or check your Webshare/proxy configuration.'
+                    )
+                else:
+                    err_msg = (
+                        'YouTube is rate-limiting transcript requests from this server (HTTP 429). '
+                        'Set the WEBSHARE_PROXY_USERNAME and WEBSHARE_PROXY_PASSWORD environment '
+                        'variables to use Webshare rotating proxies, or set YOUTUBE_PROXY_URL '
+                        'to a residential proxy URL.'
+                    )
+                return jsonify({'success': False, 'error': err_msg}), 429
             logger.warning("Transcript fetch failed for %s: %s", video_id, e)
             return jsonify({'success': False, 'error': f'Could not fetch transcript: {str(e)}'}), 422
 

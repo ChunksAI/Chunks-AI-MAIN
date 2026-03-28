@@ -1,6 +1,6 @@
 """Tests for the youtube blueprint (/ingest-youtube)."""
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 
 def test_ingest_youtube_options(client):
@@ -312,3 +312,164 @@ def test_ingest_youtube_uses_proxy_config(client, mock_extract_user, monkeypatch
     assert call_kwargs is not None
     proxy_arg = call_kwargs.kwargs.get('proxy_config')
     assert proxy_arg is not None
+
+
+# ── _is_rate_limited helper ────────────────────────────────────────────────────
+
+def test_is_rate_limited_detects_429():
+    """_is_rate_limited returns True for messages containing '429'."""
+    from routes.youtube import _is_rate_limited
+    assert _is_rate_limited(Exception("Max retries exceeded (Caused by ResponseError('too many 429 error responses'))"))
+    assert _is_rate_limited(Exception("HTTP Error 429"))
+    assert _is_rate_limited(Exception("too many requests"))
+
+
+def test_is_rate_limited_false_for_other_errors():
+    """_is_rate_limited returns False for unrelated errors."""
+    from routes.youtube import _is_rate_limited
+    assert not _is_rate_limited(Exception("No transcript found"))
+    assert not _is_rate_limited(Exception("Connection reset by peer"))
+    assert not _is_rate_limited(Exception("IP blocked"))
+
+
+# ── Retry logic ────────────────────────────────────────────────────────────────
+
+def test_ingest_youtube_retries_on_429_then_succeeds(client, mock_extract_user, monkeypatch):
+    """POST /ingest-youtube retries on 429 and succeeds on the second attempt."""
+    entries = [{'text': 'Retry succeeded.', 'start': 0.0, 'duration': 2.0}]
+
+    class _NoTranscriptFound(Exception):
+        pass
+    class _TranscriptsDisabled(Exception):
+        pass
+    class _IpBlocked(Exception):
+        pass
+    class _RequestBlocked(Exception):
+        pass
+
+    rate_limit_exc = Exception("Max retries exceeded (Caused by ResponseError('too many 429 error responses'))")
+
+    call_count = {'n': 0}
+
+    mock_fetched = MagicMock()
+    mock_fetched.to_raw_data.return_value = entries
+    mock_transcript = MagicMock()
+    mock_transcript.fetch.return_value = mock_fetched
+    mock_list = MagicMock()
+    mock_list.find_manually_created_transcript.return_value = mock_transcript
+    mock_list.__iter__ = MagicMock(return_value=iter([mock_transcript]))
+
+    mock_instance = MagicMock()
+
+    def list_side_effect(video_id):
+        call_count['n'] += 1
+        if call_count['n'] == 1:
+            raise rate_limit_exc
+        return mock_list
+
+    mock_instance.list.side_effect = list_side_effect
+    mock_api_class = MagicMock(return_value=mock_instance)
+
+    # Patch time.sleep to avoid real waits during the backoff
+    with patch.dict('sys.modules', {
+        'youtube_transcript_api': MagicMock(
+            YouTubeTranscriptApi=mock_api_class,
+            IpBlocked=_IpBlocked,
+            RequestBlocked=_RequestBlocked,
+            NoTranscriptFound=_NoTranscriptFound,
+            TranscriptsDisabled=_TranscriptsDisabled,
+        ),
+    }), patch('routes.youtube.time.sleep') as mock_sleep, \
+       patch('requests.get') as mock_get:
+        mock_get.return_value = MagicMock(ok=False)
+        resp = client.post('/ingest-youtube',
+                           json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    assert 'Retry succeeded' in data['transcript']
+    # Verify sleep was called once (between attempt 1 and 2)
+    mock_sleep.assert_called_once_with(1)
+
+
+def test_ingest_youtube_429_all_retries_exhausted_no_proxy(client, mock_extract_user, monkeypatch):
+    """POST /ingest-youtube returns 429 with proxy-setup advice when no proxy is configured."""
+    monkeypatch.delenv('YOUTUBE_PROXY_URL', raising=False)
+    monkeypatch.delenv('WEBSHARE_PROXY_USERNAME', raising=False)
+    monkeypatch.delenv('WEBSHARE_PROXY_PASSWORD', raising=False)
+
+    class _NoTranscriptFound(Exception):
+        pass
+    class _TranscriptsDisabled(Exception):
+        pass
+    class _IpBlocked(Exception):
+        pass
+    class _RequestBlocked(Exception):
+        pass
+
+    rate_limit_exc = Exception("Max retries exceeded (Caused by ResponseError('too many 429 error responses'))")
+
+    mock_instance = MagicMock()
+    mock_instance.list.side_effect = rate_limit_exc
+    mock_api_class = MagicMock(return_value=mock_instance)
+
+    with patch.dict('sys.modules', {
+        'youtube_transcript_api': MagicMock(
+            YouTubeTranscriptApi=mock_api_class,
+            IpBlocked=_IpBlocked,
+            RequestBlocked=_RequestBlocked,
+            NoTranscriptFound=_NoTranscriptFound,
+            TranscriptsDisabled=_TranscriptsDisabled,
+        ),
+    }), patch('routes.youtube.time.sleep'):
+        resp = client.post('/ingest-youtube',
+                           json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+
+    assert resp.status_code == 429
+    data = resp.get_json()
+    assert data['success'] is False
+    assert '429' in data['error']
+    assert 'WEBSHARE_PROXY_USERNAME' in data['error']
+
+
+def test_ingest_youtube_429_all_retries_exhausted_with_proxy(client, mock_extract_user, monkeypatch):
+    """POST /ingest-youtube returns 429 with proxy-check advice when a proxy IS configured."""
+    monkeypatch.setenv('WEBSHARE_PROXY_USERNAME', 'myuser')
+    monkeypatch.setenv('WEBSHARE_PROXY_PASSWORD', 'mypass')
+    monkeypatch.delenv('YOUTUBE_PROXY_URL', raising=False)
+
+    class _NoTranscriptFound(Exception):
+        pass
+    class _TranscriptsDisabled(Exception):
+        pass
+    class _IpBlocked(Exception):
+        pass
+    class _RequestBlocked(Exception):
+        pass
+
+    rate_limit_exc = Exception("Max retries exceeded (Caused by ResponseError('too many 429 error responses'))")
+
+    mock_instance = MagicMock()
+    mock_instance.list.side_effect = rate_limit_exc
+    mock_api_class = MagicMock(return_value=mock_instance)
+
+    with patch.dict('sys.modules', {
+        'youtube_transcript_api': MagicMock(
+            YouTubeTranscriptApi=mock_api_class,
+            IpBlocked=_IpBlocked,
+            RequestBlocked=_RequestBlocked,
+            NoTranscriptFound=_NoTranscriptFound,
+            TranscriptsDisabled=_TranscriptsDisabled,
+        ),
+    }), patch('routes.youtube.time.sleep'):
+        resp = client.post('/ingest-youtube',
+                           json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+
+    assert resp.status_code == 429
+    data = resp.get_json()
+    assert data['success'] is False
+    # Should mention proxy is configured but rate-limited, not tell user to set up proxy
+    assert 'proxy' in data['error'].lower()
+    assert 'WEBSHARE_PROXY_USERNAME' not in data['error']
+
