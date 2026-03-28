@@ -175,4 +175,140 @@ def test_ingest_youtube_extract_video_id():
         assert _extract_video_id(url) == expected, f"Failed for {url}"
 
 
+def test_ingest_youtube_ip_blocked(client, mock_extract_user):
+    """POST /ingest-youtube returns 422 with a helpful message when YouTube blocks the IP."""
+    class _IpBlocked(Exception):
+        pass
+    class _RequestBlocked(Exception):
+        pass
+    class _NoTranscriptFound(Exception):
+        pass
+    class _TranscriptsDisabled(Exception):
+        pass
 
+    mock_instance = MagicMock()
+    mock_instance.list.side_effect = _IpBlocked("IP blocked by YouTube")
+    mock_api_class = MagicMock(return_value=mock_instance)
+
+    with patch.dict('sys.modules', {
+        'youtube_transcript_api': MagicMock(
+            YouTubeTranscriptApi=mock_api_class,
+            IpBlocked=_IpBlocked,
+            RequestBlocked=_RequestBlocked,
+            NoTranscriptFound=_NoTranscriptFound,
+            TranscriptsDisabled=_TranscriptsDisabled,
+        ),
+    }):
+        resp = client.post('/ingest-youtube',
+                           json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+
+    assert resp.status_code == 422
+    data = resp.get_json()
+    assert data['success'] is False
+    assert 'blocking' in data['error'].lower()
+    assert 'YOUTUBE_PROXY_URL' in data['error']
+
+
+def test_ingest_youtube_request_blocked(client, mock_extract_user):
+    """POST /ingest-youtube returns 422 with a helpful message when YouTube blocks the request."""
+    class _IpBlocked(Exception):
+        pass
+    class _RequestBlocked(Exception):
+        pass
+    class _NoTranscriptFound(Exception):
+        pass
+    class _TranscriptsDisabled(Exception):
+        pass
+
+    mock_instance = MagicMock()
+    mock_instance.list.side_effect = _RequestBlocked("Request blocked")
+    mock_api_class = MagicMock(return_value=mock_instance)
+
+    with patch.dict('sys.modules', {
+        'youtube_transcript_api': MagicMock(
+            YouTubeTranscriptApi=mock_api_class,
+            IpBlocked=_IpBlocked,
+            RequestBlocked=_RequestBlocked,
+            NoTranscriptFound=_NoTranscriptFound,
+            TranscriptsDisabled=_TranscriptsDisabled,
+        ),
+    }):
+        resp = client.post('/ingest-youtube',
+                           json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+
+    assert resp.status_code == 422
+    data = resp.get_json()
+    assert data['success'] is False
+    assert 'YOUTUBE_PROXY_URL' in data['error']
+
+
+def test_build_proxy_config_no_env(monkeypatch):
+    """_build_proxy_config returns None when no proxy env vars are set."""
+    from routes.youtube import _build_proxy_config
+    monkeypatch.delenv('YOUTUBE_PROXY_URL', raising=False)
+    monkeypatch.delenv('WEBSHARE_PROXY_USERNAME', raising=False)
+    monkeypatch.delenv('WEBSHARE_PROXY_PASSWORD', raising=False)
+    assert _build_proxy_config() is None
+
+
+def test_build_proxy_config_generic_url(monkeypatch):
+    """_build_proxy_config returns GenericProxyConfig when YOUTUBE_PROXY_URL is set."""
+    from routes.youtube import _build_proxy_config
+    monkeypatch.setenv('YOUTUBE_PROXY_URL', 'http://proxy.example.com:8080')
+    monkeypatch.delenv('WEBSHARE_PROXY_USERNAME', raising=False)
+    monkeypatch.delenv('WEBSHARE_PROXY_PASSWORD', raising=False)
+    config = _build_proxy_config()
+    assert config is not None
+    from youtube_transcript_api.proxies import GenericProxyConfig
+    assert isinstance(config, GenericProxyConfig)
+
+
+def test_build_proxy_config_webshare(monkeypatch):
+    """_build_proxy_config returns WebshareProxyConfig when Webshare creds are set."""
+    from routes.youtube import _build_proxy_config
+    monkeypatch.setenv('WEBSHARE_PROXY_USERNAME', 'myuser')
+    monkeypatch.setenv('WEBSHARE_PROXY_PASSWORD', 'mypass')
+    monkeypatch.delenv('YOUTUBE_PROXY_URL', raising=False)
+    config = _build_proxy_config()
+    assert config is not None
+    from youtube_transcript_api.proxies import WebshareProxyConfig
+    assert isinstance(config, WebshareProxyConfig)
+
+
+def test_build_proxy_config_webshare_takes_priority(monkeypatch):
+    """_build_proxy_config prefers Webshare over generic proxy URL when both are set."""
+    from routes.youtube import _build_proxy_config
+    monkeypatch.setenv('WEBSHARE_PROXY_USERNAME', 'myuser')
+    monkeypatch.setenv('WEBSHARE_PROXY_PASSWORD', 'mypass')
+    monkeypatch.setenv('YOUTUBE_PROXY_URL', 'http://proxy.example.com:8080')
+    config = _build_proxy_config()
+    from youtube_transcript_api.proxies import WebshareProxyConfig
+    assert isinstance(config, WebshareProxyConfig)
+
+
+def test_ingest_youtube_uses_proxy_config(client, mock_extract_user, monkeypatch):
+    """POST /ingest-youtube passes proxy_config to YouTubeTranscriptApi when configured."""
+    monkeypatch.setenv('YOUTUBE_PROXY_URL', 'http://proxy.example.com:8080')
+
+    entries = [{'text': 'Proxy transcript.', 'start': 0.0, 'duration': 2.0}]
+    mock_api_class = _make_mock_transcript_api(entries)
+
+    with patch.dict('sys.modules', {
+        'youtube_transcript_api': MagicMock(
+            YouTubeTranscriptApi=mock_api_class,
+            IpBlocked=Exception,
+            RequestBlocked=Exception,
+            NoTranscriptFound=Exception,
+            TranscriptsDisabled=Exception,
+        ),
+    }), patch('requests.get') as mock_get:
+        mock_get.return_value = MagicMock(ok=False)
+        resp = client.post('/ingest-youtube',
+                           json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+
+    assert resp.status_code == 200
+    # Verify proxy_config was passed (not None) to the constructor
+    call_kwargs = mock_api_class.call_args
+    assert call_kwargs is not None
+    proxy_arg = call_kwargs.kwargs.get('proxy_config')
+    assert proxy_arg is not None
