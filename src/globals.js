@@ -149,6 +149,7 @@ import {
   wsListenPdf, wsStopListenPdf, wsListenPdfSetRate,
 } from './state/workspace/index.js';
 
+window.ws                  = ws;
 window.wsBookMeta          = wsBookMeta;
 window.selectBook          = selectBook;
 window.selectUserDoc       = selectUserDoc;
