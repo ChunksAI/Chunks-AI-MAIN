@@ -14,6 +14,11 @@ let _wsSavePosTm, _wsSaveZoomTm;
 export function _wsUpdateBadge(page) {
   setText($el('ws-page-badge'), `${page} / ${ws.totalPages}`);
   setText($el('mpn-page-label'), `${page} / ${ws.totalPages}`);
+  // Update progress bar fill
+  const fill = $el('ws-page-progress');
+  if (fill && ws.totalPages > 1) {
+    fill.style.width = `${Math.round(((page - 1) / (ws.totalPages - 1)) * 100)}%`;
+  }
 }
 
 // ── Page navigation ───────────────────────────────────────────────────────

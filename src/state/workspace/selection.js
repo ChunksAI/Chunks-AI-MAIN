@@ -1,64 +1,91 @@
 // @ts-nocheck
 /**
- * src/state/workspace/selection.js — "Ask AI" floating button for PDF text selection
+ * src/state/workspace/selection.js — Contextual AI toolbar for PDF text selection
  *
- * When the user selects text inside the PDF text layer, a small floating
- * button appears near the selection. Clicking it:
- *   1. Stores the selection as ws.selectedText (sent with the next /ask call)
- *   2. Focuses the chat input with a prompt placeholder
- *   3. Clears the DOM selection
+ * When the user selects text inside the PDF text layer, a floating glassmorphism
+ * toolbar appears near the selection with three AI actions:
+ *   • Explain  — asks for a clear explanation of the selected text
+ *   • Simplify — asks for a simplified version in plain language
+ *   • Quiz     — asks the AI to generate a quiz question about the selection
  *
- * The button is created once and repositioned on each selection.
+ * Clicking an action:
+ *   1. Stores the selection as ws.selectedText
+ *   2. Sets the chat input to the action prompt
+ *   3. Clears the DOM selection and hides the toolbar
+ *   4. Focuses the chat input (user reviews before sending)
  */
 
 import { ws } from './state.js';
-import { wsShowToast } from './chat.js';
+import { wsSetInput } from './chat.js';
 import { $el } from '../domHelpers.js';
 
-let _wsAskBtn = null;
+/** Maximum characters of selected text included in the action prompt. */
+const MAX_SELECTION_LENGTH = 200;
+
+let _wsContextBar = null;
+
+// ── Contextual bar actions ────────────────────────────────────────────────
+
+const _ACTIONS = [
+  {
+    label: 'Explain',
+    icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
+    prompt: (text) => `Explain this: "${text}"`,
+  },
+  {
+    label: 'Simplify',
+    icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="4 7 4 4 20 4"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`,
+    prompt: (text) => `Simplify this in plain language: "${text}"`,
+  },
+  {
+    label: 'Quiz',
+    icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>`,
+    prompt: (text) => `Create a quiz question about: "${text}"`,
+  },
+];
+
+// ── Create the contextual bar (once) ─────────────────────────────────────
 
 export function _wsCreateAskBtn() {
-  if (_wsAskBtn) return;
-  _wsAskBtn = document.createElement('button');
-  _wsAskBtn.id = 'ws-ask-ai-btn';
-  _wsAskBtn.innerHTML = `
-    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-    </svg>
-    Ask AI`;
-  _wsAskBtn.addEventListener('mousedown', e => {
-    e.preventDefault(); // prevent killing the selection before we read it
+  if (_wsContextBar) return;
+
+  _wsContextBar = document.createElement('div');
+  _wsContextBar.id = 'ws-ctx-bar';
+
+  // Prevent mousedown from clearing the selection before we read it
+  _wsContextBar.addEventListener('mousedown', e => e.preventDefault());
+
+  _ACTIONS.forEach(action => {
+    const btn = document.createElement('button');
+    btn.className = 'ws-ctx-action';
+    btn.innerHTML = `${action.icon}<span>${action.label}</span>`;
+    btn.title = action.label;
+    btn.addEventListener('click', () => {
+      const sel = window.getSelection();
+      const text = (sel ? sel.toString() : '').trim() || ws.selectedText;
+      if (!text) { _wsHideAskBtn(); return; }
+
+      ws.selectedText = text;
+
+      // Pre-fill the chat input with the action prompt
+      wsSetInput(action.prompt(text.slice(0, MAX_SELECTION_LENGTH)));
+
+      // Clear DOM selection and hide bar
+      sel?.removeAllRanges();
+      _wsHideAskBtn();
+
+      // Focus chat so user can review and send
+      $el('ws-chat-input')?.focus();
+    });
+    _wsContextBar.appendChild(btn);
   });
-  _wsAskBtn.addEventListener('click', () => {
-    const sel = window.getSelection();
-    const text = sel ? sel.toString().trim() : '';
-    if (!text) { _wsHideAskBtn(); return; }
 
-    // Store it — _wsAsk will pick this up on the next send
-    ws.selectedText = text;
-
-    // Show a quoted preview in the chat input as a visual cue
-    const inp = $el('ws-chat-input');
-    if (inp && !inp.value.trim()) {
-      inp.placeholder = `Ask about: "${text.slice(0, 60)}${text.length > 60 ? '…' : ''}"`;
-    }
-
-    // Show a non-intrusive toast so the user knows the context was captured
-    wsShowToast('✦', 'Selection captured — type your question', 'var(--gold-border)');
-
-    // Focus chat
-    inp?.focus();
-
-    // Dismiss selection highlight + button
-    sel?.removeAllRanges();
-    _wsHideAskBtn();
-  });
-  document.body.appendChild(_wsAskBtn);
+  document.body.appendChild(_wsContextBar);
 }
 
 export function _wsHideAskBtn() {
-  if (_wsAskBtn) _wsAskBtn.style.display = 'none';
-  // Also clear placeholder if no text was typed
+  if (_wsContextBar) _wsContextBar.style.display = 'none';
+  // Restore placeholder if nothing was typed
   const inp = $el('ws-chat-input');
   if (inp && !inp.value.trim()) inp.placeholder = 'Ask a follow-up about Chapter 3…';
 }
@@ -80,43 +107,41 @@ export function _wsOnSelectionChange() {
 
   _wsCreateAskBtn();
 
-  // Position the button just above the end of the selection
+  // Position the bar just above the centre of the selection
   const range = sel.getRangeAt(0);
   const rect  = range.getBoundingClientRect();
   if (!rect.width && !rect.height) { _wsHideAskBtn(); return; }
 
-  const btnW = 90, btnH = 30;
-  let top  = rect.top  + window.scrollY - btnH - 8;
-  let left = rect.left + window.scrollX + (rect.width / 2) - (btnW / 2);
+  // Make bar briefly visible to measure its actual rendered width
+  _wsContextBar.style.cssText = 'display:flex;visibility:hidden;position:fixed;top:-999px;left:-999px;';
+  const barW = _wsContextBar.getBoundingClientRect().width || 210;
+  const barH = 34;
+
+  let top  = rect.top  - barH - 10;
+  let left = rect.left + rect.width / 2 - barW / 2;
 
   // Keep within viewport
-  left = Math.max(8, Math.min(left, window.innerWidth - btnW - 8));
-  if (top < 8) top = rect.bottom + window.scrollY + 8;
+  left = Math.max(8, Math.min(left, window.innerWidth - barW - 8));
+  if (top < 8) top = rect.bottom + 10;
 
-  _wsAskBtn.style.cssText = `
-    display:flex;align-items:center;gap:5px;
+  _wsContextBar.style.cssText = `
+    display:flex;
     position:fixed;
-    top:${rect.top  - btnH - 8}px;
-    left:${rect.left + (rect.width / 2) - (btnW / 2)}px;
-    width:${btnW}px;height:${btnH}px;
-    padding:0 10px;
-    background:var(--gold);color:#1a1200;
-    border:none;border-radius:var(--r-pill);
-    font-family:var(--font-body);font-size:12px;font-weight:600;
-    cursor:pointer;z-index:10050;
-    box-shadow:0 4px 16px rgba(0,0,0,0.5);
-    white-space:nowrap;
+    top:${top}px;
+    left:${left}px;
+    visibility:visible;
+    z-index:10050;
   `;
 }
 
-// Listen for selection changes inside the PDF
+// ── Event listeners ──────────────────────────────────────────────────────
+
 document.addEventListener('mouseup',         _wsOnSelectionChange);
 document.addEventListener('selectionchange', _wsOnSelectionChange);
 
-// When the user clears their selection by clicking elsewhere, hide the button
+// Hide when clicking outside
 document.addEventListener('mousedown', e => {
-  if (_wsAskBtn && e.target !== _wsAskBtn && !_wsAskBtn.contains(e.target)) {
-    // Give the selection a tick to update before deciding to hide
+  if (_wsContextBar && e.target !== _wsContextBar && !_wsContextBar.contains(e.target)) {
     setTimeout(() => {
       const sel = window.getSelection();
       if (!sel || sel.isCollapsed) _wsHideAskBtn();
@@ -124,11 +149,10 @@ document.addEventListener('mousedown', e => {
   }
 });
 
-// Also clear captured selection if user manually types in chat (they changed their mind)
+// Restore placeholder when user starts typing
 document.addEventListener('DOMContentLoaded', () => {
   $el('ws-chat-input')?.addEventListener('input', () => {
     if ($el('ws-chat-input').value.trim()) {
-      // User is typing — keep the captured selection but restore placeholder
       $el('ws-chat-input').placeholder = 'Ask a follow-up about Chapter 3…';
     }
   });
