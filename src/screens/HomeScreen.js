@@ -167,14 +167,8 @@ const HOME_HTML = /* html */`
           </div>
         </div>
         <input type="file" id="home-pdf-upload" accept="application/pdf" style="display:none;" onchange="homeHandlePdfUpload(this)">
-        <p class="prompts-label">Try asking</p>
-        <div class="prompts-chips">
-          <button class="prompt-chip" data-action="homeSetInput-text">Photosynthesis</button>
-          <button class="prompt-chip" data-action="homeSetInput-text">Newton's Laws of Motion</button>
-          <button class="prompt-chip" data-action="homeSetInput-text">Cell Division</button>
-          <button class="prompt-chip" data-action="homeSetInput-text">The French Revolution</button>
-          <button class="prompt-chip" data-action="homeSetInput-text">Supply and Demand</button>
-          <button class="prompt-chip" data-action="homeSetInput-text">Pythagorean Theorem</button>
+        <div id="home-activities-section">
+          <!-- Populated dynamically by _renderHomeActivities() -->
         </div>
       </div> <!-- end home-landing -->
     </div> <!-- end home-scroll-area -->
@@ -543,12 +537,76 @@ export function mountHomeScreen() {
   if (heading) heading.innerHTML  = pick.h;
   if (sub)     sub.textContent    = pick.s;
 
+  // Render recent activities or fallback chips
+  _renderHomeActivities();
+
   // Wire incognito modal listeners immediately after DOM is injected
   _wireIncognitoListeners();
   _wireIncognitoBackdrop();
 }
 
-// ── Mode toggle ───────────────────────────────────────────────────────────────
+// ── Recent Activities / Suggestion chips ─────────────────────────────────────
+
+const _SUGGEST_CHIPS = [
+  'Photosynthesis', "Newton's Laws of Motion", 'Cell Division',
+  'The French Revolution', 'Supply and Demand', 'Pythagorean Theorem'
+];
+
+const _SOURCE_META = {
+  general:   { icon: '💬', label: 'Chat' },
+  workspace: { icon: '📚', label: 'Textbook' },
+  visual:    { icon: '🎨', label: 'Visual Tutor' },
+  exam:      { icon: '📝', label: 'Exam' },
+};
+
+export function _renderHomeActivities() {
+  const container = document.getElementById('home-activities-section');
+  if (!container) return;
+
+  const items = Array.isArray(window._recentItems) ? window._recentItems : [];
+  const recent = items.slice(0, 5);
+
+  if (recent.length === 0) {
+    // No history — show fallback suggestion chips
+    container.innerHTML = `
+      <p class="prompts-label">Try asking</p>
+      <div class="prompts-chips">
+        ${_SUGGEST_CHIPS.map(t =>
+          `<button class="prompt-chip" data-action="homeSetInput-text">${t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</button>`
+        ).join('')}
+      </div>`;
+    return;
+  }
+
+  // Build recent activities list
+  const _esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const rows = recent.map(item => {
+    const meta = _SOURCE_META[item.source] || _SOURCE_META.general;
+    const label = _esc(item.label || item.question || '');
+    const id    = _esc(item.id);
+    return `<div class="ra-item" data-recent-id="${id}">
+      <span class="ra-icon">${meta.icon}</span>
+      <span class="ra-label">${label}</span>
+      <span class="ra-type">${meta.label}</span>
+      <svg class="ra-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <p class="prompts-label">Recent activity</p>
+    <div class="ra-list">${rows}</div>`;
+
+  // Wire click handlers
+  container.querySelectorAll('.ra-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.recentId;
+      const found = (window._recentItems || []).find(r => r.id === id);
+      if (found && typeof window._clickRecent === 'function') {
+        window._clickRecent(found);
+      }
+    });
+  });
+}
 
 export function homeSetMode(mode) {
   homeMode = mode;

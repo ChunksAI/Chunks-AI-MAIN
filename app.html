@@ -150,11 +150,13 @@
 </script>
 <script>
   // ── Instant theme restore — runs before any CSS renders ──────────────────
-  // Prevents flash of dark theme when user has Study Mode saved.
+  // Apply Study Mode by default; only switch to dark if explicitly saved.
   (function() {
     try {
       var saved = localStorage.getItem('chunks_setting_appearance');
-      if (saved === 'study') {
+      if (saved === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+      } else {
         document.documentElement.setAttribute('data-theme', 'study');
       }
     } catch(e) {}
@@ -1015,6 +1017,11 @@ function _renderAllRecent() {
       : '<div class="recent-empty">No exam chats yet</div>';
     examItems.forEach(item => el.appendChild(_buildRecentItem(item)));
   });
+
+  // Refresh home landing "Recent activity" section
+  if (typeof window._renderHomeActivities === 'function') {
+    window._renderHomeActivities();
+  }
 }
 
 _renderAllRecent();

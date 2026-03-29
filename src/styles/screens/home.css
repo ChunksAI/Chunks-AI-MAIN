@@ -305,6 +305,71 @@
   background: var(--surface-2);
 }
 
+/* ── Recent Activities list ─────────────────────────────── */
+#home-activities-section {
+  width: 100%;
+  max-width: 620px;
+  position: relative; z-index: 1;
+}
+
+.ra-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.ra-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-xs);
+  background: var(--surface-1);
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
+  text-align: left;
+  min-width: 0;
+}
+.ra-item:hover {
+  background: var(--surface-2);
+  border-color: var(--border-md);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.ra-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.ra-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.ra-type {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-4);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+.ra-arrow {
+  flex-shrink: 0;
+  color: var(--text-4);
+  opacity: 0.5;
+}
+
 /* ── Rich attach menu ───────────────────────────────────── */
 .home-rich-menu { min-width: 200px; padding: 6px; }
 
