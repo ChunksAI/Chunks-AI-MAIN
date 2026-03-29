@@ -25,6 +25,14 @@ const EXAM_HTML = /* html */`
 
       <!-- SETUP VIEW -->
       <div id="exam-setup">
+        <!-- Back to Workspace button (shown when navigated from workspace chat) -->
+        <div id="exam-back-to-ws" style="display:none;margin-bottom:12px;">
+          <button onclick="wsBackToWorkspace()" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-pill);color:var(--text-3);font-size:11px;font-family:var(--font-body);cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='var(--surface-2)'">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+            <span class="exam-back-label">← Back to Workspace</span>
+          </button>
+        </div>
+
         <div style="margin-bottom:24px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
           <div>
             <div style="font-family:var(--font-mono);font-size:10px;color:var(--gold);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Exam Mode</div>

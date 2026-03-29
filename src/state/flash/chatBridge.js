@@ -5,24 +5,202 @@
 
 import { $el } from '../domHelpers.js';
 import { fc } from './state.js';
-import { _fcDismissTutor } from './session.js';
+import { _fcDismissTutor, _fcStartDeck } from './session.js';
 import { _fcCloseCompleteModal } from './completion.js';
 import { _fcGenerateFromBar } from './generation.js';
 import { _fcInitAccent } from './accent.js';
 import { _fcRenderDeckList } from './decks.js';
 import { showScreen } from '../navigation/index.js';
+import { API_BASE, _getAuthHeader } from '../../lib/api.js';
+import { FlashcardDB } from '../../lib/flashcardDb.js';
+import { showToast } from '../../components/Toast.js';
 
 // ── Workspace make flashcard ────────────────────────────────────────────────
 
-export async function wsMakeFlashcard(el) {
-  const topic = el?.dataset?.topic || '';
-  if (!topic) return;
-  if (showScreen) showScreen('flash');
-  const input = $el('fc-topic-input');
-  if (input) {
-    input.value = topic;
-    setTimeout(() => _fcGenerateFromBar(), 200);
+export async function wsMakeFlashcard(btn, msgId, topic) {
+  const cleanTopic = (topic || '').trim() || 'Flashcard Set';
+
+  if (!msgId) return;
+  const msgEl = document.getElementById(msgId);
+  if (!msgEl) return;
+  const actsEl = msgEl.querySelector('.msg-acts');
+  if (!actsEl) return;
+
+  // Disable button and show loading state
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span style="display:inline-flex;gap:3px;align-items:center;vertical-align:middle">
+      <span class="ws-typing-dot"></span><span class="ws-typing-dot"></span><span class="ws-typing-dot"></span>
+    </span>&nbsp;Generating…`;
   }
+
+  try {
+    const res = await fetch(`${API_BASE}/generate-flashcards`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
+      body: JSON.stringify({ topic: cleanTopic, count: 10 }),
+    });
+    const data = await res.json();
+
+    if (!res.ok || !data.success || !data.flashcards?.length) {
+      throw new Error(data.error || 'No flashcards returned');
+    }
+
+    const cards = data.flashcards.map(c => ({
+      front: c.front || c.question || '',
+      back:  c.back  || c.answer   || '',
+      ...(c.hint ? { hint: c.hint } : {}),
+    }));
+
+    const deck   = await FlashcardDB.fcSaveDeck(cleanTopic, cards);
+    const deckId = deck.id || deck.name;
+    const count  = cards.length;
+
+    // Escape for safe inline attribute use
+    const safeId    = String(deckId).replace(/'/g, '\\\'');
+    const safeTopic = cleanTopic.replace(/'/g, '\\\'').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Build the result card
+    const resultEl = document.createElement('div');
+    resultEl.className = 'ws-gen-result-card';
+    resultEl.style.cssText = 'margin-top:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--violet-border);border-radius:var(--r-md);';
+    resultEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="padding:6px;background:var(--violet-muted);border-radius:var(--r-sm);flex-shrink:0;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text-1);">Flashcard Set</div>
+          <div style="font-size:11px;color:var(--text-4);">${count} card${count !== 1 ? 's' : ''} &middot; ${safeTopic}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button onclick="wsOpenFlashcardDeck('${safeId}', '${safeTopic}')"
+          style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 12px;background:var(--violet);border:none;border-radius:var(--r-sm);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-body);transition:opacity 0.15s;"
+          onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m5 12 14 0"/><path d="m12 5 7 7-7 7"/></svg>
+          Open Flashcards
+        </button>
+        <button onclick="wsStartFlashcardPractice('${safeId}', '${safeTopic}')"
+          style="display:flex;align-items:center;gap:5px;padding:7px 12px;background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);transition:background 0.15s;"
+          onmouseenter="this.style.background='var(--surface-hover)'" onmouseleave="this.style.background='var(--surface-3)'">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Practice
+        </button>
+      </div>`;
+
+    // Remove Make Flashcard button and insert result card after the actions row
+    if (btn) btn.remove();
+    actsEl.insertAdjacentElement('afterend', resultEl);
+
+    showToast?.('✦', `${count} cards created — "${cleanTopic}"`, 'var(--gold)');
+
+  } catch (err) {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg> Make Flashcard`;
+    }
+    showToast?.('⚠', err.message || 'Generation failed', 'var(--red)');
+    console.error('[wsMakeFlashcard]', err);
+  }
+}
+
+// ── Open a specific flashcard deck from chat ─────────────────────────────────
+
+export async function wsOpenFlashcardDeck(deckId, topic) {
+  try {
+    sessionStorage.setItem('chunks_nav_from', 'workspace');
+    if (topic) sessionStorage.setItem('chunks_nav_topic', topic);
+  } catch (_) {}
+
+  showScreen('flash');
+
+  setTimeout(async () => {
+    _fcCheckNavFrom();
+    await _fcRenderDeckList();
+    // Scroll to top so the user sees their deck
+    const home = $el('fc-home');
+    if (home) home.scrollTop = 0;
+  }, 200);
+}
+
+// ── Start flashcard practice session from chat ───────────────────────────────
+
+export async function wsStartFlashcardPractice(deckId, topic) {
+  try {
+    sessionStorage.setItem('chunks_nav_from', 'workspace');
+    if (topic) sessionStorage.setItem('chunks_nav_topic', topic);
+  } catch (_) {}
+
+  showScreen('flash');
+
+  setTimeout(async () => {
+    _fcCheckNavFrom();
+    try {
+      const decks = await FlashcardDB.fcLoadDecks();
+      const deck  = decks.find(d => String(d.id) === String(deckId) || d.name === deckId);
+      if (deck) {
+        _fcStartDeck(deck);
+      } else {
+        await _fcRenderDeckList();
+      }
+    } catch (e) {
+      await _fcRenderDeckList();
+    }
+  }, 200);
+}
+
+// ── Back to Workspace ────────────────────────────────────────────────────────
+
+export function wsBackToWorkspace() {
+  try {
+    sessionStorage.removeItem('chunks_nav_from');
+    sessionStorage.removeItem('chunks_nav_topic');
+  } catch (_) {}
+
+  const backBtn = document.getElementById('fc-back-to-ws');
+  if (backBtn) backBtn.style.display = 'none';
+  const examBackBtn = document.getElementById('exam-back-to-ws');
+  if (examBackBtn) examBackBtn.style.display = 'none';
+
+  showScreen('workspace');
+}
+
+// ── Check nav context and show/hide back button ──────────────────────────────
+
+export function _fcCheckNavFrom() {
+  try {
+    const navFrom  = sessionStorage.getItem('chunks_nav_from');
+    const navTopic = sessionStorage.getItem('chunks_nav_topic');
+
+    // Flash screen back button
+    const flashBack = document.getElementById('fc-back-to-ws');
+    if (flashBack) {
+      if (navFrom === 'workspace') {
+        flashBack.style.display = '';
+        const label = flashBack.querySelector('.fc-back-label');
+        if (label) {
+          label.textContent = navTopic ? `← Back · ${navTopic}` : '← Back to Workspace';
+        }
+      } else {
+        flashBack.style.display = 'none';
+      }
+    }
+
+    // Exam screen back button
+    const examBack = document.getElementById('exam-back-to-ws');
+    if (examBack) {
+      if (navFrom === 'workspace') {
+        examBack.style.display = '';
+        const label = examBack.querySelector('.exam-back-label');
+        if (label) {
+          label.textContent = navTopic ? `← Back · ${navTopic}` : '← Back to Workspace';
+        }
+      } else {
+        examBack.style.display = 'none';
+      }
+    }
+  } catch (_) {}
 }
 
 // ── Study in Chat (from AI Tutor panel) ─────────────────────────────────────
@@ -95,4 +273,5 @@ export function _fcReviewHardInChat() {
 export function _fcInit() {
   _fcInitAccent();
   _fcRenderDeckList();
+  _fcCheckNavFrom();
 }
