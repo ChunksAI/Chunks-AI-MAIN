@@ -14,6 +14,11 @@
   background: var(--bg);
 }
 
+/* Study mode: soft breathable gradient instead of flat beige */
+[data-theme="study"] .home-main {
+  background: linear-gradient(160deg, #faf6ee 0%, #f3efe6 50%, #eae4d8 100%);
+}
+
 .home-scroll-area {
   flex: 1;
   width: 100%;
@@ -38,6 +43,13 @@
   flex-shrink: 0;
   z-index: 10;
 }
+/* Study mode: lighter elevated bar so it reads clearly above the gradient */
+[data-theme="study"] .home-input-bar {
+  background: rgba(255,255,255,0.80);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top-color: rgba(0,0,0,0.06);
+}
 
 .home-disclaimer {
   font-size: 11px;
@@ -56,11 +68,15 @@
   background: radial-gradient(ellipse at center, rgba(232,172,46,0.035) 0%, transparent 65%);
   pointer-events: none;
 }
+/* Study mode: remove dark-mode gold glow (it's invisible and unnecessary on light bg) */
+[data-theme="study"] .home-glow {
+  background: none;
+}
 
 /* ── Hero section ───────────────────────────────────────── */
 .home-hero {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 40px;
   position: relative;
   z-index: 1;
   width: 100%;
@@ -107,6 +123,13 @@
   margin-bottom: 14px;
 }
 
+/* Study mode: lighter weight, softer dark — reduces eye strain */
+[data-theme="study"] .home-h1 {
+  font-weight: 650;
+  color: #2e2418;
+  letter-spacing: -0.035em;
+}
+
 .home-h1 em {
   font-style: normal;
   background: linear-gradient(125deg, var(--gold) 15%, #f97316 88%);
@@ -115,10 +138,18 @@
   background-clip: text;
 }
 
+/* Study mode: calmer accent gradient, not so intense */
+[data-theme="study"] .home-h1 em {
+  background: linear-gradient(125deg, #c07818 20%, #b87a10 85%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 .home-sub {
   font-size: 15.5px;
   color: var(--text-3);
-  line-height: 1.65;
+  line-height: 1.72;
   max-width: 440px;
   margin: 0 auto;
   font-weight: 400;
@@ -141,6 +172,15 @@
 .ask-box:focus-within {
   border-color: var(--border-md);
   box-shadow: 0 0 0 3px rgba(232,172,46,0.07);
+}
+/* Study mode: elevated ask box for contrast */
+[data-theme="study"] .ask-box {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.07);
+}
+[data-theme="study"] .ask-box:focus-within {
+  border-color: rgba(184,122,16,0.30);
+  box-shadow: 0 0 0 3px rgba(184,122,16,0.08), 0 2px 8px rgba(0,0,0,0.06);
 }
 .ask-box.is-multiline {
   border-radius: 16px;
@@ -219,7 +259,8 @@
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
   width: 100%; max-width: 780px;
-  margin-bottom: 28px;
+  margin-top: 8px;
+  margin-bottom: 36px;
   position: relative; z-index: 1;
 }
 
@@ -227,10 +268,10 @@
   background: var(--surface-1);
   border: 1px solid var(--border-xs);
   border-radius: var(--r-lg);
-  padding: 16px 16px 14px;
+  padding: 18px 18px 16px;
   cursor: pointer;
   display: flex; flex-direction: column; gap: 6px;
-  transition: border-color var(--t-fast), background var(--t-fast), transform var(--t-mid) var(--ease-spring);
+  transition: border-color var(--t-fast), background var(--t-fast), transform var(--t-mid) var(--ease-spring), box-shadow var(--t-fast);
   position: relative;
   overflow: hidden;
 }
@@ -253,6 +294,19 @@
 .quick-card:nth-child(2)::before { background: linear-gradient(90deg, var(--violet), transparent); }
 .quick-card:nth-child(3)::before { background: linear-gradient(90deg, var(--teal), transparent); }
 
+/* Study mode: elevated white cards for clear contrast */
+[data-theme="study"] .quick-card {
+  background: #ffffff;
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 2px 12px rgba(0,0,0,0.04);
+}
+[data-theme="study"] .quick-card:hover {
+  background: #ffffff;
+  border-color: rgba(0,0,0,0.10);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.05);
+  transform: translateY(-2px);
+}
+
 .qc-icon {
   width: 32px; height: 32px;
   border-radius: 9px;
@@ -264,8 +318,8 @@
 .qc-icon.violet { background: var(--violet-muted); }
 .qc-icon.teal   { background: var(--teal-muted); }
 
-.qc-title { font-size: 13px; font-weight: 600; color: var(--text-1); }
-.qc-desc  { font-size: 11.5px; color: var(--text-4); line-height: 1.45; }
+.qc-title { font-size: 13.5px; font-weight: 600; color: var(--text-1); }
+.qc-desc  { font-size: 12px; color: var(--text-3); line-height: 1.55; }
 
 /* ── Prompt suggestion chips ────────────────────────────── */
 .prompts-label {
@@ -275,14 +329,14 @@
   color: var(--text-4);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   position: relative; z-index: 1;
 }
 
 .prompts-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 8px;
   justify-content: center;
   max-width: 780px; width: 100%;
   position: relative; z-index: 1;
@@ -292,7 +346,7 @@
   font-size: 12.5px;
   font-weight: 400;
   color: var(--text-3);
-  padding: 6px 15px;
+  padding: 6px 16px;
   border: 1px solid var(--border-xs);
   border-radius: var(--r-pill);
   background: var(--surface-1);
@@ -303,6 +357,18 @@
   color: var(--text-1);
   border-color: var(--border-md);
   background: var(--surface-2);
+}
+/* Study mode: chips with subtle shadow for visibility */
+[data-theme="study"] .prompt-chip {
+  background: #ffffff;
+  border-color: rgba(0,0,0,0.07);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+[data-theme="study"] .prompt-chip:hover {
+  border-color: rgba(0,0,0,0.13);
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+  color: var(--text-1);
 }
 
 /* ── Recent Activities list ─────────────────────────────── */
@@ -336,6 +402,17 @@
   background: var(--surface-2);
   border-color: var(--border-md);
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+/* Study mode: white elevated activity items */
+[data-theme="study"] .ra-item {
+  background: #ffffff;
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+[data-theme="study"] .ra-item:hover {
+  background: #ffffff;
+  border-color: rgba(0,0,0,0.11);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.07);
 }
 
 .ra-icon {
