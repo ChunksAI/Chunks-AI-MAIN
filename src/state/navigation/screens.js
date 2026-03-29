@@ -58,6 +58,8 @@ export function showScreen(name) {
         // Apply guest exam constraints (MCQ only, max 5 questions)
         setTimeout(() => window.enforceExamConstraints?.(), 50);
       }
+      // Refresh nav context banner whenever exam screen is shown
+      setTimeout(() => { if (typeof window._fcCheckNavFrom === 'function') window._fcCheckNavFrom(); }, 100);
     }
 
     if (name === 'workspace') {
@@ -78,6 +80,8 @@ export function showScreen(name) {
     }
     if (name === 'flash') {
       if (typeof window._fcExitStudy === 'function') window._fcExitStudy();
+      // Refresh nav context banner whenever flash screen is shown
+      setTimeout(() => { if (typeof window._fcCheckNavFrom === 'function') window._fcCheckNavFrom(); }, 50);
     }
     if (name === 'library') {
       setTimeout(() => { if (typeof window._libInjectProgress === 'function') window._libInjectProgress(); }, 50);

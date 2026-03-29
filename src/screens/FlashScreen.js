@@ -22,6 +22,14 @@ const FLASH_HTML = `
     <div id="fc-home">
       <div class="fc-home-wrap">
 
+        <!-- Back to Workspace button (shown when navigated from workspace chat) -->
+        <div id="fc-back-to-ws" style="display:none;margin-bottom:12px;">
+          <button onclick="wsBackToWorkspace()" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-pill);color:var(--text-3);font-size:11px;font-family:var(--font-body);cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='var(--surface-2)'">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+            <span class="fc-back-label">← Back to Workspace</span>
+          </button>
+        </div>
+
         <div class="fc-hero">
           <div class="fc-hero-top">
             <div>

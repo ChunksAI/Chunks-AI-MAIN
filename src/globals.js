@@ -209,6 +209,17 @@ window.wsMakeFlashcard = async function(btn, msgId, question) {
   console.warn('[ws] wsMakeFlashcard called before flashState loaded');
 };
 
+// Forward-reference stubs for new navigation functions
+window.wsOpenFlashcardDeck = async function(deckId, topic) {
+  console.warn('[ws] wsOpenFlashcardDeck called before flashState loaded');
+};
+window.wsStartFlashcardPractice = async function(deckId, topic) {
+  console.warn('[ws] wsStartFlashcardPractice called before flashState loaded');
+};
+window.wsBackToWorkspace = function() {
+  console.warn('[ws] wsBackToWorkspace called before flashState loaded');
+};
+
 // ── State · Flashcards ───────────────────────────────────────────────────────
 import {
   FC_ACCENTS,
@@ -222,6 +233,10 @@ import {
   _fcRestartDeck, _fcStudyHardOnly, _fcCreateNew, _fcExitStudy, _fcCloseCompleteModal,
   _fcOpenEditCard, _fcCloseEditCard, _fcSaveEditCard,
   wsMakeFlashcard as _wsMakeFlashcardReal,
+  wsOpenFlashcardDeck as _wsOpenFlashcardDeckReal,
+  wsStartFlashcardPractice as _wsStartFlashcardPracticeReal,
+  wsBackToWorkspace as _wsBackToWorkspaceReal,
+  _fcCheckNavFrom,
   _fcStudyInChat, _fcReviewHardInChat,
 } from './state/flash/index.js';
 
@@ -274,7 +289,11 @@ window._fcCloseEditCard = _fcCloseEditCard;
 window._fcSaveEditCard  = _fcSaveEditCard;
 
 // Chat bridges — real implementation from flash (replaces forward-reference stub)
-window.wsMakeFlashcard     = _wsMakeFlashcardReal;
+window.wsMakeFlashcard          = _wsMakeFlashcardReal;
+window.wsOpenFlashcardDeck      = _wsOpenFlashcardDeckReal;
+window.wsStartFlashcardPractice = _wsStartFlashcardPracticeReal;
+window.wsBackToWorkspace        = _wsBackToWorkspaceReal;
+window._fcCheckNavFrom          = _fcCheckNavFrom;
 window._fcStudyInChat      = _fcStudyInChat;
 window._fcReviewHardInChat = _fcReviewHardInChat;
 

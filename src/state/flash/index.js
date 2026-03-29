@@ -103,6 +103,10 @@ export {
 
 export {
   wsMakeFlashcard,
+  wsOpenFlashcardDeck,
+  wsStartFlashcardPractice,
+  wsBackToWorkspace,
+  _fcCheckNavFrom,
   _fcStudyInChat,
   _fcReviewHardInChat,
   _fcInit,
