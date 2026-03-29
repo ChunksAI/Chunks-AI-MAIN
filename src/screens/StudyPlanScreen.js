@@ -533,7 +533,7 @@ const SP_EXPLAIN_DRAWER_HTML = /* html */`
 
   <!-- EXPLAIN VIEW -->
   <div id="sp-view-explain" role="tabpanel" aria-labelledby="sp-tab-explain" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;">
-    <div id="sp-explain-body" style="flex:1;overflow-y:auto;padding:20px 22px 32px;font-size:13.5px;line-height:1.85;color:var(--text-2);">
+    <div id="sp-explain-body" style="flex:1;overflow-y:auto;padding:20px 22px 32px;color:var(--text-2);">
       <div class="sp-explain-spinner"></div>
     </div>
     <!-- Task 4: Study in Chat CTA at the bottom of each AI explanation -->

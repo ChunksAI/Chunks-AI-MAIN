@@ -98,6 +98,7 @@
 /* Scrollable body */
 #sp-explain-body {
   font-size: var(--chat-font-size);
+  line-height: 1.8;
   scrollbar-width: thin;
   scrollbar-color: var(--border-sm) transparent;
 }
@@ -105,17 +106,17 @@
 #sp-explain-body::-webkit-scrollbar-track { background: transparent; }
 #sp-explain-body::-webkit-scrollbar-thumb { background: var(--border-sm); border-radius: 4px; }
 #sp-explain-body::-webkit-scrollbar-thumb:hover { background: var(--border-md); }
-#sp-explain-body p { margin: 0 0 12px; }
+#sp-explain-body p { margin: 0 0 16px; }
 #sp-explain-body p:last-child { margin-bottom: 0; }
-#sp-explain-body strong { color: var(--text-1); font-weight: 600; }
+#sp-explain-body strong { color: var(--text-1); font-weight: 700; }
 #sp-explain-body em { color: var(--gold); font-style: normal; }
-#sp-explain-body h4 { color: var(--text-1); }
+#sp-explain-body h4 { color: var(--text-1); font-size: 1.1em; font-weight: 700; margin: 20px 0 10px; }
 #sp-explain-body h4:first-child { margin-top: 0; }
 #sp-explain-body ul, #sp-explain-body ol {
-  margin: 0 0 14px 20px;
-  display: flex; flex-direction: column; gap: 6px;
+  margin: 0 0 16px 24px;
+  display: flex; flex-direction: column; gap: 8px;
 }
-#sp-explain-body li { color: var(--text-2); line-height: 1.7; }
+#sp-explain-body li { color: var(--text-2); line-height: 1.75; }
 #sp-explain-body ul li { list-style: disc; }
 #sp-explain-body ol li { list-style: decimal; }
 
