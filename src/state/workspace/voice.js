@@ -21,6 +21,7 @@
 import { $el, addClass, removeClass } from '../domHelpers.js';
 import { wsAutoResize } from './chat.js';
 import { showToast } from '../../components/Toast.js';
+import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -33,9 +34,14 @@ let _isPausedPdf = false;      // whether reader is paused
 let _keepAliveTimer = null;    // Chrome TTS keep-alive interval
 let _listenRate = 1.0;         // current TTS playback rate
 
+// Listen phase: 'idle' | 'reading' | 'generating' | 'explaining'
+let _listenPhase = 'idle';
+
 // Slide-by-slide reading state
 let _slideReadQueue = [];       // array of slide indices to read
 let _slideReadIdx = 0;          // current position in queue
+let _lastSlideText = '';        // text of the last-read slide (for explanation)
+let _lastSlideNum  = 1;         // page number of the last-read slide
 let _highlightedWordEl = null;  // currently highlighted .tts-word span
 let _ttsWordSpans = [];         // [{el, charStart}]
 
@@ -319,6 +325,8 @@ function _ensureListenBar() {
         <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
       </svg>
     </button>
+    <div id="listen-bar-status" style="font-size:11px;color:var(--text-2);max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:0 4px;">Reading\u2026</div>
+    <div style="width:1px;height:18px;background:var(--border-sm);margin:0 2px;"></div>
     <div style="display:flex;align-items:center;gap:4px;">
       <span style="font-size:11px;color:var(--text-3);">Speed</span>
       <select id="listen-bar-speed"
@@ -376,6 +384,150 @@ function _setListenBarPaused(paused) {
   }
 }
 
+function _setListenBarStatus(text) {
+  const el = document.getElementById('listen-bar-status');
+  if (el) el.textContent = text;
+}
+
+// ── Page explanation after TTS ─────────────────────────────────────────────
+
+/**
+ * Inject a "Listen Explanation" card into the chat messages area with a
+ * distinct style so users can tell it came from the Listen feature.
+ */
+function _wsAppendListenExplanation(explanation, pageNum) {
+  const msgs = document.getElementById('ws-messages');
+  if (!msgs) return;
+  const renderFn = typeof window.wsRender === 'function'
+    ? window.wsRender
+    : (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const pageLabel = pageNum ? `Page ${pageNum}` : 'Current Page';
+  // msgId is safe to interpolate: it is always 'ws-listen-exp-' + a numeric timestamp
+  const msgId = 'ws-listen-exp-' + Date.now();
+  const d = document.createElement('div');
+  d.className = 'msg msg-ai';
+  d.id = msgId;
+  d.innerHTML = `
+    <div class="ai-row">
+      <div class="ai-ava" style="background:var(--gold-muted);border-color:var(--gold-border);">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+        </svg>
+      </div>
+      <div class="ai-body">
+        <div style="font-size:10px;color:var(--gold);font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:4px;">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          Listen Explanation \u2014 ${pageLabel}
+        </div>
+        <div class="ai-text">${renderFn(explanation)}</div>
+        <div class="msg-acts" style="margin-top:10px;">
+          <button class="msg-act" onclick="wsCopyMsg(this, '${msgId}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
+          </button>
+          <button class="msg-act ws-read-aloud-btn" aria-pressed="false" onclick="wsReadAloud(document.querySelector('#${msgId} .ai-text')?.innerText||'','${msgId}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Read
+          </button>
+        </div>
+      </div>
+    </div>`;
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// Prompt used to generate the post-read page explanation via the /ask endpoint.
+const _LISTEN_EXPLAIN_PROMPT = 'Explain the key concepts on this page in simple, easy-to-understand terms.';
+
+/**
+ * Fetch a simple explanation for the given page text from the AI backend,
+ * append it to the chat panel, then read it aloud via TTS.
+ * Called automatically after each page/slide has been fully read.
+ */
+async function _fetchAndReadExplanation(pageText, pageNum) {
+  if (!_isListeningPdf) return;
+
+  _listenPhase = 'generating';
+  _setListenBarStatus('Generating explanation\u2026');
+  // Show a spinner-like state on the button (keep active)
+  _setListenBtnState(true);
+
+  let explanation = '';
+  try {
+    const wsState = window.ws || null;
+    const body = {
+      question:    _LISTEN_EXPLAIN_PROMPT,
+      bookId:      (wsState && wsState.bookId) || 'none',
+      doc_context: pageText.slice(0, 8000),
+      mode:        'concise',
+      complexity:  3,
+      history:     [],
+    };
+    const res = await fetch(`${API_BASE}/ask`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', ...await _getAuthHeader() },
+      body:    JSON.stringify(body),
+    });
+    if (!_isListeningPdf) return; // user stopped while we were fetching
+    if (res.ok) {
+      const data = await res.json();
+      explanation = data.answer || '';
+    } else {
+      console.warn('[wsListenPdf] Explanation fetch failed:', res.status);
+    }
+  } catch (err) {
+    console.warn('[wsListenPdf] Explanation fetch error:', err);
+  }
+
+  if (!_isListeningPdf) return;
+
+  if (!explanation) {
+    wsStopListenPdf();
+    return;
+  }
+
+  // Show explanation in the chat panel
+  _wsAppendListenExplanation(explanation, pageNum);
+
+  // Read explanation aloud
+  const clean = _stripMarkup(explanation);
+  if (!clean) {
+    wsStopListenPdf();
+    return;
+  }
+
+  _listenPhase = 'explaining';
+  const pageLabel = pageNum ? `page ${pageNum}` : 'this page';
+  _setListenBarStatus(`Explaining ${pageLabel}\u2026`);
+  showToast('\u{1F4A1}', `Explaining ${pageLabel}\u2026`, '');
+
+  const utter = new SpeechSynthesisUtterance(clean);
+  utter.rate  = _listenRate;
+  const voice = _getChosenVoice();
+  if (voice) utter.voice = voice;
+
+  utter.onend = () => {
+    _stopKeepAlive();
+    _currentUtterance = null;
+    _listenPhase = 'idle';
+    _setListenBtnState(false);
+    _hideListenBar();
+  };
+  utter.onerror = (e) => {
+    _stopKeepAlive();
+    if (e.error !== 'interrupted' && e.error !== 'canceled') {
+      showToast('\u{1F50A}', `Read error: ${e.error}`, 'var(--red)');
+    }
+    _currentUtterance = null;
+    _listenPhase = 'idle';
+    _setListenBtnState(false);
+    _hideListenBar();
+  };
+
+  _currentUtterance = utter;
+  _startKeepAlive();
+  window.speechSynthesis.speak(utter);
+}
+
 // Global callbacks for inline onclick handlers in the controls bar HTML
 window._wsListenBarPlayPause = function() {
   if (!wsTtsSupported()) return;
@@ -430,8 +582,11 @@ export function wsStopListenPdf() {
   if (wsTtsSupported()) window.speechSynthesis.cancel();
   _currentUtterance = null;
   _isPausedPdf = false;
+  _listenPhase = 'idle';
   _slideReadQueue = [];
   _slideReadIdx = 0;
+  _lastSlideText = '';
+  _lastSlideNum  = 1;
   _clearWordHighlight();
   _setListenBtnState(false);
   _hideListenBar();
@@ -502,11 +657,16 @@ function _highlightWordAt(charIndex) {
 
 /**
  * Speaks the slide at _slideReadQueue[_slideReadIdx] then advances.
- * Called recursively via onend until the queue is exhausted.
+ * After all queued slides are done, generates and reads an explanation.
  */
 function _readNextSlide() {
   if (!_isListeningPdf || _slideReadIdx >= _slideReadQueue.length) {
-    wsStopListenPdf();
+    // Queue exhausted — fetch explanation for the slide that was just read
+    if (_isListeningPdf && _lastSlideText) {
+      _fetchAndReadExplanation(_lastSlideText, _lastSlideNum);
+    } else {
+      wsStopListenPdf();
+    }
     return;
   }
 
@@ -528,6 +688,10 @@ function _readNextSlide() {
     _readNextSlide();
     return;
   }
+
+  // Save this slide's text and number for the post-read explanation
+  _lastSlideText = rawText;
+  _lastSlideNum  = slideNum;
 
   _clearWordHighlight();
   if (bodyEl) _buildWordSpanMap(bodyEl);
@@ -559,11 +723,13 @@ function _readNextSlide() {
 }
 
 /**
- * Read the current PDF page (or user-doc slide) aloud.
+ * Read the current PDF page (or user-doc slide) aloud, then generate and
+ * read a simple explanation of the same page.
  *
- * Slides mode — reads cards one-by-one from the current slide onward,
- *               with per-word highlighting and automatic page advance.
- * PDF mode    — extracts text from the current page via PDF.js and reads it.
+ * Slides mode — reads only the current slide (per-page), with per-word
+ *               highlighting, then fetches and reads an explanation.
+ * PDF mode    — extracts text from the current page via PDF.js, reads it,
+ *               then fetches and reads an explanation.
  *
  * Click while active  → pause / resume (toggle)
  */
@@ -610,12 +776,16 @@ export async function wsListenPdf() {
   // ── Slides mode (PPT / YouTube transcript) ───────────────────────────────
   if (!wsState.pdfDoc && wsState.pageContainers && wsState.pageContainers.length) {
     const startPage = wsState.currentPage || 1;
-    const total = wsState.totalPages || wsState.pageContainers.length;
-    _slideReadQueue = Array.from({ length: total - startPage + 1 }, (_, i) => i + startPage);
+    // Only queue the current slide — reading is per-page
+    _slideReadQueue = [startPage];
     _slideReadIdx = 0;
+    _lastSlideText = '';
+    _lastSlideNum  = startPage;
     _showListenBar();
     _startKeepAlive();
-    showToast('\u{1F50A}', `Reading from slide ${startPage}\u2026`, '');
+    _listenPhase = 'reading';
+    _setListenBarStatus(`Reading slide ${startPage}\u2026`);
+    showToast('\u{1F50A}', `Reading slide ${startPage}\u2026`, '');
     _readNextSlide();
     return;
   }
@@ -623,8 +793,9 @@ export async function wsListenPdf() {
   // ── PDF mode ─────────────────────────────────────────────────────────────
   if (wsState.pdfDoc) {
     let textToRead = '';
+    let pageNum;
     try {
-      const pageNum = wsState.currentPage || 1;
+      pageNum = wsState.currentPage || 1;
       const page = await wsState.pdfDoc.getPage(pageNum);
       const content = await page.getTextContent();
       textToRead = content.items.map(it => it.str).join(' ').trim();
@@ -647,12 +818,13 @@ export async function wsListenPdf() {
 
     _showListenBar();
     _startKeepAlive();
+    _listenPhase = 'reading';
+    _setListenBarStatus(`Reading page ${pageNum}\u2026`);
 
     utter.onend = () => {
       _stopKeepAlive();
       _currentUtterance = null;
-      _setListenBtnState(false);
-      _hideListenBar();
+      _fetchAndReadExplanation(textToRead, pageNum);
     };
     utter.onerror = (e) => {
       _stopKeepAlive();
@@ -660,6 +832,7 @@ export async function wsListenPdf() {
         showToast('\u{1F50A}', `Read error: ${e.error}`, 'var(--red)');
       }
       _currentUtterance = null;
+      _listenPhase = 'idle';
       _setListenBtnState(false);
       _hideListenBar();
     };
@@ -686,12 +859,13 @@ export async function wsListenPdf() {
 
     _showListenBar();
     _startKeepAlive();
+    _listenPhase = 'reading';
+    _setListenBarStatus('Reading document\u2026');
 
     utter.onend = () => {
       _stopKeepAlive();
       _currentUtterance = null;
-      _setListenBtnState(false);
-      _hideListenBar();
+      _fetchAndReadExplanation(textToRead, null);
     };
     utter.onerror = (e) => {
       _stopKeepAlive();
@@ -699,6 +873,7 @@ export async function wsListenPdf() {
         showToast('\u{1F50A}', `Read error: ${e.error}`, 'var(--red)');
       }
       _currentUtterance = null;
+      _listenPhase = 'idle';
       _setListenBtnState(false);
       _hideListenBar();
     };
