@@ -4,7 +4,8 @@
  */
 
 import { ws, ZOOM_MIN, ZOOM_MAX } from './state.js';
-import { _wsUpdateBadge, _loadPdfJs, _wsRenderPage } from './pdf.js';
+import { _wsUpdateBadge, _loadPdfJs, _wsRenderPage, wsFitWidth, _wsAttachResizeObserver } from './pdf.js';
+import { _wsBuildOutline } from './outline.js';
 import { wsShowToast, wsSetInput } from './chat.js';
 import { getDocBlob, getDocMeta, deleteDoc } from '../../lib/userDocDb.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
@@ -92,9 +93,10 @@ export async function selectUserDoc(docId) {
       try {
         const _fitPage  = await ws.pdfDoc.getPage(1);
         const _naturalW = _fitPage.getViewport({ scale: 1 }).width;
-        const _availW   = wrap.clientWidth - 40;
+        const _availW   = ($el('ws-pdf-view')?.clientWidth || 0) - 40;
         if (_naturalW > 0 && _availW > 100) {
           ws.scale = Math.min(Math.max(_availW / _naturalW, ZOOM_MIN), ZOOM_MAX);
+          setText($el('ws-zoom-badge'), Math.round(ws.scale * 100) + '%');
         }
       } catch (_) {}
 
@@ -156,24 +158,17 @@ export async function selectUserDoc(docId) {
       hide($el('ws-pdf-loading'));
       hide($el('ws-default-content'));
       wrap.style.display = 'flex';
+
+      // Disconnect any previous resize observer, then watch for container resizes
+      _wsAttachResizeObserver();
     }
 
     // Welcome message for user docs
     _wsShowUserDocWelcome(meta);
 
-    // Clear outline panel — user docs don't have a textbook outline
-    const outlineItems = $el('ws-outline-items');
-    if (outlineItems) {
-      setHtml(outlineItems, `
-        <div style="padding:20px 16px;text-align:center;color:var(--text-4);font-size:12px;line-height:1.6;">
-          <div style="margin-bottom:8px;opacity:0.5;">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-              <polyline points="14 2 14 8 20 8"/>
-            </svg>
-          </div>
-          Your document
-        </div>`);
+    // Build outline from PDF (page list if no embedded outline)
+    if (ws.pdfDoc) {
+      await _wsBuildOutline(ws.pdfDoc, '__user_doc__');
     }
 
   } catch (err) {

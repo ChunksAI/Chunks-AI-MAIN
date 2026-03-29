@@ -41,6 +41,16 @@ export async function _wsBuildOutline(pdfDoc, bookId) {
 
   if (!items.length) items = _wsBookOutlines[bookId] || [];
   if (!items.length) {
+    // Generate a page-by-page list as fallback so the panel is always useful
+    const total = ws.totalPages;
+    if (total > 0) {
+      const step = total <= 30 ? 1 : Math.max(1, Math.ceil(total / 30));
+      for (let p = 1; p <= total; p += step) {
+        items.push({ title: `Page ${p}`, page: p, level: 0 });
+      }
+    }
+  }
+  if (!items.length) {
     setHtml(container, '<div style="padding:8px 14px;font-size:11px;color:var(--text-4);">No contents available</div>');
     return;
   }

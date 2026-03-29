@@ -85,6 +85,8 @@ export const ws = {
   currentPage:   1,
   totalPages:    0,
   pageContainers: [],
+  resizeObserver: null,
+  resizeRaf:      0,
 
   bookId:        localStorage.getItem('chunks_default_book') || null,
   chatHistory:   [],

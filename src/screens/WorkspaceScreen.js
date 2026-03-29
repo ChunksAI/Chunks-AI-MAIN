@@ -174,7 +174,7 @@ const WORKSPACE_HTML = /* html */`
         </div>
 
         <!-- PDF.js canvas scroll container -->
-        <div id="ws-pdf-canvas-wrap" style="display:none;width:100%;height:100%;overflow-y:auto;padding:20px;box-sizing:border-box;background:var(--surface-2);flex-direction:column;align-items:center;gap:12px;">
+        <div id="ws-pdf-canvas-wrap" style="display:none;flex:1;min-height:0;width:100%;overflow-y:auto;padding:20px;box-sizing:border-box;background:var(--surface-2);flex-direction:column;align-items:center;gap:12px;">
         </div>
 
       </div>

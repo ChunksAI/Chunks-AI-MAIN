@@ -4,7 +4,7 @@
  */
 
 import { ws, wsBookMeta, ZOOM_MIN, ZOOM_MAX } from './state.js';
-import { _wsUpdateBadge, _loadPdfJs, _wsRenderPage } from './pdf.js';
+import { _wsUpdateBadge, _loadPdfJs, _wsRenderPage, wsFitWidth, _wsAttachResizeObserver } from './pdf.js';
 import { _wsBuildOutline, _wsUpdateOutlineActive } from './outline.js';
 import { API_BASE }    from '../../lib/api.js';
 import { trackBookOpen, trackBookPage } from '../../lib/bookProgress.js';
@@ -166,9 +166,10 @@ export async function selectBook(bookId) {
     try {
       const _fitPage  = await ws.pdfDoc.getPage(1);
       const _naturalW = _fitPage.getViewport({ scale: 1 }).width;
-      const _availW   = wrap.clientWidth - 40;
+      const _availW   = ($el('ws-pdf-view')?.clientWidth || 0) - 40;
       if (_naturalW > 0 && _availW > 100) {
         ws.scale = Math.min(Math.max(_availW / _naturalW, ZOOM_MIN), ZOOM_MAX);
+        setText($el('ws-zoom-badge'), Math.round(ws.scale * 100) + '%');
       }
     } catch (_) { /* keep default scale */ }
 
@@ -236,6 +237,9 @@ export async function selectBook(bookId) {
     hide($el('ws-pdf-loading'));
     hide($el('ws-default-content'));
     wrap.style.display = 'flex';
+
+    // Disconnect any previous resize observer, then watch for container resizes
+    _wsAttachResizeObserver();
 
     _wsShowWelcome(meta);
     await _wsBuildOutline(ws.pdfDoc, bookId);

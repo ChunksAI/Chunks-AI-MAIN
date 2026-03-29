@@ -135,7 +135,7 @@ window.closeMobileDrawer = closeMobileDrawer;
 import {
   ws, wsBookMeta, selectBook, selectUserDoc,
   wsPrevPage, wsNextPage, wsGoToPage, wsJumpToPage,
-  wsZoomIn, wsZoomOut, togglePdfOutline,
+  wsZoomIn, wsZoomOut, wsFitWidth, togglePdfOutline,
   wsShowToast, wsSetInput, wsAutoResize, wsScrollBottom,
   wsClearChat, wsAppendUser, wsAppendThinking, wsRemoveThinking,
   wsAppendAI, wsAppendError, wsCopyMsg, _wsRegenerate,
@@ -167,6 +167,7 @@ window.wsGoToPage          = wsGoToPage;
 window.wsJumpToPage        = wsJumpToPage;
 window.wsZoomIn            = wsZoomIn;
 window.wsZoomOut           = wsZoomOut;
+window.wsFitWidth          = wsFitWidth;
 window.togglePdfOutline    = togglePdfOutline;
 window.wsShowToast         = wsShowToast;
 window.wsSetInput          = wsSetInput;
