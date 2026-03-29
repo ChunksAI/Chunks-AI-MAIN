@@ -401,7 +401,7 @@
 
 .ai-ava { display: none; }
 
-.ai-body { flex: 1; min-width: 0; }
+.ai-body { flex: 1; min-width: 0; max-width: 680px; }
 
 .ai-text {
   font-size: var(--chat-font-size); color: var(--text-1);
@@ -411,6 +411,9 @@
 .ai-text p:last-child { margin-bottom: 0; }
 .ai-text ul, .ai-text ol { padding-left: 24px; margin: 8px 0 12px; }
 .ai-text li { margin-bottom: 7px; line-height: 1.65; }
+.ai-text h2 { font-size: 1.05em; font-weight: 600; margin: 16px 0 8px; color: var(--text-1); }
+.ai-text h3 { font-size: 1em; font-weight: 600; margin: 14px 0 6px; color: var(--text-2); }
+.ai-text h2:first-child, .ai-text h3:first-child { margin-top: 0; }
 .ai-text strong { font-weight: 600; }
 .ai-text em { font-style: italic; }
 .ai-text code {
