@@ -488,9 +488,10 @@ window.incognitoSendMessage = incognitoSendMessage;
 // runs they are already on window.  We do NOT duplicate them here.
 
 // ── Screens · Workspace ──────────────────────────────────────────────────────
-import { wsMobileView } from './screens/WorkspaceScreen.js';
+import { wsMobileView, refreshSmartSuggestions } from './screens/WorkspaceScreen.js';
 
-window.wsMobileView = wsMobileView;
+window.wsMobileView            = wsMobileView;
+window.refreshSmartSuggestions = refreshSmartSuggestions;
 
 // ── Screens · Library ────────────────────────────────────────────────────────
 import {
@@ -626,6 +627,16 @@ import { shareDeck, shareExamResults, shareStudyPlan } from './state/share.js';
 window.shareDeck        = shareDeck;
 window.shareExamResults = shareExamResults;
 window.shareStudyPlan   = shareStudyPlan;
+
+// ── Progress Tracker ─────────────────────────────────────────────────────────
+import { ProgressTracker } from './lib/progressTracker.js';
+
+window.ProgressTracker = ProgressTracker;
+
+// ── Command Engine ───────────────────────────────────────────────────────────
+import { CommandEngine } from './state/commandEngine.js';
+
+window.CommandEngine = CommandEngine;
 
 // ── Sidebar theme sync ───────────────────────────────────────────────────
 // _syncThemeToggleBtns is a local function in Sidebar.js that registers

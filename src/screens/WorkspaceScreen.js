@@ -251,11 +251,12 @@ const WORKSPACE_HTML = /* html */`
         <button class="chat-send" id="ws-chat-send" data-action="wsChatSend"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
       </div>
       <div class="input-hints">
-        <button class="hint-tag" onclick="wsSetInput('Summarize the current page')">Summarize page</button>
-        <button class="hint-tag" onclick="wsSetInput('Generate flashcards on this topic')">Generate flashcards</button>
-        <button class="hint-tag" onclick="wsSetInput('Explain this equation in detail')">Explain this equation</button>
+        <div class="input-hints" id="ws-smart-suggestions">
+          <button class="hint-tag" onclick="wsSetInput('Summarize the current page')">Summarize page</button>
+          <button class="hint-tag" onclick="wsSetInput('Generate flashcards on this topic')">Generate flashcards</button>
+          <button class="hint-tag" onclick="wsSetInput('Explain this equation in detail')">Explain this equation</button>
+        </div>
       </div>
-    </div>
   </section>
 </div>
 `;
@@ -269,6 +270,33 @@ export function mountWorkspaceScreen() {
     return;
   }
   placeholder.outerHTML = WORKSPACE_HTML;
+  // Refresh smart suggestions after mount
+  setTimeout(refreshSmartSuggestions, 300);
+}
+
+// ── Smart suggestions ─────────────────────────────────────────────────────────
+
+/**
+ * Rebuild the #ws-smart-suggestions bar with dynamic context-aware hints.
+ * Falls back to static hints if CommandEngine isn't ready yet.
+ */
+export function refreshSmartSuggestions() {
+  const bar = document.getElementById('ws-smart-suggestions');
+  if (!bar) return;
+  try {
+    const engine = window.CommandEngine;
+    if (!engine) return;
+    engine.syncContextFromWorkspace?.();
+    const suggestions = engine.getSmartSuggestions?.({ screen: 'workspace' });
+    if (!suggestions || !suggestions.length) return;
+    bar.innerHTML = suggestions.map(s =>
+      `<button class="hint-tag" onclick="${s.action}">${s.icon ? s.icon + ' ' : ''}${_escHtml(s.text)}</button>`
+    ).join('');
+  } catch (_) {}
+}
+
+function _escHtml(str) {
+  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 // ── Mobile view toggle (Chat ↔ PDF) ──────────────────────────────────────────

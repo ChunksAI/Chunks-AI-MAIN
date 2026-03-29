@@ -9,6 +9,7 @@ import { _aiParams } from './generation.js';
 import { spMasteryRecord } from './mastery.js';
 import { spSrsUpdate } from './srs.js';
 import { isGuest, showLoginWall } from '../../lib/guestLimits.js';
+import { trackExamResult } from '../../lib/progressTracker.js';
 
 export async function spExamGenerate() {
   sp.examQuestions = []; sp.examIndex = 0; sp.examAnswers = []; sp.examStarted = false;
@@ -130,6 +131,12 @@ export function spExamFinish() {
     const idx = sp.currentPlan.concepts.indexOf(sp.drawerConcept);
     if (idx >= 0) spSrsUpdate(idx, pct);
   }
+  // ── Progress tracking ────────────────────────────────────────────────────
+  const examTopic = sp.drawerConcept?.title || sessionStorage.getItem('chunks_nav_topic') || '';
+  if (examTopic && total > 0) {
+    try { trackExamResult(examTopic, correct, total); } catch (_) {}
+  }
+  // ── End progress tracking ─────────────────────────────────────────────────
 }
 
 export function spExamRestart() { spExamGenerate(); }

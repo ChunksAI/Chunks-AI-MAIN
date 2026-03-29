@@ -74,6 +74,8 @@ export function showScreen(name) {
         if (wsNoBook)  wsNoBook.style.display  = '';
         if (wsBookBar) wsBookBar.style.display = 'none';
       } catch(_) {}
+      // Refresh smart suggestions when navigating to workspace
+      setTimeout(() => window.refreshSmartSuggestions?.(), 150);
     }
     if (name === 'visual') {
       if (typeof window._vtClear === 'function') window._vtClear();

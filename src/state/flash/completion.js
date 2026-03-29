@@ -20,6 +20,7 @@ import { _fcRemoveKeyboard } from './keyboard.js';
 import { _fcSound, _fcStartDeck } from './session.js';
 import { FlashcardDB } from '../../lib/flashcardDb.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
+import { trackFlashcardSession } from '../../lib/progressTracker.js';
 
 // ── Session completion ──────────────────────────────────────────────────────
 
@@ -45,6 +46,13 @@ export async function _fcFinishSession() {
   } catch (e) {
     console.warn('[flashState] session save error:', e);
   }
+
+  // ── Progress tracking ────────────────────────────────────────────────────
+  const deckTopic = fc.currentDeckMeta?.name || sessionStorage.getItem('chunks_nav_topic') || '';
+  if (deckTopic) {
+    try { trackFlashcardSession(deckTopic, fc.stats); } catch (_) {}
+  }
+  // ── End progress tracking ─────────────────────────────────────────────────
 
   ChunksDB?.streak?.recordSession?.({
     xpEarned:   xpResult?.earned ?? 0,
@@ -109,6 +117,11 @@ export async function _fcFinishSession() {
 
   const reviewChatBtn = $el('fc-review-in-chat-btn');
   setDisplay(reviewChatBtn, hard > 0);
+
+  // ── Feedback-loop: show "Start Quiz" button in complete modal ────────────
+  const startQuizBtn = $el('fc-start-quiz-btn');
+  if (startQuizBtn) show(startQuizBtn);
+  // ── End feedback-loop ─────────────────────────────────────────────────────
 
   _fcRemoveKeyboard();
 
