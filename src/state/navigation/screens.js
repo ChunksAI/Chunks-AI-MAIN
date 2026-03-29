@@ -119,6 +119,11 @@ export function showScreen(name) {
   }
   _navFromHistory = false;
 
+  // Refresh home landing activities when navigating to home
+  if (name === 'home' && typeof window._renderHomeActivities === 'function') {
+    window._renderHomeActivities();
+  }
+
   $qsa('.md-item').forEach(el => {
     toggleClass(el, 'active', el.dataset.screen === name);
   });

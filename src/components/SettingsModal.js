@@ -92,13 +92,13 @@ const SETTINGS_MODAL_HTML = `
           <div class="settings-row-left"><div class="settings-row-label">Appearance</div></div>
           <div class="settings-select-wrap">
             <div class="settings-select-btn" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-label="Appearance" tabindex="0" data-action="settingsDropdown-self" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();settingsDropdown(this)}">
-              <span>System</span>
+              <span>📖 Study Mode</span>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
             </div>
             <div class="settings-select-menu" role="listbox" data-setting-key="appearance">
-              <div class="settings-select-option selected" data-action="settingsSelect-self" data-appearance="dark" onclick="applyAppearance('dark')">Dark</div>
+              <div class="settings-select-option" data-action="settingsSelect-self" data-appearance="dark" onclick="applyAppearance('dark')">Dark</div>
               <div class="settings-select-option" data-action="settingsSelect-self" data-appearance="system" onclick="applyAppearance('system')">System</div>
-              <div class="settings-select-option" data-action="settingsSelect-self" data-appearance="study" onclick="applyAppearance('study')">📖 Study Mode</div>
+              <div class="settings-select-option selected" data-action="settingsSelect-self" data-appearance="study" onclick="applyAppearance('study')">📖 Study Mode</div>
             </div>
           </div>
         </div>
@@ -566,8 +566,8 @@ export function toggleTheme() {
 // Restore appearance immediately on load
 (function() {
   try {
-    const saved = localStorage.getItem('chunks_setting_appearance') || 'dark';
-    const theme = saved === 'study' ? 'study' : 'dark';
+    const saved = localStorage.getItem('chunks_setting_appearance') || 'study';
+    const theme = saved === 'dark' ? 'dark' : 'study';
     document.documentElement.setAttribute('data-theme', theme);
   } catch(e) {}
 })();
@@ -873,7 +873,7 @@ function _restoreSettings() {
 
   applySelect('appearance',      localStorage.getItem('chunks_setting_appearance'));
   // Apply the saved appearance immediately
-  const savedAppearance = localStorage.getItem('chunks_setting_appearance') || 'dark';
+  const savedAppearance = localStorage.getItem('chunks_setting_appearance') || 'study';
   applyAppearance(savedAppearance);
   applySelect('language',        localStorage.getItem('chunks_setting_language'));
   applySelect('spoken-language', localStorage.getItem('chunks_setting_spoken-language'));

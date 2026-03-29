@@ -436,6 +436,7 @@ import {
   homeScrollBottom, homeHideLanding, homeSendMessage,
   homeToggleWebSearch, homeToggleThinking,
   openIncognitoChat, closeIncognitoChat, incognitoSendMessage,
+  _renderHomeActivities,
 } from './screens/HomeScreen.js';
 
 window.homeSetMode        = homeSetMode;
@@ -452,6 +453,7 @@ window.homeHideLanding    = homeHideLanding;
 window.homeSendMessage    = homeSendMessage;
 window.homeToggleWebSearch= homeToggleWebSearch;
 window.homeToggleThinking = homeToggleThinking;
+window._renderHomeActivities = _renderHomeActivities;
 
 // Incognito chat
 window.openIncognitoChat    = openIncognitoChat;
