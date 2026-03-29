@@ -326,7 +326,7 @@ function _capitalize(str) {
 }
 
 function _esc(str) {
-  return (str || '').replace(/'/g, "\\'");
+  return (str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
 // ── Context sync from workspace state ────────────────────────────────────────
