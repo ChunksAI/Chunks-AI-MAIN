@@ -728,7 +728,7 @@
 }
 .tts-highlight {
   background: rgba(232, 172, 46, 0.35);
-  color: var(--text-1);
+  color: var(--text-1) !important;
   outline: 1px solid rgba(232, 172, 46, 0.5);
   border-radius: 2px;
 }

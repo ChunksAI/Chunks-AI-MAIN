@@ -44,6 +44,7 @@ let _lastSlideText = '';        // text of the last-read slide (for explanation)
 let _lastSlideNum  = 1;         // page number of the last-read slide
 let _highlightedWordEl = null;  // currently highlighted .tts-word span
 let _ttsWordSpans = [];         // [{el, charStart}]
+let _pendingExplanationPromise = null; // explanation fetch started in parallel with TTS
 
 // ── STT helpers ───────────────────────────────────────────────────────────────
 
@@ -439,19 +440,33 @@ function _wsAppendListenExplanation(explanation, pageNum) {
 const _LISTEN_EXPLAIN_PROMPT = 'Explain the key concepts on this page in simple, easy-to-understand terms.';
 
 /**
- * Fetch a simple explanation for the given page text from the AI backend,
- * append it to the chat panel, then read it aloud via TTS.
- * Called automatically after each page/slide has been fully read.
+ * Detect the current visible page robustly by reading the DOM scroll position
+ * at the moment the button is clicked, rather than relying solely on the
+ * scroll-event-updated state which may be slightly stale.
  */
-async function _fetchAndReadExplanation(pageText, pageNum) {
-  if (!_isListeningPdf) return;
+function _getCurrentPage(wsState) {
+  if (!wsState) return 1;
+  const wrap = document.getElementById('ws-pdf-canvas-wrap');
+  if (wrap && wsState.pageContainers && wsState.pageContainers.length > 1) {
+    const scrollMid = wrap.scrollTop + wrap.clientHeight / 2;
+    let closest = 1;
+    for (let i = 0; i < wsState.pageContainers.length; i++) {
+      if (wsState.pageContainers[i].offsetTop <= scrollMid) closest = i + 1;
+      else break;
+    }
+    return closest;
+  }
+  return typeof wsState.currentPage === 'number' && wsState.currentPage >= 1
+    ? wsState.currentPage
+    : 1;
+}
 
-  _listenPhase = 'generating';
-  _setListenBarStatus('Generating explanation\u2026');
-  // Show a spinner-like state on the button (keep active)
-  _setListenBtnState(true);
-
-  let explanation = '';
+/**
+ * Start fetching the page explanation from the AI backend immediately.
+ * Returns a Promise<string> so TTS and fetch can run in parallel.
+ * The promise always resolves (never rejects) — errors yield an empty string.
+ */
+async function _startExplanationFetch(pageText) {
   try {
     const wsState = window.ws || null;
     const body = {
@@ -467,16 +482,34 @@ async function _fetchAndReadExplanation(pageText, pageNum) {
       headers: { 'Content-Type': 'application/json', ...await _getAuthHeader() },
       body:    JSON.stringify(body),
     });
-    if (!_isListeningPdf) return; // user stopped while we were fetching
-    if (res.ok) {
-      const data = await res.json();
-      explanation = data.answer || '';
-    } else {
+    if (!res.ok) {
       console.warn('[wsListenPdf] Explanation fetch failed:', res.status);
+      return '';
     }
+    const data = await res.json();
+    return data.answer || '';
   } catch (err) {
     console.warn('[wsListenPdf] Explanation fetch error:', err);
+    return '';
   }
+}
+
+/**
+ * Wait for a pre-started explanation Promise, then read it aloud immediately.
+ * Called in utter.onend so there is no gap between reading and explanation.
+ * Because the fetch was started in parallel with TTS, the explanation is
+ * often already resolved by the time this is called.
+ */
+async function _finishWithExplanation(explanationPromise, pageNum) {
+  if (!_isListeningPdf) return;
+
+  _listenPhase = 'generating';
+  _setListenBarStatus('Generating explanation\u2026');
+  _setListenBtnState(true);
+
+  let explanation = '';
+  // _startExplanationFetch always resolves; a direct await is sufficient.
+  explanation = await explanationPromise;
 
   if (!_isListeningPdf) return;
 
@@ -587,6 +620,7 @@ export function wsStopListenPdf() {
   _slideReadIdx = 0;
   _lastSlideText = '';
   _lastSlideNum  = 1;
+  _pendingExplanationPromise = null;
   _clearWordHighlight();
   _setListenBtnState(false);
   _hideListenBar();
@@ -657,13 +691,14 @@ function _highlightWordAt(charIndex) {
 
 /**
  * Speaks the slide at _slideReadQueue[_slideReadIdx] then advances.
- * After all queued slides are done, generates and reads an explanation.
+ * After all queued slides are done, awaits the pre-started explanation promise
+ * and reads it immediately with no delay.
  */
 function _readNextSlide() {
   if (!_isListeningPdf || _slideReadIdx >= _slideReadQueue.length) {
-    // Queue exhausted — fetch explanation for the slide that was just read
-    if (_isListeningPdf && _lastSlideText) {
-      _fetchAndReadExplanation(_lastSlideText, _lastSlideNum);
+    // Queue exhausted — finish with the pre-fetched explanation
+    if (_isListeningPdf && _lastSlideText && _pendingExplanationPromise) {
+      _finishWithExplanation(_pendingExplanationPromise, _lastSlideNum);
     } else {
       wsStopListenPdf();
     }
@@ -692,6 +727,9 @@ function _readNextSlide() {
   // Save this slide's text and number for the post-read explanation
   _lastSlideText = rawText;
   _lastSlideNum  = slideNum;
+
+  // Start explanation fetch in parallel with reading
+  _pendingExplanationPromise = _startExplanationFetch(rawText);
 
   _clearWordHighlight();
   if (bodyEl) _buildWordSpanMap(bodyEl);
@@ -775,12 +813,13 @@ export async function wsListenPdf() {
 
   // ── Slides mode (PPT / YouTube transcript) ───────────────────────────────
   if (!wsState.pdfDoc && wsState.pageContainers && wsState.pageContainers.length) {
-    const startPage = wsState.currentPage || 1;
+    const startPage = _getCurrentPage(wsState);
     // Only queue the current slide — reading is per-page
     _slideReadQueue = [startPage];
     _slideReadIdx = 0;
     _lastSlideText = '';
     _lastSlideNum  = startPage;
+    _pendingExplanationPromise = null;
     _showListenBar();
     _startKeepAlive();
     _listenPhase = 'reading';
@@ -794,12 +833,15 @@ export async function wsListenPdf() {
   if (wsState.pdfDoc) {
     let textToRead = '';
     let pageNum;
+    let contentItems = [];
     try {
-      pageNum = wsState.currentPage || 1;
+      pageNum = _getCurrentPage(wsState);
       const page = await wsState.pdfDoc.getPage(pageNum);
       const content = await page.getTextContent();
-      textToRead = content.items.map(it => it.str).join(' ').trim();
-      if (!textToRead) {
+      contentItems = content.items;
+      // Do NOT trim — the join(' ') offset map depends on the un-trimmed string
+      textToRead = contentItems.map(it => it.str).join(' ');
+      if (!textToRead.trim()) {
         showToast('\u{1F50A}', 'No readable text on this page', '');
         _setListenBtnState(false);
         return;
@@ -811,10 +853,41 @@ export async function wsListenPdf() {
       return;
     }
 
+    // Start explanation fetch in parallel with TTS — no waiting after reading
+    _pendingExplanationPromise = _startExplanationFetch(textToRead);
+
+    // ── Word highlighting via PDF text layer ──────────────────────────────
+    _clearWordHighlight();
+    const pageContainer = wsState.pageContainers[pageNum - 1];
+    const textLayer = pageContainer ? pageContainer.querySelector('.ws-text-layer') : null;
+    if (textLayer && contentItems.length) {
+      const layerSpans = Array.from(textLayer.querySelectorAll('span'));
+      _ttsWordSpans = [];
+      let charOffset = 0;
+      let spanIdx = 0;
+      for (const item of contentItems) {
+        if (!item.str) continue;
+        const span = layerSpans[spanIdx];
+        if (span) {
+          span.classList.add('tts-word');
+          _ttsWordSpans.push({ el: span, charStart: charOffset });
+          spanIdx++;
+        } else {
+          console.warn('[wsListenPdf] Text layer span count < content items; highlighting may be incomplete');
+        }
+        // +1 for the single-space separator added by join(' ')
+        charOffset += item.str.length + 1;
+      }
+    }
+
     const utter = new SpeechSynthesisUtterance(textToRead);
     utter.rate = _listenRate;
     const voice = _getChosenVoice();
     if (voice) utter.voice = voice;
+
+    utter.onboundary = (e) => {
+      if (e.name === 'word') _highlightWordAt(e.charIndex);
+    };
 
     _showListenBar();
     _startKeepAlive();
@@ -824,7 +897,8 @@ export async function wsListenPdf() {
     utter.onend = () => {
       _stopKeepAlive();
       _currentUtterance = null;
-      _fetchAndReadExplanation(textToRead, pageNum);
+      _clearWordHighlight();
+      _finishWithExplanation(_pendingExplanationPromise, pageNum);
     };
     utter.onerror = (e) => {
       _stopKeepAlive();
@@ -852,6 +926,9 @@ export async function wsListenPdf() {
     }
     showToast('\u{1F50A}', 'Reading document\u2026', '');
 
+    // Start explanation fetch in parallel with TTS
+    _pendingExplanationPromise = _startExplanationFetch(textToRead);
+
     const utter = new SpeechSynthesisUtterance(textToRead);
     utter.rate = _listenRate;
     const voice = _getChosenVoice();
@@ -865,7 +942,7 @@ export async function wsListenPdf() {
     utter.onend = () => {
       _stopKeepAlive();
       _currentUtterance = null;
-      _fetchAndReadExplanation(textToRead, null);
+      _finishWithExplanation(_pendingExplanationPromise, null);
     };
     utter.onerror = (e) => {
       _stopKeepAlive();
