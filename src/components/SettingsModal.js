@@ -443,7 +443,7 @@ export function settingsNav(page, el) {
 // ── Font size ─────────────────────────────────────────────────────────────────
 
 export function settingsFontSize(size, btn) {
-  const map = { small: '11px', medium: '13px', large: '15px' };
+  const map = { small: '12px', medium: '14px', large: '16px' };
   if (!map[size]) return;
   document.documentElement.style.setProperty('--chat-font-size', map[size]);
   document.querySelectorAll('.font-size-btn').forEach(b => b.classList.remove('active'));
@@ -457,7 +457,7 @@ export function settingsFontSize(size, btn) {
 (function () {
   try {
     const s = localStorage.getItem('chunks-chat-font-size');
-    const map = { small: '11px', medium: '13px', large: '15px' };
+    const map = { small: '12px', medium: '14px', large: '16px' };
     if (s && map[s]) {
       document.documentElement.style.setProperty('--chat-font-size', map[s]);
     }
