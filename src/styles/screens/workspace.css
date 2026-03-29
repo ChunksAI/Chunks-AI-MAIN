@@ -55,17 +55,163 @@
 }
 .ws-resizer:hover, .ws-resizer.dragging { background: var(--gold); }
 
+/* ── Floating glass toolbar wrapper ──────────────────────────────────────── */
 .pdf-bar {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0;
-  padding: 0 10px;
-  height: 46px;
-  border-bottom: 1px solid var(--border-xs);
-  background: var(--surface-1);
+  height: 58px;
+  padding: 0 12px;
+  background: transparent;
+  border-bottom: none;
   flex-shrink: 0;
+  /* Subtle border to separate from PDF content on scroll */
+  box-shadow: 0 1px 0 var(--border-xs);
 }
 
+/* Title strip: book icon + name, sits left of the floating pill */
+.pdf-title-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  max-width: 200px;
+  overflow: hidden;
+  min-width: 0;
+}
+
+/* Floating glassmorphism pill (centered) */
+.pdf-bar-pill {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 8px;
+  /* Glassmorphism */
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px) saturate(1.6);
+  -webkit-backdrop-filter: blur(14px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 9999px;
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.40),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  white-space: nowrap;
+  /* Fade-in on load */
+  animation: pdf-pill-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes pdf-pill-in {
+  from { opacity: 0; transform: translate(-50%, calc(-50% - 6px)); }
+  to   { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* Light theme glass override */
+[data-theme="study"] .pdf-bar-pill {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15), 0 1px 0 rgba(255, 255, 255, 0.8) inset;
+}
+
+/* Toolbar icon buttons (pill shape, inside the glass toolbar) */
+.pdf-tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 200ms ease, background 200ms ease, transform 200ms ease;
+}
+.pdf-tb-btn:hover {
+  background: rgba(255, 255, 255, 0.10);
+  color: var(--text-1);
+  transform: scale(1.10);
+}
+[data-theme="study"] .pdf-tb-btn:hover { background: rgba(0, 0, 0, 0.07); }
+.pdf-tb-btn:active { transform: scale(0.92); }
+
+/* Separator inside pill */
+.pdf-tb-sep {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.10);
+  margin: 0 5px;
+  flex-shrink: 0;
+}
+[data-theme="study"] .pdf-tb-sep { background: rgba(0, 0, 0, 0.10); }
+
+/* Page badge + progress bar wrapper */
+.pdf-tb-page-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Page progress track */
+.pdf-page-progress {
+  width: 36px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.10);
+  border-radius: 1px;
+  overflow: hidden;
+}
+[data-theme="study"] .pdf-page-progress { background: rgba(0, 0, 0, 0.08); }
+
+/* Progress fill — width set via JS */
+.pdf-page-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--gold);
+  border-radius: 1px;
+  transition: width 300ms ease;
+}
+
+/* Zoom level label */
+.pdf-tb-zoom-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-4);
+  min-width: 30px;
+  text-align: center;
+  user-select: none;
+}
+
+/* Listen accent pill button */
+.pdf-tb-listen {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 9999px;
+  border: 1px solid var(--gold-border);
+  background: var(--gold-muted);
+  color: var(--gold);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 200ms ease, color 200ms ease, transform 200ms ease, border-color 200ms ease;
+}
+.pdf-tb-listen:hover {
+  background: var(--gold-glow);
+  color: var(--gold-bright);
+  transform: scale(1.04);
+}
+.pdf-tb-listen:active { transform: scale(0.95); }
+
+/* Keep legacy title block styles (used if referenced elsewhere) */
 .pdf-title-block {
   flex: 1;
   display: flex; align-items: center; gap: 10px;
@@ -73,20 +219,20 @@
 }
 
 .pdf-book-icon {
-  width: 22px; height: 22px;
-  border-radius: 6px;
+  width: 20px; height: 20px;
+  border-radius: 5px;
   background: linear-gradient(135deg, var(--gold), #f97316);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 
 .pdf-book-name {
-  font-size: 12.5px; font-weight: 600; color: var(--text-1);
+  font-size: 12px; font-weight: 600; color: var(--text-2);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
 .pdf-chapter {
-  font-size: 11.5px; color: var(--text-3);
+  font-size: 11px; color: var(--text-4);
   white-space: nowrap; flex-shrink: 0;
   padding-left: 2px;
 }
@@ -96,11 +242,18 @@
 .page-nav { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .page-badge {
   font-family: var(--font-mono);
-  font-size: 11.5px; color: var(--text-2);
-  background: var(--surface-2); padding: 3px 10px;
-  border-radius: 6px; border: 1px solid var(--border-xs); white-space: nowrap;
-  min-width: 54px; text-align: center;
+  font-size: 11px; color: var(--text-2);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+  min-width: 46px; text-align: center;
+  transition: background 200ms ease;
 }
+.page-badge:hover { background: rgba(255, 255, 255, 0.10); }
+[data-theme="study"] .page-badge { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.08); }
+[data-theme="study"] .page-badge:hover { background: rgba(0,0,0,0.09); }
 
 /* PDF viewer */
 .pdf-body { flex: 1; display: flex; overflow: hidden; }
@@ -461,10 +614,10 @@
   0%, 100% { box-shadow: 0 0 0 0 rgba(255,68,68,0.35); }
   50%       { box-shadow: 0 0 0 5px rgba(255,68,68,0); }
 }
-.ws-listen-btn:hover { color: var(--text-1); background: var(--surface-3); }
+.ws-listen-btn:hover { color: var(--gold-bright); background: var(--gold-glow); }
 .ws-listen-btn.listen-active {
-  color: var(--violet);
-  background: var(--violet-muted);
+  color: var(--violet) !important;
+  background: var(--violet-muted) !important;
   border-color: var(--violet-border) !important;
   animation: listen-pulse 1.4s ease-in-out infinite;
 }
@@ -699,9 +852,8 @@
   color: transparent;
 }
 
-/* ── "Ask AI" floating button ─────────────────────────────────────────────
-   Injected via JS (_wsCreateAskBtn). Styled inline for position;
-   these rules handle hover + transition. */
+/* ── "Ask AI" floating button (legacy rule kept for compatibility) ──────────
+   Actual contextual bar is #ws-ctx-bar — see below. */
 #ws-ask-ai-btn {
   transition: transform 80ms ease, box-shadow 80ms ease;
 }
@@ -712,6 +864,70 @@
 #ws-ask-ai-btn:active {
   transform: scale(0.97);
 }
+
+/* ── Contextual AI bar (appears on PDF text selection) ──────────────────── */
+#ws-ctx-bar {
+  align-items: center;
+  gap: 3px;
+  padding: 4px 6px;
+  /* Glassmorphism — matches main pdf-bar-pill */
+  background: rgba(20, 18, 30, 0.80);
+  backdrop-filter: blur(16px) saturate(1.8);
+  -webkit-backdrop-filter: blur(16px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  box-shadow:
+    0 6px 28px rgba(0, 0, 0, 0.55),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  animation: ctx-bar-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Light theme override for contextual bar */
+[data-theme="study"] #ws-ctx-bar {
+  background: rgba(255, 255, 255, 0.90);
+  border-color: rgba(0, 0, 0, 0.10);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.18), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+}
+[data-theme="study"] .ws-ctx-action { color: var(--text-2); }
+[data-theme="study"] .ws-ctx-action:hover { background: rgba(0, 0, 0, 0.06); color: var(--text-1); }
+
+@keyframes ctx-bar-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Action buttons inside the contextual bar */
+.ws-ctx-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+}
+.ws-ctx-action:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  transform: scale(1.06);
+}
+.ws-ctx-action:active { transform: scale(0.93); }
+
+/* Accent colour each action */
+.ws-ctx-action:nth-child(1) { color: var(--gold); }
+.ws-ctx-action:nth-child(1):hover { background: var(--gold-muted); }
+.ws-ctx-action:nth-child(2) { color: #60c8ff; }
+.ws-ctx-action:nth-child(2):hover { background: rgba(96, 200, 255, 0.10); }
+.ws-ctx-action:nth-child(3) { color: var(--violet); }
+.ws-ctx-action:nth-child(3):hover { background: var(--violet-muted); }
 
 /* ── Study mode: pdf-view warm background ── */
 [data-theme="study"] .pdf-view {
@@ -735,7 +951,8 @@
 
 /* ── Listen button active state ─────────────────────────────────────────── */
 #ws-listen-btn.listen-active {
-  color: var(--violet);
-  background: var(--violet-muted);
-  border-color: var(--violet-border);
+  color: var(--violet) !important;
+  background: var(--violet-muted) !important;
+  border-color: var(--violet-border) !important;
+  animation: listen-pulse 1.4s ease-in-out infinite;
 }

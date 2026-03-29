@@ -50,60 +50,61 @@ const WORKSPACE_HTML = /* html */`
   <!-- PDF Panel -->
   <section class="pdf-panel">
     <div class="pdf-bar">
-      <!-- Left: hamburger -->
-      <button class="icon-btn" title="Toggle contents" data-action="togglePdfOutline" style="margin-right:4px;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      </button>
-
-      <!-- Title block -->
-      <div class="pdf-title-block">
+      <!-- Title strip: book info, sits left outside the floating pill -->
+      <div class="pdf-title-strip">
+        <button class="pdf-tb-btn" title="Toggle contents" data-action="togglePdfOutline">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
         <div class="pdf-book-icon"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg></div>
         <span class="pdf-book-name" id="ws-book-name">No book loaded</span>
         <span class="pdf-chapter" id="ws-book-author"></span>
       </div>
 
-      <!-- Page nav group -->
-      <div class="page-nav">
-        <button class="icon-btn" id="btn-prev-page" data-action="wsPrevPage" title="Previous page"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button>
-        <span class="page-badge" id="ws-page-badge" title="Click to jump to page" data-action="wsJumpToPage" style="cursor:pointer;">1 / 1</span>
-        <button class="icon-btn" id="btn-next-page" data-action="wsNextPage" title="Next page"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg></button>
+      <!-- Floating glass pill toolbar (centered) -->
+      <div class="pdf-bar-pill" id="ws-pdf-toolbar">
+
+        <!-- Page navigation -->
+        <button class="pdf-tb-btn" id="btn-prev-page" data-action="wsPrevPage" title="Previous page">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+        </button>
+        <div class="pdf-tb-page-wrap">
+          <span class="page-badge" id="ws-page-badge" title="Click to jump to page" data-action="wsJumpToPage" style="cursor:pointer;">1 / 1</span>
+          <div class="pdf-page-progress"><div class="pdf-page-progress-fill" id="ws-page-progress"></div></div>
+        </div>
+        <button class="pdf-tb-btn" id="btn-next-page" data-action="wsNextPage" title="Next page">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+
+        <div class="pdf-tb-sep"></div>
+
+        <!-- Zoom controls -->
+        <button class="pdf-tb-btn" id="btn-zoom-out" data-action="wsZoomOut" title="Zoom out">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><line x1="8" x2="14" y1="11" y2="11"/></svg>
+        </button>
+        <span id="ws-zoom-badge" class="pdf-tb-zoom-label">100%</span>
+        <button class="pdf-tb-btn" id="btn-zoom-in" data-action="wsZoomIn" title="Zoom in">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></svg>
+        </button>
+
+        <div class="pdf-tb-sep"></div>
+
+        <!-- Library -->
+        <button class="pdf-tb-btn" id="ws-open-lib-btn" data-action="openLibraryModal" title="Library">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        </button>
+
+        <!-- Listen — accent pill button -->
+        <button class="pdf-tb-listen ws-listen-btn" id="ws-listen-btn" aria-pressed="false"
+          title="Listen to current page" onclick="wsListenPdf()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+          </svg>
+          <span>Listen</span>
+        </button>
+
       </div>
-
-      <div class="bar-sep"></div>
-
-      <!-- Zoom group -->
-      <div style="display:flex;align-items:center;gap:2px;">
-        <button class="icon-btn" id="btn-zoom-out" data-action="wsZoomOut" title="Zoom out"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><line x1="8" x2="14" y1="11" y2="11"/></svg></button>
-        <span id="ws-zoom-badge" style="font-size:10px;font-family:var(--font-mono);color:var(--text-4);min-width:32px;text-align:center;user-select:none;">100%</span>
-        <button class="icon-btn" id="btn-zoom-in"  data-action="wsZoomIn"  title="Zoom in"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></svg></button>
-      </div>
-
-      <div class="bar-sep"></div>
-
-      <!-- Actions group -->
-      <div style="display:flex;align-items:center;gap:2px;">
-        <button class="icon-btn accent" title="Search"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></button>
-        <button class="icon-btn violet" title="AI Chat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a8 8 0 0 0-8 8 8 8 0 0 0 4.4 7.1L6 22l4.8-2.2A8 8 0 1 0 12 2z"/></svg></button>
-      </div>
-
-      <div class="bar-sep"></div>
-
-      <!-- Library button -->
-      <button class="icon-btn" id="ws-open-lib-btn" data-action="openLibraryModal" title="Library"
-        style="width:32px;height:32px;color:var(--text-3);background:transparent;border:1px solid transparent;border-radius:var(--r-sm);flex-shrink:0;transition:color var(--t-fast),background var(--t-fast),border-color var(--t-fast);">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-      </button>
-
-      <!-- Listen button — reads current page aloud -->
-      <button class="icon-btn ws-listen-btn" id="ws-listen-btn" aria-pressed="false"
-        title="Listen to current page" onclick="wsListenPdf()"
-        style="width:32px;height:32px;color:var(--text-3);background:transparent;border:1px solid transparent;border-radius:var(--r-sm);flex-shrink:0;transition:color var(--t-fast),background var(--t-fast),border-color var(--t-fast);">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-        </svg>
-      </button>
     </div>
 
     <div class="pdf-body">
