@@ -608,7 +608,6 @@
   padding: 10px 14px 14px;
   background: transparent;
   flex-shrink: 0;
-  /* Soft gradient fade so the floating container lifts off the message list */
   position: relative;
 }
 .chat-input-wrap::before {
@@ -619,33 +618,127 @@
   pointer-events: none;
   z-index: 0;
 }
-.chat-input-inner {
+
+/* ── Card-style input container ── */
+.chat-input-card {
   position: relative; z-index: 1;
-  display: flex; align-items: flex-end; gap: 8px;
-  /* Glassmorphism floating pill */
   background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(14px) saturate(1.5);
   -webkit-backdrop-filter: blur(14px) saturate(1.5);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 20px;
-  padding: 10px 10px 10px 14px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.30);
+  overflow: hidden;
   transition: border-color 200ms ease, box-shadow 200ms ease;
 }
-.chat-input-inner:focus-within {
-  border-color: var(--gold-border);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(232, 172, 46, 0.12), 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+.chat-input-card:focus-within {
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 4px 28px rgba(0, 0, 0, 0.35);
 }
-/* Light theme (study mode) overrides */
-[data-theme="study"] .chat-input-inner {
-  background: rgba(0, 0, 0, 0.06);
+[data-theme="study"] .chat-input-card {
+  background: #fff;
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.10);
+}
+[data-theme="study"] .chat-input-card:focus-within {
+  border-color: rgba(0, 0, 0, 0.18);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.13);
+}
+
+/* ── Action chips row ── */
+.chat-action-chips {
+  display: flex; align-items: center; gap: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.chat-action-chips::-webkit-scrollbar { display: none; }
+[data-theme="study"] .chat-action-chips {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
+.chat-action-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-body); font-size: 12px; font-weight: 500;
+  color: var(--text-2);
+  background: transparent; border: none; border-right: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 9px 12px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  transition: color 150ms ease, background 150ms ease;
+}
+.chat-action-chip:last-child { border-right: none; }
+.chat-action-chip svg { color: var(--text-3); flex-shrink: 0; }
+.chat-action-chip:hover {
+  color: var(--text-1);
+  background: rgba(255, 255, 255, 0.06);
+}
+.chat-action-chip:active { background: rgba(255, 255, 255, 0.10); }
+[data-theme="study"] .chat-action-chip {
+  border-right-color: rgba(0, 0, 0, 0.08);
+  color: var(--text-2);
+}
+[data-theme="study"] .chat-action-chip:hover {
+  color: var(--text-1);
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* ── Textarea row ── */
+.chat-textarea-row {
+  display: flex; align-items: flex-end; gap: 8px;
+  padding: 10px 10px 10px 14px;
+}
+
+/* ── Footer row ── */
+.chat-input-footer {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+[data-theme="study"] .chat-input-footer {
+  border-top-color: rgba(0, 0, 0, 0.08);
+}
+.chat-footer-left { display: flex; align-items: center; gap: 4px; }
+.chat-footer-right { display: flex; align-items: center; gap: 4px; }
+
+/* Footer buttons (Attach, Voice, Think) */
+.chat-footer-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-family: var(--font-body); font-size: 12px; font-weight: 500;
+  color: var(--text-2);
+  background: transparent; border: 1px solid rgba(255, 255, 255, 0.10);
+  padding: 5px 11px; border-radius: var(--r-pill); cursor: pointer;
+  transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
+  white-space: nowrap;
+}
+.chat-footer-btn:hover {
+  color: var(--text-1);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+.chat-footer-btn:active { background: rgba(255, 255, 255, 0.12); }
+[data-theme="study"] .chat-footer-btn {
   border-color: rgba(0, 0, 0, 0.10);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 1px 0 rgba(255, 255, 255, 0.7) inset;
 }
-[data-theme="study"] .chat-input-inner:focus-within {
-  border-color: var(--gold-border);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12), 0 0 0 3px rgba(184, 122, 16, 0.14), 0 1px 0 rgba(255, 255, 255, 0.7) inset;
+[data-theme="study"] .chat-footer-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.16);
 }
+
+/* Think button dot indicator */
+.chat-think-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-3); flex-shrink: 0;
+  transition: background 200ms ease;
+}
+.chat-think-btn.active .chat-think-dot,
+#ws-toggle-think.active .chat-think-dot { background: var(--gold); }
+#ws-think-check.on { background: var(--gold); }
+
+/* Keep legacy .chat-input-inner for any code that may still reference it */
+.chat-input-inner {
+  position: relative; z-index: 1;
+  display: flex; align-items: flex-end; gap: 8px;
+}
+
 .chat-input-field {
   flex: 1; font-family: var(--font-body); font-size: 13px;
   color: var(--text-1); background: transparent; border: none; outline: none;
@@ -662,13 +755,10 @@
 .chat-send:hover { background: var(--gold-bright); transform: scale(1.08); box-shadow: 0 3px 12px rgba(232, 172, 46, 0.50); }
 .chat-send:active { transform: scale(0.94); }
 .mic-btn {
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  color: var(--text-2);
-  box-shadow: none;
+  /* inherits .chat-footer-btn – only override when mic is active */
 }
-.mic-btn:hover { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.14); color: var(--text-1); transform: scale(1.06); }
-[data-theme="study"] .mic-btn { background: rgba(0, 0, 0, 0.05); border-color: rgba(0, 0, 0, 0.08); }
+.mic-btn:hover { transform: none; }
+[data-theme="study"] .mic-btn { }
 .mic-btn.mic-active {
   background: #ff444420;
   color: #ff6666;
