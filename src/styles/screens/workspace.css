@@ -382,7 +382,7 @@
 /* Messages */
 .messages {
   flex: 1; overflow-y: auto;
-  padding: 18px 14px;
+  padding: 20px 24px;
   display: flex; flex-direction: column; gap: 18px;
 }
 
@@ -401,12 +401,23 @@
 
 .ai-ava { display: none; }
 
-.ai-body { flex: 1; min-width: 0; }
+.ai-body { flex: 1; min-width: 0; max-width: 680px; }
 
 .ai-text {
   font-size: var(--chat-font-size); color: var(--text-1);
-  line-height: 1.7; margin-bottom: 10px;
+  line-height: 1.75; margin-bottom: 10px;
 }
+.ai-text p { margin: 0 0 12px; }
+.ai-text p:last-child { margin-bottom: 0; }
+.ai-text ul, .ai-text ol { padding-left: 22px; margin: 6px 0 12px; }
+.ai-text li { margin-bottom: 7px; line-height: 1.65; }
+.ai-text h3, .ai-text h4, .ai-text h5 {
+  font-family: var(--font-head); font-weight: 700; color: var(--text-1);
+  line-height: 1.4; margin: 18px 0 8px;
+}
+.ai-text h3 { font-size: 1.1em; }
+.ai-text h4 { font-size: 1.0em; margin-top: 14px; }
+.ai-text h5 { font-size: 0.95em; color: var(--text-2); font-style: italic; margin-top: 12px; }
 .ai-text strong { font-weight: 600; }
 .ai-text em { font-style: italic; }
 .ai-text code {

@@ -261,9 +261,9 @@ export function wsRender(raw) {
       closeList();
       const lvl = t.match(/^(#+)/)[1].length;
       const txt = t.replace(/^#+\s/, '');
-      html += lvl === 1 ? `<p><strong style="font-size:1.1em">${txt}</strong></p>`
-            : lvl === 2 ? `<p><strong>${txt}</strong></p>`
-            :             `<p><em><strong>${txt}</strong></em></p>`;
+      html += lvl === 1 ? `<h3>${txt}</h3>`
+            : lvl === 2 ? `<h4>${txt}</h4>`
+            :             `<h5>${txt}</h5>`;
       continue;
     }
     if (/^[-*•] /.test(t)) {
