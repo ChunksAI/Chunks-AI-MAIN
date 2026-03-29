@@ -11,7 +11,8 @@ export { ws, wsBookMeta, ZOOM_STEP, ZOOM_MIN, ZOOM_MAX, _wsBookOutlines } from '
 
 export {
   _wsUpdateBadge, wsPrevPage, wsNextPage, wsGoToPage, wsJumpToPage,
-  wsZoomIn, wsZoomOut, _wsRescale, _loadPdfJs, _wsRenderPage,
+  wsZoomIn, wsZoomOut, wsFitWidth, _wsAttachResizeObserver,
+  _wsRescale, _loadPdfJs, _wsRenderPage,
 } from './pdf.js';
 
 export { selectBook, _wsShowWelcome } from './books.js';

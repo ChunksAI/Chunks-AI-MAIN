@@ -54,6 +54,38 @@ export function wsJumpToPage() {
 export async function wsZoomIn()  { await _wsRescale(ws.scale + ZOOM_STEP); }
 export async function wsZoomOut() { await _wsRescale(ws.scale - ZOOM_STEP); }
 
+/** Re-fit the PDF to the current container width (fit-to-width). */
+export async function wsFitWidth() {
+  if (!ws.pdfDoc) return;
+  try {
+    const view = $el('ws-pdf-view');
+    if (!view) return;
+    const availW = view.clientWidth - 40;
+    if (availW <= 100) return;
+    const page = await ws.pdfDoc.getPage(1);
+    const naturalW = page.getViewport({ scale: 1 }).width;
+    if (naturalW <= 0) return;
+    const newScale = Math.min(Math.max(availW / naturalW, ZOOM_MIN), ZOOM_MAX);
+    await _wsRescale(newScale);
+  } catch (_) {}
+}
+
+/**
+ * Attach a ResizeObserver to `ws-pdf-view` that re-fits the PDF width
+ * whenever the container changes size (e.g. the drag-splitter is moved).
+ * Disconnects any previously attached observer first.
+ */
+export function _wsAttachResizeObserver() {
+  ws.resizeObserver?.disconnect();
+  const viewEl = $el('ws-pdf-view');
+  if (!viewEl) return;
+  ws.resizeObserver = new ResizeObserver(() => {
+    if (ws.resizeRaf) cancelAnimationFrame(ws.resizeRaf);
+    ws.resizeRaf = requestAnimationFrame(() => { ws.resizeRaf = 0; wsFitWidth(); });
+  });
+  ws.resizeObserver.observe(viewEl);
+}
+
 export async function _wsRescale(newScale) {
   if (!ws.pdfDoc) return;
   newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newScale));
