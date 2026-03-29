@@ -218,7 +218,7 @@ function _applyDefaultSettings() {
     });
 
     // Apply font size CSS var immediately
-    const fontMap = { small: '11px', medium: '13px', large: '15px' };
+    const fontMap = { small: '12px', medium: '15px', large: '17px' };
     document.documentElement.style.setProperty('--chat-font-size', fontMap['medium']);
 
     // Mark as initialized so we never overwrite again

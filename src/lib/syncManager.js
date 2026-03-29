@@ -141,7 +141,7 @@ function _applyPostSyncUI() {
     }
 
     const fs = localStorage.getItem('chunks-chat-font-size');
-    const fsMap = { small: '11px', medium: '13px', large: '15px', S: '11px', M: '13px', L: '15px' };
+    const fsMap = { small: '12px', medium: '15px', large: '17px', S: '12px', M: '15px', L: '17px' };
     if (fs && fsMap[fs]) {
       document.documentElement.style.setProperty('--chat-font-size', fsMap[fs]);
     }

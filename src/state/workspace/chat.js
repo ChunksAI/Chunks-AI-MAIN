@@ -113,7 +113,7 @@ export function wsAppendAI(answer, sources, question, searchMode) {
 
   const followups    = (typeof _isFollowupsEnabled === 'function' && _isFollowupsEnabled()) ? _wsFollowups(answer, question) : [];
   const followupHtml = followups.length ? `
-    <div class="followups" style="margin-top:10px;">
+    <div class="followups">
       <div class="followup-head">Follow-up questions</div>
       <div class="followup-list">
         ${followups.map(q => `
@@ -145,7 +145,7 @@ export function wsAppendAI(answer, sources, question, searchMode) {
       <div class="ai-body">
         <div class="ai-text">${wsRender(answer)}</div>
         ${sourcesHtml}
-        <div class="msg-acts" style="margin-top:10px;">
+        <div class="msg-acts">
           <button class="msg-act" onclick="wsCopyMsg(this, '${msgId}')">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
           </button>
