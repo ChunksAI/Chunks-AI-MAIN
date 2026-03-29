@@ -709,6 +709,8 @@ const SP_EXPLAIN_DRAWER_HTML = /* html */`
       <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;justify-content:center;">
         <button data-action="spExamRestart" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Retry Exam</button>
         <button data-action="spDrawerTab" data-tab="explain" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-2);font-size:12px;cursor:pointer;font-family:var(--font-body);">Back to Explain</button>
+        <!-- Feedback-loop: review flashcards from exam results -->
+        <button onclick="window.showScreen?.('flash')" style="padding:8px 16px;border-radius:var(--r-pill);background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);font-size:12px;cursor:pointer;font-family:var(--font-body);">📚 Review Flashcards</button>
       </div>
     </div>
   </div>

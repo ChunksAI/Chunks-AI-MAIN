@@ -437,6 +437,10 @@ const EXAM_HTML = /* html */`
             <button class="exam-nav-btn secondary" data-action="examNewTopic" style="flex:1;">
               New Topic
             </button>
+            <!-- Feedback-loop: review flashcards after exam -->
+            <button class="exam-nav-btn secondary" onclick="window.showScreen?.('flash')" style="flex:1;">
+              📚 Review Flashcards
+            </button>
           </div>
         </div>
       </div><!-- /exam-results -->

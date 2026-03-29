@@ -9,6 +9,7 @@ import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 import { guestGate, recordUsage, renderUsageBar, isGuest, showLoginWall } from '../../lib/guestLimits.js';
 import { showToast }   from '../../components/Toast.js';
 import { $el, setHtml, addClass, removeClass, toggleClass } from '../domHelpers.js';
+import { handleCommand, syncContextFromWorkspace, updateContext } from '../commandEngine.js';
 
 // ── Toast (delegated to Toast.js — Task 20) ───────────────────────────────
 
@@ -238,6 +239,15 @@ export async function wsChatSend() {
   const question = inp.value.trim();
   if (!question) return;
   if (!guestGate('workspace')) return; // guest limit check
+
+  // ── Command Engine: intercept navigation/action commands ─────────────────
+  syncContextFromWorkspace();
+  if (handleCommand(question, { screen: 'workspace' })) {
+    inp.value = ''; wsAutoResize(inp); inp.focus();
+    return;
+  }
+  // ── End command intercept ─────────────────────────────────────────────────
+
   inp.placeholder = 'Ask a follow-up about Chapter 3…';
   wsAppendUser(question, ws.selectedText);
   inp.value = ''; wsAutoResize(inp); inp.focus();
@@ -316,6 +326,9 @@ export async function _wsAsk(question) {
       wsAppendAI(answer, data.sources || [], question, data.search_mode);
       ws.chatHistory.push({ role: 'assistant', content: answer });
       if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
+      // Update context with the current topic and page for command engine
+      updateContext({ topic: question.slice(0, 120), screen: 'workspace' });
+      syncContextFromWorkspace();
     }
   } catch (e) {
     wsRemoveThinking();
