@@ -355,9 +355,9 @@ export function spExplainMarkdown(text) {
 
   const html = tokens.map(tok => {
     if (tok.type === 'heading') {
-      const sizes = { 1: '16px', 2: '15px', 3: '14px' };
-      const sz = sizes[tok.level] || '14px';
-      return `<h4 style="font-family:var(--font-head);font-size:${sz};font-weight:700;color:var(--text-1);margin:20px 0 6px;letter-spacing:-0.01em;">${inlineFormat(tok.content)}</h4>`;
+      const sizes = { 1: '20px', 2: '18px', 3: '16px' };
+      const sz = sizes[tok.level] || '16px';
+      return `<h4 style="font-family:var(--font-head);font-size:${sz};font-weight:700;color:var(--text-1);margin:20px 0 10px;letter-spacing:-0.01em;">${inlineFormat(tok.content)}</h4>`;
     }
     if (tok.type === 'ul') return '<ul>' + tok.items.map(l => `<li>${inlineFormat(l)}</li>`).join('') + '</ul>';
     if (tok.type === 'ol') return '<ol>' + tok.items.map(l => `<li>${inlineFormat(l)}</li>`).join('') + '</ol>';
