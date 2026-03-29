@@ -60,7 +60,8 @@ def _run_ask_job(data: dict) -> dict:
 
     # ── Redis query cache ─────────────────────────────────────────────────
     _cache_eligible = _ask_is_cacheable(mode, history, web_search, thinking_mode)
-    _cache_key_val  = _ask_cache_key(book_id, task_type, mode, complexity, question) \
+    _cache_key_val  = _ask_cache_key(book_id, task_type, mode, complexity, question,
+                                     doc_context) \
                       if _cache_eligible else None
     if _cache_eligible:
         cached_payload = _ask_cache_get(_cache_key_val)

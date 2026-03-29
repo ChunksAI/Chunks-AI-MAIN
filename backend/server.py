@@ -422,8 +422,11 @@ _ASK_CACHE_TTL       = 3600
 _ASK_CACHEABLE_MODES = frozenset(['study', 'summary', 'general', 'concise', 'detailed', 'generate'])
 
 def _ask_cache_key(book_id: str, task_type: str | None, mode: str,
-                   complexity: int, question: str) -> str:
+                   complexity: int, question: str, doc_context: str = '') -> str:
     canonical = f"{book_id}|{task_type or mode}|{complexity}|{question.strip().lower()}"
+    if doc_context:
+        ctx_hash  = hashlib.sha256(doc_context.encode()).hexdigest()[:12]
+        canonical += f"|{ctx_hash}"
     digest    = hashlib.sha256(canonical.encode()).hexdigest()[:16]
     return f"ask:v1:{digest}"
 
