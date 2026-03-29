@@ -397,20 +397,15 @@
 }
 
 .msg-ai { align-items: flex-start; }
-.ai-row { display: flex; align-items: flex-start; gap: 9px; width: 100%; }
+.ai-row { display: flex; align-items: flex-start; width: 100%; }
 
-.ai-ava {
-  width: 24px; height: 24px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--violet), var(--gold));
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0; margin-top: 2px;
-}
+.ai-ava { display: none; }
 
 .ai-body { flex: 1; min-width: 0; }
 
 .ai-text {
   font-size: var(--chat-font-size); color: var(--text-1);
-  line-height: 1.68; margin-bottom: 10px;
+  line-height: 1.7; margin-bottom: 10px;
 }
 .ai-text strong { font-weight: 600; }
 .ai-text em { font-style: italic; }
@@ -841,30 +836,17 @@
   border-radius: 10px; padding: 10px 14px;
   font-size: 13px; color: #f87171;
 }
-/* ── AI Thinking Indicator — pulsing dots ─────────────────── */
-.hc-thinking {
-  display: flex; align-items: center; gap: 5px; padding: 1px 0;
-}
-.hc-thinking span {
-  width: 6px; height: 6px; border-radius: 50%;
+/* ── AI Typing Indicator — single blinking amber dot ──────────── */
+.ws-typing-dot {
+  display: inline-block;
+  width: 7px; height: 7px; border-radius: 50%;
   background: var(--gold);
-  animation: hc-pulse 1.6s ease-in-out infinite;
+  animation: ws-blink 1.2s ease-in-out infinite;
   flex-shrink: 0;
 }
-.hc-thinking span:nth-child(1) { animation-delay: 0s; }
-.hc-thinking span:nth-child(2) { animation-delay: 0.24s; }
-.hc-thinking span:nth-child(3) { animation-delay: 0.48s; }
-@keyframes hc-pulse {
-  0%, 55%, 100% {
-    transform: scale(0.5);
-    opacity: 0.2;
-    box-shadow: none;
-  }
-  27% {
-    transform: scale(1);
-    opacity: 1;
-    box-shadow: 0 0 8px var(--gold-glow), 0 0 18px rgba(232,172,46,0.18);
-  }
+@keyframes ws-blink {
+  0%, 100% { opacity: 0.2; }
+  50%       { opacity: 1; }
 }
 /* Label shimmer */
 .hc-thinking-label {

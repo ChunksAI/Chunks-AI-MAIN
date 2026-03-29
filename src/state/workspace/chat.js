@@ -8,7 +8,7 @@ import { wsGoToPage } from './pdf.js';
 import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 import { guestGate, recordUsage, renderUsageBar, isGuest, showLoginWall } from '../../lib/guestLimits.js';
 import { showToast }   from '../../components/Toast.js';
-import { $el, setText, setHtml, addClass, removeClass, toggleClass } from '../domHelpers.js';
+import { $el, setHtml, addClass, removeClass, toggleClass } from '../domHelpers.js';
 
 // ── Toast (delegated to Toast.js — Task 20) ───────────────────────────────
 
@@ -70,32 +70,18 @@ export function wsAppendThinking() {
   d.className = 'msg msg-ai'; d.id = 'ws-thinking-msg';
   d.innerHTML = `
     <div class="ai-row">
-      <div class="ai-ava">${_wsAvatarSvg()}</div>
       <div class="ai-body">
-        <div style="display:flex;align-items:center;gap:10px;padding:3px 0;">
-          <div class="hc-thinking"><span></span><span></span><span></span></div>
-          <span id="ws-thinking-label" class="hc-thinking-label">Thinking…</span>
+        <div style="padding:3px 0;">
+          <span class="ws-typing-dot"></span>
         </div>
       </div>
     </div>`;
   msgs.appendChild(d); wsScrollBottom();
-  const labels = ['Thinking…', 'Analyzing concept…', 'Reading context…', 'Generating explanation…'];
-  let li = 0;
-  d._labelTimer = setInterval(() => {
-    const el = $el('ws-thinking-label');
-    if (!el) return;
-    el.style.opacity = '0';
-    setTimeout(() => {
-      li = (li + 1) % labels.length;
-      setText(el, labels[li]);
-      el.style.opacity = '';
-    }, 280);
-  }, 2400);
 }
 
 export function wsRemoveThinking() {
   const el = $el('ws-thinking-msg');
-  if (el) { clearInterval(el._labelTimer); el.remove(); }
+  if (el) el.remove();
 }
 
 export function wsAppendAI(answer, sources, question, searchMode) {
@@ -156,7 +142,6 @@ export function wsAppendAI(answer, sources, question, searchMode) {
   d.className = 'msg msg-ai'; d.id = msgId;
   d.innerHTML = `
     <div class="ai-row">
-      <div class="ai-ava">${_wsAvatarSvg()}</div>
       <div class="ai-body">
         <div class="ai-text">${wsRender(answer)}</div>
         ${sourcesHtml}
@@ -187,7 +172,7 @@ export function wsAppendError(msg) {
   const d = document.createElement('div');
   d.className = 'msg msg-ai';
   const escaped = msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  d.innerHTML = `<div class="ai-row"><div class="ai-ava">${_wsAvatarSvg()}</div><div class="ai-body"><p class="ai-text" style="color:#f87171;">⚠ ${escaped}</p></div></div>`;
+  d.innerHTML = `<div class="ai-row"><div class="ai-body"><p class="ai-text" style="color:#f87171;">⚠ ${escaped}</p></div></div>`;
   msgs.appendChild(d); wsScrollBottom();
 }
 
