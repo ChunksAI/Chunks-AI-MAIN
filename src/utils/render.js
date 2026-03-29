@@ -154,6 +154,14 @@ function _restoreMath(html, math) {
 // ── homeMarkdown ───────────────────────────────────────────────────────────
 
 /**
+ * Regex matching page references in AI text (single-pass, left-to-right):
+ *   📖 Page N  |  (Page N)  |  Page N  |  p. N
+ * Used by both homeMarkdown and wsRender.
+ * @internal
+ */
+const _PAGE_REF_RE = /📖\s*Page\s+(\d+)|\(Page\s+(\d+)\)|\bPage\s+(\d+)\b|(?<!\w)p\.\s*(\d+)\b/g;
+
+/**
  * Convert AI response text to safe HTML for the home-screen chat.
  * Handles math, code blocks, headers, bold/italic, lists, tables, blockquotes.
  *
@@ -184,7 +192,7 @@ export function homeMarkdown(text) {
   t = t.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
 
   // Page reference badges: 📖 Page N, (Page N), Page N, p. N
-  t = t.replace(/📖\s*Page\s+(\d+)|\(Page\s+(\d+)\)|\bPage\s+(\d+)\b|\bp\.\s*(\d+)\b/g,
+  t = t.replace(_PAGE_REF_RE,
     (_, a, b, c, d) => {
       const pg = a || b || c || d;
       return `<span class="hc-page-badge" title="Page ${pg}">📄 Page ${pg}</span>`;
@@ -243,7 +251,7 @@ export function wsRender(raw) {
     .replace(/\*(.+?)\*/g,         '<em>$1</em>')
     .replace(/`([^`]+)`/g,         '<code>$1</code>')
     // Detect page references: 📖 Page N, (Page N), Page N, p. N
-    .replace(/📖\s*Page\s+(\d+)|\(Page\s+(\d+)\)|\bPage\s+(\d+)\b|\bp\.\s*(\d+)\b/g,
+    .replace(_PAGE_REF_RE,
       (_, a, b, c, d) => {
         const pg = a || b || c || d;
         return `<span data-ws-chip="${pg}" class="ws-page-chip" title="Jump to page ${pg}">📄 Page ${pg}</span>`;

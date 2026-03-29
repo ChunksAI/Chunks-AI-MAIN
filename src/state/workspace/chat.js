@@ -138,11 +138,11 @@ export function wsAppendAI(answer, sources, question, searchMode) {
       ${isHybrid ? 'semantic' : 'keyword'}
     </span>` : '';
 
-  const bestPage = sources && sources.length > 0 ? sources[0].page : null;
-  const jumpToPageHtml = bestPage ? `
-    <button class="msg-act ws-jump-page-btn" onclick="wsGoToPage(${bestPage})" title="Navigate to the most relevant page in the PDF">
+  const primarySourcePage = sources && sources.length > 0 ? sources[0].page : null;
+  const jumpToPageHtml = primarySourcePage ? `
+    <button class="msg-act ws-jump-page-btn" onclick="wsGoToPage(${primarySourcePage})" title="Navigate to the most relevant page in the PDF">
       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-      Go to Page ${bestPage}
+      Go to Page ${primarySourcePage}
     </button>` : '';
 
   const d = document.createElement('div');
