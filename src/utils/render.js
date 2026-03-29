@@ -78,6 +78,7 @@ const _sanitizeCfg = {
   ],
   ALLOWED_ATTR: [
     'class','style','id',
+    'data-ws-chip',  // workspace page-jump chips (kept so afterSanitizeAttributes hook can add onclick)
     // SVG / KaTeX attributes
     'viewBox','xmlns','width','height','fill','stroke','stroke-width',
     'stroke-linecap','stroke-linejoin','d','points','x','y','x1','y1',
@@ -86,6 +87,8 @@ const _sanitizeCfg = {
     'offset','clip-path','mask',
     // Table / link
     'colspan','rowspan','href','target','rel',
+    // Tooltip / accessibility
+    'title',
     // Page-jump chips added back via afterSanitizeAttributes hook below
   ],
   FORBID_ATTR: [
@@ -180,6 +183,13 @@ export function homeMarkdown(text) {
   t = t.replace(/^---$/gm, '<hr>');
   t = t.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
 
+  // Page reference badges: 📖 Page N, (Page N), Page N, p. N
+  t = t.replace(/📖\s*Page\s+(\d+)|\(Page\s+(\d+)\)|\bPage\s+(\d+)\b|\bp\.\s*(\d+)\b/g,
+    (_, a, b, c, d) => {
+      const pg = a || b || c || d;
+      return `<span class="hc-page-badge" title="Page ${pg}">📄 Page ${pg}</span>`;
+    });
+
   // Collapse blank lines between consecutive list items
   t = t.replace(/(^(\d+)\. .+$)((\n\n+|\n)(^\d+\. .+$))+/gm, b => b.replace(/\n{2,}/g, '\n'));
   t = t.replace(/(^[-*] .+$)((\n\n+|\n)(^[-*] .+$))+/gm,    b => b.replace(/\n{2,}/g, '\n'));
@@ -213,8 +223,9 @@ export function homeMarkdown(text) {
 
 /**
  * Convert AI response text to safe HTML for the workspace chat.
- * Same as homeMarkdown but also converts "📖 Page N" references into
- * clickable page-jump chips (via data-ws-chip, restored by DOMPurify hook).
+ * Same as homeMarkdown but also converts page references ("Page N", "(Page N)",
+ * "p. N", "📖 Page N") into clickable page-jump chips (via data-ws-chip,
+ * activated by DOMPurify afterSanitizeAttributes hook).
  *
  * @param {string} raw - Raw AI response
  * @returns {string}   Sanitised HTML
@@ -231,8 +242,12 @@ export function wsRender(raw) {
     .replace(/\*\*(.+?)\*\*/g,     '<strong>$1</strong>')
     .replace(/\*(.+?)\*/g,         '<em>$1</em>')
     .replace(/`([^`]+)`/g,         '<code>$1</code>')
-    .replace(/📖 Page (\d+)/g,
-      (_, pg) => `<span data-ws-chip="${pg}" style="cursor:pointer;color:var(--gold);font-family:var(--font-mono);font-size:11px;background:var(--gold-muted);border:1px solid var(--gold-border);padding:1px 6px;border-radius:4px;">📖 p.${pg}</span>`);
+    // Detect page references: 📖 Page N, (Page N), Page N, p. N
+    .replace(/📖\s*Page\s+(\d+)|\(Page\s+(\d+)\)|\bPage\s+(\d+)\b|\bp\.\s*(\d+)\b/g,
+      (_, a, b, c, d) => {
+        const pg = a || b || c || d;
+        return `<span data-ws-chip="${pg}" class="ws-page-chip" title="Jump to page ${pg}">📄 Page ${pg}</span>`;
+      });
 
   // Tables
   s = _renderTable(s);

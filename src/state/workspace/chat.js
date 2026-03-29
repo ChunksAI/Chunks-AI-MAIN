@@ -138,6 +138,13 @@ export function wsAppendAI(answer, sources, question, searchMode) {
       ${isHybrid ? 'semantic' : 'keyword'}
     </span>` : '';
 
+  const bestPage = sources && sources.length > 0 ? sources[0].page : null;
+  const jumpToPageHtml = bestPage ? `
+    <button class="msg-act ws-jump-page-btn" onclick="wsGoToPage(${bestPage})" title="Navigate to the most relevant page in the PDF">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Go to Page ${bestPage}
+    </button>` : '';
+
   const d = document.createElement('div');
   d.className = 'msg msg-ai'; d.id = msgId;
   d.innerHTML = `
@@ -158,6 +165,7 @@ export function wsAppendAI(answer, sources, question, searchMode) {
           <button class="msg-act ws-read-aloud-btn" aria-pressed="false" onclick="wsReadAloud(document.querySelector('#${msgId} .ai-text')?.innerText||'','${msgId}')">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Read
           </button>
+          ${jumpToPageHtml}
           ${searchModeBadge}
         </div>
         ${followupHtml}
