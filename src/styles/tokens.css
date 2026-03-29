@@ -114,13 +114,13 @@
 
 [data-theme="study"] {
 
-  /* ── Surfaces — warm parchment ─────────────────────────── */
-  --bg:          #f5f0e8;
-  --surface-0:   #f0ebe0;
-  --surface-1:   #faf7f2;
-  --surface-2:   #ede8dc;
-  --surface-3:   #e4ddd0;
-  --surface-4:   #d8d0c0;
+  /* ── Surfaces — clean warm light ───────────────────────── */
+  --bg:          #f3efe6;
+  --surface-0:   #ede8de;
+  --surface-1:   #ffffff;
+  --surface-2:   #f5f1ea;
+  --surface-3:   #ece7dd;
+  --surface-4:   #ddd6c8;
 
   /* ── Borders — dark-on-light ───────────────────────────── */
   --border-xs:   rgba(0,0,0,0.05);
@@ -133,8 +133,8 @@
   --surface:   #faf7f2;
 
   /* ── Text — dark ink hierarchy ─────────────────────────── */
-  --text-1: #1a1610;
-  --text-2: #3d3830;
+  --text-1: #2a2218;
+  --text-2: #4a4238;
   --text-3: #7a7060;
   --text-4: #a89e8e;
 
