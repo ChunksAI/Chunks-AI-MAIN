@@ -490,6 +490,30 @@
 .msg-act.copied { color: var(--green) !important; border-color: var(--green) !important; }
 .msg-act.loading { opacity: 0.5; pointer-events: none; }
 
+/* Page-jump chip (inline in AI text) */
+.ws-page-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  cursor: pointer; color: var(--gold);
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--gold-muted); border: 1px solid var(--gold-border);
+  padding: 1px 6px; border-radius: 4px;
+  transition: background var(--t-fast), border-color var(--t-fast);
+  vertical-align: baseline;
+}
+.ws-page-chip:hover { background: var(--gold-border); border-color: var(--gold); }
+
+/* "Go to Page X" action button */
+.ws-jump-page-btn {
+  color: var(--gold) !important;
+  border-color: var(--gold-border) !important;
+  background: var(--gold-muted) !important;
+}
+.ws-jump-page-btn:hover {
+  background: var(--gold-border) !important;
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
+}
+
 /* Recent sidebar items */
 .recent-list { display: flex; flex-direction: column; gap: 1px; }
 .recent-item {
@@ -841,6 +865,14 @@
   font-size: 11px; color: var(--text-3);
   font-family: var(--font-mono);
   display: flex; align-items: center; gap: 5px;
+}
+
+/* Page reference badge (home chat — non-clickable) */
+.hc-page-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  color: var(--gold); font-family: var(--font-mono); font-size: 11px;
+  background: var(--gold-muted); border: 1px solid var(--gold-border);
+  padding: 1px 6px; border-radius: 4px; vertical-align: baseline;
 }
 .hc-error {
   background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2);
