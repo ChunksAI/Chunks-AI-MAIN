@@ -14,6 +14,11 @@ import { showScreen } from '../navigation/index.js';
 import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 import { FlashcardDB } from '../../lib/flashcardDb.js';
 import { showToast } from '../../components/Toast.js';
+import { ws } from '../workspace/state.js';
+import {
+  wsAppendUser, wsAppendThinking, wsRemoveThinking,
+  wsAppendError, wsScrollBottom,
+} from '../workspace/chat.js';
 
 // ── Workspace make flashcard ────────────────────────────────────────────────
 
@@ -102,6 +107,92 @@ export async function wsMakeFlashcard(btn, msgId, topic) {
     }
     showToast?.('⚠', err.message || 'Generation failed', 'var(--red)');
     console.error('[wsMakeFlashcard]', err);
+  }
+}
+
+// ── Generate flashcards inline in chat (no existing msgId required) ──────────
+
+export async function wsGenerateFlashcardsInChat(topic) {
+  if (ws.typing) return;
+
+  const effectiveTopic = (topic && topic.trim()) || ws.bookId || 'current chapter';
+  const displayMsg = (topic && topic.trim())
+    ? `Generate flashcards on "${topic.trim()}"`
+    : 'Generate flashcards for this chapter';
+
+  wsAppendUser(displayMsg);
+  ws.typing = true;
+  wsAppendThinking();
+
+  try {
+    const res = await fetch(`${API_BASE}/generate-flashcards`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
+      body: JSON.stringify({ topic: effectiveTopic, bookId: ws.bookId || null, count: 10 }),
+    });
+    const data = await res.json();
+    wsRemoveThinking();
+
+    if (!res.ok || !data.success || !data.flashcards?.length) {
+      throw new Error(data.error || 'No flashcards returned');
+    }
+
+    const cards = data.flashcards.map(c => ({
+      front: c.front || c.question || '',
+      back:  c.back  || c.answer   || '',
+      ...(c.hint ? { hint: c.hint } : {}),
+    }));
+
+    const deck   = await FlashcardDB.fcSaveDeck(effectiveTopic, cards);
+    const deckId = deck.id || deck.name;
+    const count  = cards.length;
+
+    const safeId    = String(deckId).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const safeTopic = effectiveTopic.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const msgs = $el('ws-messages');
+    const d = document.createElement('div');
+    d.className = 'msg msg-ai';
+    d.innerHTML = `
+      <div class="ai-row">
+        <div class="ai-body">
+          <div class="ws-gen-result-card" style="padding:12px 14px;background:var(--surface-2);border:1px solid var(--violet-border);border-radius:var(--r-md);">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+              <div style="padding:6px;background:var(--violet-muted);border-radius:var(--r-sm);flex-shrink:0;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:700;color:var(--text-1);">Flashcard Set Created</div>
+                <div style="font-size:11px;color:var(--text-4);">${count} card${count !== 1 ? 's' : ''} &middot; ${safeTopic}</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button onclick="wsOpenFlashcardDeck('${safeId}', '${safeTopic}')"
+                style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 12px;background:var(--violet);border:none;border-radius:var(--r-sm);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-body);transition:opacity 0.15s;"
+                onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m5 12 14 0"/><path d="m12 5 7 7-7 7"/></svg>
+                Open Flashcards
+              </button>
+              <button onclick="wsStartFlashcardPractice('${safeId}', '${safeTopic}')"
+                style="display:flex;align-items:center;gap:5px;padding:7px 12px;background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);transition:background 0.15s;"
+                onmouseenter="this.style.background='var(--surface-hover)'" onmouseleave="this.style.background='var(--surface-3)'">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                Practice
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    if (msgs) { msgs.appendChild(d); wsScrollBottom(); }
+    showToast?.('✦', `${count} cards created — "${effectiveTopic}"`, 'var(--gold)');
+  } catch (err) {
+    wsRemoveThinking();
+    wsAppendError(err.message || 'Failed to generate flashcards');
+    console.error('[wsGenerateFlashcardsInChat]', err);
+  } finally {
+    ws.typing = false;
+    const sendBtn = $el('ws-chat-send');
+    if (sendBtn) sendBtn.disabled = false;
   }
 }
 

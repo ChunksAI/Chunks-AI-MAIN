@@ -210,6 +210,11 @@ window.wsMakeFlashcard = async function(btn, msgId, question) {
   console.warn('[ws] wsMakeFlashcard called before flashState loaded');
 };
 
+// Forward-reference stub — flash/index.js overwrites this with the real impl
+window.wsGenerateFlashcardsInChat = async function(topic) {
+  console.warn('[ws] wsGenerateFlashcardsInChat called before flashState loaded');
+};
+
 // Forward-reference stubs for new navigation functions
 window.wsOpenFlashcardDeck = async function(deckId, topic) {
   console.warn('[ws] wsOpenFlashcardDeck called before flashState loaded');
@@ -234,6 +239,7 @@ import {
   _fcRestartDeck, _fcStudyHardOnly, _fcCreateNew, _fcExitStudy, _fcCloseCompleteModal,
   _fcOpenEditCard, _fcCloseEditCard, _fcSaveEditCard,
   wsMakeFlashcard as _wsMakeFlashcardReal,
+  wsGenerateFlashcardsInChat as _wsGenerateFlashcardsInChatReal,
   wsOpenFlashcardDeck as _wsOpenFlashcardDeckReal,
   wsStartFlashcardPractice as _wsStartFlashcardPracticeReal,
   wsBackToWorkspace as _wsBackToWorkspaceReal,
@@ -290,8 +296,9 @@ window._fcCloseEditCard = _fcCloseEditCard;
 window._fcSaveEditCard  = _fcSaveEditCard;
 
 // Chat bridges — real implementation from flash (replaces forward-reference stub)
-window.wsMakeFlashcard          = _wsMakeFlashcardReal;
-window.wsOpenFlashcardDeck      = _wsOpenFlashcardDeckReal;
+window.wsMakeFlashcard              = _wsMakeFlashcardReal;
+window.wsGenerateFlashcardsInChat   = _wsGenerateFlashcardsInChatReal;
+window.wsOpenFlashcardDeck          = _wsOpenFlashcardDeckReal;
 window.wsStartFlashcardPractice = _wsStartFlashcardPracticeReal;
 window.wsBackToWorkspace        = _wsBackToWorkspaceReal;
 window._fcCheckNavFrom          = _fcCheckNavFrom;
