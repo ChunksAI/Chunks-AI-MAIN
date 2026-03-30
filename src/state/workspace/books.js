@@ -15,6 +15,7 @@ import { lsGet, lsSet } from '../../utils/storage.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 import { subscribeToChatRealtime, unsubscribeChatRealtime } from './chatRealtime.js';
 import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
+import { _wsRenderMessageFromBlocks } from './chat.js';
 
 let _wsSaveScrollTm;
 
@@ -303,20 +304,31 @@ export async function selectBook(bookId) {
 export function _wsRenderHistory(msgs, history) {
   if (!msgs || !history?.length) return;
   msgs.innerHTML = '';
-  history.forEach(msg => {
-    const el = document.createElement('div');
+  const bookName = $el('ws-book-name')?.textContent || '';
+  history.forEach((msg, i) => {
     if (msg.role === 'user') {
+      const el = document.createElement('div');
       el.className = 'msg msg-user';
       const escaped = (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       el.innerHTML = `<div class="bubble-user">${escaped}</div>`;
-    } else {
-      el.className = 'msg msg-ai';
-      const rendered = typeof window.homeMarkdown === 'function'
-        ? window.homeMarkdown(msg.content || '')
-        : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      el.innerHTML = `<div class="ai-row"><div class="ai-body">${rendered}</div></div>`;
+      msgs.appendChild(el);
+    } else if (msg.role === 'assistant') {
+      if (msg.blocks?.length) {
+        // Re-create the full UI (text + sources + action buttons) from structured blocks
+        const msgId = 'ws-msg-hist-' + i + '-' + Date.now();
+        const el = _wsRenderMessageFromBlocks(msgId, msg.blocks, bookName);
+        msgs.appendChild(el);
+      } else {
+        // Legacy messages without blocks — render with plain markdown
+        const el = document.createElement('div');
+        el.className = 'msg msg-ai';
+        const rendered = typeof window.homeMarkdown === 'function'
+          ? window.homeMarkdown(msg.content || '')
+          : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        el.innerHTML = `<div class="ai-row"><div class="ai-body"><div class="ai-text">${rendered}</div></div></div>`;
+        msgs.appendChild(el);
+      }
     }
-    msgs.appendChild(el);
   });
   msgs.scrollTop = msgs.scrollHeight;
 }

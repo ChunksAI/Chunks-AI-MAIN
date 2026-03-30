@@ -30,6 +30,7 @@ export {
   wsAppendUser, _wsAvatarSvg, wsAppendThinking, wsRemoveThinking,
   wsAppendAI, wsAppendError, wsCopyMsg, _wsFollowups, _wsRegenerate,
   wsToggleWebSearch, wsToggleThinking, wsToggleThinkMenu, wsChatSend, _wsAsk,
+  _wsBuildBlocks, _wsRenderMessageFromBlocks,
 } from './chat.js';
 
 export { _wsCreateAskBtn, _wsHideAskBtn, _wsOnSelectionChange } from './selection.js';
