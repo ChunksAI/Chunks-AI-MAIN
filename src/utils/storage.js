@@ -41,6 +41,8 @@ const MEM_ONLY_KEYS = new Set([
   'sp_recent_plans',
   // Streak / XP data — synced from streak_state table
   'fc_streak_data',
+  // Flashcard streak display data — duplicate of streak_state
+  'chunks_fc_streak_v1',
   // Default book pointer — synced from ws_state.active_book_id
   'chunks_default_book',
   // Admin / owner email cache — verified via backend on every session

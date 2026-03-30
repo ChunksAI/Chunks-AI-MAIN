@@ -43,7 +43,7 @@ export function spLoadAllPlans() {
     const parsed = lsGet('sp_all_plans');
     if (parsed) sp.allPlans = parsed;
     sp.activePlanId = localStorage.getItem('sp_active_plan_id') || null;
-    const dateRaw = localStorage.getItem('sp_exam_date_' + sp.activePlanId);
+    const dateRaw = lsGet('sp_exam_date_' + sp.activePlanId, null);
     if (dateRaw) sp.examDate = dateRaw;
   } catch (e) {}
 }
@@ -185,9 +185,9 @@ export function spDeletePlan(id) {
   ChunksDB?.studyPlan?.remove(id).catch(() => {});
   if (deletedTopic) {
     try {
-      let recentPlans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]');
+      let recentPlans = lsGet('sp_recent_plans', []);
       recentPlans = recentPlans.filter(p => p !== deletedTopic);
-      localStorage.setItem('sp_recent_plans', JSON.stringify(recentPlans));
+      lsSet('sp_recent_plans', recentPlans);
     } catch (e) {}
   }
   if (sp.activePlanId === id) {

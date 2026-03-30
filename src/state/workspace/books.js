@@ -12,6 +12,7 @@ import { isGuest, showLoginWall } from '../../lib/guestLimits.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
 import { checkStorageQuota } from '../../utils/storageQuota.js';
 import { lsGet, lsSet } from '../../utils/storage.js';
+import { memSet } from '../../lib/memCache.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 import { subscribeToChatRealtime, unsubscribeChatRealtime } from './chatRealtime.js';
 import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
@@ -41,7 +42,7 @@ export async function selectBook(bookId) {
   ws.chatHistory = [];
   // Persist active book immediately so a refresh can restore it
   lsSet('chunks_active_ws_book', bookId);
-  try { localStorage.setItem('chunks_default_book', bookId); } catch (_) {}
+  memSet('chunks_default_book', bookId);
   try { localStorage.removeItem('chunks_active_ws_user_doc'); } catch (_) {}
   trackBookOpen(bookId);
 

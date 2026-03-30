@@ -341,16 +341,13 @@ export function mountSidebars() {
 /** Render recent plans into every sidebar's recent-plans list */
 export function _renderRecentPlansAllSidebars() {
   let plans = [];
-  try { plans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]'); } catch(_) {}
+  try { plans = (window._memGet ? window._memGet('sp_recent_plans', []) : []); } catch(_) {}
 
   let allPlans = {};
-  // sp_all_plans lives in IndexedDB — use the window._lsGet bridge (set by
-  // globals.js) which routes IDB keys through the in-memory cache, or fall
-  // back to raw localStorage for backward compat during early boot.
+  // sp_all_plans is now served from in-memory cache (populated by pullAndApply).
+  // Use window._lsGet which routes through the MEM_ONLY / IDB interception layer.
   try {
-    allPlans = window._lsGet
-      ? window._lsGet('sp_all_plans', {})
-      : JSON.parse(localStorage.getItem('sp_all_plans') || '{}');
+    allPlans = window._lsGet ? window._lsGet('sp_all_plans', {}) : {};
   } catch(_) {}
 
   document.querySelectorAll('.sp-recent-plans-outer').forEach(section => {
@@ -416,8 +413,7 @@ if (document.readyState === 'loading') {
 /** Render the study streak widget in all sidebars */
 export function _renderSidebarStreak() {
   try {
-    const raw = localStorage.getItem('chunks_fc_streak_v1');
-    const streak = raw ? JSON.parse(raw) : null;
+    const streak = window._memGet ? window._memGet('chunks_fc_streak_v1', null) : null;
     const count = streak?.current || 0;
     document.querySelectorAll('#sidebar-streak-widget').forEach(el => {
       const daysEl = el.querySelector('.streak-days');

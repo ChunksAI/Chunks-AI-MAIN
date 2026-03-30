@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * src/state/workspace/state.js — Shared mutable state + constants
  *
@@ -88,7 +89,7 @@ export const ws = {
   resizeObserver: null,
   resizeRaf:      0,
 
-  bookId:        localStorage.getItem('chunks_default_book') || null,
+  bookId:        (typeof window !== 'undefined' && window._memGet ? window._memGet('chunks_default_book', null) : null),
   chatHistory:   [],
   newChatIsIncognito: false,
   typing:        false,

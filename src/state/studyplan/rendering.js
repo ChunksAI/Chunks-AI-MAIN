@@ -9,7 +9,7 @@ import { spMasteryScore } from './mastery.js';
 import { spConfidenceBadge } from './srs.js';
 import { spClearUpload } from './input.js';
 import { setActivePlan, _renderRecentPlansAllSidebars } from '../../components/Sidebar.js';
-import { lsSet } from '../../utils/storage.js';
+import { lsSet, lsGet } from '../../utils/storage.js';
 
 export async function spRenderPlan(plan, sourceName) {
   const n = plan.concepts.length;
@@ -190,7 +190,7 @@ export function spShowPlan() {
 export function spSavePlanToSidebar(topic) {
   if (!topic) return;
   let plans = [];
-  try { plans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]'); } catch (_) {}
+  try { plans = lsGet('sp_recent_plans', []); } catch (_) {}
   plans = plans.filter(p => p !== topic);
   plans.unshift(topic);
   plans = plans.slice(0, 6);

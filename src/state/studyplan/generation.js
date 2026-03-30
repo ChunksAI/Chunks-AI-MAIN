@@ -146,7 +146,7 @@ Rules:
     sp.mastery = {};
     sp.examDate = null;
     try {
-      localStorage.removeItem('sp_exam_date_default');
+      if (window._memRemove) window._memRemove('sp_exam_date_default');
     } catch (_) {}
     sp.activePlanId = _spGenPlanId();
     recordUsage('studyplan');

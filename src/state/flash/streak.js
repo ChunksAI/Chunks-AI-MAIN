@@ -3,6 +3,7 @@
  */
 
 import { $el, setText, setHtml, show, addClass, removeClass } from '../domHelpers.js';
+import { memGet, memSet } from '../../lib/memCache.js';
 import { STREAK_KEY, FREEZE_KEY, XP_KEY, LEGEND_KEY } from './state.js';
 import { FC_ACCENTS, _fcCheckNewAccentUnlock } from './accent.js';
 import { showToast } from '../../components/Toast.js';
@@ -92,15 +93,14 @@ export function _fcTryUseFreeze(streak) {
 
 export function _fcGetStreak() {
   try {
-    const raw = localStorage.getItem(STREAK_KEY);
-    return raw ? JSON.parse(raw) : { current: 0, longest: 0, lastStudyDate: null };
+    return memGet(STREAK_KEY, { current: 0, longest: 0, lastStudyDate: null });
   } catch (e) {
     return { current: 0, longest: 0, lastStudyDate: null };
   }
 }
 
 export function _fcSaveStreak(data) {
-  try { localStorage.setItem(STREAK_KEY, JSON.stringify(data)); } catch (e) {}
+  memSet(STREAK_KEY, data);
 }
 
 export function _fcTodayStr() {

@@ -709,7 +709,6 @@ export function clearAllHistory() {
         k.startsWith('chunks_session_') ||
         k.startsWith('chunks_ws_session_') ||
         k.startsWith('chunks_vt_session_') ||
-        k.startsWith('exam_snap_') ||
         k.startsWith('sp_') ||
         k === 'chunks_recent' ||
         k === 'chunks_active_home_session' ||
@@ -717,9 +716,16 @@ export function clearAllHistory() {
         k === 'chunks_active_ws_user_doc' ||
         k === 'chunks_active_recent_id' ||
         k === 'chunks_home_session' ||
-        k === 'chunks_active_vt_session' ||
-        k === 'exam_recent'
+        k === 'chunks_active_vt_session'
       ).forEach(k => localStorage.removeItem(k));
+
+      // ── Clear in-memory cache keys (MEM_ONLY data) ──────────
+      if (window._memRemove) {
+        window._memRemove('exam_recent');
+        window._memRemove('sp_recent_plans');
+        window._memRemove('chunks_deleted_sessions');
+        window._memRemove('chunks_default_book');
+      }
 
       // ── Reset in-memory state via window bridges ──────────
       // _recentItems is a live getter — clear via _saveRecent pattern

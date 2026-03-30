@@ -23,6 +23,7 @@
 
 import { getSupabaseClient } from './supabase.js';
 import { API_BASE } from './api.js';
+import { memGet, memSet, memRemove, memClear } from './memCache.js';
 
 // ── User state ────────────────────────────────────────────────────────────────
 
@@ -102,9 +103,9 @@ function _applyUI(user) {
 
   const initials = _initials(user.name, user.email);
 
-  // Resolve owner/admin from cache immediately — before planLabel so the label is correct on first paint
-  const _cachedAdminEarly = localStorage.getItem('chunks_admin_email');
-  const _cachedOwnerEarly = localStorage.getItem('chunks_owner_email');
+  // Resolve owner/admin from in-memory cache — before planLabel so the label is correct on first paint
+  const _cachedAdminEarly = memGet('chunks_admin_email', null);
+  const _cachedOwnerEarly = memGet('chunks_owner_email', null);
   const _isOwnerEarly = user.isOwner || (_cachedOwnerEarly && _cachedOwnerEarly === user.email);
   const _isAdminEarly = user.isAdmin || (_cachedAdminEarly && _cachedAdminEarly === user.email);
 
@@ -165,8 +166,8 @@ function _applyUI(user) {
   // Show/hide the admin button in ProfileDropdown if applicable.
   // Check both the user.isAdmin/isOwner flags AND the localStorage cache so the button
   // and label appear instantly on every _applyUI call without waiting for the backend.
-  const cachedAdmin = localStorage.getItem('chunks_admin_email');
-  const cachedOwner = localStorage.getItem('chunks_owner_email');
+  const cachedAdmin = memGet('chunks_admin_email', null);
+  const cachedOwner = memGet('chunks_owner_email', null);
   const isAdminNow  = user.isAdmin || (cachedAdmin && cachedAdmin === user.email);
   const isOwnerNow  = user.isOwner || (cachedOwner && cachedOwner === user.email);
   if (isOwnerNow && _currentUser) { _currentUser.isOwner = true; _currentUser.isAdmin = true; }
@@ -184,7 +185,7 @@ function _applyUI(user) {
  */
 function _applyDefaultSettings() {
   try {
-    if (localStorage.getItem('chunks_settings_initialized') === '1') return;
+    if (memGet('chunks_settings_initialized', null) === '1') return;
 
     const defaults = {
       // General
@@ -223,7 +224,7 @@ function _applyDefaultSettings() {
     document.documentElement.style.setProperty('--chat-font-size', fontMap['medium']);
 
     // Mark as initialized so we never overwrite again
-    localStorage.setItem('chunks_settings_initialized', '1');
+    memSet('chunks_settings_initialized', '1');
   } catch (e) {
     console.warn('[auth] _applyDefaultSettings failed:', e);
   }
@@ -292,8 +293,8 @@ export function _applyUserProfile(session) {
       });
       if (!res.ok) {
         // Non-admin or CORS error — clear caches silently, no console spam
-        localStorage.removeItem('chunks_admin_email');
-        localStorage.removeItem('chunks_owner_email');
+        memRemove('chunks_admin_email');
+        memRemove('chunks_owner_email');
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = 'none';
         return;
@@ -304,15 +305,15 @@ export function _applyUserProfile(session) {
           _currentUser.isAdmin = true;
           _currentUser.isOwner = data.role === 'owner' || data.role === 'superadmin';
         }
-        localStorage.setItem('chunks_admin_email', _currentUser.email);
-        if (_currentUser.isOwner) localStorage.setItem('chunks_owner_email', _currentUser.email);
-        else localStorage.removeItem('chunks_owner_email');
+        memSet('chunks_admin_email', _currentUser.email);
+        if (_currentUser.isOwner) memSet('chunks_owner_email', _currentUser.email);
+        else memRemove('chunks_owner_email');
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = '';
         if (_currentUser) _applyUI(_currentUser);
       } else {
-        localStorage.removeItem('chunks_admin_email');
-        localStorage.removeItem('chunks_owner_email');
+        memRemove('chunks_admin_email');
+        memRemove('chunks_owner_email');
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = 'none';
       }
@@ -693,16 +694,15 @@ export async function chunksSignOut() {
     // Clear all state
     _currentUser = null;
 
-    // ── Wipe ALL user-scoped localStorage data ────────────────────────────────
-    // Previously only 5 pointer keys were cleared, leaving behind chat sessions,
-    // settings, streak data, workspace positions, and recent items.  When a
-    // second account logged in on the same browser it inherited the first user's
-    // full history — a privacy and correctness bug.
-    //
-    // Strategy: collect every key that starts with a known user-data prefix,
-    // then delete them all.  We do NOT use localStorage.clear() because that
-    // would also wipe Supabase's own auth token keys (sb-*-auth-token) which
-    // the SDK needs to complete the server-side signOut call that fires below.
+    // ── Wipe ALL user-scoped data ─────────────────────────────────────────────
+    // Clear in-memory cache first (covers all MEM_ONLY keys: tombstones,
+    // exam snapshots, streak, admin/owner, default_book, sync timestamps, etc.)
+    memClear();
+
+    // Then clear localStorage keys that are still persisted.
+    // We do NOT use localStorage.clear() because that would also wipe
+    // Supabase's own auth token keys (sb-*-auth-token) which the SDK
+    // needs to complete the server-side signOut call that fires below.
     try {
       const USER_PREFIXES = [
         'chunks_session_',       // chat sessions (r+timestamp and UUID variants)
@@ -711,30 +711,24 @@ export async function chunksSignOut() {
         'chunks_ws_zoom_',       // per-book zoom level
         'chunks_ws_visited_',    // per-book last-visited timestamp
         'chunks_setting_',       // all settings keys
-        'chunks_fc_',            // flashcard streak, XP, freeze tokens, accent, mastery
-        'fc_streak_data',        // legacy streak key
-        'fc_streak_last_study',  // legacy streak key
+        'chunks_fc_',            // flashcard accent, mastery
       ];
       const EXACT_KEYS = [
-        'chunks-ai-auth',            // our cached session copy — must be cleared so the auth gate re-enters guest mode
+        'chunks-ai-auth',            // our cached session copy
         'chunks_recent',
         'chunks_active_home_session',
         'chunks_active_ws_book',
         'chunks_active_ws_user_doc',
         'chunks_active_recent_id',
-        'chunks_admin_email',
-        'chunks_owner_email',
-        'chunks_default_book',
         'chunks_home_session',
         'chunks_pending_upload_sessions',
-        'chunks_deleted_sessions',
-        'chunks_settings_initialized',
-        'chunks_settings_updated_at',
-        'chunks_ws_last_visited',
         'chunks-chat-font-size',
         'chunks_improve_data',
         'chunks_study_mode',
         'chunks_chunksSyncFired',
+        'chunks_progress_v1',
+        'chunks_listen_rate',
+        'sp_active_plan_id',
       ];
 
       // Collect prefix-matched keys first (can't mutate while iterating)
