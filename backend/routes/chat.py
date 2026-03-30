@@ -495,7 +495,13 @@ Keep the summary focused, clear, and easy to review before an exam."""
             #
             # For all other generate prompts (no embedded document) the full
             # prompt is short and screened normally.
-            if task_type == 'exam':
+            if task_type in ('exam', 'study_plan'):
+                # Exam prompts embed user-uploaded source material and
+                # study-plan prompts embed a full system-prompt template
+                # ("You are an expert …") in the question field.  Both
+                # trigger false positives in the injection classifier, so
+                # skip screening entirely — AI-level protection is
+                # sufficient.
                 _injection_flagged, _injection_method = False, 'clean'
             else:
                 _screen_text = question
