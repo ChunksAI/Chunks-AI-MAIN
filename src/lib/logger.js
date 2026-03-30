@@ -44,6 +44,11 @@ if (typeof window !== 'undefined') {
   window.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') _flush();
   });
+  // Clean up on page unload to prevent memory leaks in test/HMR scenarios
+  window.addEventListener('unload', () => {
+    if (_flushTimer) { clearInterval(_flushTimer); _flushTimer = null; }
+    _flush();
+  });
 }
 
 // ── Core log function ────────────────────────────────────────────────────────

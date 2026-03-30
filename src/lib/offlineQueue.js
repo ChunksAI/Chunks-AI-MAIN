@@ -55,6 +55,8 @@ export async function flushQueue() {
   _flushing = true;
   log('offline', `Flushing ${_queue.size} queued writes`);
 
+  // First pass: attempt all writes without blocking on retries
+  const failed = [];
   for (const [key, entry] of [..._queue.entries()]) {
     try {
       await entry.fn();
@@ -67,13 +69,18 @@ export async function flushQueue() {
         _queue.delete(key);
       } else {
         logWarn('offline', `Write retry ${entry.retries}/3: ${key}`);
-        // Wait with exponential backoff before next attempt
-        await new Promise(r => setTimeout(r, Math.pow(2, entry.retries) * 1000));
+        failed.push(key);
       }
     }
   }
 
   _flushing = false;
+
+  // Schedule a retry for failed writes (avoids head-of-line blocking)
+  if (failed.length > 0) {
+    const delay = Math.pow(2, Math.min(...failed.map(k => _queue.get(k)?.retries || 1))) * 1000;
+    setTimeout(flushQueue, delay);
+  }
 }
 
 /**
