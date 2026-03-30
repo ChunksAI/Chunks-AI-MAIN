@@ -642,9 +642,9 @@ function _deleteRecent(id, e) {
   //   1. _uploadLocalChatSessions never re-uploads this session
   //   2. pullAndApply never re-writes it to localStorage from Supabase
   try {
-    const tombs = (window._memGet ? window._memGet('chunks_deleted_sessions', []) : []);
+    const tombs = window._memGet('chunks_deleted_sessions', []);
     [id, resolvedUuid].filter(Boolean).forEach(v => { if (!tombs.includes(v)) tombs.push(v); });
-    if (window._memSet) window._memSet('chunks_deleted_sessions', tombs.slice(-200));
+    window._memSet('chunks_deleted_sessions', tombs.slice(-200));
   } catch (_) {}
 
   // Delete from Supabase using the fully resolved UUID.
@@ -655,7 +655,7 @@ function _deleteRecent(id, e) {
     localStorage.removeItem('chunks_vt_session_' + id);
   }
   if (item && item.source === 'exam' && item._snapId) {
-    if (window._memRemove) window._memRemove('exam_snap_' + item._snapId);
+    window._memRemove('exam_snap_' + item._snapId);
   }
 
   // If this was the active chat, reset the UI back to landing
@@ -1284,7 +1284,7 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
   // Load tombstones — must happen BEFORE we touch _recentItems so we can
   // purge any deleted sessions that were loaded from localStorage at boot.
   const _hydrateTombs = (() => {
-    try { return new Set(window._memGet ? window._memGet('chunks_deleted_sessions', []) : []); }
+    try { return new Set(window._memGet('chunks_deleted_sessions', [])); }
     catch(_) { return new Set(); }
   })();
 
@@ -6140,7 +6140,7 @@ function _examFinish() {
     },
   }).catch(err => console.warn('[ExamDB] save error:', err));
   // ── End Supabase persist ──────────────────────────────────────────────────
-  const recent = (window._memGet ? window._memGet('exam_recent', []) : []);
+  const recent = window._memGet('exam_recent', []);
   recent.unshift({
     id: _snapId,
     topic: _examTopic,
@@ -6153,9 +6153,9 @@ function _examFinish() {
     timeTaken: mm+':'+ss
   });
   const trimmed = recent.slice(0, 5);
-  if (window._memSet) window._memSet('exam_recent', trimmed);
+  window._memSet('exam_recent', trimmed);
   // Save full snapshot (questions + answers) in memory
-  if (window._memSet) window._memSet('exam_snap_' + _snapId, {
+  window._memSet('exam_snap_' + _snapId, {
     questions: _examQuestions,
     answers: _examAnswers,
     topic: _examTopic,
@@ -6189,7 +6189,7 @@ function _examFinish() {
     }
   }
   // Clean up old snapshots beyond 5
-  trimmed.forEach((r,i) => { if (i >= 5 && r.id && window._memRemove) window._memRemove('exam_snap_' + r.id); });
+  trimmed.forEach((r,i) => { if (i >= 5 && r.id) window._memRemove('exam_snap_' + r.id); });
   _examLoadRecent();
   _examShow('exam-results');
 }
@@ -6197,7 +6197,7 @@ function _examFinish() {
 function _examLoadRecent() {
   const list = document.getElementById('exam-recent-list');
   if (!list) return;
-  const recent = (window._memGet ? window._memGet('exam_recent', []) : []);
+  const recent = window._memGet('exam_recent', []);
   if (!recent.length) { list.innerHTML='<div style="padding:8px 12px;font-size:11px;color:var(--text-4);">No exams yet</div>'; return; }
   list.innerHTML = recent.slice(0,5).map(r=>{
     const scoreColor = r.score>=60?'var(--teal)':'#f87171';
@@ -6278,9 +6278,9 @@ function _examShowResults() {
 
 function _examLoadSnap(id, recentItemId) {
   if (!id) return;
-  const snap = window._memGet ? window._memGet('exam_snap_' + id, null) : null;
+  const snap = window._memGet('exam_snap_' + id, null);
   if (!snap) {
-    const recent = (window._memGet ? window._memGet('exam_recent', []) : []);
+    const recent = window._memGet('exam_recent', []);
     const entry  = recent.find(r => String(r.id) === String(id));
     if (entry) document.getElementById('exam-topic-input').value = entry.topic;
     _examShow('exam-setup');
@@ -7069,9 +7069,9 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
             onConfirm: () => {
               // Remove from sp_recent_plans list
               try {
-                let plans = (window._memGet ? window._memGet('sp_recent_plans', []) : []);
+                let plans = window._memGet('sp_recent_plans', []);
                 plans = plans.filter(p => p !== topic);
-                if (window._memSet) window._memSet('sp_recent_plans', plans);
+                window._memSet('sp_recent_plans', plans);
               } catch(_) {}
               // Remove from sp_all_plans and call spDeletePlan if loaded
               if (planId && typeof window.spDeletePlan === 'function') {
@@ -7096,10 +7096,10 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
             const trimmed = newName.trim().slice(0, 60);
             // Update sp_recent_plans
             try {
-              let plans = (window._memGet ? window._memGet('sp_recent_plans', []) : []);
+              let plans = window._memGet('sp_recent_plans', []);
               const idx = plans.indexOf(topic);
               if (idx >= 0) plans[idx] = trimmed;
-              if (window._memSet) window._memSet('sp_recent_plans', plans);
+              window._memSet('sp_recent_plans', plans);
             } catch(_) {}
             // Update sp_all_plans entry topic
             try {

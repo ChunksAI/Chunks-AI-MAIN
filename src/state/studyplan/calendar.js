@@ -8,7 +8,7 @@ import { $el, hide, show, setText, setHtml } from '../domHelpers.js';
 import { spMasteryScore, spMasteryGet, spMasteryUpdateNode } from './mastery.js';
 import { spRenderPlan } from './rendering.js';
 import { spUpdateReminderUI } from './notifications.js';
-import { lsSet, lsRemove } from '../../utils/storage.js';
+import { lsSet } from '../../utils/storage.js';
 import { memSet, memRemove } from '../../lib/memCache.js';
 
 export function spShowExamDatePicker() {
