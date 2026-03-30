@@ -11,22 +11,26 @@
  *   fc_cards    — one row per card  { id, deck_id, front, back }
  *   fc_sessions — one row per study session (local-only for now)
  *   fc_progress — SRS tracking     { card_id, deck_id, ease_factor, … }
+ *   flashcards  — per-document     { id, user_id, document_id, page, question, answer, created_at }
  *
  * localStorage keys (fallback when not logged in):
- *   chunks_fc_decks_v1    — array of deck objects (with embedded cards)
- *   chunks_fc_sessions_v1 — array of session objects
+ *   chunks_fc_decks_v1        — array of deck objects (with embedded cards)
+ *   chunks_fc_sessions_v1     — array of session objects
+ *   chunks_fc_flashcards_v1   — array of per-document flashcard objects
  *
  * Exports:
- *   FC_LS_KEY, FC_SESSIONS_LS_KEY  — storage key constants
- *   fcSaveDeck(topic, cards)       — create & persist a new deck
- *   fcSaveDeckLocal(deck)          — localStorage-only save
- *   fcPatchLocalDeckId(name, id)   — back-fill Supabase id into ls
- *   fcLoadDecks()                  — merge Supabase + localStorage
- *   fcLoadCards(deck)              — load cards for a given deck
- *   fcSaveSession(state)           — persist end-of-session summary
- *   fcSaveSessionLocal(session)    — localStorage-only session save
- *   fcGetLastSession(deckId, name) — retrieve most recent session
- *   fcRatingToSRS(rating, prev)    — SM-2-style SRS calculation
+ *   FC_LS_KEY, FC_SESSIONS_LS_KEY, FC_DOC_FLASHCARDS_LS_KEY  — storage key constants
+ *   fcSaveDeck(topic, cards)           — create & persist a new deck
+ *   fcSaveDeckLocal(deck)              — localStorage-only save
+ *   fcPatchLocalDeckId(name, id)       — back-fill Supabase id into ls
+ *   fcLoadDecks()                      — merge Supabase + localStorage
+ *   fcLoadCards(deck)                  — load cards for a given deck
+ *   fcSaveSession(state)               — persist end-of-session summary
+ *   fcSaveSessionLocal(session)        — localStorage-only session save
+ *   fcGetLastSession(deckId, name)     — retrieve most recent session
+ *   fcRatingToSRS(rating, prev)        — SM-2-style SRS calculation
+ *   fcSaveFlashcards(cards, docId, pg) — save per-document flashcards (deduped)
+ *   fcLoadFlashcards(docId, page?)     — load per-document flashcards
  *
  * Window bridge:
  *   window.FlashcardDB — full public API
@@ -35,11 +39,14 @@
 import { ChunksDB } from './chunksDb.js';
 import { getSupabaseClient } from './supabase.js';
 import { isIdbKey, idbGet, idbSet } from './idbStorage.js';
+import { _currentUser } from './auth.js';
 
 // ── Storage keys ─────────────────────────────────────────────────────────────
 
 export const FC_LS_KEY          = 'chunks_fc_decks_v1';
 export const FC_SESSIONS_LS_KEY = 'chunks_fc_sessions_v1';
+/** localStorage key for per-document flashcards (offline fallback) */
+export const FC_DOC_FLASHCARDS_LS_KEY = 'chunks_fc_flashcards_v1';
 
 // ── Internal localStorage helpers ────────────────────────────────────────────
 // These exist so the module works even before ChunksDB is fully initialised.
@@ -336,11 +343,193 @@ export async function fcGetLastSession(deckId, deckName) {
   return null;
 }
 
+// ── Per-document flashcard persistence ───────────────────────────────────────
+
+/**
+ * Persist per-document flashcard rows to localStorage only.
+ * Appends to the existing array (capped at 500 entries).
+ * @param {Array} rows — normalised flashcard rows
+ */
+function _fcSaveFlashcardsLocal(rows) {
+  const existing = lsGet(FC_DOC_FLASHCARDS_LS_KEY, []);
+  lsSet(FC_DOC_FLASHCARDS_LS_KEY, [...existing, ...rows].slice(0, 500));
+}
+
+/**
+ * Save flashcards per user and per document to the Supabase `flashcards` table.
+ *
+ * Duplicate prevention: any card whose `question` already exists for the same
+ * `user_id + document_id` is silently skipped.
+ *
+ * Falls back to localStorage when the user is not logged in so flashcards are
+ * never lost for guests or offline users.
+ *
+ * @param {Array<{question?: string, front?: string, answer?: string, back?: string}>} cards
+ * @param {string} documentId - book id or user-doc id (ws.bookId / ws.userDocId)
+ * @param {number} [page=0]   - current page number
+ * @returns {Promise<{saved: number, skipped: number, error: string|null}>}
+ */
+export async function fcSaveFlashcards(cards, documentId, page = 0) {
+  // ── Input validation ──────────────────────────────────────────────────────
+  if (!Array.isArray(cards) || !cards.length) {
+    return { saved: 0, skipped: 0, error: 'No cards provided' };
+  }
+  if (!documentId) {
+    return { saved: 0, skipped: 0, error: 'documentId is required' };
+  }
+
+  // Normalise and drop cards with empty question or answer
+  const valid = cards
+    .map(c => ({
+      question: (c.question || c.front  || '').trim(),
+      answer:   (c.answer   || c.back   || '').trim(),
+    }))
+    .filter(c => c.question && c.answer);
+
+  if (!valid.length) {
+    return { saved: 0, skipped: 0, error: 'No valid cards (missing question or answer)' };
+  }
+
+  // ── Logged-in path: Supabase ──────────────────────────────────────────────
+  if (ChunksDB?.isLoggedIn()) {
+    try {
+      const sb  = await getSupabaseClient();
+      if (!sb) throw new Error('Supabase client unavailable');
+
+      const uid = _currentUser?.id;
+      if (!uid) throw new Error('User id unavailable');
+
+      // Fetch existing questions for this user + document to detect duplicates
+      const { data: existing, error: fetchErr } = await sb
+        .from('flashcards')
+        .select('question')
+        .eq('user_id', uid)
+        .eq('document_id', documentId);
+
+      if (fetchErr) throw fetchErr;
+
+      const existingQs = new Set(
+        (existing || []).map(c => (c.question || '').trim().toLowerCase())
+      );
+
+      const newCards = valid.filter(
+        c => !existingQs.has(c.question.toLowerCase())
+      );
+      const skipped = valid.length - newCards.length;
+
+      if (!newCards.length) {
+        console.info('[FlashcardDB] fcSaveFlashcards: all cards already exist, skipping');
+        return { saved: 0, skipped, error: null };
+      }
+
+      const rows = newCards.map(c => ({
+        user_id:     uid,
+        document_id: documentId,
+        page:        page || 0,
+        question:    c.question,
+        answer:      c.answer,
+      }));
+
+      const { error: insertErr } = await sb.from('flashcards').insert(rows);
+      if (insertErr) throw insertErr;
+
+      // Mirror to localStorage for offline access
+      const localRows = rows.map(r => ({
+        ...r,
+        id:         crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36),
+        created_at: new Date().toISOString(),
+      }));
+      _fcSaveFlashcardsLocal(localRows);
+
+      console.log(`[FlashcardDB] fcSaveFlashcards: saved ${rows.length}, skipped ${skipped}`);
+      return { saved: rows.length, skipped, error: null };
+
+    } catch (e) {
+      console.warn('[FlashcardDB] fcSaveFlashcards error:', e.message);
+      return { saved: 0, skipped: 0, error: e.message };
+    }
+  }
+
+  // ── Guest / offline path: localStorage only ───────────────────────────────
+  const existing = lsGet(FC_DOC_FLASHCARDS_LS_KEY, []);
+  const existingQs = new Set(
+    existing
+      .filter(c => c.document_id === documentId)
+      .map(c => (c.question || '').trim().toLowerCase())
+  );
+
+  const newCards = valid.filter(c => !existingQs.has(c.question.toLowerCase()));
+  const skipped  = valid.length - newCards.length;
+
+  if (newCards.length) {
+    const rows = newCards.map(c => ({
+      id:          crypto.randomUUID
+        ? crypto.randomUUID()
+        : Date.now().toString(36) + Math.random().toString(36).slice(2),
+      document_id: documentId,
+      page:        page || 0,
+      question:    c.question,
+      answer:      c.answer,
+      created_at:  new Date().toISOString(),
+    }));
+    _fcSaveFlashcardsLocal(rows);
+  }
+
+  return { saved: newCards.length, skipped, error: null };
+}
+
+/**
+ * Load flashcards for a given document from Supabase (if logged in) or
+ * localStorage.  Optionally filter by page number.
+ *
+ * @param {string}  documentId - book id or user-doc id
+ * @param {number}  [page]     - if provided, only return cards for this page
+ * @returns {Promise<Array<{id, document_id, page, question, answer, created_at}>>}
+ */
+export async function fcLoadFlashcards(documentId, page) {
+  if (!documentId) return [];
+
+  if (ChunksDB?.isLoggedIn()) {
+    try {
+      const sb = await getSupabaseClient();
+      if (sb) {
+        const uid = _currentUser?.id;
+        if (!uid) throw new Error('User id unavailable');
+
+        let q = sb
+          .from('flashcards')
+          .select('*')
+          .eq('user_id', uid)
+          .eq('document_id', documentId)
+          .order('created_at', { ascending: true });
+
+        if (page !== undefined && page !== null) {
+          q = q.eq('page', page);
+        }
+
+        const { data, error } = await q;
+        if (!error && data?.length) return data;
+      }
+    } catch (e) {
+      console.warn('[FlashcardDB] fcLoadFlashcards error:', e.message);
+    }
+  }
+
+  // Fallback: filter localStorage entries for this document (and optional page)
+  const all = lsGet(FC_DOC_FLASHCARDS_LS_KEY, []);
+  return all.filter(c => {
+    if (c.document_id !== documentId) return false;
+    if (page !== undefined && page !== null && c.page !== page) return false;
+    return true;
+  });
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export const FlashcardDB = {
   FC_LS_KEY,
   FC_SESSIONS_LS_KEY,
+  FC_DOC_FLASHCARDS_LS_KEY,
   fcRatingToSRS,
   fcSaveDeck,
   fcSaveDeckLocal,
@@ -350,6 +539,8 @@ export const FlashcardDB = {
   fcSaveSession,
   fcSaveSessionLocal,
   fcGetLastSession,
+  fcSaveFlashcards,
+  fcLoadFlashcards,
 };
 
 console.log('[FlashcardDB] Persistence layer ready ✦');

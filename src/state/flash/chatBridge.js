@@ -61,6 +61,14 @@ export async function wsMakeFlashcard(btn, msgId, topic) {
     const deckId = deck.id || deck.name;
     const count  = cards.length;
 
+    // Also persist to per-document `flashcards` table for cross-session recall
+    const documentId = ws.userDocId || (ws.bookId !== '__user_doc__' ? ws.bookId : null);
+    if (documentId) {
+      FlashcardDB.fcSaveFlashcards(cards, documentId, ws.currentPage || 0).catch(e =>
+        console.warn('[wsMakeFlashcard] fcSaveFlashcards failed:', e.message)
+      );
+    }
+
     // Escape for safe inline attribute use
     const safeId    = String(deckId).replace(/'/g, '\\\'');
     const safeTopic = cleanTopic.replace(/'/g, '\\\'').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -146,6 +154,14 @@ export async function wsGenerateFlashcardsInChat(topic) {
     const deck   = await FlashcardDB.fcSaveDeck(effectiveTopic, cards);
     const deckId = deck.id || deck.name;
     const count  = cards.length;
+
+    // Also persist to per-document `flashcards` table for cross-session recall
+    const documentId = ws.userDocId || (ws.bookId !== '__user_doc__' ? ws.bookId : null);
+    if (documentId) {
+      FlashcardDB.fcSaveFlashcards(cards, documentId, ws.currentPage || 0).catch(e =>
+        console.warn('[wsGenerateFlashcardsInChat] fcSaveFlashcards failed:', e.message)
+      );
+    }
 
     const safeId    = String(deckId).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const safeTopic = effectiveTopic.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;');
