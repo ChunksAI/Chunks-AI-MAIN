@@ -307,7 +307,7 @@ export function getSmartSuggestions(ctxOverride) {
   if (suggestions.length < 2) {
     suggestions.push({
       text:   'Generate flashcards on this topic',
-      action: `wsSetInput('Generate flashcards on this topic')`,
+      action: `wsGenerateFlashcardsInChat()`,
       icon:   '🃏',
     });
     suggestions.push({

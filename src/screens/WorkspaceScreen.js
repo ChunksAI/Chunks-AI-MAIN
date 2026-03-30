@@ -236,7 +236,7 @@ const WORKSPACE_HTML = /* html */`
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9"/></svg>
             Summarize
           </button>
-          <button class="chat-action-chip" onclick="wsSetInput('Generate flashcards on this topic')">
+          <button class="chat-action-chip" onclick="wsGenerateFlashcardsInChat()">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l4.5 7.5H7.5z"/><path d="M12 22l-4.5-7.5h9z"/></svg>
             Flashcards
           </button>
