@@ -269,6 +269,8 @@ export function _applyUserProfile(session) {
              meta.role === 'superadmin',
   };
 
+  console.log('[auth] Current user:', _currentUser);
+
   _applyUI(_currentUser);
 
   // Fire verify-access ONCE per login only — not on every TOKEN_REFRESHED / re-render
@@ -386,14 +388,36 @@ export async function _initAuth() {
   try { sb = await getSupabaseClient(); } catch (e) { return; }
   if (!sb) return;
 
-  // 1. Restore existing session
+  // 1. Restore existing session, then verify with server via getUser()
   try {
     const { data: { session } } = await sb.auth.getSession();
-    _applyUserProfile(session);
+
+    // getUser() performs a network round-trip to verify the token with
+    // Supabase's auth server — more authoritative than the locally-stored
+    // session.  Use the verified user when available; fall back to the
+    // session user if the network request fails (e.g. offline).
+    let verifiedSession = session;
+    if (session?.access_token) {
+      try {
+        const { data: { user }, error: getUserError } = await sb.auth.getUser();
+        if (!getUserError && user) {
+          // Merge verified user into a synthetic session so _applyUserProfile
+          // receives the same shape it always expects.
+          verifiedSession = { ...session, user };
+          console.log('[auth] Current user:', user);
+        } else if (getUserError) {
+          console.warn('[auth] getUser() error (using session fallback):', getUserError.message);
+        }
+      } catch (getUserErr) {
+        console.warn('[auth] getUser() threw (using session fallback):', getUserErr.message);
+      }
+    }
+
+    _applyUserProfile(verifiedSession);
 
     // ── Sync user row on session restore (returning user / page refresh) ──
-    if (session?.user) {
-      const u    = session.user;
+    if (verifiedSession?.user) {
+      const u    = verifiedSession.user;
       const meta = u.user_metadata || {};
       const name = meta.full_name || meta.name || meta.display_name
                    || u.email?.split('@')[0] || 'User';
@@ -416,15 +440,15 @@ export async function _initAuth() {
     // ─────────────────────────────────────────────────────────────────────
 
     // Apply default settings for users who haven't been initialized yet
-    if (session?.user) _applyDefaultSettings();
+    if (verifiedSession?.user) _applyDefaultSettings();
 
     // ── Phase 4: cross-device sync via SyncManager (run once per page load) ──
-    if (session?.user && !_chunksSyncFired) {
+    if (verifiedSession?.user && !_chunksSyncFired) {
       _chunksSyncFired = true;  // prevent duplicate calls from TOKEN_REFRESHED etc.
       (async () => {
         try {
           const sb2 = await getSupabaseClient();
-          if (sb2) await sb2.rpc('ensure_user_settings', { p_user_id: session.user.id });
+          if (sb2) await sb2.rpc('ensure_user_settings', { p_user_id: verifiedSession.user.id });
         } catch (_) { /* non-fatal — row may already exist */ }
         // Small delay so the page has painted, then force-sync bypassing cooldown
         setTimeout(() => {
@@ -447,11 +471,11 @@ export async function _initAuth() {
                         sessionStorage.getItem('chunks_oauth_callback') === '1';
 
     // Consider authenticated if:
-    //   a) getSession() returned a live session, OR
+    //   a) getUser() or getSession() returned a live user, OR
     //   b) getSession() returned null but localStorage has a valid cached session
     //      (this happens when /api/config fetch fails or takes too long and the
     //      Supabase client is initialised with wrong/missing credentials)
-    const isAuthed = !!session?.user || _cachedSessionValid;
+    const isAuthed = !!verifiedSession?.user || _cachedSessionValid;
 
     if (!isAuthed && !isGuest && !isLoginPage && !isOAuthCb) {
       window.location.replace('/ChunksAI');
@@ -459,7 +483,7 @@ export async function _initAuth() {
     }
 
     // Clear the OAuth callback flag once we have a confirmed session
-    if (session?.user || _cachedSessionValid) {
+    if (verifiedSession?.user || _cachedSessionValid) {
       try { sessionStorage.removeItem('chunks_oauth_callback'); } catch(e) {}
       // Also clear guest mode — a real session takes precedence
       try { sessionStorage.removeItem('chunks_guest_mode'); } catch(e) {}
@@ -475,7 +499,7 @@ export async function _initAuth() {
     // ── Popup self-close (step 1 path) ───────────────────────────────────
     // getSession() exchanges ?code= directly (PKCE), so SIGNED_IN in
     // onAuthStateChange may never fire. Close the popup here instead.
-    if (isOAuthCb && session?.user && window.opener && !window.opener.closed) {
+    if (isOAuthCb && verifiedSession?.user && window.opener && !window.opener.closed) {
       try { window.opener.postMessage('chunks_auth_success', 'https://chunks.online'); } catch(_) {}
       setTimeout(() => window.close(), 100);
       return;
