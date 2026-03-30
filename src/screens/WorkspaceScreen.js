@@ -7,6 +7,7 @@
  *   • #screen-workspace HTML injection (replaces data-workspace-screen placeholder)
  *   • Drag-to-resize splitter (resizer IIFE)
  *   • wsMobileView() — mobile chat/PDF toggle
+ *   • SmartNotesPanel + StickyStrip Preact islands (mounted after HTML inject)
  *
  * Bridges set on window.*:
  *   wsMobileView
@@ -15,6 +16,8 @@
  * wsZoomIn, wsZoomOut, wsJumpToPage, togglePdfOutline, wsHandleAttach, etc.)
  * is already owned by src/state/workspace/ (Task 16).
  */
+
+import { mountSmartNotesPanel, mountStickyStrip } from '../components/SmartNotesPanel.jsx';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -179,6 +182,9 @@ const WORKSPACE_HTML = /* html */`
 
       </div>
 
+      <!-- Sticky strip — 36px column on the right edge of the PDF panel -->
+      <div id="ws-sticky-strip" class="sticky-strip-mount"></div>
+
     </div>
   </section>
   <div class="ws-resizer" id="ws-resizer"></div>
@@ -331,9 +337,9 @@ const WORKSPACE_HTML = /* html */`
 
     </div><!-- /ws-chat-content -->
 
-    <!-- Notes panel (hidden by default) — personal scratchpad -->
+    <!-- Notes panel (hidden by default) — Smart Notes Panel (Preact island) -->
     <div id="ws-notes-panel" style="display:none;flex:1;min-height:0;flex-direction:column;overflow:hidden;">
-      <textarea id="ws-notes-textarea" class="ws-notes-textarea" placeholder="Jot your thoughts here — ideas, summaries, questions to revisit…" spellcheck="true"></textarea>
+      <!-- SmartNotesPanel Preact island is mounted here by WorkspaceScreen._initNotes() -->
     </div>
 
   </section>
@@ -353,6 +359,11 @@ export function mountWorkspaceScreen() {
   setTimeout(refreshSmartSuggestions, 300);
   setTimeout(_initSessionTimer, 0);
   setTimeout(_initNotes, 0);
+  // Mount Preact islands
+  setTimeout(() => {
+    mountSmartNotesPanel(document.getElementById('ws-notes-panel'));
+    mountStickyStrip(document.getElementById('ws-sticky-strip'));
+  }, 0);
 }
 
 // ── Smart suggestions ─────────────────────────────────────────────────────────
@@ -388,7 +399,11 @@ export function wsShowPanel(tab) {
     notesPanel.style.display  = 'flex';
     tabChat?.classList.remove('ws-ptab-active');
     tabNotes?.classList.add('ws-ptab-active');
-    document.getElementById('ws-notes-textarea')?.focus();
+    // Focus the contenteditable notes area (SmartNotesPanel)
+    setTimeout(() => {
+      const editable = notesPanel.querySelector('.snp-notes-area');
+      editable?.focus();
+    }, 0);
   } else {
     chatContent.style.display = 'flex';
     notesPanel.style.display  = 'none';
@@ -432,16 +447,12 @@ function _initSessionTimer() {
 }
 
 // ── Notes persistence ─────────────────────────────────────────────────────────
-
-const _NOTES_KEY = 'chunks-ai-notes';
+// Notes are now managed by the SmartNotesPanel Preact island (SmartNotesPanel.jsx).
+// This function is kept as a no-op for backward compatibility.
 
 function _initNotes() {
-  const textarea = document.getElementById('ws-notes-textarea');
-  if (!textarea) return;
-  textarea.value = localStorage.getItem(_NOTES_KEY) || '';
-  textarea.addEventListener('input', () => {
-    localStorage.setItem(_NOTES_KEY, textarea.value);
-  });
+  // SmartNotesPanel Preact island is mounted in mountWorkspaceScreen()
+  // and handles all notes state / localStorage persistence itself.
 }
 
 // ── Mobile view toggle (Chat ↔ PDF) ──────────────────────────────────────────
