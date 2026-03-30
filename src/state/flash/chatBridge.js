@@ -231,10 +231,20 @@ export async function wsOpenFlashcardDeck(deckId, topic) {
 
   setTimeout(async () => {
     _fcCheckNavFrom();
-    await _fcRenderDeckList();
-    // Scroll to top so the user sees their deck
-    const home = $el('fc-home');
-    if (home) home.scrollTop = 0;
+    try {
+      const decks = await FlashcardDB.fcLoadDecks();
+      const deck  = decks.find(d => String(d.id) === String(deckId) || d.name === deckId);
+      if (deck) {
+        _fcStartDeck(deck);
+      } else {
+        await _fcRenderDeckList();
+        // Scroll to top so the user sees their deck
+        const home = $el('fc-home');
+        if (home) home.scrollTop = 0;
+      }
+    } catch (e) {
+      await _fcRenderDeckList();
+    }
   }, 200);
 }
 
