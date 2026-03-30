@@ -379,6 +379,69 @@
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
+/* Session timer */
+.session-timer {
+  font-size: 11px;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+/* Panel tabs (Chat | Notes) */
+.ws-panel-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border-xs);
+  background: var(--surface-1);
+  flex-shrink: 0;
+}
+
+.ws-ptab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 16px;
+  height: 33px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-3);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+.ws-ptab:hover { color: var(--text-1); }
+.ws-ptab.ws-ptab-active {
+  color: var(--text-1);
+  border-bottom-color: var(--gold);
+  font-weight: 600;
+}
+
+/* Notes scratchpad panel */
+#ws-notes-panel { background: var(--bg); }
+
+.ws-notes-textarea {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 18px 20px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-1);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.75;
+  resize: none;
+  scrollbar-width: thin;
+}
+.ws-notes-textarea::placeholder { color: var(--text-4); }
+
 /* Messages */
 .messages {
   flex: 1; overflow-y: auto;
