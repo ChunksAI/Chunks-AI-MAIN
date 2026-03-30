@@ -257,6 +257,10 @@ import {
   wsBackToWorkspace as _wsBackToWorkspaceReal,
   _fcCheckNavFrom,
   _fcStudyInChat, _fcReviewHardInChat,
+  subscribeToFlashcardRealtime,
+  unsubscribeFlashcardRealtime,
+  getFlashcardsCache,
+  isFlashcardRealtimeActive,
 } from './state/flash/index.js';
 
 // Accent
@@ -317,6 +321,12 @@ window.wsBackToWorkspace        = _wsBackToWorkspaceReal;
 window._fcCheckNavFrom          = _fcCheckNavFrom;
 window._fcStudyInChat      = _fcStudyInChat;
 window._fcReviewHardInChat = _fcReviewHardInChat;
+
+// Flashcard Realtime
+window.subscribeToFlashcardRealtime   = subscribeToFlashcardRealtime;
+window.unsubscribeFlashcardRealtime   = unsubscribeFlashcardRealtime;
+window.getFlashcardsCache             = getFlashcardsCache;
+window.isFlashcardRealtimeActive      = isFlashcardRealtimeActive;
 
 // ── State · Study Plan ───────────────────────────────────────────────────────
 import {
