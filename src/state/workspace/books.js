@@ -11,6 +11,7 @@ import { trackBookOpen, trackBookPage } from '../../lib/bookProgress.js';
 import { isGuest, showLoginWall } from '../../lib/guestLimits.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
 import { checkStorageQuota } from '../../utils/storageQuota.js';
+import { lsGet, lsSet } from '../../utils/storage.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 
 let _wsSaveScrollTm;
@@ -36,6 +37,10 @@ export async function selectBook(bookId) {
   ws.userDocText = '';
   ws.bookId = bookId;
   ws.chatHistory = [];
+  // Persist active book immediately so a refresh can restore it
+  lsSet('chunks_active_ws_book', bookId);
+  try { localStorage.setItem('chunks_default_book', bookId); } catch (_) {}
+  try { localStorage.removeItem('chunks_active_ws_user_doc'); } catch (_) {}
   trackBookOpen(bookId);
   const short  = meta.name.split(' ').slice(0, 2).join(' ');
   setHtml($el('ws-context-tag'), `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg> ${short}`);
@@ -163,15 +168,22 @@ export async function selectBook(bookId) {
     const wrap = $el('ws-pdf-canvas-wrap');
     wrap.innerHTML = '';
 
-    try {
-      const _fitPage  = await ws.pdfDoc.getPage(1);
-      const _naturalW = _fitPage.getViewport({ scale: 1 }).width;
-      const _availW   = ($el('ws-pdf-view')?.clientWidth || 0) - 40;
-      if (_naturalW > 0 && _availW > 100) {
-        ws.scale = Math.min(Math.max(_availW / _naturalW, ZOOM_MIN), ZOOM_MAX);
-        setText($el('ws-zoom-badge'), Math.round(ws.scale * 100) + '%');
-      }
-    } catch (_) { /* keep default scale */ }
+    // Restore saved zoom if available, otherwise auto-fit to container width
+    const _savedZoom = lsGet('chunks_ws_zoom_' + bookId);
+    if (isFinite(_savedZoom) && _savedZoom >= ZOOM_MIN && _savedZoom <= ZOOM_MAX) {
+      ws.scale = _savedZoom;
+      setText($el('ws-zoom-badge'), Math.round(_savedZoom * 100) + '%');
+    } else {
+      try {
+        const _fitPage  = await ws.pdfDoc.getPage(1);
+        const _naturalW = _fitPage.getViewport({ scale: 1 }).width;
+        const _availW   = ($el('ws-pdf-view')?.clientWidth || 0) - 40;
+        if (_naturalW > 0 && _availW > 100) {
+          ws.scale = Math.min(Math.max(_availW / _naturalW, ZOOM_MIN), ZOOM_MAX);
+          setText($el('ws-zoom-badge'), Math.round(ws.scale * 100) + '%');
+        }
+      } catch (_) { /* keep default scale */ }
+    }
 
     for (let i = 1; i <= ws.totalPages; i++) {
       const pageWrap = document.createElement('div');
@@ -237,6 +249,17 @@ export async function selectBook(bookId) {
     hide($el('ws-pdf-loading'));
     hide($el('ws-default-content'));
     wrap.style.display = 'flex';
+
+    // Restore saved page position (use requestAnimationFrame so layout is ready)
+    const _savedPage = lsGet('chunks_ws_page_' + bookId);
+    if (isFinite(_savedPage) && _savedPage > 1 && _savedPage <= ws.totalPages) {
+      ws.currentPage = _savedPage;
+      _wsUpdateBadge(_savedPage);
+      const _target = ws.pageContainers[_savedPage - 1];
+      if (_target) {
+        requestAnimationFrame(() => { wrap.scrollTop = _target.offsetTop - 16; });
+      }
+    }
 
     // Disconnect any previous resize observer, then watch for container resizes
     _wsAttachResizeObserver();

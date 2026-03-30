@@ -119,6 +119,7 @@ export const KEYS = Object.freeze({
   ACTIVE_HOME_SESSION: 'chunks_active_home_session',
   ACTIVE_RECENT_ID:    'chunks_active_recent_id',
   ACTIVE_WS_BOOK:      'chunks_active_ws_book',
+  ACTIVE_WS_USER_DOC:  'chunks_active_ws_user_doc',
   SESSION_PREFIX:      'chunks_session_',        // + id
   WS_SESSION_PREFIX:   'chunks_ws_session_',     // + bookId
 

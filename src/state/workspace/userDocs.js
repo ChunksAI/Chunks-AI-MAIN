@@ -8,11 +8,17 @@ import { _wsUpdateBadge, _loadPdfJs, _wsRenderPage, wsFitWidth, _wsAttachResizeO
 import { _wsBuildOutline } from './outline.js';
 import { wsShowToast, wsSetInput } from './chat.js';
 import { getDocBlob, getDocMeta, deleteDoc } from '../../lib/userDocDb.js';
+import { lsGet, lsSet } from '../../utils/storage.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 
 // ── User document loader ─────────────────────────────────────────────────
 // Mirrors selectBook() but loads from IndexedDB instead of R2.
 // Sets ws.userDocId and ws.userDocText so _wsAsk sends doc_context.
+
+let _udSavePosTm;
+const _UD_PAGE_KEY = 'chunks_ws_page___user_doc__';
+// Sentinel bookId used when a user-uploaded doc is active — prevents textbook index lookups
+export const WS_USER_DOC_SENTINEL = '__user_doc__';
 
 export async function selectUserDoc(docId) {
   if (typeof closeLibraryModal === 'function') closeLibraryModal();
@@ -26,8 +32,11 @@ export async function selectUserDoc(docId) {
   // Switch workspace into user-doc mode
   ws.userDocId   = docId;
   ws.userDocText = meta.extractedText || '';
-  ws.bookId      = '__user_doc__';  // sentinel — prevents textbook index lookups
+  ws.bookId      = WS_USER_DOC_SENTINEL;
   ws.chatHistory = [];
+  // Persist active user doc so a refresh can restore it
+  lsSet('chunks_active_ws_book', WS_USER_DOC_SENTINEL);
+  lsSet('chunks_active_ws_user_doc', docId);
 
   const shortName = meta.name.replace(/\.[^.]+$/, '').slice(0, 30);
   setHtml($el('ws-context-tag'), `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> ${shortName}`);
@@ -151,6 +160,9 @@ export async function selectUserDoc(docId) {
           if (closest !== ws.currentPage) {
             ws.currentPage = closest;
             _wsUpdateBadge(closest);
+            // Persist page position for restore on refresh
+            clearTimeout(_udSavePosTm);
+            _udSavePosTm = setTimeout(() => { lsSet(_UD_PAGE_KEY, closest); }, 1500);
           }
         });
       }, { passive: true });
@@ -158,6 +170,17 @@ export async function selectUserDoc(docId) {
       hide($el('ws-pdf-loading'));
       hide($el('ws-default-content'));
       wrap.style.display = 'flex';
+
+      // Restore saved page position
+      const _savedPage = lsGet(_UD_PAGE_KEY);
+      if (isFinite(_savedPage) && _savedPage > 1 && _savedPage <= ws.totalPages) {
+        ws.currentPage = _savedPage;
+        _wsUpdateBadge(_savedPage);
+        const _target = ws.pageContainers[_savedPage - 1];
+        if (_target) {
+          requestAnimationFrame(() => { wrap.scrollTop = _target.offsetTop - 16; });
+        }
+      }
 
       // Disconnect any previous resize observer, then watch for container resizes
       _wsAttachResizeObserver();
@@ -268,6 +291,9 @@ async function _wsRenderPptSlides(meta) {
       if (closest !== ws.currentPage) {
         ws.currentPage = closest;
         _wsUpdateBadge(closest);
+        // Persist slide position for restore on refresh
+        clearTimeout(_udSavePosTm);
+        _udSavePosTm = setTimeout(() => { lsSet(_UD_PAGE_KEY, closest); }, 1500);
       }
     });
   }, { passive: true });
@@ -275,6 +301,17 @@ async function _wsRenderPptSlides(meta) {
   hide($el('ws-pdf-loading'));
   hide($el('ws-default-content'));
   wrap.style.display = 'flex';
+
+  // Restore saved slide position
+  const _savedSlide = lsGet(_UD_PAGE_KEY);
+  if (isFinite(_savedSlide) && _savedSlide > 1 && _savedSlide <= ws.pageContainers.length) {
+    ws.currentPage = _savedSlide;
+    _wsUpdateBadge(_savedSlide);
+    const _slideTarget = ws.pageContainers[_savedSlide - 1];
+    if (_slideTarget) {
+      requestAnimationFrame(() => { wrap.scrollTop = _slideTarget.offsetTop - 16; });
+    }
+  }
 }
 
 /**

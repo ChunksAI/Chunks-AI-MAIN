@@ -695,6 +695,7 @@ export async function chunksSignOut() {
         'chunks_recent',
         'chunks_active_home_session',
         'chunks_active_ws_book',
+        'chunks_active_ws_user_doc',
         'chunks_active_recent_id',
         'chunks_admin_email',
         'chunks_owner_email',
