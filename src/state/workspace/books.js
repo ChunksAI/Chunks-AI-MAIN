@@ -14,6 +14,7 @@ import { checkStorageQuota } from '../../utils/storageQuota.js';
 import { lsGet, lsSet } from '../../utils/storage.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 import { subscribeToChatRealtime, unsubscribeChatRealtime } from './chatRealtime.js';
+import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
 
 let _wsSaveScrollTm;
 
@@ -44,8 +45,9 @@ export async function selectBook(bookId) {
   try { localStorage.removeItem('chunks_active_ws_user_doc'); } catch (_) {}
   trackBookOpen(bookId);
 
-  // Start realtime subscription for this document
+  // Start realtime subscriptions for this document
   subscribeToChatRealtime(bookId);
+  subscribeToFlashcardRealtime(bookId);
   const short  = meta.name.split(' ').slice(0, 2).join(' ');
   setHtml($el('ws-context-tag'), `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg> ${short}`);
   setText($el('ws-chat-title'), meta.name);

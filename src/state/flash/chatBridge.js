@@ -13,6 +13,10 @@ import { _fcRenderDeckList } from './decks.js';
 import { showScreen } from '../navigation/index.js';
 import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 import { FlashcardDB } from '../../lib/flashcardDb.js';
+import {
+  getFlashcardsCache,
+  isFlashcardRealtimeActive,
+} from './flashcardRealtime.js';
 import { showToast } from '../../components/Toast.js';
 import { ws } from '../workspace/state.js';
 import {
@@ -261,14 +265,21 @@ export async function wsStartFlashcardPractice(deckId, topic) {
 
 /**
  * Load all flashcards saved for the document currently open in the workspace.
- * Always fetches fresh data from Supabase (scoped to the current user) so
- * there is no risk of mixing flashcards across users or serving stale cache.
+ * When a realtime subscription is active for this document the in-memory cache
+ * is returned immediately (no network round-trip).  Otherwise a fresh Supabase
+ * fetch is performed so the caller always receives up-to-date, user-scoped data.
  *
  * @returns {Promise<Array<{id, document_id, page, question, answer, created_at}>>}
  */
 export async function wsLoadDocumentFlashcards() {
   const documentId = ws.userDocId || (ws.bookId && ws.bookId !== '__user_doc__' ? ws.bookId : null);
   if (!documentId) return [];
+
+  // Prefer the live realtime cache to avoid an unnecessary Supabase round-trip
+  if (isFlashcardRealtimeActive(documentId)) {
+    return getFlashcardsCache();
+  }
+
   return FlashcardDB.fcLoadFlashcards(documentId);
 }
 

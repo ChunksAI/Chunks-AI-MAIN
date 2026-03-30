@@ -114,6 +114,13 @@ export {
   _fcInit,
 } from './chatBridge.js';
 
+export {
+  subscribeToFlashcardRealtime,
+  unsubscribeFlashcardRealtime,
+  getFlashcardsCache,
+  isFlashcardRealtimeActive,
+} from './flashcardRealtime.js';
+
 // ── Init ────────────────────────────────────────────────────────────────────
 
 import { _fcInit } from './chatBridge.js';
