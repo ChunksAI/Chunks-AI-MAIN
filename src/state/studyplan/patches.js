@@ -21,6 +21,8 @@ export function spSavePlanToSidebarAndLibrary(topic) {
   plans.unshift(topic);
   plans = plans.slice(0, 6);
   lsSet('sp_recent_plans', plans);
+  // Sync to Supabase so other devices see the updated sidebar list
+  try { window.ChunksDB?.recentItems?.patch({ spRecentPlans: plans }); } catch (_) {}
   spRenderRecentPlansSidebar(plans);
 }
 

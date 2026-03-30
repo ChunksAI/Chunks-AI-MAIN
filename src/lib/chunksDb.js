@@ -1227,10 +1227,11 @@ async function pullAll({ force = false } = {}) {
 
     // Step 3: streak, ws, chat, and studyPlan can now run in parallel safely.
     await Promise.allSettled([
-      _withTimeout(streak.pullAndApply(),      30000, 'streak.pullAndApply'),
-      _withTimeout(ws.pullAndApply(),          30000, 'ws.pullAndApply'),
-      _withTimeout(chat.pullAndApply(),        30000, 'chat.pullAndApply'),
-      _withTimeout(studyPlan.pullAndApply(),   30000, 'studyPlan.pullAndApply'),
+      _withTimeout(streak.pullAndApply(),          30000, 'streak.pullAndApply'),
+      _withTimeout(ws.pullAndApply(),              30000, 'ws.pullAndApply'),
+      _withTimeout(chat.pullAndApply(),            30000, 'chat.pullAndApply'),
+      _withTimeout(studyPlan.pullAndApply(),       30000, 'studyPlan.pullAndApply'),
+      _withTimeout(recentItems.pullAndApply(),     30000, 'recentItems.pullAndApply'),
     ]);
 
     console.log('[ChunksDB] pullAll — done ✦');
@@ -1380,6 +1381,91 @@ async function _uploadLocalChatSessions() {
   }
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// recentItems — exam_recent + sp_recent_plans cross-device sync
+// Table: recent_items  (created in migration 011)
+// These are lightweight sidebar list arrays — tiny payloads, last-write-wins.
+// ══════════════════════════════════════════════════════════════════════════════
+
+const recentItems = {
+
+  /**
+   * Push local exam_recent and/or sp_recent_plans up to Supabase.
+   * Call this whenever either list changes (fire-and-forget).
+   *
+   * @param {{ examRecent?: Array, spRecentPlans?: Array }} [opts]
+   */
+  async patch(opts = {}) {
+    if (!isLoggedIn()) return { data: null, error: null };
+    const examRecent    = opts.examRecent    ?? _lsGet('exam_recent',     []);
+    const spRecentPlans = opts.spRecentPlans ?? _lsGet('sp_recent_plans', []);
+    return _rpc('patch_recent_items', {
+      p_user_id:          _uid(),
+      p_exam_recent:      examRecent,
+      p_sp_recent_plans:  spRecentPlans,
+    });
+  },
+
+  /**
+   * Pull exam_recent and sp_recent_plans from Supabase and merge into localStorage.
+   * Remote wins if the row is newer than what's locally stored (last-write-wins on updated_at).
+   * Called by pullAll() on login.
+   *
+   * @returns {{ data: Object|null, error }}
+   */
+  async pullAndApply() {
+    if (!isLoggedIn()) return { data: null, error: 'not_logged_in' };
+
+    const sb = await _sb();
+    if (!sb) return { data: null, error: 'no_client' };
+
+    try {
+      const { data, error } = await sb
+        .from('recent_items')
+        .select('*')
+        .eq('user_id', _uid())
+        .single();
+
+      if (error || !data) return { data: null, error: error || null };
+
+      const localUpdatedAt = _lsGet('chunks_recent_items_updated_at');
+
+      if (!_remoteIsNewer(data.updated_at, localUpdatedAt)) {
+        // Local is newer — push local up to Supabase
+        await recentItems.patch();
+        return { data, error: null };
+      }
+
+      // Remote is newer — apply to localStorage
+      try {
+        const remoteExam = Array.isArray(data.exam_recent) ? data.exam_recent : [];
+        const remoteSp   = Array.isArray(data.sp_recent_plans) ? data.sp_recent_plans : [];
+
+        if (remoteExam.length) {
+          _lsSet('exam_recent', remoteExam);
+          console.log(`[ChunksDB] recentItems — restored ${remoteExam.length} exam entries`);
+        }
+        if (remoteSp.length) {
+          _lsSet('sp_recent_plans', remoteSp);
+          // Trigger re-render of study plan sidebar if the function is available
+          try { window._renderRecentPlansAllSidebars?.(); } catch (_) {}
+          console.log(`[ChunksDB] recentItems — restored ${remoteSp.length} study plan entries`);
+        }
+      } catch (parseErr) {
+        console.warn('[ChunksDB] recentItems — parse error:', parseErr.message);
+      }
+
+      _lsSet('chunks_recent_items_updated_at', data.updated_at);
+      return { data, error: null };
+
+    } catch (e) {
+      console.warn('[ChunksDB] recentItems.pullAndApply error:', e.message);
+      return { data: null, error: e.message };
+    }
+  },
+};
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 export const ChunksDB = {
@@ -1394,7 +1480,8 @@ export const ChunksDB = {
   streak,
   ws,
   studyPlan,
+  recentItems,
   pullAll,
 };
 
-console.log('[ChunksDB] Sync layer ready ✦  (Phase 2: chat · settings · streak · ws · studyPlan)');
+console.log('[ChunksDB] Sync layer ready ✦  (Phase 2: chat · settings · streak · ws · studyPlan · recentItems)');
