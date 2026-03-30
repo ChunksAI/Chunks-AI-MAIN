@@ -106,12 +106,20 @@ export {
   wsGenerateFlashcardsInChat,
   wsOpenFlashcardDeck,
   wsStartFlashcardPractice,
+  wsLoadDocumentFlashcards,
   wsBackToWorkspace,
   _fcCheckNavFrom,
   _fcStudyInChat,
   _fcReviewHardInChat,
   _fcInit,
 } from './chatBridge.js';
+
+export {
+  subscribeToFlashcardRealtime,
+  unsubscribeFlashcardRealtime,
+  getFlashcardsCache,
+  isFlashcardRealtimeActive,
+} from './flashcardRealtime.js';
 
 // ── Init ────────────────────────────────────────────────────────────────────
 

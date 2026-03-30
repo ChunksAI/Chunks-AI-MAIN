@@ -7,6 +7,8 @@ import { ws, ZOOM_MIN, ZOOM_MAX } from './state.js';
 import { _wsUpdateBadge, _loadPdfJs, _wsRenderPage, wsFitWidth, _wsAttachResizeObserver } from './pdf.js';
 import { _wsBuildOutline } from './outline.js';
 import { wsShowToast, wsSetInput } from './chat.js';
+import { subscribeToChatRealtime } from './chatRealtime.js';
+import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
 import { getDocBlob, getDocMeta, deleteDoc } from '../../lib/userDocDb.js';
 import { lsGet, lsSet } from '../../utils/storage.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
@@ -37,6 +39,10 @@ export async function selectUserDoc(docId) {
   // Persist active user doc so a refresh can restore it
   lsSet('chunks_active_ws_book', WS_USER_DOC_SENTINEL);
   lsSet('chunks_active_ws_user_doc', docId);
+
+  // Start realtime subscriptions for this user document
+  subscribeToChatRealtime(docId);
+  subscribeToFlashcardRealtime(docId);
 
   const shortName = meta.name.replace(/\.[^.]+$/, '').slice(0, 30);
   setHtml($el('ws-context-tag'), `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> ${shortName}`);

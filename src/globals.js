@@ -36,9 +36,11 @@ window._getChunksSb = getSupabaseClient;
 // ── Lib · IndexedDB ──────────────────────────────────────────────────────────
 import { ChunksDB }    from './lib/chunksDb.js';
 import { FlashcardDB } from './lib/flashcardDb.js';
+import { saveExamResult, loadExamHistory } from './lib/examDb.js';
 
 window.ChunksDB    = ChunksDB;
 window.FlashcardDB = FlashcardDB;
+window.ExamDB      = { saveExamResult, loadExamHistory };
 
 // ── Lib · Auth ───────────────────────────────────────────────────────────────
 import {
@@ -148,6 +150,8 @@ import {
   wsToggleVoiceInput, wsReadAloud, wsStopReading,
   wsListenPdf, wsStopListenPdf, wsListenPdfSetRate,
   _wsRenderHistory,
+  subscribeToChatRealtime, unsubscribeChatRealtime,
+  addMessageToUI, removeMessageFromUI, updateMessageInUI,
 } from './state/workspace/index.js';
 
 window.ws                  = ws;
@@ -207,6 +211,13 @@ window.wsListenPdf            = wsListenPdf;
 window.wsStopListenPdf        = wsStopListenPdf;
 window.wsListenPdfSetRate     = wsListenPdfSetRate;
 
+// ── State · Workspace · Realtime ─────────────────────────────────────────────
+window.subscribeToChatRealtime   = subscribeToChatRealtime;
+window.unsubscribeChatRealtime   = unsubscribeChatRealtime;
+window.addMessageToUI            = addMessageToUI;
+window.removeMessageFromUI       = removeMessageFromUI;
+window.updateMessageInUI         = updateMessageInUI;
+
 // Forward-reference stub — flash/index.js overwrites this with the real impl
 window.wsMakeFlashcard = async function(btn, msgId, question) {
   console.warn('[ws] wsMakeFlashcard called before flashState loaded');
@@ -244,9 +255,14 @@ import {
   wsGenerateFlashcardsInChat as _wsGenerateFlashcardsInChatReal,
   wsOpenFlashcardDeck as _wsOpenFlashcardDeckReal,
   wsStartFlashcardPractice as _wsStartFlashcardPracticeReal,
+  wsLoadDocumentFlashcards as _wsLoadDocumentFlashcardsReal,
   wsBackToWorkspace as _wsBackToWorkspaceReal,
   _fcCheckNavFrom,
   _fcStudyInChat, _fcReviewHardInChat,
+  subscribeToFlashcardRealtime,
+  unsubscribeFlashcardRealtime,
+  getFlashcardsCache,
+  isFlashcardRealtimeActive,
 } from './state/flash/index.js';
 
 // Accent
@@ -301,11 +317,18 @@ window._fcSaveEditCard  = _fcSaveEditCard;
 window.wsMakeFlashcard              = _wsMakeFlashcardReal;
 window.wsGenerateFlashcardsInChat   = _wsGenerateFlashcardsInChatReal;
 window.wsOpenFlashcardDeck          = _wsOpenFlashcardDeckReal;
-window.wsStartFlashcardPractice = _wsStartFlashcardPracticeReal;
+window.wsStartFlashcardPractice     = _wsStartFlashcardPracticeReal;
+window.wsLoadDocumentFlashcards     = _wsLoadDocumentFlashcardsReal;
 window.wsBackToWorkspace        = _wsBackToWorkspaceReal;
 window._fcCheckNavFrom          = _fcCheckNavFrom;
 window._fcStudyInChat      = _fcStudyInChat;
 window._fcReviewHardInChat = _fcReviewHardInChat;
+
+// Flashcard Realtime
+window.subscribeToFlashcardRealtime   = subscribeToFlashcardRealtime;
+window.unsubscribeFlashcardRealtime   = unsubscribeFlashcardRealtime;
+window.getFlashcardsCache             = getFlashcardsCache;
+window.isFlashcardRealtimeActive      = isFlashcardRealtimeActive;
 
 // ── State · Study Plan ───────────────────────────────────────────────────────
 import {

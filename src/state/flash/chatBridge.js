@@ -13,6 +13,10 @@ import { _fcRenderDeckList } from './decks.js';
 import { showScreen } from '../navigation/index.js';
 import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 import { FlashcardDB } from '../../lib/flashcardDb.js';
+import {
+  getFlashcardsCache,
+  isFlashcardRealtimeActive,
+} from './flashcardRealtime.js';
 import { showToast } from '../../components/Toast.js';
 import { ws } from '../workspace/state.js';
 import {
@@ -60,6 +64,14 @@ export async function wsMakeFlashcard(btn, msgId, topic) {
     const deck   = await FlashcardDB.fcSaveDeck(cleanTopic, cards);
     const deckId = deck.id || deck.name;
     const count  = cards.length;
+
+    // Also persist to per-document `flashcards` table for cross-session recall
+    const documentId = ws.userDocId || (ws.bookId !== '__user_doc__' ? ws.bookId : null);
+    if (documentId) {
+      FlashcardDB.fcSaveFlashcards(cards, documentId, ws.currentPage || 0).catch(e =>
+        console.warn('[wsMakeFlashcard] fcSaveFlashcards failed:', e.message)
+      );
+    }
 
     // Escape for safe inline attribute use
     const safeId    = String(deckId).replace(/'/g, '\\\'');
@@ -146,6 +158,14 @@ export async function wsGenerateFlashcardsInChat(topic) {
     const deck   = await FlashcardDB.fcSaveDeck(effectiveTopic, cards);
     const deckId = deck.id || deck.name;
     const count  = cards.length;
+
+    // Also persist to per-document `flashcards` table for cross-session recall
+    const documentId = ws.userDocId || (ws.bookId !== '__user_doc__' ? ws.bookId : null);
+    if (documentId) {
+      FlashcardDB.fcSaveFlashcards(cards, documentId, ws.currentPage || 0).catch(e =>
+        console.warn('[wsGenerateFlashcardsInChat] fcSaveFlashcards failed:', e.message)
+      );
+    }
 
     const safeId    = String(deckId).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const safeTopic = effectiveTopic.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -239,6 +259,28 @@ export async function wsStartFlashcardPractice(deckId, topic) {
       await _fcRenderDeckList();
     }
   }, 200);
+}
+
+// ── Load per-document flashcards for the current workspace document ──────────
+
+/**
+ * Load all flashcards saved for the document currently open in the workspace.
+ * When a realtime subscription is active for this document the in-memory cache
+ * is returned immediately (no network round-trip).  Otherwise a fresh Supabase
+ * fetch is performed so the caller always receives up-to-date, user-scoped data.
+ *
+ * @returns {Promise<Array<{id, document_id, page, question, answer, created_at}>>}
+ */
+export async function wsLoadDocumentFlashcards() {
+  const documentId = ws.userDocId || (ws.bookId && ws.bookId !== '__user_doc__' ? ws.bookId : null);
+  if (!documentId) return [];
+
+  // Prefer the live realtime cache to avoid an unnecessary Supabase round-trip
+  if (isFlashcardRealtimeActive(documentId)) {
+    return getFlashcardsCache();
+  }
+
+  return FlashcardDB.fcLoadFlashcards(documentId);
 }
 
 // ── Back to Workspace ────────────────────────────────────────────────────────
