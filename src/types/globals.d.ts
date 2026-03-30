@@ -407,6 +407,8 @@ declare var _recentItems: any;
 declare var _saveWsSession: any;
 declare var _setActiveRecent: any;
 declare var _spExplainMarkdown: any;
+declare var _wsBuildBlocks: any;
+declare var _wsRenderMessageFromBlocks: any;
 declare var closeLibraryModal: any;
 declare var docMeta: any;
 declare var homeSetInput: any;

@@ -15,7 +15,7 @@
 
 import { getSupabaseClient } from '../../lib/supabase.js';
 import { ws } from './state.js';
-import { wsScrollBottom } from './chat.js';
+import { wsScrollBottom, _wsRenderMessageFromBlocks } from './chat.js';
 import { $el } from '../domHelpers.js';
 
 // ── Module state ─────────────────────────────────────────────────────────────
@@ -51,42 +51,54 @@ function _rtAttr(id) {
  * exists we skip the insert (prevents double-render when the local send path
  * also calls wsAppendUser / wsAppendAI and Realtime fires shortly after).
  *
- * @param {{ id: string|number, role: string, content: string, created_at: string }} message
+ * @param {{ id: string|number, role: string, content: string, blocks?: Array, created_at: string }} message
  */
 export function addMessageToUI(message) {
   const msgs = $el('ws-messages');
   if (!msgs) return;
 
-  // Deduplication guard
-  if (msgs.querySelector(`[data-rt-msg-id="${_rtAttr(message.id)}"]`)) return;
+  const rtId = _rtAttr(message.id);
 
-  const d = document.createElement('div');
-  d.setAttribute('data-rt-msg-id', _rtAttr(message.id));
+  // Deduplication guard
+  if (msgs.querySelector(`[data-rt-msg-id="${rtId}"]`)) return;
+
+  let el;
 
   if (message.role === 'user') {
-    d.className = 'msg msg-user';
+    el = document.createElement('div');
+    el.className = 'msg msg-user';
     const escaped = (message.content || '')
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;');
-    d.innerHTML = `<div class="bubble-user">${escaped}</div>`;
+    el.innerHTML = `<div class="bubble-user">${escaped}</div>`;
   } else {
-    d.className = 'msg msg-ai';
-    const rendered = typeof wsRender === 'function'
-      ? wsRender(message.content || '')
-      : (message.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    d.innerHTML = `
-      <div class="ai-row">
-        <div class="ai-body">
-          <div class="ai-text">${rendered}</div>
-        </div>
-      </div>`;
+    const blocks = message.blocks;
+    if (blocks?.length) {
+      const msgId    = 'ws-msg-rt-' + rtId;
+      const bookName = $el('ws-book-name')?.textContent || '';
+      el = _wsRenderMessageFromBlocks(msgId, blocks, bookName);
+    } else {
+      el = document.createElement('div');
+      el.className = 'msg msg-ai';
+      const rendered = typeof wsRender === 'function'
+        ? wsRender(message.content || '')
+        : (message.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      el.innerHTML = `
+        <div class="ai-row">
+          <div class="ai-body">
+            <div class="ai-text">${rendered}</div>
+          </div>
+        </div>`;
+    }
   }
+
+  el.setAttribute('data-rt-msg-id', rtId);
 
   // Remove the empty-state placeholder if still present
   const placeholder = msgs.querySelector('[data-ws-empty]');
   if (placeholder) placeholder.remove();
 
-  msgs.appendChild(d);
+  msgs.appendChild(el);
   wsScrollBottom();
 }
 
@@ -103,7 +115,7 @@ export function removeMessageFromUI(id) {
 /**
  * updateMessageInUI — replace the rendered content of an existing message.
  *
- * @param {{ id: string|number, role: string, content: string }} message
+ * @param {{ id: string|number, role: string, content: string, blocks?: Array }} message
  */
 export function updateMessageInUI(message) {
   const el = document.querySelector(`[data-rt-msg-id="${_rtAttr(message.id)}"]`);
@@ -117,11 +129,21 @@ export function updateMessageInUI(message) {
         .replace(/</g, '&lt;');
     }
   } else {
-    const textEl = el.querySelector('.ai-text');
-    if (textEl) {
-      textEl.innerHTML = typeof wsRender === 'function'
-        ? wsRender(message.content || '')
-        : (message.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const blocks = message.blocks;
+    if (blocks?.length) {
+      const rtId     = _rtAttr(message.id);
+      const msgId    = 'ws-msg-rt-' + rtId;
+      const bookName = $el('ws-book-name')?.textContent || '';
+      const newEl    = _wsRenderMessageFromBlocks(msgId, blocks, bookName);
+      newEl.setAttribute('data-rt-msg-id', rtId);
+      el.replaceWith(newEl);
+    } else {
+      const textEl = el.querySelector('.ai-text');
+      if (textEl) {
+        textEl.innerHTML = typeof wsRender === 'function'
+          ? wsRender(message.content || '')
+          : (message.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      }
     }
   }
 }

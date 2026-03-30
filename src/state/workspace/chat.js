@@ -85,33 +85,145 @@ export function wsRemoveThinking() {
   if (el) el.remove();
 }
 
+// ── Structured message blocks ─────────────────────────────────────────────────
+
+/**
+ * Build a structured blocks array from AI response data.
+ * The blocks array is stored alongside `content` in chatHistory so that
+ * the full UI (text, sources, action buttons) can be re-created on reload
+ * without relying on stored HTML.
+ *
+ * @param {string}   answer      - Raw AI answer text
+ * @param {Array}    sources     - Source objects [{ page, text }, ...]
+ * @param {string}   question    - The user question (needed for button handlers)
+ * @param {string}   searchMode  - 'hybrid' | 'keyword' | null
+ * @returns {Array}  Structured blocks
+ */
+export function _wsBuildBlocks(answer, sources, question, searchMode) {
+  const blocks = [
+    { type: 'text', value: answer },
+  ];
+  if (sources && sources.length > 0) {
+    blocks.push({
+      type:  'sources',
+      items: sources.map(s => ({ page: s.page, text: (s.text || '').trim().slice(0, 55) })),
+    });
+  }
+  blocks.push({
+    type:              'actions',
+    question:          question          || '',
+    searchMode:        searchMode        || null,
+    primarySourcePage: sources && sources.length > 0 ? sources[0].page : null,
+  });
+  return blocks;
+}
+
+/**
+ * Render a complete AI message element from structured blocks.
+ * Produces identical UI to the first-render path and is used when restoring
+ * messages from history (reload / cross-device sync).
+ *
+ * @param {string} msgId     - Unique DOM id for the message element
+ * @param {Array}  blocks    - Structured blocks from _wsBuildBlocks
+ * @param {string} [bookName] - Book name shown in source citations
+ * @returns {HTMLDivElement}
+ */
+export function _wsRenderMessageFromBlocks(msgId, blocks, bookName) {
+  const d = document.createElement('div');
+  d.className = 'msg msg-ai';
+  d.id = msgId;
+
+  let textHtml    = '';
+  let sourcesHtml = '';
+  let actionsBlock = null;
+
+  for (const block of blocks) {
+    if (block.type === 'text') {
+      const rendered = typeof wsRender === 'function'
+        ? wsRender(block.value)
+        : (block.value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      textHtml = `<div class="ai-text">${rendered}</div>`;
+
+    } else if (block.type === 'sources' && block.items?.length) {
+      const bn = (bookName || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+      const items = block.items.map(s => {
+        const preview = (s.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+        return `
+          <div class="source-item" onclick="wsGoToPage(${s.page})" title="Jump to page ${s.page}" style="cursor:pointer;">
+            <div class="source-icon">📘</div>
+            <div style="flex:1;min-width:0;">
+              <div class="source-name">${bn}</div>
+              <div class="source-meta">${preview}…</div>
+            </div>
+            <span class="source-page">p. ${s.page}</span>
+          </div>`;
+      }).join('');
+      sourcesHtml = `
+        <div class="sources-head" style="margin-top:12px;">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+          Sources
+        </div>
+        <div class="source-list">${items}</div>`;
+
+    } else if (block.type === 'actions') {
+      actionsBlock = block;
+    }
+  }
+
+  const q          = actionsBlock?.question          || '';
+  const searchMode = actionsBlock?.searchMode        || null;
+  const primPage   = actionsBlock?.primarySourcePage || null;
+  const safeQ      = q.replace(/`/g, "'").replace(/\n/g, ' ').slice(0, 120);
+
+  const isHybrid = searchMode === 'hybrid';
+  const searchModeBadge = searchMode ? `
+    <span title="${isHybrid ? 'Semantic search active: 70% vector similarity + 30% keyword (TF-IDF)' : 'Keyword search only — semantic embeddings not available'}"
+      style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-family:var(--font-mono);padding:2px 7px;border-radius:var(--r-pill);border:1px solid ${isHybrid ? 'var(--gold-border)' : 'var(--border-sm)'};color:${isHybrid ? 'var(--gold)' : 'var(--text-4)'};background:${isHybrid ? 'var(--gold-muted)' : 'var(--surface-2)'};cursor:default;user-select:none;">
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      ${isHybrid ? 'semantic' : 'keyword'}
+    </span>` : '';
+
+  const jumpToPageHtml = primPage ? `
+    <button class="msg-act ws-jump-page-btn" onclick="wsGoToPage(${primPage})" title="Navigate to the most relevant page in the PDF">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Go to Page ${primPage}
+    </button>` : '';
+
+  d.innerHTML = `
+    <div class="ai-row">
+      <div class="ai-body">
+        ${textHtml}
+        ${sourcesHtml}
+        <div class="msg-acts" style="margin-top:10px;">
+          <button class="msg-act" onclick="wsCopyMsg(this, '${msgId}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
+          </button>
+          <button class="msg-act" onclick="wsMakeFlashcard(this, '${msgId}', \`${safeQ}\`)">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg> Make Flashcard
+          </button>
+          <button class="msg-act" onclick="_wsRegenerate('${msgId}', \`${safeQ}\`)">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.67"/></svg> Regenerate
+          </button>
+          <button class="msg-act ws-read-aloud-btn" aria-pressed="false" onclick="wsReadAloud(document.querySelector('#${msgId} .ai-text')?.innerText||'','${msgId}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Read
+          </button>
+          ${jumpToPageHtml}
+          ${searchModeBadge}
+        </div>
+      </div>
+    </div>`;
+  return d;
+}
+
 export function wsAppendAI(answer, sources, question, searchMode) {
   const msgs     = $el('ws-messages');
   const bookName = $el('ws-book-name')?.textContent || '';
   const msgId    = 'ws-msg-' + Date.now();
 
-  let sourcesHtml = '';
-  if (sources && sources.length > 0) {
-    const items = sources.map(s => {
-      const preview = (s.text || '').trim().slice(0, 55).replace(/&/g,'&amp;').replace(/</g,'&lt;');
-      return `
-        <div class="source-item" onclick="wsGoToPage(${s.page})" title="Jump to page ${s.page}" style="cursor:pointer;">
-          <div class="source-icon">📘</div>
-          <div style="flex:1;min-width:0;">
-            <div class="source-name">${bookName}</div>
-            <div class="source-meta">${preview}…</div>
-          </div>
-          <span class="source-page">p. ${s.page}</span>
-        </div>`;
-    }).join('');
-    sourcesHtml = `
-      <div class="sources-head" style="margin-top:12px;">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-        Sources
-      </div>
-      <div class="source-list">${items}</div>`;
-  }
+  const blocks = _wsBuildBlocks(answer, sources, question, searchMode);
+  const d      = _wsRenderMessageFromBlocks(msgId, blocks, bookName);
 
+  // Append transient UI (follow-ups, auto-flash) that is not persisted in blocks
   const followups    = (typeof _isFollowupsEnabled === 'function' && _isFollowupsEnabled()) ? _wsFollowups(answer, question) : [];
   const followupHtml = followups.length ? `
     <div class="followups" style="margin-top:10px;">
@@ -131,48 +243,11 @@ export function wsAppendAI(answer, sources, question, searchMode) {
       <button onclick="wsMakeFlashcard(this,'${msgId}',\`${(question||'').replace(/`/g,"'").replace(/\n/g,' ').slice(0,120)}\`)" style="font-size:11px;padding:4px 10px;border-radius:var(--r-pill);background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);cursor:pointer;font-family:var(--font-body);">Save flashcard</button>
     </div>` : '';
 
-  const isHybrid = searchMode === 'hybrid';
-  const searchModeBadge = searchMode ? `
-    <span title="${isHybrid ? 'Semantic search active: 70% vector similarity + 30% keyword (TF-IDF)' : 'Keyword search only — semantic embeddings not available'}"
-      style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-family:var(--font-mono);padding:2px 7px;border-radius:var(--r-pill);border:1px solid ${isHybrid ? 'var(--gold-border)' : 'var(--border-sm)'};color:${isHybrid ? 'var(--gold)' : 'var(--text-4)'};background:${isHybrid ? 'var(--gold-muted)' : 'var(--surface-2)'};cursor:default;user-select:none;">
-      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      ${isHybrid ? 'semantic' : 'keyword'}
-    </span>` : '';
+  if (followupHtml || autoFlashHtml) {
+    const aiBody = d.querySelector('.ai-body');
+    if (aiBody) aiBody.insertAdjacentHTML('beforeend', followupHtml + autoFlashHtml);
+  }
 
-  const primarySourcePage = sources && sources.length > 0 ? sources[0].page : null;
-  const jumpToPageHtml = primarySourcePage ? `
-    <button class="msg-act ws-jump-page-btn" onclick="wsGoToPage(${primarySourcePage})" title="Navigate to the most relevant page in the PDF">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-      Go to Page ${primarySourcePage}
-    </button>` : '';
-
-  const d = document.createElement('div');
-  d.className = 'msg msg-ai'; d.id = msgId;
-  d.innerHTML = `
-    <div class="ai-row">
-      <div class="ai-body">
-        <div class="ai-text">${wsRender(answer)}</div>
-        ${sourcesHtml}
-        <div class="msg-acts" style="margin-top:10px;">
-          <button class="msg-act" onclick="wsCopyMsg(this, '${msgId}')">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
-          </button>
-          <button class="msg-act" onclick="wsMakeFlashcard(this, '${msgId}', \`${(question||'').replace(/`/g,"'").replace(/\n/g,' ').slice(0,120)}\`)">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg> Make Flashcard
-          </button>
-          <button class="msg-act" onclick="_wsRegenerate('${msgId}', \`${(question||'').replace(/`/g,"'").replace(/\n/g,' ')}\`)">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.67"/></svg> Regenerate
-          </button>
-          <button class="msg-act ws-read-aloud-btn" aria-pressed="false" onclick="wsReadAloud(document.querySelector('#${msgId} .ai-text')?.innerText||'','${msgId}')">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Read
-          </button>
-          ${jumpToPageHtml}
-          ${searchModeBadge}
-        </div>
-        ${followupHtml}
-        ${autoFlashHtml}
-      </div>
-    </div>`;
   msgs.appendChild(d); wsScrollBottom();
 }
 
@@ -336,7 +411,11 @@ export async function _wsAsk(question) {
       }
       const answer = data.answer || 'No response.';
       wsAppendAI(answer, data.sources || [], question, data.search_mode);
-      ws.chatHistory.push({ role: 'assistant', content: answer });
+      ws.chatHistory.push({
+        role:    'assistant',
+        content: answer,
+        blocks:  _wsBuildBlocks(answer, data.sources || [], question, data.search_mode),
+      });
       if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
       // Notify SmartNotesPanel so it can offer "Clip to notes"
       document.dispatchEvent(new CustomEvent('ws:ai-answer', {
