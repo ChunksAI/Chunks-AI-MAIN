@@ -182,13 +182,10 @@ export function handleCommand(input, ctxOverride) {
     }
 
     case 'CREATE_FLASHCARD': {
-      const topic = intent.topic || ctx.topic;
-      if (!topic) return false;
+      const topic = intent.topic || ctx.topic || null;
       _showSystemFeedback(`🧠 Creating flashcards…`);
-      if (typeof window.wsMakeFlashcard === 'function') {
-        // Simulate a click from the latest AI message if available
-        const lastBtn = document.querySelector('.msg-ai:last-child .msg-act');
-        window.wsMakeFlashcard(lastBtn || null, null, topic);
+      if (typeof window.wsGenerateFlashcardsInChat === 'function') {
+        window.wsGenerateFlashcardsInChat(topic);
       }
       return true;
     }
@@ -226,7 +223,12 @@ export function handleCommand(input, ctxOverride) {
       return true;
     }
 
-    // SUMMARIZE and EXPLAIN fall through to the normal chat flow
+    // SUMMARIZE and EXPLAIN: fall through to the normal chat flow so the user
+    // message appears in the conversation and the AI responds with formatted text.
+    case 'SUMMARIZE':
+    case 'EXPLAIN':
+      return false;
+
     default:
       return false;
   }
