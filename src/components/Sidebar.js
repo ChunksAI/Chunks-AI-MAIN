@@ -36,6 +36,8 @@ const PANEL_ICON = `<svg width="16" height="16" viewBox="0 0 20 20" fill="none" 
 
 const DOTS_SVG = `<svg class="profile-dots" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-3);margin-left:auto;flex-shrink:0;"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>`;
 
+const SETTINGS_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+
 // ── Nav items config ───────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
@@ -80,6 +82,9 @@ const NAV_ITEMS = [
     action: 'showScreen',
     screen: 'visual',
     svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M8 21h8m-4-4v4"/></svg>`,
+    isPower: true,
+    badge: 'AI',
+    badgeClass: 'power-badge-ai',
   },
   {
     id:     'research',
@@ -90,10 +95,13 @@ const NAV_ITEMS = [
   },
   {
     id:     'exam',
-    label:  'Exam',
+    label:  'Exam Mode',
     action: 'showScreen',
     screen: 'exam',
     svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+    isPower: true,
+    badge: 'Pro',
+    badgeClass: 'power-badge-pro',
   },
 ];
 
@@ -121,29 +129,39 @@ const RECENT_IDS = {
 export function buildSidebar(screen) {
   const ids = RECENT_IDS[screen] || RECENT_IDS.home;
 
-  // Nav items
-  const navHTML = NAV_ITEMS.map(item => {
+  // Build item HTML helper
+  function _itemHtml(item) {
     const isActive = item.id === screen || (item.id === 'home' && screen === 'home');
-    const activeAttr     = isActive ? ' active' : '';
-    const ariaCurrent    = isActive ? ' aria-current="page"' : '';
-    const dataAction     = item.action === 'goHome'
+    const activeAttr   = isActive ? ' active' : '';
+    const ariaCurrent  = isActive ? ' aria-current="page"' : '';
+    const dataAction   = item.action === 'goHome'
       ? `data-action="goHome"`
       : item.action === 'openLibraryModal'
         ? `data-action="openLibraryModal"`
         : `data-action="showScreen" data-screen="${item.screen}"`;
-    const onclickExtra   = item.onclick || '';
-    const onkeydown      = item.action === 'goHome'
+    const onclickExtra = item.onclick || '';
+    const onkeydown    = item.action === 'goHome'
       ? `onkeydown="if(event.key==='Enter'||event.key===' ')goHome()"`
       : item.action === 'openLibraryModal'
         ? `onkeydown="if(event.key==='Enter'||event.key===' ')openLibraryModal()"`
         : `onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('${item.screen}')"`;
     const idAttr = (item.id === 'home' && screen === 'home') ? ' id="sidebar-home-btn"' : '';
-
-    return `      <div class="sidebar-item${activeAttr}"${idAttr} role="button" tabindex="0" aria-label="${item.label}"${ariaCurrent} ${dataAction} ${onclickExtra} ${onkeydown} style="cursor:pointer;">
+    const badgeHtml = item.badge
+      ? `<span class="power-badge ${item.badgeClass}">${item.badge}</span>`
+      : '';
+    const powerClass = item.isPower ? ` sidebar-item-power sidebar-item-${item.id}` : '';
+    return `      <div class="sidebar-item${activeAttr}${powerClass}"${idAttr} role="button" tabindex="0" aria-label="${item.label}"${ariaCurrent} ${dataAction} ${onclickExtra} ${onkeydown} style="cursor:pointer;">
         ${item.svg}
         <span>${item.label}</span>
+        ${badgeHtml}
       </div>`;
-  }).join('\n');
+  }
+
+  // Study Tools nav (exclude power-feature items)
+  const studyNavHTML = NAV_ITEMS.filter(i => !i.isPower).map(_itemHtml).join('\n');
+
+  // Power Features nav
+  const powerNavHTML = NAV_ITEMS.filter(i => i.isPower).map(_itemHtml).join('\n');
 
   // Recent Plans section — shown on ALL screens, inside the scroll area
   const plansSectionId = `sp-recent-plans-section-${screen}`;
@@ -177,8 +195,13 @@ export function buildSidebar(screen) {
 
     <nav aria-label="Main navigation">
     <div class="sidebar-section">
-      <div class="sidebar-section-label">Study</div>
-${navHTML}
+      <div class="sidebar-section-label">Study Tools</div>
+${studyNavHTML}
+    </div>
+
+    <div class="sidebar-section sidebar-power-section">
+      <div class="sidebar-section-label">Power Features</div>
+${powerNavHTML}
     </div>
     </nav>
 
@@ -192,32 +215,14 @@ ${navHTML}
     </div>
 
     <div class="sidebar-history-scroll" id="sidebar-history-scroll">
-      <div class="sidebar-section sidebar-history-section" id="hist-section-general">
-        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="hist-section-general">
-          General AI
-          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
-        </div>
+      <!-- Document-grouped recents (visible) -->
+      <div id="sidebar-doc-groups-${screen}" class="sidebar-doc-groups"></div>
+
+      <!-- Legacy per-category lists (hidden, kept for _renderAllRecent compatibility) -->
+      <div style="display:none;" aria-hidden="true">
         <div id="${ids.general}" class="recent-list hist-list"></div>
-      </div>
-      <div class="sidebar-section sidebar-history-section" id="hist-section-workspace">
-        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="hist-section-workspace">
-          Workspace
-          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
-        </div>
         <div id="${ids.workspace}" class="recent-list hist-list"></div>
-      </div>
-      <div class="sidebar-section sidebar-history-section" id="hist-section-visual">
-        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="hist-section-visual">
-          Visual Tutor Chats
-          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
-        </div>
         <div id="${ids.visual}" class="recent-list hist-list"></div>
-      </div>
-      <div class="sidebar-section sidebar-history-section" id="hist-section-exam">
-        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="hist-section-exam">
-          Exam Chats
-          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
-        </div>
         <div id="${ids.exam}" class="recent-list hist-list"></div>
       </div>
       ${recentPlansSection}
@@ -243,14 +248,28 @@ ${navHTML}
         </div>
       </div>
 
-      <!-- Logged-in profile row (shown for authenticated users) -->
-      <div class="profile-row" role="button" tabindex="0" aria-label="Open profile menu" aria-haspopup="true" onclick="toggleProfileDropdown(event)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleProfileDropdown(event)">
-        <div class="avatar" aria-hidden="true"></div>
-        <div class="profile-text">
-          <div class="profile-name"></div>
-          <div class="profile-plan"></div>
+      <!-- Study streak widget (shown for logged-in users) -->
+      <div class="sidebar-streak-widget" id="sidebar-streak-widget" style="display:none;">
+        <span class="streak-fire-icon">🔥</span>
+        <div class="streak-info">
+          <div class="streak-title">Study streak — <span class="streak-days">0</span>d</div>
+          <div class="streak-sub">Keep it going!</div>
         </div>
-        ${DOTS_SVG}
+      </div>
+
+      <!-- Logged-in profile row (shown for authenticated users) -->
+      <div class="sidebar-profile-area">
+        <div class="profile-row" role="button" tabindex="0" aria-label="Open profile menu" aria-haspopup="true" onclick="toggleProfileDropdown(event)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleProfileDropdown(event)">
+          <div class="avatar" aria-hidden="true"></div>
+          <div class="profile-text">
+            <div class="profile-name"></div>
+            <div class="profile-plan"></div>
+          </div>
+          ${DOTS_SVG}
+        </div>
+        <button class="sidebar-settings-btn" onclick="openSettings();event.stopPropagation();" title="Settings" aria-label="Settings">
+          ${SETTINGS_SVG}
+        </button>
       </div>
     </div>`;
 }
@@ -383,13 +402,30 @@ if (document.readyState === 'loading') {
     mountSidebars();
     window._renderAllRecent?.();
     _renderRecentPlansAllSidebars();
+    _renderSidebarStreak();
     _syncThemeToggleBtns();
   });
 } else {
   mountSidebars();
   window._renderAllRecent?.();
   _renderRecentPlansAllSidebars();
+  _renderSidebarStreak();
   _syncThemeToggleBtns();
+}
+
+/** Render the study streak widget in all sidebars */
+export function _renderSidebarStreak() {
+  try {
+    const raw = localStorage.getItem('chunks_fc_streak_v1');
+    const streak = raw ? JSON.parse(raw) : null;
+    const count = streak?.current || 0;
+    document.querySelectorAll('#sidebar-streak-widget').forEach(el => {
+      const daysEl = el.querySelector('.streak-days');
+      if (daysEl) daysEl.textContent = count;
+      // Only show if user has any streak history or non-zero streak
+      if (count > 0) el.style.display = '';
+    });
+  } catch (_) {}
 }
 
 export function _syncThemeToggleBtns() {

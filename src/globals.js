@@ -550,12 +550,14 @@ window.showSimpleNotif     = showSimpleNotif;
 // ── Components · Sidebar ─────────────────────────────────────────────────────
 import {
   mountSidebars, buildSidebar, setActivePlan, _renderRecentPlansAllSidebars,
+  _renderSidebarStreak,
 } from './components/Sidebar.js';
 
 window.mountSidebars = mountSidebars;
 window.buildSidebar  = buildSidebar;
 window.setActivePlan = setActivePlan;
 window._renderRecentPlansAllSidebars = _renderRecentPlansAllSidebars;
+window._renderSidebarStreak = _renderSidebarStreak;
 
 // ── Components · Profile Dropdown ────────────────────────────────────────────
 import {
