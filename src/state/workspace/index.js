@@ -17,7 +17,7 @@ export {
 
 export { selectBook, _wsShowWelcome } from './books.js';
 
-export { selectUserDoc } from './userDocs.js';
+export { selectUserDoc, WS_USER_DOC_SENTINEL } from './userDocs.js';
 
 export {
   togglePdfOutline, _wsBuildOutline, _wsSetActiveOutlineItem, _wsUpdateOutlineActive,

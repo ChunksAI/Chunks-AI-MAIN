@@ -715,6 +715,7 @@ export function clearAllHistory() {
         k === 'chunks_recent' ||
         k === 'chunks_active_home_session' ||
         k === 'chunks_active_ws_book' ||
+        k === 'chunks_active_ws_user_doc' ||
         k === 'chunks_active_recent_id' ||
         k === 'chunks_home_session' ||
         k === 'chunks_active_vt_session' ||

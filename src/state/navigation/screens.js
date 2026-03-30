@@ -9,6 +9,8 @@ import { SCREEN_MAP, _setPath } from './routes.js';
 import { setActivePlan } from '../../components/Sidebar.js';
 import { spInitScreen, spShowEmpty } from '../studyplan/index.js';
 import { closeMobileDrawer, openMobileDrawer } from './mobile.js';
+import { lsGet } from '../../utils/storage.js';
+import { WS_USER_DOC_SENTINEL } from '../workspace/index.js';
 
 // ── Shared navigation flag ────────────────────────────────────────────────────
 export let _navFromHistory = false;
@@ -69,6 +71,7 @@ export function showScreen(name) {
         if (msgs) msgs.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div></div>';
         if (typeof window._wsChatHistory !== 'undefined') window._wsChatHistory = [];
         localStorage.removeItem('chunks_active_ws_book');
+        localStorage.removeItem('chunks_active_ws_user_doc');
         const wsNoBook  = $el('ws-no-book-bar');
         const wsBookBar = $el('ws-book-bar');
         if (wsNoBook)  wsNoBook.style.display  = '';
@@ -92,6 +95,24 @@ export function showScreen(name) {
       if (typeof window._researchBackToSetup === 'function') window._researchBackToSetup();
     }
     if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
+  }
+
+  // ── Workspace: restore previously opened document on history navigation (refresh / back) ──
+  if (name === 'workspace' && _navFromHistory) {
+    setTimeout(() => {
+      try {
+        const activeBook = lsGet('chunks_active_ws_book');
+        if (!activeBook) return;
+        if (activeBook === WS_USER_DOC_SENTINEL) {
+          const docId = lsGet('chunks_active_ws_user_doc');
+          if (docId && typeof window.selectUserDoc === 'function') {
+            window.selectUserDoc(docId);
+          }
+        } else if (typeof window.selectBook === 'function') {
+          window.selectBook(activeBook);
+        }
+      } catch (e) { console.warn('[workspace restore]', e); }
+    }, 0);
   }
 
   // ── Always enforce source ownership for chat highlights ───────────────────
