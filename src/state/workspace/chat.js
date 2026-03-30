@@ -223,14 +223,26 @@ export function wsToggleWebSearch() {
   toggleClass($el('ws-toggle-websearch'), 'active', ws.webSearch);
 }
 
+export function wsToggleThinkMenu(e) {
+  e?.stopPropagation();
+  const menu = $el('ws-think-menu');
+  if (!menu) return;
+  const isOpen = menu.classList.contains('open');
+  // Close all attach menus first
+  document.querySelectorAll('.attach-menu').forEach(m => m.classList.remove('open'));
+  if (!isOpen) addClass(menu, 'open');
+}
+
 export function wsToggleThinking(mode) {
   ws.thinking = ws.thinking === mode ? 'off' : mode;
   const isThink = ws.thinking === 'think';
   const isDeep  = ws.thinking === 'deep';
+  const isAny   = isThink || isDeep;
   toggleClass($el('ws-think-check'), 'on', isThink);
   toggleClass($el('ws-deep-check'), 'on', isDeep);
-  toggleClass($el('ws-toggle-think'), 'active', isThink);
-  toggleClass($el('ws-toggle-deep'), 'active', isDeep);
+  toggleClass($el('ws-toggle-think'), 'active', isAny);
+  // Close the think menu after selection
+  removeClass($el('ws-think-menu'), 'open');
 }
 
 export async function wsChatSend() {

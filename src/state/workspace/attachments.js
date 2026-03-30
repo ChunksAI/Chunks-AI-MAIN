@@ -14,9 +14,10 @@ export let _uploadedPdfName = null;
 
 export function _closeAllAttachMenus() {
   $qsa('.attach-menu').forEach(m => removeClass(m, 'open'));
+  $qsa('.think-menu').forEach(m => removeClass(m, 'open'));
 }
 document.addEventListener('click', e => {
-  if (!e.target.closest('.chat-plus-wrap') && !e.target.closest('.ask-plus-wrap')) _closeAllAttachMenus();
+  if (!e.target.closest('.chat-plus-wrap') && !e.target.closest('.ask-plus-wrap') && !e.target.closest('.chat-think-wrap')) _closeAllAttachMenus();
 });
 
 // ── Shared helpers ────────────────────────────────────────────────────────

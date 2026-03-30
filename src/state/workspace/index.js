@@ -29,7 +29,7 @@ export {
   wsShowToast, wsSetInput, wsAutoResize, wsScrollBottom, wsClearChat,
   wsAppendUser, _wsAvatarSvg, wsAppendThinking, wsRemoveThinking,
   wsAppendAI, wsAppendError, wsCopyMsg, _wsFollowups, _wsRegenerate,
-  wsToggleWebSearch, wsToggleThinking, wsChatSend, _wsAsk,
+  wsToggleWebSearch, wsToggleThinking, wsToggleThinkMenu, wsChatSend, _wsAsk,
 } from './chat.js';
 
 export { _wsCreateAskBtn, _wsHideAskBtn, _wsOnSelectionChange } from './selection.js';
