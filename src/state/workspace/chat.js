@@ -85,7 +85,7 @@ export function wsRemoveThinking() {
   if (el) el.remove();
 }
 
-export function wsAppendAI(answer, sources, question, searchMode) {
+export function wsAppendAI(answer, sources, question, searchMode, opts = {}) {
   const msgs     = $el('ws-messages');
   const bookName = $el('ws-book-name')?.textContent || '';
   const msgId    = 'ws-msg-' + Date.now();
@@ -112,7 +112,11 @@ export function wsAppendAI(answer, sources, question, searchMode) {
       <div class="source-list">${items}</div>`;
   }
 
-  const followups    = (typeof _isFollowupsEnabled === 'function' && _isFollowupsEnabled()) ? _wsFollowups(answer, question) : [];
+  // Skip follow-ups and auto-flash for restored (historical) messages to avoid
+  // cluttering the chat with stale suggestions.  Only the last message in a
+  // restore pass or a live response gets the full extras treatment.
+  const showExtras = !opts.isRestored;
+  const followups    = (showExtras && typeof _isFollowupsEnabled === 'function' && _isFollowupsEnabled()) ? _wsFollowups(answer, question) : [];
   const followupHtml = followups.length ? `
     <div class="followups" style="margin-top:10px;">
       <div class="followup-head">Follow-up questions</div>
@@ -125,7 +129,7 @@ export function wsAppendAI(answer, sources, question, searchMode) {
       </div>
     </div>` : '';
 
-  const autoFlashHtml = (typeof _isAutoFlashEnabled === 'function' && _isAutoFlashEnabled()) ? `
+  const autoFlashHtml = (showExtras && typeof _isAutoFlashEnabled === 'function' && _isAutoFlashEnabled()) ? `
     <div style="margin-top:8px;padding:8px 10px;background:var(--violet-muted);border:1px solid var(--violet-border);border-radius:var(--r-md);display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <span style="font-size:11px;color:var(--text-2);">💡 Save this as a flashcard?</span>
       <button onclick="wsMakeFlashcard(this,'${msgId}',\`${(question||'').replace(/`/g,"'").replace(/\n/g,' ').slice(0,120)}\`)" style="font-size:11px;padding:4px 10px;border-radius:var(--r-pill);background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);cursor:pointer;font-family:var(--font-body);">Save flashcard</button>
@@ -334,9 +338,14 @@ export async function _wsAsk(question) {
         ws.chatHistory.pop();
         return;
       }
-      const answer = data.answer || 'No response.';
-      wsAppendAI(answer, data.sources || [], question, data.search_mode);
-      ws.chatHistory.push({ role: 'assistant', content: answer });
+      const answer     = data.answer || 'No response.';
+      const sources    = data.sources || [];
+      const searchMode = data.search_mode || null;
+      wsAppendAI(answer, sources, question, searchMode);
+      // Store sources, question, and searchMode alongside content so that
+      // _wsRenderHistory can fully reconstruct the UI (buttons, source cards)
+      // after reload or cross-device restore without losing any interactivity.
+      ws.chatHistory.push({ role: 'assistant', content: answer, sources, question, searchMode });
       if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
       // Notify SmartNotesPanel so it can offer "Clip to notes"
       document.dispatchEvent(new CustomEvent('ws:ai-answer', {

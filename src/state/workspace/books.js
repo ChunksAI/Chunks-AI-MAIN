@@ -16,6 +16,7 @@ import { memSet } from '../../lib/memCache.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 import { subscribeToChatRealtime, unsubscribeChatRealtime } from './chatRealtime.js';
 import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
+import { wsAppendAI, wsAppendUser } from './chat.js';
 
 let _wsSaveScrollTm;
 
@@ -303,21 +304,27 @@ export async function selectBook(bookId) {
 
 export function _wsRenderHistory(msgs, history) {
   if (!msgs || !history?.length) return;
+  // Clear first so wsAppendAI/wsAppendUser can append cleanly.
   msgs.innerHTML = '';
-  history.forEach(msg => {
-    const el = document.createElement('div');
+  const lastIdx = history.length - 1;
+  history.forEach((msg, idx) => {
     if (msg.role === 'user') {
-      el.className = 'msg msg-user';
-      const escaped = (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      el.innerHTML = `<div class="bubble-user">${escaped}</div>`;
-    } else {
-      el.className = 'msg msg-ai';
-      const rendered = typeof window.homeMarkdown === 'function'
-        ? window.homeMarkdown(msg.content || '')
-        : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      el.innerHTML = `<div class="ai-row"><div class="ai-body">${rendered}</div></div>`;
+      // wsAppendUser renders the bubble and appends to ws-messages
+      wsAppendUser(msg.content || '');
+    } else if (msg.role === 'assistant') {
+      // Reconstruct the full message UI — buttons, source cards, search badge —
+      // using the metadata stored alongside the content.  For all but the final
+      // message, pass isRestored:true to suppress follow-up suggestions and the
+      // auto-flash prompt (those are transient and only relevant for the newest
+      // reply).
+      wsAppendAI(
+        msg.content  || '',
+        msg.sources  || [],
+        msg.question || '',
+        msg.searchMode || null,
+        idx === lastIdx ? {} : { isRestored: true },
+      );
     }
-    msgs.appendChild(el);
   });
   msgs.scrollTop = msgs.scrollHeight;
 }

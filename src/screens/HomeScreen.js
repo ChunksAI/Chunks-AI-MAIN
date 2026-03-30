@@ -922,18 +922,11 @@ mountHomeScreen();
     chatHist.innerHTML = '';
     history.forEach(msg => {
       if (msg.role === 'user') {
-        const el = document.createElement('div');
-        el.className = 'hc-user';
-        el.textContent = msg.content || '';
-        chatHist.appendChild(el);
+        homeAppendUser(msg.content || '');
       } else if (msg.role === 'assistant') {
-        const wrap = document.createElement('div');
-        wrap.className = 'hc-ai';
-        const rendered = homeMarkdown
-          ? homeMarkdown(msg.content || '')
-          : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-        wrap.innerHTML = `${_HOME_AI_AVATAR}<div class="hc-ai-body">${rendered}</div>`;
-        chatHist.appendChild(wrap);
+        // Re-use the live render path so restored messages are visually identical
+        // to freshly generated ones (source badge included when data is present).
+        homeAppendAI(msg.content || '', msg.sources || null);
       }
     });
   }
