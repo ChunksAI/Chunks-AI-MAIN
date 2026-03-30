@@ -9,7 +9,11 @@
  * (see vite.config.js Task 37 for chunk strategy)
  */
 
-// ── Schema migrations (must be first — upgrades localStorage data before
+// ── In-memory cache (must be first — window._memGet/_memSet bridges are
+// used by app.html inline scripts and modules replacing localStorage) ────────
+import './lib/memCache.js';
+
+// ── Schema migrations (must be early — upgrades localStorage data before
 // any module reads it, then IndexedDB populates the in-memory cache) ─────────
 import { runLocalStorageMigrations } from './lib/schemaMigrations.js';
 runLocalStorageMigrations();

@@ -420,13 +420,6 @@ function _loadWsSession(bookId) {
   } catch(e) { return null; }
 }
 
-// ── One-time startup cleanup ─────────────────────────────
-// Remove stale keys left by any previous incognito session or save_history=0 setting.
-// After this patch all chats always save, so these keys are no longer meaningful.
-(function _cleanStaleKeys() {
-  localStorage.removeItem('chunks_incognito_session');
-  localStorage.removeItem('chunks_save_history');
-})();
 function goHome() {
   // Always return to the homepage landing — clear any active chat state
   _activeRecentId = null;

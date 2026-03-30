@@ -689,7 +689,6 @@ export function dataToggleSaveHistory(checkbox) {
   // whether usage data is shared (kept for UI compatibility).
   // Force the checkbox back on if somehow unchecked.
   if (checkbox) checkbox.checked = true;
-  localStorage.removeItem('chunks_save_history');
   showToast('✓', 'Chat history is always saved', '');
 }
 
@@ -911,7 +910,6 @@ function _restoreDataToggles() {
   // Save history is always on — ensure the toggle reflects that
   const saveHistoryEl = document.getElementById('toggle-save-history');
   if (saveHistoryEl) saveHistoryEl.checked = true;
-  localStorage.removeItem('chunks_save_history');
 
   const toggleMap = {
     'toggle-improve-data':    { key: 'chunks_improve_data',         default: '1' },

@@ -28,6 +28,10 @@ import { API_BASE, _getAuthHeader } from './lib/api.js';
 window.API_BASE       = API_BASE;
 window._getAuthHeader = _getAuthHeader;
 
+// ── Lib · In-memory cache ────────────────────────────────────────────────────
+// Import ensures window._memGet/_memSet/_memRemove/_memClear bridges are set.
+import './lib/memCache.js';
+
 // ── Lib · Supabase client ────────────────────────────────────────────────────
 import { getSupabaseClient } from './lib/supabase.js';
 

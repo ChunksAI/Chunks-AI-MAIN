@@ -23,11 +23,62 @@
 import { isIdbKey, idbGet, idbSet, idbRemove } from '../lib/idbStorage.js';
 import { isQuotaError, showStorageError } from '../components/StorageErrorBanner.js';
 import { checkStorageQuota } from './storageQuota.js';
+import { memGet, memSet, memRemove } from '../lib/memCache.js';
+
+// ── In-memory-only keys ────────────────────────────────────────────────────
+// These keys were previously stored in localStorage or IndexedDB as caches
+// of Supabase data.  They are now kept ONLY in the in-memory cache
+// (src/lib/memCache.js) so that Supabase remains the single source of truth.
+// On page load the cache starts empty; pullAll() repopulates from Supabase.
+
+/** Exact keys stored only in memory (never persisted to disk) */
+const MEM_ONLY_KEYS = new Set([
+  // Tombstone list — canonical copy lives in user_settings.notifications.deleted_sessions
+  'chunks_deleted_sessions',
+  // Exam recent list — synced from recent_items table
+  'exam_recent',
+  // Study plan recent list — synced from recent_items table
+  'sp_recent_plans',
+  // Streak / XP data — synced from streak_state table
+  'fc_streak_data',
+  // Default book pointer — synced from ws_state.active_book_id
+  'chunks_default_book',
+  // Admin / owner email cache — verified via backend on every session
+  'chunks_admin_email',
+  'chunks_owner_email',
+  // One-time settings guard — re-evaluated on login
+  'chunks_settings_initialized',
+  // Sync timestamps — transient, repopulated by pullAndApply
+  'chunks_settings_updated_at',
+  'chunks_recent_items_updated_at',
+  'chunks_ws_last_visited',
+]);
+
+/** Key prefixes stored only in memory */
+const MEM_ONLY_PREFIXES = [
+  'exam_snap_',       // exam snapshots — full results live in exams table
+  'sp_exam_date_',    // exam dates — part of study_plans records
+];
+
+/**
+ * Returns true if `key` should be stored only in the in-memory cache.
+ * @param {string} key
+ * @returns {boolean}
+ */
+function _isMemOnly(key) {
+  if (MEM_ONLY_KEYS.has(key)) return true;
+  for (let i = 0; i < MEM_ONLY_PREFIXES.length; i++) {
+    if (key.startsWith(MEM_ONLY_PREFIXES[i])) return true;
+  }
+  return false;
+}
 
 // ── localStorage helpers ───────────────────────────────────────────────────
 
 /**
- * Read a JSON value from localStorage (or IndexedDB for large-data keys).
+ * Read a JSON value from the in-memory cache, IndexedDB, or localStorage.
+ * Keys in MEM_ONLY_KEYS/MEM_ONLY_PREFIXES are served from in-memory cache
+ * only (Supabase is the single source of truth for these).
  * Returns `fallback` (default null) if the key is absent or parse fails.
  *
  * @template T
@@ -36,6 +87,7 @@ import { checkStorageQuota } from './storageQuota.js';
  * @returns {T}
  */
 export function lsGet(key, fallback = null) {
+  if (_isMemOnly(key)) return memGet(key, fallback);
   if (isIdbKey(key)) return idbGet(key, fallback);
   try {
     const raw = localStorage.getItem(key);
@@ -46,13 +98,15 @@ export function lsGet(key, fallback = null) {
 }
 
 /**
- * Write a JSON-serialisable value to localStorage (or IndexedDB for
- * large-data keys). Shows a storage-error banner on QuotaExceededError.
+ * Write a JSON-serialisable value to the in-memory cache, IndexedDB, or
+ * localStorage.  Keys in MEM_ONLY_KEYS/MEM_ONLY_PREFIXES are written to
+ * in-memory cache only (never persisted to disk).
  *
  * @param {string} key
  * @param {*}      value
  */
 export function lsSet(key, value) {
+  if (_isMemOnly(key)) { memSet(key, value); return; }
   if (isIdbKey(key)) { idbSet(key, value); return; }
   checkStorageQuota();   // fire-and-forget — warn before potential quota failure
   try {
@@ -64,11 +118,12 @@ export function lsSet(key, value) {
 }
 
 /**
- * Remove a key from localStorage (or IndexedDB for large-data keys).
+ * Remove a key from the in-memory cache, IndexedDB, or localStorage.
  *
  * @param {string} key
  */
 export function lsRemove(key) {
+  if (_isMemOnly(key)) { memRemove(key); return; }
   if (isIdbKey(key)) { idbRemove(key); return; }
   try { localStorage.removeItem(key); } catch (_) {}
 }
@@ -136,13 +191,12 @@ export const KEYS = Object.freeze({
   CHAT_FONT_SIZE:       'chunks-chat-font-size',
 
   // ── App state ──────────────────────────────────────────────────────
-  DEFAULT_BOOK:    'chunks_default_book',
+  DEFAULT_BOOK:    'chunks_default_book',           // in-memory only (synced via ws_state)
   STUDY_MODE:      'chunks_study_mode',
-  SAVE_HISTORY:    'chunks_save_history',
   IMPROVE_DATA:    'chunks_improve_data',
 
   // ── Exam ───────────────────────────────────────────────────────────
-  EXAM_RECENT:     'exam_recent',
+  EXAM_RECENT:     'exam_recent',                   // in-memory only (synced via recent_items)
   EXAM_SNAP_PREFIX:'exam_snap_',                 // + id
 
   // ── Study plan ─────────────────────────────────────────────────────
