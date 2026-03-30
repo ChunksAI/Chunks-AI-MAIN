@@ -89,7 +89,7 @@ export const ws = {
   resizeObserver: null,
   resizeRaf:      0,
 
-  bookId:        (typeof window !== 'undefined' && window._memGet ? window._memGet('chunks_default_book', null) : null),
+  bookId:        (window._memGet ? window._memGet('chunks_default_book', null) : null),
   chatHistory:   [],
   newChatIsIncognito: false,
   typing:        false,

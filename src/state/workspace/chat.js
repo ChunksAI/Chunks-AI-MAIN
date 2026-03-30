@@ -112,11 +112,11 @@ export function wsAppendAI(answer, sources, question, searchMode, opts = {}) {
       <div class="source-list">${items}</div>`;
   }
 
-  // Skip follow-ups and auto-flash for restored (historical) messages to avoid
-  // cluttering the chat with stale suggestions.  Only the last message in a
-  // restore pass or a live response gets the full extras treatment.
-  const showExtras = !opts.isRestored;
-  const followups    = (showExtras && typeof _isFollowupsEnabled === 'function' && _isFollowupsEnabled()) ? _wsFollowups(answer, question) : [];
+  // isLiveMessage: true for new responses, false for restored history entries.
+  // Follow-up suggestions and the auto-flash prompt are transient UI elements
+  // only relevant for the most recent message — suppress them during restore.
+  const isLiveMessage = !opts.isRestored;
+  const followups    = (isLiveMessage && typeof _isFollowupsEnabled === 'function' && _isFollowupsEnabled()) ? _wsFollowups(answer, question) : [];
   const followupHtml = followups.length ? `
     <div class="followups" style="margin-top:10px;">
       <div class="followup-head">Follow-up questions</div>
@@ -129,7 +129,7 @@ export function wsAppendAI(answer, sources, question, searchMode, opts = {}) {
       </div>
     </div>` : '';
 
-  const autoFlashHtml = (showExtras && typeof _isAutoFlashEnabled === 'function' && _isAutoFlashEnabled()) ? `
+  const autoFlashHtml = (isLiveMessage && typeof _isAutoFlashEnabled === 'function' && _isAutoFlashEnabled()) ? `
     <div style="margin-top:8px;padding:8px 10px;background:var(--violet-muted);border:1px solid var(--violet-border);border-radius:var(--r-md);display:flex;align-items:center;justify-content:space-between;gap:10px;">
       <span style="font-size:11px;color:var(--text-2);">💡 Save this as a flashcard?</span>
       <button onclick="wsMakeFlashcard(this,'${msgId}',\`${(question||'').replace(/`/g,"'").replace(/\n/g,' ').slice(0,120)}\`)" style="font-size:11px;padding:4px 10px;border-radius:var(--r-pill);background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);cursor:pointer;font-family:var(--font-body);">Save flashcard</button>

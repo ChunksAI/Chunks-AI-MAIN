@@ -306,7 +306,7 @@ export function _wsRenderHistory(msgs, history) {
   if (!msgs || !history?.length) return;
   // Clear first so wsAppendAI/wsAppendUser can append cleanly.
   msgs.innerHTML = '';
-  const lastIdx = history.length - 1;
+  const lastMessageIndex = history.length - 1;
   history.forEach((msg, idx) => {
     if (msg.role === 'user') {
       // wsAppendUser renders the bubble and appends to ws-messages
@@ -322,7 +322,7 @@ export function _wsRenderHistory(msgs, history) {
         msg.sources  || [],
         msg.question || '',
         msg.searchMode || null,
-        idx === lastIdx ? {} : { isRestored: true },
+        idx === lastMessageIndex ? {} : { isRestored: true },
       );
     }
   });
