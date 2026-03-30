@@ -338,6 +338,10 @@ export async function _wsAsk(question) {
       wsAppendAI(answer, data.sources || [], question, data.search_mode);
       ws.chatHistory.push({ role: 'assistant', content: answer });
       if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
+      // Notify SmartNotesPanel so it can offer "Clip to notes"
+      document.dispatchEvent(new CustomEvent('ws:ai-answer', {
+        detail: { text: answer.replace(/<[^>]*>/g, '').trim(), page: ws.currentPage || 1 },
+      }));
       // Update context with the current topic and page for command engine
       updateContext({ topic: question.slice(0, 120), screen: 'workspace' });
       syncContextFromWorkspace();
