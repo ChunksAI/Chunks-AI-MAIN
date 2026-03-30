@@ -6120,6 +6120,33 @@ function _examFinish() {
     timeTaken: mm+':'+ss,
     wrongConcepts
   });
+
+  // ── Also persist to Supabase (per-user, cross-device) ─────────────────────
+  // _examAnswers[i] = { selected: optionIndex, correct: bool, skipped: bool }
+  // Map to per-question { chosen: letter } that the Supabase schema expects.
+  const _answerLetters = ['A','B','C','D','E'];
+  const _questionsWithChosen = _examQuestions.map((q, i) => {
+    const ans = _examAnswers[i];
+    const chosen = (ans && !ans.skipped && ans.selected >= 0)
+      ? (_answerLetters[ans.selected] ?? null)
+      : null;
+    return { ...q, chosen };
+  });
+  window.ExamDB?.saveExamResult({
+    documentId: null,
+    topic:      _examTopic,
+    questions:  _questionsWithChosen,
+    score:      pct,
+    meta: {
+      type:         _examType,
+      diff:         _examDiff,
+      timeTaken:    mm + ':' + ss,
+      wrongConcepts,
+      count:        total,
+      correct,
+    },
+  }).catch(err => console.warn('[ExamDB] save error:', err));
+  // ── End Supabase persist ──────────────────────────────────────────────────
   const recent = JSON.parse(localStorage.getItem('exam_recent')||'[]');
   recent.unshift({
     id: _snapId,
@@ -6307,13 +6334,24 @@ function _examHistoryAppend(entry) {
 }
 
 /** Show the history view, render everything */
-function examShowHistory() {
+async function examShowHistory() {
   ['exam-setup','exam-loading','exam-quiz','exam-results'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = 'none';
   });
   const histView = document.getElementById('exam-history-view');
   if (histView) histView.style.display = '';
+
+  // Try Supabase first (per-user, cross-device); fall back to localStorage
+  if (window.ExamDB && window.ChunksDB?.isLoggedIn()) {
+    try {
+      const remote = await window.ExamDB.loadExamHistory();
+      if (remote && remote.length) {
+        _examRenderHistory(_examNormaliseSupabaseRows(remote));
+        return;
+      }
+    } catch (_) {}
+  }
   _examRenderHistory();
 }
 
@@ -6329,11 +6367,37 @@ function examClearHistory() {
   _examRenderHistory();
 }
 
-function _examRenderHistory() {
-  const history = _examHistoryLoad();
+function _examRenderHistory(history) {
+  if (!history) history = _examHistoryLoad();
   _examRenderSummary(history);
   _examRenderTopics(history);
   _examRenderTable(history);
+}
+
+/**
+ * Convert Supabase exams rows into the localStorage format expected
+ * by the render functions.
+ * Supabase row: { id, user_id, document_id, topic, questions, score, meta, created_at }
+ * Expected:     { timestamp, topic, score, date, count, correct, type, diff, timeTaken, wrongConcepts }
+ */
+function _examNormaliseSupabaseRows(rows) {
+  return rows.map(row => {
+    const qs      = Array.isArray(row.questions) ? row.questions : [];
+    const count   = row.meta?.count   ?? qs.length;
+    const correct = row.meta?.correct ?? qs.filter(q => q.chosen && q.chosen === q.answer).length;
+    return {
+      timestamp:    new Date(row.created_at).getTime(),
+      topic:        row.topic || row.document_id || 'Unknown',
+      score:        row.score,
+      date:         new Date(row.created_at).toLocaleDateString(),
+      count,
+      correct,
+      type:         row.meta?.type         || null,
+      diff:         row.meta?.diff         || null,
+      timeTaken:    row.meta?.timeTaken     || null,
+      wrongConcepts:row.meta?.wrongConcepts || [],
+    };
+  });
 }
 
 function _examRenderSummary(history) {

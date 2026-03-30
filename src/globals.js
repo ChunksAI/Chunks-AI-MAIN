@@ -36,9 +36,11 @@ window._getChunksSb = getSupabaseClient;
 // ── Lib · IndexedDB ──────────────────────────────────────────────────────────
 import { ChunksDB }    from './lib/chunksDb.js';
 import { FlashcardDB } from './lib/flashcardDb.js';
+import { saveExamResult, loadExamHistory } from './lib/examDb.js';
 
 window.ChunksDB    = ChunksDB;
 window.FlashcardDB = FlashcardDB;
+window.ExamDB      = { saveExamResult, loadExamHistory };
 
 // ── Lib · Auth ───────────────────────────────────────────────────────────────
 import {

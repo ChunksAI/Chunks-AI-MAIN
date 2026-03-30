@@ -141,12 +141,18 @@ export function spExamFinish() {
 
   // ── Persist exam attempt to Supabase ─────────────────────────────────────
   const documentId = sp.activePlanId || null;
+  const conceptTitle = sp.drawerConcept?.title || '';
   const questionsWithAnswers = sp.examQuestions.map((q, i) => ({
     ...q,
     chosen: sp.examAnswers[i]?.chosen ?? null,
   }));
-  saveExamResult({ documentId, questions: questionsWithAnswers, score: pct })
-    .catch(err => console.warn('[ExamDB] save error:', err));
+  saveExamResult({
+    documentId,
+    topic:     conceptTitle || null,
+    questions: questionsWithAnswers,
+    score:     pct,
+    meta:      { count: total, correct },
+  }).catch(err => console.warn('[ExamDB] save error:', err));
   // ── End persist ───────────────────────────────────────────────────────────
 }
 
