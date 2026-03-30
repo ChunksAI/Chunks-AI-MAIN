@@ -6,9 +6,10 @@ import { sp, SP_WEIGHTS } from './state.js';
 import { $qs, $qsa, addClass } from '../domHelpers.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
 import { lsSet } from '../../utils/storage.js';
+import { escapeHtml } from '../../lib/escapeHtml.js';
 
 /** Escape HTML special chars for safe innerHTML insertion. */
-function _esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _esc(s) { return escapeHtml(s); }
 
 export function spMasteryGet(idx) {
   if (!sp.mastery[idx]) sp.mastery[idx] = { explain: 0, flash: 0, pq: 0, exam: 0 };

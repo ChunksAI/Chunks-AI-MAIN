@@ -126,7 +126,6 @@ _navInit();
 // Re-apply user profile AFTER all components (sidebar, dropdowns) have mounted.
 // _initAuth() is async — getSession() may take >300ms on token refresh.
 // We poll until _currentUser is set rather than using a fixed timeout.
-// Also apply immediately at 100ms / 500ms / 1500ms as belt-and-suspenders.
 function _reapplyProfile() {
   if (!_currentUser) return;
   _applyUserProfile({ user: {
@@ -152,19 +151,20 @@ function _reapplyProfile() {
   }});
 }
 
-// Staggered re-applies: catches both fast (cached) and slow (token refresh) paths
-setTimeout(_reapplyProfile, 100);
-setTimeout(_reapplyProfile, 500);
-setTimeout(_reapplyProfile, 1500);
-
-// Poll until _currentUser is set — handles slow token refresh / network delays
+// Single polling loop — replaces staggered timeouts + separate polling IIFE
+// to avoid profile UI thrashing from concurrent re-applies.
 (function _pollProfile() {
   if (_currentUser) { _reapplyProfile(); return; }
+  let applied = false;
   const t = setInterval(() => {
-    if (_currentUser) { clearInterval(t); _reapplyProfile(); }
+    if (_currentUser && !applied) {
+      applied = true;
+      clearInterval(t);
+      _reapplyProfile();
+    }
   }, 200);
   // Stop polling after 10s to avoid memory leak if auth permanently fails
-  setTimeout(() => clearInterval(t), 10000);
+  setTimeout(() => clearInterval(t), 10_000);
 })();
 
 // ── Service Worker registration ───────────────────────────────────────────

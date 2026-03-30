@@ -15,6 +15,8 @@ import { spRenderPlanPatched } from './patches.js';
 import { spUpdateExamDateUI } from './calendar.js';
 import { spUpdateReminderUI } from './notifications.js';
 import { spSavePlanToSidebarAndLibrary } from './patches.js';
+import { logError } from '../../lib/logger.js';
+import { classifyError, friendlyMessage } from '../../lib/errorHandler.js';
 
 export function spShowOverlay() {
   $el('sp-generating-overlay').style.display = 'flex';
@@ -167,10 +169,11 @@ Rules:
         await new Promise(r => setTimeout(r, base + jitter));
         return _spRetry();
       }
-      console.error('SP generation error:', err);
+      const errorKind = err._is429 ? 'rate_limit' : (err.noRetry ? 'validation' : 'server');
+      logError('studyplan', `Generation failed: ${errorKind}`, { message: err.message, attempt: _spAttempt });
       spHideOverlay();
       btn.disabled = false; btn.style.opacity = '';
-      spShowValidationError('Generation failed: ' + err.message + ' Check your connection and try again.');
+      spShowValidationError(friendlyMessage(errorKind) + ' ' + (err.message || ''));
     }
   };
   _spRetry();

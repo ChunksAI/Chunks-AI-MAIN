@@ -35,8 +35,12 @@ import { guestGate, recordUsage, renderUsageBar } from '../lib/guestLimits.js';
 import { showToast } from '../components/Toast.js';
 import { _getStudyMode } from '../components/SettingsModal.js';
 import { homeMarkdown, sanitize } from '../utils/render.js';
-import { lsGet } from '../utils/storage.js';
+import { lsGet, getSetting } from '../utils/storage.js';
 import { idbKeys } from '../lib/idbStorage.js';
+import { escapeHtml } from '../lib/escapeHtml.js';
+import { validateChatInput } from '../lib/inputValidator.js';
+import { logError } from '../lib/logger.js';
+import { classifyError, friendlyMessage } from '../lib/errorHandler.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -436,7 +440,7 @@ function _incogAppendAI(text) {
           <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
         </svg>
       </div>
-      <div class="incognito-ai-body">${homeMarkdown?.(text) ?? text.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
+      <div class="incognito-ai-body">${homeMarkdown?.(text) ?? escapeHtml(text)}</div>
     </div>`;
   inner.appendChild(d);
   _incogScrollBottom();
@@ -478,8 +482,8 @@ export async function incognitoSendMessage() {
         mode: 'general',
         task_type: 'home_general',
         complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
-        language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
-        safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
+        language: getSetting('language') || 'Auto-detect',
+        safe_content: getSetting('safe-content') === '1',
         history: _incogHistory.slice(-12),
       }),
     });
@@ -572,14 +576,14 @@ export function _renderHomeActivities() {
       <p class="prompts-label">Try asking</p>
       <div class="prompts-chips">
         ${_SUGGEST_CHIPS.map(t =>
-          `<button class="prompt-chip" data-action="homeSetInput-text">${t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</button>`
+          `<button class="prompt-chip" data-action="homeSetInput-text">${escapeHtml(t)}</button>`
         ).join('')}
       </div>`;
     return;
   }
 
   // Build recent activities list
-  const _esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const _esc = s => escapeHtml(String(s));
   const rows = recent.map(item => {
     const meta = _SOURCE_META[item.source] || _SOURCE_META.general;
     const label = _esc(item.label || item.question || '');
@@ -792,8 +796,16 @@ export async function homeSendMessage() {
   const inp     = document.getElementById(chatActive ? 'home-ask-input-bottom' : 'home-ask-input');
   const sendBtn = document.getElementById(chatActive ? 'home-send-btn-bottom' : 'home-send-btn');
 
-  const question = inp.value.trim();
-  if (!question) return;
+  const rawQuestion = inp.value.trim();
+  if (!rawQuestion) return;
+
+  // ── Input validation ────────────────────────────────────────────────────────
+  const validation = validateChatInput(rawQuestion);
+  if (!validation.ok) {
+    showToast('⚠', validation.reason, 'var(--red)');
+    return;
+  }
+  const question = validation.text;
 
   // On the FIRST message of a session: create a recent entry which
   // also sets window._homeSessionId via recentAdd → _saveRecent.
@@ -820,7 +832,8 @@ export async function homeSendMessage() {
   // _homeSessionId is now guaranteed to be set (created above if new).
   if (_homeSessionId) {
     window._saveSession?.(_homeSessionId, homeHistory);
-    localStorage.setItem('chunks_active_home_session', _homeSessionId);
+    lsGet('chunks_active_home_session'); // warm read — harmless
+    try { localStorage.setItem('chunks_active_home_session', _homeSessionId); } catch (_) {}
     window._renderAllRecent?.();
     // Supabase write is handled by _saveSession → saveFull (single write path).
     // appendMessage was removed here to fix the double-write race (Bug #2):
@@ -842,8 +855,8 @@ export async function homeSendMessage() {
         mode: 'general',
         task_type: 'home_general',
         complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
-        language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
-        safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
+        language: getSetting('language') || 'Auto-detect',
+        safe_content: getSetting('safe-content') === '1',
         history: homeHistory.slice(-12),
         ...(_homeWebSearch ? { web_search: true } : {}),
         ...(_homeThinking === 'think' ? { thinking: 'thinking' } : {}),
@@ -855,7 +868,9 @@ export async function homeSendMessage() {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      homeAppendError(err.error || `Error ${res.status}`);
+      const errorKind = classifyError(res, err);
+      logError('chat', `Home ask failed: ${errorKind}`, { status: res.status, error: err?.error });
+      homeAppendError(err.error || friendlyMessage(errorKind));
       homeHistory.pop();
     } else {
       const data   = await res.json();
@@ -865,7 +880,7 @@ export async function homeSendMessage() {
       // Overwrite with full exchange (user + AI)
       if (_homeSessionId) {
         window._saveSession?.(_homeSessionId, homeHistory);
-        localStorage.setItem('chunks_active_home_session', _homeSessionId);
+        try { localStorage.setItem('chunks_active_home_session', _homeSessionId); } catch (_) {}
         window._renderAllRecent?.();
         // Supabase write is handled by _saveSession → saveFull (single write path).
         // appendMessage was removed here to fix the double-write race (Bug #2).
@@ -873,7 +888,8 @@ export async function homeSendMessage() {
     }
   } catch (e) {
     homeRemoveThinking();
-    homeAppendError('Could not reach the server. Check your connection.');
+    logError('chat', 'Home ask network error', { message: e?.message });
+    homeAppendError(friendlyMessage('network'));
     homeHistory.pop();
   } finally {
     homeIsTyping = false;
@@ -905,7 +921,7 @@ mountHomeScreen();
   // Workspace restore is fully handled by navigation.js._restoreScreen() —
   // skip it here entirely to avoid double-restore or timing conflicts.
   if (activeScreen === 'workspace' ||
-      (!activeScreen && localStorage.getItem('chunks_active_ws_book'))) {
+      (!activeScreen && lsGet('chunks_active_ws_book'))) {
     return;
   }
 
@@ -972,7 +988,7 @@ mountHomeScreen();
   // has right now, then let SyncManager call _homeMountLatestSession() after
   // sync completes to pick up any newer sessions from other devices.
 
-  const savedId = localStorage.getItem('chunks_active_home_session');
+  const savedId = lsGet('chunks_active_home_session');
   if (savedId && !(activeScreen && activeScreen !== 'home')) {
     try {
       const s = lsGet('chunks_session_' + savedId);
@@ -1041,7 +1057,7 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
         }
       }
       if (newest) {
-        localStorage.setItem('chunks_active_home_session', newest.id);
+        try { localStorage.setItem('chunks_active_home_session', newest.id); } catch (_) {}
         _mountSession(newest.s, newest.id);
       }
     } catch (_) {}

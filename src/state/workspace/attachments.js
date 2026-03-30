@@ -6,6 +6,7 @@
 import { ws } from './state.js';
 import { wsChatSend, _wsAsk, wsAutoResize, wsScrollBottom } from './chat.js';
 import { $el, $qsa, removeClass, addClass } from '../domHelpers.js';
+import { escapeHtml } from '../../lib/escapeHtml.js';
 
 export let _uploadedPdfFile = null;
 export let _uploadedPdfName = null;
@@ -90,10 +91,10 @@ window.wsChatSend = async function() {
   inp.placeholder = 'Ask a follow-up about Chapter 3…';
 
   const selQuote = ws.selectedText
-    ? `<div style="margin-bottom:7px;padding:7px 10px;border-left:2px solid var(--gold);background:var(--gold-muted);border-radius:0 6px 6px 0;font-size:11px;color:var(--text-3);line-height:1.5;font-style:italic;">"${ws.selectedText.slice(0,160).replace(/&/g,'&amp;').replace(/</g,'&lt;')}${ws.selectedText.length>160?'…':''}"</div>`
+    ? `<div style="margin-bottom:7px;padding:7px 10px;border-left:2px solid var(--gold);background:var(--gold-muted);border-radius:0 6px 6px 0;font-size:11px;color:var(--text-3);line-height:1.5;font-style:italic;">"${escapeHtml(ws.selectedText.slice(0,160))}${ws.selectedText.length>160?'…':''}"</div>`
     : '';
 
-  let bubbleHtml = question ? question.replace(/&/g,'&amp;').replace(/</g,'&lt;') : '';
+  let bubbleHtml = question ? escapeHtml(question) : '';
   if (ws.attachments.length) {
     bubbleHtml += ws.attachments.map(a =>
       a.type === 'image'

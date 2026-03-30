@@ -251,6 +251,8 @@ export function wsToggleThinkMenu(e) {
 
 export function wsToggleThinking(mode) {
   ws.thinking = ws.thinking === mode ? 'off' : mode;
+  // Persist toggle state in memory so it survives book switches within the session
+  window._memSet?.('chunks_ws_thinking', ws.thinking);
   const isThink = ws.thinking === 'think';
   const isDeep  = ws.thinking === 'deep';
   const isAny   = isThink || isDeep;

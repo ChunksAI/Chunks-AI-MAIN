@@ -41,6 +41,11 @@ export async function selectBook(bookId) {
   ws.userDocText = '';
   ws.bookId = bookId;
   ws.chatHistory = [];
+  // Restore Deep Think toggle state from memory (persists across book switches)
+  const savedThinking = window._memGet?.('chunks_ws_thinking') || 'off';
+  if (savedThinking !== ws.thinking) {
+    ws.thinking = savedThinking;
+  }
   // Persist active book immediately so a refresh can restore it
   lsSet('chunks_active_ws_book', bookId);
   memSet('chunks_default_book', bookId);

@@ -54,6 +54,8 @@ const MEM_ONLY_KEYS = new Set([
   'chunks_settings_updated_at',
   'chunks_recent_items_updated_at',
   'chunks_ws_last_visited',
+  // Deep Think toggle state — session-only, not persisted
+  'chunks_ws_thinking',
 ]);
 
 /** Key prefixes stored only in memory */
