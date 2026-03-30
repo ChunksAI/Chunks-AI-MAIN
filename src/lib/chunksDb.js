@@ -386,6 +386,40 @@ const chat = {
   },
 
   /**
+   * Fetch the chat history for a specific book/document from Supabase.
+   *
+   * Always queries Supabase directly — never reads localStorage — so the
+   * result always reflects the authoritative database state.  Call this on
+   * every page load and every document change to keep the chat panel current.
+   *
+   * @param {string} bookId  - book/document identifier (maps to `book_id` column)
+   * @returns {{ data: Array<{role,content,created_at,type}>, error }}
+   *   data — messages ordered by created_at ascending; empty array when none found.
+   */
+  async getSessionByBook(bookId) {
+    // Guests and unauthenticated users have no Supabase session — return empty.
+    if (!isLoggedIn()) return { data: [], error: null };
+
+    const { data, error } = await get('chat_sessions', {
+      eq:    { book_id: bookId },
+      order: { col: 'updated_at', asc: false },
+      limit: 1,
+    });
+
+    if (error || !data?.length) return { data: [], error: error || null };
+
+    // Sort messages within the session chronologically (created_at ascending)
+    // so the chat panel always renders in the correct send-order.
+    const messages = (data[0].messages || []).slice().sort((a, b) => {
+      if (!a.created_at) return -1;
+      if (!b.created_at) return  1;
+      return new Date(a.created_at) - new Date(b.created_at);
+    });
+
+    return { data: messages, error: null };
+  },
+
+  /**
    * Pull sessions from Supabase and write them to localStorage so the
    * existing restore path (which reads from localStorage) finds them.
    * Called on every login — safe to run on a device that already has data

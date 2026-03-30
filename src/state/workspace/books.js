@@ -267,6 +267,15 @@ export async function selectBook(bookId) {
     _wsShowWelcome(meta);
     await _wsBuildOutline(ws.pdfDoc, bookId);
 
+    // Fetch fresh chat history for this book from Supabase (authoritative source).
+    // If a prior conversation exists it replaces the welcome message so the user
+    // immediately sees their history — without reading from localStorage.
+    const { data: freshHistory } = await ChunksDB.chat.getSessionByBook(bookId);
+    if (freshHistory?.length) {
+      ws.chatHistory = freshHistory;
+      _wsRenderHistory($el('ws-messages'), freshHistory);
+    }
+
   } catch (err) {
     console.error('PDF load error:', err);
     hide($el('ws-pdf-loading'));
@@ -278,6 +287,32 @@ export async function selectBook(bookId) {
         <button onclick="selectBook('${bookId}')" style="padding:7px 18px;border-radius:var(--r-pill);background:var(--surface-3);border:1px solid var(--border-sm);color:var(--text-1);font-size:12px;font-family:var(--font-body);cursor:pointer;">Retry</button>
       </div>`);
   }
+}
+
+// ── History renderer ─────────────────────────────────────────────────────────
+// Shared utility used by selectBook (document change / page load) and
+// _doRestore (app.html — recent-item click) to build the chat DOM from a
+// message array. Clears the container before rendering.
+
+export function _wsRenderHistory(msgs, history) {
+  if (!msgs || !history?.length) return;
+  msgs.innerHTML = '';
+  history.forEach(msg => {
+    const el = document.createElement('div');
+    if (msg.role === 'user') {
+      el.className = 'msg msg-user';
+      const escaped = (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      el.innerHTML = `<div class="bubble-user">${escaped}</div>`;
+    } else {
+      el.className = 'msg msg-ai';
+      const rendered = typeof window.homeMarkdown === 'function'
+        ? window.homeMarkdown(msg.content || '')
+        : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      el.innerHTML = `<div class="ai-row"><div class="ai-body">${rendered}</div></div>`;
+    }
+    msgs.appendChild(el);
+  });
+  msgs.scrollTop = msgs.scrollHeight;
 }
 
 // ── Welcome message ───────────────────────────────────────────────────────
