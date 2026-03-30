@@ -67,13 +67,15 @@ export function showScreen(name) {
     }
 
     if (name === 'workspace') {
-      // Silent reset — clear chat and book, NO toast (toast is for explicit "clear" action)
+      // Silent reset — clear chat and book UI, NO toast (toast is for explicit "clear" action)
+      // Note: Do NOT remove chunks_active_ws_book / chunks_active_ws_user_doc here.
+      // selectBook() sets these keys *before* calling showScreen('workspace'),
+      // so removing them here would delete the value that was just saved,
+      // breaking workspace restoration on page refresh.
       try {
         const msgs = $el('ws-messages');
         if (msgs) msgs.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div></div>';
         if (typeof window._wsChatHistory !== 'undefined') window._wsChatHistory = [];
-        localStorage.removeItem('chunks_active_ws_book');
-        localStorage.removeItem('chunks_active_ws_user_doc');
         const wsNoBook  = $el('ws-no-book-bar');
         const wsBookBar = $el('ws-book-bar');
         if (wsNoBook)  wsNoBook.style.display  = '';

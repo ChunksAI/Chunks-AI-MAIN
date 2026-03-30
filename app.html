@@ -543,6 +543,15 @@ function recentAdd(question, bookId, source) {
     // For visual, the session id is tracked in VisualTutorScreen directly via _recentItems[0]
     return;
   }
+  // For workspace chats: reuse existing recent item for the same book to avoid
+  // duplicate sidebar entries when sending multiple messages in the same session.
+  if (source === 'workspace' && bookId) {
+    const existing = _recentItems.find(r => r.bookId === bookId && r.source === 'workspace');
+    if (existing) {
+      _setActiveRecent(existing.id);
+      return;
+    }
+  }
   const item = {
     id: 'r' + Date.now(),
     // uuid is the cross-device stable identifier used for Supabase chat_sessions.

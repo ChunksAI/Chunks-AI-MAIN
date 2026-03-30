@@ -110,6 +110,11 @@ export async function wsMakeFlashcard(btn, msgId, topic) {
     if (btn) btn.remove();
     actsEl.insertAdjacentElement('afterend', resultEl);
 
+    // Add to sidebar recent items so the deck appears in history
+    if (typeof window.recentAdd === 'function') {
+      window.recentAdd(cleanTopic, ws.bookId || '', 'workspace');
+    }
+
     showToast?.('✦', `${count} cards created — "${cleanTopic}"`, 'var(--gold)');
 
   } catch (err) {
@@ -228,10 +233,17 @@ export async function wsOpenFlashcardDeck(deckId, topic) {
 
   setTimeout(async () => {
     _fcCheckNavFrom();
-    await _fcRenderDeckList();
-    // Scroll to top so the user sees their deck
-    const home = $el('fc-home');
-    if (home) home.scrollTop = 0;
+    try {
+      const decks = await FlashcardDB.fcLoadDecks();
+      const deck  = decks.find(d => String(d.id) === String(deckId) || d.name === deckId);
+      if (deck) {
+        _fcStartDeck(deck);
+      } else {
+        await _fcRenderDeckList();
+      }
+    } catch (e) {
+      await _fcRenderDeckList();
+    }
   }, 200);
 }
 
