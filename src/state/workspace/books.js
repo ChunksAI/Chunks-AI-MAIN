@@ -13,6 +13,7 @@ import { ChunksDB } from '../../lib/chunksDb.js';
 import { checkStorageQuota } from '../../utils/storageQuota.js';
 import { lsGet, lsSet } from '../../utils/storage.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
+import { subscribeToChatRealtime, unsubscribeChatRealtime } from './chatRealtime.js';
 
 let _wsSaveScrollTm;
 
@@ -42,6 +43,9 @@ export async function selectBook(bookId) {
   try { localStorage.setItem('chunks_default_book', bookId); } catch (_) {}
   try { localStorage.removeItem('chunks_active_ws_user_doc'); } catch (_) {}
   trackBookOpen(bookId);
+
+  // Start realtime subscription for this document
+  subscribeToChatRealtime(bookId);
   const short  = meta.name.split(' ').slice(0, 2).join(' ');
   setHtml($el('ws-context-tag'), `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg> ${short}`);
   setText($el('ws-chat-title'), meta.name);

@@ -148,6 +148,8 @@ import {
   wsToggleVoiceInput, wsReadAloud, wsStopReading,
   wsListenPdf, wsStopListenPdf, wsListenPdfSetRate,
   _wsRenderHistory,
+  subscribeToChatRealtime, unsubscribeChatRealtime,
+  addMessageToUI, removeMessageFromUI, updateMessageInUI,
 } from './state/workspace/index.js';
 
 window.ws                  = ws;
@@ -206,6 +208,13 @@ window.wsStopReading          = wsStopReading;
 window.wsListenPdf            = wsListenPdf;
 window.wsStopListenPdf        = wsStopListenPdf;
 window.wsListenPdfSetRate     = wsListenPdfSetRate;
+
+// ── State · Workspace · Realtime ─────────────────────────────────────────────
+window.subscribeToChatRealtime   = subscribeToChatRealtime;
+window.unsubscribeChatRealtime   = unsubscribeChatRealtime;
+window.addMessageToUI            = addMessageToUI;
+window.removeMessageFromUI       = removeMessageFromUI;
+window.updateMessageInUI         = updateMessageInUI;
 
 // Forward-reference stub — flash/index.js overwrites this with the real impl
 window.wsMakeFlashcard = async function(btn, msgId, question) {

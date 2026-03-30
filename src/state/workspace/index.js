@@ -42,8 +42,12 @@ export {
 
 export { wsPromptYouTube, wsCloseYouTube, wsIngestYouTube } from './youtube.js';
 
-export {
-  wsToggleVoiceInput, wsReadAloud, wsStopReading,
+export { wsToggleVoiceInput, wsReadAloud, wsStopReading,
   wsListenPdf, wsStopListenPdf, wsListenPdfSetRate,
   wsVoiceSupported, wsTtsSupported,
 } from './voice.js';
+
+export {
+  subscribeToChatRealtime, unsubscribeChatRealtime,
+  addMessageToUI, removeMessageFromUI, updateMessageInUI,
+} from './chatRealtime.js';

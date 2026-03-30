@@ -11,6 +11,7 @@ import { spInitScreen, spShowEmpty } from '../studyplan/index.js';
 import { closeMobileDrawer, openMobileDrawer } from './mobile.js';
 import { lsGet } from '../../utils/storage.js';
 import { WS_USER_DOC_SENTINEL } from '../workspace/index.js';
+import { unsubscribeChatRealtime } from '../workspace/chatRealtime.js';
 
 // ── Shared navigation flag ────────────────────────────────────────────────────
 export let _navFromHistory = false;
@@ -77,6 +78,8 @@ export function showScreen(name) {
         if (wsNoBook)  wsNoBook.style.display  = '';
         if (wsBookBar) wsBookBar.style.display = 'none';
       } catch(_) {}
+      // Unsubscribe from any active realtime channel when workspace is reset
+      unsubscribeChatRealtime();
       // Refresh smart suggestions when navigating to workspace
       setTimeout(() => window.refreshSmartSuggestions?.(), 150);
     }
