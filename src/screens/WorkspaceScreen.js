@@ -278,11 +278,6 @@ const WORKSPACE_HTML = /* html */`
                   <span>Web Search</span>
                   <div class="attach-menu-check" id="ws-websearch-check"></div>
                 </div>
-                <div class="attach-menu-item attach-menu-toggle" id="ws-toggle-deep" onclick="wsToggleThinking('deep')">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                  <span>Deep Think</span>
-                  <div class="attach-menu-check" id="ws-deep-check"></div>
-                </div>
               </div>
             </div>
             <!-- Voice button -->
@@ -292,12 +287,26 @@ const WORKSPACE_HTML = /* html */`
             </button>
           </div>
           <div class="chat-footer-right">
-            <!-- Think button -->
-            <button class="chat-footer-btn chat-think-btn" id="ws-toggle-think" onclick="wsToggleThinking('think')" title="Toggle thinking mode">
-              <span class="chat-think-dot" id="ws-think-check"></span>
-              Think
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
+            <!-- Think dropdown -->
+            <div class="chat-think-wrap" id="ws-think-wrap">
+              <button class="chat-footer-btn chat-think-btn" id="ws-toggle-think" onclick="wsToggleThinkMenu(event)" title="Thinking mode">
+                <span class="chat-think-dot"></span>
+                Think
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="think-menu" id="ws-think-menu">
+                <div class="think-menu-item" id="ws-think-opt-think" onclick="wsToggleThinking('think')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
+                  <span>Think</span>
+                  <div class="attach-menu-check" id="ws-think-check"></div>
+                </div>
+                <div class="think-menu-item" id="ws-think-opt-deep" onclick="wsToggleThinking('deep')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  <span>Deep Think</span>
+                  <div class="attach-menu-check" id="ws-deep-check"></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

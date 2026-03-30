@@ -628,7 +628,7 @@
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.30);
-  overflow: hidden;
+  overflow: visible;
   transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 .chat-input-card:focus-within {
@@ -731,7 +731,6 @@
 }
 .chat-think-btn.active .chat-think-dot,
 #ws-toggle-think.active .chat-think-dot { background: var(--gold); }
-#ws-think-check.on { background: var(--gold); }
 
 /* Keep legacy .chat-input-inner for any code that may still reference it */
 .chat-input-inner {
@@ -798,6 +797,36 @@
   transition: opacity 0.15s, transform 0.15s;
 }
 .attach-menu.open { opacity: 1; transform: none; pointer-events: all; }
+
+/* ── Think mode dropdown ── */
+.chat-think-wrap { position: relative; flex-shrink: 0; }
+.think-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  background: var(--surface-2);
+  border: 1px solid var(--border-md);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  padding: 4px;
+  z-index: 999;
+  min-width: 150px;
+  opacity: 0; transform: translateY(6px) scale(0.97);
+  pointer-events: none;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.think-menu.open { opacity: 1; transform: none; pointer-events: all; }
+.think-menu-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; color: var(--text-2);
+  transition: background 0.1s, color 0.1s;
+}
+.think-menu-item:hover { background: var(--surface-3); color: var(--text-1); }
+.think-menu-item svg { flex-shrink: 0; color: var(--text-3); }
+.think-menu-item.active { color: var(--gold); }
+.think-menu-item.active svg { stroke: var(--gold); }
+
 .attach-menu-item {
   display: flex; align-items: center; gap: 10px;
   padding: 9px 12px; border-radius: 8px; cursor: pointer;
