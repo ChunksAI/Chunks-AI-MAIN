@@ -110,6 +110,9 @@ export async function wsMakeFlashcard(btn, msgId, topic) {
     if (btn) btn.remove();
     actsEl.insertAdjacentElement('afterend', resultEl);
 
+    // Add to sidebar recent history so the new deck is visible in the recents list
+    window.recentAdd?.(cleanTopic, ws.bookId || null, 'workspace');
+
     showToast?.('✦', `${count} cards created — "${cleanTopic}"`, 'var(--gold)');
 
   } catch (err) {
