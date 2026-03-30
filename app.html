@@ -399,6 +399,17 @@ function _saveWsSession(bookId, historyArr) {
       bookId,
       updatedAt: new Date().toISOString(),
     });
+  } else if (supabaseId && !historyArr?.length) {
+    // History was explicitly cleared — delete the Supabase row so the cleared
+    // state persists across refreshes.  Without this, getSessionByBook() fetches
+    // the old messages from Supabase and they reappear after a page reload.
+    // deleteSession() tombstones the UUID so _uploadLocalChatSessions() never
+    // re-uploads it either.
+    window.ChunksDB?.chat?.deleteSession?.(supabaseId).catch(e => {
+      console.warn('[workspace] failed to delete cleared session from Supabase:', e?.message || e);
+    });
+    // Also clear the localStorage entry so _loadWsSession returns nothing
+    localStorage.removeItem('chunks_ws_session_' + bookId);
   }
 }
 
