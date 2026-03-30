@@ -585,11 +585,20 @@ const chat = {
 
     if (!isLoggedIn()) return { error: null };
 
-    // Persist tombstone to Supabase so ALL devices + future logins skip this session
-    _persistServerTombstone(sessionId);
+    // ✅ FIX 1: await tombstone BEFORE deleting the row so the tombstone is
+    // guaranteed to exist in Supabase before the row disappears.  Previously
+    // this was fire-and-forget which meant a network failure could leave no
+    // tombstone, causing Chrome to re-download the session on next sync.
+    await _persistServerTombstone(sessionId);
 
     // DELETE the Supabase row with retry
-    return _deleteWithRetry(sessionId);
+    const result = await _deleteWithRetry(sessionId);
+
+    // Trigger a lightweight tombstone-only sync so the deleting device also
+    // dispatches chunks:sessions-ready and other open tabs notice quickly.
+    syncTombstones().catch(() => {});
+
+    return result;
   },
 };
 
@@ -597,12 +606,21 @@ const chat = {
 // Stores deleted session UUIDs in user_settings.notifications.deleted_sessions
 // so deletes survive fresh logins and are visible on all devices.
 
+// ✅ FIX 2: Serialisation chain — all tombstone writes are queued onto this
+// promise so concurrent deletes never perform overlapping read-modify-writes.
+let _tombstoneChain = Promise.resolve();
+
 /**
  * Add a session UUID to the server-side tombstone list.
- * Uses the existing patch_user_settings RPC — no migration required.
- * Fire-and-forget (non-blocking).
+ * Calls are serialised via _tombstoneChain so rapid successive deletes cannot
+ * overwrite each other (non-atomic read-modify-write race).
  */
 async function _persistServerTombstone(sessionId) {
+  _tombstoneChain = _tombstoneChain.then(() => _doTombstoneWrite(sessionId)).catch(() => {});
+  return _tombstoneChain;
+}
+
+async function _doTombstoneWrite(sessionId) {
   try {
     const sb = await _sb();
     if (!sb || !isLoggedIn()) return;
@@ -621,6 +639,75 @@ async function _persistServerTombstone(sessionId) {
     console.log('[ChunksDB] server tombstone saved for', sessionId);
   } catch (e) {
     console.warn('[ChunksDB] server tombstone failed:', e.message);
+  }
+}
+
+// ── Lightweight tombstone-only sync ─────────────────────────────────────────
+
+/**
+ * Pull only the tombstone list from Supabase and apply it locally.
+ * Lightweight — only reads user_settings.notifications.deleted_sessions.
+ * Bypasses the 60 s pullAll cooldown so deletes propagate to other browsers
+ * quickly.  Called automatically after deleteSession(), and exposed on the
+ * ChunksDB public API so callers can trigger it manually.
+ */
+async function syncTombstones() {
+  if (!isLoggedIn()) return;
+  try {
+    const sb = await _sb();
+    if (!sb) return;
+    const { data, error } = await sb
+      .from('user_settings')
+      .select('notifications')
+      .eq('user_id', _uid())
+      .single();
+    if (error || !data) return;
+
+    const serverDeleted = data.notifications?.deleted_sessions || [];
+    if (!serverDeleted.length) return;
+
+    // Merge into local tombstone list
+    const localTombs = _lsGet('chunks_deleted_sessions', []);
+    const merged = [...new Set([...localTombs, ...serverDeleted])].slice(-200);
+    _lsSet('chunks_deleted_sessions', merged);
+
+    // Determine which tombstones are new to this device
+    const localTombSet = new Set(localTombs);
+    const newTombs = serverDeleted.filter(id => !localTombSet.has(id));
+    if (newTombs.length === 0) return;
+
+    // Remove newly-discovered tombstoned sessions from localStorage
+    let removed = 0;
+    for (const id of newTombs) {
+      // Direct key match
+      if (_lsRemove('chunks_session_' + id) !== null) removed++;
+
+      // Scan for r+timestamp keyed entries that reference this id
+      const keys = _idbKeys('chunks_session_');
+      for (const k of keys) {
+        const s = _lsGet(k);
+        if (s && (s.id === id || s.supabaseId === id)) {
+          _lsRemove(k);
+          removed++;
+        }
+      }
+    }
+
+    if (removed > 0) {
+      console.log(`[ChunksDB] syncTombstones — removed ${removed} tombstoned session(s) from localStorage`);
+    }
+
+    // Notify the UI to re-render the sidebar regardless so newly tombstoned
+    // sessions disappear even if they were stored under an unexpected key.
+    if (newTombs.length > 0) {
+      try {
+        window.dispatchEvent(new CustomEvent('chunks:sessions-ready', {
+          detail: { tombstoneSync: true },
+        }));
+      } catch (_) {}
+    }
+  } catch (e) {
+    console.warn('[ChunksDB] syncTombstones error:', e.message);
   }
 }
 
@@ -1482,6 +1569,7 @@ export const ChunksDB = {
   studyPlan,
   recentItems,
   pullAll,
+  syncTombstones,  // ✅ Lightweight delete propagation — bypasses 60 s pullAll cooldown
 };
 
 console.log('[ChunksDB] Sync layer ready ✦  (Phase 2: chat · settings · streak · ws · studyPlan · recentItems)');
