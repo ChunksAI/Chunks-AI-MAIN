@@ -399,6 +399,17 @@ function _saveWsSession(bookId, historyArr) {
       bookId,
       updatedAt: new Date().toISOString(),
     });
+  } else if (supabaseId && !historyArr?.length) {
+    // History was explicitly cleared — delete the Supabase row so the cleared
+    // state persists across refreshes.  Without this, getSessionByBook() fetches
+    // the old messages from Supabase and they reappear after a page reload.
+    // deleteSession() tombstones the UUID so _uploadLocalChatSessions() never
+    // re-uploads it either.
+    window.ChunksDB?.chat?.deleteSession?.(supabaseId).catch(e => {
+      console.warn('[workspace] failed to delete cleared session from Supabase:', e?.message || e);
+    });
+    // Also clear the localStorage entry so _loadWsSession returns nothing
+    localStorage.removeItem('chunks_ws_session_' + bookId);
   }
 }
 
@@ -787,7 +798,22 @@ function _clickRecent(item) {
     // Workspace / book question — restore saved session, never re-send
     showScreen('workspace');
 
-    const _doRestore = () => {
+    const _doRestore = async () => {
+      // For logged-in users: always fetch fresh chat history from Supabase so the
+      // panel reflects the authoritative database state rather than stale localStorage.
+      if (window.ChunksDB?.isLoggedIn()) {
+        const { data: freshHistory } = await window.ChunksDB.chat.getSessionByBook(item.bookId);
+        if (freshHistory?.length) {
+          window._wsRenderHistory(document.getElementById('ws-messages'), freshHistory);
+          _wsChatHistory = freshHistory;
+          localStorage.setItem('chunks_active_ws_book', item.bookId);
+          window.ChunksDB?.ws?.savePosition?.(item.bookId, {});
+          setTimeout(() => document.getElementById('ws-chat-input')?.focus(), 80);
+          return;
+        }
+      }
+
+      // Fallback for guests or when Supabase returns no data: read localStorage/IDB.
       let wsSession = _loadWsSession(item.bookId);
       // Fallback: look up by UUID in IDB (written by pullAndApply for cross-device / re-login)
       if (!wsSession || (!wsSession.html && !(wsSession.history || []).length)) {
@@ -802,24 +828,9 @@ function _clickRecent(item) {
         const msgs = document.getElementById('ws-messages');
         if (wsSession.html && msgs) {
           msgs.innerHTML = typeof sanitize === 'function' ? sanitize(wsSession.html) : wsSession.html;
-        } else if (wsHistory.length && msgs) {
-          // Cross-device restore — rebuild from message array
-          msgs.innerHTML = '';
-          wsHistory.forEach(msg => {
-            const el = document.createElement('div');
-            if (msg.role === 'user') {
-              el.className = 'msg msg-user';
-              const escaped = (msg.content || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-              el.innerHTML = `<div class="bubble-user">${escaped}</div>`;
-            } else {
-              el.className = 'msg msg-ai';
-              const rendered = window.homeMarkdown
-                ? window.homeMarkdown(msg.content || '')
-                : (msg.content || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-              el.innerHTML = `<div class="ai-row"><div class="ai-body">${rendered}</div></div>`;
-            }
-            msgs.appendChild(el);
-          });
+        } else if (wsHistory.length) {
+          // Cross-device restore — rebuild from message array using shared renderer
+          window._wsRenderHistory(msgs, wsHistory);
         }
         _wsChatHistory = wsHistory;
         localStorage.setItem('chunks_active_ws_book', item.bookId);

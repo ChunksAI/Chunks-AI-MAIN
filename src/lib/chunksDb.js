@@ -236,22 +236,54 @@ function _notifyConflict(table) {
 // Table: chat_sessions  (created in migration 002)
 // ══════════════════════════════════════════════════════════════════════════════
 
+// Deduplication guard: tracks in-flight appendMessage RPC calls.
+// Key format: "<sessionId>:<ts>:<content_prefix>" — prevents a concurrent or
+// duplicate call for the exact same message from firing a second RPC before the
+// first one resolves (e.g. rapid re-send, retry logic, or race conditions).
+const _appendInflight = new Set();
+
+/**
+ * Normalize a message object before persisting.
+ * Ensures every stored message has:
+ *   • created_at — ISO-8601 timestamp (derived from ts when available)
+ *   • type       — always 'chat'
+ * Fields already present are never overwritten.
+ */
+function _normalizeMessage(message) {
+  return {
+    ...message,
+    type:       message.type       || 'chat',
+    created_at: message.created_at
+                  || (message.ts ? new Date(message.ts).toISOString()
+                                 : new Date().toISOString()),
+  };
+}
+
 const chat = {
 
   /**
    * Append a single message turn to an existing or new session.
    * Preferred over saveFull for real-time appends — sends only the new turn.
    *
+   * Safeguards:
+   *   1. Normalizes the message to include `created_at`, `type`, and
+   *      `document_id` (via p_book_id) before any write.
+   *   2. Deduplicates concurrent RPC calls for the same session+message so
+   *      the same turn is never inserted twice even if the caller fires twice.
+   *
    * @param {string} sessionId  - UUID (generate client-side with crypto.randomUUID)
-   * @param {{ role: string, content: string, ts: number }} message
-   * @param {{ bookId?: string, title?: string }} [meta]
+   * @param {{ role: string, content: string, ts?: number }} message
+   * @param {{ bookId?: string, title?: string, localId?: string }} [meta]
    */
   async appendMessage(sessionId, message, meta = {}) {
+    // Normalize before any write so localStorage and Supabase store identical shape
+    const normalizedMessage = _normalizeMessage(message);
+
     // Always write to localStorage first — this is the source of truth
     // for the current device and the upload fallback if Supabase is unreachable.
     const key = 'chunks_session_' + sessionId;
     const session = _lsGet(key, { id: sessionId, history: [], ...meta });
-    session.history = [...(session.history || []), message];
+    session.history = [...(session.history || []), normalizedMessage];
     session.updatedAt = new Date().toISOString();
     if (meta.bookId) session.bookId = meta.bookId;
     if (meta.title)  session.title  = meta.title;
@@ -268,14 +300,26 @@ const chat = {
     // the pending queue (_uploadLocalChatSessions on next pullAll) will catch it
     if (!isLoggedIn() || !_uid()) return { data: null, error: null };
 
-    return _rpc('append_chat_message', {
-      p_session_id: sessionId,
-      p_user_id:    _uid(),
-      p_message:    message,
-      p_book_id:    meta.bookId  || null,
-      p_title:      meta.title   || null,
-      p_local_id:   meta.localId || null,
-    });
+    // In-flight deduplication: suppress a second RPC for the same message while
+    // the first one is still awaiting a response from Supabase.
+    const dedupKey = `${sessionId}:${normalizedMessage.created_at}:${(normalizedMessage.content || '').slice(0, 40)}`;
+    if (_appendInflight.has(dedupKey)) {
+      console.warn('[ChunksDB] appendMessage: duplicate suppressed for session', sessionId);
+      return { data: null, error: null };
+    }
+    _appendInflight.add(dedupKey);
+    try {
+      return await _rpc('append_chat_message', {
+        p_session_id: sessionId,
+        p_user_id:    _uid(),
+        p_message:    normalizedMessage,
+        p_book_id:    meta.bookId  || null,
+        p_title:      meta.title   || null,
+        p_local_id:   meta.localId || null,
+      });
+    } finally {
+      _appendInflight.delete(dedupKey);
+    }
   },
 
   /**
@@ -290,7 +334,8 @@ const chat = {
       _lsSet('chunks_active_home_session', session.id);
       return { data: null, error: null };
     }
-    const messages = session.messages || session.history || [];
+    // Normalize every message so stored JSON has consistent created_at / type fields
+    const messages = (session.messages || session.history || []).map(_normalizeMessage);
     // Title-only update — don't overwrite existing messages in Supabase
     if (messages.length === 0 && session.title) {
       try {
@@ -338,6 +383,41 @@ const chat = {
       order: { col: 'updated_at', asc: false },
       limit,
     });
+  },
+
+  /**
+   * Fetch the chat history for a specific book/document from Supabase.
+   *
+   * Always queries Supabase directly — never reads localStorage — so the
+   * result always reflects the authoritative database state.  Call this on
+   * every page load and every document change to keep the chat panel current.
+   *
+   * @param {string} bookId  - book/document identifier (maps to `book_id` column)
+   * @returns {{ data: Array<{role,content,created_at,type}>, error }}
+   *   data — messages ordered by created_at ascending; empty array when none found.
+   */
+  async getSessionByBook(bookId) {
+    // Guests and unauthenticated users have no Supabase session — return empty.
+    if (!isLoggedIn()) return { data: [], error: null };
+
+    const { data, error } = await get('chat_sessions', {
+      eq:    { book_id: bookId },
+      order: { col: 'updated_at', asc: false },
+      limit: 1,
+    });
+
+    if (error || !data?.length) return { data: [], error: error || null };
+
+    // Sort messages within the session chronologically (created_at ascending)
+    // so the chat panel always renders in the correct send-order.
+    const messages = (data[0].messages || []).slice().sort((a, b) => {
+      if (!a.created_at) return -1;
+      if (!b.created_at) return  1;
+      return new Date(a.created_at) - new Date(b.created_at);
+    });
+
+    console.log('[ChunksDB] getSessionByBook — loaded chats for book', bookId, ':', messages.length, 'messages');
+    return { data: messages, error: null };
   },
 
   /**
@@ -492,6 +572,7 @@ const chat = {
    * 4. DELETE the Supabase row with retry
    */
   async deleteSession(sessionId) {
+    console.log('[ChunksDB] deleteSession — deleting chat id:', sessionId);
     _lsRemove('chunks_session_' + sessionId);
 
     try {
@@ -1182,6 +1263,12 @@ async function _uploadLocalChatSessions() {
     const newlyAssigned = [];
     const uploadBatch   = [];  // collected payloads for a single batch upsert
 
+    // Load tombstone list once before the loop so every key sees the same
+    // consistent snapshot and we don't re-read localStorage on every iteration.
+    // A freshly-deleted session is tombstoned before _uploadLocalChatSessions
+    // runs (deleteSession() writes the tombstone synchronously), so this is safe.
+    const _tombs = new Set(_lsGet('chunks_deleted_sessions', []));
+
     for (const k of keys) {
       const s = _lsGet(k);
       if (!s) continue;
@@ -1189,8 +1276,7 @@ async function _uploadLocalChatSessions() {
       // Skip sessions that were explicitly deleted by the user.
       // Without this guard, a session with no supabaseId would get a fresh UUID
       // and be re-uploaded, making deletes appear to "come back" after sync.
-      const _tombs = _lsGet('chunks_deleted_sessions', []);
-      if (_tombs.includes(s.id) || (s.supabaseId && _tombs.includes(s.supabaseId))) continue;
+      if (_tombs.has(s.id) || (s.supabaseId && _tombs.has(s.supabaseId))) continue;
 
       // Resolve the supabaseId for this session.
       // Priority: explicit supabaseId field → UUID-shaped s.id → generate new UUID.

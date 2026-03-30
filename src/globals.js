@@ -147,12 +147,14 @@ import {
   wsPromptYouTube, wsCloseYouTube, wsIngestYouTube,
   wsToggleVoiceInput, wsReadAloud, wsStopReading,
   wsListenPdf, wsStopListenPdf, wsListenPdfSetRate,
+  _wsRenderHistory,
 } from './state/workspace/index.js';
 
 window.ws                  = ws;
 window.wsBookMeta          = wsBookMeta;
 window.selectBook          = selectBook;
 window.selectUserDoc       = selectUserDoc;
+window._wsRenderHistory    = _wsRenderHistory;
 
 // _wsBookId is a reactive getter/setter backed by ws.bookId
 Object.defineProperty(window, '_wsBookId', {
