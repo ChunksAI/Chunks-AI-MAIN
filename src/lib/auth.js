@@ -24,6 +24,7 @@
 import { getSupabaseClient } from './supabase.js';
 import { API_BASE } from './api.js';
 import { memGet, memSet, memRemove, memClear } from './memCache.js';
+import { idbKeys, idbRemove } from './idbStorage.js';
 
 // ── User state ────────────────────────────────────────────────────────────────
 
@@ -740,6 +741,19 @@ export async function chunksSignOut() {
       prefixKeys.forEach(k => localStorage.removeItem(k));
       EXACT_KEYS.forEach(k => localStorage.removeItem(k));
     } catch (_) { /* storage may be blocked in some environments */ }
+
+    // Clear IndexedDB user data (chat sessions, flashcard decks, study plans)
+    // so it doesn't leak to the next user who logs in on the same browser.
+    try {
+      const IDB_PREFIXES = ['chunks_session_', 'sp_srs_'];
+      const IDB_EXACT = [
+        'chunks_fc_decks_v1', 'chunks_fc_sessions_v1', 'chunks_fc_mastery_v1',
+        'sp_all_plans', 'sp_active_plan', 'sp_active_mastery',
+        'chunks_deleted_sessions',
+      ];
+      IDB_PREFIXES.forEach(p => idbKeys(p).forEach(k => idbRemove(k)));
+      IDB_EXACT.forEach(k => idbRemove(k));
+    } catch (_) { /* idb may not be ready */ }
 
     // Clear sessionStorage
     sessionStorage.setItem('chunks_signing_out', '1');
