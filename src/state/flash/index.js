@@ -106,6 +106,7 @@ export {
   wsGenerateFlashcardsInChat,
   wsOpenFlashcardDeck,
   wsStartFlashcardPractice,
+  wsLoadDocumentFlashcards,
   wsBackToWorkspace,
   _fcCheckNavFrom,
   _fcStudyInChat,

@@ -253,6 +253,7 @@ import {
   wsGenerateFlashcardsInChat as _wsGenerateFlashcardsInChatReal,
   wsOpenFlashcardDeck as _wsOpenFlashcardDeckReal,
   wsStartFlashcardPractice as _wsStartFlashcardPracticeReal,
+  wsLoadDocumentFlashcards as _wsLoadDocumentFlashcardsReal,
   wsBackToWorkspace as _wsBackToWorkspaceReal,
   _fcCheckNavFrom,
   _fcStudyInChat, _fcReviewHardInChat,
@@ -310,7 +311,8 @@ window._fcSaveEditCard  = _fcSaveEditCard;
 window.wsMakeFlashcard              = _wsMakeFlashcardReal;
 window.wsGenerateFlashcardsInChat   = _wsGenerateFlashcardsInChatReal;
 window.wsOpenFlashcardDeck          = _wsOpenFlashcardDeckReal;
-window.wsStartFlashcardPractice = _wsStartFlashcardPracticeReal;
+window.wsStartFlashcardPractice     = _wsStartFlashcardPracticeReal;
+window.wsLoadDocumentFlashcards     = _wsLoadDocumentFlashcardsReal;
 window.wsBackToWorkspace        = _wsBackToWorkspaceReal;
 window._fcCheckNavFrom          = _fcCheckNavFrom;
 window._fcStudyInChat      = _fcStudyInChat;

@@ -257,6 +257,21 @@ export async function wsStartFlashcardPractice(deckId, topic) {
   }, 200);
 }
 
+// ── Load per-document flashcards for the current workspace document ──────────
+
+/**
+ * Load all flashcards saved for the document currently open in the workspace.
+ * Always fetches fresh data from Supabase (scoped to the current user) so
+ * there is no risk of mixing flashcards across users or serving stale cache.
+ *
+ * @returns {Promise<Array<{id, document_id, page, question, answer, created_at}>>}
+ */
+export async function wsLoadDocumentFlashcards() {
+  const documentId = ws.userDocId || (ws.bookId && ws.bookId !== '__user_doc__' ? ws.bookId : null);
+  if (!documentId) return [];
+  return FlashcardDB.fcLoadFlashcards(documentId);
+}
+
 // ── Back to Workspace ────────────────────────────────────────────────────────
 
 export function wsBackToWorkspace() {

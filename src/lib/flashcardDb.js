@@ -508,7 +508,7 @@ export async function fcLoadFlashcards(documentId, page) {
         }
 
         const { data, error } = await q;
-        if (!error && data?.length) return data;
+        if (!error) return data || [];
       }
     } catch (e) {
       console.warn('[FlashcardDB] fcLoadFlashcards error:', e.message);
