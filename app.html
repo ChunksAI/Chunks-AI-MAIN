@@ -1060,12 +1060,12 @@ function _renderDocGroupedRecents() {
       return;
     }
 
+    const DOC_GROUP_MAX_TITLE = 22;
     const html = [];
     docGroups.forEach(({ title, groupType, items: groupItems }) => {
-      const isCollapsed = container.querySelector(`[data-group-key]`)?.dataset?.collapsed === '1';
       const safeTitle = title.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const count = groupItems.length;
-      const truncTitle = title.length > 22 ? title.slice(0, 22) + '…' : title;
+      const truncTitle = title.length > DOC_GROUP_MAX_TITLE ? title.slice(0, DOC_GROUP_MAX_TITLE) + '…' : title;
       const safeTrunc = truncTitle.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const iconHtml = groupType === 'doc'
         ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`
