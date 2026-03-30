@@ -313,7 +313,7 @@ const WORKSPACE_HTML = /* html */`
             <div class="chat-think-wrap" id="ws-think-wrap">
               <button class="chat-footer-btn chat-think-btn" id="ws-toggle-think" onclick="wsToggleThinkMenu(event)" title="Thinking mode">
                 <span class="chat-think-dot"></span>
-                Think
+                <span id="ws-think-label">Think</span>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
               <div class="think-menu" id="ws-think-menu">
