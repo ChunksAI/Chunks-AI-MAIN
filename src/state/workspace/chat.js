@@ -10,6 +10,10 @@ import { guestGate, recordUsage, renderUsageBar, isGuest, showLoginWall } from '
 import { showToast }   from '../../components/Toast.js';
 import { $el, setHtml, addClass, removeClass, toggleClass } from '../domHelpers.js';
 import { handleCommand, syncContextFromWorkspace, updateContext } from '../commandEngine.js';
+import { escapeHtml } from '../../lib/escapeHtml.js';
+import { validateChatInput } from '../../lib/inputValidator.js';
+import { log, logError } from '../../lib/logger.js';
+import { classifyError, friendlyMessage } from '../../lib/errorHandler.js';
 
 // ── Toast (delegated to Toast.js — Task 20) ───────────────────────────────
 
@@ -48,9 +52,9 @@ export function wsAppendUser(text, selectedText) {
   const msgs = $el('ws-messages');
   const d = document.createElement('div');
   d.className = 'msg msg-user';
-  const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const escaped = escapeHtml(text);
   const quoteHtml = selectedText
-    ? `<div style="margin-bottom:7px;padding:7px 10px;border-left:2px solid var(--gold);background:var(--gold-muted);border-radius:0 6px 6px 0;font-size:11px;color:var(--text-3);line-height:1.5;font-style:italic;">"${selectedText.slice(0,160).replace(/&/g,'&amp;').replace(/</g,'&lt;')}${selectedText.length>160?'…':''}"</div>`
+    ? `<div style="margin-bottom:7px;padding:7px 10px;border-left:2px solid var(--gold);background:var(--gold-muted);border-radius:0 6px 6px 0;font-size:11px;color:var(--text-3);line-height:1.5;font-style:italic;">"${escapeHtml(selectedText.slice(0,160))}${selectedText.length>160?'…':''}"</div>`
     : '';
   d.innerHTML = `<div class="bubble-user">${quoteHtml}${escaped}</div>`;
   msgs.appendChild(d); wsScrollBottom();
@@ -93,7 +97,7 @@ export function wsAppendAI(answer, sources, question, searchMode, opts = {}) {
   let sourcesHtml = '';
   if (sources && sources.length > 0) {
     const items = sources.map(s => {
-      const preview = (s.text || '').trim().slice(0, 55).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      const preview = escapeHtml((s.text || '').trim().slice(0, 55));
       return `
         <div class="source-item" onclick="wsGoToPage(${s.page})" title="Jump to page ${s.page}" style="cursor:pointer;">
           <div class="source-icon">📘</div>
@@ -123,7 +127,7 @@ export function wsAppendAI(answer, sources, question, searchMode, opts = {}) {
       <div class="followup-list">
         ${followups.map(q => `
           <div class="followup-item" onclick="wsSetInput('${q.replace(/'/g, "\\'")}')">
-            ${q.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
+            ${escapeHtml(q)}
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
           </div>`).join('')}
       </div>
@@ -180,12 +184,20 @@ export function wsAppendAI(answer, sources, question, searchMode, opts = {}) {
   msgs.appendChild(d); wsScrollBottom();
 }
 
-export function wsAppendError(msg) {
+export function wsAppendError(msg, opts = {}) {
   const msgs = $el('ws-messages');
   const d = document.createElement('div');
   d.className = 'msg msg-ai';
-  const escaped = msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  d.innerHTML = `<div class="ai-row"><div class="ai-body"><p class="ai-text" style="color:#f87171;">⚠ ${escaped}</p></div></div>`;
+  const escaped = escapeHtml(msg);
+  const retryHtml = opts.retryFn ? `
+    <button class="msg-act" style="margin-top:8px;color:#f87171;border-color:#f87171;" onclick="this.parentElement.closest('.msg').remove()">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.67"/></svg> Retry
+    </button>` : '';
+  d.innerHTML = `<div class="ai-row"><div class="ai-body"><p class="ai-text" style="color:#f87171;">⚠ ${escaped}</p>${retryHtml}</div></div>`;
+  if (opts.retryFn) {
+    const retryBtn = d.querySelector('.msg-act');
+    retryBtn.addEventListener('click', () => { d.remove(); opts.retryFn(); });
+  }
   msgs.appendChild(d); wsScrollBottom();
 }
 
@@ -252,9 +264,17 @@ export function wsToggleThinking(mode) {
 export async function wsChatSend() {
   if (ws.typing) return;
   const inp = $el('ws-chat-input');
-  const question = inp.value.trim();
-  if (!question) return;
+  const rawQuestion = inp.value.trim();
+  if (!rawQuestion) return;
   if (!guestGate('workspace')) return; // guest limit check
+
+  // ── Input validation ────────────────────────────────────────────────────────
+  const validation = validateChatInput(rawQuestion);
+  if (!validation.ok) {
+    showToast('⚠', validation.reason, 'var(--red)');
+    return;
+  }
+  const question = validation.text;
 
   // ── Command Engine: intercept navigation/action commands ─────────────────
   syncContextFromWorkspace();
@@ -321,7 +341,7 @@ export async function _wsAsk(question) {
         continue;
       }
       wsRemoveThinking();
-      wsAppendError('Server is busy — please wait a moment and try again.');
+      wsAppendError(friendlyMessage('rate_limit'), { retryFn: () => _wsAsk(question) });
       ws.chatHistory.pop();
     }
     wsRemoveThinking();
@@ -329,7 +349,10 @@ export async function _wsAsk(question) {
       // already handled above
     } else if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      wsAppendError(err.error || `Server error ${res.status}`);
+      const errorKind = classifyError(res, err);
+      logError('chat', `Workspace ask failed: ${errorKind}`, { status: res.status, error: err?.error });
+      const isRetryable = errorKind === 'server' || errorKind === 'network';
+      wsAppendError(err.error || friendlyMessage(errorKind), isRetryable ? { retryFn: () => _wsAsk(question) } : {});
       ws.chatHistory.pop();
     } else {
       const data   = await res.json();
@@ -357,7 +380,8 @@ export async function _wsAsk(question) {
     }
   } catch (e) {
     wsRemoveThinking();
-    wsAppendError('Could not reach the server. Check your connection.');
+    logError('chat', 'Workspace ask network error', { message: e?.message });
+    wsAppendError(friendlyMessage('network'), { retryFn: () => _wsAsk(question) });
     ws.chatHistory.pop();
   } finally {
     ws.typing = false;

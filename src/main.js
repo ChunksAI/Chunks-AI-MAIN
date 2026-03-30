@@ -9,6 +9,10 @@
  * (see vite.config.js Task 37 for chunk strategy)
  */
 
+// ── Global error boundary (must be very first — catches errors during boot) ─
+import { installGlobalHandlers } from './lib/errorHandler.js';
+installGlobalHandlers();
+
 // ── In-memory cache (must be first — window._memGet/_memSet bridges are
 // used by app.html inline scripts and modules replacing localStorage) ────────
 import './lib/memCache.js';

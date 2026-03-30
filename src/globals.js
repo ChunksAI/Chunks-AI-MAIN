@@ -69,6 +69,28 @@ import { SyncManager } from './lib/syncManager.js';
 
 window.SyncManager = SyncManager;
 
+// ── Lib · Logger & Error Handler ─────────────────────────────────────────────
+import { log, logWarn, logError } from './lib/logger.js';
+import { classifyError, friendlyMessage } from './lib/errorHandler.js';
+
+window._log            = log;
+window._logWarn        = logWarn;
+window._logError       = logError;
+window._classifyError  = classifyError;
+window._friendlyMessage = friendlyMessage;
+
+// ── Lib · Input validation ───────────────────────────────────────────────────
+import { validateChatInput, sanitizeText, validateFileUpload } from './lib/inputValidator.js';
+
+window._validateChatInput  = validateChatInput;
+window._sanitizeText       = sanitizeText;
+window._validateFileUpload = validateFileUpload;
+
+// ── Lib · HTML escaping ──────────────────────────────────────────────────────
+import { escapeHtml } from './lib/escapeHtml.js';
+
+window._escapeHtml = escapeHtml;
+
 // ── Lib · Guest limits ───────────────────────────────────────────────────────
 import {
   isGuest, checkLimit, recordUsage, showLoginWall,

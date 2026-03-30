@@ -13,7 +13,9 @@
 
 import { ChunksDB } from './chunksDb.js';
 import { lsGet as _lsGet } from '../utils/storage.js';
+import { getSetting } from '../utils/storage.js';
 import { idbKeys as _idbKeys } from './idbStorage.js';
+import { log, logWarn, logError } from './logger.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -53,7 +55,7 @@ async function _runSync({ force = false } = {}) {
     _inFlight = false;
     _status   = 'error';
 
-    console.warn('[SyncManager] pullAll failed:', e?.message || e);
+    logWarn('sync', 'pullAll failed', { message: e?.message || String(e) });
 
     if (_retryCount < MAX_RETRIES) {
       const delay = BASE_DELAY_MS * Math.pow(2, _retryCount);
@@ -62,7 +64,7 @@ async function _runSync({ force = false } = {}) {
       _retryTimer = setTimeout(() => _runSync({ force }), delay);
     } else {
       _retryCount = 0;
-      console.error('[SyncManager] All retries exhausted. Will re-sync on next login or reconnect.');
+      logError('sync', 'All retries exhausted — will re-sync on next login or reconnect');
     }
 
     return false;
@@ -83,7 +85,7 @@ const SyncManager = {
     if (!ChunksDB.isLoggedIn()) return;
 
     if (!navigator.onLine) {
-      console.log('[SyncManager] Offline at login — queued for reconnect');
+      log('sync', 'Offline at login — queued for reconnect');
       return;
     }
 
@@ -129,18 +131,18 @@ function _applyPostSyncUI() {
   try {
     import('../state/flash/index.js').then(m => m._fcRenderStreak?.()).catch(() => {});
 
-    const accent = localStorage.getItem('chunks_setting_accent');
-    const color  = localStorage.getItem('chunks_setting_accent_color');
+    const accent = getSetting('accent');
+    const color  = getSetting('accent_color');
     if (accent && color) {
       import('../components/SettingsModal.js').then(m => m.applyAccentColor?.(color)).catch(() => {});
     }
 
-    const appearance = localStorage.getItem('chunks_setting_appearance');
+    const appearance = getSetting('appearance');
     if (appearance) {
       import('../components/SettingsModal.js').then(m => m.applyAppearance?.(appearance)).catch(() => {});
     }
 
-    const fs = localStorage.getItem('chunks-chat-font-size');
+    const fs = _lsGet('chunks-chat-font-size');
     const fsMap = { small: '12px', medium: '14px', large: '16px', S: '12px', M: '14px', L: '16px' };
     if (fs && fsMap[fs]) {
       document.documentElement.style.setProperty('--chat-font-size', fsMap[fs]);
@@ -153,7 +155,7 @@ function _applyPostSyncUI() {
     }, 150);
 
   } catch (e) {
-    console.warn('[SyncManager] post-sync UI refresh error:', e.message);
+    logWarn('sync', 'post-sync UI refresh error', { message: e.message });
   }
 }
 
@@ -185,7 +187,7 @@ async function _uploadPendingChatSessions() {
 // ── Online / offline listener ─────────────────────────────────────────────────
 
 window.addEventListener('online', () => {
-  console.log('[SyncManager] Network restored — running nudge sync');
+  log('sync', 'Network restored — running nudge sync');
   SyncManager.nudge();
 });
 
@@ -203,6 +205,6 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
-console.log('[SyncManager] Phase 4 sync manager ready ✦');
+log('sync', 'Phase 4 sync manager ready');
 
 export { SyncManager, _syncManagerDone };
