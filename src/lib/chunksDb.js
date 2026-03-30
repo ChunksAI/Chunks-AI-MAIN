@@ -416,6 +416,7 @@ const chat = {
       return new Date(a.created_at) - new Date(b.created_at);
     });
 
+    console.log('[ChunksDB] getSessionByBook — loaded chats for book', bookId, ':', messages.length, 'messages');
     return { data: messages, error: null };
   },
 
@@ -571,6 +572,7 @@ const chat = {
    * 4. DELETE the Supabase row with retry
    */
   async deleteSession(sessionId) {
+    console.log('[ChunksDB] deleteSession — deleting chat id:', sessionId);
     _lsRemove('chunks_session_' + sessionId);
 
     try {
@@ -1261,6 +1263,12 @@ async function _uploadLocalChatSessions() {
     const newlyAssigned = [];
     const uploadBatch   = [];  // collected payloads for a single batch upsert
 
+    // Load tombstone list once before the loop so every key sees the same
+    // consistent snapshot and we don't re-read localStorage on every iteration.
+    // A freshly-deleted session is tombstoned before _uploadLocalChatSessions
+    // runs (deleteSession() writes the tombstone synchronously), so this is safe.
+    const _tombs = new Set(_lsGet('chunks_deleted_sessions', []));
+
     for (const k of keys) {
       const s = _lsGet(k);
       if (!s) continue;
@@ -1268,8 +1276,7 @@ async function _uploadLocalChatSessions() {
       // Skip sessions that were explicitly deleted by the user.
       // Without this guard, a session with no supabaseId would get a fresh UUID
       // and be re-uploaded, making deletes appear to "come back" after sync.
-      const _tombs = _lsGet('chunks_deleted_sessions', []);
-      if (_tombs.includes(s.id) || (s.supabaseId && _tombs.includes(s.supabaseId))) continue;
+      if (_tombs.has(s.id) || (s.supabaseId && _tombs.has(s.supabaseId))) continue;
 
       // Resolve the supabaseId for this session.
       // Priority: explicit supabaseId field → UUID-shaped s.id → generate new UUID.
