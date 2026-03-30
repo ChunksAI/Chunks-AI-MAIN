@@ -230,7 +230,7 @@ export function wsAppendAI(answer, sources, question, searchMode) {
       <div class="followup-head">Follow-up questions</div>
       <div class="followup-list">
         ${followups.map(q => `
-          <div class="followup-item" onclick="wsSetInput('${q.replace(/'/g, "\\'")}')">
+          <div class="followup-item" onclick="wsSetInput('${q.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">
             ${q.replace(/&/g,'&amp;').replace(/</g,'&lt;')}
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
           </div>`).join('')}
