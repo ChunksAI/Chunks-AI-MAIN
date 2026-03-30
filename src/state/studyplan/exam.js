@@ -10,6 +10,7 @@ import { spMasteryRecord } from './mastery.js';
 import { spSrsUpdate } from './srs.js';
 import { isGuest, showLoginWall } from '../../lib/guestLimits.js';
 import { trackExamResult } from '../../lib/progressTracker.js';
+import { saveExamResult } from '../../lib/examDb.js';
 
 export async function spExamGenerate() {
   sp.examQuestions = []; sp.examIndex = 0; sp.examAnswers = []; sp.examStarted = false;
@@ -137,6 +138,16 @@ export function spExamFinish() {
     try { trackExamResult(examTopic, correct, total); } catch (_) {}
   }
   // ── End progress tracking ─────────────────────────────────────────────────
+
+  // ── Persist exam attempt to Supabase ─────────────────────────────────────
+  const documentId = sp.activePlanId || null;
+  const questionsWithAnswers = sp.examQuestions.map((q, i) => ({
+    ...q,
+    chosen: sp.examAnswers[i]?.chosen ?? null,
+  }));
+  saveExamResult({ documentId, questions: questionsWithAnswers, score: pct })
+    .catch(err => console.warn('[ExamDB] save error:', err));
+  // ── End persist ───────────────────────────────────────────────────────────
 }
 
 export function spExamRestart() { spExamGenerate(); }
