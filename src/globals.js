@@ -496,10 +496,11 @@ window.incognitoSendMessage = incognitoSendMessage;
 // runs they are already on window.  We do NOT duplicate them here.
 
 // ── Screens · Workspace ──────────────────────────────────────────────────────
-import { wsMobileView, refreshSmartSuggestions } from './screens/WorkspaceScreen.js';
+import { wsMobileView, refreshSmartSuggestions, wsShowPanel } from './screens/WorkspaceScreen.js';
 
 window.wsMobileView            = wsMobileView;
 window.refreshSmartSuggestions = refreshSmartSuggestions;
+window.wsShowPanel             = wsShowPanel;
 
 // ── Screens · Library ────────────────────────────────────────────────────────
 import {

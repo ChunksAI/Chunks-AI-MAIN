@@ -16,7 +16,7 @@
  */
 
 import { ws } from './state.js';
-import { wsSetInput } from './chat.js';
+import { wsSetInput, wsChatSend } from './chat.js';
 import { $el } from '../domHelpers.js';
 
 /** Maximum characters of selected text included in the action prompt. */
@@ -74,8 +74,8 @@ export function _wsCreateAskBtn() {
       sel?.removeAllRanges();
       _wsHideAskBtn();
 
-      // Focus chat so user can review and send
-      $el('ws-chat-input')?.focus();
+      // Auto-send to AI immediately (no extra click needed)
+      wsChatSend();
     });
     _wsContextBar.appendChild(btn);
   });

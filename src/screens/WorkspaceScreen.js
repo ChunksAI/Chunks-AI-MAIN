@@ -191,8 +191,24 @@ const WORKSPACE_HTML = /* html */`
         No book
       </span>
       <span class="chat-bar-title" id="ws-chat-title">Select a book to start studying</span>
+      <span class="session-timer" id="ws-session-timer" title="Session duration"></span>
       <button class="icon-btn" aria-label="New chat" title="New chat" data-action="wsClearChat"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
     </div>
+
+    <!-- Panel tabs: Chat | Notes -->
+    <div class="ws-panel-tabs">
+      <button class="ws-ptab ws-ptab-active" id="ws-tab-chat" onclick="wsShowPanel('chat')">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Chat
+      </button>
+      <button class="ws-ptab" id="ws-tab-notes" onclick="wsShowPanel('notes')">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+        Notes
+      </button>
+    </div>
+
+    <!-- Chat content (shown by default) -->
+    <div id="ws-chat-content" style="display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden;">
 
     <div class="messages" id="ws-messages">
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;text-align:center;padding:40px;">
@@ -312,6 +328,14 @@ const WORKSPACE_HTML = /* html */`
 
       </div>
     </div>
+
+    </div><!-- /ws-chat-content -->
+
+    <!-- Notes panel (hidden by default) — personal scratchpad -->
+    <div id="ws-notes-panel" style="display:none;flex:1;min-height:0;flex-direction:column;overflow:hidden;">
+      <textarea id="ws-notes-textarea" class="ws-notes-textarea" placeholder="Jot your thoughts here — ideas, summaries, questions to revisit…" spellcheck="true"></textarea>
+    </div>
+
   </section>
 </div>
 `;
@@ -327,6 +351,8 @@ export function mountWorkspaceScreen() {
   placeholder.outerHTML = WORKSPACE_HTML;
   // Refresh smart suggestions after mount
   setTimeout(refreshSmartSuggestions, 300);
+  setTimeout(_initSessionTimer, 0);
+  setTimeout(_initNotes, 0);
 }
 
 // ── Smart suggestions ─────────────────────────────────────────────────────────
@@ -342,6 +368,80 @@ export function refreshSmartSuggestions() {
 
 function _escHtml(str) {
   return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Panel tab toggle (Chat ↔ Notes) ──────────────────────────────────────────
+
+/**
+ * Toggle between the "Chat" and "Notes" panels in the right-hand section.
+ * Called from the tab buttons' onclick handlers.
+ */
+export function wsShowPanel(tab) {
+  const chatContent = document.getElementById('ws-chat-content');
+  const notesPanel  = document.getElementById('ws-notes-panel');
+  const tabChat     = document.getElementById('ws-tab-chat');
+  const tabNotes    = document.getElementById('ws-tab-notes');
+  if (!chatContent || !notesPanel) return;
+
+  if (tab === 'notes') {
+    chatContent.style.display = 'none';
+    notesPanel.style.display  = 'flex';
+    tabChat?.classList.remove('ws-ptab-active');
+    tabNotes?.classList.add('ws-ptab-active');
+    document.getElementById('ws-notes-textarea')?.focus();
+  } else {
+    chatContent.style.display = 'flex';
+    notesPanel.style.display  = 'none';
+    tabChat?.classList.add('ws-ptab-active');
+    tabNotes?.classList.remove('ws-ptab-active');
+  }
+}
+
+// ── Session timer ─────────────────────────────────────────────────────────────
+
+const _TIMER_KEY = 'chunks-ai-session-start';
+
+function _initSessionTimer() {
+  const timerEl = document.getElementById('ws-session-timer');
+  if (!timerEl) return;
+
+  // Persist start time across within-tab navigation (sessionStorage resets per browser session)
+  let startTime = parseInt(sessionStorage.getItem(_TIMER_KEY) || '0', 10);
+  if (!startTime) {
+    startTime = Date.now();
+    sessionStorage.setItem(_TIMER_KEY, String(startTime));
+  }
+
+  const _update = () => {
+    // Stop updating if the element is no longer in the DOM
+    if (!document.contains(timerEl)) { clearInterval(_timerId); return; }
+    const mins = Math.floor((Date.now() - startTime) / 60000);
+    if (mins < 1) {
+      timerEl.textContent = '';
+    } else if (mins < 60) {
+      timerEl.textContent = `studying for ${mins}min`;
+    } else {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      timerEl.textContent = `studying for ${h}h${m > 0 ? ` ${m}m` : ''}`;
+    }
+  };
+
+  _update();
+  const _timerId = setInterval(_update, 60000);
+}
+
+// ── Notes persistence ─────────────────────────────────────────────────────────
+
+const _NOTES_KEY = 'chunks-ai-notes';
+
+function _initNotes() {
+  const textarea = document.getElementById('ws-notes-textarea');
+  if (!textarea) return;
+  textarea.value = localStorage.getItem(_NOTES_KEY) || '';
+  textarea.addEventListener('input', () => {
+    localStorage.setItem(_NOTES_KEY, textarea.value);
+  });
 }
 
 // ── Mobile view toggle (Chat ↔ PDF) ──────────────────────────────────────────
