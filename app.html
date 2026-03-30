@@ -550,6 +550,26 @@ function recentAdd(question, bookId, source) {
     // For visual, the session id is tracked in VisualTutorScreen directly via _recentItems[0]
     return;
   }
+  // For workspace chats, reuse the existing sidebar entry for the same book
+  // instead of creating a duplicate on every new question.
+  const effectiveBookId = (source === 'exam' || source === 'visual') ? '' : (bookId || _wsBookId || '');
+  if (source === 'workspace' && effectiveBookId) {
+    const existingIdx = _recentItems.findIndex(r => r.bookId === effectiveBookId && r.source === 'workspace');
+    if (existingIdx !== -1) {
+      const existing = _recentItems[existingIdx];
+      existing.label = label;
+      existing.question = question;
+      if (existingIdx !== 0) {
+        _recentItems.splice(existingIdx, 1);
+        _recentItems.unshift(existing);
+      }
+      _saveRecent();
+      _renderAllRecent();
+      _setActiveRecent(existing.id);
+      return;
+    }
+  }
+
   const item = {
     id: 'r' + Date.now(),
     // uuid is the cross-device stable identifier used for Supabase chat_sessions.
@@ -562,7 +582,7 @@ function recentAdd(question, bookId, source) {
         }),
     label,
     question,
-    bookId: (source === 'exam' || source === 'visual') ? '' : (bookId || _wsBookId || ''),
+    bookId: effectiveBookId,
     source: source || (bookId ? 'workspace' : 'general')
   };
   _recentItems.unshift(item);

@@ -171,6 +171,25 @@ export function idbRemove(key) {
 }
 
 /**
+ * Wipe every entry from the in-memory cache and the IndexedDB store.
+ * Called on sign-out to prevent cross-user data leaks.
+ *
+ * @returns {Promise<void>}
+ */
+export async function idbClearAll() {
+  _cache.clear();
+  _dirty.clear();
+  _pendingDeletes.clear();
+  if (_db) {
+    try {
+      await _db.clear(STORE);
+    } catch (e) {
+      console.warn('[idbStorage] clearAll error:', e);
+    }
+  }
+}
+
+/**
  * Return all keys whose name starts with `prefix` (synchronous).
  * Before init() this also scans localStorage as a fallback.
  *

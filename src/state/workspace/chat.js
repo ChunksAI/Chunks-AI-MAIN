@@ -316,6 +316,8 @@ export function wsToggleThinking(mode) {
   toggleClass($el('ws-think-check'), 'on', isThink);
   toggleClass($el('ws-deep-check'), 'on', isDeep);
   toggleClass($el('ws-toggle-think'), 'active', isAny);
+  const label = $el('ws-think-label');
+  if (label) label.textContent = isDeep ? 'Deep Think' : 'Think';
   // Close the think menu after selection
   removeClass($el('ws-think-menu'), 'open');
 }

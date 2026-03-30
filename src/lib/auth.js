@@ -687,6 +687,14 @@ export async function chunksSignOut() {
     await SyncManager?.flushBeforeSignOut?.();
   } catch (_) {}
 
+  // Clear IndexedDB (chat sessions, flashcard decks/sessions/mastery, study
+  // plans) so a subsequent login by a different account starts with a clean
+  // slate and never sees the previous user's data.
+  try {
+    const { idbClearAll } = await import('./idbStorage.js');
+    await idbClearAll();
+  } catch (_) {}
+
   // Clean up state and storage BEFORE redirecting so the user never sees
   // a "Guest" flash — the page navigates away before any re-render happens.
   function _cleanAndRedirect() {
