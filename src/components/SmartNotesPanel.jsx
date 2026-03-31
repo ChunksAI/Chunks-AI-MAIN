@@ -31,7 +31,87 @@ const STICKIES_KEY = 'chunks-ai-stickies-v1';
 const SAVE_DELAY   = 600; // ms debounce before writing to localStorage
 const PIN_COLORS   = ['#fbbf24', '#34d399']; // yellow, green
 
-// ── Storage helpers ─────────────────────────────────────────────────────────
+// ── Supabase helpers (lazy-loaded) ──────────────────────────────────────────
+
+/** @returns {Promise<import('@supabase/supabase-js').SupabaseClient|null>} */
+async function _sb() {
+  try {
+    const { getSupabaseClient } = await import('../lib/supabase.js');
+    return await getSupabaseClient();
+  } catch (_) { return null; }
+}
+
+function _uid() {
+  return window._currentUser?.id || null;
+}
+
+function _isLoggedIn() {
+  return !!_uid();
+}
+
+// ── Supabase sticky_notes sync layer ────────────────────────────────────────
+
+/**
+ * Load all sticky notes for the current document from Supabase.
+ * Returns a Map<pageNumber, Array<sticky>> or null if unavailable.
+ */
+async function loadStickiesFromSupabase(documentId) {
+  if (!_isLoggedIn() || !documentId) return null;
+  const sb = await _sb();
+  if (!sb) return null;
+  try {
+    const { data, error } = await sb
+      .from('sticky_notes')
+      .select('*')
+      .eq('user_id', _uid())
+      .eq('document_id', documentId)
+      .order('created_at', { ascending: true });
+    if (error || !data) return null;
+    const map = new Map();
+    for (const row of data) {
+      const pg = row.page_number || 1;
+      const arr = map.get(pg) || [];
+      arr.push({ id: row.id, color: row.color || '#fbbf24', text: row.content || '' });
+      map.set(pg, arr);
+    }
+    return map;
+  } catch (_) { return null; }
+}
+
+/**
+ * Upsert a single sticky note to Supabase (fire-and-forget).
+ */
+async function upsertStickyToSupabase(sticky, documentId, pageNumber) {
+  if (!_isLoggedIn() || !documentId) return;
+  const sb = await _sb();
+  if (!sb) return;
+  try {
+    await sb.from('sticky_notes').upsert({
+      id:          typeof sticky.id === 'string' ? sticky.id : undefined,
+      user_id:     _uid(),
+      document_id: documentId,
+      page_number: pageNumber,
+      content:     sticky.text || '',
+      color:       sticky.color || 'yellow',
+    }, { onConflict: 'id' });
+  } catch (_) {}
+}
+
+/**
+ * Delete a sticky note from Supabase (fire-and-forget).
+ */
+async function deleteStickyFromSupabase(stickyId) {
+  if (!_isLoggedIn() || typeof stickyId !== 'string') return;
+  const sb = await _sb();
+  if (!sb) return;
+  try {
+    await sb.from('sticky_notes').delete()
+      .eq('id', stickyId)
+      .eq('user_id', _uid());
+  } catch (_) {}
+}
+
+// ── Storage helpers (localStorage fallback) ─────────────────────────────────
 
 function loadNotesMap() {
   try { return new Map(JSON.parse(localStorage.getItem(NOTES_KEY) || '[]')); }
@@ -327,11 +407,42 @@ function SmartNotesPanel() {
 
 function StickyStrip() {
   const stickiesMapRef = useRef(loadStickiesMap());
+  const documentIdRef  = useRef(null);
 
   const [page, setPage]             = useState(1);
   const [stickies, setStickies]     = useState([]);
   const [openId, setOpenId]         = useState(null);
   const [popupText, setPopupText]   = useState('');
+
+  // ── Resolve current document id ───────────────────────────────────────────
+  useEffect(() => {
+    const tick = () => {
+      documentIdRef.current = window.ws?.bookId || null;
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── Load stickies from Supabase on mount (merge with localStorage) ────────
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const docId = window.ws?.bookId;
+      if (!docId) return;
+      const remote = await loadStickiesFromSupabase(docId);
+      if (cancelled || !remote) return;
+      // Merge remote into localStorage map
+      for (const [pg, arr] of remote) {
+        stickiesMapRef.current.set(pg, arr);
+      }
+      saveStickiesMap(stickiesMapRef.current);
+      // Refresh current page stickies
+      setStickies(stickiesMapRef.current.get(page) || []);
+    };
+    load();
+    return () => { cancelled = true; };
+  }, []);
 
   // ── Page tracking ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -358,7 +469,7 @@ function StickyStrip() {
     const handler = (e) => {
       const targetPage = (e.detail && e.detail.page) || page;
       const newSticky = {
-        id: Date.now(),
+        id: _isLoggedIn() ? crypto.randomUUID() : Date.now(),
         color: PIN_COLORS[Math.floor(Math.random() * PIN_COLORS.length)],
         text: '',
       };
@@ -366,6 +477,7 @@ function StickyStrip() {
       const updated = [...current, newSticky];
       stickiesMapRef.current.set(targetPage, updated);
       saveStickiesMap(stickiesMapRef.current);
+      upsertStickyToSupabase(newSticky, documentIdRef.current, targetPage);
       if (targetPage === page) {
         setStickies(updated);
         setOpenId(newSticky.id);
@@ -379,13 +491,14 @@ function StickyStrip() {
   // ── Add new sticky ────────────────────────────────────────────────────────
   const addSticky = useCallback(() => {
     const newSticky = {
-      id: Date.now(),
+      id: _isLoggedIn() ? crypto.randomUUID() : Date.now(),
       color: PIN_COLORS[stickies.length % PIN_COLORS.length],
       text: '',
     };
     const updated = [...stickies, newSticky];
     stickiesMapRef.current.set(page, updated);
     saveStickiesMap(stickiesMapRef.current);
+    upsertStickyToSupabase(newSticky, documentIdRef.current, page);
     setStickies(updated);
     setOpenId(newSticky.id);
     setPopupText('');
@@ -407,6 +520,8 @@ function StickyStrip() {
     stickiesMapRef.current.set(page, updated);
     saveStickiesMap(stickiesMapRef.current);
     setStickies(updated);
+    const sticky = updated.find(s => s.id === id);
+    if (sticky) upsertStickyToSupabase(sticky, documentIdRef.current, page);
   }, [stickies, page]);
 
   // ── Delete a sticky ───────────────────────────────────────────────────────
@@ -416,6 +531,7 @@ function StickyStrip() {
     saveStickiesMap(stickiesMapRef.current);
     setStickies(updated);
     setOpenId(null);
+    deleteStickyFromSupabase(id);
   }, [stickies, page]);
 
   const openStickyData = stickies.find(s => s.id === openId);

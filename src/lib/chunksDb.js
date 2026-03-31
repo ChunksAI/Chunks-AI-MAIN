@@ -276,7 +276,7 @@ const chat = {
    *
    * @param {string} sessionId  - UUID (generate client-side with crypto.randomUUID)
    * @param {{ role: string, content: string, ts?: number }} message
-   * @param {{ bookId?: string, title?: string, localId?: string }} [meta]
+   * @param {{ bookId?: string, title?: string }} [meta]
    */
   async appendMessage(sessionId, message, meta = {}) {
     // Normalize before any write so localStorage and Supabase store identical shape
