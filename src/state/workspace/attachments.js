@@ -6,6 +6,7 @@
 import { ws } from './state.js';
 import { wsChatSend, _wsAsk, wsAutoResize, wsScrollBottom } from './chat.js';
 import { $el, $qsa, removeClass, addClass } from '../domHelpers.js';
+import { showToast } from '../../components/Toast.js';
 
 export let _uploadedPdfFile = null;
 export let _uploadedPdfName = null;
@@ -20,7 +21,35 @@ document.addEventListener('click', e => {
   if (!e.target.closest('.chat-plus-wrap') && !e.target.closest('.ask-plus-wrap') && !e.target.closest('.chat-think-wrap')) _closeAllAttachMenus();
 });
 
-// ── Shared helpers ────────────────────────────────────────────────────────
+// ── File validation ───────────────────────────────────────────────────────
+
+const _MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB
+const _MAX_PDF_BYTES   = 50 * 1024 * 1024; // 50 MB
+const _ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const _ALLOWED_PDF_TYPES   = ['application/pdf', 'text/plain', 'text/markdown', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+
+/**
+ * Validate an attachment file before reading it.
+ * Returns { ok: true } or { ok: false, reason: string }.
+ */
+function _validateFile(file, type) {
+  if (!file) return { ok: false, reason: 'No file selected.' };
+  const allowed = type === 'image' ? _ALLOWED_IMAGE_TYPES : _ALLOWED_PDF_TYPES;
+  if (!allowed.includes(file.type)) {
+    return {
+      ok: false,
+      reason: type === 'image'
+        ? 'Unsupported image format. Please upload a JPEG, PNG, GIF, or WebP file.'
+        : 'Unsupported file type. Please upload a PDF, TXT, MD, or DOCX file.',
+    };
+  }
+  const maxBytes = type === 'image' ? _MAX_IMAGE_BYTES : _MAX_PDF_BYTES;
+  if (file.size > maxBytes) {
+    const maxMB = maxBytes / (1024 * 1024);
+    return { ok: false, reason: `File is too large. Maximum size is ${maxMB} MB.` };
+  }
+  return { ok: true };
+}
 
 export function _buildThumb(att, removeFn) {
   const wrap = document.createElement('div');
@@ -67,9 +96,15 @@ export function wsAttachTrigger(type) {
 export async function wsHandleAttach(input, type) {
   const file = input.files[0]; if (!file) return;
   input.value = '';
-  const dataUrl = await _readFile(file);
-  ws.attachments.push({ type, file, dataUrl, name: file.name });
-  _wsRenderPreview();
+  const check = _validateFile(file, type);
+  if (!check.ok) { showToast('⚠', check.reason, 'var(--red)'); return; }
+  try {
+    const dataUrl = await _readFile(file);
+    ws.attachments.push({ type, file, dataUrl, name: file.name });
+    _wsRenderPreview();
+  } catch (e) {
+    showToast('⚠', 'Could not read file. Please try again.', 'var(--red)');
+  }
 }
 export function _wsRenderPreview() {
   const strip = $el('ws-attach-preview');
@@ -139,13 +174,19 @@ export function homeAttachTrigger(type, slot) {
 export async function homeHandleAttach(input, type, slot) {
   const file = input.files[0]; if (!file) return;
   input.value = '';
-  const dataUrl = await _readFile(file);
-  ws.homeAttachments.push({ type, file, dataUrl, name: file.name });
-  _homeRenderPreview();
-  if (type === 'pdf') {
-    const name = file.name.replace(/\.pdf$/i, '');
-    _uploadedPdfFile = file; _uploadedPdfName = name;
-    if (typeof homeSetInput === 'function') homeSetInput(`Summarize "${name}" for me`);
+  const check = _validateFile(file, type);
+  if (!check.ok) { showToast('⚠', check.reason, 'var(--red)'); return; }
+  try {
+    const dataUrl = await _readFile(file);
+    ws.homeAttachments.push({ type, file, dataUrl, name: file.name });
+    _homeRenderPreview();
+    if (type === 'pdf') {
+      const name = file.name.replace(/\.pdf$/i, '');
+      _uploadedPdfFile = file; _uploadedPdfName = name;
+      if (typeof homeSetInput === 'function') homeSetInput(`Summarize "${name}" for me`);
+    }
+  } catch (e) {
+    showToast('⚠', 'Could not read file. Please try again.', 'var(--red)');
   }
 }
 export function _homeRenderPreview() {
