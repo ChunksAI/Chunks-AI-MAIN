@@ -655,6 +655,28 @@
     min-width: 60px;
     text-align: center;
   }
+  .mpn-listen {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 9999px;
+    border: 1px solid var(--gold-border);
+    background: var(--gold-muted);
+    color: var(--gold);
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mpn-listen:active { transform: scale(0.95); }
+  .mpn-listen.listen-active {
+    color: var(--violet) !important;
+    background: var(--violet-muted) !important;
+    border-color: var(--violet-border) !important;
+  }
 
   /* Chat panel: fill remaining space, column layout */
   #screen-workspace .chat-panel {
