@@ -361,7 +361,7 @@ function _saveSession(id, historyArr) {
       id:        supabaseId,
       title:     recentItem?.label || recentItem?.question?.slice(0, 80) ||
                (() => { try { const h = _readSessionData(id); const m = ((h?.history||h?.messages)||[]).find(x=>x.role==='user'); return m?.content?.slice(0,80)||null; } catch(_){return null;} })(),
-      messages:  historyArr,
+      messages:  [],   // metadata-only — messages are written via ChunksDB.messages.insertMessage per turn
       updatedAt,
     });
   }
