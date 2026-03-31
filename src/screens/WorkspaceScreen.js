@@ -19,6 +19,7 @@
  */
 
 import { mountSmartNotesPanel, mountStickyStrip } from '../components/SmartNotesPanel.jsx';
+import { wsFitWidth } from '../state/workspace/pdf.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -507,6 +508,8 @@ export function wsMobileView(view) {
     pdfPanel.classList.add('mobile-visible');
     tabChat?.classList.remove('active');
     tabPdf?.classList.add('active');
+    // Re-fit PDF to the now-visible container width (layout settles after rAF)
+    requestAnimationFrame(() => wsFitWidth());
   } else {
     ws.classList.remove('ws-pdf-mode');
     pdfPanel.classList.remove('mobile-visible');
