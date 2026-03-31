@@ -1,4 +1,5 @@
 
+
 // @ts-nocheck
 /**
  * src/screens/WorkspaceScreen.js — Task 26
@@ -199,12 +200,8 @@ const WORKSPACE_HTML = /* html */`
       <button class="mpn-btn" data-action="wsZoomOut" aria-label="Zoom out">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><line x1="8" x2="14" y1="11" y2="11"/></svg>
       </button>
-      <span class="mpn-page" id="mpn-zoom-label">100%</span>
       <button class="mpn-btn" data-action="wsZoomIn" aria-label="Zoom in">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><line x1="11" x2="11" y1="8" y2="14"/><line x1="8" x2="14" y1="11" y2="11"/></svg>
-      </button>
-      <button class="mpn-btn" data-action="openLibraryModal" aria-label="Open library">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
       </button>
       <button class="mpn-listen ws-listen-btn" id="mpn-listen-btn" aria-pressed="false"
         title="Listen to current page" onclick="wsListenPdf()">
