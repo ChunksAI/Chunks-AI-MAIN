@@ -95,6 +95,7 @@ import './components/ProfileDropdown.js';               // Task 22 ✓ — sets 
 import './components/LibraryModal.js';                  // Task 23 ✓ — sets window.openLibraryModal, closeLibraryModal
 import './components/SettingsModal.js';                 // Task 24 ✓ — sets window.openSettings, closeSettings, settingsNav, etc.
 import './components/StorageErrorBanner.js';            // Storage error UI — sets window.dismissStorageError
+import './components/ThinkingAccordion.js';             // Reusable reasoning accordion for thinking/deep-thinking mode
 
 // ── Centralized HTML-binding registry ─────────────────────────────────────
 // globals.js is the ONLY file that sets window.* for HTML onclick handlers.
