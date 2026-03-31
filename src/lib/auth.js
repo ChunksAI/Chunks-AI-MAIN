@@ -188,8 +188,8 @@ function _applyDefaultSettings() {
 
     const defaults = {
       // General
-      'chunks-chat-font-size':            'medium',
-      'chunks_setting_appearance':        'dark',
+      'chunks-chat-font-size':            'small',
+      'chunks_setting_appearance':        'study',
       'chunks_setting_language':          'Auto-detect',
       'chunks_setting_spoken-language':   'Auto-detect',
       'chunks_setting_voice':             'Maple',
@@ -219,8 +219,8 @@ function _applyDefaultSettings() {
     });
 
     // Apply font size CSS var immediately
-    const fontMap = { small: '11px', medium: '13px', large: '15px' };
-    document.documentElement.style.setProperty('--chat-font-size', fontMap['medium']);
+    const fontMap = { small: '12px', medium: '14px', large: '16px' };
+    document.documentElement.style.setProperty('--chat-font-size', fontMap['small']);
 
     // Mark as initialized so we never overwrite again
     localStorage.setItem('chunks_settings_initialized', '1');
