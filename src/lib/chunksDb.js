@@ -276,7 +276,7 @@ const chat = {
    *
    * @param {string} sessionId  - UUID (generate client-side with crypto.randomUUID)
    * @param {{ role: string, content: string, ts?: number }} message
-   * @param {{ bookId?: string, title?: string, localId?: string }} [meta]
+   * @param {{ bookId?: string, title?: string }} [meta]
    */
   async appendMessage(sessionId, message, meta = {}) {
     // Normalize before any write so localStorage and Supabase store identical shape
@@ -318,7 +318,6 @@ const chat = {
         p_message:    normalizedMessage,
         p_book_id:    meta.bookId  || null,
         p_title:      meta.title   || null,
-        p_local_id:   meta.localId || null,
       });
     } finally {
       _appendInflight.delete(dedupKey);
@@ -329,6 +328,9 @@ const chat = {
    * Save (or overwrite) an entire session — use for initial save or bulk import
    * from localStorage on login.
    *
+   * Post-migration: chat_sessions is metadata-only (no messages JSONB column).
+   * Messages are written to the per-row `messages` table.
+   *
    * @param {{ id, messages, bookId?, title?, updatedAt? }} session
    */
   async saveFull(session) {
@@ -338,27 +340,44 @@ const chat = {
       return { data: null, error: null };
     }
     // Normalize every message so stored JSON has consistent created_at / type fields
-    const messages = (session.messages || session.history || []).map(_normalizeMessage);
-    // Title-only update — don't overwrite existing messages in Supabase
-    if (messages.length === 0 && session.title) {
-      try {
-        const sb = await getSupabaseClient();
-        if (sb) {
-          return sb.from('chat_sessions')
-            .update({ title: session.title, updated_at: session.updatedAt || new Date().toISOString() })
-            .eq('id', session.id);
-        }
-      } catch(e) { console.warn('[chunksDb] title-only update failed:', e.message); }
-      return { data: null, error: null };
-    }
-    return upsert('chat_sessions', {
+    const normalizedMsgs = (session.messages || session.history || []).map(_normalizeMessage);
+
+    // Upsert session metadata (no messages column)
+    const metaResult = await upsert('chat_sessions', {
       id:         session.id,
-      local_id:   session.localId  || null,
       book_id:    session.bookId   || null,
       title:      session.title    || null,
-      messages,
       updated_at: session.updatedAt || new Date().toISOString(),
     }, 'id');
+
+    // Write messages to the per-row messages table (skip if title-only update)
+    if (normalizedMsgs.length) {
+      const sb = await _sb();
+      if (sb) {
+        // Batch insert normalized messages
+        const BATCH = 200;
+        const msgRows = normalizedMsgs.map(m => ({
+          user_id:    _uid(),
+          role:       m.role,
+          content:    m.content,
+          session_id: session.id,
+          book_id:    session.bookId || null,
+          created_at: m.created_at || new Date().toISOString(),
+        }));
+
+        // Insert messages — append-only strategy (no delete-then-reinsert).
+        // Uses ON CONFLICT DO NOTHING semantics via unique server-side UUIDs.
+        for (let i = 0; i < msgRows.length; i += BATCH) {
+          const { error } = await sb.from('messages').insert(msgRows.slice(i, i + BATCH));
+          if (error) {
+            console.warn('[ChunksDB] saveFull messages batch error:', error.message);
+            break;
+          }
+        }
+      }
+    }
+
+    return metaResult;
   },
 
   /**
@@ -391,9 +410,8 @@ const chat = {
   /**
    * Fetch the chat history for a specific book/document from Supabase.
    *
-   * Always queries Supabase directly — never reads localStorage — so the
-   * result always reflects the authoritative database state.  Call this on
-   * every page load and every document change to keep the chat panel current.
+   * Post-migration: reads from the per-row `messages` table instead of
+   * the JSONB column on chat_sessions.
    *
    * @param {string} bookId  - book/document identifier (maps to `book_id` column)
    * @returns {{ data: Array<{role,content,created_at,type}>, error }}
@@ -403,24 +421,12 @@ const chat = {
     // Guests and unauthenticated users have no Supabase session — return empty.
     if (!isLoggedIn()) return { data: [], error: null };
 
-    const { data, error } = await get('chat_sessions', {
-      eq:    { book_id: bookId },
-      order: { col: 'updated_at', asc: false },
-      limit: 1,
-    });
+    const { data, error } = await messages.fetchMessages({ bookId });
 
     if (error || !data?.length) return { data: [], error: error || null };
 
-    // Sort messages within the session chronologically (created_at ascending)
-    // so the chat panel always renders in the correct send-order.
-    const messages = (data[0].messages || []).slice().sort((a, b) => {
-      if (!a.created_at) return -1;
-      if (!b.created_at) return  1;
-      return new Date(a.created_at) - new Date(b.created_at);
-    });
-
-    console.log('[ChunksDB] getSessionByBook — loaded chats for book', bookId, ':', messages.length, 'messages');
-    return { data: messages, error: null };
+    console.log('[ChunksDB] getSessionByBook — loaded chats for book', bookId, ':', data.length, 'messages');
+    return { data, error: null };
   },
 
   /**
@@ -435,17 +441,17 @@ const chat = {
     if (!isLoggedIn()) return { data: null, error: 'not_logged_in' };
 
     const { data: remoteSessions, error } = await get('chat_sessions', {
+      select: 'id,user_id,book_id,title,created_at,updated_at',
       order: { col: 'updated_at', asc: false },
-      limit: 200,   // raised from 50 — user had 101 sessions, previous limit left half invisible
+      limit: 200,
     });
 
     if (error || !remoteSessions?.length) return { data: null, error };
 
     // Write each remote session into localStorage so the page restore path
     // picks it up. Only overwrite if remote is newer than what's already local.
-    let newestId       = null;   // local_id (r+timestamp) of the most recently updated remote session
+    let newestId       = null;   // UUID of the most recently updated remote session
     let newestTime     = 0;
-    let newestLocalId  = null;   // cached alongside newestId for the active-session update below
 
     // Load tombstone list once outside the loop (performance)
     const _pullTombs = (() => {
@@ -456,18 +462,8 @@ const chat = {
     for (const remote of remoteSessions) {
       if (!remote.id) continue;
 
-      // Tombstone check — three ways a deleted session can be identified:
-      //   1. remote.id (UUID) is directly in the tombstone
-      //   2. remote.local_id (r+timestamp) is in the tombstone
-      //   3. remote.local_id is null but we can reconstruct the synthetic r+timestamp
-      //      that was generated when the session was first downloaded on this device
-      //      (local_id = 'r' + Date(updated_at).getTime() — same formula as _hydrateRecentFromRemote)
-      const syntheticLocalId = remote.local_id || ('r' + new Date(remote.updated_at || 0).getTime());
-      if (
-        _pullTombs.has(remote.id) ||
-        (remote.local_id && _pullTombs.has(remote.local_id)) ||
-        _pullTombs.has(syntheticLocalId)
-      ) {
+      // Tombstone check — deleted sessions are identified by UUID
+      if (_pullTombs.has(remote.id)) {
         // Self-heal: row is tombstoned locally but still exists in Supabase — delete it now.
         remove('chat_sessions', remote.id).catch(() => {});
         continue;
@@ -484,26 +480,13 @@ const chat = {
           id:         remote.id,        // UUID — used as Supabase key
           supabaseId: remote.id,        // explicit so uploader never regenerates it
           html:       localRaw?.html || '',
-          history:    remote.messages || [],
+          history:    [],               // messages now live in messages table
           bookId:     remote.book_id  || null,
           title:      remote.title    || null,
           updatedAt:  remote.updated_at,
         });
-        // Also write under the r+timestamp localId key so the sidebar
-        // and active-session restore can find it on this device
-        if (remote.local_id) {
-          _lsSet('chunks_session_' + remote.local_id, {
-            id:         remote.local_id,
-            supabaseId: remote.id,
-            html:       localRaw?.html || '',
-            history:    remote.messages || [],
-            bookId:     remote.book_id  || null,
-            title:      remote.title    || null,
-            updatedAt:  remote.updated_at,
-          });
-        }
         // Bug #5 fix: only fire conflict when local had content that got overwritten.
-        const hadLocalContent = (localRaw?.history?.length || localRaw?.messages?.length || 0) > 0;
+        const hadLocalContent = (localRaw?.history?.length || 0) > 0;
         const remoteIsMeaningfullyNewer = remoteTime > localTime + 1000; // >1s gap
         if (hadLocalContent && remoteIsMeaningfullyNewer) {
           _notifyConflict('chat_sessions');
@@ -512,51 +495,33 @@ const chat = {
 
       // Track the most recently updated session across all remote rows
       if (remoteTime > newestTime) {
-        newestTime    = remoteTime;
-        newestId      = remote.id;
-        newestLocalId = remote.local_id || remote.id; // UUID as fallback — never null
+        newestTime = remoteTime;
+        newestId   = remote.id;
       }
     }
 
-    // ── Bug #6 fix: update the active session pointer correctly ──────────────
-    // The old code had two problems:
-    //
-    // 1. Inside the per-session loop it checked `currentActive === remote.id`
-    //    which compared an r+timestamp local key against a UUID — always false —
-    //    so the active pointer was only updated on a completely fresh device.
-    //
-    // 2. The outer guard `!currentActive` meant an existing device never had its
-    //    active session updated, even when the other device had newer messages.
-    //
-    // Fix: after the loop we know newestTime (the most recent remote session).
-    // Read the locally-active session's own updatedAt and compare directly.
-    // Switch to the remote session only when it is strictly newer (>5s gap to
-    // avoid thrashing when two devices save within the same sync window).
+    // Update the active session pointer to the newest remote session
+    // when there is no current active session or remote is strictly newer.
     const currentActive = localStorage.getItem('chunks_active_home_session');
     const currentLocalSession = currentActive ? _lsGet('chunks_session_' + currentActive) : null;
     const currentLocalTime = currentLocalSession?.updatedAt
       ? new Date(currentLocalSession.updatedAt).getTime() : 0;
     const remoteIsStrictlyNewer = newestTime > currentLocalTime + 5000; // >5s newer
 
-    if (newestLocalId && (!currentActive || remoteIsStrictlyNewer)) {
-      localStorage.setItem('chunks_active_home_session', newestLocalId);
+    if (newestId && (!currentActive || remoteIsStrictlyNewer)) {
+      localStorage.setItem('chunks_active_home_session', newestId);
     }
 
     console.log(`[ChunksDB] chat.pullAndApply — ${remoteSessions.length} sessions downloaded`);
 
-    // ── Bug #1 fix: rebuild _recentItems from remote sessions ────────────────
-    // _recentItems is an in-memory array in app.html's closure.  After a fresh
-    // login on a new device it is empty, so _saveSession can never find a uuid
-    // for the restored session — causing every subsequent write to skip Supabase.
-    // _hydrateRecentFromRemote merges remote sessions in without triggering the
-    // side-effects of recentAdd (no _homeSessionId mutation, no active highlight).
+    // Rebuild _recentItems from remote sessions
     try {
       window._hydrateRecentFromRemote?.(remoteSessions);
     } catch (e) {
       console.warn('[ChunksDB] _hydrateRecentFromRemote error:', e.message);
     }
 
-    // Notify HomeScreen directly via CustomEvent — more reliable than window fn lookup
+    // Notify HomeScreen directly via CustomEvent
     try {
       window.dispatchEvent(new CustomEvent('chunks:sessions-ready', {
         detail: { count: remoteSessions.length }
@@ -572,7 +537,7 @@ const chat = {
    * 2. Add UUID to local tombstone (blocks re-upload this session)
    * 3. Persist UUID to Supabase via user_settings.notifications.deleted_sessions
    *    → survives fresh logins on any device forever
-   * 4. DELETE the Supabase row with retry
+   * 4. DELETE the Supabase row + associated messages with retry
    */
   async deleteSession(sessionId) {
     console.log('[ChunksDB] deleteSession — deleting chat id:', sessionId);
@@ -591,7 +556,10 @@ const chat = {
     // Persist tombstone to Supabase so ALL devices + future logins skip this session
     _persistServerTombstone(sessionId);
 
-    // DELETE the Supabase row with retry
+    // Delete messages from the messages table for this session
+    await messages.deleteMessages({ sessionId });
+
+    // DELETE the Supabase chat_sessions row with retry
     return _deleteWithRetry(sessionId);
   },
 
@@ -609,6 +577,9 @@ const chat = {
     if (!sb) return { error: 'no_client' };
 
     try {
+      // Delete all messages first
+      await sb.from('messages').delete().eq('user_id', _uid());
+      // Then delete all sessions
       const { error } = await sb
         .from('chat_sessions')
         .delete()
@@ -1291,6 +1262,9 @@ function _collectSessionKeys() {
  * Upload any chat sessions stored only in localStorage to Supabase.
  * Runs once on login. Skips sessions that are already in Supabase
  * (the upsert on conflict(id) is idempotent).
+ *
+ * Post-migration: uploads session metadata to chat_sessions and message
+ * content to the per-row messages table. No local_id or JSONB messages.
  */
 async function _uploadLocalChatSessions() {
   if (!isLoggedIn()) return;
@@ -1307,11 +1281,9 @@ async function _uploadLocalChatSessions() {
     // Track newly-assigned UUIDs so we can hydrate _recentItems afterwards.
     const newlyAssigned = [];
     const uploadBatch   = [];  // collected payloads for a single batch upsert
+    const messageBatch  = [];  // messages to insert into the messages table
 
-    // Load tombstone list once before the loop so every key sees the same
-    // consistent snapshot and we don't re-read localStorage on every iteration.
-    // A freshly-deleted session is tombstoned before _uploadLocalChatSessions
-    // runs (deleteSession() writes the tombstone synchronously), so this is safe.
+    // Load tombstone list once before the loop
     const _tombs = new Set(_lsGet('chunks_deleted_sessions', []));
 
     for (const k of keys) {
@@ -1319,18 +1291,11 @@ async function _uploadLocalChatSessions() {
       if (!s) continue;
 
       // Skip sessions that were explicitly deleted by the user.
-      // Without this guard, a session with no supabaseId would get a fresh UUID
-      // and be re-uploaded, making deletes appear to "come back" after sync.
       if (_tombs.has(s.id) || (s.supabaseId && _tombs.has(s.supabaseId))) continue;
 
       // Resolve the supabaseId for this session.
-      // Priority: explicit supabaseId field → UUID-shaped s.id → generate new UUID.
-      // A UUID-shaped s.id means this entry was written by pullAndApply (it IS the
-      // Supabase row already) — never generate a new UUID for it or it will create
-      // a duplicate row on every login ("50 UUIDs generated" in the console).
       if (!s.supabaseId || /^r[0-9]+$/.test(s.supabaseId)) {
         if (_isUUID(s.id)) {
-          // s.id is already the UUID — use it directly, no new UUID needed
           s.supabaseId = s.id;
           _lsSet(k, s);
         } else {
@@ -1346,45 +1311,43 @@ async function _uploadLocalChatSessions() {
         }
       }
 
-      const messages = s.history || s.messages || [];
-      if (!messages.length) continue;
+      const localMsgs = s.history || s.messages || [];
+      if (!localMsgs.length) continue;
 
+      // Session metadata (no messages JSONB, no local_id)
       uploadBatch.push({
         id:         s.supabaseId,
         user_id:    _uid(),
-        local_id:   /^r[0-9]+$/.test(s.id) ? s.id : null,
         book_id:    s.bookId   || null,
         title:      s.title    || null,
-        messages,
         updated_at: s.updatedAt || new Date().toISOString(),
       });
+
+      // Collect messages for the per-row messages table
+      for (const msg of localMsgs) {
+        if (!msg.role || !msg.content) continue;
+        messageBatch.push({
+          user_id:    _uid(),
+          role:       msg.role,
+          content:    msg.content,
+          session_id: s.supabaseId,
+          book_id:    s.bookId || null,
+          created_at: msg.created_at || new Date().toISOString(),
+        });
+      }
     }
 
-    // Deduplicate by supabaseId — prefer the r+timestamp keyed entry over the UUID keyed entry.
-    // Each session exists under TWO localStorage keys (r+timestamp AND UUID).
-    // The UUID-keyed entry always has local_id=null (s.id is UUID, fails /^r[0-9]+$/ test).
-    // The r+timestamp-keyed entry has local_id set correctly.
-    // Without this preference, uploading the UUID entry first wipes local_id in Supabase
-    // which breaks tombstone matching and cross-device restore for every session.
-    const _seenIds = new Map(); // supabaseId → index in dedupedBatch
+    // Deduplicate by supabaseId — keep first occurrence
+    const _seenIds = new Map();
     const dedupedBatch = [];
     for (const row of uploadBatch) {
-      if (_seenIds.has(row.id)) {
-        // Replace the existing entry only if this one has local_id and the stored one doesn't
-        const idx = _seenIds.get(row.id);
-        if (row.local_id && !dedupedBatch[idx].local_id) {
-          dedupedBatch[idx] = row;
-        }
-      } else {
+      if (!_seenIds.has(row.id)) {
         _seenIds.set(row.id, dedupedBatch.length);
         dedupedBatch.push(row);
       }
     }
 
     // ── Delta filter ─────────────────────────────────────────────────────────
-    // Returning users: only upload sessions changed since the last successful
-    // upload. This cuts the typical upload from 189 → low-single-digit rows,
-    // keeping the 30s wall well out of reach on every login after the first.
     const lastUploadTs = _getLastUploadTs();
     const filteredBatch = lastUploadTs > 0
       ? dedupedBatch.filter(row => {
@@ -1396,22 +1359,33 @@ async function _uploadLocalChatSessions() {
     if (filteredBatch.length) {
       console.log(`[ChunksDB] uploading ${filteredBatch.length}/${dedupedBatch.length} sessions (delta since ${new Date(lastUploadTs).toISOString()})`);
       const ok = await _uploadInChunks(filteredBatch, _UPLOAD_CHUNK_SIZE);
-      if (ok) _setLastUploadTs(Date.now());
+      if (ok) {
+        _setLastUploadTs(Date.now());
+        // Upload messages to the messages table in batches
+        if (messageBatch.length) {
+          const sb = await _sb();
+          if (sb) {
+            const MSG_BATCH = 200;
+            for (let i = 0; i < messageBatch.length; i += MSG_BATCH) {
+              const { error } = await sb.from('messages').insert(messageBatch.slice(i, i + MSG_BATCH));
+              if (error) console.warn('[ChunksDB] message upload batch error:', error.message);
+            }
+            console.log(`[ChunksDB] uploaded ${messageBatch.length} messages to messages table`);
+          }
+        }
+      }
     } else {
       console.log('[ChunksDB] _uploadLocalChatSessions — no new sessions since last sync');
     }
 
-    // Hydrate _recentItems with any sessions that just got a fresh UUID so that
-    // subsequent _saveSession calls can route writes to Supabase correctly.
+    // Hydrate _recentItems with any sessions that just got a fresh UUID
     if (newlyAssigned.length) {
       try {
         window._hydrateRecentFromRemote?.(newlyAssigned.map(n => ({
           id:         n.uuid,
-          local_id:   n.id,
           title:      n.title    || null,
           book_id:    n.bookId   || null,
           updated_at: n.updatedAt || new Date().toISOString(),
-          messages:   [],
         })));
       } catch (_) {}
     }
@@ -1426,10 +1400,10 @@ async function _uploadLocalChatSessions() {
 
 
 // ══════════════════════════════════════════════════════════════════════════════
-// messages — per-row AI chat messages (Phase 3 real-time architecture)
+// messages — per-row AI chat messages (authoritative message store)
 // Table: messages  (created in migration 013)
-// These methods are purely additive and do not affect the existing
-// chat_sessions / localStorage flow.  Phase 2 will wire them into the UI.
+// All message reads/writes go through this namespace. The chat_sessions
+// table is metadata-only (title, book_id, timestamps).
 // ══════════════════════════════════════════════════════════════════════════════
 
 const messages = {
