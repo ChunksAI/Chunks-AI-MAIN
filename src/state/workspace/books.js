@@ -317,6 +317,7 @@ export function _wsRenderHistory(msgs, history) {
         // Re-create the full UI (text + sources + action buttons) from structured blocks
         const msgId = 'ws-msg-hist-' + i + '-' + Date.now();
         const el = _wsRenderMessageFromBlocks(msgId, msg.blocks, bookName);
+        el.dataset.histIdx = String(i);
         msgs.appendChild(el);
       } else {
         // Legacy messages without blocks — render with plain markdown
