@@ -99,7 +99,11 @@ export function showScreen(name) {
       setTimeout(() => { if (typeof window._libInjectProgress === 'function') window._libInjectProgress(); }, 50);
     }
     if (name === 'research') {
-      if (typeof window._researchBackToSetup === 'function') window._researchBackToSetup();
+      if (window.RS?.started && typeof window._showResearchView === 'function') {
+        window._showResearchView();
+      } else if (typeof window._researchBackToSetup === 'function') {
+        window._researchBackToSetup();
+      }
     }
     if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
   }
