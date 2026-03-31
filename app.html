@@ -355,11 +355,10 @@ function _saveSession(id, historyArr) {
     localStorage.setItem('chunks_session_' + id, JSON.stringify(sessionData));
   }
   localStorage.setItem('chunks_active_home_session', id);
-  // Phase 3: sync to Supabase using the valid UUID (r+timestamp id is rejected by Postgres)
+  // Sync to Supabase using the valid UUID
   if (supabaseId) {
     window.ChunksDB?.chat?.saveFull?.({
       id:        supabaseId,
-      localId:   id,
       title:     recentItem?.label || recentItem?.question?.slice(0, 80) ||
                (() => { try { const h = _readSessionData(id); const m = ((h?.history||h?.messages)||[]).find(x=>x.role==='user'); return m?.content?.slice(0,80)||null; } catch(_){return null;} })(),
       messages:  historyArr,
@@ -378,13 +377,14 @@ function _saveWsSession(bookId, historyArr) {
   // Always save — history is only deleted when user explicitly clears it
   const html = document.getElementById('ws-messages')?.innerHTML || '';
   localStorage.setItem('chunks_ws_session_' + bookId, JSON.stringify({ html, history: historyArr }));
-  // Phase 3: sync active book to ws_state (page/zoom synced separately via wsGoToPage)
+  // Sync active book to ws_state (page/zoom synced separately via wsGoToPage)
   window.ChunksDB?.ws?.savePosition?.(bookId, {});
   // Track which book + recent item was last active
   localStorage.setItem('chunks_active_ws_book', bookId);
 
-  // ── Sync workspace chat to Supabase with title ───────────────────────────
-  // Find the recent item for this bookId to get its uuid and label
+  // ── Sync workspace chat to Supabase ──────────────────────────────────────
+  // Post-migration: chat_sessions is metadata-only; messages go to the
+  // per-row messages table via saveFull().
   const recentItem = _recentItems.find(r => r.bookId === bookId && r.source === 'workspace');
   const supabaseId = recentItem?.uuid || null;
   if (supabaseId && historyArr?.length) {
@@ -394,7 +394,6 @@ function _saveWsSession(bookId, historyArr) {
     const title = recentItem?.label || (firstUserMsg?.content?.slice(0, 80)) || bookName;
     window.ChunksDB?.chat?.saveFull?.({
       id:        supabaseId,
-      localId:   recentItem?.id,
       title,
       messages:  historyArr,
       bookId,
@@ -402,10 +401,7 @@ function _saveWsSession(bookId, historyArr) {
     });
   } else if (supabaseId && !historyArr?.length) {
     // History was explicitly cleared — delete the Supabase row so the cleared
-    // state persists across refreshes.  Without this, getSessionByBook() fetches
-    // the old messages from Supabase and they reappear after a page reload.
-    // deleteSession() tombstones the UUID so _uploadLocalChatSessions() never
-    // re-uploads it either.
+    // state persists across refreshes.
     window.ChunksDB?.chat?.deleteSession?.(supabaseId).catch(e => {
       console.warn('[workspace] failed to delete cleared session from Supabase:', e?.message || e);
     });
@@ -625,7 +621,7 @@ function _deleteRecent(id, e) {
       // Use IDB-aware read — chunks_session_* keys live in IndexedDB after migration
       const lsEntry = _readSessionData(id);
       resolvedUuid = lsEntry?.supabaseId || null;
-      // Also scan for a UUID-keyed entry whose local_id or id matches
+      // Also scan for a UUID-keyed entry whose id matches
       if (!resolvedUuid) {
         const _isUUID = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
         // Use IDB keys if available, fall back to localStorage scan
@@ -637,7 +633,7 @@ function _deleteRecent(id, e) {
           if (!_isUUID(candidate)) continue;
           try {
             const e2 = _readSessionData(candidate);
-            if (e2?.local_id === id || e2?.id === id) { resolvedUuid = candidate; break; }
+            if (e2?.id === id) { resolvedUuid = candidate; break; }
           } catch (_) {}
         }
       }
@@ -964,7 +960,6 @@ function _showRecentCtxMenu(item, e) {
         if (item.uuid) {
           window.ChunksDB?.chat?.saveFull?.({
             id:        item.uuid,
-            localId:   item.id,
             title:     item.label,
             messages:  [],   // empty — saveFull merges, never overwrites existing messages with []
             updatedAt: new Date().toISOString(),
@@ -1358,7 +1353,7 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
     let bestLabel = newTitle;
     if (!bestLabel) {
       try {
-        const localSession = _readSessionData(match.id, match.local_id);
+        const localSession = _readSessionData(match.id);
         if (localSession) {
           const msgs = localSession.history || localSession.messages || [];
           const firstUser = msgs.find(m => m.role === 'user');
@@ -1380,10 +1375,10 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
     if (!remote.id) continue;
     if (existingUuids.has(remote.id)) continue;
     // Check _justDeleted before tombstones — the DELETE may not have propagated yet.
-    if (_justDeleted.has(remote.id) || (remote.local_id && _justDeleted.has(remote.local_id))) continue;
-    if (_hydrateTombs.has(remote.id) || (remote.local_id && _hydrateTombs.has(remote.local_id))) continue;
+    if (_justDeleted.has(remote.id)) continue;
+    if (_hydrateTombs.has(remote.id)) continue;
 
-    const localId = remote.local_id || remote.id;
+    const localId = remote.id;
     const title = remote.title || '';
 
     // Build label: prefer saved title → first user message → uuid prefix (never 'Chat')
@@ -1391,7 +1386,7 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
     if (!label) {
       // Try to pull first user message from local session data
       try {
-        const localSession = _readSessionData(remote.id, remote.local_id);
+        const localSession = _readSessionData(remote.id);
         if (localSession) {
           const msgs = localSession.history || localSession.messages || [];
           const firstUser = msgs.find(m => m.role === 'user');
