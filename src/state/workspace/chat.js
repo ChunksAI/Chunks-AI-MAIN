@@ -85,6 +85,44 @@ export function wsRemoveThinking() {
   if (el) el.remove();
 }
 
+// ── Flashcard result card HTML ─────────────────────────────────────────────────
+
+/**
+ * Returns the inner HTML for a persisted flashcard result card.
+ * Used by _wsRenderMessageFromBlocks when restoring a session that included
+ * a "Make Flashcard" or "Generate Flashcards" action.
+ */
+export function _wsFlashcardResultHtml(deckId, topic, count) {
+  const safeId    = String(deckId).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
+  const safeTopic = (topic || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const n = Number(count) || 0;
+  return `<div class="ws-gen-result-card" style="margin-top:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--violet-border);border-radius:var(--r-md);">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <div style="padding:6px;background:var(--violet-muted);border-radius:var(--r-sm);flex-shrink:0;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--text-1);">Flashcard Set</div>
+        <div style="font-size:11px;color:var(--text-4);">${n} card${n !== 1 ? 's' : ''} &middot; ${safeTopic}</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <button onclick="wsOpenFlashcardDeck('${safeId}', '${safeTopic}')"
+        style="flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:7px 12px;background:var(--violet);border:none;border-radius:var(--r-sm);color:#fff;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font-body);transition:opacity 0.15s;"
+        onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m5 12 14 0"/><path d="m12 5 7 7-7 7"/></svg>
+        Open Flashcards
+      </button>
+      <button onclick="wsStartFlashcardPractice('${safeId}', '${safeTopic}')"
+        style="display:flex;align-items:center;gap:5px;padding:7px 12px;background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);transition:background 0.15s;"
+        onmouseenter="this.style.background='var(--surface-hover)'" onmouseleave="this.style.background='var(--surface-3)'">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Practice
+      </button>
+    </div>
+  </div>`;
+}
+
 // ── Structured message blocks ─────────────────────────────────────────────────
 
 /**
@@ -135,7 +173,8 @@ export function _wsRenderMessageFromBlocks(msgId, blocks, bookName) {
 
   let textHtml    = '';
   let sourcesHtml = '';
-  let actionsBlock = null;
+  let actionsBlock  = null;
+  let flashcardBlock = null;
 
   for (const block of blocks) {
     if (block.type === 'text') {
@@ -167,7 +206,21 @@ export function _wsRenderMessageFromBlocks(msgId, blocks, bookName) {
 
     } else if (block.type === 'actions') {
       actionsBlock = block;
+
+    } else if (block.type === 'flashcard') {
+      flashcardBlock = block;
     }
+  }
+
+  // Pure flashcard message (generated via wsGenerateFlashcardsInChat) — no text/actions.
+  if (flashcardBlock && !textHtml && !sourcesHtml && !actionsBlock) {
+    d.innerHTML = `
+      <div class="ai-row">
+        <div class="ai-body">
+          ${_wsFlashcardResultHtml(flashcardBlock.deckId, flashcardBlock.topic, flashcardBlock.count)}
+        </div>
+      </div>`;
+    return d;
   }
 
   const q          = actionsBlock?.question          || '';
@@ -189,6 +242,16 @@ export function _wsRenderMessageFromBlocks(msgId, blocks, bookName) {
       Go to Page ${primPage}
     </button>` : '';
 
+  // If a flashcard was already generated for this message, replace the Make Flashcard
+  // button with the persistent result card so the UI looks identical after reload.
+  const makeFlashcardBtn = flashcardBlock ? '' : `
+          <button class="msg-act" onclick="wsMakeFlashcard(this, '${msgId}', \`${safeQ}\`)">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg> Make Flashcard
+          </button>`;
+  const flashcardHtml = flashcardBlock
+    ? _wsFlashcardResultHtml(flashcardBlock.deckId, flashcardBlock.topic, flashcardBlock.count)
+    : '';
+
   d.innerHTML = `
     <div class="ai-row">
       <div class="ai-body">
@@ -198,9 +261,7 @@ export function _wsRenderMessageFromBlocks(msgId, blocks, bookName) {
           <button class="msg-act" onclick="wsCopyMsg(this, '${msgId}')">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
           </button>
-          <button class="msg-act" onclick="wsMakeFlashcard(this, '${msgId}', \`${safeQ}\`)">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg> Make Flashcard
-          </button>
+          ${makeFlashcardBtn}
           <button class="msg-act" onclick="_wsRegenerate('${msgId}', \`${safeQ}\`)">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.67"/></svg> Regenerate
           </button>
@@ -210,6 +271,7 @@ export function _wsRenderMessageFromBlocks(msgId, blocks, bookName) {
           ${jumpToPageHtml}
           ${searchModeBadge}
         </div>
+        ${flashcardHtml}
       </div>
     </div>`;
   return d;
@@ -249,6 +311,7 @@ export function wsAppendAI(answer, sources, question, searchMode) {
   }
 
   msgs.appendChild(d); wsScrollBottom();
+  return d;
 }
 
 export function wsAppendError(msg) {
@@ -412,12 +475,13 @@ export async function _wsAsk(question) {
         return;
       }
       const answer = data.answer || 'No response.';
-      wsAppendAI(answer, data.sources || [], question, data.search_mode);
+      const aiEl = wsAppendAI(answer, data.sources || [], question, data.search_mode);
       ws.chatHistory.push({
         role:    'assistant',
         content: answer,
         blocks:  _wsBuildBlocks(answer, data.sources || [], question, data.search_mode),
       });
+      if (aiEl) aiEl.dataset.histIdx = String(ws.chatHistory.length - 1);
       if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
       // Notify SmartNotesPanel so it can offer "Clip to notes"
       document.dispatchEvent(new CustomEvent('ws:ai-answer', {
