@@ -6,6 +6,7 @@ test.describe('Smart Notes Panel', () => {
     await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
     await authedPage.evaluate(() => window.showScreen?.('workspace'));
     await authedPage.waitForSelector('#screen-workspace', { state: 'visible', timeout: 5_000 });
+    await authedPage.waitForSelector('#ws-sticky-strip', { state: 'attached', timeout: 5_000 });
   });
 
   test('notes panel container exists in workspace', async ({ authedPage }) => {

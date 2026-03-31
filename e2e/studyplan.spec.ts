@@ -7,6 +7,7 @@ test.describe('Study Plan creation', () => {
 
     // Navigate to study plan screen
     await authedPage.evaluate(() => window.showScreen?.('studyplan'));
+    await authedPage.waitForSelector('#screen-studyplan', { state: 'visible', timeout: 5_000 });
 
     const screen = authedPage.locator('#screen-studyplan');
     await expect(screen).toBeVisible();
@@ -22,9 +23,11 @@ test.describe('Study Plan creation', () => {
     await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('studyplan'));
+    await authedPage.waitForSelector('#screen-studyplan', { state: 'visible', timeout: 5_000 });
 
     // Switch to topic tab
     await authedPage.evaluate(() => window.spSwitchTab?.('topic'));
+    await authedPage.waitForSelector('#sp-topic-input', { state: 'visible', timeout: 5_000 });
 
     const topicInput = authedPage.locator('#sp-topic-input');
     await expect(topicInput).toBeVisible();
@@ -39,7 +42,10 @@ test.describe('Study Plan creation', () => {
     await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('studyplan'));
+    await authedPage.waitForSelector('#screen-studyplan', { state: 'visible', timeout: 5_000 });
+
     await authedPage.evaluate(() => window.spSwitchTab?.('topic'));
+    await authedPage.waitForSelector('#sp-topic-input', { state: 'visible', timeout: 5_000 });
 
     // Click each depth option
     for (const depth of ['intro', 'mid', 'adv', 'exam']) {
@@ -57,7 +63,10 @@ test.describe('Study Plan creation', () => {
     await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('studyplan'));
+    await authedPage.waitForSelector('#screen-studyplan', { state: 'visible', timeout: 5_000 });
+
     await authedPage.evaluate(() => window.spSwitchTab?.('notes'));
+    await authedPage.waitForSelector('#sp-notes-input', { state: 'visible', timeout: 5_000 });
 
     const notesInput = authedPage.locator('#sp-notes-input');
     await expect(notesInput).toBeVisible();
@@ -71,7 +80,10 @@ test.describe('Study Plan creation', () => {
     await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('studyplan'));
+    await authedPage.waitForSelector('#screen-studyplan', { state: 'visible', timeout: 5_000 });
+
     await authedPage.evaluate(() => window.spSwitchTab?.('topic'));
+    await authedPage.waitForSelector('#sp-topic-input', { state: 'visible', timeout: 5_000 });
 
     const generateBtn = authedPage.locator('#sp-generate-btn');
     await expect(generateBtn).toBeAttached();
