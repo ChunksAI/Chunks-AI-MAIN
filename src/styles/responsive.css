@@ -630,14 +630,14 @@
     display: flex !important;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 8px 16px;
+    gap: 6px;
+    padding: 8px 10px;
     background: var(--surface-1);
     border-top: 1px solid var(--border-xs);
     flex-shrink: 0;
   }
   .mpn-btn {
-    width: 34px; height: 34px;
+    width: 30px; height: 30px;
     border-radius: var(--r-sm);
     background: var(--surface-3);
     border: 1px solid var(--border-xs);
@@ -652,7 +652,7 @@
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--text-2);
-    min-width: 60px;
+    min-width: 44px;
     text-align: center;
   }
   .mpn-listen {
