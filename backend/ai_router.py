@@ -23,7 +23,7 @@ Tier environment variables
   THINK_MODEL   chain-of-thought — activated by [THINKING_MODE] token
                 default: deepseek/deepseek-r1-distill-llama-70b:free
   DEEP_MODEL    deep reasoning — activated by [DEEP_THINKING_MODE] token
-                default: deepseek/deepseek-r1:free
+                default: google/gemini-2.5-flash
 
 Task-type registry
 ──────────────────
@@ -57,7 +57,7 @@ def _get_models() -> dict:
         'medium': medium,
         'large':  os.environ.get('LARGE_MODEL',  medium),   # falls back to medium if not set
         'think':  os.environ.get('THINK_MODEL',  'deepseek/deepseek-r1-distill-llama-70b:free'),
-        'deep':   os.environ.get('DEEP_MODEL',   'deepseek/deepseek-r1:free'),
+        'deep':   os.environ.get('DEEP_MODEL',   'google/gemini-2.5-flash'),
     }
 
 

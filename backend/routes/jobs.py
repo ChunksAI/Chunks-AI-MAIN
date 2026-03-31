@@ -84,7 +84,7 @@ def _run_ask_job(data: dict) -> dict:
 
     # ── Model selection via ai_router ─────────────────────────────────────
     if thinking_mode == 'deep':
-        selected_model = os.environ.get('DEEP_MODEL', 'deepseek/deepseek-r1:free')
+        selected_model = os.environ.get('DEEP_MODEL', 'google/gemini-2.5-flash')
     elif thinking_mode == 'thinking':
         selected_model = os.environ.get('THINK_MODEL', 'deepseek/deepseek-r1-distill-llama-70b:free')
     elif task_type:
