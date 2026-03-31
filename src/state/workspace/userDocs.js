@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 /**
  * src/state/workspace/userDocs.js — User document handling
@@ -7,6 +8,7 @@ import { ws, ZOOM_MIN, ZOOM_MAX } from './state.js';
 import { _wsUpdateBadge, _loadPdfJs, _wsRenderPage, wsFitWidth, _wsAttachResizeObserver } from './pdf.js';
 import { _wsBuildOutline } from './outline.js';
 import { wsShowToast, wsSetInput } from './chat.js';
+import { _wsWelcomeHtml } from './books.js';
 import { subscribeToChatRealtime } from './chatRealtime.js';
 import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
 import { getDocBlob, getDocMeta, deleteDoc } from '../../lib/userDocDb.js';
@@ -336,77 +338,10 @@ function _wrapWordsInSpans(text) {
   });
 }
 
+
 function _wsShowUserDocWelcome(meta) {
   const msgs = $el('ws-messages');
   if (!msgs) return;
   const name = meta.name.replace(/\.[^.]+$/, '');
-  const isPpt = meta.name.match(/\.(pptx?|ppt|ytx)$/i);
-  const icon = isPpt ? (meta.name.match(/\.ytx$/i) ? '▶' : '📊') : '📄';
-  const quickActions = [
-    {
-      label: 'Flashcards', sub: 'Generate from doc',
-      color: '#3b82f6', bg: 'rgba(59,130,246,0.15)',
-      onclick: 'wsGenerateFlashcardsInChat()',
-      svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 2v3M8 2v3"/></svg>',
-    },
-    {
-      label: 'Quiz me', sub: 'Test your knowledge',
-      color: '#6366f1', bg: 'rgba(99,102,241,0.15)',
-      onclick: 'wsSetInput(\'Quiz me on this document\')',
-      svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>',
-    },
-    {
-      label: 'Summarize', sub: 'Key points only',
-      color: '#22c55e', bg: 'rgba(34,197,94,0.15)',
-      onclick: 'wsSetInput(\'Summarize the key points\')',
-      svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
-    },
-    {
-      label: 'Mind map', sub: 'Visual overview',
-      color: '#06b6d4', bg: 'rgba(6,182,212,0.15)',
-      onclick: 'wsSetInput(\'Create a mind map for this document\')',
-      svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 9V3M12 21v-6M9.8 14.2l-4.2 2.4M18.4 7.4l-4.2 2.4M9.8 9.8L5.6 7.4M18.4 16.6l-4.2-2.4"/></svg>',
-    },
-    {
-      label: 'Exam prep', sub: 'What to study first',
-      color: '#f43f5e', bg: 'rgba(244,63,94,0.15)',
-      onclick: 'wsSetInput(\'What should I focus on for my exam?\')',
-      svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
-    },
-    {
-      label: 'Explain it', sub: 'Simple breakdown',
-      color: '#f59e0b', bg: 'rgba(245,158,11,0.15)',
-      onclick: 'wsSetInput(\'Explain the main concepts in simple terms\')',
-      svg: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
-    },
-  ];
-  setHtml(msgs, `
-    <div style="display:flex;flex-direction:column;gap:14px;padding:20px 16px 8px;">
-      <div class="hc-ai" style="align-items:flex-start;">
-        <div class="hc-ai-avatar" style="background:var(--violet-muted);border:1px solid var(--violet-border);color:var(--violet);font-size:13px;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">✦</div>
-        <div style="background:var(--surface-1);border:1px solid var(--border-sm);border-radius:4px 14px 14px 14px;padding:13px 15px;font-size:13px;color:var(--text-1);line-height:1.65;flex:1;">
-          <p style="margin:0 0 14px;">${icon} <strong>${name}</strong> is open. I've read the full document — ask me anything or pick an action below.</p>
-          <p style="margin:0 0 8px;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-3);">Quick actions</p>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;">
-            ${quickActions.map(a => `
-              <div onclick="${a.onclick}" style="display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--border-sm);border-radius:10px;background:var(--surface-2);cursor:pointer;transition:background 120ms;" onmouseover="this.style.background='var(--surface-3)'" onmouseout="this.style.background='var(--surface-2)'">
-                <div style="width:28px;height:28px;border-radius:7px;background:${a.bg};color:${a.color};display:flex;align-items:center;justify-content:center;flex-shrink:0;">${a.svg}</div>
-                <div>
-                  <div style="font-size:12px;font-weight:600;color:var(--text-1);line-height:1.3;">${a.label}</div>
-                  <div style="font-size:10.5px;color:var(--text-3);margin-top:1px;">${a.sub}</div>
-                </div>
-              </div>`).join('')}
-          </div>
-          <p style="margin:0 0 8px;font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-3);">Or ask directly</p>
-          <div style="display:flex;flex-direction:column;gap:5px;">
-            ${['What are the main topics covered?', 'Explain the most important concept', 'What should I focus on for my exam?'].map(q => `
-              <div class="ws-chip-item" onclick="wsSetInput('${q}')"
-                style="display:flex;align-items:center;justify-content:space-between;padding:7px 11px;border:1px solid var(--border-xs);border-radius:8px;background:var(--surface-2);cursor:pointer;font-size:12px;color:var(--text-2);transition:all 120ms;">
-                ${q}
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
-              </div>`).join('')}
-          </div>
-        </div>
-      </div>
-    </div>`);
+  setHtml(msgs, _wsWelcomeHtml(name, null));
 }
