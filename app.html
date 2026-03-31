@@ -557,7 +557,8 @@ function recentAdd(question, bookId, source) {
     const existingIdx = _recentItems.findIndex(r => r.bookId === effectiveBookId && r.source === 'workspace');
     if (existingIdx !== -1) {
       const existing = _recentItems[existingIdx];
-      existing.label = label;
+      // Preserve the existing label so the user's session name is not overwritten
+      // on every new message. Only update the last question for input restoration.
       existing.question = question;
       if (existingIdx !== 0) {
         _recentItems.splice(existingIdx, 1);
@@ -1074,7 +1075,8 @@ function _renderDocGroupedRecents() {
     if (item.source === 'workspace' && item.bookId) {
       key = 'ws_' + item.bookId;
       const meta = window.wsBookMeta?.[item.bookId];
-      title = (typeof meta === 'object' ? meta?.name : meta?.split?.('/')?.[0]) || item.bookId;
+      title = (typeof meta === 'object' ? meta?.name : meta?.split?.('/')?.[0])
+        || (item.bookId === '__user_doc__' ? (localStorage.getItem('chunks_active_ws_user_doc_name') || 'My Document') : item.bookId);
       groupType = 'doc';
     } else {
       key = 'ungrouped';

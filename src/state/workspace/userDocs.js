@@ -39,6 +39,7 @@ export async function selectUserDoc(docId) {
   // Persist active user doc so a refresh can restore it
   lsSet('chunks_active_ws_book', WS_USER_DOC_SENTINEL);
   lsSet('chunks_active_ws_user_doc', docId);
+  lsSet('chunks_active_ws_user_doc_name', meta.name);
 
   // Start realtime subscriptions for this user document
   subscribeToChatRealtime(docId);
