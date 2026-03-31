@@ -1,26 +1,15 @@
 // @ts-nocheck
 /**
- * src/components/SettingsModal.js — Task 24
+ * src/components/Toast.js — Task 20 (Preact migration)
  *
- * Owns the settings modal HTML, open/close logic, all settings controls,
- * and data-management functions.
+ * Backward-compatible wrapper around the Preact `<ToastIsland>` component.
+ * Every existing `import { showToast } from './Toast.js'` continues to work
+ * unchanged — the public API is identical.
  *
- * Previously in index.html:
- *   • #settings-modal HTML block (~lines 7677–7987, 311 lines)
- *   • Settings JS block (~lines 2181–3044, ~420 lines):
- *       openSettings / closeSettings
- *       settingsFontSize + restore-font-size IIFE
- *       _restoreSettings IIFE
- *       _initDropdownAria IIFE
- *       settingsNav / settingsDropdown / settingsSelect
- *       applyAccentColor / settingsSelectAccent / settingsSelectVoice / settingsPlayVoice
- *       settingsToggleChanged / settingsSelectStudyMode
- *       _getStudyMode / _isFollowupsEnabled / _isAutoFlashEnabled
- *       dataToggleSaveHistory / dataToggleImprove
- *       clearAllHistory / clearPdfCache / _updateCacheSizeLabel
- *       DOMContentLoaded restore handler
- *
- * Window bridges removed — now handled by src/globals.js.
+ * Migration note:
+ *   The actual UI is now rendered declaratively by Preact in Toast.jsx.
+ *   This file mounts the Preact island into `#ws-toast` at import time
+ *   and delegates `showToast()` calls to the component's imperative handle.
  */
 
 import { _currentUser } from '../lib/auth.js';
@@ -342,115 +331,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const tmp = document.createElement('div');
   tmp.innerHTML = SETTINGS_MODAL_HTML;
   document.body.appendChild(tmp.firstElementChild);
+import { mountIsland } from '../preact/bridge.js';
+import { ToastIsland } from './Toast.jsx';
 
-  // Attach click-outside listener after inject
-  document.getElementById('settings-modal')?.addEventListener('click', function (e) {
-    if (e.target === this && !document.getElementById('confirm-modal')?.classList.contains('active')) {
-      closeSettings();
-    }
-  });
+// ── Mount Preact island ──────────────────────────────────────────────────────
 
-  _initDropdownAria();
-  _restoreSettings();
-  _updateCacheSizeLabel();
-  _restoreDataToggles();
-});
+let _handle = null;
 
-// ── Open / close ──────────────────────────────────────────────────────────────
-
-let _settingsFocusRelease = null;
-
-export function openSettings(page) {
-  const modal = document.getElementById('settings-modal');
-  if (!modal) return;
-  modal.classList.add('active');
-
-  // ── Populate account with live user data ──────────────
-  const user = _currentUser;
-  const isGuest = !user;
-  const nameEl  = document.getElementById('settings-account-name');
-  const emailEl = document.getElementById('settings-account-email');
-  const planEl  = document.getElementById('settings-account-plan');
-  if (nameEl)  nameEl.textContent  = user?.name  || user?.email?.split('@')[0] || (isGuest ? 'Guest' : '—');
-  if (emailEl) emailEl.textContent = user?.email || (isGuest ? 'Not signed in' : '—');
-  if (planEl) {
-    const plan = user?.plan || 'free';
-    planEl.textContent = isGuest ? 'Guest' : plan.charAt(0).toUpperCase() + plan.slice(1);
-    planEl.style.color = (!isGuest && plan !== 'free') ? 'var(--gold)' : 'var(--text-3)';
-  }
-
-  // ── Guest mode: disable auth-only actions ─────────────
-  const pwBtn  = document.getElementById('settings-change-password-btn');
-  const delBtn = document.getElementById('settings-delete-account-btn');
-  const delAllBtn = document.getElementById('delete-all-btn');
-  if (isGuest) {
-    if (pwBtn)  { pwBtn.disabled  = true; pwBtn.title  = 'Sign in to use this feature'; pwBtn.style.opacity  = '0.4'; pwBtn.style.cursor = 'not-allowed'; }
-    if (delBtn) { delBtn.disabled = true; delBtn.title = 'Sign in to use this feature'; delBtn.style.opacity = '0.4'; delBtn.style.cursor = 'not-allowed'; }
-    if (delAllBtn) { delAllBtn.disabled = false; /* guests CAN clear local history */ }
-  } else {
-    if (pwBtn)  { pwBtn.disabled  = false; pwBtn.title  = ''; pwBtn.style.opacity  = ''; pwBtn.style.cursor = ''; }
-    if (delBtn) { delBtn.disabled = false; delBtn.title = ''; delBtn.style.opacity = ''; delBtn.style.cursor = ''; }
-  }
-
-  if (page) {
-    const navItems = modal.querySelectorAll('.settings-nav-item');
-    const pages    = modal.querySelectorAll('.settings-page');
-    navItems.forEach(n => { n.classList.remove('active'); n.removeAttribute('aria-current'); });
-    pages.forEach(p => p.classList.remove('active'));
-
-    const pageMap = {
-      general: 0, notifications: 1, personalization: 2,
-      apps: 3, data: 4, security: 5, parental: 6, account: 7
-    };
-    const idx = pageMap[page] ?? 0;
-    navItems[idx]?.classList.add('active');
-    navItems[idx]?.setAttribute('aria-current', 'page');
-    modal.querySelector('#settings-page-' + page)?.classList.add('active');
-    if (page === 'data') _updateCacheSizeLabel();
-
-    // On mobile: sync header title + scroll active tab into view
-    if (window.innerWidth <= 600) {
-      const titleEl = modal.querySelector('#settings-modal-title');
-      if (titleEl) {
-        const pageTitle = modal.querySelector('#settings-page-' + page + ' .settings-page-title');
-        titleEl.textContent = pageTitle?.textContent || page.charAt(0).toUpperCase() + page.slice(1);
-      }
-      navItems[idx]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-    }
-  }
-  _settingsFocusRelease = trapFocus?.(modal) ?? null;
+function _mount() {
+  const el = document.getElementById('ws-toast');
+  if (!el || _handle) return;
+  _handle = mountIsland(ToastIsland, el);
 }
 
-export function closeSettings() {
-  document.getElementById('settings-modal')?.classList.remove('active');
-  if (_settingsFocusRelease) { _settingsFocusRelease(); _settingsFocusRelease = null; }
-}
-
-// ── Nav ───────────────────────────────────────────────────────────────────────
-
-export function settingsNav(page, el) {
-  document.querySelectorAll('.settings-nav-item').forEach(n => {
-    n.classList.remove('active');
-    n.removeAttribute('aria-current');
-  });
-  document.querySelectorAll('.settings-page').forEach(p => p.classList.remove('active'));
-  el.classList.add('active');
-  el.setAttribute('aria-current', 'page');
-  document.getElementById('settings-page-' + page)?.classList.add('active');
-  if (page === 'data') _updateCacheSizeLabel();
-}
-
-// ── Font size ─────────────────────────────────────────────────────────────────
-
-export function settingsFontSize(size, btn) {
-  const map = { small: '12px', medium: '14px', large: '16px' };
-  if (!map[size]) return;
-  document.documentElement.style.setProperty('--chat-font-size', map[size]);
-  document.querySelectorAll('.font-size-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  try { localStorage.setItem('chunks-chat-font-size', size); } catch (e) {}
-  // Phase 3: sync to Supabase
-  ChunksDB?.settings?.patch?.({ chat_font_size: size });
+// Mount as soon as the DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _mount, { once: true });
+} else {
+  _mount();
 }
 
 // Restore font size CSS var immediately on load (before modal HTML exists)
@@ -994,25 +892,19 @@ export async function settingsChangePassword() {
     showToast('⚠', e.message || 'Failed to send reset link', '');
   } finally {
     if (btn) { btn.textContent = 'Send reset link'; btn.disabled = false; }
+// ── Public API (unchanged) ───────────────────────────────────────────────────
+
+/**
+ * showToast(icon, text, color?)
+ *
+ * @param {string} icon   — emoji or symbol shown on the left
+ * @param {string} text   — message body
+ * @param {string} [color] — optional CSS colour for the border (e.g. 'var(--teal)')
+ */
+export function showToast(icon, text, color) {
+  if (!_handle) _mount();          // lazy mount if called before DOMContentLoaded
+  if (_handle?.show) {
+    _handle.show(icon, text, color);
   }
 }
 
-export function settingsDeleteAccount() {
-  showConfirmModal?.({
-    title: 'Delete your account?',
-    desc: 'This will permanently delete your account and all data. This cannot be undone.',
-    confirmLabel: 'Delete account',
-    onConfirm: async () => {
-      try {
-        const sb = await getSupabaseClient();
-        if (sb) await sb.auth.signOut();
-        // Clear all local data
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.replace('login.html');
-      } catch (e) {
-        showToast('⚠', 'Could not delete account — contact support', '');
-      }
-    }
-  });
-}
