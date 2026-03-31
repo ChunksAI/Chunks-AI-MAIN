@@ -3,7 +3,7 @@
  * src/lib/progressTracker.js — Progress tracking & weak area detection
  *
  * Tracks per-topic learning data across flashcard sessions and exams.
- * Persists to localStorage under 'chunks_progress_v1'.
+ * Persists to in-memory store under 'chunks_progress_v1'.
  *
  * Schema (per topic key):
  *   { attempts, correct, lastStudied }
@@ -16,6 +16,7 @@
  *   getTopicProgress(topic)              — progress for one topic
  *   clearProgress()                      — wipe all tracking data
  */
+import { lsGet as _lsGet, lsSet as _lsSet, lsRemove as _lsRemove } from '../utils/storage.js';
 
 const _STORAGE_KEY = 'chunks_progress_v1';
 
@@ -23,13 +24,12 @@ const _STORAGE_KEY = 'chunks_progress_v1';
 
 function _load() {
   try {
-    const raw = localStorage.getItem(_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    return _lsGet(_STORAGE_KEY) || {};
   } catch (_) { return {}; }
 }
 
 function _save(data) {
-  try { localStorage.setItem(_STORAGE_KEY, JSON.stringify(data)); } catch (_) {}
+  try { _lsSet(_STORAGE_KEY, data); } catch (_) {}
 }
 
 function _normaliseTopic(topic) {
@@ -123,7 +123,7 @@ export function getWeakAreas() {
  * Wipe all tracking data.
  */
 export function clearProgress() {
-  try { localStorage.removeItem(_STORAGE_KEY); } catch (_) {}
+  try { _lsRemove(_STORAGE_KEY); } catch (_) {}
 }
 
 // ── Window bridge ─────────────────────────────────────────────────────────────

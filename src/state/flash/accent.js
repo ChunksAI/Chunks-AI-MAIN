@@ -10,6 +10,7 @@ import { $el, $qs, $qsa, setText, createElement } from '../domHelpers.js';
 import { ACCENT_KEY } from './state.js';
 import { _fcGetStreak } from './streak.js';
 import { showToast } from '../../components/Toast.js';
+import { lsGet as _lsGet, lsSet as _lsSet } from '../../utils/storage.js';
 
 export const FC_ACCENTS = [
   {
@@ -63,13 +64,13 @@ export const FC_ACCENTS = [
 ];
 
 export function _fcGetSavedAccent() {
-  return localStorage.getItem(ACCENT_KEY) || 'gold';
+  return _lsGet(ACCENT_KEY, 'gold');
 }
 
 export function _fcApplyAccent(id) {
   const accent = FC_ACCENTS.find(a => a.id === id) || FC_ACCENTS[0];
   document.documentElement.style.setProperty('--fc-accent', accent.color);
-  localStorage.setItem(ACCENT_KEY, id);
+  _lsSet(ACCENT_KEY, id);
 }
 
 export function _fcGetUnlockedAccents() {

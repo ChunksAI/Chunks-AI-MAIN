@@ -31,126 +31,6 @@ export const GUEST_LIMITS = {
   exam:       1,
 };
 
-const STORAGE_KEY  = 'chunks_guest_usage';   // localStorage: usage counts
-const FP_KEY       = 'chunks_guest_fp';      // localStorage: device fingerprint
-const DATE_KEY     = 'chunks_guest_date';    // localStorage: last reset date (YYYY-MM-DD)
-const ABUSE_KEY    = 'chunks_guest_abused';  // localStorage: abuse flag
-
-// ── Daily reset ───────────────────────────────────────────────────────────
-
-/** Returns today's date as a YYYY-MM-DD string (local time). */
-function _today() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-/**
- * If the stored reset date is not today, wipe usage counts and the abuse flag
- * so every guest gets a fresh set of limits each calendar day.
- * Burnt fingerprints are intentionally preserved — they survive the daily reset.
- */
-function _maybeResetDaily() {
-  try {
-    const stored = localStorage.getItem(DATE_KEY);
-    const today  = _today();
-    if (stored === today) return; // same day — nothing to do
-    // New day → clear counts, abuse flag, and burnt fingerprints
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(ABUSE_KEY);
-    localStorage.removeItem('chunks_burnt_fps');
-    localStorage.setItem(DATE_KEY, today);
-  } catch (_) {}
-}
-
-// ── Fingerprint ───────────────────────────────────────────────────────────
-
-function _buildFingerprint() {
-  const parts = [];
-
-  // Canvas hash
-  try {
-    const c = document.createElement('canvas');
-    c.width = 200; c.height = 50;
-    const ctx = c.getContext('2d');
-    ctx.textBaseline = 'top';
-    ctx.font = '14px Arial';
-    ctx.fillStyle = '#f60';
-    ctx.fillRect(125, 1, 62, 20);
-    ctx.fillStyle = '#069';
-    ctx.fillText('Chunks🎓', 2, 15);
-    ctx.fillStyle = 'rgba(102,204,0,0.7)';
-    ctx.fillText('Chunks🎓', 4, 17);
-    parts.push(c.toDataURL().slice(-40));
-  } catch (_) { parts.push('nocanvas'); }
-
-  // Screen geometry
-  parts.push(`${screen.width}x${screen.height}x${screen.colorDepth}`);
-
-  // Timezone
-  try { parts.push(Intl.DateTimeFormat().resolvedOptions().timeZone); } catch (_) {}
-
-  // Language
-  parts.push(navigator.language || '');
-
-  // Platform
-  parts.push(navigator.platform || '');
-
-  // Plugins count (coarse)
-  parts.push(String((navigator.plugins || []).length));
-
-  // Hardware concurrency (CPU cores)
-  parts.push(String(navigator.hardwareConcurrency || 0));
-
-  // Touch support
-  parts.push(String('ontouchstart' in window));
-
-  return parts.join('|');
-}
-
-// Simple djb2-style hash → short hex string
-function _hash(str) {
-  let h = 5381;
-  for (let i = 0; i < str.length; i++) h = ((h << 5) + h) ^ str.charCodeAt(i);
-  return (h >>> 0).toString(16).padStart(8, '0');
-}
-
-function getFingerprint() {
-  try {
-    const stored = localStorage.getItem(FP_KEY);
-    if (stored) return stored;
-  } catch (_) {}
-  const fp = _hash(_buildFingerprint());
-  try { localStorage.setItem(FP_KEY, fp); } catch (_) {}
-  return fp;
-}
-
-// ── Usage storage ─────────────────────────────────────────────────────────
-
-function _loadUsage() {
-  _maybeResetDaily();
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (_) {}
-  return {};
-}
-
-function _saveUsage(usage) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(usage)); } catch (_) {}
-}
-
-function getCount(feature) {
-  const usage = _loadUsage();
-  return usage[feature] || 0;
-}
-
-function increment(feature) {
-  const usage = _loadUsage();
-  usage[feature] = (usage[feature] || 0) + 1;
-  _saveUsage(usage);
-  return usage[feature];
-}
-
 // ── Public API ────────────────────────────────────────────────────────────
 
 /** Returns true if user is currently in guest mode */
@@ -164,9 +44,8 @@ export function isGuest() {
  */
 export function checkLimit(feature) {
   if (!isGuest()) return { allowed: true, count: 0, limit: GUEST_LIMITS[feature] };
-  const limit = GUEST_LIMITS[feature];
-  const count = getCount(feature);
-  return { allowed: count < limit, count, limit };
+  // Backend enforces limits via Redis — always allow on the client side
+  return { allowed: true, count: 0, limit: GUEST_LIMITS[feature] };
 }
 
 /**
@@ -174,8 +53,7 @@ export function checkLimit(feature) {
  * Returns the new count.
  */
 export function recordUsage(feature) {
-  if (!isGuest()) return 0;
-  return increment(feature);
+  return 0;
 }
 
 /**
@@ -185,13 +63,6 @@ export function recordUsage(feature) {
  */
 export function guestGate(feature, opts = {}) {
   if (!isGuest()) return true;
-
-  // Abuse check first
-  if (_isAbuser()) {
-    showLoginWall('abuse');
-    return false;
-  }
-
   const { allowed, count, limit } = checkLimit(feature);
   if (!allowed) {
     showLoginWall(feature, { count, limit, ...opts });
@@ -199,59 +70,6 @@ export function guestGate(feature, opts = {}) {
   }
   return true;
 }
-
-// ── Abuse prevention ──────────────────────────────────────────────────────
-
-const ABUSE_THRESHOLD = 3; // how many features must be maxed to flag as abuser
-
-function _isAbuser() {
-  // Check if already flagged
-  try {
-    if (localStorage.getItem(ABUSE_KEY) === '1') return true;
-  } catch (_) {}
-
-  // Check how many features are maxed
-  const usage = _loadUsage();
-  let maxedCount = 0;
-  for (const [feature, limit] of Object.entries(GUEST_LIMITS)) {
-    if ((usage[feature] || 0) >= limit) maxedCount++;
-  }
-
-  // If >= ABUSE_THRESHOLD features maxed, flag and burn the fingerprint
-  if (maxedCount >= ABUSE_THRESHOLD) {
-    try { localStorage.setItem(ABUSE_KEY, '1'); } catch (_) {}
-    _burnFingerprint();
-    return true;
-  }
-  return false;
-}
-
-function _burnFingerprint() {
-  try {
-    const fp = getFingerprint();
-    const burnt = JSON.parse(localStorage.getItem('chunks_burnt_fps') || '[]');
-    if (!burnt.includes(fp)) {
-      burnt.push(fp);
-      localStorage.setItem('chunks_burnt_fps', JSON.stringify(burnt));
-    }
-  } catch (_) {}
-}
-
-// On load: ALWAYS run the daily reset first (regardless of guest mode),
-// then check burnt fingerprint only if currently in guest mode.
-// This ensures counts are wiped at midnight even if the user doesn't
-// interact until after the date has already rolled over.
-(function _checkBurntOnLoad() {
-  try {
-    _maybeResetDaily(); // always runs — clears stale counts on new day
-    if (!isGuest()) return;
-    const fp = getFingerprint();
-    const burnt = JSON.parse(localStorage.getItem('chunks_burnt_fps') || '[]');
-    if (burnt.includes(fp)) {
-      try { localStorage.setItem(ABUSE_KEY, '1'); } catch (_) {}
-    }
-  } catch (_) {}
-})();
 
 // ── Login wall modal ──────────────────────────────────────────────────────
 
@@ -470,8 +288,8 @@ export function renderUsageBar(containerId, feature) {
   if (!container) return;
 
   const limit = GUEST_LIMITS[feature];
-  const count = getCount(feature);
-  const remaining = Math.max(0, limit - count);
+  const count = 0;
+  const remaining = limit;
 
   let existing = container.querySelector('.guest-usage-indicator');
   if (!existing) {
@@ -503,18 +321,11 @@ export function renderUsageBar(containerId, feature) {
     const existing = document.getElementById('_dbg-limits');
     if (existing) existing.remove();
 
-    _maybeResetDaily();
-    const usage   = _loadUsage();
-    const today   = localStorage.getItem(DATE_KEY) || '—';
-    const abused  = localStorage.getItem(ABUSE_KEY) === '1';
-    const fp      = localStorage.getItem(FP_KEY) || '—';
-    const burnt   = JSON.parse(localStorage.getItem('chunks_burnt_fps') || '[]');
-
     const rows = Object.entries(GUEST_LIMITS).map(([feature, limit]) => {
-      const count     = usage[feature] || 0;
-      const remaining = Math.max(0, limit - count);
-      const pct       = Math.round((count / limit) * 100);
-      const color     = remaining === 0 ? '#ef4444' : remaining <= 2 ? '#f59e0b' : '#34d399';
+      const count     = 0;
+      const remaining = limit;
+      const pct       = 0;
+      const color     = '#34d399';
       return `
         <tr>
           <td style="padding:4px 10px 4px 0;color:#ededf0;text-transform:capitalize;">${feature}</td>
@@ -545,17 +356,7 @@ export function renderUsageBar(containerId, feature) {
       </div>
       <table style="border-collapse:collapse;width:100%;">${rows}</table>
       <div style="margin-top:12px;padding-top:10px;border-top:1px solid #2a2b38;font-size:11px;color:#7c7c96;">
-        <div>📅 Reset date: <span style="color:#ededf0;">${today}</span></div>
-        <div>🕐 Next reset: <span style="color:#ededf0;">midnight local time</span></div>
-        <div>🛡 Abuse flag: <span style="color:${abused ? '#ef4444' : '#34d399'}">${abused ? 'YES' : 'no'}</span></div>
-        <div>🔑 Fingerprint: <span style="color:#ededf0;">${fp}</span></div>
-        <div>🔥 Burnt FPs: <span style="color:${burnt.length ? '#ef4444' : '#34d399'}">${burnt.length}</span></div>
-      </div>
-      <div style="margin-top:10px;text-align:center;">
-        <button onclick="(function(){localStorage.removeItem('chunks_guest_usage');localStorage.removeItem('chunks_guest_abused');localStorage.removeItem('chunks_guest_date');window._renderDebugLimits?.();})()"
-          style="background:#1e1f29;border:1px solid #2a2b38;color:#9898ae;font-family:monospace;font-size:11px;padding:4px 12px;border-radius:6px;cursor:pointer;">
-          ↺ Reset counts
-        </button>
+        <div>ℹ️ Limits enforced server-side via Redis</div>
       </div>
     `;
     document.body.appendChild(el);

@@ -8,7 +8,7 @@ import { $el, hide, show, setText, setHtml } from '../domHelpers.js';
 import { spMasteryScore, spMasteryGet, spMasteryUpdateNode } from './mastery.js';
 import { spRenderPlan } from './rendering.js';
 import { spUpdateReminderUI } from './notifications.js';
-import { lsSet } from '../../utils/storage.js';
+import { lsSet, lsGet, lsRemove } from '../../utils/storage.js';
 
 export function spShowExamDatePicker() {
   const picker = $el('sp-exam-date-picker');
@@ -30,7 +30,7 @@ export function spSetExamDate(val) {
     return;
   }
   sp.examDate = val;
-  try { localStorage.setItem('sp_exam_date_' + (sp.activePlanId || 'default'), val); } catch (e) {}
+  try { lsSet('sp_exam_date_' + (sp.activePlanId || 'default'), val); } catch (e) {}
   if (sp.activePlanId && sp.allPlans[sp.activePlanId]) {
     sp.allPlans[sp.activePlanId].examDate = val;
     try { lsSet('sp_all_plans', sp.allPlans); } catch (e) {}
@@ -49,7 +49,7 @@ export function _spCheckAndExpireExamDate() {
   const examEndOfDay = new Date(sp.examDate + 'T00:00:00').setHours(23,59,59,999);
   if (examEndOfDay < Date.now()) {
     sp.examDate = null;
-    try { localStorage.removeItem('sp_exam_date_' + (sp.activePlanId || 'default')); } catch (_) {}
+    try { lsRemove('sp_exam_date_' + (sp.activePlanId || 'default')); } catch (_) {}
     if (sp.activePlanId && sp.allPlans[sp.activePlanId]) {
       sp.allPlans[sp.activePlanId].examDate = null;
       try { lsSet('sp_all_plans', sp.allPlans); } catch (_) {}
@@ -64,7 +64,7 @@ export function _spCheckAndExpireExamDate() {
 
 export function spClearExamDate() {
   sp.examDate = null;
-  try { localStorage.removeItem('sp_exam_date_' + (sp.activePlanId || 'default')); } catch (e) {}
+  try { lsRemove('sp_exam_date_' + (sp.activePlanId || 'default')); } catch (e) {}
   if (sp.activePlanId && sp.allPlans[sp.activePlanId]) {
     sp.allPlans[sp.activePlanId].examDate = null;
     try { lsSet('sp_all_plans', sp.allPlans); } catch (e) {}

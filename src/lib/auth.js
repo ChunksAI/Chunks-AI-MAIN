@@ -23,6 +23,7 @@
 
 import { getSupabaseClient } from './supabase.js';
 import { API_BASE } from './api.js';
+import { memClear } from '../utils/storage.js';
 
 // ── User state ────────────────────────────────────────────────────────────────
 
@@ -103,10 +104,8 @@ function _applyUI(user) {
   const initials = _initials(user.name, user.email);
 
   // Resolve owner/admin from cache immediately — before planLabel so the label is correct on first paint
-  const _cachedAdminEarly = localStorage.getItem('chunks_admin_email');
-  const _cachedOwnerEarly = localStorage.getItem('chunks_owner_email');
-  const _isOwnerEarly = user.isOwner || (_cachedOwnerEarly && _cachedOwnerEarly === user.email);
-  const _isAdminEarly = user.isAdmin || (_cachedAdminEarly && _cachedAdminEarly === user.email);
+  const _isOwnerEarly = user.isOwner || false;
+  const _isAdminEarly = user.isAdmin || false;
 
   const planLabel = _isOwnerEarly ? 'Owner'
                   : _isAdminEarly ? 'Admin'
@@ -165,68 +164,12 @@ function _applyUI(user) {
   // Show/hide the admin button in ProfileDropdown if applicable.
   // Check both the user.isAdmin/isOwner flags AND the localStorage cache so the button
   // and label appear instantly on every _applyUI call without waiting for the backend.
-  const cachedAdmin = localStorage.getItem('chunks_admin_email');
-  const cachedOwner = localStorage.getItem('chunks_owner_email');
-  const isAdminNow  = user.isAdmin || (cachedAdmin && cachedAdmin === user.email);
-  const isOwnerNow  = user.isOwner || (cachedOwner && cachedOwner === user.email);
+  const isAdminNow  = user.isAdmin || false;
+  const isOwnerNow  = user.isOwner || false;
   if (isOwnerNow && _currentUser) { _currentUser.isOwner = true; _currentUser.isAdmin = true; }
   else if (isAdminNow && _currentUser) _currentUser.isAdmin = true;
   const adminBtn = document.getElementById('pd-admin-btn');
   if (adminBtn) adminBtn.style.display = (isAdminNow || isOwnerNow) ? '' : 'none';
-}
-
-// ── Default settings (new users) ─────────────────────────────────────────────
-
-/**
- * Write default settings to localStorage the very first time a user signs in.
- * Safe to call on every SIGNED_IN — the `chunks_settings_initialized` guard
- * ensures defaults are only written once and never overwrite user choices.
- */
-function _applyDefaultSettings() {
-  try {
-    if (localStorage.getItem('chunks_settings_initialized') === '1') return;
-
-    const defaults = {
-      // General
-      'chunks-chat-font-size':            'medium',
-      'chunks_setting_appearance':        'dark',
-      'chunks_setting_language':          'Auto-detect',
-      'chunks_setting_spoken-language':   'Auto-detect',
-      'chunks_setting_voice':             'Maple',
-      'chunks_setting_separate-voice':    '0',
-
-      // Notifications (study reminders + flashcard alerts on by default)
-      'chunks_setting_notif-study':       '1',
-      'chunks_setting_notif-flashcard':   '1',
-      'chunks_setting_notif-library':     '0',
-      'chunks_setting_notif-updates':     '0',
-
-      // Personalization
-      'chunks_default_book':              null,
-      'chunks_study_mode':                'balanced',
-      'chunks_setting_followups':         '1',
-      'chunks_setting_auto-flash':        '0',
-
-      // Data controls
-      'chunks_improve_data':              '1',
-
-      // Parental controls
-      'chunks_setting_safe-content':      '0',
-    };
-
-    Object.entries(defaults).forEach(([key, value]) => {
-      localStorage.setItem(key, value);
-    });
-
-    // Apply font size CSS var immediately
-    const fontMap = { small: '11px', medium: '13px', large: '15px' };
-    document.documentElement.style.setProperty('--chat-font-size', fontMap['medium']);
-
-    // Mark as initialized so we never overwrite again
-    localStorage.setItem('chunks_settings_initialized', '1');
-  } catch (e) {
-    console.warn('[auth] _applyDefaultSettings failed:', e);
-  }
 }
 
 // ── Session → _currentUser ────────────────────────────────────────────────────
@@ -291,9 +234,7 @@ export function _applyUserProfile(session) {
         body: JSON.stringify({})
       });
       if (!res.ok) {
-        // Non-admin or CORS error — clear caches silently, no console spam
-        localStorage.removeItem('chunks_admin_email');
-        localStorage.removeItem('chunks_owner_email');
+        // Non-admin or CORS error — ignore silently
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = 'none';
         return;
@@ -304,15 +245,10 @@ export function _applyUserProfile(session) {
           _currentUser.isAdmin = true;
           _currentUser.isOwner = data.role === 'owner' || data.role === 'superadmin';
         }
-        localStorage.setItem('chunks_admin_email', _currentUser.email);
-        if (_currentUser.isOwner) localStorage.setItem('chunks_owner_email', _currentUser.email);
-        else localStorage.removeItem('chunks_owner_email');
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = '';
         if (_currentUser) _applyUI(_currentUser);
       } else {
-        localStorage.removeItem('chunks_admin_email');
-        localStorage.removeItem('chunks_owner_email');
         const adminBtn = document.getElementById('pd-admin-btn');
         if (adminBtn) adminBtn.style.display = 'none';
       }
@@ -328,21 +264,7 @@ export async function _initAuth() {
   // Clear the signing_out flag if it somehow persists on app.html load.
   if (sessionStorage.getItem('chunks_signing_out') === '1') {
     sessionStorage.removeItem('chunks_signing_out');
-    // Only enter guest mode if there's no valid auth session in localStorage.
-    // When a user signs out and immediately signs back in (e.g. from homepage),
-    // the new session already exists in localStorage — don't override it with guest mode.
-    let hasValidSession = false;
-    try {
-      const raw = localStorage.getItem('chunks-ai-auth');
-      if (raw) {
-        const p = JSON.parse(raw);
-        const s = p?.access_token ? p : p?.currentSession;
-        hasValidSession = !!(s?.access_token);
-      }
-    } catch (_) { /* storage blocked or corrupt — fall through */ }
-    if (!hasValidSession) {
-      sessionStorage.setItem('chunks_guest_mode', '1');
-    }
+    sessionStorage.setItem('chunks_guest_mode', '1');
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -352,38 +274,6 @@ export async function _initAuth() {
   const hasOAuthHash_    = window.location.hash.includes('access_token');
   const isOAuthCallback_ = hasOAuthCode_ || hasOAuthHash_ ||
                            sessionStorage.getItem('chunks_oauth_callback') === '1';
-
-  // ── Read cached session from localStorage ─────────────────────────────────
-  // Used both for the instant gate and as a fallback if getSession() fails.
-  let _cachedSession = null;
-  let _cachedSessionValid = false;
-  try {
-    const raw = localStorage.getItem('chunks-ai-auth');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      _cachedSession = parsed.access_token ? parsed
-                     : parsed.currentSession ? parsed.currentSession
-                     : null;
-      if (_cachedSession?.access_token) {
-        const nowSec    = Math.floor(Date.now() / 1000);
-        const expiresAt = _cachedSession.expires_at || 0;
-        // Valid if not expired (allow 60s clock-skew buffer)
-        _cachedSessionValid = expiresAt === 0 || (expiresAt - nowSec > 60);
-      }
-    }
-  } catch (e) { /* storage blocked or corrupt — fall through */ }
-
-  // ── Instant gate: redirect to /login if definitely no session ────────────
-  // Skip during OAuth callback — session hasn't been written yet.
-  if (!isGuest_ && !isLoginPage_ && !isOAuthCallback_) {
-    if (!_cachedSession || !_cachedSession.access_token) {
-      window.location.replace('/ChunksAI');
-      return;
-    }
-    // If session exists but is expired, fall through to let Supabase refresh it.
-    // Do NOT redirect — the refresh may succeed.
-  }
-  // ─────────────────────────────────────────────────────────────────────────
 
   let sb;
   try { sb = await getSupabaseClient(); } catch (e) { return; }
@@ -440,8 +330,7 @@ export async function _initAuth() {
     }
     // ─────────────────────────────────────────────────────────────────────
 
-    // Apply default settings for users who haven't been initialized yet
-    if (verifiedSession?.user) _applyDefaultSettings();
+    // Apply default settings for users who haven't been initialized yet — no-op
 
     // ── Phase 4: cross-device sync via SyncManager (run once per page load) ──
     if (verifiedSession?.user && !_chunksSyncFired) {
@@ -476,7 +365,7 @@ export async function _initAuth() {
     //   b) getSession() returned null but localStorage has a valid cached session
     //      (this happens when /api/config fetch fails or takes too long and the
     //      Supabase client is initialised with wrong/missing credentials)
-    const isAuthed = !!verifiedSession?.user || _cachedSessionValid;
+    const isAuthed = !!verifiedSession?.user;
 
     if (!isAuthed && !isGuest && !isLoginPage && !isOAuthCb) {
       window.location.replace('/ChunksAI');
@@ -484,7 +373,7 @@ export async function _initAuth() {
     }
 
     // Clear the OAuth callback flag once we have a confirmed session
-    if (verifiedSession?.user || _cachedSessionValid) {
+    if (verifiedSession?.user) {
       try { sessionStorage.removeItem('chunks_oauth_callback'); } catch(e) {}
       // Also clear guest mode — a real session takes precedence
       try { sessionStorage.removeItem('chunks_guest_mode'); } catch(e) {}
@@ -512,9 +401,6 @@ export async function _initAuth() {
 
   // 2. Listen for future auth changes
   sb.auth.onAuthStateChange((_event, session) => {
-    // Skip applying null profile on SIGNED_OUT during a page that has a valid
-    // cached session — prevents "Guest" flash when Supabase fires intermediate events
-    if (!session?.user && _cachedSessionValid && _event !== 'SIGNED_OUT') return;
     _applyUserProfile(session);
 
     // ── Register / sync user row in public users table ────────────────────
@@ -549,8 +435,6 @@ export async function _initAuth() {
     if (_event === 'SIGNED_IN') {
       // Clear OAuth callback flag now that session is confirmed
       try { sessionStorage.removeItem('chunks_oauth_callback'); } catch(e) {}
-      // Apply default settings for new users (no-op if already initialized)
-      _applyDefaultSettings();
 
       // Phase 4: full login sync — guarded by _chunksSyncFired (set in session restore)
       if (session?.user && !_chunksSyncFired) {
@@ -687,73 +571,14 @@ export async function chunksSignOut() {
     await SyncManager?.flushBeforeSignOut?.();
   } catch (_) {}
 
-  // Clear IndexedDB (chat sessions, flashcard decks/sessions/mastery, study
-  // plans) so a subsequent login by a different account starts with a clean
-  // slate and never sees the previous user's data.
-  try {
-    const { idbClearAll } = await import('./idbStorage.js');
-    await idbClearAll();
-  } catch (_) {}
-
   // Clean up state and storage BEFORE redirecting so the user never sees
   // a "Guest" flash — the page navigates away before any re-render happens.
   function _cleanAndRedirect() {
     // Clear all state
     _currentUser = null;
 
-    // ── Wipe ALL user-scoped localStorage data ────────────────────────────────
-    // Previously only 5 pointer keys were cleared, leaving behind chat sessions,
-    // settings, streak data, workspace positions, and recent items.  When a
-    // second account logged in on the same browser it inherited the first user's
-    // full history — a privacy and correctness bug.
-    //
-    // Strategy: collect every key that starts with a known user-data prefix,
-    // then delete them all.  We do NOT use localStorage.clear() because that
-    // would also wipe Supabase's own auth token keys (sb-*-auth-token) which
-    // the SDK needs to complete the server-side signOut call that fires below.
-    try {
-      const USER_PREFIXES = [
-        'chunks_session_',       // chat sessions (r+timestamp and UUID variants)
-        'chunks_ws_session_',    // workspace chat sessions
-        'chunks_ws_page_',       // per-book page position
-        'chunks_ws_zoom_',       // per-book zoom level
-        'chunks_ws_visited_',    // per-book last-visited timestamp
-        'chunks_setting_',       // all settings keys
-        'chunks_fc_',            // flashcard streak, XP, freeze tokens, accent, mastery
-        'fc_streak_data',        // legacy streak key
-        'fc_streak_last_study',  // legacy streak key
-      ];
-      const EXACT_KEYS = [
-        'chunks-ai-auth',            // our cached session copy — must be cleared so the auth gate re-enters guest mode
-        'chunks_recent',
-        'chunks_active_home_session',
-        'chunks_active_ws_book',
-        'chunks_active_ws_user_doc',
-        'chunks_active_recent_id',
-        'chunks_admin_email',
-        'chunks_owner_email',
-        'chunks_default_book',
-        'chunks_home_session',
-        'chunks_pending_upload_sessions',
-        'chunks_deleted_sessions',
-        'chunks_settings_initialized',
-        'chunks_settings_updated_at',
-        'chunks_ws_last_visited',
-        'chunks-chat-font-size',
-        'chunks_improve_data',
-        'chunks_study_mode',
-        'chunks_chunksSyncFired',
-      ];
-
-      // Collect prefix-matched keys first (can't mutate while iterating)
-      const prefixKeys = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && USER_PREFIXES.some(p => k.startsWith(p))) prefixKeys.push(k);
-      }
-      prefixKeys.forEach(k => localStorage.removeItem(k));
-      EXACT_KEYS.forEach(k => localStorage.removeItem(k));
-    } catch (_) { /* storage may be blocked in some environments */ }
+    // Clear all in-memory app state (prevents cross-user data leaks)
+    try { memClear(); } catch (_) {}
 
     // Clear sessionStorage
     sessionStorage.setItem('chunks_signing_out', '1');

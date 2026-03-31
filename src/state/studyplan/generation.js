@@ -15,6 +15,7 @@ import { spRenderPlanPatched } from './patches.js';
 import { spUpdateExamDateUI } from './calendar.js';
 import { spUpdateReminderUI } from './notifications.js';
 import { spSavePlanToSidebarAndLibrary } from './patches.js';
+import { lsGet, lsRemove, getSetting } from '../../utils/storage.js';
 
 export function spShowOverlay() {
   $el('sp-generating-overlay').style.display = 'flex';
@@ -35,12 +36,12 @@ export function spHideOverlay() {
 
 export function _aiParams(base) {
   const m = (typeof _getStudyMode === 'function' ? _getStudyMode() : null)
-            || localStorage.getItem('chunks_study_mode') || 'balanced';
+            || lsGet('chunks_study_mode') || 'balanced';
   const complexity = m === 'concise' ? Math.max(2, base - 2)
                    : m === 'detailed' ? Math.min(9, base + 2)
                    : base;
-  const language    = localStorage.getItem('chunks_setting_language') || 'Auto-detect';
-  const safeContent = localStorage.getItem('chunks_setting_safe-content') === '1';
+  const language    = getSetting('language') || 'Auto-detect';
+  const safeContent = getSetting('safe-content') === '1';
   return { complexity, language, safe_content: safeContent };
 }
 
@@ -146,7 +147,7 @@ Rules:
     sp.mastery = {};
     sp.examDate = null;
     try {
-      localStorage.removeItem('sp_exam_date_default');
+      lsRemove('sp_exam_date_default');
     } catch (_) {}
     sp.activePlanId = _spGenPlanId();
     recordUsage('studyplan');

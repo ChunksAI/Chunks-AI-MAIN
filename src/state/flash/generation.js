@@ -11,6 +11,7 @@ import { showToast } from '../../components/Toast.js';
 import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 import { FlashcardDB } from '../../lib/flashcardDb.js';
 import { _getStudyMode } from '../../components/SettingsModal.js';
+import { lsGet as _lsGet, getSetting } from '../../utils/storage.js';
 
 // ── PDF upload → flashcard deck ─────────────────────────────────────────────
 
@@ -114,12 +115,12 @@ export function _fcParseUploadedCards(rawText) {
 
 export function _aiParams(base) {
   const m = (typeof _getStudyMode === 'function' ? _getStudyMode() : null)
-            || localStorage.getItem('chunks_study_mode') || 'balanced';
+            || _lsGet('chunks_study_mode') || 'balanced';
   const complexity = m === 'concise' ? Math.max(2, base - 2)
                    : m === 'detailed' ? Math.min(9, base + 2)
                    : base;
-  const language    = localStorage.getItem('chunks_setting_language') || 'Auto-detect';
-  const safeContent = localStorage.getItem('chunks_setting_safe-content') === '1';
+  const language    = getSetting('language') || 'Auto-detect';
+  const safeContent = getSetting('safe-content') === '1';
   return { complexity, language, safe_content: safeContent };
 }
 

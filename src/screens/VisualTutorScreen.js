@@ -15,6 +15,7 @@
 import { API_BASE, _getAuthHeader } from '../lib/api.js';
 import { guestGate, recordUsage } from '../lib/guestLimits.js';
 import { showScreen, setNavFromHistory } from '../state/navigation/screens.js';
+import { lsGet as _lsGet, lsSet as _lsSet } from '../utils/storage.js';
 
 // ── HTML ──────────────────────────────────────────────────────────────────────
 
@@ -1742,13 +1743,13 @@ function _vtpFinishLesson() {
   // Find the matching recent item and append ✓ so students can see what
   // they've finished at a glance in the sidebar history.
   try {
-    const raw = localStorage.getItem('chunks_recent');
+    const raw = _lsGet('chunks_recent');
     if (raw) {
-      const items = JSON.parse(raw);
+      const items = Array.isArray(raw) ? raw : [];
       const match = items.find(r => r.source === 'visual' && r.question === _vtpCurrentTopic);
       if (match && !match.label.endsWith(' ✓')) {
         match.label = (match.label.length > 28 ? match.label.slice(0, 28).trimEnd() + '…' : match.label) + ' ✓';
-        localStorage.setItem('chunks_recent', JSON.stringify(items));
+        _lsSet('chunks_recent', items);
         window._renderAllRecent?.();
       }
     }
@@ -1896,13 +1897,13 @@ if (typeof window !== 'undefined') window._vtOpenForConcept = function(front /*,
 function _vtpSaveSession() {
   try {
     // Get the id of the most-recent visual item just added by recentAdd
-    const raw = localStorage.getItem('chunks_recent');
+    const raw = _lsGet('chunks_recent');
     if (!raw || !_vtpLesson || !_vtpCurrentTopic) return;
-    const items = JSON.parse(raw);
+    const items = Array.isArray(raw) ? raw : [];
     const match = items.find(r => r.source === 'visual' && r.question === _vtpCurrentTopic);
     if (!match) return;
     const session = { topic: _vtpCurrentTopic, lesson: _vtpLesson };
-    localStorage.setItem('chunks_vt_session_' + match.id, JSON.stringify(session));
+    _lsSet('chunks_vt_session_' + match.id, session);
   } catch (_) {}
 }
 
@@ -1914,9 +1915,9 @@ if (typeof window !== 'undefined') window._vtRestoreSession = function(sessionId
   setTimeout(() => {
     // Try to restore saved lesson data
     try {
-      const raw = localStorage.getItem('chunks_vt_session_' + sessionId);
+      const raw = _lsGet('chunks_vt_session_' + sessionId);
       if (raw) {
-        const session = JSON.parse(raw);
+        const session = raw;
         if (session.lesson && session.topic) {
           _vtpCurrentTopic = session.topic;
           _vtpLesson       = session.lesson;

@@ -9,17 +9,6 @@
  * (see vite.config.js Task 37 for chunk strategy)
  */
 
-// ── Schema migrations (must be first — upgrades localStorage data before
-// any module reads it, then IndexedDB populates the in-memory cache) ─────────
-import { runLocalStorageMigrations } from './lib/schemaMigrations.js';
-runLocalStorageMigrations();
-
-// ── IndexedDB initialisation (populates the in-memory cache so later
-// module-level reads find their data) ────────────────────────────────────────
-import { init as _initIdb } from './lib/idbStorage.js';
-_initIdb();   // fire-and-forget — resolves in <5 ms; pre-init reads
-              // fall back to localStorage until the cache is warm
-
 // ── Bundled dependencies (no CDN — avoids Edge tracking prevention) ───────
 import * as supabaseJs from '@supabase/supabase-js';
 import katex from 'katex';

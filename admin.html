@@ -1125,7 +1125,7 @@ async function initSupabase(){
   if(sb)return sb;
   if(!window.supabase){console.error('Supabase not loaded');return null;}
   let stor;
-  try{localStorage.setItem('_sb_test','1');localStorage.removeItem('_sb_test');stor=localStorage;}catch(e){stor=sessionStorage;}
+  stor=sessionStorage;
   sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY,{auth:{detectSessionInUrl:true,persistSession:true,autoRefreshToken:true,storage:stor}});
   return sb;
 }

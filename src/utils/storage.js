@@ -1,84 +1,75 @@
 /**
- * src/utils/storage.js — Storage utilities
+ * src/utils/storage.js — Storage utilities (in-memory, no localStorage)
  *
- * Centralises every localStorage / sessionStorage access for the app.
- * All callers should import the helpers below rather than calling the
- * Web Storage API directly.
+ * All app data is fetched from and written to Supabase only.
+ * These helpers provide a transient in-memory store for the current
+ * browser session. Data is populated on login via ChunksDB.pullAll()
+ * and is intentionally not persisted to Web Storage APIs.
  *
- * Design
- * ──────
- *  • lsGet / lsSet / lsRemove  — safe JSON wrappers for localStorage
- *  • ssGet / ssSet / ssRemove  — same for sessionStorage
- *  • KEYS                      — typed constant object (prevents typos)
- *  • getSetting / setSetting   — shorthand for chunks_setting_* keys
- *
- * Large, mutable data (chat sessions, flashcard decks/sessions, study
- * plans) is transparently stored in IndexedDB via src/lib/idbStorage.js
- * while small settings and flags remain in localStorage.
- *
- * NOTE: window.* bridges are centralised in src/globals.js so inline
- * script blocks that haven't been migrated yet continue to work unchanged.
+ * ssGet / ssSet / ssRemove remain as sessionStorage wrappers because
+ * sessionStorage is used only for ephemeral UI flags (guest mode,
+ * OAuth callback, screen restore) — not user data.
  */
 
-import { isIdbKey, idbGet, idbSet, idbRemove } from '../lib/idbStorage.js';
-import { isQuotaError, showStorageError } from '../components/StorageErrorBanner.js';
-import { checkStorageQuota } from './storageQuota.js';
+// ── In-memory store ────────────────────────────────────────────────────────────
 
-// ── localStorage helpers ───────────────────────────────────────────────────
+/** @type {Map<string, *>} */
+const _mem = new Map();
+
+// ── localStorage helpers (in-memory) ──────────────────────────────────────────
 
 /**
- * Read a JSON value from localStorage (or IndexedDB for large-data keys).
- * Returns `fallback` (default null) if the key is absent or parse fails.
- *
+ * Read a value from the in-memory store.
  * @template T
  * @param {string} key
  * @param {T}      [fallback=null]
  * @returns {T}
  */
 export function lsGet(key, fallback = null) {
-  if (isIdbKey(key)) return idbGet(key, fallback);
-  try {
-    const raw = localStorage.getItem(key);
-    return raw !== null ? JSON.parse(raw) : fallback;
-  } catch (_) {
-    return fallback;
-  }
+  return _mem.has(key) ? _mem.get(key) : fallback;
 }
 
 /**
- * Write a JSON-serialisable value to localStorage (or IndexedDB for
- * large-data keys). Shows a storage-error banner on QuotaExceededError.
- *
+ * Write a value to the in-memory store.
  * @param {string} key
  * @param {*}      value
  */
 export function lsSet(key, value) {
-  if (isIdbKey(key)) { idbSet(key, value); return; }
-  checkStorageQuota();   // fire-and-forget — warn before potential quota failure
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch (e) {
-    console.warn('[storage] localStorage write failed:', key);
-    if (isQuotaError(e)) showStorageError('quota');
-  }
+  _mem.set(key, value);
 }
 
 /**
- * Remove a key from localStorage (or IndexedDB for large-data keys).
- *
+ * Remove a key from the in-memory store.
  * @param {string} key
  */
 export function lsRemove(key) {
-  if (isIdbKey(key)) { idbRemove(key); return; }
-  try { localStorage.removeItem(key); } catch (_) {}
+  _mem.delete(key);
 }
 
-// ── sessionStorage helpers ─────────────────────────────────────────────────
+/**
+ * Clear all in-memory data (call on sign-out to prevent cross-user leaks).
+ */
+export function memClear() {
+  _mem.clear();
+}
 
 /**
- * Read a string value from sessionStorage (no JSON parsing — SS values are
- * always plain strings in this app).
- *
+ * Return all keys with a given prefix (used by chat/ws namespace scans).
+ * @param {string} [prefix='']
+ * @returns {string[]}
+ */
+export function memKeys(prefix = '') {
+  const out = [];
+  for (const k of _mem.keys()) {
+    if (k.startsWith(prefix)) out.push(k);
+  }
+  return out;
+}
+
+// ── sessionStorage helpers ─────────────────────────────────────────────────────
+
+/**
+ * Read a string value from sessionStorage.
  * @param {string} key
  * @param {string} [fallback='']
  * @returns {string}
@@ -89,7 +80,6 @@ export function ssGet(key, fallback = '') {
 
 /**
  * Write a string value to sessionStorage.
- *
  * @param {string} key
  * @param {string} value
  */
@@ -99,19 +89,14 @@ export function ssSet(key, value) {
 
 /**
  * Remove a key from sessionStorage.
- *
  * @param {string} key
  */
 export function ssRemove(key) {
   try { sessionStorage.removeItem(key); } catch (_) {}
 }
 
-// ── Key constants ──────────────────────────────────────────────────────────
+// ── Key constants ──────────────────────────────────────────────────────────────
 
-/**
- * All localStorage / sessionStorage key strings used by the app.
- * Import KEYS and use KEYS.* to avoid magic strings.
- */
 export const KEYS = Object.freeze({
   // ── Navigation / sessions ──────────────────────────────────────────
   RECENT:              'chunks_recent',
@@ -120,11 +105,11 @@ export const KEYS = Object.freeze({
   ACTIVE_RECENT_ID:    'chunks_active_recent_id',
   ACTIVE_WS_BOOK:      'chunks_active_ws_book',
   ACTIVE_WS_USER_DOC:  'chunks_active_ws_user_doc',
-  SESSION_PREFIX:      'chunks_session_',        // + id
-  WS_SESSION_PREFIX:   'chunks_ws_session_',     // + bookId
+  SESSION_PREFIX:      'chunks_session_',
+  WS_SESSION_PREFIX:   'chunks_ws_session_',
 
   // ── Settings ───────────────────────────────────────────────────────
-  SETTING_PREFIX:       'chunks_setting_',       // + key
+  SETTING_PREFIX:       'chunks_setting_',
   SETTING_APPEARANCE:   'chunks_setting_appearance',
   SETTING_LANGUAGE:     'chunks_setting_language',
   SETTING_SPOKEN_LANG:  'chunks_setting_spoken-language',
@@ -143,7 +128,7 @@ export const KEYS = Object.freeze({
 
   // ── Exam ───────────────────────────────────────────────────────────
   EXAM_RECENT:     'exam_recent',
-  EXAM_SNAP_PREFIX:'exam_snap_',                 // + id
+  EXAM_SNAP_PREFIX:'exam_snap_',
 
   // ── Study plan ─────────────────────────────────────────────────────
   SP_RECENT_PLANS: 'sp_recent_plans',
@@ -155,34 +140,24 @@ export const KEYS = Object.freeze({
   SS_LIBRARY_OPEN:   'chunks_library_open',
 });
 
-// ── Settings shortcuts ─────────────────────────────────────────────────────
+// ── Settings shortcuts ─────────────────────────────────────────────────────────
 
 /**
  * Read a setting value by short key (without the 'chunks_setting_' prefix).
- * Returns null if the key hasn't been saved yet.
- *
- * @param {string}  key        - e.g. 'followups', 'voice', 'accent'
- * @param {*}       [fallback]
+ * @param {string} key        e.g. 'accent', 'voice', 'appearance'
+ * @param {*}      [fallback]
  * @returns {string|null}
  */
 export function getSetting(key, fallback = null) {
-  try {
-    const val = localStorage.getItem(KEYS.SETTING_PREFIX + key);
-    return val !== null ? val : fallback;
-  } catch (_) {
-    return fallback;
-  }
+  const val = _mem.get(KEYS.SETTING_PREFIX + key);
+  return val !== undefined ? val : fallback;
 }
 
 /**
- * Write a setting value (always stored as a plain string).
- *
- * @param {string} key   - short key, e.g. 'followups'
+ * Write a setting value (stored as a plain string in the in-memory store).
+ * @param {string} key   short key, e.g. 'followups'
  * @param {string} value
  */
 export function setSetting(key, value) {
-  try {
-    localStorage.setItem(KEYS.SETTING_PREFIX + key, value);
-  } catch (_) {}
+  _mem.set(KEYS.SETTING_PREFIX + key, value);
 }
-

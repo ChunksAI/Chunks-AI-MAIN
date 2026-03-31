@@ -5,6 +5,7 @@
 
 import { sp } from './state.js';
 import { $el, hide, show, setText } from '../domHelpers.js';
+import { lsGet as _lsGet, lsSet as _lsSet, lsRemove as _lsRemove } from '../../utils/storage.js';
 
 // ── Notifications helper — window._chunksNotifications ────────────────────
 (function _initChunksNotifications() {
@@ -20,8 +21,7 @@ import { $el, hide, show, setText } from '../domHelpers.js';
     const sw = _swReg();
     if (!sw) return;
     try {
-      const raw = localStorage.getItem(STORE_KEY);
-      const schedule = raw ? JSON.parse(raw) : [];
+      const schedule = _lsGet(STORE_KEY) || [];
       sw.postMessage({ type: 'SCHEDULE_CHECK', schedule });
     } catch (_) {}
   }
@@ -30,12 +30,11 @@ import { $el, hide, show, setText } from '../domHelpers.js';
     navigator.serviceWorker.addEventListener('message', e => {
       if (e.data?.type === 'REMINDER_FIRED' && Array.isArray(e.data.firedAt)) {
         try {
-          const raw = localStorage.getItem(STORE_KEY);
-          if (!raw) return;
-          const schedule = JSON.parse(raw);
+          const schedule = _lsGet(STORE_KEY);
+          if (!schedule) return;
           const firedSet = new Set(e.data.firedAt);
           schedule.forEach(r => { if (firedSet.has(r.fireAt)) r.fired = true; });
-          localStorage.setItem(STORE_KEY, JSON.stringify(schedule));
+          _lsSet(STORE_KEY, schedule);
         } catch (_) {}
       }
     });
@@ -58,9 +57,8 @@ import { $el, hide, show, setText } from '../domHelpers.js';
   function _armNextExact() {
     if (_exactHandle) { clearTimeout(_exactHandle); _exactHandle = null; }
     try {
-      const raw = localStorage.getItem(STORE_KEY);
-      if (!raw) return;
-      const schedule = JSON.parse(raw);
+      const schedule = _lsGet(STORE_KEY);
+      if (!schedule) return;
       const now = Date.now();
       const next = schedule
         .filter(r => !r.fired)
@@ -104,9 +102,8 @@ import { $el, hide, show, setText } from '../domHelpers.js';
 
   function _checkAndFirePage() {
     try {
-      const raw = localStorage.getItem(STORE_KEY);
-      if (!raw) return;
-      const schedule = JSON.parse(raw);
+      const schedule = _lsGet(STORE_KEY);
+      if (!schedule) return;
       const now = Date.now();
       let changed = false;
       (schedule || []).forEach(r => {
@@ -116,7 +113,7 @@ import { $el, hide, show, setText } from '../domHelpers.js';
           changed = true;
         }
       });
-      if (changed) localStorage.setItem(STORE_KEY, JSON.stringify(schedule));
+      if (changed) _lsSet(STORE_KEY, schedule);
     } catch (_) {}
   }
 
@@ -141,13 +138,13 @@ import { $el, hide, show, setText } from '../domHelpers.js';
 
   window._chunksNotifications = {
     enabled() {
-      return localStorage.getItem(ENABLED_KEY) === '1';
+      return _lsGet(ENABLED_KEY) === '1';
     },
 
     prefs() {
       try {
-        const p = localStorage.getItem(PREFS_KEY);
-        return p ? JSON.parse(p) : { hour: 20, minute: 0 };
+        const p = _lsGet(PREFS_KEY);
+        return p ? p : { hour: 20, minute: 0 };
       } catch (_) { return { hour: 20, minute: 0 }; }
     },
 
@@ -161,10 +158,10 @@ import { $el, hide, show, setText } from '../domHelpers.js';
     schedule({ examDate, planTopic, hour = 20, minute = 0 }) {
       try {
         const prefs = { hour, minute, examDate, planTopic };
-        localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
-        localStorage.setItem(ENABLED_KEY, '1');
+        _lsSet(PREFS_KEY, prefs);
+        _lsSet(ENABLED_KEY, '1');
         const sched = _buildSchedule({ examDate, planTopic, hour, minute });
-        localStorage.setItem(STORE_KEY, JSON.stringify(sched));
+        _lsSet(STORE_KEY, sched);
         _pingSWAndCheckPage();
         _startTick();
       } catch (_) {}
@@ -172,23 +169,23 @@ import { $el, hide, show, setText } from '../domHelpers.js';
 
     cancel() {
       try {
-        localStorage.removeItem(STORE_KEY);
-        localStorage.setItem(ENABLED_KEY, '0');
+        _lsRemove(STORE_KEY);
+        _lsSet(ENABLED_KEY, '0');
         _stopTick();
       } catch (_) {}
     },
   };
 
-  if (localStorage.getItem(ENABLED_KEY) === '1') {
+  if (_lsGet(ENABLED_KEY) === '1') {
     try {
-      const prefs = (() => { try { const p = localStorage.getItem(PREFS_KEY); return p ? JSON.parse(p) : null; } catch(_) { return null; } })();
+      const prefs = _lsGet(PREFS_KEY);
       const examDate = prefs?.examDate;
       const examPassed = examDate
         ? new Date(examDate + 'T00:00:00').setHours(23,59,59,999) < Date.now()
         : false;
       if (examPassed) {
-        localStorage.removeItem(STORE_KEY);
-        localStorage.setItem(ENABLED_KEY, '0');
+        _lsRemove(STORE_KEY);
+        _lsSet(ENABLED_KEY, '0');
       } else {
         setTimeout(() => { _pingSWAndCheckPage(); _startTick(); }, 2000);
       }

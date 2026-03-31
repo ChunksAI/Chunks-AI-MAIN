@@ -52,7 +52,7 @@ export function spInitScreen() {
       if (plan && Array.isArray(plan.concepts) && plan.concepts.length > 0) {
         sp.currentPlan = plan;
         sp.mastery     = savedMastery || {};
-        const storedDate = localStorage.getItem('sp_exam_date_' + (sp.activePlanId || 'default'));
+        const storedDate = lsGet('sp_exam_date_' + (sp.activePlanId || 'default'));
         if (storedDate) sp.examDate = storedDate;
         _spCheckAndExpireExamDate();
         spRenderPlanPatched(plan, plan.topic || 'Saved Plan');
@@ -86,7 +86,7 @@ export function spInitScreen() {
         if (sp.activePlanId && typeof setActivePlan === 'function') {
           setActivePlan(sp.activePlanId);
         } else {
-          const storedPlanId = localStorage.getItem('sp_active_plan_id');
+          const storedPlanId = lsGet('sp_active_plan_id');
           if (storedPlanId && typeof setActivePlan === 'function') {
             sp.activePlanId = storedPlanId;
             setActivePlan(storedPlanId);

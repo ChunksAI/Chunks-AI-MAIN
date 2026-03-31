@@ -24,6 +24,8 @@ import { wsAutoResize } from './chat.js';
 import { showToast } from '../../components/Toast.js';
 import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 
+import { lsGet as _lsGet, lsSet as _lsSet, getSetting } from '../../utils/storage.js';
+
 // ── State ─────────────────────────────────────────────────────────────────────
 
 let _recognition = null;       // SpeechRecognition instance
@@ -195,7 +197,7 @@ function _stripMarkup(text) {
 
 function _getChosenVoice() {
   try {
-    const name = localStorage.getItem('chunks_setting_voice');
+    const name = getSetting('voice');
     if (!name) return null;
     const voices = window.speechSynthesis.getVoices();
     return voices.find(v => v.name.toLowerCase().includes(name.toLowerCase())) || null;
@@ -636,7 +638,7 @@ export function wsStopListenPdf() {
 export function wsListenPdfSetRate(rate) {
   const r = Math.max(0.5, Math.min(2.0, rate));
   _listenRate = r;
-  try { localStorage.setItem('chunks_listen_rate', String(r)); } catch (_) {}
+  _lsSet('chunks_listen_rate', r);
   // Sync speed selector in bar
   const sel = document.getElementById('listen-bar-speed');
   if (sel) sel.value = String(r);
@@ -781,7 +783,7 @@ export async function wsListenPdf() {
 
   // Restore persisted rate on first use
   try {
-    const saved = parseFloat(localStorage.getItem('chunks_listen_rate') || '');
+    const saved = parseFloat(String(_lsGet('chunks_listen_rate', '') || ''));
     if (isFinite(saved)) _listenRate = Math.max(0.5, Math.min(2.0, saved));
   } catch (_) {}
 

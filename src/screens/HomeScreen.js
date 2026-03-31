@@ -35,8 +35,7 @@ import { guestGate, recordUsage, renderUsageBar } from '../lib/guestLimits.js';
 import { showToast } from '../components/Toast.js';
 import { _getStudyMode } from '../components/SettingsModal.js';
 import { homeMarkdown, sanitize } from '../utils/render.js';
-import { lsGet } from '../utils/storage.js';
-import { idbKeys } from '../lib/idbStorage.js';
+import { lsGet, lsSet, getSetting, memKeys } from '../utils/storage.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -478,8 +477,8 @@ export async function incognitoSendMessage() {
         mode: 'general',
         task_type: 'home_general',
         complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
-        language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
-        safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
+        language: getSetting('language') || 'Auto-detect',
+        safe_content: getSetting('safe-content') === '1',
         history: _incogHistory.slice(-12),
       }),
     });
@@ -820,7 +819,7 @@ export async function homeSendMessage() {
   // _homeSessionId is now guaranteed to be set (created above if new).
   if (_homeSessionId) {
     window._saveSession?.(_homeSessionId, homeHistory);
-    localStorage.setItem('chunks_active_home_session', _homeSessionId);
+    lsSet('chunks_active_home_session', _homeSessionId);
     window._renderAllRecent?.();
     // Supabase write is handled by _saveSession → saveFull (single write path).
     // appendMessage was removed here to fix the double-write race (Bug #2):
@@ -842,8 +841,8 @@ export async function homeSendMessage() {
         mode: 'general',
         task_type: 'home_general',
         complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
-        language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
-        safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
+        language: getSetting('language') || 'Auto-detect',
+        safe_content: getSetting('safe-content') === '1',
         history: homeHistory.slice(-12),
         ...(_homeWebSearch ? { web_search: true } : {}),
         ...(_homeThinking === 'think' ? { thinking: 'thinking' } : {}),
@@ -865,7 +864,7 @@ export async function homeSendMessage() {
       // Overwrite with full exchange (user + AI)
       if (_homeSessionId) {
         window._saveSession?.(_homeSessionId, homeHistory);
-        localStorage.setItem('chunks_active_home_session', _homeSessionId);
+        lsSet('chunks_active_home_session', _homeSessionId);
         window._renderAllRecent?.();
         // Supabase write is handled by _saveSession → saveFull (single write path).
         // appendMessage was removed here to fix the double-write race (Bug #2).
@@ -905,7 +904,7 @@ mountHomeScreen();
   // Workspace restore is fully handled by navigation.js._restoreScreen() —
   // skip it here entirely to avoid double-restore or timing conflicts.
   if (activeScreen === 'workspace' ||
-      (!activeScreen && localStorage.getItem('chunks_active_ws_book'))) {
+      (!activeScreen && lsGet('chunks_active_ws_book'))) {
     return;
   }
 
@@ -979,7 +978,7 @@ mountHomeScreen();
   // has right now, then let SyncManager call _homeMountLatestSession() after
   // sync completes to pick up any newer sessions from other devices.
 
-  const savedId = localStorage.getItem('chunks_active_home_session');
+  const savedId = lsGet('chunks_active_home_session');
   if (savedId && !(activeScreen && activeScreen !== 'home')) {
     try {
       const s = lsGet('chunks_session_' + savedId);
@@ -1017,19 +1016,11 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
   // settled — causing _homeMountSession to see an empty _recentItems and
   // fall back to the landing screen instead of the last chat.
   setTimeout(function restoreSession() {
-    // Find the newest session in IDB (or localStorage fallback) with actual content.
-    // Prefer the r+timestamp keyed entry (has supabaseId for future writes)
-    // over the UUID-keyed entry when both exist for the same session.
-    // chunks_session_* keys live in IndexedDB — scan IDB keys, fall back to localStorage.
+    // Find the newest session in the in-memory store with actual content.
     try {
       let newest = null;
       let newestTime = 0;
-      const sessionKeys = idbKeys('chunks_session_');
-      // Also include any keys that may still be in localStorage (pre-migration)
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k?.startsWith('chunks_session_') && !sessionKeys.includes(k)) sessionKeys.push(k);
-      }
+      const sessionKeys = memKeys('chunks_session_');
       for (const k of sessionKeys) {
         let s;
         try { s = lsGet(k); } catch (_) { continue; }
@@ -1048,7 +1039,7 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
         }
       }
       if (newest) {
-        localStorage.setItem('chunks_active_home_session', newest.id);
+        lsSet('chunks_active_home_session', newest.id);
         _mountSession(newest.s, newest.id);
       }
     } catch (_) {}

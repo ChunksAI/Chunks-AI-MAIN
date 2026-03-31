@@ -61,7 +61,8 @@ export async function _fcSaveEditCard() {
   try {
     const lsKey = FlashcardDB?.FC_LS_KEY;
     if (lsKey) {
-      const decks = JSON.parse(localStorage.getItem(lsKey) || '[]');
+      const { lsGet: _lsGet2, lsSet: _lsSet2 } = await import('../../utils/storage.js');
+      const decks = _lsGet2(lsKey, []);
       const deckIdx = decks.findIndex(d => d.id === fc.currentDeckMeta?.id);
       if (deckIdx >= 0 && decks[deckIdx].cards) {
         const cardIdx = decks[deckIdx].cards.findIndex(
@@ -72,7 +73,7 @@ export async function _fcSaveEditCard() {
         if (cardIdx >= 0) {
           decks[deckIdx].cards[cardIdx] = { ...decks[deckIdx].cards[cardIdx], ...card };
         }
-        localStorage.setItem(lsKey, JSON.stringify(decks));
+        _lsSet2(lsKey, decks);
       }
     }
   } catch (e) {}

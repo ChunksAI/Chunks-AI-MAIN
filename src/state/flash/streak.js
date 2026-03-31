@@ -7,6 +7,7 @@ import { STREAK_KEY, FREEZE_KEY, XP_KEY, LEGEND_KEY } from './state.js';
 import { FC_ACCENTS, _fcCheckNewAccentUnlock } from './accent.js';
 import { showToast } from '../../components/Toast.js';
 import { _fcSound } from './session.js';
+import { lsGet as _lsGet, lsSet as _lsSet } from '../../utils/storage.js';
 
 // XP per rating
 const XP_PER_RATING = { easy: 10, ok: 7, hard: 3, skipped: 0 };
@@ -19,12 +20,10 @@ const XP_MULTIPLIERS = [
 ];
 
 export function _fcGetXp() {
-  try { return JSON.parse(localStorage.getItem(XP_KEY) || '{"total":0,"allTime":0,"lastSession":0}'); }
-  catch (e) { return { total: 0, allTime: 0, lastSession: 0 }; }
+  return _lsGet(XP_KEY, { total: 0, allTime: 0, lastSession: 0 });
 }
-
 export function _fcSaveXp(data) {
-  try { localStorage.setItem(XP_KEY, JSON.stringify(data)); } catch (e) {}
+  _lsSet(XP_KEY, data);
 }
 
 export function _fcXpMultiplier() {
@@ -57,12 +56,10 @@ export function _fcAwardXp(stats) {
 const FREEZE_EARN_AT = [14, 30];
 
 export function _fcGetFreeze() {
-  try { return JSON.parse(localStorage.getItem(FREEZE_KEY) || '{"tokens":0,"lastEarned":null}'); }
-  catch (e) { return { tokens: 0, lastEarned: null }; }
+  return _lsGet(FREEZE_KEY, { tokens: 0, lastEarned: null });
 }
-
 export function _fcSaveFreeze(data) {
-  try { localStorage.setItem(FREEZE_KEY, JSON.stringify(data)); } catch (e) {}
+  _lsSet(FREEZE_KEY, data);
 }
 
 export function _fcCheckFreezeEarn(prevStreak, newStreak) {
@@ -91,16 +88,10 @@ export function _fcTryUseFreeze(streak) {
 }
 
 export function _fcGetStreak() {
-  try {
-    const raw = localStorage.getItem(STREAK_KEY);
-    return raw ? JSON.parse(raw) : { current: 0, longest: 0, lastStudyDate: null };
-  } catch (e) {
-    return { current: 0, longest: 0, lastStudyDate: null };
-  }
+  return _lsGet(STREAK_KEY, { current: 0, longest: 0, lastStudyDate: null });
 }
-
 export function _fcSaveStreak(data) {
-  try { localStorage.setItem(STREAK_KEY, JSON.stringify(data)); } catch (e) {}
+  _lsSet(STREAK_KEY, data);
 }
 
 export function _fcTodayStr() {
@@ -335,11 +326,11 @@ export function _fcShowStreakMilestone(days) {
 }
 
 export function _fcIsLegend() {
-  return localStorage.getItem(LEGEND_KEY) === '1';
+  return _lsGet(LEGEND_KEY) === '1' || _lsGet(LEGEND_KEY) === true;
 }
 
 export function _fcAwardLegendBadge() {
-  localStorage.setItem(LEGEND_KEY, '1');
+  _lsSet(LEGEND_KEY, '1');
   const widget = $el('fc-streak-widget');
   addClass(widget, 'fc-streak-legend');
   const badge = $el('fc-legend-badge');

@@ -31,7 +31,7 @@ export function spSaveCurrentPlanToLibrary() {
   };
   try {
     lsSet('sp_all_plans', sp.allPlans);
-    localStorage.setItem('sp_active_plan_id', id);
+    lsSet('sp_active_plan_id', id);
     lsSet('sp_active_plan', sp.currentPlan);
     lsSet('sp_active_mastery', sp.mastery);
   } catch (e) { console.warn('Could not save plan library:', e); }
@@ -42,8 +42,8 @@ export function spLoadAllPlans() {
   try {
     const parsed = lsGet('sp_all_plans');
     if (parsed) sp.allPlans = parsed;
-    sp.activePlanId = localStorage.getItem('sp_active_plan_id') || null;
-    const dateRaw = localStorage.getItem('sp_exam_date_' + sp.activePlanId);
+    sp.activePlanId = lsGet('sp_active_plan_id') || null;
+    const dateRaw = lsGet('sp_exam_date_' + sp.activePlanId);
     if (dateRaw) sp.examDate = dateRaw;
   } catch (e) {}
 }
@@ -149,7 +149,7 @@ export function spSwitchToPlan(id) {
   if (!entry || !entry.plan) return;
   sp.currentPlan = entry.plan;
   try {
-    const activeId = localStorage.getItem('sp_active_plan_id');
+    const activeId = lsGet('sp_active_plan_id');
     if (activeId === id) {
       const mastery = lsGet('sp_active_mastery');
       sp.mastery = mastery ? mastery : (entry.mastery || {});
@@ -164,7 +164,7 @@ export function spSwitchToPlan(id) {
   sp.examDate = entry.examDate || null;
   _spCheckAndExpireExamDate();
   try {
-    localStorage.setItem('sp_active_plan_id', id);
+    lsSet('sp_active_plan_id', id);
     lsSet('sp_active_plan', entry.plan);
     lsSet('sp_active_mastery', sp.mastery);
   } catch (e) {}
@@ -185,9 +185,9 @@ export function spDeletePlan(id) {
   ChunksDB?.studyPlan?.remove(id).catch(() => {});
   if (deletedTopic) {
     try {
-      let recentPlans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]');
+      let recentPlans = lsGet('sp_recent_plans', []);
       recentPlans = recentPlans.filter(p => p !== deletedTopic);
-      localStorage.setItem('sp_recent_plans', JSON.stringify(recentPlans));
+      lsSet('sp_recent_plans', recentPlans);
     } catch (e) {}
   }
   if (sp.activePlanId === id) {
@@ -196,7 +196,7 @@ export function spDeletePlan(id) {
     sp.mastery = {};
     lsRemove('sp_active_plan');
     lsRemove('sp_active_mastery');
-    localStorage.removeItem('sp_active_plan_id');
+    lsRemove('sp_active_plan_id');
     if (typeof setActivePlan === 'function') setActivePlan(null);
     spShowEmpty();
   }

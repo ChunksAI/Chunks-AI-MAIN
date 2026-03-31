@@ -33,6 +33,7 @@ import { getSupabaseClient } from '../lib/supabase.js';
 import { setActivePlan } from './Sidebar.js';
 import { _renderRecentPlansAllSidebars } from './Sidebar.js';
 import { resetQuotaWarning } from '../utils/storageQuota.js';
+import { lsGet as _lsGet, lsSet as _lsSet, lsRemove as _lsRemove, getSetting, setSetting, memClear, memKeys } from '../utils/storage.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -448,7 +449,7 @@ export function settingsFontSize(size, btn) {
   document.documentElement.style.setProperty('--chat-font-size', map[size]);
   document.querySelectorAll('.font-size-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  try { localStorage.setItem('chunks-chat-font-size', size); } catch (e) {}
+  try { _lsSet('chunks-chat-font-size', size); } catch (e) {}
   // Phase 3: sync to Supabase
   ChunksDB?.settings?.patch?.({ chat_font_size: size });
 }
@@ -456,7 +457,7 @@ export function settingsFontSize(size, btn) {
 // Restore font size CSS var immediately on load (before modal HTML exists)
 (function () {
   try {
-    const s = localStorage.getItem('chunks-chat-font-size');
+    const s = _lsGet('chunks-chat-font-size');
     const map = { small: '12px', medium: '14px', large: '16px' };
     if (s && map[s]) {
       document.documentElement.style.setProperty('--chat-font-size', map[s]);
@@ -513,7 +514,7 @@ export function settingsSelect(optionEl) {
   label.textContent = text;
 
   const key = menu.dataset.settingKey;
-  if (key) { try { localStorage.setItem('chunks_setting_' + key, text); } catch (e) {} }
+  if (key) { try { setSetting(key, text); } catch (e) {} }
   // Phase 3: sync language dropdowns to Supabase
   const _dropdownSyncMap = { language: 'language', 'spoken-language': 'spoken_language' };
   if (key && _dropdownSyncMap[key]) {
@@ -537,7 +538,7 @@ export function applyAppearance(value) {
   } else {
     root.setAttribute('data-theme', 'dark');
   }
-  try { localStorage.setItem('chunks_setting_appearance', value); } catch(e) {}
+  try { setSetting('appearance', value); } catch(e) {}
   // Phase 3: sync to Supabase
   ChunksDB?.settings?.patch?.({ appearance: value });
   // Update sidebar toggle label if present
@@ -566,7 +567,7 @@ export function toggleTheme() {
 // Restore appearance immediately on load
 (function() {
   try {
-    const saved = localStorage.getItem('chunks_setting_appearance') || 'study';
+    const saved = getSetting('appearance') || 'study';
     const theme = saved === 'dark' ? 'dark' : 'study';
     document.documentElement.setAttribute('data-theme', theme);
   } catch(e) {}
@@ -613,8 +614,8 @@ export function settingsSelectAccent(optionEl, color, name) {
   btn.querySelector('span').innerHTML = `<span style="display:inline-flex;align-items:center;gap:7px;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${displayColor};flex-shrink:0;"></span>${name}</span>`;
 
   try {
-    localStorage.setItem('chunks_setting_accent', name);
-    localStorage.setItem('chunks_setting_accent_color', color);
+    setSetting('accent', name);
+    setSetting('accent_color', color);
   } catch (e) {}
   // Phase 3: sync to Supabase
   ChunksDB?.settings?.patch?.({ accent: name });
@@ -630,7 +631,7 @@ export function settingsSelectVoice(optionEl) {
   const voice = optionEl.textContent.trim();
   const lbl = document.getElementById('voice-label');
   if (lbl) lbl.textContent = voice;
-  try { localStorage.setItem('chunks_setting_voice', voice); } catch (e) {}
+  try { setSetting('voice', voice); } catch (e) {}
   // Phase 3: sync to Supabase
   ChunksDB?.settings?.patch?.({ voice });
 }
@@ -656,7 +657,7 @@ export function settingsPlayVoice() {
 
 export function settingsToggleChanged(checkbox, key) {
   const val = checkbox.checked;
-  localStorage.setItem('chunks_setting_' + key, val ? '1' : '0');
+  setSetting(key, val ? '1' : '0');
   // Phase 3: sync syncable keys to Supabase
   const _syncMap = { 'separate-voice': 'separate_voice', 'safe-content': 'safe_content' };
   if (_syncMap[key]) ChunksDB?.settings?.patch?.({ [_syncMap[key]]: val });
@@ -671,16 +672,16 @@ export function settingsSelectStudyMode(optionEl) {
   settingsSelect(optionEl);
   const mode = optionEl.dataset.mode;
   if (mode) {
-    localStorage.setItem('chunks_study_mode', mode);
+    _lsSet('chunks_study_mode', mode);
     showToast('✓', `Study mode: ${optionEl.textContent.trim()}`, '');
   }
 }
 
 // ── Helpers used by other modules ─────────────────────────────────────────────
 
-export function _getStudyMode()        { return localStorage.getItem('chunks_study_mode') || 'balanced'; }
-export function _isFollowupsEnabled()  { return localStorage.getItem('chunks_setting_followups') !== '0'; }
-export function _isAutoFlashEnabled()  { return localStorage.getItem('chunks_setting_auto-flash') === '1'; }
+export function _getStudyMode()        { return _lsGet('chunks_study_mode') || 'balanced'; }
+export function _isFollowupsEnabled()  { return getSetting('followups') !== '0'; }
+export function _isAutoFlashEnabled()  { return getSetting('auto-flash') === '1'; }
 
 // ── Data controls ─────────────────────────────────────────────────────────────
 
@@ -689,13 +690,13 @@ export function dataToggleSaveHistory(checkbox) {
   // whether usage data is shared (kept for UI compatibility).
   // Force the checkbox back on if somehow unchecked.
   if (checkbox) checkbox.checked = true;
-  localStorage.removeItem('chunks_save_history');
+  _lsRemove('chunks_save_history');
   showToast('✓', 'Chat history is always saved', '');
 }
 
 export function dataToggleImprove(checkbox) {
   const enabled = checkbox.checked;
-  localStorage.setItem('chunks_improve_data', enabled ? '1' : '0');
+  _lsSet('chunks_improve_data', enabled ? '1' : '0');
   showToast(enabled ? '✓' : '✕', `Usage data sharing ${enabled ? 'enabled' : 'disabled'}`, '');
 }
 
@@ -705,8 +706,8 @@ export function clearAllHistory() {
     desc:         'This will permanently delete all saved conversations and cannot be undone.',
     confirmLabel: 'Confirm deletion',
     onConfirm: () => {
-      // ── Clear all history keys from localStorage ──────────
-      Object.keys(localStorage).filter(k =>
+      // ── Clear all history keys from in-memory store ──────────
+      memKeys().filter(k =>
         k.startsWith('chunks_session_') ||
         k.startsWith('chunks_ws_session_') ||
         k.startsWith('chunks_vt_session_') ||
@@ -720,7 +721,7 @@ export function clearAllHistory() {
         k === 'chunks_home_session' ||
         k === 'chunks_active_vt_session' ||
         k === 'exam_recent'
-      ).forEach(k => localStorage.removeItem(k));
+      ).forEach(k => _lsRemove(k));
 
       // ── Reset in-memory state via window bridges ──────────
       // _recentItems is a live getter — clear via _saveRecent pattern
@@ -823,7 +824,7 @@ export async function _updateCacheSizeLabel() {
 
 function _restoreSettings() {
   // ── Font size button highlight ──────────────────────────
-  const savedSize = localStorage.getItem('chunks-chat-font-size') || 'medium';
+  const savedSize = _lsGet('chunks-chat-font-size') || 'medium';
   document.querySelectorAll('.font-size-btn').forEach(b => {
     b.classList.remove('active');
     // Match by onclick content safely — extract value between first pair of quotes
@@ -844,8 +845,8 @@ function _restoreSettings() {
   }
 
   // Accent color
-  const accentName  = localStorage.getItem('chunks_setting_accent');
-  const accentColor = localStorage.getItem('chunks_setting_accent_color');
+  const accentName  = getSetting('accent');
+  const accentColor = getSetting('accent_color');
   if (accentName && accentColor) {
     applyAccentColor(accentColor);
     const menu = document.querySelector('.settings-select-menu[data-setting-key="accent"]');
@@ -865,22 +866,22 @@ function _restoreSettings() {
   }
 
   // Voice
-  const voice = localStorage.getItem('chunks_setting_voice');
+  const voice = getSetting('voice');
   if (voice) {
     applySelect('voice', voice);
     const lbl = document.getElementById('voice-label');
     if (lbl) lbl.textContent = voice;
   }
 
-  applySelect('appearance',      localStorage.getItem('chunks_setting_appearance'));
+  applySelect('appearance',      getSetting('appearance'));
   // Apply the saved appearance immediately
-  const savedAppearance = localStorage.getItem('chunks_setting_appearance') || 'study';
+  const savedAppearance = getSetting('appearance') || 'study';
   applyAppearance(savedAppearance);
-  applySelect('language',        localStorage.getItem('chunks_setting_language'));
-  applySelect('spoken-language', localStorage.getItem('chunks_setting_spoken-language'));
+  applySelect('language',        getSetting('language'));
+  applySelect('spoken-language', getSetting('spoken-language'));
 
   // Study mode
-  const savedMode = localStorage.getItem('chunks_study_mode');
+  const savedMode = _lsGet('chunks_study_mode');
   if (savedMode) {
     const modeMenu = document.getElementById('study-mode-menu');
     if (modeMenu) {
@@ -895,12 +896,12 @@ function _restoreSettings() {
   }
 
   // Toggles
-  const followups = localStorage.getItem('chunks_setting_followups');
+  const followups = getSetting('followups');
   if (followups !== null) {
     const el = document.getElementById('toggle-followups');
     if (el) el.checked = followups !== '0';
   }
-  const autoFlash = localStorage.getItem('chunks_setting_auto-flash');
+  const autoFlash = getSetting('auto-flash');
   if (autoFlash !== null) {
     const el = document.getElementById('toggle-auto-flash');
     if (el) el.checked = autoFlash === '1';
@@ -911,7 +912,7 @@ function _restoreDataToggles() {
   // Save history is always on — ensure the toggle reflects that
   const saveHistoryEl = document.getElementById('toggle-save-history');
   if (saveHistoryEl) saveHistoryEl.checked = true;
-  localStorage.removeItem('chunks_save_history');
+  _lsRemove('chunks_save_history');
 
   const toggleMap = {
     'toggle-improve-data':    { key: 'chunks_improve_data',         default: '1' },
@@ -926,7 +927,7 @@ function _restoreDataToggles() {
   Object.entries(toggleMap).forEach(([id, { key, default: def }]) => {
     const el = document.getElementById(id);
     if (!el) return;
-    const stored = localStorage.getItem(key);
+    const stored = _lsGet(key);
     el.checked = stored !== null ? stored === '1' : def === '1';
   });
 }
@@ -988,7 +989,7 @@ export function settingsDeleteAccount() {
         const sb = await getSupabaseClient();
         if (sb) await sb.auth.signOut();
         // Clear all local data
-        localStorage.clear();
+        memClear();
         sessionStorage.clear();
         window.location.replace('login.html');
       } catch (e) {

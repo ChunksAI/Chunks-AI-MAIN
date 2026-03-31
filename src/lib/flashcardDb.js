@@ -38,7 +38,7 @@
 
 import { ChunksDB } from './chunksDb.js';
 import { getSupabaseClient } from './supabase.js';
-import { isIdbKey, idbGet, idbSet } from './idbStorage.js';
+import { lsGet as _lsGet, lsSet as _lsSet } from '../utils/storage.js';
 import { _currentUser } from './auth.js';
 
 // ── Storage keys ─────────────────────────────────────────────────────────────
@@ -47,23 +47,6 @@ export const FC_LS_KEY          = 'chunks_fc_decks_v1';
 export const FC_SESSIONS_LS_KEY = 'chunks_fc_sessions_v1';
 /** localStorage key for per-document flashcards (offline fallback) */
 export const FC_DOC_FLASHCARDS_LS_KEY = 'chunks_fc_flashcards_v1';
-
-// ── Internal localStorage helpers ────────────────────────────────────────────
-// These exist so the module works even before ChunksDB is fully initialised.
-// Large-data keys are routed to IndexedDB via idbStorage.
-
-function _lsGet(key, fallback = null) {
-  if (isIdbKey(key)) return idbGet(key, fallback);
-  try {
-    const v = localStorage.getItem(key);
-    return v !== null ? JSON.parse(v) : fallback;
-  } catch (_) { return fallback; }
-}
-
-function _lsSet(key, value) {
-  if (isIdbKey(key)) { idbSet(key, value); return; }
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
-}
 
 // Prefer ChunksDB wrappers (they share the same implementation) but fall back
 // gracefully during early module initialisation.

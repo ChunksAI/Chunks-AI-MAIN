@@ -16,6 +16,8 @@
  * studyplan) with this single component.
  */
 
+import { lsGet, lsSet, lsRemove } from '../utils/storage.js';
+
 // ── SVG constants ──────────────────────────────────────────────────────────
 
 // Gradient IDs must be unique per sidebar instance — if multiple sidebars
@@ -284,15 +286,15 @@ ${powerNavHTML}
  */
 // Active plan ID — tracks which plan is currently loaded, survives refresh
 let _activePlanId = (function() {
-  try { return localStorage.getItem('sp_active_plan_id') || null; } catch(e) { return null; }
+  try { return lsGet('sp_active_plan_id') || null; } catch(e) { return null; }
 })();
 
 /** Set the active plan and update all sidebar highlights */
 export function setActivePlan(planId) {
   _activePlanId = planId || null;
   try {
-    if (_activePlanId) localStorage.setItem('sp_active_plan_id', _activePlanId);
-    else localStorage.removeItem('sp_active_plan_id');
+    if (_activePlanId) lsSet('sp_active_plan_id', _activePlanId);
+    else lsRemove('sp_active_plan_id');
   } catch(e) {}
   // Update active class on all plan items across all sidebars
   document.querySelectorAll('.sp-plan-sidebar-item').forEach(el => {
@@ -341,16 +343,16 @@ export function mountSidebars() {
 /** Render recent plans into every sidebar's recent-plans list */
 export function _renderRecentPlansAllSidebars() {
   let plans = [];
-  try { plans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]'); } catch(_) {}
+  try { plans = lsGet('sp_recent_plans', []); } catch(_) {}
 
   let allPlans = {};
   // sp_all_plans lives in IndexedDB — use the window._lsGet bridge (set by
   // globals.js) which routes IDB keys through the in-memory cache, or fall
-  // back to raw localStorage for backward compat during early boot.
+  // back to in-memory store for backward compat during early boot.
   try {
     allPlans = window._lsGet
       ? window._lsGet('sp_all_plans', {})
-      : JSON.parse(localStorage.getItem('sp_all_plans') || '{}');
+      : lsGet('sp_all_plans', {});
   } catch(_) {}
 
   document.querySelectorAll('.sp-recent-plans-outer').forEach(section => {
@@ -365,11 +367,11 @@ export function _renderRecentPlansAllSidebars() {
       return;
     }
 
-    // Always read active plan ID from localStorage — ground truth that all
+    // Always read active plan ID from in-memory store — ground truth that all
     // callers (spSwitchToPlan, setActivePlan) write to. The in-memory
     // _activePlanId can drift if setActivePlan is called with a stale value
-    // between the click and the re-render, so localStorage wins.
-    const _lsActivePlanId = (() => { try { return localStorage.getItem('sp_active_plan_id') || null; } catch(e) { return null; } })();
+    // between the click and the re-render, so lsGet wins.
+    const _lsActivePlanId = (() => { try { return lsGet('sp_active_plan_id') || null; } catch(e) { return null; } })();
     const _currentActivePlanId = _lsActivePlanId || _activePlanId;
 
     listEl.innerHTML = plans.map(topic => {
@@ -416,7 +418,7 @@ if (document.readyState === 'loading') {
 /** Render the study streak widget in all sidebars */
 export function _renderSidebarStreak() {
   try {
-    const raw = localStorage.getItem('chunks_fc_streak_v1');
+    const raw = lsGet('chunks_fc_streak_v1');
     const streak = raw ? JSON.parse(raw) : null;
     const count = streak?.current || 0;
     document.querySelectorAll('#sidebar-streak-widget').forEach(el => {

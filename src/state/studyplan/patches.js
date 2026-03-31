@@ -16,7 +16,7 @@ export function spSavePlanToSidebarAndLibrary(topic) {
   spSaveCurrentPlanToLibrary();
   if (!topic) return;
   let plans = [];
-  try { plans = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]'); } catch (_) {}
+  try { plans = lsGet('sp_recent_plans', []); } catch (_) {}
   plans = plans.filter(p => p !== topic);
   plans.unshift(topic);
   plans = plans.slice(0, 6);

@@ -12,8 +12,7 @@
  */
 
 import { ChunksDB } from './chunksDb.js';
-import { lsGet as _lsGet } from '../utils/storage.js';
-import { idbKeys as _idbKeys } from './idbStorage.js';
+import { lsGet as _lsGet, getSetting } from '../utils/storage.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -97,16 +96,7 @@ const SyncManager = {
    */
   async flushBeforeSignOut() {
     if (!ChunksDB.isLoggedIn()) return;
-
-    const timeout = new Promise(r => setTimeout(r, 1500));
-    const flush   = Promise.allSettled([
-      ChunksDB.settings.pushLocalToRemote?.(),
-      ChunksDB.streak.pushLocalToRemote?.(),
-      ChunksDB.ws.pushLocalToRemote?.(),
-      _uploadPendingChatSessions(),
-    ]);
-
-    await Promise.race([flush, timeout]);
+    // No local-to-remote push needed — data lives in Supabase directly
   },
 
   /**
@@ -129,18 +119,18 @@ function _applyPostSyncUI() {
   try {
     import('../state/flash/index.js').then(m => m._fcRenderStreak?.()).catch(() => {});
 
-    const accent = localStorage.getItem('chunks_setting_accent');
-    const color  = localStorage.getItem('chunks_setting_accent_color');
+    const accent = getSetting('accent');
+    const color  = getSetting('accent_color');
     if (accent && color) {
       import('../components/SettingsModal.js').then(m => m.applyAccentColor?.(color)).catch(() => {});
     }
 
-    const appearance = localStorage.getItem('chunks_setting_appearance');
+    const appearance = getSetting('appearance');
     if (appearance) {
       import('../components/SettingsModal.js').then(m => m.applyAppearance?.(appearance)).catch(() => {});
     }
 
-    const fs = localStorage.getItem('chunks-chat-font-size');
+    const fs = _lsGet('chunks-chat-font-size');
     const fsMap = { small: '12px', medium: '14px', large: '16px', S: '12px', M: '14px', L: '16px' };
     if (fs && fsMap[fs]) {
       document.documentElement.style.setProperty('--chat-font-size', fsMap[fs]);
@@ -155,31 +145,6 @@ function _applyPostSyncUI() {
   } catch (e) {
     console.warn('[SyncManager] post-sync UI refresh error:', e.message);
   }
-}
-
-// ── Upload locally-queued chat sessions ───────────────────────────────────────
-
-async function _uploadPendingChatSessions() {
-  try {
-    const tombs = new Set(_lsGet('chunks_deleted_sessions', []));
-    const keys = _idbKeys('chunks_session_');
-    for (const k of keys) {
-      const s = _lsGet(k);
-      if (!s) continue;
-      if (tombs.has(s.id) || (s.supabaseId && tombs.has(s.supabaseId))) continue;
-      if (!s.supabaseId || /^r[0-9]+$/.test(s.supabaseId)) continue;
-      const messages = s.history || s.messages || [];
-      if (!messages.length) continue;
-      await ChunksDB.chat.saveFull({
-        id:        s.supabaseId,
-        localId:   /^r[0-9]+$/.test(s.id) ? s.id : null,
-        messages,
-        bookId:    s.bookId || null,
-        title:     s.title  || null,
-        updatedAt: s.updatedAt || new Date().toISOString(),
-      });
-    }
-  } catch (_) {}
 }
 
 // ── Online / offline listener ─────────────────────────────────────────────────

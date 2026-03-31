@@ -12,7 +12,7 @@ import { trackBookOpen, trackBookPage } from '../../lib/bookProgress.js';
 import { isGuest, showLoginWall } from '../../lib/guestLimits.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
 import { checkStorageQuota } from '../../utils/storageQuota.js';
-import { lsGet, lsSet } from '../../utils/storage.js';
+import { lsGet, lsSet, lsRemove } from '../../utils/storage.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 import { subscribeToChatRealtime, unsubscribeChatRealtime } from './chatRealtime.js';
 import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
@@ -31,7 +31,7 @@ function _wsRefreshNoteCards() {
   if (!cards.length) return;
   let notesMap;
   try {
-    notesMap = new Map(JSON.parse(localStorage.getItem(_NOTES_KEY) || '[]'));
+    notesMap = new Map(lsGet(_NOTES_KEY, []));
   } catch (_) { notesMap = new Map(); }
 
   cards.forEach(card => {
@@ -80,12 +80,12 @@ export async function selectBook(bookId) {
   if (!meta) return;
   // Guest: allow if this is the first book OR the same book as before
   if (isGuest()) {
-    const prevBook = localStorage.getItem('chunks_guest_book');
+    const prevBook = lsGet('chunks_guest_book');
     if (prevBook && prevBook !== bookId) {
       showLoginWall('library');
       return;
     }
-    if (!prevBook) localStorage.setItem('chunks_guest_book', bookId);
+    if (!prevBook) lsSet('chunks_guest_book', bookId);
   }
 
   // Leave user-doc mode
@@ -95,8 +95,8 @@ export async function selectBook(bookId) {
   ws.chatHistory = [];
   // Persist active book immediately so a refresh can restore it
   lsSet('chunks_active_ws_book', bookId);
-  try { localStorage.setItem('chunks_default_book', bookId); } catch (_) {}
-  try { localStorage.removeItem('chunks_active_ws_user_doc'); } catch (_) {}
+  lsSet('chunks_default_book', bookId);
+  lsRemove('chunks_active_ws_user_doc');
   trackBookOpen(bookId);
 
   // Start realtime subscriptions for this document

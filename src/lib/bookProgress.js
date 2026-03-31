@@ -1,30 +1,20 @@
 /**
  * src/lib/bookProgress.js
  *
- * Tracks per-book study activity in localStorage.
- * Shape per book:
- *   {
- *     lastOpened:  ISO string,
- *     openCount:   number,
- *     lastPage:    number,
- *     totalPages:  number,
- *   }
- *
- * Key: chunks_book_progress_v1
- * Value: { [bookId]: { ...above } }
+ * Tracks per-book study activity in the in-memory store.
+ * Falls back gracefully when the user is not logged in.
  */
+
+import { lsGet as _lsGet, lsSet as _lsSet } from '../utils/storage.js';
 
 const BOOK_PROGRESS_KEY = 'chunks_book_progress_v1';
 
 function _loadAll() {
-  try {
-    const raw = localStorage.getItem(BOOK_PROGRESS_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch(e) { return {}; }
+  return _lsGet(BOOK_PROGRESS_KEY, {});
 }
 
 function _saveAll(data) {
-  try { localStorage.setItem(BOOK_PROGRESS_KEY, JSON.stringify(data)); } catch(e) {}
+  _lsSet(BOOK_PROGRESS_KEY, data);
 }
 
 /** Called when a book is opened via selectBook() */

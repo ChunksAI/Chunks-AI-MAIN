@@ -5,6 +5,8 @@
  * on it instead of using module-level `let` variables.
  */
 
+import { lsGet } from '../../utils/storage.js';
+
 // ── Book metadata ──────────────────────────────────────────────────────────
 
 export const wsBookMeta = {
@@ -88,7 +90,7 @@ export const ws = {
   resizeObserver: null,
   resizeRaf:      0,
 
-  bookId:        localStorage.getItem('chunks_default_book') || null,
+  bookId:        lsGet('chunks_default_book') || null,
   chatHistory:   [],
   newChatIsIncognito: false,
   typing:        false,

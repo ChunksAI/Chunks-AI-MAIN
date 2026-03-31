@@ -154,31 +154,13 @@ export async function installApiMocks(page: Page) {
 }
 
 /**
- * Inject a fake Supabase session into localStorage so the app boots as
- * an authenticated user.  Must be called BEFORE navigating to app.html.
+ * Inject a fake Supabase session so the app boots as an authenticated user.
+ * Must be called BEFORE navigating to app.html.
  */
 export async function injectAuthSession(page: Page) {
-  const origin = 'http://localhost:4173';
-
-  // Supabase JS SDK stores session under this key
-  const storageKey = 'chunks-ai-auth';
-  const sessionPayload = JSON.stringify({
-    currentSession: MOCK_SESSION,
-    expiresAt: MOCK_SESSION.expires_at,
-  });
-
-  await page.addInitScript(
-    ({ key, value }) => {
-      try {
-        localStorage.setItem(key, value);
-      } catch {
-        /* storage unavailable in headless — ignore */
-      }
-    },
-    { key: storageKey, value: sessionPayload },
-  );
-
-  // Also set window._currentUser so screens can skip auth checks
+  // window._currentUser is set directly via addInitScript below.
+  // The Supabase SDK manages its own auth token in localStorage separately.
+  // We don't need to inject chunks-ai-auth since auth.js no longer reads it.
   await page.addInitScript(
     (user) => {
       Object.defineProperty(window, '_currentUser', {
