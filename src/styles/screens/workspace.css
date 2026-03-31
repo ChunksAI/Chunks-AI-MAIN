@@ -1047,7 +1047,7 @@
 /* ── HOME CHAT ─────────────────────────────────────────────── */
 .home-chat-history {
   width: 100%; max-width: 860px;
-  display: flex; flex-direction: column; gap: 24px;
+  display: flex; flex-direction: column; gap: 18px;
   margin-bottom: 16px;
   padding: 0 4px;
 }

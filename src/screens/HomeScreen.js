@@ -177,47 +177,101 @@ const HOME_HTML = /* html */`
 
     <!-- Sticky bottom input bar — shown only after first message -->
     <div class="home-input-bar" id="home-input-bar" style="display:none;">
-      <div id="home-attach-preview-bottom" class="attach-preview" style="margin-bottom:4px;"></div>
-      <div class="ask-box" id="home-ask-box-bottom" style="max-width:860px;">
-        <div class="ask-plus-wrap">
-          <button class="chat-plus" id="home-plus-btn-bottom" onclick="homeToggleAttachMenu(event,'bottom')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-          <div class="attach-menu home-rich-menu" id="home-attach-menu-bottom">
-            <div class="attach-menu-section-label">Attach</div>
-            <div class="attach-menu-item" onclick="homeAttachTrigger('image','bottom')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-              <span>Image</span>
+      <div style="width:100%;max-width:860px;margin:0 auto;">
+        <div class="chat-input-wrap" style="padding:0 0 6px;">
+          <div id="home-attach-preview-bottom" class="attach-preview" style="display:none;margin-bottom:6px;"></div>
+          <input type="file" id="home-attach-image-bottom" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image','bottom')">
+          <input type="file" id="home-attach-pdf-bottom" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf','bottom')">
+
+          <div class="chat-input-card">
+
+            <!-- Action chips row -->
+            <div class="chat-action-chips">
+              <button class="chat-action-chip" onclick="homeSetInput('Summarize this topic for me')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9"/></svg>
+                Summarize
+              </button>
+              <button class="chat-action-chip" onclick="homeSetInput('What are the key points of this topic?')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                Key points
+              </button>
+              <button class="chat-action-chip" onclick="homeSetInput('Give me practical examples of this')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                Examples
+              </button>
+              <button class="chat-action-chip" onclick="homeSetInput('Explain this step by step')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h7"/></svg>
+                Step by step
+              </button>
+              <button class="chat-action-chip" onclick="homeSetInput('Quiz me on this topic')">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
+                Quiz me
+              </button>
             </div>
-            <div class="attach-menu-item" onclick="homeAttachTrigger('pdf','bottom')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              <span>PDF</span>
+
+            <!-- Textarea row -->
+            <div class="chat-textarea-row">
+              <textarea id="home-ask-input-bottom" class="chat-input-field" placeholder="Ask anything…" rows="1" style="max-height:120px;overflow-y:auto;"></textarea>
+              <button class="chat-send" id="home-send-btn-bottom" data-action="homeSendMessage">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
             </div>
-            <div class="attach-menu-divider"></div>
-            <div class="attach-menu-section-label">AI Mode</div>
-            <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleWebSearch()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-              <span>Web Search</span>
-              <div class="attach-menu-check" id="home-websearch-check-b"></div>
+
+            <!-- Footer row -->
+            <div class="chat-input-footer">
+              <div class="chat-footer-left">
+                <div class="chat-plus-wrap">
+                  <button class="chat-footer-btn" id="home-plus-btn-bottom" onclick="homeToggleAttachMenu(event,'bottom')">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    Attach
+                  </button>
+                  <div class="attach-menu home-rich-menu" id="home-attach-menu-bottom">
+                    <div class="attach-menu-section-label">Attach</div>
+                    <div class="attach-menu-item" onclick="homeAttachTrigger('image','bottom')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                      <span>Image</span>
+                    </div>
+                    <div class="attach-menu-item" onclick="homeAttachTrigger('pdf','bottom')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                      <span>PDF</span>
+                    </div>
+                    <div class="attach-menu-divider"></div>
+                    <div class="attach-menu-section-label">AI Mode</div>
+                    <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleWebSearch()">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                      <span>Web Search</span>
+                      <div class="attach-menu-check" id="home-websearch-check-b"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="chat-footer-right">
+                <div class="chat-think-wrap" id="home-think-wrap">
+                  <button class="chat-footer-btn chat-think-btn" id="home-toggle-think" onclick="homeToggleThinkMenu(event)" title="Thinking mode">
+                    <span class="chat-think-dot"></span>
+                    <span id="home-think-label">Think</span>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                  </button>
+                  <div class="think-menu" id="home-think-menu">
+                    <div class="think-menu-item" onclick="homeToggleThinking('think')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
+                      <span>Think</span>
+                      <div class="attach-menu-check" id="home-think-check-b"></div>
+                    </div>
+                    <div class="think-menu-item" onclick="homeToggleThinking('deep')">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                      <span>Deep Think</span>
+                      <div class="attach-menu-check" id="home-deep-check-b"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleThinking('think')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
-              <span>Think</span>
-              <div class="attach-menu-check" id="home-think-check-b"></div>
-            </div>
-            <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleThinking('deep')">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              <span>Deep Think</span>
-              <div class="attach-menu-check" id="home-deep-check-b"></div>
-            </div>
+
           </div>
         </div>
-        <input type="file" id="home-attach-image-bottom" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image','bottom')">
-        <input type="file" id="home-attach-pdf-bottom" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf','bottom')">
-        <textarea id="home-ask-input-bottom" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
-        <button class="ask-send" id="home-send-btn-bottom" data-action="homeSendMessage">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
+        <div class="home-disclaimer">Chunks AI can make mistakes. Verify important information.</div>
       </div>
-      <div class="home-disclaimer">Chunks AI can make mistakes. Verify important information.</div>
     </div>
 
   </main>
@@ -645,7 +699,7 @@ export function homeHandlePdfUpload(input) {
 
 export function homeAutoResize(el) {
   el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
   const box = el.closest('.ask-box');
   if (box) box.classList.toggle('is-multiline', el.scrollHeight > 30);
 }
@@ -653,68 +707,85 @@ export function homeAutoResize(el) {
 // ── Message bubble builders ───────────────────────────────────────────────────
 
 export function homeAppendUser(text) {
-  const el = document.createElement('div');
-  el.className = 'hc-user';
-  el.textContent = text;
-  document.getElementById('home-chat-history').appendChild(el);
+  const d = document.createElement('div');
+  d.className = 'msg msg-user';
+  const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  d.innerHTML = `<div class="bubble-user">${escaped}</div>`;
+  document.getElementById('home-chat-history').appendChild(d);
   homeScrollBottom();
 }
 
 export function homeAppendThinking() {
-  const wrap = document.createElement('div');
-  wrap.className = 'hc-ai';
-  wrap.id = 'hc-thinking';
-  wrap.innerHTML = `
-    ${_HOME_AI_AVATAR}
-    <div class="hc-ai-body">
-      <div style="display:flex;align-items:center;gap:10px;padding:3px 0;">
-        <div class="hc-thinking"><span></span><span></span><span></span></div>
-        <span id="home-thinking-label" class="hc-thinking-label">Thinking…</span>
+  const d = document.createElement('div');
+  d.className = 'msg msg-ai';
+  d.id = 'hc-thinking';
+  d.innerHTML = `
+    <div class="ai-row">
+      <div class="ai-body">
+        <div style="padding:3px 0;">
+          <span class="ws-typing-dot"></span>
+        </div>
       </div>
     </div>`;
-  document.getElementById('home-chat-history').appendChild(wrap);
+  document.getElementById('home-chat-history').appendChild(d);
   homeScrollBottom();
-  const labels = ['Thinking…', 'Analyzing concept…', 'Reading context…', 'Generating explanation…'];
-  let li = 0;
-  wrap._labelTimer = setInterval(() => {
-    const el = document.getElementById('home-thinking-label');
-    if (!el) return;
-    el.style.opacity = '0';
-    setTimeout(() => {
-      li = (li + 1) % labels.length;
-      el.textContent = labels[li];
-      el.style.opacity = '';
-    }, 280);
-  }, 2400);
 }
 
 export function homeRemoveThinking() {
   const el = document.getElementById('hc-thinking');
-  if (el) { clearInterval(el._labelTimer); el.remove(); }
+  if (el) el.remove();
 }
 
 export function homeAppendAI(text, sources) {
-  const wrap = document.createElement('div');
-  wrap.className = 'hc-ai';
-  let sourceBadge = '';
+  const d = document.createElement('div');
+  d.className = 'msg msg-ai';
+  const msgId = 'hc-msg-' + Date.now();
+  d.id = msgId;
+  let sourcesHtml = '';
   if (sources && sources.length > 0) {
-    sourceBadge = `<div class="hc-source-badge">
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-      📖 Page ${sources[0].page}
-    </div>`;
+    const items = sources.map(s => {
+      return `
+        <div class="source-item">
+          <div class="source-icon">📖</div>
+          <div style="flex:1;min-width:0;">
+            <div class="source-name">Source</div>
+            <div class="source-meta">Page ${s.page}</div>
+          </div>
+          <span class="source-page">p. ${s.page}</span>
+        </div>`;
+    }).join('');
+    sourcesHtml = `
+      <div class="sources-head" style="margin-top:12px;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        Sources
+      </div>
+      <div class="source-list">${items}</div>`;
   }
-  wrap.innerHTML = `
-    ${_HOME_AI_AVATAR}
-    <div class="hc-ai-body">${homeMarkdown(text)}${sourceBadge}</div>`;
-  document.getElementById('home-chat-history').appendChild(wrap);
+  d.innerHTML = `
+    <div class="ai-row">
+      <div class="ai-body">
+        <div class="ai-text">${homeMarkdown(text)}</div>
+        ${sourcesHtml}
+        <div class="msg-acts" style="margin-top:10px;">
+          <button class="msg-act" onclick="homeCopyMsg(this,'${msgId}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
+          </button>
+          <button class="msg-act" onclick="homeRegenerate('${msgId}')">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.67"/></svg> Regenerate
+          </button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('home-chat-history').appendChild(d);
   homeScrollBottom();
 }
 
 export function homeAppendError(msg) {
-  const el = document.createElement('div');
-  el.className = 'hc-error';
-  el.textContent = '⚠ ' + msg;
-  document.getElementById('home-chat-history').appendChild(el);
+  const d = document.createElement('div');
+  d.className = 'msg msg-ai';
+  const escaped = msg.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  d.innerHTML = `<div class="ai-row"><div class="ai-body"><p class="ai-text" style="color:#f87171;">⚠ ${escaped}</p></div></div>`;
+  document.getElementById('home-chat-history').appendChild(d);
   homeScrollBottom();
 }
 
@@ -766,6 +837,7 @@ export function homeToggleThinking(mode) {
   _homeThinking = _homeThinking === mode ? 'off' : mode;
   const isThink = _homeThinking === 'think';
   const isDeep  = _homeThinking === 'deep';
+  const isAny   = isThink || isDeep;
   ['home-think-check','home-think-check-b'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('on', isThink);
@@ -774,14 +846,105 @@ export function homeToggleThinking(mode) {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('on', isDeep);
   });
-  ['home-toggle-think'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('active', isThink);
+  // Update the footer think button: active when any think mode is on
+  const btn = document.getElementById('home-toggle-think');
+  if (btn) btn.classList.toggle('active', isAny);
+  const label = document.getElementById('home-think-label');
+  if (label) label.textContent = isDeep ? 'Deep Think' : 'Think';
+  // Close think menu after selection
+  document.getElementById('home-think-menu')?.classList.remove('open');
+}
+
+export function homeToggleThinkMenu(e) {
+  e?.stopPropagation();
+  const menu = document.getElementById('home-think-menu');
+  if (!menu) return;
+  const isOpen = menu.classList.contains('open');
+  document.querySelectorAll('.attach-menu, .think-menu').forEach(m => m.classList.remove('open'));
+  if (!isOpen) menu.classList.add('open');
+}
+
+export function homeCopyMsg(btn, msgId) {
+  const textEl = document.getElementById(msgId)?.querySelector('.ai-text');
+  if (!textEl) return;
+  navigator.clipboard?.writeText(textEl.innerText).then(() => {
+    btn.classList.add('copied');
+    btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+    }, 2000);
+  }).catch(() => {
+    showToast('⚠', 'Could not copy — check browser permissions', 'var(--red)');
   });
-  ['home-toggle-deep'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('active', isDeep);
-  });
+}
+
+export async function homeRegenerate(msgId) {
+  if (homeIsTyping) return;
+  const msgEl = document.getElementById(msgId);
+  if (msgEl) msgEl.remove();
+  if (homeHistory.length && homeHistory[homeHistory.length - 1].role === 'assistant') {
+    homeHistory.pop();
+  }
+  const lastUser = [...homeHistory].reverse().find(m => m.role === 'user');
+  if (!lastUser) return;
+  const question = lastUser.content;
+
+  homeIsTyping = true;
+  const bar = document.getElementById('home-input-bar');
+  const chatActive = bar && bar.style.display !== 'none';
+  const sendBtn = document.getElementById(chatActive ? 'home-send-btn-bottom' : 'home-send-btn');
+  if (sendBtn) sendBtn.disabled = true;
+  homeAppendThinking();
+
+  let sessionSbId = null;
+  if (_homeSessionId) {
+    sessionSbId = lsGet('chunks_session_' + _homeSessionId)?.supabaseId ?? null;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
+      body: JSON.stringify({
+        question,
+        bookId: '',
+        mode: 'general',
+        task_type: 'home_general',
+        complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
+        language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
+        safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
+        history: homeHistory.slice(-12),
+        ...(_homeWebSearch ? { web_search: true } : {}),
+        ...(_homeThinking === 'think' ? { thinking: 'thinking' } : {}),
+        ...(_homeThinking === 'deep'  ? { thinking: 'deep'     } : {}),
+      }),
+    });
+    homeRemoveThinking();
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      homeAppendError(err.error || `Error ${res.status}`);
+    } else {
+      const data   = await res.json();
+      const answer = data.answer || 'No response.';
+      homeAppendAI(answer, null);
+      homeHistory.push({ role: 'assistant', content: answer });
+      if (_homeSessionId) {
+        window._saveSession?.(_homeSessionId, homeHistory);
+        localStorage.setItem('chunks_active_home_session', _homeSessionId);
+        window._renderAllRecent?.();
+        if (sessionSbId) {
+          ChunksDB.messages.insertMessage({ role: 'assistant', content: answer, sessionId: sessionSbId });
+        }
+      }
+    }
+  } catch (e) {
+    homeRemoveThinking();
+    homeAppendError('Could not reach the server. Check your connection.');
+  } finally {
+    homeIsTyping = false;
+    if (sendBtn) sendBtn.disabled = false;
+  }
 }
 
 export async function homeSendMessage() {
@@ -934,18 +1097,19 @@ mountHomeScreen();
     chatHist.innerHTML = '';
     history.forEach(msg => {
       if (msg.role === 'user') {
-        const el = document.createElement('div');
-        el.className = 'hc-user';
-        el.textContent = msg.content || '';
-        chatHist.appendChild(el);
+        const d = document.createElement('div');
+        d.className = 'msg msg-user';
+        const escaped = (msg.content || '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+        d.innerHTML = `<div class="bubble-user">${escaped}</div>`;
+        chatHist.appendChild(d);
       } else if (msg.role === 'assistant') {
-        const wrap = document.createElement('div');
-        wrap.className = 'hc-ai';
+        const d = document.createElement('div');
+        d.className = 'msg msg-ai';
         const rendered = homeMarkdown
           ? homeMarkdown(msg.content || '')
           : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-        wrap.innerHTML = `${_HOME_AI_AVATAR}<div class="hc-ai-body">${rendered}</div>`;
-        chatHist.appendChild(wrap);
+        d.innerHTML = `<div class="ai-row"><div class="ai-body"><div class="ai-text">${rendered}</div></div></div>`;
+        chatHist.appendChild(d);
       }
     });
   }

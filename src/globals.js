@@ -490,6 +490,7 @@ import {
   homeAppendAI, homeAppendError,
   homeScrollBottom, homeHideLanding, homeSendMessage,
   homeToggleWebSearch, homeToggleThinking,
+  homeToggleThinkMenu, homeCopyMsg, homeRegenerate,
   openIncognitoChat, closeIncognitoChat, incognitoSendMessage,
   _renderHomeActivities,
 } from './screens/HomeScreen.js';
@@ -508,6 +509,9 @@ window.homeHideLanding    = homeHideLanding;
 window.homeSendMessage    = homeSendMessage;
 window.homeToggleWebSearch= homeToggleWebSearch;
 window.homeToggleThinking = homeToggleThinking;
+window.homeToggleThinkMenu= homeToggleThinkMenu;
+window.homeCopyMsg        = homeCopyMsg;
+window.homeRegenerate     = homeRegenerate;
 window._renderHomeActivities = _renderHomeActivities;
 
 // Incognito chat
