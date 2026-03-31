@@ -138,6 +138,9 @@ window.wsChatSend = async function() {
   }
 
   const msgs = $el('ws-messages');
+  // Remove the welcome state when the first real message is appended (mirrors wsAppendUser)
+  const welcome = document.getElementById('ws-welcome-state');
+  if (welcome) welcome.remove();
   const d = document.createElement('div');
   d.className = 'msg msg-user';
   d.innerHTML = `<div class="bubble-user">${selQuote}${bubbleHtml}</div>`;
