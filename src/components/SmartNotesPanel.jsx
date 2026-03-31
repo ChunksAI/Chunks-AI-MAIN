@@ -83,11 +83,14 @@ async function loadStickiesFromSupabase(documentId) {
  */
 async function upsertStickyToSupabase(sticky, documentId, pageNumber) {
   if (!_isLoggedIn() || !documentId) return;
+  // Skip numeric IDs (created as guest via Date.now()) — they can't be Supabase UUIDs.
+  // These will be synced on next full load from Supabase.
+  if (typeof sticky.id === 'number') return;
   const sb = await _sb();
   if (!sb) return;
   try {
     await sb.from('sticky_notes').upsert({
-      id:          typeof sticky.id === 'string' ? sticky.id : undefined,
+      id:          sticky.id,
       user_id:     _uid(),
       document_id: documentId,
       page_number: pageNumber,

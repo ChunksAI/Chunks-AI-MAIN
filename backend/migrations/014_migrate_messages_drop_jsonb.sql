@@ -44,8 +44,7 @@ CREATE OR REPLACE FUNCTION append_chat_message(
     p_user_id     UUID,
     p_message     JSONB,
     p_book_id     TEXT    DEFAULT NULL,
-    p_title       TEXT    DEFAULT NULL,
-    p_local_id    TEXT    DEFAULT NULL   -- kept for backward compat, ignored
+    p_title       TEXT    DEFAULT NULL
 )
 RETURNS void
 LANGUAGE plpgsql

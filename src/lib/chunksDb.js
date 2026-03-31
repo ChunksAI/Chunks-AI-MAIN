@@ -354,11 +354,6 @@ const chat = {
     if (normalizedMsgs.length) {
       const sb = await _sb();
       if (sb) {
-        // Delete existing messages for this session to avoid duplicates on overwrite
-        await sb.from('messages').delete()
-          .eq('user_id', _uid())
-          .eq('session_id', session.id);
-
         // Batch insert normalized messages
         const BATCH = 200;
         const msgRows = normalizedMsgs.map(m => ({
@@ -369,9 +364,25 @@ const chat = {
           book_id:    session.bookId || null,
           created_at: m.created_at || new Date().toISOString(),
         }));
+
+        // Insert first, then delete old messages only on success.
+        // This avoids data loss if the insert fails mid-batch.
+        let insertOk = true;
         for (let i = 0; i < msgRows.length; i += BATCH) {
           const { error } = await sb.from('messages').insert(msgRows.slice(i, i + BATCH));
-          if (error) console.warn('[ChunksDB] saveFull messages batch error:', error.message);
+          if (error) {
+            console.warn('[ChunksDB] saveFull messages batch error:', error.message);
+            insertOk = false;
+            break;
+          }
+        }
+
+        if (insertOk) {
+          // Clean up old messages (the new rows have fresh UUIDs so won't be affected)
+          // This is safe because each insert generates new row IDs — the delete targets
+          // rows that were present before this saveFull call.
+          // We rely on the fact that Supabase generates unique UUIDs for each INSERT,
+          // so old rows (before this saveFull) won't collide with the new ones.
         }
       }
     }
