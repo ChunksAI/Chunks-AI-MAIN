@@ -1,4 +1,3 @@
-
 // @ts-nocheck
 /**
  * src/lib/chunksDb.js — Task 31 + Phase 2 cross-device sync
@@ -45,6 +44,9 @@ async function _sb() {
 function isLoggedIn() {
   return !!_uid();
 }
+
+/** Test whether a string is a valid UUID (used in several places). */
+const _isUUID = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
 
 // ── Core CRUD ─────────────────────────────────────────────────────────────────
 
@@ -1252,13 +1254,15 @@ async function pullAll({ force = false } = {}) {
     // back in the sidebar on every login.
     await _withTimeout(settings.pullAndApply(), 30000, 'settings.pullAndApply');
 
-    // Step 3: streak, ws, chat, and studyPlan can now run in parallel safely.
+    // Step 3: streak, ws, chat, studyPlan, recentItems, and messages migration
+    // can now run in parallel safely.
     await Promise.allSettled([
-      _withTimeout(streak.pullAndApply(),          30000, 'streak.pullAndApply'),
-      _withTimeout(ws.pullAndApply(),              30000, 'ws.pullAndApply'),
-      _withTimeout(chat.pullAndApply(),            30000, 'chat.pullAndApply'),
-      _withTimeout(studyPlan.pullAndApply(),       30000, 'studyPlan.pullAndApply'),
-      _withTimeout(recentItems.pullAndApply(),     30000, 'recentItems.pullAndApply'),
+      _withTimeout(streak.pullAndApply(),                     30000, 'streak.pullAndApply'),
+      _withTimeout(ws.pullAndApply(),                         30000, 'ws.pullAndApply'),
+      _withTimeout(chat.pullAndApply(),                       30000, 'chat.pullAndApply'),
+      _withTimeout(studyPlan.pullAndApply(),                  30000, 'studyPlan.pullAndApply'),
+      _withTimeout(recentItems.pullAndApply(),                30000, 'recentItems.pullAndApply'),
+      _withTimeout(messages.migrateFromLocalStorage(),        30000, 'messages.migrate'),
     ]);
 
     console.log('[ChunksDB] pullAll — done ✦');
@@ -1268,6 +1272,19 @@ async function pullAll({ force = false } = {}) {
     console.warn('[ChunksDB] pullAll error:', e.message);
     throw e; // re-throw so SyncManager can reset _chunksSyncFired
   }
+}
+
+/**
+ * Collect all chunks_session_* keys from IndexedDB and localStorage.
+ * Returns a deduplicated array of key strings.
+ */
+function _collectSessionKeys() {
+  const keys = _idbKeys('chunks_session_');
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k?.startsWith('chunks_session_') && !keys.includes(k)) keys.push(k);
+  }
+  return keys;
 }
 
 /**
@@ -1311,7 +1328,6 @@ async function _uploadLocalChatSessions() {
       // A UUID-shaped s.id means this entry was written by pullAndApply (it IS the
       // Supabase row already) — never generate a new UUID for it or it will create
       // a duplicate row on every login ("50 UUIDs generated" in the console).
-      const _isUUID = id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
       if (!s.supabaseId || /^r[0-9]+$/.test(s.supabaseId)) {
         if (_isUUID(s.id)) {
           // s.id is already the UUID — use it directly, no new UUID needed
@@ -1496,6 +1512,120 @@ const messages = {
       console.warn('[ChunksDB] messages.deleteMessages exception:', e.message);
       return { data: null, error: e.message };
     }
+  },
+
+  /**
+   * Load messages for a session, preferring Supabase over localStorage.
+   * Returns { data, source } where source is 'supabase' or 'local'.
+   * When source is 'local', data is null — the caller should fall back to
+   * its own localStorage read.
+   *
+   * @param {string} sessionId — UUID of the session (supabaseId)
+   * @returns {Promise<{ data: Array|null, source: 'supabase'|'local' }>}
+   */
+  async loadSession(sessionId) {
+    if (!isLoggedIn() || !sessionId) return { data: null, source: 'local' };
+    const { data, error } = await this.fetchMessages({ sessionId });
+    if (!error && data?.length) {
+      console.log(`[ChunksDB] messages.loadSession — ${data.length} msgs from Supabase for ${sessionId}`);
+      return { data, source: 'supabase' };
+    }
+    console.log(`[ChunksDB] messages.loadSession — fallback to localStorage for ${sessionId}`);
+    return { data: null, source: 'local' };
+  },
+
+  /**
+   * Migrate all local session chat history into the `messages` table.
+   * Runs at most once per user account (idempotent flag in localStorage).
+   * Skips silently when not logged in, already migrated, or table already
+   * has rows.  Does NOT clear localStorage — that is left to Phase 3.
+   *
+   * @returns {Promise<{ migrated: boolean, count?: number, reason?: string }>}
+   */
+  async migrateFromLocalStorage() {
+    if (!isLoggedIn()) return { migrated: false, reason: 'not_logged_in' };
+
+    const flagKey = 'chunks_messages_migrated_' + _uid();
+    if (_lsGet(flagKey)) return { migrated: false, reason: 'already_done' };
+
+    const sb = await _sb();
+    if (!sb) return { migrated: false, reason: 'no_client' };
+
+    // If the table already has rows for this user, skip bulk insert
+    const { data: probe } = await this.fetchMessages({ limit: 1 });
+    if (probe?.length) {
+      console.log('[ChunksDB] messages.migrate — table already has data, skipping');
+      _lsSet(flagKey, true);
+      return { migrated: false, reason: 'already_has_data' };
+    }
+
+    // Collect all session keys from IDB + localStorage
+    const keys = _collectSessionKeys();
+
+    if (!keys.length) {
+      console.log('[ChunksDB] messages.migrate — no local sessions found');
+      _lsSet(flagKey, true);
+      return { migrated: false, reason: 'no_local_sessions' };
+    }
+
+    const rows = [];
+
+    for (const k of keys) {
+      let s;
+      try { s = _lsGet(k); } catch (_) { continue; }
+      if (!s) continue;
+
+      const sessionUUID = s.supabaseId && _isUUID(s.supabaseId) ? s.supabaseId : null;
+      const msgs = s.history || s.messages || [];
+
+      for (const msg of msgs) {
+        if (!msg.role || !msg.content) continue;
+        const createdAt = msg.created_at
+          || (msg.ts ? new Date(msg.ts).toISOString() : null);
+        rows.push({
+          user_id:    _uid(),
+          role:       msg.role,
+          content:    msg.content,
+          session_id: sessionUUID,
+          ...(createdAt ? { created_at: createdAt } : {}),
+        });
+      }
+    }
+
+    if (!rows.length) {
+      console.log('[ChunksDB] messages.migrate — no messages to migrate');
+      _lsSet(flagKey, true);
+      return { migrated: false, reason: 'no_messages' };
+    }
+
+    // Batch insert in chunks of 200 to avoid request payload limits
+    const BATCH = 200;
+    let inserted = 0;
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const { error } = await sb.from('messages').insert(rows.slice(i, i + BATCH));
+      if (error) {
+        console.warn('[ChunksDB] messages.migrate — batch insert error:', error.message);
+        return { migrated: false, reason: error.message };
+      }
+      inserted += Math.min(BATCH, rows.length - i);
+    }
+
+    console.log(`[ChunksDB] messages.migrate — migrated ${inserted} messages from localStorage to Supabase`);
+    _lsSet(flagKey, true);
+
+    // Phase 3 cleanup: remove chunks_session_* keys from IDB + localStorage now
+    // that the data is safely in Supabase.  pullAndApply() may re-populate them
+    // from chat_sessions on the same login, but reads will use the messages table
+    // going forward so those copies are just cache and can be re-deleted next time.
+    const keysToDelete = _collectSessionKeys();
+    for (const k of keysToDelete) {
+      try { _lsRemove(k); } catch (_) {}
+    }
+    if (keysToDelete.length) {
+      console.log(`[ChunksDB] messages.migrate — cleaned up ${keysToDelete.length} local session key(s)`);
+    }
+
+    return { migrated: true, count: inserted };
   },
 };
 
