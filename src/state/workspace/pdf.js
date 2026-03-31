@@ -92,8 +92,9 @@ export async function _wsRescale(newScale) {
   newScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newScale));
   if (Math.abs(newScale - ws.scale) < 0.01) return;
   ws.scale = newScale;
-  // Update zoom badge
+  // Update zoom badge (desktop + mobile)
   setText($el('ws-zoom-badge'), Math.round(newScale * 100) + '%');
+  setText($el('mpn-zoom-label'), Math.round(newScale * 100) + '%');
   for (let i = 0; i < ws.pageContainers.length; i++) {
     const c = ws.pageContainers[i];
     if (!c.dataset.rendered) continue;
