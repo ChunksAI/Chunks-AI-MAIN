@@ -110,6 +110,14 @@ export async function wsMakeFlashcard(btn, msgId, topic) {
     if (btn) btn.remove();
     actsEl.insertAdjacentElement('afterend', resultEl);
 
+    // Persist the flashcard result in chat history so it survives session reload.
+    // The message element carries data-hist-idx set by _wsAsk / _wsRenderHistory.
+    const histIdx = parseInt(msgEl.dataset.histIdx || '-1', 10);
+    if (histIdx >= 0 && ws.chatHistory[histIdx]) {
+      ws.chatHistory[histIdx].blocks.push({ type: 'flashcard', deckId, topic: cleanTopic, count });
+      if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
+    }
+
     // Add to sidebar recent history so the new deck is visible in the recents list
     window.recentAdd?.(cleanTopic, ws.bookId || null, 'workspace');
 
@@ -207,6 +215,17 @@ export async function wsGenerateFlashcardsInChat(topic) {
         </div>
       </div>`;
     if (msgs) { msgs.appendChild(d); wsScrollBottom(); }
+
+    // Persist the flashcard exchange to history so it survives session reload.
+    ws.chatHistory.push({ role: 'user', content: displayMsg });
+    ws.chatHistory.push({
+      role: 'assistant',
+      content: '',
+      blocks: [{ type: 'flashcard', deckId, topic: effectiveTopic, count }],
+    });
+    d.dataset.histIdx = String(ws.chatHistory.length - 1);
+    if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
+
     showToast?.('✦', `${count} cards created — "${effectiveTopic}"`, 'var(--gold)');
   } catch (err) {
     wsRemoveThinking();
