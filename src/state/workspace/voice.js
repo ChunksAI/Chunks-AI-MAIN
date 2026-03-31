@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 /**
  * src/state/workspace/voice.js — Voice input (STT) and read-aloud (TTS)
@@ -587,27 +588,28 @@ window._wsListenBarSetSpeed = function(val) {
 
 function _setListenBtnState(active) {
   _isListeningPdf = active;
-  const btn = document.getElementById('ws-listen-btn');
-  if (!btn) return;
-  if (active) {
-    btn.classList.add('listen-active');
-    btn.title = 'Pause / stop listening';
-    btn.setAttribute('aria-pressed', 'true');
-    btn.innerHTML = `
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-        <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
-      </svg>`;
-  } else {
-    btn.classList.remove('listen-active');
-    btn.title = 'Listen to current page';
-    btn.setAttribute('aria-pressed', 'false');
-    btn.innerHTML = `
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-      </svg>`;
-  }
+  const btns = [document.getElementById('ws-listen-btn'), document.getElementById('mpn-listen-btn')];
+  btns.filter(btn => btn).forEach(btn => {
+    if (active) {
+      btn.classList.add('listen-active');
+      btn.title = 'Pause / stop listening';
+      btn.setAttribute('aria-pressed', 'true');
+      btn.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+        </svg>`;
+    } else {
+      btn.classList.remove('listen-active');
+      btn.title = 'Listen to current page';
+      btn.setAttribute('aria-pressed', 'false');
+      btn.innerHTML = `
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        </svg>`;
+    }
+  });
 }
 
 export function wsStopListenPdf() {
