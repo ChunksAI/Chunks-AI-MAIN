@@ -557,7 +557,8 @@ function recentAdd(question, bookId, source) {
     const existingIdx = _recentItems.findIndex(r => r.bookId === effectiveBookId && r.source === 'workspace');
     if (existingIdx !== -1) {
       const existing = _recentItems[existingIdx];
-      existing.label = label;
+      // Preserve the existing label so the user's session name is not overwritten
+      // on every new message. Only update the last question for input restoration.
       existing.question = question;
       if (existingIdx !== 0) {
         _recentItems.splice(existingIdx, 1);
@@ -1074,7 +1075,11 @@ function _renderDocGroupedRecents() {
     if (item.source === 'workspace' && item.bookId) {
       key = 'ws_' + item.bookId;
       const meta = window.wsBookMeta?.[item.bookId];
-      title = (typeof meta === 'object' ? meta?.name : meta?.split?.('/')?.[0]) || item.bookId;
+      const metaName = typeof meta === 'object' ? meta?.name : meta?.split?.('/')?.[0];
+      const userDocName = item.bookId === '__user_doc__'
+        ? (localStorage.getItem('chunks_active_ws_user_doc_name') || 'My Document')
+        : item.bookId;
+      title = metaName || userDocName;
       groupType = 'doc';
     } else {
       key = 'ungrouped';
@@ -2621,6 +2626,17 @@ function _researchBackToSetup() {
   document.getElementById('research-view-main').style.display = 'none';
   document.getElementById('research-setup-view').style.display = 'flex';
   document.getElementById('research-topbar').style.display = 'none';
+  // Reset progress/preview UI so stale state from a previous session does not show
+  const progress = document.getElementById('outline-gen-progress');
+  if (progress) progress.style.display = 'none';
+  const preview = document.getElementById('gen-outline-preview');
+  if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
+  const bar = document.getElementById('gen-progress-bar');
+  if (bar) bar.style.width = '0%';
+  const statusEl = document.getElementById('gen-status-text');
+  if (statusEl) statusEl.textContent = 'Thinking about your research topic…';
+  const btn = document.getElementById('generate-outline-btn');
+  if (btn) { btn.disabled = false; btn.style.opacity = ''; }
 }
 
 /* ══════════════════════════════════════════════════════════════
