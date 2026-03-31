@@ -49,9 +49,8 @@ export async function selectBook(bookId) {
   // Start realtime subscriptions for this document
   subscribeToChatRealtime(bookId);
   subscribeToFlashcardRealtime(bookId);
-  const short  = meta.name.split(' ').slice(0, 2).join(' ');
-  setHtml($el('ws-context-tag'), `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg> ${short}`);
   setText($el('ws-chat-title'), meta.name);
+  setText($el('ws-chat-subtitle'), meta.author || '');
 
   const msgs = $el('ws-messages');
   if (msgs) {
