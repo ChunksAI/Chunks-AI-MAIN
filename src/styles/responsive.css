@@ -1,4 +1,5 @@
 
+
 /* ═══════════════════════════════════════════════════════════
    RESPONSIVE & MOBILE
    Extracted from monolith responsive style block (Task 9).
@@ -18,6 +19,9 @@
   display: block;
   overflow: hidden;
   flex-shrink: 0;
+}
+.mobile-pdf-nav {
+  display: none;
 }
 .mobile-bottom-nav {
   display: none;
