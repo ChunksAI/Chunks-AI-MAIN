@@ -330,7 +330,7 @@ export function _fcShowStreakMilestone(days) {
 }
 
 export function _fcIsLegend() {
-  const val = /** @type {boolean | string} */ (lsGet(LEGEND_KEY, false));
+  const val = lsGet(LEGEND_KEY, false);
   return val === true || val === '1';
 }
 
