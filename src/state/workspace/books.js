@@ -336,34 +336,106 @@ export function _wsRenderHistory(msgs, history) {
 
 // ── Welcome message ───────────────────────────────────────────────────────
 
+const _CHEVRON_SVG = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>`;
+
+const _WELCOME_CARDS = [
+  {
+    label: 'Flashcards', desc: 'Generate from doc',
+    color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.25)',
+    onclick: 'wsGenerateFlashcardsInChat()',
+    svg: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 2v3M8 2v3"/></svg>',
+  },
+  {
+    label: 'Quiz me', desc: 'Test your knowledge',
+    color: '#8b5cf6', bg: 'rgba(139,92,246,0.15)', border: 'rgba(139,92,246,0.25)',
+    onclick: "wsSetInput('Quiz me on this document');wsChatSend()",
+    svg: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>',
+  },
+  {
+    label: 'Summarize', desc: 'Key points only',
+    color: '#14b8a6', bg: 'rgba(20,184,166,0.15)', border: 'rgba(20,184,166,0.25)',
+    onclick: "wsSetInput('Summarize the key points');wsChatSend()",
+    svg: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
+  },
+  {
+    label: 'Mind map', desc: 'Visual overview',
+    color: '#f59e0b', bg: 'rgba(245,158,11,0.15)', border: 'rgba(245,158,11,0.25)',
+    onclick: "wsSetInput('Create a mind map for this document');wsChatSend()",
+    svg: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 9V3M12 21v-6M9.8 14.2l-4.2 2.4M18.4 7.4l-4.2 2.4M9.8 9.8L5.6 7.4M18.4 16.6l-4.2-2.4"/></svg>',
+  },
+  {
+    label: 'Explain it', desc: 'Simple breakdown',
+    color: '#ec4899', bg: 'rgba(236,72,153,0.15)', border: 'rgba(236,72,153,0.25)',
+    onclick: "wsSetInput('Explain the main concepts in simple terms');wsChatSend()",
+    svg: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+  },
+  {
+    label: 'Listen', desc: 'Audio summary',
+    color: '#94a3b8', bg: 'rgba(148,163,184,0.15)', border: 'rgba(148,163,184,0.25)',
+    onclick: 'wsListenPdf()',
+    svg: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M4.93 4.93a10 10 0 0 0 0 14.14"/><path d="M7.76 7.76a6 6 0 0 0 0 8.49"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>',
+  },
+];
+
+const _EXAM_CARD = {
+  label: 'Exam prep', desc: 'What should I focus on first based on this document?',
+  color: '#f43f5e', bg: 'rgba(244,63,94,0.15)', border: 'rgba(244,63,94,0.25)',
+  onclick: "wsSetInput('What should I focus on first based on this document?');wsChatSend()",
+  svg: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+};
+
+const _WELCOME_SUGGESTIONS = [
+  'What are the main topics covered?',
+  'What should I focus on for my exam?',
+];
+
+export function _wsWelcomeHtml(title, chapterName) {
+  const cleanTitle = title.replace(/[\[\]]/g, '').trim();
+  const chapterHtml = chapterName
+    ? `<span class="ws-welcome-badge-chapter">&nbsp;· ${chapterName}</span>`
+    : '';
+  const cardHtml = _WELCOME_CARDS.map(c => `
+    <div class="ws-action-card" onclick="${c.onclick}">
+      <div class="ws-action-icon" style="background:${c.bg};color:${c.color};border-color:${c.border};">${c.svg}</div>
+      <div>
+        <div class="ws-action-name">${c.label}</div>
+        <div class="ws-action-desc">${c.desc}</div>
+      </div>
+    </div>`).join('');
+  const suggestionHtml = _WELCOME_SUGGESTIONS.map(q => `
+    <div class="ws-suggestion-row" data-q="${q.replace(/"/g, '&quot;')}" onclick="wsSetInput(this.dataset.q);wsChatSend()">
+      ${q}
+      ${_CHEVRON_SVG}
+    </div>`).join('');
+  return `
+    <div class="ws-welcome" id="ws-welcome-state">
+      <div class="ws-welcome-badge">
+        <div class="ws-welcome-badge-icon">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <span class="ws-welcome-badge-title">${cleanTitle}</span>
+        ${chapterHtml}
+      </div>
+      <div class="ws-welcome-heading">What do you want to do?</div>
+      <div class="ws-welcome-sub">I've read the full document — pick an action or ask anything.</div>
+      <div class="ws-action-grid">
+        ${cardHtml}
+        <div class="ws-action-card ws-action-card--wide" onclick="${_EXAM_CARD.onclick}">
+          <div class="ws-action-icon" style="background:${_EXAM_CARD.bg};color:${_EXAM_CARD.color};border-color:${_EXAM_CARD.border};">${_EXAM_CARD.svg}</div>
+          <div class="ws-action-text">
+            <div class="ws-action-name">${_EXAM_CARD.label}</div>
+            <div class="ws-action-desc">${_EXAM_CARD.desc}</div>
+          </div>
+          <div class="ws-action-chevron">${_CHEVRON_SVG}</div>
+        </div>
+      </div>
+      <div class="ws-suggestions-label">Or ask directly</div>
+      ${suggestionHtml}
+    </div>`;
+}
+
 export function _wsShowWelcome(meta) {
   const msgs = $el('ws-messages');
   if (!msgs) return;
-  const suggestions = {
-    atkins:   ['Explain entropy and the second law', 'What is Gibbs free energy?', 'Derive the Clausius inequality', 'Compare enthalpy and internal energy'],
-    zumdahl:  ["Explain Le Chatelier's principle", 'What is a limiting reagent?', 'How do ionic bonds form?', 'Explain gas laws'],
-    klein:    ['What are SN1 vs SN2 reactions?', 'Explain stereoisomerism', 'How does aromaticity work?', "What is Markovnikov's rule?"],
-    harris:   ['What is a titration?', 'Explain standard deviation in measurements', 'What is activity coefficient?', 'How does EDTA work?'],
-    netter:   ['Describe the brachial plexus', 'What bones make up the shoulder?', 'Explain the femoral triangle', 'What is the carpal tunnel?'],
-    anaphy2e: ['Explain the sliding filament theory', 'What is a sarcomere?', 'How does the renal system work?', 'Describe the cardiac cycle'],
-  };
-  const chips = (suggestions[ws.bookId] || ['Summarize chapter 1', 'What are the key topics?', 'Give me an overview', 'Start a quiz']).slice(0, 3);
-  setHtml(msgs, `
-    <div style="display:flex;flex-direction:column;gap:14px;padding:20px 16px 8px;">
-      <div class="hc-ai" style="align-items:flex-start;">
-        <div class="hc-ai-avatar" style="background:var(--gold-muted);border:1px solid var(--gold-border);color:var(--gold);font-size:13px;width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">✦</div>
-        <div style="background:var(--surface-1);border:1px solid var(--border-sm);border-radius:4px 14px 14px 14px;padding:13px 15px;font-size:13px;color:var(--text-1);line-height:1.65;flex:1;">
-          <p style="margin:0 0 8px;"><strong>${meta.name}</strong> is ready! I've indexed the full textbook — ask me anything about it.</p>
-          <p style="margin:0;color:var(--text-2);">Here are a few things you could ask:</p>
-          <div style="display:flex;flex-direction:column;gap:5px;margin-top:10px;">
-            ${chips.map(q => `
-              <div class="ws-chip-item" onclick="wsSetInput('${q.replace(/'/g, "\\'")}');document.getElementById('ws-chat-input').focus();"
-                style="display:flex;align-items:center;justify-content:space-between;padding:7px 11px;border:1px solid var(--border-xs);border-radius:8px;background:var(--surface-2);cursor:pointer;font-size:12px;color:var(--text-2);transition:all 120ms;">
-                ${q}
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
-              </div>`).join('')}
-          </div>
-        </div>
-      </div>
-    </div>`);
+  setHtml(msgs, _wsWelcomeHtml(meta.name, null));
 }

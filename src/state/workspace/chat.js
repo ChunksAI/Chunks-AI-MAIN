@@ -46,6 +46,9 @@ export function wsClearChat() {
 
 export function wsAppendUser(text, selectedText) {
   const msgs = $el('ws-messages');
+  // Remove the welcome state when the first real message is appended
+  const welcome = document.getElementById('ws-welcome-state');
+  if (welcome) welcome.remove();
   const d = document.createElement('div');
   d.className = 'msg msg-user';
   const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;');
