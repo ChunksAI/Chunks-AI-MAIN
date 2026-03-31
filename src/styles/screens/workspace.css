@@ -362,39 +362,60 @@
 
 .chat-bar {
   display: flex; align-items: center; gap: 9px;
-  padding: 0 14px; height: 40px;
+  padding: 0 14px; height: 44px;
   border-bottom: 1px solid var(--border-xs);
-  background: var(--surface-1); flex-shrink: 0;
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-1) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 12px rgba(0,0,0,0.25);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+.chat-bar::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07) 40%, rgba(255,255,255,0.07) 60%, transparent);
+  pointer-events: none;
 }
 
 .context-tag {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 11px; color: var(--teal);
-  background: var(--teal-muted); border: 1px solid rgba(45,212,191,0.18);
+  background: var(--teal-muted); border: 1px solid rgba(45,212,191,0.24);
   padding: 2px 9px; border-radius: var(--r-pill); flex-shrink: 0;
+  box-shadow: 0 0 10px rgba(45,212,191,0.10);
 }
 
 .chat-bar-title {
-  font-size: 12px; color: var(--text-2); flex: 1;
+  font-size: 13px; color: var(--text-1); flex: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 500;
 }
 
 /* Session timer */
 .session-timer {
+  display: inline-flex;
+  align-items: center;
   font-size: 11px;
-  color: var(--text-4);
+  color: var(--text-3);
   font-family: var(--font-mono);
   flex-shrink: 0;
   white-space: nowrap;
   letter-spacing: 0.01em;
+  background: var(--surface-3);
+  border: 1px solid var(--border-xs);
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
 }
 
 /* Panel tabs (Chat | Notes) */
 .ws-panel-tabs {
   display: flex;
   gap: 0;
+  padding: 0 6px;
   border-bottom: 1px solid var(--border-xs);
-  background: var(--surface-1);
+  background: var(--surface-0);
   flex-shrink: 0;
 }
 
@@ -402,8 +423,8 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 0 16px;
-  height: 33px;
+  padding: 0 14px;
+  height: 35px;
   border: none;
   border-bottom: 2px solid transparent;
   background: transparent;
@@ -412,12 +433,14 @@
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: color var(--t-fast), border-color var(--t-fast);
+  transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
 }
-.ws-ptab:hover { color: var(--text-1); }
+.ws-ptab:hover { color: var(--text-1); background: rgba(255,255,255,0.03); }
 .ws-ptab.ws-ptab-active {
   color: var(--text-1);
   border-bottom-color: var(--gold);
+  background: rgba(232,172,46,0.05);
   font-weight: 600;
 }
 
