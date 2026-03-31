@@ -99,6 +99,7 @@ function SmartNotesPanel() {
         if (notesRef.current) {
           notesMapRef.current.set(lastPage, notesRef.current.innerHTML);
           saveNotesMap(notesMapRef.current);
+          document.dispatchEvent(new CustomEvent('ws:notes-saved', { detail: { page: lastPage } }));
         }
         lastPage = p;
         setPage(p);
@@ -146,6 +147,7 @@ function SmartNotesPanel() {
     notesMapRef.current.set(page, notesRef.current.innerHTML);
     saveNotesMap(notesMapRef.current);
     setSave('saved');
+    document.dispatchEvent(new CustomEvent('ws:notes-saved', { detail: { page } }));
   }, [page]);
 
   const handleInput = useCallback(() => {

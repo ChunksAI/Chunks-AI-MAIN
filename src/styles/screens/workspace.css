@@ -1853,3 +1853,47 @@
   border-color: var(--border-md);
 }
 .ws-suggestion-row svg { color: var(--text-4); flex-shrink: 0; }
+
+/* ── Per-page note cards (injected after each PDF page in the scroll area) ── */
+.ws-page-note-card {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 13px;
+  border-left: 3px solid var(--gold-border);
+  background: var(--gold-muted);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  cursor: pointer;
+  transition: background var(--t-fast);
+  margin-bottom: 4px;
+}
+.ws-page-note-card:hover { background: var(--gold-glow); }
+.wpnc-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.wpnc-content {
+  font-size: 12px;
+  color: var(--text-1);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ws-page-note-card.wpnc-empty {
+  border-left-color: var(--border-sm);
+  background: transparent;
+}
+.ws-page-note-card.wpnc-empty:hover { background: var(--surface-2); }
+.wpnc-add {
+  font-size: 11px;
+  color: var(--text-4);
+  font-style: italic;
+}

@@ -18,6 +18,58 @@ import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
 import { _wsRenderMessageFromBlocks } from './chat.js';
 
 let _wsSaveScrollTm;
+let _noteCardsListenerAttached = false;
+
+// ── Per-page note cards ───────────────────────────────────────────────────
+
+const _NOTES_KEY          = 'chunks-ai-notes-v2';
+const _NOTE_PREVIEW_CHARS = 220;
+
+function _wsRefreshNoteCards() {
+  const cards = document.querySelectorAll('.ws-page-note-card');
+  if (!cards.length) return;
+  let notesMap;
+  try {
+    notesMap = new Map(JSON.parse(localStorage.getItem(_NOTES_KEY) || '[]'));
+  } catch (_) { notesMap = new Map(); }
+
+  cards.forEach(card => {
+    const pageNum = parseInt(card.dataset.notePageNum, 10);
+    const html = notesMap.get(pageNum) || '';
+    let text = '';
+    if (html) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      text = (tmp.textContent || '').trim();
+    }
+    card.innerHTML = '';
+
+    if (text) {
+      card.classList.remove('wpnc-empty');
+      const label = document.createElement('div');
+      label.className = 'wpnc-label';
+      label.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="15" y2="18"/></svg>';
+      label.append(' Your note \u2014 Page ' + pageNum);
+      card.appendChild(label);
+      const content = document.createElement('div');
+      content.className = 'wpnc-content';
+      content.textContent = text.length > _NOTE_PREVIEW_CHARS ? text.slice(0, _NOTE_PREVIEW_CHARS) + '\u2026' : text;
+      card.appendChild(content);
+    } else {
+      card.classList.add('wpnc-empty');
+      const add = document.createElement('div');
+      add.className = 'wpnc-add';
+      add.textContent = '\u270F Add a note for page ' + pageNum + '\u2026';
+      card.appendChild(add);
+    }
+
+    card.onclick = () => {
+      const wsEl = document.getElementById('screen-workspace');
+      if (wsEl && wsEl.classList.contains('ws-pdf-mode')) window.wsMobileView?.('chat');
+      window.wsShowPanel?.('notes');
+    };
+  });
+}
 
 // ── Book loader ───────────────────────────────────────────────────────────
 
@@ -200,6 +252,19 @@ export async function selectBook(bookId) {
       pageWrap.appendChild(canvas);
       wrap.appendChild(pageWrap);
       ws.pageContainers.push(pageWrap);
+
+      // Note card shown after each page in the scroll area
+      const noteCard = document.createElement('div');
+      noteCard.className = 'ws-page-note-card';
+      noteCard.dataset.notePageNum = i;
+      wrap.appendChild(noteCard);
+    }
+
+    _wsRefreshNoteCards();
+
+    if (!_noteCardsListenerAttached) {
+      _noteCardsListenerAttached = true;
+      document.addEventListener('ws:notes-saved', _wsRefreshNoteCards);
     }
 
     for (let i = 0; i < Math.min(2, ws.pageContainers.length); i++) {
