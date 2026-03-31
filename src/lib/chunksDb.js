@@ -1275,6 +1275,19 @@ async function pullAll({ force = false } = {}) {
 }
 
 /**
+ * Collect all chunks_session_* keys from IndexedDB and localStorage.
+ * Returns a deduplicated array of key strings.
+ */
+function _collectSessionKeys() {
+  const keys = _idbKeys('chunks_session_');
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k?.startsWith('chunks_session_') && !keys.includes(k)) keys.push(k);
+  }
+  return keys;
+}
+
+/**
  * Upload any chat sessions stored only in localStorage to Supabase.
  * Runs once on login. Skips sessions that are already in Supabase
  * (the upsert on conflict(id) is idempotent).
@@ -1547,11 +1560,7 @@ const messages = {
     }
 
     // Collect all session keys from IDB + localStorage
-    const keys = _idbKeys('chunks_session_');
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k?.startsWith('chunks_session_') && !keys.includes(k)) keys.push(k);
-    }
+    const keys = _collectSessionKeys();
 
     if (!keys.length) {
       console.log('[ChunksDB] messages.migrate — no local sessions found');
@@ -1603,6 +1612,19 @@ const messages = {
 
     console.log(`[ChunksDB] messages.migrate — migrated ${inserted} messages from localStorage to Supabase`);
     _lsSet(flagKey, true);
+
+    // Phase 3 cleanup: remove chunks_session_* keys from IDB + localStorage now
+    // that the data is safely in Supabase.  pullAndApply() may re-populate them
+    // from chat_sessions on the same login, but reads will use the messages table
+    // going forward so those copies are just cache and can be re-deleted next time.
+    const keysToDelete = _collectSessionKeys();
+    for (const k of keysToDelete) {
+      try { _lsRemove(k); } catch (_) {}
+    }
+    if (keysToDelete.length) {
+      console.log(`[ChunksDB] messages.migrate — cleaned up ${keysToDelete.length} local session key(s)`);
+    }
+
     return { migrated: true, count: inserted };
   },
 };

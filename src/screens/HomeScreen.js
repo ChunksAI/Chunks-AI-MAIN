@@ -38,6 +38,7 @@ import { homeMarkdown, sanitize } from '../utils/render.js';
 import { lsGet } from '../utils/storage.js';
 import { idbKeys } from '../lib/idbStorage.js';
 import { ChunksDB } from '../lib/chunksDb.js';
+import { subscribeToHomeMessages, unsubscribeHomeMessages } from '../state/home/homeMessagesRealtime.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -829,7 +830,11 @@ export async function homeSendMessage() {
     window._renderAllRecent?.();
     sessionSbId = lsGet('chunks_session_' + _homeSessionId)?.supabaseId ?? null;
     if (sessionSbId) {
+      // Persist the UUID so session restore can find it even after chunks_session_* cleanup.
+      localStorage.setItem('chunks_active_home_supabase_id', sessionSbId);
       ChunksDB.messages.insertMessage({ role: 'user', content: question, sessionId: sessionSbId });
+      // Subscribe to realtime for this session (no-op if already subscribed to same id).
+      subscribeToHomeMessages(sessionSbId);
     }
   }
 
@@ -1024,52 +1029,61 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
   // settled — causing _homeMountSession to see an empty _recentItems and
   // fall back to the landing screen instead of the last chat.
   setTimeout(async function restoreSession() {
-    // Find the newest session in IDB (or localStorage fallback) with actual content.
-    // Prefer the r+timestamp keyed entry (has supabaseId for future writes)
-    // over the UUID-keyed entry when both exist for the same session.
-    // chunks_session_* keys live in IndexedDB — scan IDB keys, fall back to localStorage.
     try {
-      let newest = null;
-      let newestTime = 0;
-      const sessionKeys = idbKeys('chunks_session_');
-      // Also include any keys that may still be in localStorage (pre-migration)
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k?.startsWith('chunks_session_') && !sessionKeys.includes(k)) sessionKeys.push(k);
-      }
-      for (const k of sessionKeys) {
-        let s;
-        try { s = lsGet(k); } catch (_) { continue; }
-        if (!s) continue;
-        // Normalise: pullAndApply writes 'messages', _saveSession writes 'history'
-        if (!s.history && s.messages) s.history = s.messages;
-        const history = s?.history || [];
-        if (!history.length) continue;
-        const localId = k.replace('chunks_session_', '');
-        // Prefer the r+timestamp key over the UUID key for the same session
-        const isLocalKey = /^r[0-9]+$/.test(localId);
-        const t = new Date(s.updatedAt || 0).getTime();
-        if (t > newestTime || (t === newestTime && isLocalKey)) {
-          newestTime = t;
-          newest = { s, id: localId };
-        }
-      }
-      if (newest) {
-        localStorage.setItem('chunks_active_home_session', newest.id);
+      // Phase 3: try the stored supabaseId first (written on every message send).
+      // This avoids scanning IDB/localStorage entirely when the UUID is known.
+      let supabaseId = localStorage.getItem('chunks_active_home_supabase_id') || null;
+      let localSessionId = localStorage.getItem('chunks_active_home_session') || null;
 
-        // Read priority: try messages table first, fall back to localStorage.
-        const supabaseId = newest.s?.supabaseId ?? null;
-        if (supabaseId) {
-          const { data: sbMsgs, source } = await ChunksDB.messages.loadSession(supabaseId);
-          if (source === 'supabase' && sbMsgs?.length) {
-            console.log('[HomeScreen] restoreSession — using Supabase messages for session', newest.id);
-            const sbHistory = sbMsgs.map(m => ({ role: m.role, content: m.content, ts: new Date(m.created_at).getTime() }));
-            _mountSession({ ...newest.s, history: sbHistory }, newest.id);
-            return;
+      // Fallback: scan IDB/localStorage to find the newest session and its supabaseId.
+      // This path handles the first login after Phase 2 (before any message has been
+      // sent from this device to populate chunks_active_home_supabase_id).
+      if (!supabaseId) {
+        let newest = null;
+        let newestTime = 0;
+        const sessionKeys = idbKeys('chunks_session_');
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k?.startsWith('chunks_session_') && !sessionKeys.includes(k)) sessionKeys.push(k);
+        }
+        for (const k of sessionKeys) {
+          let s;
+          try { s = lsGet(k); } catch (_) { continue; }
+          if (!s) continue;
+          if (!s.history && s.messages) s.history = s.messages;
+          const history = s?.history || [];
+          if (!history.length) continue;
+          const localId = k.replace('chunks_session_', '');
+          const isLocalKey = /^r[0-9]+$/.test(localId);
+          const t = new Date(s.updatedAt || 0).getTime();
+          if (t > newestTime || (t === newestTime && isLocalKey)) {
+            newestTime = t;
+            newest = { s, id: localId };
           }
         }
-        console.log('[HomeScreen] restoreSession — using localStorage for session', newest.id);
-        _mountSession(newest.s, newest.id);
+        if (newest) {
+          localSessionId = newest.id;
+          supabaseId     = newest.s?.supabaseId ?? null;
+          localStorage.setItem('chunks_active_home_session', newest.id);
+          if (supabaseId) localStorage.setItem('chunks_active_home_supabase_id', supabaseId);
+        }
+      }
+
+      if (!supabaseId) return; // no session found anywhere — stay on landing
+
+      // Phase 3: Supabase is the authoritative source — no localStorage fallback.
+      const { data: sbMsgs, source } = await ChunksDB.messages.loadSession(supabaseId);
+      if (source === 'supabase' && sbMsgs?.length) {
+        console.log('[HomeScreen] restoreSession — using Supabase messages for session', localSessionId);
+        const sbHistory = sbMsgs.map(m => ({ role: m.role, content: m.content, ts: new Date(m.created_at).getTime() }));
+        // Reconstruct a minimal session descriptor so _mountSession can work.
+        const sessionDesc = localSessionId ? (lsGet('chunks_session_' + localSessionId) ?? {}) : {};
+        _mountSession({ ...sessionDesc, history: sbHistory }, localSessionId ?? supabaseId);
+        // Start realtime subscription for this session (subscribeToHomeMessages
+        // cleans up any previous channel internally before subscribing).
+        subscribeToHomeMessages(supabaseId);
+      } else {
+        console.log('[HomeScreen] restoreSession — Supabase empty for session', localSessionId, '— leaving fast-path restore');
       }
     } catch (_) {}
   }, 100);
@@ -1117,7 +1131,11 @@ Object.defineProperty(window, 'homeHistory', {
 });
 Object.defineProperty(window, '_homeSessionId', {
   get: () => _homeSessionId,
-  set: (v) => { _homeSessionId = v; },
+  set: (v) => {
+    _homeSessionId = v;
+    // Unsubscribe from realtime when the session is cleared (goHome / newChat).
+    if (v === null) unsubscribeHomeMessages();
+  },
   configurable: true,
 });
 
