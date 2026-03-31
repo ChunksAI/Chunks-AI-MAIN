@@ -108,8 +108,8 @@ const SETTINGS_MODAL_HTML = `
             <div class="settings-row-desc">Adjust text size for chat messages.</div>
           </div>
           <div class="font-size-picker" id="font-size-picker">
-            <button class="font-size-btn" onclick="settingsFontSize('small',this)">S</button>
-            <button class="font-size-btn active" onclick="settingsFontSize('medium',this)">M</button>
+            <button class="font-size-btn active" onclick="settingsFontSize('small',this)">S</button>
+            <button class="font-size-btn" onclick="settingsFontSize('medium',this)">M</button>
             <button class="font-size-btn" onclick="settingsFontSize('large',this)">L</button>
           </div>
         </div>
@@ -732,6 +732,7 @@ export function clearAllHistory() {
         k.startsWith('sp_') ||
         k === 'chunks_recent' ||
         k === 'chunks_active_home_session' ||
+        k === 'chunks_active_home_supabase_id' ||
         k === 'chunks_active_ws_book' ||
         k === 'chunks_active_ws_user_doc' ||
         k === 'chunks_active_recent_id' ||
@@ -841,7 +842,7 @@ export async function _updateCacheSizeLabel() {
 
 function _restoreSettings() {
   // ── Font size button highlight ──────────────────────────
-  const savedSize = localStorage.getItem('chunks-chat-font-size') || 'medium';
+  const savedSize = localStorage.getItem('chunks-chat-font-size') || 'small';
   document.querySelectorAll('.font-size-btn').forEach(b => {
     b.classList.remove('active');
     // Match by onclick content safely — extract value between first pair of quotes
