@@ -979,6 +979,166 @@
   .sp-node-card { min-width: 0 !important; }
   .sp-activities { flex-wrap: wrap !important; gap: 6px !important; }
 
+  /* ════════════════════════════════════════════════════════
+     EXAM SCREEN
+  ════════════════════════════════════════════════════════ */
+
+  /* Sidebar already hidden by global rule above */
+  #screen-exam {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .exam-main {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Setup header actions row: stack vertically on very small screens */
+  .exam-row {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  /* Type grids: 2 columns on mobile */
+  .exam-type-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .exam-type-grid-4 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .exam-type-grid-5 {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* In-exam topbar: let timer wrap below progress */
+  .exam-topbar {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    margin-bottom: 14px !important;
+  }
+  .exam-progress-wrap {
+    width: 100% !important;
+    order: 2 !important;
+    margin: 0 !important;
+  }
+  .exam-timer {
+    order: 1 !important;
+    margin-left: auto !important;
+  }
+
+  /* Question card: tighter padding */
+  .exam-q-header {
+    padding: 14px 16px 12px !important;
+  }
+  .exam-q-text {
+    font-size: 14px !important;
+  }
+  .exam-options {
+    padding: 10px 16px 16px !important;
+    gap: 7px !important;
+  }
+  .exam-option {
+    padding: 10px 12px !important;
+  }
+
+  /* Results & review */
+  .exam-results-card {
+    max-width: 100% !important;
+  }
+  .exam-review {
+    padding: 14px 16px !important;
+  }
+
+  /* CBL vitals: wrap on small screens */
+  .exam-cbl-vitals {
+    flex-wrap: wrap !important;
+    gap: 4px !important;
+  }
+  .exam-cbl-vital-item {
+    min-width: 70px !important;
+  }
+
+  /* Back-to-workspace row wraps cleanly */
+  .exam-back-label {
+    display: none !important;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     LIBRARY SCREEN
+  ════════════════════════════════════════════════════════ */
+
+  /* Sidebar already hidden by global rule above */
+  #screen-library {
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+
+  .lib-page-main {
+    width: 100% !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+  }
+
+  .lib-page-header {
+    padding: 16px 16px 0 !important;
+  }
+
+  .lib-page-heading {
+    font-size: 17px !important;
+  }
+
+  .lib-page-body {
+    padding: 18px 16px calc(var(--mobile-nav-h) + 20px) !important;
+    gap: 24px !important;
+  }
+
+  /* Book grid: 2 columns on mobile */
+  #screen-library .library-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Document delete button: always visible on mobile (no hover) */
+  .lib-doc-row-delete {
+    opacity: 1 !important;
+  }
+
+  /* Doc rows: tighter on mobile */
+  .lib-doc-row {
+    padding: 8px 10px !important;
+    gap: 10px !important;
+  }
+
+  /* ════════════════════════════════════════════════════════
+     RESEARCH SCREEN (additional fixes)
+  ════════════════════════════════════════════════════════ */
+
+  /* Hide the right-side sources panel on mobile */
+  .research-side {
+    display: none !important;
+  }
+
+  /* Tab bar: horizontally scrollable so all tabs stay accessible */
+  .research-tabs {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none !important;
+  }
+  .research-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+  .research-tab {
+    flex-shrink: 0 !important;
+    font-size: 11px !important;
+    padding: 0 10px !important;
+  }
+
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1341,6 +1501,77 @@
   /* ── Home scroll area: ensure no horizontal bleed ── */
   .home-scroll-area {
     overflow-x: hidden !important;
+  }
+
+}
+
+/* ══════════════════════════════════════════════════════════
+   LIBRARY MODAL / HELP / SHORTCUTS — MOBILE  (≤600px)
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 600px) {
+
+  /* ── Library modal: bottom-sheet style ── */
+  .library-modal {
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+
+  .library-modal-content {
+    border-radius: 20px 20px 0 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: 92dvh !important;
+    animation: upgrade-slide-up-mobile 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  .library-modal-header {
+    padding: 14px 16px 0 !important;
+  }
+
+  .library-modal-body {
+    padding: 14px 16px 28px !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* 2-column book grid inside the modal */
+  .library-modal-content .library-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+  }
+
+  /* Doc delete button: always visible */
+  .library-modal-content .lib-doc-row-delete {
+    opacity: 1 !important;
+  }
+
+  /* Tighter doc rows */
+  .library-modal-content .lib-doc-row {
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+
+  /* ── Help modal: bottom-sheet style ── */
+  .help-modal {
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+
+  .help-content {
+    border-radius: 20px 20px 0 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: 92dvh !important;
+    animation: upgrade-slide-up-mobile 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+
+  .help-header {
+    padding: 16px 20px 14px !important;
+  }
+
+  /* ── Shortcuts modal: tighter on small screens ── */
+  .shortcuts-content {
+    max-width: 100% !important;
+    margin: 0 12px !important;
   }
 
 }
