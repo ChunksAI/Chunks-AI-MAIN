@@ -34,7 +34,7 @@ def ask():
         from services.auth import _extract_verified_user
         from services.ai import (
             call_ai, call_ai_web_search, sanitize_user_memory,
-            should_search_textbook,
+            should_search_textbook, extract_thinking_content,
         )
         from services.prompt_guard import screen_prompt
         from services.books import BOOK_LIBRARY, TextbookSearch, get_book_index
@@ -636,6 +636,7 @@ Answer helpfully and clearly."""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
                              endpoint='chat', user_id=verified_user_id)
+            answer, thinking_content = extract_thinking_content(answer)
             _resp = {
                 'success':        True,
                 'mode':           'study',
@@ -646,7 +647,8 @@ Answer helpfully and clearly."""
                 'source':         source,
                 'sources':        all_sources,
                 'complexity_used': complexity,
-                'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf'
+                'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf',
+                'thinking_content': thinking_content,
             }
             if _cache_eligible and _cache_key_val:
                 _ask_cache_set(_cache_key_val, _resp,

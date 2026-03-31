@@ -39,6 +39,7 @@ import { lsGet } from '../utils/storage.js';
 import { idbKeys } from '../lib/idbStorage.js';
 import { ChunksDB } from '../lib/chunksDb.js';
 import { subscribeToHomeMessages, unsubscribeHomeMessages } from '../state/home/homeMessagesRealtime.js';
+import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../components/ThinkingAccordion.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -318,6 +319,7 @@ export let homeHistory   = [];
 export let _homeSessionId = null;
 let homeIsTyping = false;
 let _homeLastInputTime = 0;
+let _thinkStart = 0;  // timestamp (ms) when AI thinking began — for elapsed time display
 
 // ── Incognito chat state (lives only in memory — never written to storage) ────
 let _incogHistory = [];
@@ -710,6 +712,29 @@ export function homeAppendAI(text, sources) {
   homeScrollBottom();
 }
 
+/**
+ * Prepend a ThinkingAccordion before the AI response when thinking mode was used.
+ *
+ * @param {string|null} thinkingContent  Raw `<think>` content returned by the backend.
+ * @param {number}      elapsed          Seconds elapsed while the model was thinking.
+ */
+export function homeAppendThinkingAccordion(thinkingContent, elapsed) {
+  if (!thinkingContent) return;
+  const steps = parseThinkingSteps(thinkingContent);
+  if (steps.length === 0) return;
+  // Mark all steps as done (we only show the accordion after the response arrives)
+  steps.forEach(s => { s.done = true; });
+  const tags = inferThinkingTags(steps, thinkingContent);
+  const wrap = document.createElement('div');
+  wrap.className = 'hc-ai hc-thinking-accordion-wrap';
+  const container = document.createElement('div');
+  container.className = 'hc-thinking-accordion-container';
+  wrap.appendChild(container);
+  document.getElementById('home-chat-history').appendChild(wrap);
+  createThinkingAccordion(container, { steps, elapsed, tags, isStreaming: false });
+  homeScrollBottom();
+}
+
 export function homeAppendError(msg) {
   const el = document.createElement('div');
   el.className = 'hc-error';
@@ -840,6 +865,7 @@ export async function homeSendMessage() {
 
   homeIsTyping = true;
   homeAppendThinking();
+  _thinkStart = Date.now();
   if (sendBtn) sendBtn.disabled = true;
 
   try {
@@ -870,6 +896,8 @@ export async function homeSendMessage() {
     } else {
       const data   = await res.json();
       const answer = data.answer || 'No response.';
+      const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
+      homeAppendThinkingAccordion(data.thinking_content || null, elapsed);
       homeAppendAI(answer, null);
       homeHistory.push({ role: 'assistant', content: answer });
       // Overwrite with full exchange (user + AI)

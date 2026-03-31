@@ -74,6 +74,30 @@ def sanitize_user_memory(text, max_len=500):
     return cleaned
 
 
+# ── Thinking content extractor ────────────────────────────────────────────────
+
+def extract_thinking_content(text: str):
+    """Extract ``<think>…</think>`` reasoning blocks from a model response.
+
+    Some reasoning models (e.g. DeepSeek-R1, QwQ) wrap their internal chain-
+    of-thought inside ``<think>`` tags before emitting the final answer.  This
+    helper peels that block out so the caller can surface it separately in the
+    UI without polluting the visible answer text.
+
+    Returns:
+        (answer, thinking) — *thinking* is ``None`` when no ``<think>`` block
+        is present, otherwise the stripped inner text.
+    """
+    if not text:
+        return text, None
+    match = re.search(r'<think>([\s\S]*?)</think>', text, re.IGNORECASE)
+    if match:
+        thinking = match.group(1).strip()
+        answer = re.sub(r'<think>[\s\S]*?</think>', '', text, flags=re.IGNORECASE).strip()
+        return answer, thinking or None
+    return text, None
+
+
 # ── Core AI caller ────────────────────────────────────────────────────────────
 
 def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=None,

@@ -1160,6 +1160,224 @@
 #home-ask-input { max-height: 160px; overflow-y: auto; }
 #screen-home main { overflow-y: auto; scrollbar-width: thin; }
 
+/* ── ThinkingAccordion ─────────────────────────────────────────────────────
+   Reusable "Deep Thinking" collapsible component shown before AI responses
+   when a thinking/deep-thinking model was used. ──────────────────────────── */
+
+.ta-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  max-width: 680px;
+}
+
+/* Mini header row: "• Deep thinking …" */
+.ta-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 2px 6px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+}
+
+.ta-header-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--violet);
+  flex-shrink: 0;
+}
+.ta-header-dot--spin {
+  animation: ta-dot-pulse 1.4s ease-in-out infinite;
+}
+@keyframes ta-dot-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.85); }
+  50%       { opacity: 1;   transform: scale(1.1); }
+}
+
+.ta-ellipsis { color: var(--text-4); }
+
+.ta-header-label { color: var(--text-3); }
+
+/* Collapsible trigger row */
+.ta-accordion {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.14s, border-color 0.14s;
+  font-family: inherit;
+  color: inherit;
+}
+.ta-accordion:hover,
+.ta-accordion--open {
+  background: var(--surface-3);
+  border-color: var(--border-sm);
+}
+.ta-accordion:focus-visible {
+  outline: 2px solid var(--violet);
+  outline-offset: 2px;
+}
+
+/* Brain icon wrapper */
+.ta-acc-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px; height: 34px;
+  background: var(--surface-3);
+  border-radius: var(--r-sm);
+  flex-shrink: 0;
+  color: var(--text-2);
+}
+
+.ta-accordion--open .ta-acc-icon {
+  color: var(--violet);
+  background: rgba(139,124,248,0.12);
+}
+
+/* Text block */
+.ta-acc-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.ta-acc-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.3;
+}
+.ta-acc-sub {
+  font-size: 11.5px;
+  color: var(--text-4);
+  line-height: 1.3;
+}
+
+/* Chevron */
+.ta-chevron-icon {
+  flex-shrink: 0;
+  color: var(--text-4);
+  transition: transform 0.18s ease;
+}
+.ta-chevron-up { transform: none; }
+
+/* Expanded body */
+.ta-body {
+  margin-top: 2px;
+  padding: 14px 16px 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-md);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Reasoning step */
+.ta-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.ta-step-dot {
+  width: 8px; height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--violet);
+}
+.ta-step--pending .ta-step-dot {
+  background: var(--text-4);
+  opacity: 0.5;
+}
+
+.ta-step-content {
+  flex: 1;
+  min-width: 0;
+}
+.ta-step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--violet);
+  line-height: 1.4;
+  margin-bottom: 3px;
+}
+.ta-step--pending .ta-step-title {
+  color: var(--text-2);
+}
+.ta-step-desc {
+  font-size: 12.5px;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+.ta-step-progress {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--text-4);
+  margin-left: 4px;
+  animation: ta-progress-blink 1.2s ease-in-out infinite;
+}
+@keyframes ta-progress-blink {
+  0%, 100% { opacity: 0.3; }
+  50%       { opacity: 1; }
+}
+
+/* Footer */
+.ta-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-xs);
+  margin-top: 4px;
+}
+.ta-elapsed {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-4);
+  letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+.ta-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.ta-tag {
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--tag-color, var(--border-sm));
+  color: var(--tag-color, var(--text-3));
+  background: transparent;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+}
+
+.ta-empty {
+  font-size: 12px;
+  color: var(--text-4);
+  margin: 0;
+}
+
+/* Study mode overrides */
+[data-theme="study"] .ta-accordion { background: #f5f0e8; border-color: rgba(0,0,0,0.08); }
+[data-theme="study"] .ta-accordion:hover,
+[data-theme="study"] .ta-accordion--open { background: #ede8df; }
+[data-theme="study"] .ta-body { background: #faf7f2; border-color: rgba(0,0,0,0.06); }
+[data-theme="study"] .ta-acc-icon { background: rgba(0,0,0,0.04); }
+
 /* ── PDF text layer — enables text selection for "Ask AI" ─────────────────
    PDF.js renders invisible spans that sit on top of the canvas.
    We make them transparent but selectable, and style the selection highlight. */
