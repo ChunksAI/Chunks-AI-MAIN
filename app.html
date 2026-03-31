@@ -1075,8 +1075,11 @@ function _renderDocGroupedRecents() {
     if (item.source === 'workspace' && item.bookId) {
       key = 'ws_' + item.bookId;
       const meta = window.wsBookMeta?.[item.bookId];
-      title = (typeof meta === 'object' ? meta?.name : meta?.split?.('/')?.[0])
-        || (item.bookId === '__user_doc__' ? (localStorage.getItem('chunks_active_ws_user_doc_name') || 'My Document') : item.bookId);
+      const metaName = typeof meta === 'object' ? meta?.name : meta?.split?.('/')?.[0];
+      const userDocName = item.bookId === '__user_doc__'
+        ? (localStorage.getItem('chunks_active_ws_user_doc_name') || 'My Document')
+        : item.bookId;
+      title = metaName || userDocName;
       groupType = 'doc';
     } else {
       key = 'ungrouped';
