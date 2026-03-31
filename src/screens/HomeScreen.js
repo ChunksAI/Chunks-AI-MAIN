@@ -37,6 +37,7 @@ import { _getStudyMode } from '../components/SettingsModal.js';
 import { homeMarkdown, sanitize } from '../utils/render.js';
 import { lsGet } from '../utils/storage.js';
 import { idbKeys } from '../lib/idbStorage.js';
+import { ChunksDB } from '../lib/chunksDb.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -818,14 +819,18 @@ export async function homeSendMessage() {
 
   // Save immediately so refresh before AI responds still restores the chat.
   // _homeSessionId is now guaranteed to be set (created above if new).
+  // Resolve the supabaseId once here — _saveSession writes it synchronously
+  // into IDB/localStorage, so it is readable immediately via lsGet.
+  // Both dual-write calls (user + assistant) reuse this value.
+  let sessionSbId = null;
   if (_homeSessionId) {
     window._saveSession?.(_homeSessionId, homeHistory);
     localStorage.setItem('chunks_active_home_session', _homeSessionId);
     window._renderAllRecent?.();
-    // Supabase write is handled by _saveSession → saveFull (single write path).
-    // appendMessage was removed here to fix the double-write race (Bug #2):
-    // saveFull UPSERTs the full array while appendMessage appends a single turn —
-    // whichever resolves second wins and can duplicate or truncate messages.
+    sessionSbId = lsGet('chunks_session_' + _homeSessionId)?.supabaseId ?? null;
+    if (sessionSbId) {
+      ChunksDB.messages.insertMessage({ role: 'user', content: question, sessionId: sessionSbId });
+    }
   }
 
   homeIsTyping = true;
@@ -867,8 +872,10 @@ export async function homeSendMessage() {
         window._saveSession?.(_homeSessionId, homeHistory);
         localStorage.setItem('chunks_active_home_session', _homeSessionId);
         window._renderAllRecent?.();
-        // Supabase write is handled by _saveSession → saveFull (single write path).
-        // appendMessage was removed here to fix the double-write race (Bug #2).
+        // Dual-write assistant turn to the per-row messages table.
+        if (sessionSbId) {
+          ChunksDB.messages.insertMessage({ role: 'assistant', content: answer, sessionId: sessionSbId });
+        }
       }
     }
   } catch (e) {
@@ -1016,7 +1023,7 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
   // called but before its internal localStorage / _recentItems writes have
   // settled — causing _homeMountSession to see an empty _recentItems and
   // fall back to the landing screen instead of the last chat.
-  setTimeout(function restoreSession() {
+  setTimeout(async function restoreSession() {
     // Find the newest session in IDB (or localStorage fallback) with actual content.
     // Prefer the r+timestamp keyed entry (has supabaseId for future writes)
     // over the UUID-keyed entry when both exist for the same session.
@@ -1049,6 +1056,19 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
       }
       if (newest) {
         localStorage.setItem('chunks_active_home_session', newest.id);
+
+        // Read priority: try messages table first, fall back to localStorage.
+        const supabaseId = newest.s?.supabaseId ?? null;
+        if (supabaseId) {
+          const { data: sbMsgs, source } = await ChunksDB.messages.loadSession(supabaseId);
+          if (source === 'supabase' && sbMsgs?.length) {
+            console.log('[HomeScreen] restoreSession — using Supabase messages for session', newest.id);
+            const sbHistory = sbMsgs.map(m => ({ role: m.role, content: m.content, ts: new Date(m.created_at).getTime() }));
+            _mountSession({ ...newest.s, history: sbHistory }, newest.id);
+            return;
+          }
+        }
+        console.log('[HomeScreen] restoreSession — using localStorage for session', newest.id);
         _mountSession(newest.s, newest.id);
       }
     } catch (_) {}
