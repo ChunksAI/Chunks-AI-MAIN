@@ -508,8 +508,10 @@ export function wsMobileView(view) {
     pdfPanel.classList.add('mobile-visible');
     tabChat?.classList.remove('active');
     tabPdf?.classList.add('active');
-    // Re-fit PDF to the now-visible container width (layout settles after rAF)
-    requestAnimationFrame(() => wsFitWidth());
+    // Re-fit PDF to the now-visible container width.
+    // Double rAF ensures the browser has computed the new layout dimensions
+    // before wsFitWidth() reads clientWidth (single rAF may fire too early on mobile).
+    requestAnimationFrame(() => requestAnimationFrame(() => wsFitWidth()));
   } else {
     ws.classList.remove('ws-pdf-mode');
     pdfPanel.classList.remove('mobile-visible');

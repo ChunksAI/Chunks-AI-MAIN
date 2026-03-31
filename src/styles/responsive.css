@@ -617,8 +617,9 @@
     display: flex !important;
     flex-direction: column !important;
   }
-  /* Hide outline panel on mobile */
-  #screen-workspace .pdf-panel.mobile-visible .pdf-outline-panel {
+  /* Hide outline panel and sticky strip on mobile */
+  #screen-workspace .pdf-panel.mobile-visible .pdf-outline-panel,
+  #screen-workspace .pdf-panel.mobile-visible .sticky-strip-mount {
     display: none !important;
   }
   #screen-workspace .pdf-panel.mobile-visible .pdf-view {
