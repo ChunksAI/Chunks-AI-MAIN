@@ -19,6 +19,9 @@
   overflow: hidden;
   flex-shrink: 0;
 }
+.mobile-pdf-nav {
+  display: none;
+}
 .mobile-bottom-nav {
   display: none;
   position: fixed;
