@@ -27,8 +27,11 @@
  *   accordion.update({ elapsed: 30, isStreaming: false });
  */
 
-import { mountIsland }              from '../preact/bridge.js';
-import { ThinkingAccordionIsland }  from './ThinkingAccordion.jsx';
+// ── Constants ────────────────────────────────────────────────────────────────
+const MAX_THINKING_STEPS   = 8;   // cap per-response to keep the UI readable
+const MAX_DESCRIPTION_LEN  = 300; // chars per step description
+const MAX_TITLE_LEN        = 100; // chars per step title
+const MAX_TAGS             = 3;   // skill pills shown in footer
 
 /**
  * Parse raw `<think>...</think>` content (or plain prose) into structured
@@ -41,7 +44,7 @@ import { ThinkingAccordionIsland }  from './ThinkingAccordion.jsx';
 export function parseThinkingSteps(raw) {
   if (!raw || typeof raw !== 'string') return [];
   const paras = raw.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
-  return paras.slice(0, 8).map((para, i, arr) => {
+  return paras.slice(0, MAX_THINKING_STEPS).map((para, i, arr) => {
     const lines = para.split('\n').map(l => l.trim()).filter(Boolean);
     // First sentence (up to first .!?) as title, rest as description
     const firstLine = lines[0] || '';
@@ -55,9 +58,9 @@ export function parseThinkingSteps(raw) {
       descParts.push(firstLine.slice(sentenceEnd + 1).trim());
     }
     descParts.push(...lines.slice(1));
-    const description = descParts.join(' ').trim().slice(0, 300);
+    const description = descParts.join(' ').trim().slice(0, MAX_DESCRIPTION_LEN);
     return {
-      title:       title.slice(0, 100),
+      title:       title.slice(0, MAX_TITLE_LEN),
       description,
       done:        i < arr.length - 1, // last step may be in-progress
     };
@@ -83,7 +86,7 @@ export function inferThinkingTags(steps, raw = '') {
   ];
   const found = candidates.filter(c => c.pattern.test(text)).map(c => c.tag);
   // Always return at least one tag when thinking mode is active
-  return found.length > 0 ? found.slice(0, 3) : ['reasoning'];
+  return found.length > 0 ? found.slice(0, MAX_TAGS) : ['reasoning'];
 }
 
 /**

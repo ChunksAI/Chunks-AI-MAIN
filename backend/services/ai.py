@@ -76,7 +76,7 @@ def sanitize_user_memory(text, max_len=500):
 
 # ── Thinking content extractor ────────────────────────────────────────────────
 
-def extract_thinking_content(text: str):
+def extract_thinking_content(text: str) -> tuple[str, str | None]:
     """Extract ``<think>…</think>`` reasoning blocks from a model response.
 
     Some reasoning models (e.g. DeepSeek-R1, QwQ) wrap their internal chain-
