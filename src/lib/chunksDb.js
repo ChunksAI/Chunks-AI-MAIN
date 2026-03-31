@@ -1409,6 +1409,96 @@ async function _uploadLocalChatSessions() {
 
 
 // ══════════════════════════════════════════════════════════════════════════════
+// messages — per-row AI chat messages (Phase 3 real-time architecture)
+// Table: messages  (created in migration 013)
+// These methods are purely additive and do not affect the existing
+// chat_sessions / localStorage flow.  Phase 2 will wire them into the UI.
+// ══════════════════════════════════════════════════════════════════════════════
+
+const messages = {
+
+  /**
+   * Insert a single message row into the `messages` table.
+   * No-ops gracefully when the user is not logged in (guest mode).
+   *
+   * @param {{ role: 'user'|'assistant', content: string, sessionId?: string, bookId?: string }} msg
+   * @returns {{ data, error }}
+   */
+  async insertMessage(msg) {
+    if (!isLoggedIn()) return { data: null, error: null };
+    const sb = await _sb();
+    if (!sb) return { data: null, error: 'no_client' };
+    try {
+      const { data, error } = await sb.from('messages').insert({
+        user_id:    _uid(),
+        role:       msg.role,
+        content:    msg.content,
+        session_id: msg.sessionId ?? null,
+        book_id:    msg.bookId    ?? null,
+      });
+      if (error) console.warn('[ChunksDB] messages.insertMessage error:', error.message);
+      return { data, error };
+    } catch (e) {
+      console.warn('[ChunksDB] messages.insertMessage exception:', e.message);
+      return { data: null, error: e.message };
+    }
+  },
+
+  /**
+   * Fetch all messages for the current user, ordered oldest-first.
+   * Optionally filtered by sessionId or bookId.
+   *
+   * @param {{ sessionId?: string, bookId?: string, limit?: number }} [opts]
+   * @returns {{ data: Array|null, error }}
+   */
+  async fetchMessages(opts = {}) {
+    if (!isLoggedIn()) return { data: null, error: null };
+    const sb = await _sb();
+    if (!sb) return { data: null, error: 'no_client' };
+    try {
+      let q = sb
+        .from('messages')
+        .select('*')
+        .eq('user_id', _uid())
+        .order('created_at', { ascending: true });
+      if (opts.sessionId) q = q.eq('session_id', opts.sessionId);
+      if (opts.bookId)    q = q.eq('book_id',    opts.bookId);
+      if (opts.limit)     q = q.limit(opts.limit);
+      const { data, error } = await q;
+      if (error) console.warn('[ChunksDB] messages.fetchMessages error:', error.message);
+      return { data, error };
+    } catch (e) {
+      console.warn('[ChunksDB] messages.fetchMessages exception:', e.message);
+      return { data: null, error: e.message };
+    }
+  },
+
+  /**
+   * Delete all messages for the current user.
+   * Optionally scope the delete to a specific sessionId or bookId.
+   *
+   * @param {{ sessionId?: string, bookId?: string }} [opts]
+   * @returns {{ data, error }}
+   */
+  async deleteMessages(opts = {}) {
+    if (!isLoggedIn()) return { data: null, error: null };
+    const sb = await _sb();
+    if (!sb) return { data: null, error: 'no_client' };
+    try {
+      let q = sb.from('messages').delete().eq('user_id', _uid());
+      if (opts.sessionId) q = q.eq('session_id', opts.sessionId);
+      if (opts.bookId)    q = q.eq('book_id',    opts.bookId);
+      const { data, error } = await q;
+      if (error) console.warn('[ChunksDB] messages.deleteMessages error:', error.message);
+      return { data, error };
+    } catch (e) {
+      console.warn('[ChunksDB] messages.deleteMessages exception:', e.message);
+      return { data: null, error: e.message };
+    }
+  },
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
 // recentItems — exam_recent + sp_recent_plans cross-device sync
 // Table: recent_items  (created in migration 011)
 // These are lightweight sidebar list arrays — tiny payloads, last-write-wins.
@@ -1508,6 +1598,9 @@ export const ChunksDB = {
   studyPlan,
   recentItems,
   pullAll,
+
+  // Phase 3: per-row messages table (real-time architecture)
+  messages,
 };
 
-console.log('[ChunksDB] Sync layer ready ✦  (Phase 2: chat · settings · streak · ws · studyPlan · recentItems)');
+console.log('[ChunksDB] Sync layer ready ✦  (Phase 2: chat · settings · streak · ws · studyPlan · recentItems · messages)');
