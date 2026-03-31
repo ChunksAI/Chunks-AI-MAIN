@@ -122,9 +122,9 @@ def ask():
 
         # ── Model selection via ai_router ─────────────────────────────────────
         if thinking_mode == 'deep':
-            selected_model = os.environ.get('DEEP_MODEL', 'deepseek/deepseek-r1:free')
+            selected_model = os.environ.get('DEEP_MODEL', 'google/gemini-2.5-flash')
         elif thinking_mode == 'thinking':
-            selected_model = os.environ.get('THINK_MODEL', 'deepseek/deepseek-r1-distill-llama-70b:free')
+            selected_model = os.environ.get('THINK_MODEL', 'openai/gpt-oss-20b:nitro')
         elif task_type:
             selected_model = route(task_type, complexity)
         else:
