@@ -329,7 +329,8 @@ export function _fcShowStreakMilestone(days) {
 }
 
 export function _fcIsLegend() {
-  return lsGet(LEGEND_KEY, false) === true || lsGet(LEGEND_KEY, false) === '1';
+  const val = lsGet(LEGEND_KEY, false);
+  return val === true || val === '1';
 }
 
 export function _fcAwardLegendBadge() {
