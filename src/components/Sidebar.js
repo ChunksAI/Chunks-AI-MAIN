@@ -416,8 +416,10 @@ if (document.readyState === 'loading') {
 /** Render the study streak widget in all sidebars */
 export function _renderSidebarStreak() {
   try {
-    const raw = localStorage.getItem('chunks_fc_streak_v1');
-    const streak = raw ? JSON.parse(raw) : null;
+    // Use the storage bridge (lsGet handles JSON parsing + IDB routing)
+    const streak = window._lsGet
+      ? window._lsGet('chunks_fc_streak_v1', null)
+      : (() => { try { const r = localStorage.getItem('chunks_fc_streak_v1'); return r ? JSON.parse(r) : null; } catch (_) { return null; } })();
     const count = streak?.current || 0;
     document.querySelectorAll('#sidebar-streak-widget').forEach(el => {
       const daysEl = el.querySelector('.streak-days');

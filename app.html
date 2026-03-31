@@ -604,8 +604,8 @@ function _setActiveRecent(id) {
   else localStorage.removeItem('chunks_active_recent_id');
 }
 
-function _deleteRecent(id, e) {
-  e.stopPropagation();
+async function _deleteRecent(id, e) {
+  if (e && e.stopPropagation) e.stopPropagation();
 
   // Find the item before removing it
   const item = _recentItems.find(r => r.id === id);
@@ -640,6 +640,19 @@ function _deleteRecent(id, e) {
     } catch (_) {}
   }
 
+  // ── NON-OPTIMISTIC DELETE: await Supabase first ─────────────────────────
+  // Do NOT update local state until the DB delete succeeds.
+  // If the delete fails, show a toast and leave the item in the sidebar.
+  if (resolvedUuid && window.ChunksDB?.chat?.deleteSession) {
+    const result = await window.ChunksDB.chat.deleteSession(resolvedUuid);
+    if (result && result.error) {
+      console.error('[_deleteRecent] Supabase delete failed:', result.error);
+      wsShowToast?.('⚠', 'Failed to delete chat. Please try again.', 'var(--red)');
+      return; // DO NOT update local state — the row still exists in Supabase
+    }
+  }
+
+  // ── DB delete succeeded (or user is guest) — now update local state ─────
   // Remove from list and persist
   _recentItems = _recentItems.filter(r => r.id !== id);
   _saveRecent();
@@ -672,10 +685,6 @@ function _deleteRecent(id, e) {
     localStorage.setItem('chunks_deleted_sessions', JSON.stringify(tombs.slice(-200)));
   } catch (_) {}
 
-  // Delete from Supabase using the fully resolved UUID.
-  if (resolvedUuid && window.ChunksDB?.chat?.deleteSession) {
-    window.ChunksDB.chat.deleteSession(resolvedUuid).catch(() => {});
-  }
   if (item && item.source === 'visual') {
     localStorage.removeItem('chunks_vt_session_' + id);
   }
@@ -685,7 +694,6 @@ function _deleteRecent(id, e) {
 
   // If this was the active chat, reset the UI back to landing
   if (_activeRecentId === id) {
-    const deletedItem = _recentItems.find(r => r.id === id); // captured before filter above
     _activeRecentId = null;
     localStorage.removeItem('chunks_active_recent_id');
     localStorage.removeItem('chunks_active_home_session');
@@ -712,7 +720,7 @@ function _deleteRecent(id, e) {
     _wsChatHistory = [];
 
     // If deleted item was a visual tutor chat, stay on visual screen at entry
-    if (deletedItem && deletedItem.source === 'visual') {
+    if (item && item.source === 'visual') {
       if (typeof window._vtClear === 'function') window._vtClear();
       showScreen('visual');
     } else {
@@ -943,8 +951,8 @@ function _showRecentCtxMenu(item, e) {
         title: 'Delete this chat?',
         desc: `"${item.label.replace(/…$/, '')}" will be permanently removed.`,
         confirmLabel: 'Delete chat',
-        onConfirm: () => {
-          _deleteRecent(item.id, { stopPropagation: () => {} });
+        onConfirm: async () => {
+          await _deleteRecent(item.id, { stopPropagation: () => {} });
           wsShowToast('🗑️', 'Chat deleted', '');
         }
       });
