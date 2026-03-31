@@ -21,9 +21,9 @@ Tier environment variables
   LARGE_MODEL   large — research layers, complex derivations, exam writing
                 default: openai/gpt-4o-mini  (or whatever is set)
   THINK_MODEL   chain-of-thought — activated by [THINKING_MODE] token
-                default: deepseek/deepseek-r1-distill-llama-70b:free
+                default: openai/gpt-oss-20b:nitro
   DEEP_MODEL    deep reasoning — activated by [DEEP_THINKING_MODE] token
-                default: deepseek/deepseek-r1:free
+                default: google/gemini-2.5-flash
 
 Task-type registry
 ──────────────────
