@@ -704,7 +704,25 @@ export function clearAllHistory() {
     title:        'Clear your chat history — are you sure?',
     desc:         'This will permanently delete all saved conversations and cannot be undone.',
     confirmLabel: 'Confirm deletion',
-    onConfirm: () => {
+    onConfirm: async () => {
+      // ── Delete from Supabase first (logged-in users only) ─────────────
+      const deleteBtn = document.getElementById('delete-all-btn');
+      if (_currentUser?.id) {
+        if (deleteBtn) {
+          deleteBtn.textContent = 'Deleting…';
+          deleteBtn.disabled = true;
+        }
+        const { error } = await ChunksDB.chat.deleteAllSessions();
+        if (error) {
+          if (deleteBtn) {
+            deleteBtn.textContent = 'Delete all';
+            deleteBtn.disabled = false;
+          }
+          showToast('⚠', 'Failed to delete chat history. Please try again.', 'var(--red)');
+          return;
+        }
+      }
+
       // ── Clear all history keys from localStorage ──────────
       Object.keys(localStorage).filter(k =>
         k.startsWith('chunks_session_') ||

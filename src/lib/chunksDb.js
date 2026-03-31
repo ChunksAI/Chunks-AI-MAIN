@@ -591,6 +591,32 @@ const chat = {
     // DELETE the Supabase row with retry
     return _deleteWithRetry(sessionId);
   },
+
+  /**
+   * Delete ALL chat sessions for the current user from Supabase.
+   * Used by "Delete all chat history" so the deletion persists across page
+   * refreshes and other devices (otherwise pullAndApply re-downloads them).
+   *
+   * @returns {{ error }}
+   */
+  async deleteAllSessions() {
+    if (!isLoggedIn()) return { error: null };
+
+    const sb = await _sb();
+    if (!sb) return { error: 'no_client' };
+
+    try {
+      const { error } = await sb
+        .from('chat_sessions')
+        .delete()
+        .eq('user_id', _uid());
+      if (error) console.warn('[ChunksDB] deleteAllSessions error:', error.message);
+      return { error };
+    } catch (e) {
+      console.warn('[ChunksDB] deleteAllSessions threw:', e.message);
+      return { error: e.message };
+    }
+  },
 };
 
 // ── Server-side tombstone helpers ────────────────────────────────────────────
