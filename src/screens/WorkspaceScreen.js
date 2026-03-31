@@ -506,6 +506,8 @@ export function wsMobileView(view) {
     pdfPanel.classList.add('mobile-visible');
     tabChat?.classList.remove('active');
     tabPdf?.classList.add('active');
+    // Re-fit PDF now the container is visible (it was hidden during initial scale calc)
+    requestAnimationFrame(() => window.wsFitWidth?.());
   } else {
     ws.classList.remove('ws-pdf-mode');
     pdfPanel.classList.remove('mobile-visible');

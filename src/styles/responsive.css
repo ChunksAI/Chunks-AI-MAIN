@@ -617,6 +617,10 @@
   #screen-workspace .pdf-panel.mobile-visible .pdf-outline-panel {
     display: none !important;
   }
+  /* Hide sticky notes strip on mobile — it needs a mouse to use and wastes width */
+  #screen-workspace .pdf-panel.mobile-visible .sticky-strip-mount {
+    display: none !important;
+  }
   #screen-workspace .pdf-panel.mobile-visible .pdf-view {
     flex: 1 !important;
     width: 100% !important;
