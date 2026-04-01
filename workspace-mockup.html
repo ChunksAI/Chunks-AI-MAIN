@@ -664,6 +664,107 @@ a, button, label, select,
   border-radius: 4px;
 }
 @keyframes skeleton-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+/* ═══════════════════════════════════════════════════════════
+   STUDY MODE — tokens (exact copy from tokens.css)
+═══════════════════════════════════════════════════════════ */
+[data-theme="study"] {
+  --bg:          #f3efe6;
+  --surface-0:   #ede8de;
+  --surface-1:   #ffffff;
+  --surface-2:   #f5f1ea;
+  --surface-3:   #ece7dd;
+  --surface-4:   #ddd6c8;
+  --border-xs:   rgba(0,0,0,0.05);
+  --border-sm:   rgba(0,0,0,0.08);
+  --border-md:   rgba(0,0,0,0.13);
+  --border-lg:   rgba(0,0,0,0.20);
+  --border:      rgba(0,0,0,0.08);
+  --surface:     #faf7f2;
+  --text-1: #2a2218;
+  --text-2: #4a4238;
+  --text-3: #7a7060;
+  --text-4: #a89e8e;
+  --gold:        #b87a10;
+  --gold-bright: #d4920a;
+  --gold-muted:  rgba(184,122,16,0.12);
+  --gold-glow:   rgba(184,122,16,0.20);
+  --gold-border: rgba(184,122,16,0.25);
+  --accent:      #b87a10;
+  --accent-dim:  rgba(184,122,16,0.12);
+  --accent-glow: rgba(184,122,16,0.22);
+  --teal:        #0e7a6e;
+  --teal-muted:  rgba(14,122,110,0.10);
+  --teal-dim:    rgba(14,122,110,0.10);
+  --violet:        #5b4dd4;
+  --violet-muted:  rgba(91,77,212,0.10);
+  --violet-border: rgba(91,77,212,0.20);
+  --violet-dim:    rgba(91,77,212,0.10);
+  --red:   #c0392b;
+  --green: #1a8a58;
+}
+
+/* ── Study mode body + backgrounds (from base.css) ─────── */
+[data-theme="study"] body {
+  background: #f5f0e8;
+  color: var(--text-1);
+}
+[data-theme="study"] body::before {
+  background:
+    radial-gradient(ellipse 70% 50% at 50% -5%,  rgba(200,135,26,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(180,120,10,0.05) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 0% 80%,   rgba(140,110,60,0.05) 0%, transparent 55%),
+    linear-gradient(160deg, #f2ece0 0%, #f5f0e8 40%, #ede8dc 100%);
+}
+[data-theme="study"] body::after { background: none; }
+
+/* ── Study mode scrollbars (from tokens.css) ─────────────── */
+[data-theme="study"] ::-webkit-scrollbar { width: 6px; }
+[data-theme="study"] ::-webkit-scrollbar-track { background: var(--surface-2); }
+[data-theme="study"] ::-webkit-scrollbar-thumb { background: var(--surface-4); border-radius: 99px; }
+
+/* ── Theme toggle button (from tokens.css) ───────────────── */
+.theme-toggle-btn {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 7px 12px;
+  background: transparent; border: 1px solid var(--border-sm);
+  border-radius: var(--r-md); cursor: pointer;
+  font-family: var(--font-body); font-size: 12px;
+  color: var(--text-3);
+  transition: all .18s;
+}
+.theme-toggle-btn:hover { background: var(--surface-2); border-color: var(--border-md); color: var(--text-1); }
+[data-theme="study"] .theme-toggle-btn { border-color: rgba(184,122,16,.25); color: var(--gold); background: var(--gold-muted); }
+
+/* ── Study mode workspace-specific overrides (from workspace.css) ── */
+[data-theme="study"] .pdf-bar-pill {
+  background: rgba(0,0,0,0.08);
+  border-color: rgba(0,0,0,0.12);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15), 0 1px 0 rgba(255,255,255,0.8) inset;
+}
+[data-theme="study"] .pdf-tb-btn:hover { background: rgba(0,0,0,0.07); }
+[data-theme="study"] .pdf-tb-sep { background: rgba(0,0,0,0.10); }
+[data-theme="study"] .pdf-page-progress { background: rgba(0,0,0,0.08); }
+[data-theme="study"] .page-badge { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.08); }
+[data-theme="study"] .page-badge:hover { background: rgba(0,0,0,0.09); }
+[data-theme="study"] .chat-input-card { background: #fff; border-color: rgba(0,0,0,0.12); box-shadow: 0 2px 16px rgba(0,0,0,0.10); }
+[data-theme="study"] .chat-input-card:focus-within { border-color: rgba(0,0,0,0.18); box-shadow: 0 2px 20px rgba(0,0,0,0.13); }
+[data-theme="study"] .chat-action-chips { border-bottom-color: rgba(0,0,0,0.08); }
+[data-theme="study"] .chat-action-chip { border-right-color: rgba(0,0,0,0.08); color: var(--text-2); }
+[data-theme="study"] .chat-action-chip:hover { color: var(--text-1); background: rgba(0,0,0,0.04); }
+[data-theme="study"] .chat-input-footer { border-top-color: rgba(0,0,0,0.08); }
+[data-theme="study"] .chat-footer-btn { border-color: rgba(0,0,0,0.10); }
+[data-theme="study"] .chat-footer-btn:hover { background: rgba(0,0,0,0.05); border-color: rgba(0,0,0,0.16); }
+
+/* ── Study mode simulated PDF page ─────────────────────────── */
+[data-theme="study"] .pdf-page-sim {
+  background: #fffdf9;
+  border-color: rgba(0,0,0,0.08);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+}
+
+/* ── Smooth theme transition (from tokens.css) ──────────────── */
+html { transition: background-color .35s ease, color .35s ease; }
 </style>
 </head>
 <body>
@@ -776,6 +877,14 @@ a, button, label, select,
 
     <!-- Footer -->
     <div class="sidebar-footer">
+      <!-- Theme toggle -->
+      <button class="theme-toggle-btn" id="theme-toggle-btn" style="margin-bottom:8px;">
+        <svg id="theme-toggle-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <!-- Moon icon (shown in dark mode) -->
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <span id="theme-toggle-label">Study Mode</span>
+      </button>
       <div class="profile-row">
         <div class="avatar has-initials">AJ</div>
         <div class="profile-text">
@@ -1206,6 +1315,30 @@ a, button, label, select,
 </div><!-- /screen-workspace -->
 
 <script>
+// ── Theme (Study Mode) toggle ──────────────────────────────────────────────────
+const themeToggleBtn   = document.getElementById('theme-toggle-btn');
+const themeToggleIcon  = document.getElementById('theme-toggle-icon');
+const themeToggleLabel = document.getElementById('theme-toggle-label');
+
+const MOON_PATH = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+const SUN_PATH  = '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>';
+
+function applyTheme(study) {
+  if (study) {
+    document.documentElement.setAttribute('data-theme', 'study');
+    themeToggleIcon.innerHTML = SUN_PATH;
+    themeToggleLabel.textContent = 'Dark Mode';
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    themeToggleIcon.innerHTML = MOON_PATH;
+    themeToggleLabel.textContent = 'Study Mode';
+  }
+}
+
+themeToggleBtn.addEventListener('click', () => {
+  applyTheme(document.documentElement.getAttribute('data-theme') !== 'study');
+});
+
 // ── Sidebar collapse toggle ────────────────────────────────────────────────────
 const sidebar = document.getElementById('ws-sidebar');
 const collapseBtn = document.getElementById('collapse-btn');
