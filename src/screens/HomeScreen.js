@@ -40,6 +40,8 @@ import { idbKeys } from '../lib/idbStorage.js';
 import { ChunksDB } from '../lib/chunksDb.js';
 import { subscribeToHomeMessages, unsubscribeHomeMessages } from '../state/home/homeMessagesRealtime.js';
 import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../components/ThinkingAccordion.js';
+import { typewriteResponse } from '../utils/typewriter.js';
+import { createChatBar } from '../components/ChatBar/ChatBar.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -179,8 +181,9 @@ const HOME_HTML = /* html */`
     <!-- Sticky bottom input bar — shown only after first message -->
     <div class="home-input-bar" id="home-input-bar" style="display:none;">
       <div id="home-attach-preview-bottom" class="attach-preview" style="margin-bottom:4px;"></div>
-      <div class="ask-box" id="home-ask-box-bottom" style="max-width:860px;">
-        <div class="ask-plus-wrap">
+      <div class="home-bottom-bar-row" style="display:flex;align-items:flex-end;gap:8px;max-width:860px;width:100%;margin:0 auto;">
+        <!-- Plus/attach button stays outside the ChatBar -->
+        <div class="ask-plus-wrap" style="flex-shrink:0;">
           <button class="chat-plus" id="home-plus-btn-bottom" onclick="homeToggleAttachMenu(event,'bottom')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           <div class="attach-menu home-rich-menu" id="home-attach-menu-bottom">
             <div class="attach-menu-section-label">Attach</div>
@@ -213,10 +216,8 @@ const HOME_HTML = /* html */`
         </div>
         <input type="file" id="home-attach-image-bottom" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image','bottom')">
         <input type="file" id="home-attach-pdf-bottom" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf','bottom')">
-        <textarea id="home-ask-input-bottom" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
-        <button class="ask-send" id="home-send-btn-bottom" data-action="homeSendMessage">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-        </button>
+        <!-- ChatBar mount point -->
+        <div id="home-chatbar-mount" style="flex:1;min-width:0;"></div>
       </div>
       <div class="home-disclaimer">Chunks AI can make mistakes. Verify important information.</div>
     </div>
@@ -544,9 +545,35 @@ export function mountHomeScreen() {
   // Render recent activities or fallback chips
   _renderHomeActivities();
 
+  // ── Mount ChatBar into the bottom input bar ──
+  _mountHomeChatBar();
+
   // Wire incognito modal listeners immediately after DOM is injected
   _wireIncognitoListeners();
   _wireIncognitoBackdrop();
+}
+
+// ── Home ChatBar ──────────────────────────────────────────────────────────────
+
+let _homeChatBarHandle = null;
+
+function _mountHomeChatBar() {
+  const mount = document.getElementById('home-chatbar-mount');
+  if (!mount) return;
+
+  _homeChatBarHandle = createChatBar(mount, {
+    placeholder:   'Ask anything…',
+    showChips:     false,
+    showAttach:    false,
+    showVoice:     false,
+    showDeepThink: false,
+    onSend:        () => { homeSendMessage(); },
+  });
+
+  // Assign IDs that existing code relies on
+  _homeChatBarHandle.textarea.id = 'home-ask-input-bottom';
+  _homeChatBarHandle.sendBtn.id  = 'home-send-btn-bottom';
+  _homeChatBarHandle.sendBtn.setAttribute('data-action', 'homeSendMessage');
 }
 
 // ── Recent Activities / Suggestion chips ─────────────────────────────────────
@@ -662,40 +689,57 @@ export function homeAppendUser(text) {
   homeScrollBottom();
 }
 
+/** Handle for the currently-mounted ThinkingAccordion (if any). */
+let _homeThinkingHandle = null;
+let _homeThinkingWrap   = null;
+
 export function homeAppendThinking() {
+  // Remove any leftover accordion from a prior request
+  homeRemoveThinking();
+
   const wrap = document.createElement('div');
   wrap.className = 'hc-ai';
   wrap.id = 'hc-thinking';
-  wrap.innerHTML = `
-    ${_HOME_AI_AVATAR}
-    <div class="hc-ai-body">
-      <div style="display:flex;align-items:center;gap:10px;padding:3px 0;">
-        <div class="hc-thinking"><span></span><span></span><span></span></div>
-        <span id="home-thinking-label" class="hc-thinking-label">Thinking…</span>
-      </div>
-    </div>`;
+
+  const avatarHtml = _HOME_AI_AVATAR;
+  const bodyWrap = document.createElement('div');
+  bodyWrap.className = 'hc-ai-body';
+
+  const container = document.createElement('div');
+  container.style.cssText = 'width:100%;';
+  bodyWrap.appendChild(container);
+
+  wrap.innerHTML = avatarHtml;
+  wrap.appendChild(bodyWrap);
   document.getElementById('home-chat-history').appendChild(wrap);
+  _homeThinkingWrap = wrap;
+
+  // Mount ThinkingAccordion in streaming mode (empty steps, live timer)
+  _homeThinkingHandle = createThinkingAccordion(container, {
+    steps: [],
+    elapsed: 0,
+    tags: [],
+    isStreaming: true,
+  });
+
   homeScrollBottom();
-  const labels = ['Thinking…', 'Analyzing concept…', 'Reading context…', 'Generating explanation…'];
-  let li = 0;
-  wrap._labelTimer = setInterval(() => {
-    const el = document.getElementById('home-thinking-label');
-    if (!el) return;
-    el.style.opacity = '0';
-    setTimeout(() => {
-      li = (li + 1) % labels.length;
-      el.textContent = labels[li];
-      el.style.opacity = '';
-    }, 280);
-  }, 2400);
 }
 
 export function homeRemoveThinking() {
+  if (_homeThinkingHandle) {
+    _homeThinkingHandle.unmount();
+    _homeThinkingHandle = null;
+  }
+  if (_homeThinkingWrap) {
+    _homeThinkingWrap.remove();
+    _homeThinkingWrap = null;
+  }
+  // Fallback: remove by id in case something else created it
   const el = document.getElementById('hc-thinking');
   if (el) { clearInterval(el._labelTimer); el.remove(); }
 }
 
-export function homeAppendAI(text, sources) {
+export function homeAppendAI(text, sources, { typewrite = false } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'hc-ai';
   let sourceBadge = '';
@@ -705,23 +749,46 @@ export function homeAppendAI(text, sources) {
       📖 Page ${sources[0].page}
     </div>`;
   }
+  // Always use .hc-ai-text wrapper for consistency (typewriter or not)
+  const bodyContent = typewrite ? '' : homeMarkdown(text);
   wrap.innerHTML = `
     ${_HOME_AI_AVATAR}
-    <div class="hc-ai-body">${homeMarkdown(text)}${sourceBadge}</div>`;
+    <div class="hc-ai-body"><div class="hc-ai-text">${bodyContent}</div>${sourceBadge}</div>`;
   document.getElementById('home-chat-history').appendChild(wrap);
   homeScrollBottom();
+  return wrap;
 }
 
 /**
- * Prepend a ThinkingAccordion before the AI response when thinking mode was used.
- * Always renders when thinking mode is active, using a generic fallback step when
- * the model did not emit explicit `<think>` content.
+ * Finalize the ThinkingAccordion with actual thinking content.
+ * Replaces the streaming accordion with one that animates the real steps.
  *
  * @param {string|null} thinkingContent  Raw `<think>` content returned by the backend.
  * @param {number}      elapsed          Seconds elapsed while the model was thinking.
  * @param {'think'|'deep'} thinkingMode  Active thinking mode.
  */
 export function homeAppendThinkingAccordion(thinkingContent, elapsed, thinkingMode) {
+  // Clean up any existing streaming accordion handle
+  if (_homeThinkingHandle) {
+    _homeThinkingHandle.unmount();
+    _homeThinkingHandle = null;
+  }
+
+  // If the streaming wrap still exists, repurpose it for the real accordion
+  let wrap;
+  if (_homeThinkingWrap) {
+    wrap = _homeThinkingWrap;
+    wrap.removeAttribute('id');
+    // Re-wrap as a thinking-accordion container instead of an AI message
+    wrap.className = 'hc-thinking-accordion-wrap';
+    wrap.innerHTML = '';
+    _homeThinkingWrap = null;
+  } else {
+    wrap = document.createElement('div');
+    wrap.className = 'hc-thinking-accordion-wrap';
+    document.getElementById('home-chat-history').appendChild(wrap);
+  }
+
   let steps = thinkingContent ? parseThinkingSteps(thinkingContent) : [];
   // When the model didn't emit <think> tags, show a single descriptive placeholder step
   if (steps.length === 0) {
@@ -731,11 +798,8 @@ export function homeAppendThinkingAccordion(thinkingContent, elapsed, thinkingMo
     }];
   }
   const tags = inferThinkingTags(steps, thinkingContent || '');
-  const wrap = document.createElement('div');
-  wrap.className = 'hc-thinking-accordion-wrap';
   const container = document.createElement('div');
   wrap.appendChild(container);
-  document.getElementById('home-chat-history').appendChild(wrap);
   createThinkingAccordion(container, { steps, elapsed, tags, isStreaming: false });
   homeScrollBottom();
 }
@@ -892,9 +956,15 @@ export async function homeSendMessage() {
       }),
     });
 
-    homeRemoveThinking();
+    // When thinking mode was used, finalize the accordion instead of removing it
+    if (_homeThinking !== 'off') {
+      // Don't remove — homeAppendThinkingAccordion will repurpose the existing wrap
+    } else {
+      homeRemoveThinking();
+    }
 
     if (!res.ok) {
+      if (_homeThinking !== 'off') homeRemoveThinking(); // clean up on error
       const err = await res.json().catch(() => ({}));
       homeAppendError(err.error || `Error ${res.status}`);
       homeHistory.pop();
@@ -904,8 +974,21 @@ export async function homeSendMessage() {
       if (_homeThinking !== 'off') {
         const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
         homeAppendThinkingAccordion(data.thinking_content || null, elapsed, _homeThinking);
+      } else {
+        // Not in thinking mode — remove the streaming accordion
+        homeRemoveThinking();
       }
-      homeAppendAI(answer, null);
+
+      // ── Typewriter: render AI response word by word ──
+      const aiWrap = homeAppendAI(answer, null, { typewrite: true });
+      const textEl = aiWrap?.querySelector('.hc-ai-text');
+      if (textEl) {
+        await typewriteResponse(textEl, answer, {
+          render: homeMarkdown,
+          onScroll: homeScrollBottom,
+        });
+      }
+
       homeHistory.push({ role: 'assistant', content: answer });
       // Overwrite with full exchange (user + AI)
       if (_homeSessionId) {
@@ -979,7 +1062,7 @@ mountHomeScreen();
         const rendered = homeMarkdown
           ? homeMarkdown(msg.content || '')
           : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-        wrap.innerHTML = `${_HOME_AI_AVATAR}<div class="hc-ai-body">${rendered}</div>`;
+        wrap.innerHTML = `${_HOME_AI_AVATAR}<div class="hc-ai-body"><div class="hc-ai-text">${rendered}</div></div>`;
         chatHist.appendChild(wrap);
       }
     });
