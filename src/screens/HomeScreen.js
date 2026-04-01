@@ -667,9 +667,9 @@ const _IMAGE_ONLY_LABEL = '[Image]';
 export function homeAppendUser(text, images = []) {
   const el = document.createElement('div');
   el.className = 'hc-user';
-  if (text) el.appendChild(document.createTextNode(text));
+  // Images first (on top), then text below — matches Claude.ai / ChatGPT layout
   images.forEach(a => {
-    const wrap = document.createElement('span');
+    const wrap = document.createElement('div');
     wrap.className = 'chat-img-wrap';
     wrap.onclick = () => window.openImgLightbox?.(wrap);
     const img = document.createElement('img');
@@ -677,6 +677,7 @@ export function homeAppendUser(text, images = []) {
     wrap.appendChild(img);
     el.appendChild(wrap);
   });
+  if (text) el.appendChild(document.createTextNode(text));
   document.getElementById('home-chat-history').appendChild(el);
   homeScrollBottom();
 }

@@ -129,11 +129,13 @@ window.wsChatSend = async function() {
     ? `<div style="margin-bottom:7px;padding:7px 10px;border-left:2px solid var(--gold);background:var(--gold-muted);border-radius:0 6px 6px 0;font-size:11px;color:var(--text-3);line-height:1.5;font-style:italic;">"${ws.selectedText.slice(0,160).replace(/&/g,'&amp;').replace(/</g,'&lt;')}${ws.selectedText.length>160?'…':''}"</div>`
     : '';
 
-  let bubbleHtml = question ? question.replace(/&/g,'&amp;').replace(/</g,'&lt;') : '';
+  // Images first (on top), then text below — matches Claude.ai / ChatGPT layout
+  const textHtml = question ? question.replace(/&/g,'&amp;').replace(/</g,'&lt;') : '';
+  let attachHtml = '';
   if (ws.attachments.length) {
-    bubbleHtml += ws.attachments.map(a =>
+    attachHtml = ws.attachments.map(a =>
       a.type === 'image'
-        ? `<span class="chat-img-wrap" onclick="openImgLightbox(this)"><img src="${a.dataUrl}" alt="${a.name.replace(/"/g,'&quot;')}"></span>`
+        ? `<div class="chat-img-wrap" onclick="openImgLightbox(this)"><img src="${a.dataUrl}" alt="${a.name.replace(/"/g,'&quot;')}"></div>`
         : `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-3);border:1px solid var(--border-md);border-radius:8px;padding:6px 10px;font-size:12px;margin-top:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>${a.name}</div>`
     ).join('');
   }
@@ -144,7 +146,7 @@ window.wsChatSend = async function() {
   if (welcome) welcome.remove();
   const d = document.createElement('div');
   d.className = 'msg msg-user';
-  d.innerHTML = `<div class="bubble-user">${selQuote}${bubbleHtml}</div>`;
+  d.innerHTML = `<div class="bubble-user">${selQuote}${attachHtml}${textHtml}</div>`;
   msgs.appendChild(d); wsScrollBottom();
 
   // Extract image for vision API; only append text metadata for non-image files
