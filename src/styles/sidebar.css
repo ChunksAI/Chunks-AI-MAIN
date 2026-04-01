@@ -792,7 +792,7 @@ body.guest-mode .sidebar-footer { margin-top: auto; }
 }
 .sidebar.compact .sidebar-streak-widget { display: none !important; }
 
-/* ── Profile area (profile row + settings icon) ──────────── */
+/* ── Profile area (profile row) ──────────── */
 .sidebar-profile-area {
   display: flex;
   align-items: center;
@@ -802,22 +802,5 @@ body.guest-mode .sidebar-footer { margin-top: auto; }
   flex: 1;
   min-width: 0;
 }
-.sidebar-settings-btn {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px; height: 28px;
-  border-radius: var(--r-sm);
-  border: none;
-  background: transparent;
-  color: var(--text-4);
-  cursor: pointer;
-  transition: color var(--t-fast), background var(--t-fast);
-}
-.sidebar-settings-btn:hover { background: var(--surface-3); color: var(--text-2); }
-.sidebar-settings-btn svg { opacity: 0.7; transition: opacity var(--t-fast); }
-.sidebar-settings-btn:hover svg { opacity: 1; }
 .sidebar.compact .sidebar-profile-area { justify-content: center; }
-.sidebar.compact .sidebar-settings-btn { display: none; }
 
