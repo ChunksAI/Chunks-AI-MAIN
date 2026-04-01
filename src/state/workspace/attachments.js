@@ -133,7 +133,7 @@ window.wsChatSend = async function() {
   if (ws.attachments.length) {
     bubbleHtml += ws.attachments.map(a =>
       a.type === 'image'
-        ? `<img src="${a.dataUrl}" style="max-width:180px;max-height:140px;border-radius:8px;display:block;margin-top:6px;">`
+        ? `<span class="chat-img-wrap" onclick="openImgLightbox(this)"><img src="${a.dataUrl}" alt="${a.name.replace(/"/g,'&quot;')}"></span>`
         : `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-3);border:1px solid var(--border-md);border-radius:8px;padding:6px 10px;font-size:12px;margin-top:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>${a.name}</div>`
     ).join('');
   }
@@ -203,3 +203,48 @@ export function _homeRenderPreview() {
     });
   });
 }
+
+// ── Image lightbox ────────────────────────────────────────────────────────
+
+let _lightboxEl  = null;
+let _lightboxKey = null;
+
+export function openImgLightbox(wrapEl) {
+  const img = wrapEl instanceof HTMLElement ? wrapEl.querySelector('img') : null;
+  if (!img) return;
+  closeImgLightbox(); // clean up any existing lightbox + listener
+
+  const overlay = document.createElement('div');
+  overlay.className = 'img-lightbox';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+
+  const full = document.createElement('img');
+  full.src = img.src;
+  full.alt = img.alt || '';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'img-lightbox-close';
+  closeBtn.setAttribute('aria-label', 'Close image preview');
+  closeBtn.innerHTML = '✕';
+  closeBtn.onclick = e => { e.stopPropagation(); closeImgLightbox(); };
+
+  overlay.appendChild(full);
+  overlay.appendChild(closeBtn);
+  overlay.onclick = () => closeImgLightbox();
+
+  document.body.appendChild(overlay);
+  _lightboxEl = overlay;
+
+  _lightboxKey = e => { if (e.key === 'Escape') closeImgLightbox(); };
+  document.addEventListener('keydown', _lightboxKey);
+}
+
+export function closeImgLightbox() {
+  if (_lightboxKey) { document.removeEventListener('keydown', _lightboxKey); _lightboxKey = null; }
+  if (_lightboxEl)  { _lightboxEl.remove(); _lightboxEl = null; }
+}
+
+// Expose to inline onclick handlers
+window.openImgLightbox  = openImgLightbox;
+window.closeImgLightbox = closeImgLightbox;
