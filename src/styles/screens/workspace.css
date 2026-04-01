@@ -1012,7 +1012,7 @@
 
 /* ── Chat message image ── */
 .chat-img-wrap {
-  display: inline-block; margin-top: 8px;
+  display: block; margin-bottom: 6px;
   border-radius: 12px; overflow: hidden;
   border: 1px solid var(--border-xs);
   max-width: 260px; cursor: zoom-in;
@@ -1110,6 +1110,7 @@
   border-radius: 18px 18px 4px 18px;
   padding: 11px 16px; font-size: var(--chat-font-size); color: var(--text-1);
   max-width: 72%; line-height: 1.55; white-space: pre-wrap;
+  display: flex; flex-direction: column;
 }
 .hc-ai { align-self: stretch; display: flex; gap: 14px; max-width: 100%; }
 .hc-ai-avatar {
