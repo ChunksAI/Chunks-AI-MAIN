@@ -279,6 +279,7 @@ def ask():
             )
             answer = call_ai(question, system_prompt=vt_system, model=selected_model, history=history,
                              endpoint='chat_visual', user_id=verified_user_id)
+            answer, thinking_content = extract_thinking_content(answer)
             return jsonify({
                 'success':        True,
                 'mode':           'visual_tutor',
@@ -288,6 +289,7 @@ def ask():
                 'source':         None,
                 'sources':        [],
                 'complexity_used': complexity,
+                'thinking_content': thinking_content,
             })
 
         # ── MODE: EXAM ────────────────────────────────────────────────────────
@@ -388,6 +390,7 @@ Rules:
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
                              endpoint='chat_exam', user_id=verified_user_id)
+            answer, thinking_content = extract_thinking_content(answer)
             questions = _parse_mcq(answer)
             return jsonify({
                 'success':        True,
@@ -400,7 +403,8 @@ Rules:
                 'source':         source,
                 'sources':        all_sources,
                 'complexity_used': complexity,
-                'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf'
+                'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf',
+                'thinking_content': thinking_content,
             })
 
         # ── MODE: PRACTICE ────────────────────────────────────────────────────
@@ -423,6 +427,7 @@ Structure your response like this:
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
                              endpoint='chat_practice', user_id=verified_user_id)
+            answer, thinking_content = extract_thinking_content(answer)
             return jsonify({
                 'success':        True,
                 'mode':           'practice',
@@ -432,7 +437,8 @@ Structure your response like this:
                 'source':         source,
                 'sources':        all_sources,
                 'complexity_used': complexity,
-                'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf'
+                'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf',
+                'thinking_content': thinking_content,
             })
 
         # ── MODE: SUMMARY ─────────────────────────────────────────────────────
@@ -455,6 +461,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
                              endpoint='chat_summary', user_id=verified_user_id)
+            answer, thinking_content = extract_thinking_content(answer)
             _resp = {
                 'success':        True,
                 'mode':           'summary',
@@ -464,7 +471,8 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 'source':         source,
                 'sources':        all_sources,
                 'complexity_used': complexity,
-                'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf'
+                'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf',
+                'thinking_content': thinking_content,
             }
             if _cache_eligible and _cache_key_val:
                 _ask_cache_set(_cache_key_val, _resp,

@@ -5,11 +5,34 @@
  * Word-by-word typewriter utilities for AI chat responses.
  *
  * Exports:
+ *   extractThinkBlock(text)                        — strips <think>…</think> from text, returns { answer, thinkingContent }
  *   typewriteResponse(element, fullText, options)  — simulated typewriter for non-streaming responses
  *   streamResponseToElement(element, stream)       — word-by-word renderer for SSE / ReadableStream
  */
 
 const _wait = ms => new Promise(res => setTimeout(res, ms));
+
+/**
+ * Strip any `<think>…</think>` block from `text` and return the two parts
+ * separately.  This is the frontend safety-net: the backend should already
+ * do this, but if it misses (wrong mode, malformed tags, etc.) we make sure
+ * the raw `<think>` markup never reaches the chat panel.
+ *
+ * @param {string} text  Raw AI response that may contain a `<think>` block.
+ * @returns {{ answer: string, thinkingContent: string|null }}
+ *   `answer`          — text with all `<think>…</think>` blocks removed and trimmed.
+ *   `thinkingContent` — the stripped reasoning text, or `null` when absent.
+ */
+export function extractThinkBlock(text) {
+  if (!text) return { answer: text, thinkingContent: null };
+  const match = text.match(/<think>([\s\S]*?)<\/think>/i);
+  if (match) {
+    const thinkingContent = match[1].trim() || null;
+    const answer = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    return { answer: answer || text, thinkingContent };
+  }
+  return { answer: text, thinkingContent: null };
+}
 
 /**
  * Simulate a typewriter effect on `element` for the given `fullText`.

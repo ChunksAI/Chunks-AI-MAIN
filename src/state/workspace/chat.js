@@ -12,7 +12,7 @@ import { showToast }   from '../../components/Toast.js';
 import { $el, setHtml, addClass, removeClass, toggleClass } from '../domHelpers.js';
 import { handleCommand, syncContextFromWorkspace, updateContext } from '../commandEngine.js';
 import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../../components/ThinkingAccordion.js';
-import { typewriteResponse } from '../../utils/typewriter.js';
+import { typewriteResponse, extractThinkBlock } from '../../utils/typewriter.js';
 
 // ── Toast (delegated to Toast.js — Task 20) ───────────────────────────────
 
@@ -550,25 +550,22 @@ export async function _wsAsk(question) {
         if (ws.thinking !== 'off') wsRemoveThinking();
         return;
       }
-      const answer = data.answer || 'No response.';
 
-      // [DEBUG] verify thinking_content reaches the frontend — remove after confirming
-      if (typeof window !== 'undefined' && window.__CHUNKS_DEBUG) {
-        console.log('[DEBUG] full response keys:', Object.keys(data));
-        console.log('[DEBUG] thinking_content length:', data.thinking_content?.length);
-        console.log('[DEBUG] thinking_content preview:', data.thinking_content?.slice(0, 200));
-      }
+      // ── Client-side <think> extraction (safety net if backend missed it) ──
+      const { answer, thinkingContent: clientThinking } = extractThinkBlock(data.answer || '');
+      const cleanAnswer     = answer || 'No response.';
+      const thinkingContent = data.thinking_content || clientThinking || null;
 
       // ── ThinkingAccordion: finalize with real steps if thinking was active ──
       if (ws.thinking !== 'off') {
-        _wsFinalizeThinking(data.thinking_content || null);
+        _wsFinalizeThinking(thinkingContent);
       }
 
       // ── Typewriter: render AI response word by word ──
       const aiEl = wsAppendAI('', data.sources || [], question, data.search_mode);
       const textEl = aiEl?.querySelector('.ai-text');
       if (textEl) {
-        await typewriteResponse(textEl, answer, {
+        await typewriteResponse(textEl, cleanAnswer, {
           render: typeof wsRender === 'function' ? wsRender : undefined,
           onScroll: wsScrollBottom,
         });
@@ -576,14 +573,14 @@ export async function _wsAsk(question) {
 
       ws.chatHistory.push({
         role:    'assistant',
-        content: answer,
-        blocks:  _wsBuildBlocks(answer, data.sources || [], question, data.search_mode),
+        content: cleanAnswer,
+        blocks:  _wsBuildBlocks(cleanAnswer, data.sources || [], question, data.search_mode),
       });
       if (aiEl) aiEl.dataset.histIdx = String(ws.chatHistory.length - 1);
       if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
       // Notify SmartNotesPanel so it can offer "Clip to notes"
       document.dispatchEvent(new CustomEvent('ws:ai-answer', {
-        detail: { text: answer.replace(/<[^>]*>/g, '').trim(), page: ws.currentPage || 1 },
+        detail: { text: cleanAnswer.replace(/<[^>]*>/g, '').trim(), page: ws.currentPage || 1 },
       }));
       // Update context with the current topic and page for command engine
       updateContext({ topic: question.slice(0, 120), screen: 'workspace' });

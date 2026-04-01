@@ -829,3 +829,140 @@ def test_ask_no_thinking_mode_system_prompt_no_think_instruction(client, monkeyp
     })
     assert resp.status_code == 200
     assert '<think>' not in captured.get('system_prompt', '')
+
+
+# ── <think> stripping in non-study modes ──────────────────────────────────────
+
+def test_visual_tutor_strips_think_block(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """visual_tutor mode strips <think>...</think> from the answer and returns thinking_content."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(
+        return_value='<think>\nDraw a circle first.\n</think>\n\nHere is the diagram.'
+    ))
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'Draw a water molecule',
+        'mode': 'visual_tutor',
+        'complexity': 5,
+        'bookId': 'zumdahl',
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    assert '<think>' not in data['answer']
+    assert data['answer'].strip() == 'Here is the diagram.'
+    assert data['thinking_content'] is not None
+    assert 'Draw a circle' in data['thinking_content']
+
+
+def test_practice_strips_think_block(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """practice mode strips <think>...</think> from the answer and returns thinking_content."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(
+        return_value='<think>\nIdentify knowns and unknowns.\n</think>\n\n1. PROBLEM STATEMENT — Find the velocity.'
+    ))
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'velocity problem',
+        'mode': 'practice',
+        'complexity': 5,
+        'bookId': 'zumdahl',
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    assert '<think>' not in data['answer']
+    assert 'PROBLEM STATEMENT' in data['answer']
+    assert data['thinking_content'] is not None
+    assert 'Identify knowns' in data['thinking_content']
+
+
+def test_summary_strips_think_block(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """summary mode strips <think>...</think> from the answer and returns thinking_content."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(
+        return_value='<think>\nOrganise the key concepts.\n</think>\n\n1. OVERVIEW — Entropy measures disorder.'
+    ))
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'entropy',
+        'mode': 'summary',
+        'complexity': 5,
+        'bookId': 'zumdahl',
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    assert '<think>' not in data['answer']
+    assert 'OVERVIEW' in data['answer']
+    assert data['thinking_content'] is not None
+    assert 'key concepts' in data['thinking_content']
+
+
+def test_exam_strips_think_block(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """exam mode strips <think>...</think> before MCQ parsing and returns thinking_content."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
+    import server as srv
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    raw_mcq = (
+        'Q1. What is H2O?\n'
+        'A) Hydrogen\nB) Water\nC) Oxygen\nD) Salt\n'
+        'Answer: B\nExplanation: Water is H2O.\n'
+    )
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(
+        return_value=f'<think>\nThink about molecules.\n</think>\n\n{raw_mcq}'
+    ))
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'Water chemistry',
+        'mode': 'exam',
+        'complexity': 5,
+        'bookId': 'zumdahl',
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    assert '<think>' not in data['raw']
+    assert data['thinking_content'] is not None
+    assert 'molecules' in data['thinking_content']
