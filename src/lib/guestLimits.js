@@ -424,6 +424,88 @@ export function showLoginWall(feature = 'general', opts = {}) {
   document.body.appendChild(overlay);
 }
 
+// ── Screen entry preview (shown once per session per screen) ─────────────
+
+const SCREEN_PREVIEW_LABELS = {
+  workspace: `You have ${GUEST_LIMITS.workspace} free workspace messages as a guest`,
+  library:   `You can open ${GUEST_LIMITS.library} book as a guest`,
+  flash:     `You can explore flashcards as a guest`,
+  studyplan: `You can generate ${GUEST_LIMITS.studyplan} study plan as a guest`,
+  visual:    `You can run ${GUEST_LIMITS.visual} visual tutor lesson as a guest`,
+  research:  `You can generate ${GUEST_LIMITS.research} research section as a guest`,
+  exam:      `You can take ${GUEST_LIMITS.exam} practice exam as a guest — MCQ only, up to 5 questions`,
+};
+
+const PREVIEW_SESSION_KEY = 'chunks_guest_preview_shown';
+
+/**
+ * Show a subtle, dismissable banner the first time a guest lands on a screen
+ * in a session. Does nothing for non-guest users or the home screen.
+ */
+export function showGuestScreenPreview(screen) {
+  if (!isGuest()) return;
+  const message = SCREEN_PREVIEW_LABELS[screen];
+  if (!message) return;
+
+  // Only show once per session per screen
+  try {
+    const shown = JSON.parse(sessionStorage.getItem(PREVIEW_SESSION_KEY) || '{}');
+    if (shown[screen]) return;
+    shown[screen] = true;
+    sessionStorage.setItem(PREVIEW_SESSION_KEY, JSON.stringify(shown));
+  } catch (_) { return; }
+
+  const bannerId = 'guest-screen-preview-banner';
+  document.getElementById(bannerId)?.remove();
+
+  const banner = document.createElement('div');
+  banner.id = bannerId;
+  banner.style.cssText = [
+    'position:fixed;top:12px;left:50%;transform:translateX(-50%);',
+    'z-index:9999;',
+    'background:var(--surface-2,#171820);',
+    'border:1px solid var(--border-sm,#2a2b38);',
+    'border-radius:10px;',
+    'padding:10px 16px;',
+    'display:flex;align-items:center;gap:10px;',
+    'font-size:13px;color:var(--text-2,#9898ae);',
+    'box-shadow:0 4px 24px rgba(0,0,0,0.4);',
+    'max-width:440px;width:calc(100% - 32px);',
+    'animation:_gpFadeIn 0.2s ease both;',
+  ].join('');
+
+  banner.innerHTML = `
+    <style>
+      @keyframes _gpFadeIn{from{opacity:0;transform:translateX(-50%) translateY(-6px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+      #guest-screen-preview-banner .gp-close{background:none;border:none;cursor:pointer;color:var(--text-3,#7c7c96);font-size:18px;line-height:1;padding:0 0 0 4px;flex-shrink:0;transition:color 0.15s;}
+      #guest-screen-preview-banner .gp-close:hover{color:var(--text-1,#ededf0);}
+    </style>
+    <span style="flex:1;">${message} — <a href="#" onclick="event.preventDefault();if(typeof window.openAuthModal==='function')window.openAuthModal();" style="color:var(--violet,#8b5cf6);text-decoration:none;font-weight:600;">Sign in for more</a></span>
+    <button class="gp-close" aria-label="Dismiss">&#x2715;</button>
+  `;
+
+  banner.querySelector('.gp-close').addEventListener('click', () => banner.remove());
+  document.body.appendChild(banner);
+  setTimeout(() => banner?.remove(), 6000);
+}
+
+// On module load, expose showGuestScreenPreview globally and show the preview
+// for the currently active screen. The global exposure allows screens.js to
+// call window.showGuestScreenPreview?.() without a static import (avoiding a
+// bundle-size increase for logged-in users). The _previewCurrentScreen IIFE
+// handles the page-load restore case where showScreen() fires before this
+// module has finished loading.
+window.showGuestScreenPreview = showGuestScreenPreview;
+(function _previewCurrentScreen() {
+  if (!isGuest()) return;
+  setTimeout(() => {
+    try {
+      const current = sessionStorage.getItem('chunks_last_screen');
+      if (current && current !== 'home') showGuestScreenPreview(current);
+    } catch (_) {}
+  }, 200);
+})();
+
 // ── Exam guest constraints ────────────────────────────────────────────────
 
 /** Force MCQ-only and max 5 questions for guests, returns true if modified */

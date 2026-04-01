@@ -171,6 +171,11 @@ export function showScreen(name) {
 
   try { sessionStorage.setItem('chunks_last_screen', name); } catch(e) {}
   _setPath(name);
+
+  // Show a one-time session preview banner for guests landing on non-home screens
+  if (name !== 'home') {
+    window.showGuestScreenPreview?.(name);
+  }
 }
 
 export function drawerNav(name) {
