@@ -130,15 +130,16 @@ function _wsFinalizeThinking(thinkingContent) {
     _wsThinkingHandle = null;
   }
 
-  // Build steps
-  let steps = thinkingContent ? parseThinkingSteps(thinkingContent) : [];
+  // Build steps from real thinking content
+  const steps = thinkingContent ? parseThinkingSteps(thinkingContent) : [];
+
+  // If the model produced no thinking content, remove the placeholder silently
   if (steps.length === 0) {
-    const mode = ws.thinking;
-    steps = [{
-      title:       mode === 'deep' ? 'Deep reasoning applied' : 'Enhanced reasoning applied',
-      description: 'The model reasoned through your question before generating this response.',
-    }];
+    _wsThinkingWrap.remove();
+    _wsThinkingWrap = null;
+    return;
   }
+
   const tags = inferThinkingTags(steps, thinkingContent || '');
 
   // Create a fresh container and mount the accordion with real steps

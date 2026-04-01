@@ -258,6 +258,16 @@ def ask():
                 f"{latex_instruction}{memory_block}"
             )
 
+        # ── Thinking mode: instruct model to emit chain-of-thought ────────────
+        if thinking_mode in ('thinking', 'deep'):
+            base_system += (
+                "\n\nIMPORTANT: Before writing your answer, show your complete step-by-step "
+                "reasoning process inside <think>...</think> tags. Work through the problem "
+                "carefully — consider what is being asked, recall relevant concepts, apply any "
+                "necessary formulas or logic, and verify your conclusion. "
+                "After the closing </think> tag, write your final answer to the student."
+            )
+
         # ── MODE: VISUAL_TUTOR ────────────────────────────────────────────────
         if mode == 'visual_tutor':
             vt_system = (

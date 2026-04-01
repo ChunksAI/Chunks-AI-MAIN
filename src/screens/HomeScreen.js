@@ -763,13 +763,12 @@ export function homeAppendThinkingAccordion(thinkingContent, elapsed, thinkingMo
     document.getElementById('home-chat-history').appendChild(wrap);
   }
 
-  let steps = thinkingContent ? parseThinkingSteps(thinkingContent) : [];
-  // When the model didn't emit <think> tags, show a single descriptive placeholder step
+  const steps = thinkingContent ? parseThinkingSteps(thinkingContent) : [];
+  // When the model produced no real thinking content, remove the placeholder silently
   if (steps.length === 0) {
-    steps = [{
-      title:       thinkingMode === 'deep' ? 'Deep reasoning applied' : 'Enhanced reasoning applied',
-      description: 'The model reasoned through your question before generating this response.',
-    }];
+    wrap.remove();
+    homeScrollBottom();
+    return;
   }
   const tags = inferThinkingTags(steps, thinkingContent || '');
   const container = document.createElement('div');
