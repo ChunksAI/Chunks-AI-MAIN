@@ -7247,9 +7247,9 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     if (!el) return;
     const action = el.dataset.action;
 
-    // Guest mode: block all sidebar interactions except the toggle buttons
+    // Guest mode: allow navigation and toggle buttons; block everything else in sidebar
     if (_isGuestMode() && el.closest('.sidebar')) {
-      const _SIDEBAR_ALWAYS_ALLOWED = ['toggleSidebar-self', 'handleLogoClick-self'];
+      const _SIDEBAR_ALWAYS_ALLOWED = ['toggleSidebar-self', 'handleLogoClick-self', 'showScreen', 'drawerNav'];
       if (!_SIDEBAR_ALWAYS_ALLOWED.includes(action)) return;
     }
 
