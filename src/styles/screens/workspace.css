@@ -1146,17 +1146,6 @@
   0%, 100% { opacity: 0.2; }
   50%       { opacity: 1; }
 }
-/* Label shimmer */
-.hc-thinking-label {
-  font-size: 11px; color: var(--text-3);
-  font-family: var(--font-mono); letter-spacing: 0.06em;
-  transition: opacity 0.3s ease;
-  animation: hc-label-breathe 3s ease-in-out infinite;
-}
-@keyframes hc-label-breathe {
-  0%, 100% { opacity: 0.45; }
-  50%       { opacity: 0.9; }
-}
 #home-ask-input { max-height: 160px; overflow-y: auto; }
 #screen-home main { overflow-y: auto; scrollbar-width: thin; }
 
