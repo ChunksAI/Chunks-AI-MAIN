@@ -594,7 +594,8 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     'is_relevant':    False,
                     'source':         None,
                     'sources':        [],
-                    'complexity_used': complexity
+                    'complexity_used': complexity,
+                    'thinking_content': None,
                 })
 
             if selected_text:

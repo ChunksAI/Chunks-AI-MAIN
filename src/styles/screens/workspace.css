@@ -1164,6 +1164,13 @@
    Reusable "Deep Thinking" collapsible component shown before AI responses
    when a thinking/deep-thinking model was used. ──────────────────────────── */
 
+/* Outer row wrapper for the ThinkingAccordion in the home chat history */
+.hc-thinking-accordion-wrap {
+  align-self: stretch;
+  max-width: 100%;
+  padding: 0 0 4px;
+}
+
 .ta-wrap {
   display: flex;
   flex-direction: column;

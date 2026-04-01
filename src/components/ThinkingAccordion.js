@@ -27,6 +27,9 @@
  *   accordion.update({ elapsed: 30, isStreaming: false });
  */
 
+import { mountIsland }             from '../preact/bridge.js';
+import { ThinkingAccordionIsland } from './ThinkingAccordion.jsx';
+
 // ── Constants ────────────────────────────────────────────────────────────────
 const MAX_THINKING_STEPS   = 8;   // cap per-response to keep the UI readable
 const MAX_DESCRIPTION_LEN  = 300; // chars per step description
