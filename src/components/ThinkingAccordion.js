@@ -46,22 +46,28 @@ const MAX_JITTER_MS   = 150;   // random extra delay so timing feels organic
 
 /** Derive a human-readable label for a reasoning chunk. */
 function _inferStepLabel(text) {
-  if (/\?|what\b|how\b|why\b|understand|question/i.test(text))    return 'Understanding the question';
-  if (/recall|remember|know\b|defined|definition|means\b/i.test(text)) return 'Recalling key concepts';
-  if (/formula|equation|calculat|convert|multipl|divid/i.test(text))   return 'Applying the formula';
-  if (/therefore|thus\b|answer\b|result\b|conclud/i.test(text))         return 'Reaching a conclusion';
-  if (/check\b|verify|confirm|make sure|correct/i.test(text))           return 'Verifying the answer';
-  if (/example|instance|such as/i.test(text))                           return 'Finding an example';
-  if (/structur|explain\b|present\b|response\b/i.test(text))            return 'Structuring the response';
-  return 'Reasoning';
+  const t = text.toLowerCase();
+  if (/what\b|how\b|why\b|understand|question|asking/i.test(t))              return 'Understanding the question';
+  if (/recall|remember|know\b|defined|definition|means\b/i.test(t))          return 'Recalling key concepts';
+  if (/gravity|formula|equation|f\s*=|g\s*=|weight|mass|force|calculat|convert|multipl|divid/i.test(t))
+                                                                              return 'Applying the formula';
+  if (/therefore|so the|thus\b|answer\b|result\b|conclud|would be|=\s*\d/i.test(t))
+                                                                              return 'Reaching a conclusion';
+  if (/check\b|verify|confirm|make sure|correct|double/i.test(t))            return 'Verifying the answer';
+  if (/step|first\b|next\b|then\b|finally/i.test(t))                        return 'Working through the steps';
+  if (/example|instance|such as|imagine|like\b/i.test(t))                    return 'Building an example';
+  if (/structur|explain\b|present\b|response\b/i.test(t))                   return 'Structuring the response';
+  return 'Reasoning through this';
 }
 
 /** Derive a skill tag for a reasoning chunk. */
 function _inferStepTag(text) {
-  if (/formula|equation|calculat|math|number/i.test(text))  return 'math';
-  if (/recall|remember|fact\b|definition/i.test(text))      return 'recall';
-  if (/structur|organiz|format\b/i.test(text))              return 'structure';
-  if (/verify|check\b|confirm/i.test(text))                 return 'verify';
+  const t = text.toLowerCase();
+  if (/\d+\.?\d*\s*[*\/+\-]\s*\d|formula|equation|calculat|=\s*\d|math|number/i.test(t)) return 'math';
+  if (/recall|remember|fact\b|definition|know that/i.test(t))      return 'recall';
+  if (/structur|organiz|format\b|present|explain/i.test(t))        return 'structure';
+  if (/verify|check\b|confirm|correct/i.test(t))                   return 'verify';
+  if (/analyz|compar|contrast|evaluat/i.test(t))                    return 'analysis';
   return 'logic';
 }
 
@@ -179,31 +185,52 @@ async function _animateSteps(steps, finalElapsed, tags, handle, intervals, conta
 
 /**
  * Parse raw `<think>...</think>` content (or plain prose) into structured
- * reasoning steps.  Splits on blank lines and numbered list markers; each
- * chunk gets an inferred human-readable title.
+ * reasoning steps.  Splits on blank lines and numbered list markers first;
+ * falls back to sentence-level grouping so single-paragraph content still
+ * produces multiple meaningful steps.
  *
  * @param {string} raw
- * @returns {{ title: string, description: string }[]}
+ * @returns {{ id: string, title: string, description: string, status: string, tag: string }[]}
  */
 export function parseThinkingSteps(raw) {
-  if (!raw || typeof raw !== 'string' || !raw.trim()) return [];
+  // Guard — if truly empty, return nothing (caller decides fallback)
+  if (!raw || typeof raw !== 'string' || raw.trim().length < 10) return [];
 
-  // Split on double newlines or numbered-list markers (e.g. "1. ", "2. ")
-  const chunks = raw
-    .split(/\n{2,}|\n?\d+\.\s+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 20); // skip tiny fragments
+  // 1. Try paragraph breaks or numbered-list markers first
+  let chunks = raw
+    .split(/\n{2,}|\n(?=\d+\.\s)/)
+    .map(s => s.replace(/\n/g, ' ').trim())
+    .filter(s => s.length > 15);
 
-  if (chunks.length === 0) {
-    const text = raw.trim();
-    return text.length === 0
-      ? []
-      : [{ title: _inferStepLabel(text), description: text.slice(0, MAX_DESCRIPTION_LEN) }];
+  // 2. If no paragraph breaks produced multiple chunks, try sentence grouping
+  if (chunks.length <= 1) {
+    const sentences = raw
+      .replace(/\n/g, ' ')
+      .split(/(?<=[.!?])\s+/)
+      .filter(s => s.trim().length > 10);
+
+    if (sentences.length > 1) {
+      // Group into clusters of 2-3 sentences
+      chunks = [];
+      for (let i = 0; i < sentences.length; i += 2) {
+        chunks.push(sentences.slice(i, i + 2).join(' '));
+      }
+    }
   }
 
-  return chunks.slice(0, MAX_THINKING_STEPS).map(chunk => ({
+  // 3. If still only one chunk, use it as-is
+  if (chunks.length === 0) {
+    const text = raw.trim();
+    if (text.length === 0) return [];
+    chunks = [text];
+  }
+
+  return chunks.slice(0, MAX_THINKING_STEPS).map((chunk, i) => ({
+    id:          String(i + 1),
     title:       _inferStepLabel(chunk),
     description: chunk.slice(0, MAX_DESCRIPTION_LEN),
+    status:      'done',
+    tag:         _inferStepTag(chunk),
   }));
 }
 
