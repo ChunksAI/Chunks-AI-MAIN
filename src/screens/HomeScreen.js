@@ -41,6 +41,8 @@ import { ChunksDB } from '../lib/chunksDb.js';
 import { subscribeToHomeMessages, unsubscribeHomeMessages } from '../state/home/homeMessagesRealtime.js';
 import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../utils/typewriter.js';
+import { ws } from '../state/workspace/state.js';
+import { _homeRenderPreview } from '../state/workspace/attachments.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -655,10 +657,22 @@ export function homeAutoResize(el) {
 
 // ── Message bubble builders ───────────────────────────────────────────────────
 
-export function homeAppendUser(text) {
+/** Placeholder used when a user sends an image without any text. */
+const _IMAGE_ONLY_LABEL = '[Image]';
+
+export function homeAppendUser(text, images = []) {
   const el = document.createElement('div');
   el.className = 'hc-user';
-  el.textContent = text;
+  if (text) el.appendChild(document.createTextNode(text));
+  images.forEach(a => {
+    const wrap = document.createElement('span');
+    wrap.className = 'chat-img-wrap';
+    wrap.onclick = () => window.openImgLightbox?.(wrap);
+    const img = document.createElement('img');
+    img.src = a.dataUrl; img.alt = a.name;
+    wrap.appendChild(img);
+    el.appendChild(wrap);
+  });
   document.getElementById('home-chat-history').appendChild(el);
   homeScrollBottom();
 }
@@ -861,27 +875,35 @@ export async function homeSendMessage() {
   const inp     = document.getElementById(chatActive ? 'home-ask-input-bottom' : 'home-ask-input');
   const sendBtn = document.getElementById(chatActive ? 'home-send-btn-bottom' : 'home-send-btn');
 
-  const question = inp.value.trim();
-  if (!question) return;
+  const question  = inp.value.trim();
+  // Capture image attachments before anything async clears them
+  const imageAtts = ws.homeAttachments.filter(a => a.type === 'image');
+  const imageAtt  = imageAtts[0] || null; // use first image for vision API
+
+  if (!question && !imageAtt) return;
 
   // On the FIRST message of a session: create a recent entry which
   // also sets window._homeSessionId via recentAdd → _saveRecent.
   // We must call recentAdd BEFORE appending to homeHistory so the
   // session id is assigned before the first _saveSession call below.
   if (!_homeSessionId) {
-    window.recentAdd?.(question, null, 'general');
+    window.recentAdd?.(question || _IMAGE_ONLY_LABEL, null, 'general');
     // recentAdd sets window._homeSessionId via the index.html closure;
     // read it back so this module's local var is in sync.
     if (window._homeSessionId) _homeSessionId = window._homeSessionId;
   }
 
   homeHideLanding();
-  homeAppendUser(question);
+  homeAppendUser(question, imageAtts);
   inp.value = '';
   inp.style.height = '24px';
   setTimeout(() => document.getElementById('home-ask-input-bottom')?.focus(), 60);
 
-  homeHistory.push({ role: 'user', content: question });
+  // Clear image attachments now that we've captured them for the request
+  ws.homeAttachments = ws.homeAttachments.filter(a => a.type !== 'image');
+  _homeRenderPreview();
+
+  homeHistory.push({ role: 'user', content: question || _IMAGE_ONLY_LABEL });
   recordUsage('general'); // track guest usage
   renderUsageBar('home-input-area', 'general'); // show counter near input
 
@@ -899,7 +921,7 @@ export async function homeSendMessage() {
     if (sessionSbId) {
       // Persist the UUID so session restore can find it even after chunks_session_* cleanup.
       localStorage.setItem('chunks_active_home_supabase_id', sessionSbId);
-      ChunksDB.messages.insertMessage({ role: 'user', content: question, sessionId: sessionSbId });
+      ChunksDB.messages.insertMessage({ role: 'user', content: question || _IMAGE_ONLY_LABEL, sessionId: sessionSbId });
       // Subscribe to realtime for this session (no-op if already subscribed to same id).
       subscribeToHomeMessages(sessionSbId);
     }
@@ -911,33 +933,52 @@ export async function homeSendMessage() {
   if (sendBtn) sendBtn.disabled = true;
 
   try {
-    const res = await fetch(`${API_BASE}/ask`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
-      body: JSON.stringify({
-        question,
-        bookId: '',
-        mode: 'general',
-        task_type: 'home_general',
-        complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
-        language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
-        safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
-        history: homeHistory.slice(-12),
-        ...(_homeWebSearch ? { web_search: true } : {}),
-        ...(_homeThinking === 'think' ? { thinking: 'thinking' } : {}),
-        ...(_homeThinking === 'deep'  ? { thinking: 'deep'     } : {}),
-      }),
-    });
-
-    // When thinking mode was used, finalize the accordion instead of removing it
-    if (_homeThinking !== 'off') {
-      // Don't remove — homeAppendThinkingAccordion will repurpose the existing wrap
+    let res;
+    if (imageAtt) {
+      // ── Vision path: route to /ask-image ─────────────────────────────────
+      const imgB64 = imageAtt.dataUrl.split(',')[1] || '';
+      const complexity = (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })();
+      homeRemoveThinking(); // vision endpoint has no thinking mode
+      res = await fetch(`${API_BASE}/ask-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
+        body: JSON.stringify({
+          image_b64:  imgB64,
+          image_type: imageAtt.file.type || 'image/jpeg',
+          question:   question || 'Describe this image.',
+          complexity,
+        }),
+      });
     } else {
-      homeRemoveThinking();
+      // ── Text path: route to /ask ──────────────────────────────────────────
+      res = await fetch(`${API_BASE}/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
+        body: JSON.stringify({
+          question,
+          bookId: '',
+          mode: 'general',
+          task_type: 'home_general',
+          complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
+          language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
+          safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
+          history: homeHistory.slice(-12),
+          ...(_homeWebSearch ? { web_search: true } : {}),
+          ...(_homeThinking === 'think' ? { thinking: 'thinking' } : {}),
+          ...(_homeThinking === 'deep'  ? { thinking: 'deep'     } : {}),
+        }),
+      });
+
+      // When thinking mode was used, finalize the accordion instead of removing it
+      if (_homeThinking !== 'off') {
+        // Don't remove — homeAppendThinkingAccordion will repurpose the existing wrap
+      } else {
+        homeRemoveThinking();
+      }
     }
 
     if (!res.ok) {
-      if (_homeThinking !== 'off') homeRemoveThinking(); // clean up on error
+      if (!imageAtt && _homeThinking !== 'off') homeRemoveThinking(); // clean up on error
       const err = await res.json().catch(() => ({}));
       homeAppendError(err.error || `Error ${res.status}`);
       homeHistory.pop();
@@ -949,10 +990,10 @@ export async function homeSendMessage() {
       const cleanAnswer     = answer || 'No response.';
       const thinkingContent = data.thinking_content || clientThinking || null;
 
-      if (_homeThinking !== 'off') {
+      if (!imageAtt && _homeThinking !== 'off') {
         const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
         homeAppendThinkingAccordion(thinkingContent, elapsed, _homeThinking);
-      } else {
+      } else if (!imageAtt) {
         // Not in thinking mode — remove the streaming accordion
         homeRemoveThinking();
       }

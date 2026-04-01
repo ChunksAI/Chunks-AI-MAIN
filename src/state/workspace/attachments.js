@@ -147,15 +147,18 @@ window.wsChatSend = async function() {
   d.innerHTML = `<div class="bubble-user">${selQuote}${bubbleHtml}</div>`;
   msgs.appendChild(d); wsScrollBottom();
 
+  // Extract image for vision API; only append text metadata for non-image files
+  const imageAtt = ws.attachments.find(a => a.type === 'image') || null;
   let fullQuestion = question;
-  if (ws.attachments.length) {
-    fullQuestion += `\n[Attached: ${ws.attachments.map(a => `"${a.name}" (${a.type})`).join(', ')}]`;
+  const textAtts = ws.attachments.filter(a => a.type !== 'image');
+  if (textAtts.length) {
+    fullQuestion += `\n[Attached: ${textAtts.map(a => `"${a.name}" (${a.type})`).join(', ')}]`;
   }
 
   inp.value = ''; wsAutoResize(inp); inp.focus();
   ws.chatHistory.push({ role: 'user', content: fullQuestion });
   ws.attachments = []; _wsRenderPreview();
-  await _wsAsk(fullQuestion);
+  await _wsAsk(fullQuestion, imageAtt ? { dataUrl: imageAtt.dataUrl, mimeType: imageAtt.file.type } : null);
 };
 
 // ── Home attachments ──────────────────────────────────────────────────────
@@ -248,3 +251,54 @@ export function closeImgLightbox() {
 // Expose to inline onclick handlers
 window.openImgLightbox  = openImgLightbox;
 window.closeImgLightbox = closeImgLightbox;
+
+// ── Paste-image support ───────────────────────────────────────────────────
+
+/**
+ * Intercept paste events on workspace and home chat inputs.
+ * When the clipboard contains an image, add it to the relevant attachments
+ * array and render the preview strip — exactly like choosing a file.
+ */
+document.addEventListener('paste', async e => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  let imageItem = null;
+  for (const item of items) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) { imageItem = item; break; }
+  }
+  if (!imageItem) return;
+
+  const target = e.target;
+  const wsInput    = document.getElementById('ws-chat-input');
+  const homeInput  = document.getElementById('home-ask-input');
+  const homeInputB = document.getElementById('home-ask-input-bottom');
+
+  const isWsTarget   = target === wsInput;
+  const isHomeTarget = target === homeInput || target === homeInputB;
+  if (!isWsTarget && !isHomeTarget) return;
+
+  e.preventDefault(); // don't paste the image as text
+
+  const file = imageItem.getAsFile();
+  if (!file) return;
+
+  const check = _validateFile(file, 'image');
+  if (!check.ok) { showToast('⚠', check.reason, 'var(--red)'); return; }
+
+  try {
+    const dataUrl = await _readFile(file);
+    const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+    const att = { type: 'image', file, dataUrl, name: file.name || `pasted-image.${ext}` };
+    if (isWsTarget) {
+      ws.attachments.push(att);
+      _wsRenderPreview();
+    } else {
+      ws.homeAttachments.push(att);
+      _homeRenderPreview();
+    }
+    showToast('🖼', 'Image pasted — press Send to analyze', 'var(--teal)');
+  } catch (_) {
+    showToast('⚠', 'Could not read pasted image.', 'var(--red)');
+  }
+});

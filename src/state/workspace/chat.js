@@ -478,7 +478,13 @@ export async function wsChatSend() {
   await _wsAsk(question);
 }
 
-export async function _wsAsk(question) {
+/**
+ * @param {string} question
+ * @param {{ dataUrl: string, mimeType: string }|null} [imageAtt]
+ *   When provided, the request is routed to /ask-image (vision endpoint)
+ *   instead of /ask, and the image is sent as base64.
+ */
+export async function _wsAsk(question, imageAtt = null) {
   ws.typing = true;
   const sendBtn = $el('ws-chat-send');
   if (sendBtn) sendBtn.disabled = true;
@@ -488,52 +494,71 @@ export async function _wsAsk(question) {
   try {
     const mode = typeof _getStudyMode === 'function' ? _getStudyMode() : 'study';
     const complexity = mode === 'concise' ? 3 : mode === 'detailed' ? 8 : 5;
-    const body = { question, bookId: ws.bookId || 'none', mode, complexity, history: ws.chatHistory.slice(-10) };
-    if (ws.webSearch)              body.web_search = true;
-    if (ws.thinking === 'think')   body.thinking   = 'thinking';
-    if (ws.thinking === 'deep')    body.thinking   = 'deep';
-    if (capturedSelection) body.selected_text = capturedSelection;
-    // User-uploaded doc: send extracted text as context instead of textbook index
-    if (ws.userDocId && ws.userDocText) {
-      body.doc_context = ws.userDocText.slice(0, 80000); // ~80k chars fits comfortably in context
-      body.bookId = '__user_doc__';
-    }
-    // Retry on 429 with exponential backoff (up to 3 attempts)
     let res;
-    for (let _attempt = 0; _attempt <= 3; _attempt++) {
-      res = await fetch(`${API_BASE}/ask`, {
+
+    if (imageAtt) {
+      // ── Vision path: send image to /ask-image ─────────────────────────────
+      const imgB64 = imageAtt.dataUrl.split(',')[1] || '';
+      wsRemoveThinking(); // vision endpoint has no streaming thinking mode
+      res = await fetch(`${API_BASE}/ask-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          image_b64:  imgB64,
+          image_type: imageAtt.mimeType || 'image/jpeg',
+          question:   question || 'Describe this image.',
+          complexity,
+        }),
       });
-      if (res.status !== 429) break;
-      const _d429 = await res.json().catch(() => ({}));
-      if (_d429.guest_limited && isGuest?.() && typeof showLoginWall === 'function') {
-        showLoginWall(_d429.feature || 'workspace');
-        ws.chatHistory.pop();
+    } else {
+      // ── Text path: send to /ask with optional retry on 429 ────────────────
+      const body = { question, bookId: ws.bookId || 'none', mode, complexity, history: ws.chatHistory.slice(-10) };
+      if (ws.webSearch)              body.web_search = true;
+      if (ws.thinking === 'think')   body.thinking   = 'thinking';
+      if (ws.thinking === 'deep')    body.thinking   = 'deep';
+      if (capturedSelection) body.selected_text = capturedSelection;
+      // User-uploaded doc: send extracted text as context instead of textbook index
+      if (ws.userDocId && ws.userDocText) {
+        body.doc_context = ws.userDocText.slice(0, 80000); // ~80k chars fits comfortably in context
+        body.bookId = '__user_doc__';
+      }
+      // Retry on 429 with exponential backoff (up to 3 attempts)
+      for (let _attempt = 0; _attempt <= 3; _attempt++) {
+        res = await fetch(`${API_BASE}/ask`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
+          body: JSON.stringify(body),
+        });
+        if (res.status !== 429) break;
+        const _d429 = await res.json().catch(() => ({}));
+        if (_d429.guest_limited && isGuest?.() && typeof showLoginWall === 'function') {
+          showLoginWall(_d429.feature || 'workspace');
+          ws.chatHistory.pop();
+          wsRemoveThinking();
+          return;
+        }
+        if (_d429.plan_limited && _d429.upgrade_needed) {
+          wsRemoveThinking();
+          wsAppendError(_d429.error || 'You\'ve reached your plan limit. Upgrade for unlimited access!');
+          ws.chatHistory.pop();
+          if (typeof window.openUpgradeModal === 'function') window.openUpgradeModal();
+          return;
+        }
+        if (_attempt < 3) {
+          await new Promise(r => setTimeout(r, Math.pow(2, _attempt + 1) * 1000));
+          continue;
+        }
         wsRemoveThinking();
-        return;
-      }
-      if (_d429.plan_limited && _d429.upgrade_needed) {
-        wsRemoveThinking();
-        wsAppendError(_d429.error || 'You\'ve reached your plan limit. Upgrade for unlimited access!');
+        wsAppendError('Server is busy — please wait a moment and try again.');
         ws.chatHistory.pop();
-        if (typeof window.openUpgradeModal === 'function') window.openUpgradeModal();
-        return;
       }
-      if (_attempt < 3) {
-        await new Promise(r => setTimeout(r, Math.pow(2, _attempt + 1) * 1000));
-        continue;
+      // When thinking mode is active, preserve the wrap so _wsFinalizeThinking
+      // can repurpose it with real steps; otherwise clean up the streaming accordion.
+      if (ws.thinking === 'off') {
+        wsRemoveThinking();
       }
-      wsRemoveThinking();
-      wsAppendError('Server is busy — please wait a moment and try again.');
-      ws.chatHistory.pop();
     }
-    // When thinking mode is active, preserve the wrap so _wsFinalizeThinking
-    // can repurpose it with real steps; otherwise clean up the streaming accordion.
-    if (ws.thinking === 'off') {
-      wsRemoveThinking();
-    }
+
     if (res.status === 429) {
       // already handled above
       if (ws.thinking !== 'off') wsRemoveThinking();
@@ -557,7 +582,7 @@ export async function _wsAsk(question) {
       const thinkingContent = data.thinking_content || clientThinking || null;
 
       // ── ThinkingAccordion: finalize with real steps if thinking was active ──
-      if (ws.thinking !== 'off') {
+      if (!imageAtt && ws.thinking !== 'off') {
         _wsFinalizeThinking(thinkingContent);
       }
 
