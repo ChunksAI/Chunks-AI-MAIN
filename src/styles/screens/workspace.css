@@ -1292,11 +1292,17 @@
   gap: 14px;
 }
 
-/* Reasoning step */
+/* Reasoning step — fades in when appended during animation */
 .ta-step {
   display: flex;
   gap: 12px;
   align-items: flex-start;
+  animation: ta-step-in 0.2s ease forwards;
+}
+
+@keyframes ta-step-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 .ta-step-dot {
@@ -1304,11 +1310,28 @@
   margin-top: 5px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: var(--violet);
-}
-.ta-step--pending .ta-step-dot {
   background: var(--text-4);
-  opacity: 0.5;
+  opacity: 0.4;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+/* Active step — pulsing dot while its description is being typed */
+.ta-step-dot.active {
+  background: var(--violet);
+  opacity: 1;
+  animation: ta-step-dot-pulse 0.9s ease-in-out infinite;
+}
+
+/* Completed step — solid purple, no animation */
+.ta-step-dot.done {
+  background: var(--violet);
+  opacity: 1;
+  animation: none;
+}
+
+@keyframes ta-step-dot-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.8); }
+  50%       { opacity: 1;   transform: scale(1.1); }
 }
 
 .ta-step-content {
