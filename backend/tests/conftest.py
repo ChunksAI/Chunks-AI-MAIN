@@ -68,11 +68,13 @@ def mock_extract_user(monkeypatch):
 def mock_guest_gate(monkeypatch):
     """Patch guest_gate to be a no-op (never blocks) in all route modules."""
     import guest_limits
+    import routes.chat
     import routes.library
     import routes.flashcards
     import routes.study
     noop = lambda *a, **kw: None
     monkeypatch.setattr(guest_limits,      'guest_gate', noop)
+    monkeypatch.setattr(routes.chat,       'guest_gate', noop)
     monkeypatch.setattr(routes.library,    'guest_gate', noop)
     monkeypatch.setattr(routes.flashcards, 'guest_gate', noop)
     monkeypatch.setattr(routes.study,      'guest_gate', noop)

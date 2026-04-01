@@ -40,7 +40,7 @@ import { idbKeys } from '../lib/idbStorage.js';
 import { ChunksDB } from '../lib/chunksDb.js';
 import { subscribeToHomeMessages, unsubscribeHomeMessages } from '../state/home/homeMessagesRealtime.js';
 import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../components/ThinkingAccordion.js';
-import { typewriteResponse } from '../utils/typewriter.js';
+import { typewriteResponse, extractThinkBlock } from '../utils/typewriter.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -943,34 +943,31 @@ export async function homeSendMessage() {
       homeHistory.pop();
     } else {
       const data   = await res.json();
-      const answer = data.answer || 'No response.';
 
-      // [DEBUG] verify thinking_content reaches the frontend — remove after confirming
-      if (typeof window !== 'undefined' && window.__CHUNKS_DEBUG) {
-        console.log('[DEBUG] full response keys:', Object.keys(data));
-        console.log('[DEBUG] thinking_content length:', data.thinking_content?.length);
-        console.log('[DEBUG] thinking_content preview:', data.thinking_content?.slice(0, 200));
-      }
+      // ── Client-side <think> extraction (safety net if backend missed it) ──
+      const { answer, thinkingContent: clientThinking } = extractThinkBlock(data.answer || '');
+      const cleanAnswer     = answer || 'No response.';
+      const thinkingContent = data.thinking_content || clientThinking || null;
 
       if (_homeThinking !== 'off') {
         const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
-        homeAppendThinkingAccordion(data.thinking_content || null, elapsed, _homeThinking);
+        homeAppendThinkingAccordion(thinkingContent, elapsed, _homeThinking);
       } else {
         // Not in thinking mode — remove the streaming accordion
         homeRemoveThinking();
       }
 
       // ── Typewriter: render AI response word by word ──
-      const aiWrap = homeAppendAI(answer, null, { typewrite: true });
+      const aiWrap = homeAppendAI(cleanAnswer, null, { typewrite: true });
       const textEl = aiWrap?.querySelector('.hc-ai-text');
       if (textEl) {
-        await typewriteResponse(textEl, answer, {
+        await typewriteResponse(textEl, cleanAnswer, {
           render: homeMarkdown,
           onScroll: homeScrollBottom,
         });
       }
 
-      homeHistory.push({ role: 'assistant', content: answer });
+      homeHistory.push({ role: 'assistant', content: cleanAnswer });
       // Overwrite with full exchange (user + AI)
       if (_homeSessionId) {
         window._saveSession?.(_homeSessionId, homeHistory);
@@ -978,7 +975,7 @@ export async function homeSendMessage() {
         window._renderAllRecent?.();
         // Dual-write assistant turn to the per-row messages table.
         if (sessionSbId) {
-          ChunksDB.messages.insertMessage({ role: 'assistant', content: answer, sessionId: sessionSbId });
+          ChunksDB.messages.insertMessage({ role: 'assistant', content: cleanAnswer, sessionId: sessionSbId });
         }
       }
     }
