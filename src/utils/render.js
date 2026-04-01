@@ -116,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Registered once at module-load time. Toggling .checked / .task-done is
 // pure DOM state — state persists within the session without any storage.
 document.addEventListener('click', e => {
+  if (!(e.target instanceof Element)) return;
   const li = e.target.closest('[data-task-item]');
   if (!li) return;
   const checked = li.classList.toggle('checked');
