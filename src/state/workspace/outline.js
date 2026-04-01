@@ -50,6 +50,8 @@ export async function _wsBuildOutline(pdfDoc, bookId) {
       }
     }
   }
+  const panel = $el('ws-outline-panel');
+  panel.style.display = '';
   if (!items.length) {
     setHtml(container, '<div style="padding:8px 14px;font-size:11px;color:var(--text-4);">No contents available</div>');
     return;

@@ -113,7 +113,7 @@ const WORKSPACE_HTML = /* html */`
     </div>
 
     <div class="pdf-body">
-      <nav class="pdf-outline-panel" id="ws-outline-panel">
+      <nav class="pdf-outline-panel" id="ws-outline-panel" style="display:none">
         <!-- Book cover thumbnail -->
         <div id="ws-outline-cover" style="display:none;padding:12px 12px 0;">
           <img id="ws-outline-cover-img"
