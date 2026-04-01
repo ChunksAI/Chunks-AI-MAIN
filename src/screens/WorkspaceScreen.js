@@ -268,12 +268,12 @@ const WORKSPACE_HTML = /* html */`
     </div>
 
     <div class="chat-input-wrap">
-      <div id="ws-attach-preview" class="attach-preview" style="display:none;"></div>
       <input type="file" id="ws-attach-image" accept="image/*" style="display:none;" onchange="wsHandleAttach(this,'image')">
       <input type="file" id="ws-attach-pdf" accept="application/pdf" style="display:none;" onchange="wsHandleAttach(this,'pdf')">
 
       <!-- Card-style input container -->
       <div class="chat-input-card">
+        <div id="ws-attach-preview" class="attach-preview" style="display:none;"></div>
 
         <!-- Action chips row -->
         <div class="chat-action-chips" id="ws-smart-suggestions">
