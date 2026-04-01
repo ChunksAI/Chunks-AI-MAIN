@@ -714,21 +714,29 @@ export function homeAppendAI(text, sources) {
 
 /**
  * Prepend a ThinkingAccordion before the AI response when thinking mode was used.
+ * Always renders when thinking mode is active, using a generic fallback step when
+ * the model did not emit explicit `<think>` content.
  *
  * @param {string|null} thinkingContent  Raw `<think>` content returned by the backend.
  * @param {number}      elapsed          Seconds elapsed while the model was thinking.
+ * @param {'think'|'deep'} thinkingMode  Active thinking mode.
  */
-export function homeAppendThinkingAccordion(thinkingContent, elapsed) {
-  if (!thinkingContent) return;
-  const steps = parseThinkingSteps(thinkingContent);
-  if (steps.length === 0) return;
-  // Mark all steps as done (we only show the accordion after the response arrives)
+export function homeAppendThinkingAccordion(thinkingContent, elapsed, thinkingMode) {
+  let steps = thinkingContent ? parseThinkingSteps(thinkingContent) : [];
+  // Mark all steps done (accordion is shown after the full response arrives)
   steps.forEach(s => { s.done = true; });
-  const tags = inferThinkingTags(steps, thinkingContent);
+  // When the model didn't emit <think> tags, show a single descriptive placeholder step
+  if (steps.length === 0) {
+    steps = [{
+      title:       thinkingMode === 'deep' ? 'Deep reasoning applied' : 'Enhanced reasoning applied',
+      description: 'The model reasoned through your question before generating this response.',
+      done:        true,
+    }];
+  }
+  const tags = inferThinkingTags(steps, thinkingContent || '');
   const wrap = document.createElement('div');
-  wrap.className = 'hc-ai hc-thinking-accordion-wrap';
+  wrap.className = 'hc-thinking-accordion-wrap';
   const container = document.createElement('div');
-  container.className = 'hc-thinking-accordion-container';
   wrap.appendChild(container);
   document.getElementById('home-chat-history').appendChild(wrap);
   createThinkingAccordion(container, { steps, elapsed, tags, isStreaming: false });
@@ -896,8 +904,10 @@ export async function homeSendMessage() {
     } else {
       const data   = await res.json();
       const answer = data.answer || 'No response.';
-      const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
-      homeAppendThinkingAccordion(data.thinking_content || null, elapsed);
+      if (_homeThinking !== 'off') {
+        const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
+        homeAppendThinkingAccordion(data.thinking_content || null, elapsed, _homeThinking);
+      }
       homeAppendAI(answer, null);
       homeHistory.push({ role: 'assistant', content: answer });
       // Overwrite with full exchange (user + AI)
