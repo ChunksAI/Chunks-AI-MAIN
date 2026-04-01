@@ -869,8 +869,10 @@ def test_practice_strips_think_block(client, monkeypatch, mock_guest_gate, mock_
     import services.ai as ai_svc
     import services.books as books_svc
     import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
 
     monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
     monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
     monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(
         return_value='<think>\nIdentify knowns and unknowns.\n</think>\n\n1. PROBLEM STATEMENT — Find the velocity.'
@@ -900,8 +902,10 @@ def test_summary_strips_think_block(client, monkeypatch, mock_guest_gate, mock_e
     import services.ai as ai_svc
     import services.books as books_svc
     import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
 
     monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
     monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
     monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(
         return_value='<think>\nOrganise the key concepts.\n</think>\n\n1. OVERVIEW — Entropy measures disorder.'
@@ -931,9 +935,11 @@ def test_exam_strips_think_block(client, monkeypatch, mock_guest_gate, mock_extr
     import services.ai as ai_svc
     import services.books as books_svc
     import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
     import server as srv
 
     monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
     monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
     raw_mcq = (
         'Q1. What is H2O?\n'
