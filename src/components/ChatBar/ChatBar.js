@@ -85,7 +85,8 @@ export function createChatBar(container, {
   textarea.className = 'chat-input-field';
   textarea.placeholder = placeholder;
   textarea.rows = 1;
-  textarea.setAttribute('style', 'resize:none;max-height:120px;overflow-y:auto;font-family:var(--font-body);font-size:13px;color:var(--text-1);background:transparent;border:none;outline:none;flex:1;line-height:1.5;');
+  textarea.style.maxHeight = '120px';
+  textarea.style.overflowY = 'auto';
   textarea.addEventListener('input', _autoResize);
   textarea.addEventListener('keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _send(); }

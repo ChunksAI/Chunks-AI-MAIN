@@ -749,7 +749,7 @@ export function homeAppendAI(text, sources, { typewrite = false } = {}) {
       📖 Page ${sources[0].page}
     </div>`;
   }
-  // When typewriting, start with empty body; typewriter fills it in
+  // Always use .hc-ai-text wrapper for consistency (typewriter or not)
   const bodyContent = typewrite ? '' : homeMarkdown(text);
   wrap.innerHTML = `
     ${_HOME_AI_AVATAR}
@@ -1062,7 +1062,7 @@ mountHomeScreen();
         const rendered = homeMarkdown
           ? homeMarkdown(msg.content || '')
           : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-        wrap.innerHTML = `${_HOME_AI_AVATAR}<div class="hc-ai-body">${rendered}</div>`;
+        wrap.innerHTML = `${_HOME_AI_AVATAR}<div class="hc-ai-body"><div class="hc-ai-text">${rendered}</div></div>`;
         chatHist.appendChild(wrap);
       }
     });

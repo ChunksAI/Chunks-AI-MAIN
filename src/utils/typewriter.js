@@ -58,7 +58,7 @@ export async function typewriteResponse(element, fullText, {
                 : 22;
     await _wait(delay);
 
-    // Auto-scroll every 5 real words
+    // Auto-scroll every 10 words
     if (i % 10 === 0 && onScroll) onScroll();
   }
 
