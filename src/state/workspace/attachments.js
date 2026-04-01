@@ -167,7 +167,11 @@ window.wsChatSend = async function() {
   }
 
   inp.value = ''; wsAutoResize(inp); inp.focus();
-  ws.chatHistory.push({ role: 'user', content: fullQuestion });
+  ws.chatHistory.push({
+    role: 'user',
+    content: fullQuestion,
+    ...(imageAtt ? { imageDataUrl: imageAtt.dataUrl } : {}),
+  });
   ws.attachments = []; _wsRenderPreview();
   await _wsAsk(fullQuestion, imageAtt ? { dataUrl: imageAtt.dataUrl, mimeType: imageAtt.file.type } : null);
 };

@@ -372,11 +372,31 @@ export function _wsRenderHistory(msgs, history) {
   const bookName = $el('ws-book-name')?.textContent || '';
   history.forEach((msg, i) => {
     if (msg.role === 'user') {
-      const el = document.createElement('div');
-      el.className = 'msg msg-user';
-      const escaped = (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      el.innerHTML = `<div class="bubble-user">${escaped}</div>`;
-      msgs.appendChild(el);
+      if (msg.imageDataUrl && /^data:image\/[a-zA-Z+]+;base64,/.test(msg.imageDataUrl)) {
+        const imgEl = document.createElement('div');
+        imgEl.className = 'msg msg-user';
+        const imgSrc = msg.imageDataUrl;
+        const imgWrap = document.createElement('div');
+        imgWrap.className = 'bubble-user';
+        const imgContainer = document.createElement('div');
+        imgContainer.className = 'chat-img-wrap';
+        imgContainer.setAttribute('onclick', 'openImgLightbox(this)');
+        const img = document.createElement('img');
+        img.src = imgSrc;
+        img.alt = 'attached image';
+        imgContainer.appendChild(img);
+        imgWrap.appendChild(imgContainer);
+        imgEl.appendChild(imgWrap);
+        msgs.appendChild(imgEl);
+      }
+      const text = (msg.content || '').replace(/\n\[Attached:[^\]]*\]/g, '').trim();
+      if (text) {
+        const el = document.createElement('div');
+        el.className = 'msg msg-user';
+        const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        el.innerHTML = `<div class="bubble-user">${escaped}</div>`;
+        msgs.appendChild(el);
+      }
     } else if (msg.role === 'assistant') {
       if (msg.blocks?.length) {
         // Re-create the full UI (text + sources + action buttons) from structured blocks

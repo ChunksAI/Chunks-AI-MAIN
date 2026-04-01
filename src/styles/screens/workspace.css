@@ -1215,7 +1215,7 @@
 .ws-typing-dot {
   display: inline-block;
   width: 7px; height: 7px; border-radius: 50%;
-  background: var(--gold);
+  background: var(--accent);
   animation: ws-blink 1.2s ease-in-out infinite;
   flex-shrink: 0;
 }

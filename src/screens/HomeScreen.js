@@ -414,15 +414,7 @@ function _incogAppendThinking() {
   d.id = 'incognito-thinking';
   d.innerHTML = `
     <div class="incognito-ai-row">
-      <div class="incognito-ai-ava" aria-hidden="true">
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14">
-          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/>
-          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/>
-          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/>
-          <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
-        </svg>
-      </div>
-      <div class="hc-thinking"><span></span><span></span><span></span></div>
+      <div class="incognito-ai-body" style="background:none;border:none;padding:4px 0;"><span class="ws-typing-dot"></span></div>
     </div>`;
   inner.appendChild(d);
   _incogScrollBottom();
@@ -439,14 +431,6 @@ function _incogAppendAI(text) {
   d.className = 'incognito-msg incognito-msg-ai';
   d.innerHTML = `
     <div class="incognito-ai-row">
-      <div class="incognito-ai-ava" aria-hidden="true">
-        <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14">
-          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/>
-          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/>
-          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/>
-          <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
-        </svg>
-      </div>
       <div class="incognito-ai-body">${homeMarkdown?.(text) ?? text.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>
     </div>`;
   inner.appendChild(d);
@@ -703,26 +687,30 @@ export function homeAppendThinking() {
   wrap.className = 'hc-ai';
   wrap.id = 'hc-thinking';
 
-  const avatarHtml = _HOME_AI_AVATAR;
-  const bodyWrap = document.createElement('div');
-  bodyWrap.className = 'hc-ai-body';
-
-  const container = document.createElement('div');
-  container.style.cssText = 'width:100%;';
-  bodyWrap.appendChild(container);
-
-  wrap.innerHTML = avatarHtml;
-  wrap.appendChild(bodyWrap);
   document.getElementById('home-chat-history').appendChild(wrap);
   _homeThinkingWrap = wrap;
 
-  // Mount ThinkingAccordion in streaming mode (empty steps, live timer)
-  _homeThinkingHandle = createThinkingAccordion(container, {
-    steps: [],
-    elapsed: 0,
-    tags: [],
-    isStreaming: true,
-  });
+  if (_homeThinking === 'off') {
+    // Simple blinking dot indicator for non-thinking mode
+    wrap.innerHTML = `<div class="hc-ai-body" style="padding:4px 0;"><span class="ws-typing-dot"></span></div>`;
+  } else {
+    const bodyWrap = document.createElement('div');
+    bodyWrap.className = 'hc-ai-body';
+
+    const container = document.createElement('div');
+    container.style.cssText = 'width:100%;';
+    bodyWrap.appendChild(container);
+
+    wrap.appendChild(bodyWrap);
+
+    // Mount ThinkingAccordion in streaming mode (empty steps, live timer)
+    _homeThinkingHandle = createThinkingAccordion(container, {
+      steps: [],
+      elapsed: 0,
+      tags: [],
+      isStreaming: true,
+    });
+  }
 
   homeScrollBottom();
 }
@@ -756,7 +744,6 @@ export function homeAppendAI(text, sources, { typewrite = false } = {}) {
   // Always use .hc-ai-text wrapper for consistency (typewriter or not)
   const bodyContent = typewrite ? '' : homeMarkdown(text);
   wrap.innerHTML = `
-    ${_HOME_AI_AVATAR}
     <div class="hc-ai-body"><div class="hc-ai-text">${bodyContent}</div>${sourceBadge}</div>`;
   document.getElementById('home-chat-history').appendChild(wrap);
   homeScrollBottom();
@@ -954,7 +941,6 @@ export async function homeSendMessage() {
       // ── Vision path: route to /ask-image ─────────────────────────────────
       const imgB64 = imageAtt.dataUrl.split(',')[1] || '';
       const complexity = (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })();
-      homeRemoveThinking(); // vision endpoint has no thinking mode
       res = await fetch(`${API_BASE}/ask-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
@@ -965,6 +951,7 @@ export async function homeSendMessage() {
           complexity,
         }),
       });
+      homeRemoveThinking(); // vision endpoint has no thinking mode — remove indicator now
     } else {
       // ── Text path: route to /ask ──────────────────────────────────────────
       res = await fetch(`${API_BASE}/ask`, {
@@ -1097,7 +1084,7 @@ mountHomeScreen();
         const rendered = homeMarkdown
           ? homeMarkdown(msg.content || '')
           : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-        wrap.innerHTML = `${_HOME_AI_AVATAR}<div class="hc-ai-body"><div class="hc-ai-text">${rendered}</div></div>`;
+        wrap.innerHTML = `<div class="hc-ai-body"><div class="hc-ai-text">${rendered}</div></div>`;
         chatHist.appendChild(wrap);
       }
     });

@@ -101,7 +101,7 @@ function _handleInsert(row) {
     const rendered = typeof homeMarkdown === 'function'
       ? homeMarkdown(row.content || '')
       : (row.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    el.innerHTML = `${_AI_AVATAR}<div class="hc-ai-body">${rendered}</div>`;
+    el.innerHTML = `<div class="hc-ai-body">${rendered}</div>`;
   }
 
   el.setAttribute('data-rt-home-msg-id', rtId);
