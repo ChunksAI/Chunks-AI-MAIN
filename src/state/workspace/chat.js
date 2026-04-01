@@ -86,18 +86,24 @@ export function wsAppendThinking() {
   _wsThinkingWrap.className = 'msg msg-ai';
   _wsThinkingWrap.id = 'ws-thinking-msg';
 
-  const container = document.createElement('div');
-  container.style.cssText = 'width:100%;';
-  _wsThinkingWrap.appendChild(container);
-  msgs.appendChild(_wsThinkingWrap);
+  if (ws.thinking === 'off') {
+    // Simple blinking dot indicator for non-thinking mode
+    _wsThinkingWrap.innerHTML = `<div class="ai-row"><div class="ai-body" style="padding:4px 0;"><span class="ws-typing-dot"></span></div></div>`;
+    msgs.appendChild(_wsThinkingWrap);
+  } else {
+    const container = document.createElement('div');
+    container.style.cssText = 'width:100%;';
+    _wsThinkingWrap.appendChild(container);
+    msgs.appendChild(_wsThinkingWrap);
 
-  // Mount ThinkingAccordion in streaming mode (empty steps, live timer)
-  _wsThinkingHandle = createThinkingAccordion(container, {
-    steps: [],
-    elapsed: 0,
-    tags: [],
-    isStreaming: true,
-  });
+    // Mount ThinkingAccordion in streaming mode (empty steps, live timer)
+    _wsThinkingHandle = createThinkingAccordion(container, {
+      steps: [],
+      elapsed: 0,
+      tags: [],
+      isStreaming: true,
+    });
+  }
 
   wsScrollBottom();
 }
@@ -499,7 +505,6 @@ export async function _wsAsk(question, imageAtt = null) {
     if (imageAtt) {
       // ── Vision path: send image to /ask-image ─────────────────────────────
       const imgB64 = imageAtt.dataUrl.split(',')[1] || '';
-      wsRemoveThinking(); // vision endpoint has no streaming thinking mode
       res = await fetch(`${API_BASE}/ask-image`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
@@ -510,6 +515,7 @@ export async function _wsAsk(question, imageAtt = null) {
           complexity,
         }),
       });
+      wsRemoveThinking(); // vision endpoint has no streaming thinking mode — remove indicator now
     } else {
       // ── Text path: send to /ask with optional retry on 429 ────────────────
       const body = { question, bookId: ws.bookId || 'none', mode, complexity, history: ws.chatHistory.slice(-10) };
