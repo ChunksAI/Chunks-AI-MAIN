@@ -692,3 +692,140 @@ def test_ask_guest_feature_study_plan(client, monkeypatch, mock_guest_gate, mock
         'complexity': 5,
     })
     assert resp.status_code == 200
+
+
+# ── thinking mode ────────────────────────────────────────────────────────────
+
+def test_extract_thinking_content_extracts_think_block():
+    """extract_thinking_content splits <think>...</think> from the answer."""
+    from services.ai import extract_thinking_content
+
+    text = "<think>\nI need to reason through this.\nStep 2: apply formula.\n</think>\n\nThe answer is 42."
+    answer, thinking = extract_thinking_content(text)
+
+    assert thinking is not None
+    assert 'apply formula' in thinking
+    assert '<think>' not in thinking
+    assert answer.strip() == 'The answer is 42.'
+
+
+def test_extract_thinking_content_no_tags():
+    """extract_thinking_content returns (text, None) when no <think> block is present."""
+    from services.ai import extract_thinking_content
+
+    text = "A plain answer with no thinking tags."
+    answer, thinking = extract_thinking_content(text)
+
+    assert thinking is None
+    assert answer == text
+
+
+def test_extract_thinking_content_multiline():
+    """extract_thinking_content handles multiline reasoning with newlines."""
+    from services.ai import extract_thinking_content
+
+    reasoning = "Line one.\nLine two.\nLine three with math: F = ma."
+    text = f"<think>{reasoning}</think>\n\nFinal answer."
+    answer, thinking = extract_thinking_content(text)
+
+    assert thinking is not None
+    assert 'Line two' in thinking
+    assert 'F = ma' in thinking
+    assert answer.strip() == 'Final answer.'
+
+
+def test_ask_thinking_mode_returns_thinking_content(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """POST /ask with thinking='thinking' returns thinking_content extracted from <think> tags."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    # Simulate a model that emits <think> tags
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(
+        return_value="<think>\nI should recall key concepts first.\nApply F = ma.\n</think>\n\nThe force is 10 N."
+    ))
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'What force does 2 kg at 5 m/s² produce?',
+        'mode': 'study',
+        'thinking': 'thinking',
+        'complexity': 5,
+        'bookId': 'zumdahl',
+    })
+    assert resp.status_code == 200
+    data = resp.get_json()
+    assert data['success'] is True
+    assert data['answer'] == 'The force is 10 N.'
+    assert data['thinking_content'] is not None
+    assert 'recall key concepts' in data['thinking_content']
+
+
+def test_ask_thinking_mode_system_prompt_includes_think_instruction(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """When thinking mode is active the system prompt instructs the model to use <think> tags."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+
+    captured = {}
+
+    def _fake_call_ai(prompt, system_prompt='', **kwargs):
+        captured['system_prompt'] = system_prompt
+        return 'Answer.'
+
+    monkeypatch.setattr(ai_svc, 'call_ai', _fake_call_ai)
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'Explain entropy',
+        'mode': 'study',
+        'thinking': 'deep',
+        'complexity': 5,
+    })
+    assert resp.status_code == 200
+    assert 'system_prompt' in captured
+    assert '<think>' in captured['system_prompt']
+
+
+def test_ask_no_thinking_mode_system_prompt_no_think_instruction(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """When thinking mode is off the system prompt does NOT include <think> instructions."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+
+    captured = {}
+
+    def _fake_call_ai(prompt, system_prompt='', **kwargs):
+        captured['system_prompt'] = system_prompt
+        return 'Answer.'
+
+    monkeypatch.setattr(ai_svc, 'call_ai', _fake_call_ai)
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'Explain entropy',
+        'mode': 'study',
+        'complexity': 5,
+    })
+    assert resp.status_code == 200
+    assert '<think>' not in captured.get('system_prompt', '')
