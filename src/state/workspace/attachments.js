@@ -133,7 +133,7 @@ window.wsChatSend = async function() {
   if (ws.attachments.length) {
     bubbleHtml += ws.attachments.map(a =>
       a.type === 'image'
-        ? `<img src="${a.dataUrl}" style="max-width:180px;max-height:140px;border-radius:8px;display:block;margin-top:6px;">`
+        ? `<span class="chat-img-wrap" onclick="openImgLightbox(this)"><img src="${a.dataUrl}" alt="${a.name.replace(/"/g,'&quot;')}"></span>`
         : `<div style="display:inline-flex;align-items:center;gap:6px;background:var(--surface-3);border:1px solid var(--border-md);border-radius:8px;padding:6px 10px;font-size:12px;margin-top:6px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>${a.name}</div>`
     ).join('');
   }
@@ -147,15 +147,18 @@ window.wsChatSend = async function() {
   d.innerHTML = `<div class="bubble-user">${selQuote}${bubbleHtml}</div>`;
   msgs.appendChild(d); wsScrollBottom();
 
+  // Extract image for vision API; only append text metadata for non-image files
+  const imageAtt = ws.attachments.find(a => a.type === 'image') || null;
   let fullQuestion = question;
-  if (ws.attachments.length) {
-    fullQuestion += `\n[Attached: ${ws.attachments.map(a => `"${a.name}" (${a.type})`).join(', ')}]`;
+  const textAtts = ws.attachments.filter(a => a.type !== 'image');
+  if (textAtts.length) {
+    fullQuestion += `\n[Attached: ${textAtts.map(a => `"${a.name}" (${a.type})`).join(', ')}]`;
   }
 
   inp.value = ''; wsAutoResize(inp); inp.focus();
   ws.chatHistory.push({ role: 'user', content: fullQuestion });
   ws.attachments = []; _wsRenderPreview();
-  await _wsAsk(fullQuestion);
+  await _wsAsk(fullQuestion, imageAtt ? { dataUrl: imageAtt.dataUrl, mimeType: imageAtt.file.type } : null);
 };
 
 // ── Home attachments ──────────────────────────────────────────────────────
@@ -203,3 +206,99 @@ export function _homeRenderPreview() {
     });
   });
 }
+
+// ── Image lightbox ────────────────────────────────────────────────────────
+
+let _lightboxEl  = null;
+let _lightboxKey = null;
+
+export function openImgLightbox(wrapEl) {
+  const img = wrapEl instanceof HTMLElement ? wrapEl.querySelector('img') : null;
+  if (!img) return;
+  closeImgLightbox(); // clean up any existing lightbox + listener
+
+  const overlay = document.createElement('div');
+  overlay.className = 'img-lightbox';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+
+  const full = document.createElement('img');
+  full.src = img.src;
+  full.alt = img.alt || '';
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'img-lightbox-close';
+  closeBtn.setAttribute('aria-label', 'Close image preview');
+  closeBtn.innerHTML = '✕';
+  closeBtn.onclick = e => { e.stopPropagation(); closeImgLightbox(); };
+
+  overlay.appendChild(full);
+  overlay.appendChild(closeBtn);
+  overlay.onclick = () => closeImgLightbox();
+
+  document.body.appendChild(overlay);
+  _lightboxEl = overlay;
+
+  _lightboxKey = e => { if (e.key === 'Escape') closeImgLightbox(); };
+  document.addEventListener('keydown', _lightboxKey);
+}
+
+export function closeImgLightbox() {
+  if (_lightboxKey) { document.removeEventListener('keydown', _lightboxKey); _lightboxKey = null; }
+  if (_lightboxEl)  { _lightboxEl.remove(); _lightboxEl = null; }
+}
+
+// Expose to inline onclick handlers
+window.openImgLightbox  = openImgLightbox;
+window.closeImgLightbox = closeImgLightbox;
+
+// ── Paste-image support ───────────────────────────────────────────────────
+
+/**
+ * Intercept paste events on workspace and home chat inputs.
+ * When the clipboard contains an image, add it to the relevant attachments
+ * array and render the preview strip — exactly like choosing a file.
+ */
+document.addEventListener('paste', async e => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  let imageItem = null;
+  for (const item of items) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) { imageItem = item; break; }
+  }
+  if (!imageItem) return;
+
+  const target = e.target;
+  const wsInput    = document.getElementById('ws-chat-input');
+  const homeInput  = document.getElementById('home-ask-input');
+  const homeInputB = document.getElementById('home-ask-input-bottom');
+
+  const isWsTarget   = target === wsInput;
+  const isHomeTarget = target === homeInput || target === homeInputB;
+  if (!isWsTarget && !isHomeTarget) return;
+
+  e.preventDefault(); // don't paste the image as text
+
+  const file = imageItem.getAsFile();
+  if (!file) return;
+
+  const check = _validateFile(file, 'image');
+  if (!check.ok) { showToast('⚠', check.reason, 'var(--red)'); return; }
+
+  try {
+    const dataUrl = await _readFile(file);
+    const ext = (file.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+    const att = { type: 'image', file, dataUrl, name: file.name || `pasted-image.${ext}` };
+    if (isWsTarget) {
+      ws.attachments.push(att);
+      _wsRenderPreview();
+    } else {
+      ws.homeAttachments.push(att);
+      _homeRenderPreview();
+    }
+    showToast('🖼', 'Image pasted — press Send to analyze', 'var(--teal)');
+  } catch (_) {
+    showToast('⚠', 'Could not read pasted image.', 'var(--red)');
+  }
+});
