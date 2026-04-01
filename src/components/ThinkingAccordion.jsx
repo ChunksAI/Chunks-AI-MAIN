@@ -75,7 +75,8 @@ export const ThinkingAccordionIsland = forwardRef(function ThinkingAccordionIsla
   const [elapsed,     setElapsed]     = useState(initElapsed);
   const [tags,        setTags]        = useState(initTags);
   const [isStreaming, setIsStreaming]  = useState(initStreaming);
-  const [open,        setOpen]        = useState(false);
+  // Auto-open when streaming so steps appear immediately as they are added
+  const [open,        setOpen]        = useState(initStreaming);
 
   const update = useCallback((patch = {}) => {
     if (patch.steps       !== undefined) setSteps(patch.steps);
@@ -119,22 +120,27 @@ export const ThinkingAccordionIsland = forwardRef(function ThinkingAccordionIsla
       // ── Expanded body ──────────────────────────────────────────────
       open && h('div', { class: 'ta-body', role: 'region' },
         steps.length === 0
-          ? h('p', { class: 'ta-empty' }, 'No reasoning steps available.')
+          ? h('p', { class: 'ta-empty' }, isStreaming ? 'Thinking…' : 'No reasoning steps available.')
           : h(Fragment, null,
               steps.map((step, i) =>
-                h('div', { class: `ta-step${step.done ? '' : ' ta-step--pending'}`, key: i },
-                  h('span', { class: 'ta-step-dot', 'aria-hidden': 'true' }),
+                h('div', { class: 'ta-step', key: i },
+                  h('span', {
+                    class: `ta-step-dot${step.status === 'done' ? ' done' : step.status === 'active' ? ' active' : ''}`,
+                    'aria-hidden': 'true',
+                  }),
                   h('div', { class: 'ta-step-content' },
                     h('div', { class: 'ta-step-title' }, step.title),
                     step.description &&
                       h('div', { class: 'ta-step-desc' }, step.description),
-                    !step.done &&
+                    step.status === 'active' &&
                       h('span', { class: 'ta-step-progress', 'aria-label': 'in progress' }, '• •'),
                   ),
                 ),
               ),
               h('div', { class: 'ta-footer' },
-                h('span', { class: 'ta-elapsed' }, `Thinking for ${elapsed}s`),
+                h('span', { class: 'ta-elapsed' },
+                  isStreaming ? `Thinking for ${elapsed}s` : `Thought for ${elapsed}s`,
+                ),
                 tags.length > 0 && h('span', { class: 'ta-tags' },
                   tags.map(t =>
                     h('span', {
