@@ -774,7 +774,10 @@ function _clickRecent(item) {
       if (bar) bar.style.display = 'flex';
       if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
 
-      if (session.html && chatHistory) {
+      if (typeof window._homeMountSession === 'function') {
+        // Use HomeScreen's _mountSession which renders images from history correctly
+        window._homeMountSession(session, item.id);
+      } else if (session.html && chatHistory) {
         // Same device — use the cached rendered HTML (fast path)
         chatHistory.innerHTML = sanitize(session.html);
       } else if (history.length && chatHistory) {
@@ -852,11 +855,11 @@ function _clickRecent(item) {
       if (wsSession && (wsSession.html || wsHistory.length)) {
         // Restore saved messages HTML and history array
         const msgs = document.getElementById('ws-messages');
-        if (wsSession.html && msgs) {
-          msgs.innerHTML = typeof sanitize === 'function' ? sanitize(wsSession.html) : wsSession.html;
-        } else if (wsHistory.length) {
-          // Cross-device restore — rebuild from message array using shared renderer
+        if (wsHistory.length && typeof window._wsRenderHistory === 'function') {
+          // Prefer history-based render so images stored as base64 in imageDataUrl survive refresh
           window._wsRenderHistory(msgs, wsHistory);
+        } else if (wsSession.html && msgs) {
+          msgs.innerHTML = typeof sanitize === 'function' ? sanitize(wsSession.html) : wsSession.html;
         }
         _wsChatHistory = wsHistory;
         localStorage.setItem('chunks_active_ws_book', item.bookId);

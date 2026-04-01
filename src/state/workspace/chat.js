@@ -632,7 +632,7 @@ export async function _wsAsk(question, imageAtt = null) {
 
 document.addEventListener('DOMContentLoaded', () => {
   $el('ws-chat-input')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); wsChatSend(); }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window.wsChatSend(); }
   });
   $el('ws-chat-input')?.addEventListener('input', function() { wsAutoResize(this); });
 });
