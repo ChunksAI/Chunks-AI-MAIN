@@ -1299,7 +1299,7 @@ window._saveSession       = _saveSession;
   // Wire up all search buttons (delegated — sidebars mount after this runs)
   document.addEventListener('click', e => {
     const btn = e.target.closest('[data-action="openChatSearch-self"]');
-    if (btn) openChatSearch();
+    if (btn && !_isGuestMode()) openChatSearch();
   });
 
   window.openChatSearch = openChatSearch;
@@ -7243,6 +7243,13 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
     const el = e.target.closest('[data-action]');
     if (!el) return;
     const action = el.dataset.action;
+
+    // Guest mode: block all sidebar interactions except the toggle buttons
+    if (_isGuestMode() && el.closest('.sidebar')) {
+      const _SIDEBAR_ALWAYS_ALLOWED = ['toggleSidebar-self', 'handleLogoClick-self'];
+      if (!_SIDEBAR_ALWAYS_ALLOWED.includes(action)) return;
+    }
+
     const handler = ACTION_MAP[action];
     if (typeof handler === 'function') {
       e.stopPropagation();
