@@ -463,6 +463,83 @@
   opacity: 0.5;
 }
 
+/* ── Rich activity cards ────────────────────────────── */
+.ra-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-xs);
+  background: var(--surface-1);
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
+  text-align: left;
+}
+.ra-card:hover {
+  background: var(--surface-2);
+  border-color: var(--border-md);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+[data-theme="study"] .ra-card {
+  background: #ffffff;
+  border-color: rgba(0,0,0,0.06);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+[data-theme="study"] .ra-card:hover {
+  border-color: rgba(0,0,0,0.11);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.07);
+}
+.ra-card-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.ra-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.ra-card-meta {
+  font-size: 11px;
+  color: var(--text-4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ra-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ra-card-bar {
+  flex: 1;
+  height: 3px;
+  background: var(--border-xs);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.ra-card-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+.ra-card-btn {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--gold);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  font-family: var(--font-body);
+}
+.ra-card-btn:hover { color: var(--text-1); }
+
 /* ── Rich attach menu ───────────────────────────────────── */
 .home-rich-menu { min-width: 200px; padding: 6px; }
 
