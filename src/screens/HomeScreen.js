@@ -723,14 +723,11 @@ export function homeAppendAI(text, sources) {
  */
 export function homeAppendThinkingAccordion(thinkingContent, elapsed, thinkingMode) {
   let steps = thinkingContent ? parseThinkingSteps(thinkingContent) : [];
-  // Mark all steps done (accordion is shown after the full response arrives)
-  steps.forEach(s => { s.done = true; });
   // When the model didn't emit <think> tags, show a single descriptive placeholder step
   if (steps.length === 0) {
     steps = [{
       title:       thinkingMode === 'deep' ? 'Deep reasoning applied' : 'Enhanced reasoning applied',
       description: 'The model reasoned through your question before generating this response.',
-      done:        true,
     }];
   }
   const tags = inferThinkingTags(steps, thinkingContent || '');
