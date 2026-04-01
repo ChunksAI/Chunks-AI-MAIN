@@ -79,6 +79,7 @@ const _sanitizeCfg = {
   ALLOWED_ATTR: [
     'class','style','id',
     'data-ws-chip',  // workspace page-jump chips (kept so afterSanitizeAttributes hook can add onclick)
+    'data-task-item', // interactive checklist items
     // SVG / KaTeX attributes
     'viewBox','xmlns','width','height','fill','stroke','stroke-width',
     'stroke-linecap','stroke-linejoin','d','points','x','y','x1','y1',
@@ -109,6 +110,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!isNaN(page)) node.setAttribute('onclick', `wsGoToPage(${page})`);
     }
   });
+});
+
+// Event delegation for interactive checklist items in AI responses.
+// Registered once at module-load time. Toggling .checked / .task-done is
+// pure DOM state — state persists within the session without any storage.
+document.addEventListener('click', e => {
+  if (!(e.target instanceof Element)) return;
+  const li = e.target.closest('[data-task-item]');
+  if (!li) return;
+  const checked = li.classList.toggle('checked');
+  const text = li.querySelector('.task-text');
+  if (text) text.classList.toggle('task-done', checked);
 });
 
 /**
@@ -207,9 +220,19 @@ export function homeMarkdown(text) {
     const items = block.trim().split('\n').map(l => `<li>${l.replace(/^\d+\.\s+/, '')}</li>`).join('');
     return `<ol>${items}</ol>`;
   });
-  // Bullet lists
+  // Bullet lists (- [ ] / - [x] checklist items rendered as interactive task items)
   t = t.replace(/((?:^[-*] .+\n?)+)/gm, block => {
-    const items = block.trim().split('\n').map(l => `<li>${l.replace(/^[-*] /, '')}</li>`).join('');
+    const items = block.trim().split('\n').map(l => {
+      const m = /^[-*] \[([ xX])\] (.*)/.exec(l);
+      if (m) {
+        const checked    = m[1].toLowerCase() === 'x';
+        const text       = m[2];
+        const checkedCls = checked ? ' checked' : '';
+        const doneCls    = checked ? ' task-done' : '';
+        return `<li class="task-item${checkedCls}" data-task-item="1"><span class="task-check"></span><span class="task-text${doneCls}">${text}</span></li>`;
+      }
+      return `<li>${l.replace(/^[-*] /, '')}</li>`;
+    }).join('');
     return `<ul>${items}</ul>`;
   });
 
@@ -292,7 +315,17 @@ export function wsRender(raw) {
     if (/^[-*•] /.test(t)) {
       if (inOl) { html += '</ol>'; inOl = false; }
       if (!inUl) { html += '<ul>'; inUl = true; }
-      html += `<li>${t.replace(/^[-*•] /, '')}</li>`; continue;
+      const m = /^[-*•] \[([ xX])\] (.*)/.exec(t);
+      if (m) {
+        const checked    = m[1].toLowerCase() === 'x';
+        const text       = m[2];
+        const checkedCls = checked ? ' checked' : '';
+        const doneCls    = checked ? ' task-done' : '';
+        html += `<li class="task-item${checkedCls}" data-task-item="1"><span class="task-check"></span><span class="task-text${doneCls}">${text}</span></li>`;
+      } else {
+        html += `<li>${t.replace(/^[-*•] /, '')}</li>`;
+      }
+      continue;
     }
     if (/^\d+\. /.test(t)) {
       if (inUl) { html += '</ul>'; inUl = false; }
@@ -382,7 +415,16 @@ export function spExplainMarkdown(text) {
       const sz = sizes[tok.level] || '16px';
       return `<h4 style="font-family:var(--font-head);font-size:${sz};font-weight:700;color:var(--text-1);margin:20px 0 10px;letter-spacing:-0.01em;">${inlineFormat(tok.content)}</h4>`;
     }
-    if (tok.type === 'ul') return '<ul>' + tok.items.map(l => `<li>${inlineFormat(l)}</li>`).join('') + '</ul>';
+    if (tok.type === 'ul') return '<ul>' + tok.items.map(l => {
+      if (/^\[[ xX]\] /.test(l)) {
+        const checked    = /^\[[xX]\] /.test(l);
+        const text       = l.replace(/^\[[ xX]\] /, '');
+        const checkedCls = checked ? ' checked' : '';
+        const doneCls    = checked ? ' task-done' : '';
+        return `<li class="task-item${checkedCls}" data-task-item="1"><span class="task-check"></span><span class="task-text${doneCls}">${inlineFormat(text)}</span></li>`;
+      }
+      return `<li>${inlineFormat(l)}</li>`;
+    }).join('') + '</ul>';
     if (tok.type === 'ol') return '<ol>' + tok.items.map(l => `<li>${inlineFormat(l)}</li>`).join('') + '</ol>';
     if (tok.type === 'p')  return `<p>${inlineFormat(tok.content)}</p>`;
     return '';

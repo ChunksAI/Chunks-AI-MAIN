@@ -1134,6 +1134,30 @@
   border-radius: 10px; padding: 10px 14px;
   font-size: 13px; color: #f87171;
 }
+
+/* ── Interactive checklist / task items in AI responses ─────────── */
+.task-item {
+  list-style: none;
+  display: flex; align-items: flex-start; gap: 8px;
+  cursor: pointer; user-select: none;
+}
+.task-check {
+  flex-shrink: 0;
+  width: 15px; height: 15px; margin-top: 4px;
+  border: 1.5px solid var(--border-sm); border-radius: 4px;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: border-color var(--t-fast), background var(--t-fast);
+  position: relative;
+}
+.task-item:hover .task-check { border-color: var(--gold-border); }
+.task-item.checked .task-check {
+  background: var(--gold-muted); border-color: var(--gold-border);
+}
+.task-item.checked .task-check::after {
+  content: '✓'; color: var(--gold); font-size: 10px; line-height: 1;
+}
+.task-text { flex: 1; }
+.task-done { text-decoration: line-through; color: var(--text-3); }
 /* ── AI Typing Indicator — single blinking amber dot ──────────── */
 .ws-typing-dot {
   display: inline-block;
