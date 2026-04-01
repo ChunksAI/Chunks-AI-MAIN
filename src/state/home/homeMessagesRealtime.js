@@ -72,7 +72,14 @@ function _handleInsert(row) {
   // Check from the end — the most-recently added untagged element is most likely the match.
   for (let i = candidates.length - 1; i >= 0; i--) {
     const el = candidates[i];
-    const elText = (row.role === 'user' ? el.textContent : el.querySelector('.hc-ai-body')?.textContent) || '';
+    let elText;
+    if (row.role === 'user') {
+      elText = el.textContent || '';
+    } else {
+      // Use data-raw-content if available (set by homeAppendAI) — raw markdown
+      // source matches row.content; rendered HTML textContent does not.
+      elText = el.dataset.rawContent ?? el.querySelector('.hc-ai-body')?.textContent ?? '';
+    }
     if (elText.trim() === (row.content || '').trim()) {
       el.setAttribute('data-rt-home-msg-id', rtId);
       console.log('[HomeMessagesRealtime] labelled optimistic element for msg', rtId);

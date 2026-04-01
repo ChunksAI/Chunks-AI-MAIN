@@ -665,20 +665,29 @@ export function homeAutoResize(el) {
 const _IMAGE_ONLY_LABEL = '[Image]';
 
 export function homeAppendUser(text, images = []) {
-  const el = document.createElement('div');
-  el.className = 'hc-user';
-  // Images first (on top), then text below — matches Claude.ai / ChatGPT layout
-  images.forEach(a => {
-    const wrap = document.createElement('div');
-    wrap.className = 'chat-img-wrap';
-    wrap.onclick = () => window.openImgLightbox?.(wrap);
-    const img = document.createElement('img');
-    img.src = a.dataUrl; img.alt = a.name;
-    wrap.appendChild(img);
-    el.appendChild(wrap);
-  });
-  if (text) el.appendChild(document.createTextNode(text));
-  document.getElementById('home-chat-history').appendChild(el);
+  const container = document.getElementById('home-chat-history');
+  // Image bubble first (separate bubble) — matches Claude.ai / ChatGPT layout
+  if (images.length > 0) {
+    const imgBubble = document.createElement('div');
+    imgBubble.className = 'hc-user';
+    images.forEach(a => {
+      const wrap = document.createElement('div');
+      wrap.className = 'chat-img-wrap';
+      wrap.onclick = () => window.openImgLightbox?.(wrap);
+      const img = document.createElement('img');
+      img.src = a.dataUrl; img.alt = a.name;
+      wrap.appendChild(img);
+      imgBubble.appendChild(wrap);
+    });
+    container.appendChild(imgBubble);
+  }
+  // Text bubble second (separate bubble below images)
+  if (text) {
+    const textBubble = document.createElement('div');
+    textBubble.className = 'hc-user';
+    textBubble.appendChild(document.createTextNode(text));
+    container.appendChild(textBubble);
+  }
   homeScrollBottom();
 }
 
@@ -735,6 +744,8 @@ export function homeRemoveThinking() {
 export function homeAppendAI(text, sources, { typewrite = false } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'hc-ai';
+  // Store raw content for realtime deduplication (rendered HTML textContent ≠ markdown source)
+  wrap.dataset.rawContent = text;
   let sourceBadge = '';
   if (sources && sources.length > 0) {
     sourceBadge = `<div class="hc-source-badge">

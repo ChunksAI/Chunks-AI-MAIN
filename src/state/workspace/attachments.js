@@ -129,7 +129,6 @@ window.wsChatSend = async function() {
     ? `<div style="margin-bottom:7px;padding:7px 10px;border-left:2px solid var(--gold);background:var(--gold-muted);border-radius:0 6px 6px 0;font-size:11px;color:var(--text-3);line-height:1.5;font-style:italic;">"${ws.selectedText.slice(0,160).replace(/&/g,'&amp;').replace(/</g,'&lt;')}${ws.selectedText.length>160?'…':''}"</div>`
     : '';
 
-  // Images first (on top), then text below — matches Claude.ai / ChatGPT layout
   const textHtml = question ? question.replace(/&/g,'&amp;').replace(/</g,'&lt;') : '';
   let attachHtml = '';
   if (ws.attachments.length) {
@@ -144,10 +143,20 @@ window.wsChatSend = async function() {
   // Remove the welcome state when the first real message is appended (mirrors wsAppendUser)
   const welcome = document.getElementById('ws-welcome-state');
   if (welcome) welcome.remove();
-  const d = document.createElement('div');
-  d.className = 'msg msg-user';
-  d.innerHTML = `<div class="bubble-user">${selQuote}${attachHtml}${textHtml}</div>`;
-  msgs.appendChild(d); wsScrollBottom();
+  // Attachments bubble first (separate bubble), then text bubble below — matches Claude.ai / ChatGPT layout
+  if (attachHtml) {
+    const attachBubble = document.createElement('div');
+    attachBubble.className = 'msg msg-user';
+    attachBubble.innerHTML = `<div class="bubble-user">${attachHtml}</div>`;
+    msgs.appendChild(attachBubble);
+  }
+  if (textHtml || selQuote) {
+    const d = document.createElement('div');
+    d.className = 'msg msg-user';
+    d.innerHTML = `<div class="bubble-user">${selQuote}${textHtml}</div>`;
+    msgs.appendChild(d);
+  }
+  wsScrollBottom();
 
   // Extract image for vision API; only append text metadata for non-image files
   const imageAtt = ws.attachments.find(a => a.type === 'image') || null;
