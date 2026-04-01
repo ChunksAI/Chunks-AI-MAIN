@@ -552,9 +552,11 @@ export async function _wsAsk(question) {
       const answer = data.answer || 'No response.';
 
       // [DEBUG] verify thinking_content reaches the frontend — remove after confirming
-      console.log('[DEBUG] full response keys:', Object.keys(data));
-      console.log('[DEBUG] thinking_content length:', data.thinking_content?.length);
-      console.log('[DEBUG] thinking_content preview:', data.thinking_content?.slice(0, 200));
+      if (typeof window !== 'undefined' && window.__CHUNKS_DEBUG) {
+        console.log('[DEBUG] full response keys:', Object.keys(data));
+        console.log('[DEBUG] thinking_content length:', data.thinking_content?.length);
+        console.log('[DEBUG] thinking_content preview:', data.thinking_content?.slice(0, 200));
+      }
 
       // ── ThinkingAccordion: finalize with real steps if thinking was active ──
       if (ws.thinking !== 'off') {

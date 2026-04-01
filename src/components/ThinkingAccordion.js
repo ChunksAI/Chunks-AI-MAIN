@@ -190,7 +190,7 @@ async function _animateSteps(steps, finalElapsed, tags, handle, intervals, conta
  * produces multiple meaningful steps.
  *
  * @param {string} raw
- * @returns {{ title: string, description: string }[]}
+ * @returns {{ id: string, title: string, description: string, status: string, tag: string }[]}
  */
 export function parseThinkingSteps(raw) {
   // Guard — if truly empty, return nothing (caller decides fallback)
