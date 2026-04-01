@@ -273,7 +273,6 @@ const WORKSPACE_HTML = /* html */`
 
       <!-- Card-style input container -->
       <div class="chat-input-card">
-        <div id="ws-attach-preview" class="attach-preview" style="display:none;"></div>
 
         <!-- Action chips row -->
         <div class="chat-action-chips" id="ws-smart-suggestions">
@@ -302,6 +301,9 @@ const WORKSPACE_HTML = /* html */`
             Mind map
           </button>
         </div>
+
+        <!-- Attachment preview (shown below chips when an image/file is attached) -->
+        <div id="ws-attach-preview" class="attach-preview" style="display:none;"></div>
 
         <!-- Textarea row -->
         <div class="chat-textarea-row">
