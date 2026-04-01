@@ -528,10 +528,16 @@ export async function _wsAsk(question) {
       wsAppendError('Server is busy — please wait a moment and try again.');
       ws.chatHistory.pop();
     }
-    wsRemoveThinking();
+    // When thinking mode is active, preserve the wrap so _wsFinalizeThinking
+    // can repurpose it with real steps; otherwise clean up the streaming accordion.
+    if (ws.thinking === 'off') {
+      wsRemoveThinking();
+    }
     if (res.status === 429) {
       // already handled above
+      if (ws.thinking !== 'off') wsRemoveThinking();
     } else if (!res.ok) {
+      if (ws.thinking !== 'off') wsRemoveThinking();
       const err = await res.json().catch(() => ({}));
       wsAppendError(err.error || `Server error ${res.status}`);
       ws.chatHistory.pop();
@@ -540,13 +546,21 @@ export async function _wsAsk(question) {
       if (data.guest_limited && isGuest?.() && typeof showLoginWall === 'function') {
         showLoginWall(data.feature || 'workspace');
         ws.chatHistory.pop();
+        if (ws.thinking !== 'off') wsRemoveThinking();
         return;
       }
       const answer = data.answer || 'No response.';
 
+      // [DEBUG] verify thinking_content reaches the frontend — remove after confirming
+      if (typeof window !== 'undefined' && window.__CHUNKS_DEBUG) {
+        console.log('[DEBUG] full response keys:', Object.keys(data));
+        console.log('[DEBUG] thinking_content length:', data.thinking_content?.length);
+        console.log('[DEBUG] thinking_content preview:', data.thinking_content?.slice(0, 200));
+      }
+
       // ── ThinkingAccordion: finalize with real steps if thinking was active ──
-      if (ws.thinking !== 'off' && data.thinking_content) {
-        _wsFinalizeThinking(data.thinking_content);
+      if (ws.thinking !== 'off') {
+        _wsFinalizeThinking(data.thinking_content || null);
       }
 
       // ── Typewriter: render AI response word by word ──
