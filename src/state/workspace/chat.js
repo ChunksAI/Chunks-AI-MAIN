@@ -11,6 +11,8 @@ import { guestGate, recordUsage, renderUsageBar, isGuest, showLoginWall } from '
 import { showToast }   from '../../components/Toast.js';
 import { $el, setHtml, addClass, removeClass, toggleClass } from '../domHelpers.js';
 import { handleCommand, syncContextFromWorkspace, updateContext } from '../commandEngine.js';
+import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../../components/ThinkingAccordion.js';
+import { typewriteResponse } from '../../utils/typewriter.js';
 
 // ── Toast (delegated to Toast.js — Task 20) ───────────────────────────────
 
@@ -69,24 +71,86 @@ export function _wsAvatarSvg() {
   </svg>`;
 }
 
+/** Handle for the currently-mounted ThinkingAccordion (if any). */
+let _wsThinkingHandle = null;
+let _wsThinkingWrap   = null;
+let _wsThinkStart     = 0;
+
 export function wsAppendThinking() {
   const msgs = $el('ws-messages');
-  const d = document.createElement('div');
-  d.className = 'msg msg-ai'; d.id = 'ws-thinking-msg';
-  d.innerHTML = `
-    <div class="ai-row">
-      <div class="ai-body">
-        <div style="padding:3px 0;">
-          <span class="ws-typing-dot"></span>
-        </div>
-      </div>
-    </div>`;
-  msgs.appendChild(d); wsScrollBottom();
+  // Remove any leftover accordion from a prior request
+  wsRemoveThinking();
+
+  _wsThinkStart = Date.now();
+  _wsThinkingWrap = document.createElement('div');
+  _wsThinkingWrap.className = 'msg msg-ai';
+  _wsThinkingWrap.id = 'ws-thinking-msg';
+
+  const container = document.createElement('div');
+  container.style.cssText = 'width:100%;';
+  _wsThinkingWrap.appendChild(container);
+  msgs.appendChild(_wsThinkingWrap);
+
+  // Mount ThinkingAccordion in streaming mode (empty steps, live timer)
+  _wsThinkingHandle = createThinkingAccordion(container, {
+    steps: [],
+    elapsed: 0,
+    tags: [],
+    isStreaming: true,
+  });
+
+  wsScrollBottom();
 }
 
 export function wsRemoveThinking() {
+  if (_wsThinkingHandle) {
+    _wsThinkingHandle.unmount();
+    _wsThinkingHandle = null;
+  }
+  if (_wsThinkingWrap) {
+    _wsThinkingWrap.remove();
+    _wsThinkingWrap = null;
+  }
+  // Fallback: remove by id in case something else created it
   const el = $el('ws-thinking-msg');
   if (el) el.remove();
+}
+
+/**
+ * Finalize the ThinkingAccordion with actual thinking content, then detach
+ * the handle so it stays in the DOM as a collapsed summary.
+ */
+function _wsFinalizeThinking(thinkingContent) {
+  if (!_wsThinkingWrap) return;
+  const elapsed = Math.round((Date.now() - _wsThinkStart) / 1000);
+
+  // Unmount the streaming accordion
+  if (_wsThinkingHandle) {
+    _wsThinkingHandle.unmount();
+    _wsThinkingHandle = null;
+  }
+
+  // Build steps
+  let steps = thinkingContent ? parseThinkingSteps(thinkingContent) : [];
+  if (steps.length === 0) {
+    const mode = ws.thinking;
+    steps = [{
+      title:       mode === 'deep' ? 'Deep reasoning applied' : 'Enhanced reasoning applied',
+      description: 'The model reasoned through your question before generating this response.',
+    }];
+  }
+  const tags = inferThinkingTags(steps, thinkingContent || '');
+
+  // Create a fresh container and mount the accordion with real steps
+  const container = document.createElement('div');
+  container.style.cssText = 'width:100%;';
+  _wsThinkingWrap.innerHTML = '';
+  _wsThinkingWrap.appendChild(container);
+  _wsThinkingWrap.removeAttribute('id'); // no longer the "thinking" placeholder
+
+  createThinkingAccordion(container, { steps, elapsed, tags });
+  _wsThinkingWrap = null;
+  wsScrollBottom();
 }
 
 // ── Flashcard result card HTML ─────────────────────────────────────────────────
@@ -479,7 +543,22 @@ export async function _wsAsk(question) {
         return;
       }
       const answer = data.answer || 'No response.';
-      const aiEl = wsAppendAI(answer, data.sources || [], question, data.search_mode);
+
+      // ── ThinkingAccordion: finalize with real steps if thinking was active ──
+      if (ws.thinking !== 'off' && data.thinking_content) {
+        _wsFinalizeThinking(data.thinking_content);
+      }
+
+      // ── Typewriter: render AI response word by word ──
+      const aiEl = wsAppendAI('', data.sources || [], question, data.search_mode);
+      const textEl = aiEl?.querySelector('.ai-text');
+      if (textEl) {
+        await typewriteResponse(textEl, answer, {
+          render: typeof wsRender === 'function' ? wsRender : undefined,
+          onScroll: wsScrollBottom,
+        });
+      }
+
       ws.chatHistory.push({
         role:    'assistant',
         content: answer,
