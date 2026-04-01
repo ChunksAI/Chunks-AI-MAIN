@@ -41,7 +41,6 @@ import { ChunksDB } from '../lib/chunksDb.js';
 import { subscribeToHomeMessages, unsubscribeHomeMessages } from '../state/home/homeMessagesRealtime.js';
 import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../components/ThinkingAccordion.js';
 import { typewriteResponse } from '../utils/typewriter.js';
-import { createChatBar } from '../components/ChatBar/ChatBar.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -181,9 +180,8 @@ const HOME_HTML = /* html */`
     <!-- Sticky bottom input bar — shown only after first message -->
     <div class="home-input-bar" id="home-input-bar" style="display:none;">
       <div id="home-attach-preview-bottom" class="attach-preview" style="margin-bottom:4px;"></div>
-      <div class="home-bottom-bar-row" style="display:flex;align-items:flex-end;gap:8px;max-width:860px;width:100%;margin:0 auto;">
-        <!-- Plus/attach button stays outside the ChatBar -->
-        <div class="ask-plus-wrap" style="flex-shrink:0;">
+      <div class="ask-box" id="home-ask-box-bottom" style="max-width:860px;">
+        <div class="ask-plus-wrap">
           <button class="chat-plus" id="home-plus-btn-bottom" onclick="homeToggleAttachMenu(event,'bottom')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
           <div class="attach-menu home-rich-menu" id="home-attach-menu-bottom">
             <div class="attach-menu-section-label">Attach</div>
@@ -216,8 +214,10 @@ const HOME_HTML = /* html */`
         </div>
         <input type="file" id="home-attach-image-bottom" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image','bottom')">
         <input type="file" id="home-attach-pdf-bottom" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf','bottom')">
-        <!-- ChatBar mount point -->
-        <div id="home-chatbar-mount" style="flex:1;min-width:0;"></div>
+        <textarea id="home-ask-input-bottom" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
+        <button class="ask-send" id="home-send-btn-bottom" data-action="homeSendMessage">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
       </div>
       <div class="home-disclaimer">Chunks AI can make mistakes. Verify important information.</div>
     </div>
@@ -545,35 +545,9 @@ export function mountHomeScreen() {
   // Render recent activities or fallback chips
   _renderHomeActivities();
 
-  // ── Mount ChatBar into the bottom input bar ──
-  _mountHomeChatBar();
-
   // Wire incognito modal listeners immediately after DOM is injected
   _wireIncognitoListeners();
   _wireIncognitoBackdrop();
-}
-
-// ── Home ChatBar ──────────────────────────────────────────────────────────────
-
-let _homeChatBarHandle = null;
-
-function _mountHomeChatBar() {
-  const mount = document.getElementById('home-chatbar-mount');
-  if (!mount) return;
-
-  _homeChatBarHandle = createChatBar(mount, {
-    placeholder:   'Ask anything…',
-    showChips:     false,
-    showAttach:    false,
-    showVoice:     false,
-    showDeepThink: false,
-    onSend:        () => { homeSendMessage(); },
-  });
-
-  // Assign IDs that existing code relies on
-  _homeChatBarHandle.textarea.id = 'home-ask-input-bottom';
-  _homeChatBarHandle.sendBtn.id  = 'home-send-btn-bottom';
-  _homeChatBarHandle.sendBtn.setAttribute('data-action', 'homeSendMessage');
 }
 
 // ── Recent Activities / Suggestion chips ─────────────────────────────────────
