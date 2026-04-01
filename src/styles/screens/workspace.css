@@ -780,6 +780,14 @@
   border-color: rgba(0, 0, 0, 0.18);
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.13);
 }
+/* Attachment preview strip inside the card */
+.chat-input-card .attach-preview {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+[data-theme="study"] .chat-input-card .attach-preview {
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+}
 
 /* ── Action chips row ── */
 .chat-action-chips {

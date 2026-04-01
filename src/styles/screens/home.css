@@ -162,11 +162,9 @@
   background: var(--surface-1);
   border: 1px solid var(--border-sm);
   border-radius: 16px;
-  padding: 0 8px 0 16px;
   display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 52px;
+  flex-direction: column;
+  align-items: stretch;
   transition: border-color var(--t-mid), box-shadow var(--t-mid), border-radius var(--t-mid);
 }
 .ask-box:focus-within {
@@ -184,6 +182,24 @@
 }
 .ask-box.is-multiline {
   border-radius: 16px;
+}
+/* Attachment preview inside the ask box */
+.ask-box .attach-preview {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-xs);
+}
+[data-theme="study"] .ask-box .attach-preview {
+  border-bottom-color: rgba(0, 0, 0, 0.06);
+}
+/* Inner row containing the controls (plus button, textarea, send) */
+.ask-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 0 16px;
+  min-height: 52px;
+}
+.ask-box.is-multiline .ask-input-row {
   align-items: flex-end;
   padding-top: 10px;
   padding-bottom: 10px;
