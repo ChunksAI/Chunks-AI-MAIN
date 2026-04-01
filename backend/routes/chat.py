@@ -584,6 +584,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                                      endpoint='chat', user_id=verified_user_id)
                     answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
                     web_citations = []
+                answer, thinking_content = extract_thinking_content(answer)
                 return jsonify({
                     'success':        True,
                     'mode':           'study',
@@ -595,7 +596,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     'source':         None,
                     'sources':        [],
                     'complexity_used': complexity,
-                    'thinking_content': None,
+                    'thinking_content': thinking_content,
                 })
 
             if selected_text:

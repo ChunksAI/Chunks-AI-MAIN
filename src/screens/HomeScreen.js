@@ -945,6 +945,12 @@ export async function homeSendMessage() {
     } else {
       const data   = await res.json();
       const answer = data.answer || 'No response.';
+
+      // [DEBUG] verify thinking_content reaches the frontend — remove after confirming
+      console.log('[DEBUG] full response keys:', Object.keys(data));
+      console.log('[DEBUG] thinking_content length:', data.thinking_content?.length);
+      console.log('[DEBUG] thinking_content preview:', data.thinking_content?.slice(0, 200));
+
       if (_homeThinking !== 'off') {
         const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
         homeAppendThinkingAccordion(data.thinking_content || null, elapsed, _homeThinking);
