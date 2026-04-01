@@ -865,6 +865,12 @@
   background: var(--text-3); flex-shrink: 0;
   transition: background 200ms ease;
 }
+.chat-think-btn.active,
+#ws-toggle-think.active {
+  color: var(--gold);
+  background: var(--gold-muted);
+  border-color: var(--gold-border);
+}
 .chat-think-btn.active .chat-think-dot,
 #ws-toggle-think.active .chat-think-dot { background: var(--gold); }
 
