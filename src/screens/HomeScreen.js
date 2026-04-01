@@ -906,7 +906,7 @@ export async function homeSendMessage() {
   ws.homeAttachments = ws.homeAttachments.filter(a => a.type !== 'image');
   _homeRenderPreview();
 
-  homeHistory.push({ role: 'user', content: question || _IMAGE_ONLY_LABEL });
+  homeHistory.push({ role: 'user', content: question || _IMAGE_ONLY_LABEL, ...(imageAtt ? { imageDataUrl: imageAtt.dataUrl } : {}) });
   recordUsage('general'); // track guest usage
   renderUsageBar('home-input-area', 'general'); // show counter near input
 
@@ -1074,10 +1074,27 @@ mountHomeScreen();
     chatHist.innerHTML = '';
     history.forEach(msg => {
       if (msg.role === 'user') {
-        const el = document.createElement('div');
-        el.className = 'hc-user';
-        el.textContent = msg.content || '';
-        chatHist.appendChild(el);
+        const hasImage = msg.imageDataUrl && /^data:image\/[a-zA-Z+]+;base64,/.test(msg.imageDataUrl);
+        if (hasImage) {
+          const imgBubble = document.createElement('div');
+          imgBubble.className = 'hc-user';
+          const wrap = document.createElement('div');
+          wrap.className = 'chat-img-wrap';
+          wrap.onclick = () => window.openImgLightbox?.(wrap);
+          const img = document.createElement('img');
+          img.src = msg.imageDataUrl; img.alt = 'attached image';
+          wrap.appendChild(img);
+          imgBubble.appendChild(wrap);
+          chatHist.appendChild(imgBubble);
+        }
+        const text = (msg.content || '').replace(/\n\[Attached:[^\]]*\]/g, '').trim();
+        const skipText = hasImage && text === _IMAGE_ONLY_LABEL;
+        if (text && !skipText) {
+          const el = document.createElement('div');
+          el.className = 'hc-user';
+          el.textContent = text;
+          chatHist.appendChild(el);
+        }
       } else if (msg.role === 'assistant') {
         const wrap = document.createElement('div');
         wrap.className = 'hc-ai';
@@ -1106,12 +1123,12 @@ mountHomeScreen();
     if (bar)        bar.style.display = 'flex';
     if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
 
-    if (session.html && chatHist) {
-      // Local device — use cached rendered HTML
-      chatHist.innerHTML = sanitize(session.html);
-    } else if (history.length && chatHist) {
-      // Cross-device restore — rebuild from message array
+    if (history.length && chatHist) {
+      // Prefer history-based render so images stored as base64 in imageDataUrl survive refresh
       _renderFromHistory(history);
+    } else if (session.html && chatHist) {
+      // Fallback: use cached HTML when no history array is available
+      chatHist.innerHTML = sanitize(session.html);
     }
 
     // Always populate homeHistory from the message array so the _onSessionsReady
@@ -1125,6 +1142,7 @@ mountHomeScreen();
   }
   // Expose so module-level listener can call it after IIFE exits
   // _mountSession exposed via export below
+  window._homeMountSession = _mountSession;
 
   // ── Restore on page load ─────────────────────────────────────────────────
   // For logged-in users: don't block on sync — just restore what localStorage
