@@ -235,7 +235,7 @@
   transition: color var(--t-fast), border-color var(--t-fast), background var(--t-fast);
 }
 .tool-chip:hover { color: var(--text-2); border-color: var(--border-sm); background: var(--surface-2); }
-.tool-chip.active { color: var(--violet); background: var(--violet-muted); border-color: var(--violet-border); }
+.tool-chip.active { color: var(--gold); background: var(--gold-muted); border-color: var(--gold-border); }
 
 /* Send button */
 .ask-send {
