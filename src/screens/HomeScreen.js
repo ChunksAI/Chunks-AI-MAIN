@@ -558,11 +558,70 @@ export function _renderHomeActivities() {
   const container = document.getElementById('home-activities-section');
   if (!container) return;
 
-  const items = Array.isArray(window._recentItems) ? window._recentItems : [];
-  const recent = items.slice(0, 5);
+  const _esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const _barColor = pct => pct >= 80 ? 'var(--green)' : pct >= 20 ? 'var(--gold)' : 'var(--text-4)';
 
-  if (recent.length === 0) {
-    // No history — show fallback suggestion chips
+  // ── 1. Last read book ───────────────────────────────────────────────────────
+  let lastBook = null;
+  try {
+    const bpAll = JSON.parse(localStorage.getItem('chunks_book_progress_v1') || '{}');
+    const entries = Object.entries(bpAll);
+    if (entries.length > 0) {
+      entries.sort((a, b) => (b[1].lastOpened || '') > (a[1].lastOpened || '') ? 1 : -1);
+      const [bookId, prog] = entries[0];
+      const meta = (window.wsBookMeta || {})[bookId];
+      if (prog.lastPage) {
+        const pct = prog.totalPages ? Math.min(100, Math.round((prog.lastPage / prog.totalPages) * 100)) : 0;
+        lastBook = { bookId, title: meta?.name || bookId, lastPage: prog.lastPage, totalPages: prog.totalPages || 0, pct };
+      }
+    }
+  } catch (_) {}
+
+  // ── 2. Most recent study plan ───────────────────────────────────────────────
+  let lastPlan = null;
+  try {
+    const allPlans = JSON.parse(localStorage.getItem('sp_all_plans') || '{}');
+    const entries = Object.entries(allPlans);
+    if (entries.length > 0) {
+      entries.sort((a, b) => (b[1].savedAt || 0) - (a[1].savedAt || 0));
+      const [planId, plan] = entries[0];
+      const topic = plan.topic || plan.plan?.title || '';
+      if (topic) {
+        const n = plan.plan?.concepts?.length || 0;
+        const mastery = plan.mastery || {};
+        const MASTERY_WEIGHTS = { explain: 10, flash: 20, pq: 35, exam: 35 };
+        const scores = Array.from({ length: n }, (_, i) => {
+          const m = mastery[i] || {};
+          return Math.min(100, Math.round(
+            ((m.explain || 0) / 100) * MASTERY_WEIGHTS.explain + ((m.flash || 0) / 100) * MASTERY_WEIGHTS.flash +
+            ((m.pq || 0) / 100) * MASTERY_WEIGHTS.pq + ((m.exam || 0) / 100) * MASTERY_WEIGHTS.exam
+          ));
+        });
+        const barPct = n > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / n) : 0;
+        lastPlan = { planId, topic, barPct };
+      }
+    }
+  } catch (_) {}
+
+  // ── 3. Most recently studied flashcard deck ─────────────────────────────────
+  let lastDeck = null;
+  try {
+    const masteryStore = JSON.parse(localStorage.getItem('chunks_fc_mastery_v1') || '{}');
+    const deckEntries = Object.entries(masteryStore);
+    if (deckEntries.length > 0) {
+      deckEntries.sort((a, b) => (b[1].lastStudied || '') > (a[1].lastStudied || '') ? 1 : -1);
+      const [deckId, stats] = deckEntries[0];
+      const decks = JSON.parse(localStorage.getItem('chunks_fc_decks_v1') || '[]');
+      const deck = decks.find(d => d.id === deckId);
+      if (deck) lastDeck = { deckId, name: deck.name, pct: stats.pct || 0 };
+    }
+  } catch (_) {}
+
+  // ── 4. Recent chats (up to 3) ───────────────────────────────────────────────
+  const recentChats = Array.isArray(window._recentItems) ? window._recentItems.slice(0, 3) : [];
+
+  // ── No activity at all → show "Try asking" for new users ───────────────────
+  if (!lastBook && !lastPlan && !lastDeck && recentChats.length === 0) {
     container.innerHTML = `
       <p class="prompts-label">Try asking</p>
       <div class="prompts-chips">
@@ -573,15 +632,68 @@ export function _renderHomeActivities() {
     return;
   }
 
-  // Build recent activities list
-  const _esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const rows = recent.map(item => {
+  // ── Build rich activity section ─────────────────────────────────────────────
+  let richCards = '';
+
+  if (lastBook) {
+    const meta = lastBook.totalPages
+      ? `Page ${lastBook.lastPage} of ${lastBook.totalPages} · ${lastBook.pct}%`
+      : `Page ${lastBook.lastPage}`;
+    richCards += `
+      <div class="ra-card" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
+        <div class="ra-card-main">
+          <span class="ra-icon">📚</span>
+          <div class="ra-card-text">
+            <span class="ra-label">${_esc(lastBook.title)}</span>
+            <span class="ra-card-meta">${_esc(meta)}</span>
+          </div>
+        </div>
+        <div class="ra-card-footer">
+          <div class="ra-card-bar"><div class="ra-card-bar-fill" style="width:${lastBook.pct}%;background:${_barColor(lastBook.pct)};"></div></div>
+          <button class="ra-card-btn">Continue →</button>
+        </div>
+      </div>`;
+  }
+
+  if (lastPlan) {
+    richCards += `
+      <div class="ra-card" data-ra-action="plan" data-ra-id="${_esc(lastPlan.planId)}">
+        <div class="ra-card-main">
+          <span class="ra-icon">📋</span>
+          <div class="ra-card-text">
+            <span class="ra-label">${_esc(lastPlan.topic)}</span>
+            <span class="ra-card-meta">Study Plan · ${lastPlan.barPct}% mastered</span>
+          </div>
+        </div>
+        <div class="ra-card-footer">
+          <div class="ra-card-bar"><div class="ra-card-bar-fill" style="width:${lastPlan.barPct}%;background:${_barColor(lastPlan.barPct)};"></div></div>
+          <button class="ra-card-btn">Resume →</button>
+        </div>
+      </div>`;
+  }
+
+  if (lastDeck) {
+    richCards += `
+      <div class="ra-card" data-ra-action="flash" data-ra-id="${_esc(lastDeck.deckId)}">
+        <div class="ra-card-main">
+          <span class="ra-icon">🃏</span>
+          <div class="ra-card-text">
+            <span class="ra-label">${_esc(lastDeck.name)}</span>
+            <span class="ra-card-meta">Flashcards · ${lastDeck.pct}% mastered</span>
+          </div>
+        </div>
+        <div class="ra-card-footer">
+          <div class="ra-card-bar"><div class="ra-card-bar-fill" style="width:${lastDeck.pct}%;background:${_barColor(lastDeck.pct)};"></div></div>
+          <button class="ra-card-btn">Review →</button>
+        </div>
+      </div>`;
+  }
+
+  const chatRows = recentChats.map(item => {
     const meta = _SOURCE_META[item.source] || _SOURCE_META.general;
-    const label = _esc(item.label || item.question || '');
-    const id    = _esc(item.id);
-    return `<div class="ra-item" data-recent-id="${id}">
+    return `<div class="ra-item" data-recent-id="${_esc(item.id)}">
       <span class="ra-icon">${meta.icon}</span>
-      <span class="ra-label">${label}</span>
+      <span class="ra-label">${_esc(item.label || item.question || '')}</span>
       <span class="ra-type">${meta.label}</span>
       <svg class="ra-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
     </div>`;
@@ -589,15 +701,30 @@ export function _renderHomeActivities() {
 
   container.innerHTML = `
     <p class="prompts-label">Recent activity</p>
-    <div class="ra-list">${rows}</div>`;
+    <div class="ra-list">${richCards}${chatRows}</div>`;
 
-  // Wire click handlers
+  // Wire click handlers for chat items
   container.querySelectorAll('.ra-item').forEach(el => {
     el.addEventListener('click', () => {
       const id = el.dataset.recentId;
       const found = (window._recentItems || []).find(r => r.id === id);
-      if (found && typeof window._clickRecent === 'function') {
-        window._clickRecent(found);
+      if (found && typeof window._clickRecent === 'function') window._clickRecent(found);
+    });
+  });
+
+  // Wire click handlers for rich cards
+  container.querySelectorAll('.ra-card').forEach(el => {
+    el.addEventListener('click', () => {
+      const action = el.dataset.raAction;
+      const id = el.dataset.raId;
+      if (action === 'book') {
+        if (typeof window.selectBook === 'function') window.selectBook(id);
+      } else if (action === 'plan') {
+        if (typeof window.showScreen === 'function') window.showScreen('studyplan');
+        // spSwitchToPlan runs after showScreen() initialises the study plan screen
+        setTimeout(() => { if (typeof window.spSwitchToPlan === 'function') window.spSwitchToPlan(id); }, 100);
+      } else if (action === 'flash') {
+        if (typeof window.showScreen === 'function') window.showScreen('flash');
       }
     });
   });
