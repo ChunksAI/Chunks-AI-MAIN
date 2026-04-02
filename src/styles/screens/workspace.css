@@ -1223,6 +1223,17 @@
   0%, 100% { opacity: 0.2; }
   50%       { opacity: 1; }
 }
+/* ── Analyzing image text indicator ────────────────────────────── */
+.ws-analyzing-text {
+  font-size: inherit;
+  color: var(--text-2);
+  opacity: 0.7;
+  animation: ws-analyzing-fade 1.4s ease-in-out infinite;
+}
+@keyframes ws-analyzing-fade {
+  0%, 100% { opacity: 0.4; }
+  50%       { opacity: 0.85; }
+}
 #home-ask-input { max-height: 160px; overflow-y: auto; }
 #screen-home main { overflow-y: auto; scrollbar-width: thin; }
 
