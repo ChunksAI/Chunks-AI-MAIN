@@ -10,23 +10,19 @@ from __future__ import annotations
 import logging
 import os
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from routes.shared import ctx
-from routes.validation import validate_request
 from routes.schemas import ImageRequest
 
 logger = logging.getLogger(__name__)
 
-image_bp = Blueprint('image', __name__)
+router = APIRouter()
 
 
-@image_bp.route('/ask-image', methods=['POST', 'OPTIONS'])
-@validate_request(ImageRequest)
-def ask_image():
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
-
+@router.post('/ask-image')
+def ask_image(request: Request, body: ImageRequest):
     # 10 MB decoded ≈ 13.4 MB of base64 chars.
     _B64_MAX_CHARS = 13_400_000
 
@@ -40,9 +36,7 @@ def ask_image():
         from services.ai import sanitize_text
         from services import token_budget
 
-        data = request.get_json(silent=True)
-        if not data:
-            return jsonify({'success': False, 'error': 'Missing JSON body'}), 400
+        data = body.model_dump()
 
         image_b64  = data.get('image_b64', '')
         image_type = data.get('image_type', 'image/jpeg')
@@ -53,11 +47,11 @@ def ask_image():
         )
 
         # Verify JWT and enforce daily limit
-        verified_user_id, _tier = _extract_verified_user()
+        verified_user_id, _tier = _extract_verified_user(request)
 
         # ── Per-user, per-device rate limiting ────────────────────────────
         from services.device_abuse import check_device_rate_limit
-        _device_block = check_device_rate_limit(verified_user_id)
+        _device_block = check_device_rate_limit(verified_user_id, request)
         if _device_block is not None:
             return _device_block
 
@@ -69,7 +63,7 @@ def ask_image():
             return _ple.response()
 
         if not image_b64:
-            return jsonify({'success': False, 'error': 'No image data provided'}), 400
+            return JSONResponse({'success': False, 'error': 'No image data provided'}, status_code=400)
 
         if len(image_b64) > _B64_MAX_CHARS:
             decoded_mb = round(len(image_b64) * 3 / 4 / 1_048_576, 1)
@@ -77,26 +71,26 @@ def ask_image():
                 "Vision endpoint: image rejected — base64 length %d (~%s MB decoded)",
                 len(image_b64), decoded_mb,
             )
-            return jsonify({
+            return JSONResponse({
                 'success': False,
                 'error': f'Image too large (~{decoded_mb} MB). Maximum is 10 MB.',
-            }), 413
+            }, status_code=413)
 
         image_type_clean = image_type.strip().lower().split(';')[0]
         if image_type_clean not in _ALLOWED_IMAGE_TYPES:
             logger.warning(
                 "Vision endpoint: rejected image_type %r (not in allowlist)", image_type
             )
-            return jsonify({
+            return JSONResponse({
                 'success': False,
                 'error': f'Unsupported image type "{image_type_clean}". Allowed: jpeg, png, gif, webp, bmp.',
-            }), 415
+            }, status_code=415)
 
         if not token_budget.check_daily_budget():
-            return jsonify({
+            return JSONResponse({
                 'success': False,
                 'error': 'Daily AI cost budget exceeded. Please try again after midnight UTC.',
-            }), 503
+            }, status_code=503)
 
         vision_model = os.environ.get('VISION_MODEL', 'nvidia/nemotron-nano-12b-v2-vl:free')
         effective_max_tokens = token_budget.max_tokens_for_endpoint('image')
@@ -155,16 +149,16 @@ def ask_image():
             # Record usage from the vision API call
             from services.ai import _record_usage_from_response
             _record_usage_from_response(resp_json, vision_model, 'image', user_id=verified_user_id)
-            return jsonify({'success': True, 'answer': answer, 'model': vision_model})
+            return {'success': True, 'answer': answer, 'model': vision_model}
         else:
             err_detail = response.text[:400]
             logger.error(f"Vision API error {response.status_code}: {err_detail}")
-            return jsonify({
+            return JSONResponse({
                 'success': False,
                 'error': f'Vision API error {response.status_code}',
                 'detail': err_detail
-            }), 500
+            }, status_code=500)
 
     except Exception as e:
         logger.exception("Unhandled error")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)

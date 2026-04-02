@@ -13,7 +13,7 @@ from unittest.mock import patch, MagicMock
 def test_paev_status(client):
     r = client.get('/paev/status')
     assert r.status_code == 200
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is True
     assert 'books' in body
     assert 'r2_configured' in body
@@ -29,7 +29,7 @@ def test_paev_status_with_cached(client):
          patch('paev_routes.os.path.exists', return_value=True):
         r = client.get('/paev/status')
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         for info in body['books'].values():
             assert info['stage'] == 'cached_on_disk'
 
@@ -39,7 +39,7 @@ def test_paev_status_with_redis(client):
     status = {'stage': 'ready', 'pct': 100}
     with patch('paev_routes._paev_status_get', return_value=status):
         r = client.get('/paev/status')
-        body = r.get_json()
+        body = r.json()
         for info in body['books'].values():
             assert info['stage'] == 'ready'
 
@@ -54,7 +54,7 @@ def test_build_index_options(client):
 def test_build_index_unknown_book(client):
     r = client.post('/paev/build-index', json={'bookId': 'nonexistent_book'})
     assert r.status_code == 404
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is False
     assert 'Unknown book' in body['error']
 
@@ -69,7 +69,7 @@ def test_build_index_starts(client):
 
         r = client.post('/paev/build-index', json={'bookId': 'zumdahl'})
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is True
         assert 'Build started' in body['message']
         mock_thread.start.assert_called_once()
@@ -80,7 +80,7 @@ def test_build_index_already_built(client):
     with patch('paev_routes._paev_status_get', return_value={'stage': 'ready', 'pct': 100}):
         r = client.post('/paev/build-index', json={'bookId': 'zumdahl'})
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is True
         assert 'Already built' in body['message']
 
@@ -89,7 +89,7 @@ def test_build_index_in_progress(client):
     with patch('paev_routes._paev_status_get', return_value={'stage': 'building_index', 'pct': 40}):
         r = client.post('/paev/build-index', json={'bookId': 'zumdahl'})
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         assert 'Build in progress' in body['message']
 
 
@@ -103,7 +103,7 @@ def test_build_index_error_state(client):
 
         r = client.post('/paev/build-index', json={'bookId': 'zumdahl'})
         assert r.status_code == 200
-        assert 'Build started' in r.get_json()['message']
+        assert 'Build started' in r.json()['message']
 
 
 # ── GET /paev/graph/<book_id> ─────────────────────────────────────────────────
@@ -112,7 +112,7 @@ def test_graph_not_built(client):
     with patch('paev_routes._get_book', return_value=(None, None, None)):
         r = client.get('/paev/graph/zumdahl')
         assert r.status_code == 404
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is False
 
 
@@ -127,7 +127,7 @@ def test_graph_success(client):
     with patch('paev_routes._get_book', return_value=(MagicMock(), MagicMock(), mock_graph)):
         r = client.get('/paev/graph/zumdahl')
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is True
         assert body['book_id'] == 'zumdahl'
         assert body['total_concepts'] == 2
@@ -139,7 +139,7 @@ def test_graph_success(client):
 def test_learning_path_no_concept(client):
     r = client.get('/paev/learning-path?bookId=zumdahl')
     assert r.status_code == 400
-    assert r.get_json()['error'] == 'concept param required'
+    assert r.json()['error'] == 'concept param required'
 
 
 def test_learning_path_not_built(client):
@@ -163,7 +163,7 @@ def test_learning_path_success(client):
     with patch('paev_routes._get_book', return_value=(MagicMock(), MagicMock(), mock_graph)):
         r = client.get('/paev/learning-path?bookId=zumdahl&concept=entropy')
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is True
         assert body['concept'] == 'entropy'
         assert len(body['learning_path']) == 1
@@ -179,7 +179,7 @@ def test_learning_path_empty(client):
     with patch('paev_routes._get_book', return_value=(MagicMock(), MagicMock(), mock_graph)):
         r = client.get('/paev/learning-path?bookId=zumdahl&concept=atom')
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is True
         assert body['learning_path'] == []
 
@@ -194,13 +194,13 @@ def test_paev_ask_options(client):
 def test_paev_ask_no_question(client):
     r = client.post('/paev/ask', json={'question': '', 'bookId': 'zumdahl'})
     assert r.status_code == 400
-    assert r.get_json()['error'] == 'question is required'
+    assert r.json()['error'] == 'question is required'
 
 
 def test_paev_ask_unknown_book(client):
     r = client.post('/paev/ask', json={'question': 'What is pH?', 'bookId': 'fake_book'})
     assert r.status_code == 404
-    assert 'Unknown book' in r.get_json()['error']
+    assert 'Unknown book' in r.json()['error']
 
 
 def test_paev_ask_not_indexed(client):
@@ -210,7 +210,7 @@ def test_paev_ask_not_indexed(client):
             'bookId': 'zumdahl',
         })
         assert r.status_code == 404
-        assert 'not indexed yet' in r.get_json()['error']
+        assert 'not indexed yet' in r.json()['error']
 
 
 def test_paev_ask_success(client):
@@ -227,7 +227,7 @@ def test_paev_ask_success(client):
             'complexity': 5,
         })
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is True
 
 
@@ -242,7 +242,7 @@ def test_paev_ask_exception(client):
             'bookId': 'zumdahl',
         })
         assert r.status_code == 500
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is False
         assert 'model timeout' in body['error']
 
@@ -721,9 +721,9 @@ def test_path_helpers():
 # ── Blueprint registration ───────────────────────────────────────────────────
 
 def test_paev_blueprints_registered(app):
-    rules = [r.rule for r in app.url_map.iter_rules()]
+    rules = [r.path for r in app.routes]
     assert '/paev/status' in rules
     assert '/paev/build-index' in rules
     assert '/paev/ask' in rules
-    assert '/paev/graph/<book_id>' in rules
+    assert '/paev/graph/{book_id}' in rules
     assert '/paev/learning-path' in rules

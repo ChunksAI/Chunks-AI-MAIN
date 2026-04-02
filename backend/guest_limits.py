@@ -36,7 +36,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from flask import request, jsonify
+from fastapi.responses import JSONResponse
 try:
     from redis.exceptions import WatchError as _RedisWatchError
 except ImportError:
@@ -58,17 +58,16 @@ GUEST_LIMITS: dict[str, int] = {
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _get_client_ip() -> str:
+def _get_client_ip(req) -> str:
     """
-    Return the real client IP.
+    Return the real client IP from a Starlette/FastAPI Request object.
 
-    server.py applies ProxyFix(x_for=1) which peels exactly ONE hop off the
-    right of X-Forwarded-For (the hop Railway's edge proxy added).
-    After ProxyFix runs, request.remote_addr already contains the correct
-    client IP — we never touch X-Forwarded-For directly here, because the
-    raw header is client-controlled and trivially spoofable.
+    server.py applies ProxyHeadersMiddleware which fills request.client.host
+    with the correct client IP.
     """
-    return request.remote_addr or '0.0.0.0'
+    if req is not None and req.client:
+        return req.client.host or '0.0.0.0'
+    return '0.0.0.0'
 
 
 def _today() -> str:
@@ -79,9 +78,9 @@ def _redis_key(ip: str, feature: str, day: str) -> str:
     return f'guest_limit:{feature}:{ip}:{day}'
 
 
-def _is_guest() -> bool:
+def _is_guest(req) -> bool:
     """Return True when the request has NO valid Authorization header (i.e. is a guest)."""
-    auth = request.headers.get('Authorization', '').strip()
+    auth = req.headers.get('authorization', '').strip() if req else ''
     return not auth or not auth.startswith('Bearer ')
 
 
@@ -136,8 +135,8 @@ class GuestLimitExceeded(Exception):
         super().__init__(f"Guest limit exceeded: {feature} ({used}/{limit})")
 
     def response(self):
-        """Return a Flask (response, status_code) tuple ready to be returned from a view."""
-        return jsonify({
+        """Return a JSONResponse ready to be returned from a FastAPI view."""
+        return JSONResponse({
             'success':       False,
             'guest_limited': True,
             'feature':       self.feature,
@@ -147,7 +146,7 @@ class GuestLimitExceeded(Exception):
                 f'Guest limit reached for {self.feature}. '
                 'Sign up for free to keep going!'
             ),
-        }), 429
+        }, status_code=429)
 
 
 def guest_gate(req, feature: str, redis_client=None) -> None:
@@ -162,7 +161,7 @@ def guest_gate(req, feature: str, redis_client=None) -> None:
     Uses a single atomic Lua script on Redis — no peek-then-increment race.
     Call this at the TOP of an endpoint, before any expensive work.
     """
-    if not _is_guest():
+    if not _is_guest(req):
         return  # logged-in users are never rate-limited here
 
     if redis_client is None:
@@ -177,7 +176,7 @@ def guest_gate(req, feature: str, redis_client=None) -> None:
         logger.info("guest_gate: unknown feature '%s' — skipping", feature)
         return
 
-    ip  = _get_client_ip()
+    ip  = _get_client_ip(req)
     day = _today()
     key = _redis_key(ip, feature, day)
 
@@ -197,12 +196,12 @@ def guest_gate(req, feature: str, redis_client=None) -> None:
     )
 
 
-def enforce_exam_constraints_for_guest(data: dict) -> dict:
+def enforce_exam_constraints_for_guest(req, data: dict) -> dict:
     """
     If the caller is a guest, force exam mode to MCQ-only with max 5 questions.
     Returns the (possibly mutated) data dict.
     """
-    if not _is_guest():
+    if not _is_guest(req):
         return data
 
     data = dict(data)           # don't mutate caller's dict

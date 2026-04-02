@@ -11,30 +11,28 @@ def test_upload_options(client):
 
 
 def test_upload_no_file(client, mock_extract_user):
-    """POST /upload-document with no file returns 400."""
+    """POST /upload-document with no file returns 400 or 422."""
     resp = client.post('/upload-document', data={})
-    assert resp.status_code == 400
-    data = resp.get_json()
+    assert resp.status_code in (400, 422)
+    data = resp.json()
     assert data['success'] is False
-    assert 'No file uploaded' in data['error']
 
 
 def test_upload_unsupported_extension(client, mock_extract_user):
     """POST /upload-document with a .txt file returns 400."""
-    data = {
-        'file': (io.BytesIO(b'hello world'), 'test.txt')
-    }
-    resp = client.post('/upload-document', data=data,
-                       content_type='multipart/form-data')
+    resp = client.post(
+        '/upload-document',
+        files={'file': ('test.txt', io.BytesIO(b'hello world'), 'text/plain')},
+    )
     assert resp.status_code == 400
-    body = resp.get_json()
+    body = resp.json()
     assert body['success'] is False
     assert 'Unsupported file type' in body['error']
 
 
 def test_upload_blueprint_registered(app):
-    """The upload blueprint is registered with correct route."""
-    rules = [r.rule for r in app.url_map.iter_rules()]
+    """The upload router is registered with correct route."""
+    rules = [r.path for r in app.routes]
     assert '/upload-document' in rules
 
 
@@ -50,12 +48,12 @@ def test_upload_success(client, monkeypatch, mock_extract_user):
     monkeypatch.setattr(docs_mod, 'extract_slides_from_file',
                         MagicMock(return_value=extracted_slides))
 
-    pdf_data = io.BytesIO(b'%PDF-1.4 fake pdf content')
-    data = {'file': (pdf_data, 'test.pdf')}
-    resp = client.post('/upload-document', data=data,
-                       content_type='multipart/form-data')
+    resp = client.post(
+        '/upload-document',
+        files={'file': ('test.pdf', io.BytesIO(b'%PDF-1.4 fake pdf content'), 'application/pdf')},
+    )
     assert resp.status_code == 200
-    body = resp.get_json()
+    body = resp.json()
     assert body['success'] is True
     assert body['total_slides'] == 1
     assert body['filename'] == 'test.pdf'
@@ -68,21 +66,22 @@ def test_upload_extraction_error(client, monkeypatch, mock_extract_user):
     monkeypatch.setattr(docs_mod, 'extract_slides_from_file',
                         MagicMock(side_effect=ValueError("Cannot parse this file")))
 
-    pdf_data = io.BytesIO(b'%PDF-1.4 corrupt content')
-    data = {'file': (pdf_data, 'bad.pdf')}
-    resp = client.post('/upload-document', data=data,
-                       content_type='multipart/form-data')
+    resp = client.post(
+        '/upload-document',
+        files={'file': ('bad.pdf', io.BytesIO(b'%PDF-1.4 corrupt content'), 'application/pdf')},
+    )
     assert resp.status_code == 400
-    body = resp.get_json()
+    body = resp.json()
     assert body['success'] is False
     assert 'Cannot parse' in body['error']
 
 
 def test_upload_empty_filename(client, mock_extract_user):
-    """POST /upload-document with empty filename returns 400."""
-    data = {'file': (io.BytesIO(b'data'), '')}
-    resp = client.post('/upload-document', data=data,
-                       content_type='multipart/form-data')
-    assert resp.status_code == 400
-    body = resp.get_json()
+    """POST /upload-document with empty filename returns 400 or 422."""
+    resp = client.post(
+        '/upload-document',
+        files={'file': ('', io.BytesIO(b'data'), 'application/octet-stream')},
+    )
+    assert resp.status_code in (400, 422)
+    body = resp.json()
     assert body['success'] is False

@@ -1,4 +1,3 @@
-
 """
 backend/routes/youtube.py — YouTube transcript ingestion endpoint.
 
@@ -15,12 +14,14 @@ import logging
 import os
 import re
 import time
+from typing import Optional
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Request, Body
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
-youtube_bp = Blueprint('youtube', __name__)
+router = APIRouter()
 
 # Maximum characters of transcript to return (~120k matches the IndexedDB cap)
 _MAX_TRANSCRIPT_CHARS = 120_000
@@ -138,24 +139,20 @@ def _chunk_transcript(entries: list[dict], chunk_size: int = _CHUNK_SIZE) -> lis
     return slides
 
 
-@youtube_bp.route('/ingest-youtube', methods=['POST', 'OPTIONS'])
-def ingest_youtube():
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
-
+@router.post('/ingest-youtube')
+def ingest_youtube(request: Request, body: dict = Body(default={})):
     try:
         from services.auth import _extract_verified_user
 
-        _extract_verified_user()
+        _extract_verified_user(request)
 
-        body = request.get_json(silent=True) or {}
         url = (body.get('url') or '').strip()
         if not url:
-            return jsonify({'success': False, 'error': 'url is required'}), 400
+            return JSONResponse({'success': False, 'error': 'url is required'}, status_code=400)
 
         video_id = _extract_video_id(url)
         if not video_id:
-            return jsonify({'success': False, 'error': 'Could not parse a YouTube video ID from that URL'}), 400
+            return JSONResponse({'success': False, 'error': 'Could not parse a YouTube video ID from that URL'}, status_code=400)
 
         try:
             from youtube_transcript_api import (
@@ -167,7 +164,7 @@ def ingest_youtube():
             )
         except ImportError:
             logger.error("youtube-transcript-api not installed")
-            return jsonify({'success': False, 'error': 'Server transcript support not installed'}), 500
+            return JSONResponse({'success': False, 'error': 'Server transcript support not installed'}, status_code=500)
 
         try:
             proxy_config = _build_proxy_config()
@@ -207,10 +204,10 @@ def ingest_youtube():
                         raise
 
         except (NoTranscriptFound, TranscriptsDisabled) as e:
-            return jsonify({'success': False, 'error': 'No transcript available for this video'}), 422
+            return JSONResponse({'success': False, 'error': 'No transcript available for this video'}, status_code=422)
         except (IpBlocked, RequestBlocked) as e:
             logger.warning("YouTube blocked transcript request for %s: %s", video_id, e)
-            return jsonify({
+            return JSONResponse({
                 'success': False,
                 'error': (
                     'YouTube is blocking transcript requests from this server. '
@@ -218,7 +215,7 @@ def ingest_youtube():
                     'to a residential proxy URL, or set WEBSHARE_PROXY_USERNAME '
                     'and WEBSHARE_PROXY_PASSWORD to use Webshare rotating proxies.'
                 ),
-            }), 422
+            }, status_code=422)
         except Exception as e:
             if _is_rate_limited(e):
                 logger.warning("YouTube rate-limited for %s after %d attempts: %s", video_id, _MAX_RETRIES, e)
@@ -235,9 +232,9 @@ def ingest_youtube():
                         'variables to use Webshare rotating proxies, or set YOUTUBE_PROXY_URL '
                         'to a residential proxy URL.'
                     )
-                return jsonify({'success': False, 'error': err_msg}), 429
+                return JSONResponse({'success': False, 'error': err_msg}, status_code=429)
             logger.warning("Transcript fetch failed for %s: %s", video_id, e)
-            return jsonify({'success': False, 'error': f'Could not fetch transcript: {str(e)}'}), 422
+            return JSONResponse({'success': False, 'error': f'Could not fetch transcript: {str(e)}'}, status_code=422)
 
         slides = _chunk_transcript(entries)
 
@@ -260,15 +257,15 @@ def ingest_youtube():
         except Exception:
             pass  # title stays as fallback
 
-        return jsonify({
+        return {
             'success':    True,
             'video_id':   video_id,
             'title':      title,
             'slides':     slides,
             'total_slides': len(slides),
             'transcript': full_text,
-        })
+        }
 
     except Exception as e:
         logger.exception("Unhandled error in /ingest-youtube")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)

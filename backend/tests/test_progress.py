@@ -36,7 +36,7 @@ def test_streak_check_options(client):
 def test_readiness_empty_progress(client):
     r = client.post('/progress/readiness', json={'progress': {}})
     assert r.status_code == 200
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is True
     assert 'readiness' in body
     assert 'breakdown' in body
@@ -57,7 +57,7 @@ def test_readiness_with_data(client):
         },
     })
     assert r.status_code == 200
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is True
     assert 0 < body['readiness'] <= 100
     bk = body['breakdown']
@@ -80,7 +80,7 @@ def test_readiness_verdict_high(client):
             'totalStudyTime': 600,
         },
     })
-    body = r.get_json()
+    body = r.json()
     assert body['readiness'] >= 85
     assert 'ready' in body['verdict'].lower() or 'sleep' in body['verdict'].lower()
 
@@ -91,7 +91,7 @@ def test_readiness_no_exam_date(client):
         'progress': {'studyStreak': 3},
     })
     assert r.status_code == 200
-    body = r.get_json()
+    body = r.json()
     assert body['breakdown']['consistency'] == 30
 
 
@@ -100,7 +100,7 @@ def test_readiness_no_exam_date(client):
 def test_weak_spots_empty(client):
     r = client.post('/progress/weak-spots', json={'progress': {}})
     assert r.status_code == 200
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is True
     assert body['weakSpots'] == []
 
@@ -116,7 +116,7 @@ def test_weak_spots_with_quiz(client):
         },
     })
     assert r.status_code == 200
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is True
     assert len(body['weakSpots']) > 0
     # Thermodynamics should be the weakest (40% score → 60% error rate)
@@ -137,7 +137,7 @@ def test_weak_spots_with_flashcard_data(client):
             },
         },
     })
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is True
     assert len(body['weakSpots']) == 1
     assert body['weakSpots'][0]['topic'] == 'Acids'
@@ -149,7 +149,7 @@ def test_weak_spots_with_flashcard_data(client):
 def test_study_plan_no_exam_date(client):
     r = client.post('/progress/study-plan', json={})
     assert r.status_code == 400
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is False
 
 
@@ -162,14 +162,14 @@ def test_study_plan_past_date(client):
     past = (date.today() - timedelta(days=5)).strftime('%Y-%m-%d')
     r = client.post('/progress/study-plan', json={'examDate': past})
     assert r.status_code == 400
-    assert r.get_json()['error'] == 'Exam date is in the past'
+    assert r.json()['error'] == 'Exam date is in the past'
 
 
 def test_study_plan_today(client):
     today = date.today().strftime('%Y-%m-%d')
     r = client.post('/progress/study-plan', json={'examDate': today})
     assert r.status_code == 200
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is True
     assert body['daysLeft'] == 0
     assert len(body['days']) == 1
@@ -184,7 +184,7 @@ def test_study_plan_future(client):
         'weakSpots': [{'topic': 'Kinetics', 'severity': 'high'}],
     })
     assert r.status_code == 200
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is True
     assert body['daysLeft'] == 5
     assert len(body['days']) == 5
@@ -198,7 +198,7 @@ def test_study_plan_future(client):
 def test_badges_empty(client):
     r = client.post('/progress/badges', json={'progress': {}})
     assert r.status_code == 200
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is True
     assert body['earnedCount'] == 0
     assert body['total'] == 18
@@ -217,7 +217,7 @@ def test_badges_earned(client):
             'totalStudyTime': 65,
         },
     })
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is True
     earned_ids = [b['id'] for b in body['earned']]
     assert 'first_question' in earned_ids
@@ -234,7 +234,7 @@ def test_badges_earned(client):
 def test_streak_no_history(client):
     r = client.post('/progress/streak-check', json={})
     assert r.status_code == 200
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is True
     assert body['streak'] == 0
     assert body['status'] == 'no_history'
@@ -246,7 +246,7 @@ def test_streak_active_today(client):
         'lastStudied': today_iso,
         'currentStreak': 5,
     })
-    body = r.get_json()
+    body = r.json()
     assert body['status'] == 'active_today'
     assert body['streak'] == 5
 
@@ -257,7 +257,7 @@ def test_streak_needs_activity(client):
         'lastStudied': yesterday_iso,
         'currentStreak': 3,
     })
-    body = r.get_json()
+    body = r.json()
     assert body['status'] == 'needs_activity'
     assert body['streak'] == 3
 
@@ -268,7 +268,7 @@ def test_streak_broken(client):
         'lastStudied': old_iso,
         'currentStreak': 10,
     })
-    body = r.get_json()
+    body = r.json()
     assert body['status'] == 'broken'
     assert body['streak'] == 0
 
@@ -278,7 +278,7 @@ def test_streak_parse_error(client):
         'lastStudied': 'not-a-date',
         'currentStreak': 2,
     })
-    body = r.get_json()
+    body = r.json()
     assert body['status'] == 'parse_error'
     assert body['streak'] == 2
 
@@ -286,7 +286,7 @@ def test_streak_parse_error(client):
 # ── Blueprint registration ───────────────────────────────────────────────────
 
 def test_progress_blueprints_registered(app):
-    rules = [r.rule for r in app.url_map.iter_rules()]
+    rules = [r.path for r in app.routes]
     assert '/progress/readiness' in rules
     assert '/progress/weak-spots' in rules
     assert '/progress/study-plan' in rules

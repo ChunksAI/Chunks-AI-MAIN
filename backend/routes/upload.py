@@ -11,57 +11,58 @@ import logging
 import os
 import uuid
 
-from flask import Blueprint, jsonify, request
+import shutil
+from fastapi import APIRouter, Request, UploadFile, File
+from fastapi.responses import JSONResponse
 from werkzeug.utils import secure_filename
 
 from routes.shared import ctx
 
 logger = logging.getLogger(__name__)
 
-upload_bp = Blueprint('upload', __name__)
+router = APIRouter()
 
 
-@upload_bp.route('/upload-document', methods=['POST', 'OPTIONS'])
-def upload_document():
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
+@router.post('/upload-document')
+def upload_document(request: Request, file: UploadFile = File(default=None)):
     try:
         from services.auth import _extract_verified_user
         from services.books import ALLOWED_EXTENSIONS, allowed_file
         from services.documents import extract_slides_from_file
 
         # Verify JWT and enforce daily limit before doing any file I/O
-        _extract_verified_user()
+        _extract_verified_user(request)
 
-        if 'file' not in request.files:
-            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+        if file is None:
+            return JSONResponse({'success': False, 'error': 'No file uploaded'}, status_code=400)
 
-        file = request.files['file']
         if not file.filename:
-            return jsonify({'success': False, 'error': 'Empty filename'}), 400
+            return JSONResponse({'success': False, 'error': 'Empty filename'}, status_code=400)
         safe_name = secure_filename(file.filename)
         if not safe_name or not allowed_file(safe_name):
-            return jsonify({
+            return JSONResponse({
                 'success': False,
                 'error': 'Unsupported file type. Allowed: PDF, DOCX, PPTX'
-            }), 400
+            }, status_code=400)
 
-        temp_path = f"/tmp/chunks_{uuid.uuid4().hex}_{safe_name}"
-        file.save(temp_path)
+        import tempfile
+        temp_path = os.path.join(tempfile.gettempdir(), f"chunks_{uuid.uuid4().hex}_{safe_name}")
+        with open(temp_path, 'wb') as f:
+            shutil.copyfileobj(file.file, f)
 
         try:
             extracted_slides = extract_slides_from_file(temp_path, safe_name)
             os.remove(temp_path)
-            return jsonify({
+            return {
                 'success':      True,
                 'slides':       extracted_slides,
                 'total_slides': len(extracted_slides),
                 'filename':     safe_name
-            })
+            }
         except (ValueError, RuntimeError) as doc_err:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
-            return jsonify({'success': False, 'error': str(doc_err)}), 400
+            return JSONResponse({'success': False, 'error': str(doc_err)}, status_code=400)
         except Exception as e:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
@@ -69,4 +70,4 @@ def upload_document():
 
     except Exception as e:
         logger.exception("Unhandled error")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)

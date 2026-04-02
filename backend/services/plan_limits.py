@@ -28,7 +28,7 @@ import datetime
 import logging
 from typing import Optional
 
-from flask import jsonify
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +121,7 @@ class PlanLimitExceeded(Exception):
         )
 
     def response(self):
-        """Return a Flask (response, status_code) tuple."""
+        """Return a JSONResponse ready to be returned from a FastAPI view."""
         label = _FEATURE_LABELS.get(self.feature, self.feature)
 
         if self.limit == 0:
@@ -135,7 +135,7 @@ class PlanLimitExceeded(Exception):
                 f'on the {self.tier.capitalize()} plan. Upgrade to Pro for unlimited access!'
             )
 
-        return jsonify({
+        return JSONResponse({
             'success':        False,
             'plan_limited':   True,
             'feature':        self.feature,
@@ -144,7 +144,7 @@ class PlanLimitExceeded(Exception):
             'tier':           self.tier,
             'upgrade_needed': True,
             'error':          msg,
-        }), 429
+        }, status_code=429)
 
 
 # ── Key helpers ───────────────────────────────────────────────────────────────

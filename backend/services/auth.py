@@ -17,9 +17,6 @@ import logging
 from datetime import datetime, timedelta
 from enum import Enum
 
-from flask import request
-from flask_limiter.util import get_remote_address
-
 logger = logging.getLogger(__name__)
 
 # ── Module-level state injected at startup ─────────────────────────────────────
@@ -179,10 +176,13 @@ def _get_and_increment_daily_count(user_id: str, date_str: str) -> int:
     return 1
 
 
-def _extract_verified_user():
+def _extract_verified_user(request=None):
     """
     Extract and verify the Supabase JWT from the current request's
     Authorization header and look up the user's tier.
+
+    Accepts an optional Starlette/FastAPI ``Request`` object.  When provided,
+    the JWT is read from its headers; otherwise falls back to a guest identity.
 
     Returns (verified_user_id: str, server_tier: Tier).
     Never raises — on any failure it returns an IP-based fallback ID
@@ -193,9 +193,12 @@ def _extract_verified_user():
 
     Usage in any endpoint::
 
-        user_id, tier = _extract_verified_user()
+        user_id, tier = _extract_verified_user(request)
     """
-    auth_header      = request.headers.get('Authorization', '')
+    if request is not None:
+        auth_header = request.headers.get('authorization', '') or request.headers.get('Authorization', '')
+    else:
+        auth_header = ''
     jwt_token        = auth_header[7:] if auth_header.startswith('Bearer ') else ''
     verified_user    = _verify_supabase_jwt(jwt_token) if jwt_token else None
     verified_user_id = verified_user.get('id') if verified_user else None
@@ -204,7 +207,12 @@ def _extract_verified_user():
         server_tier = _get_user_tier_from_db(verified_user_id)
     else:
         server_tier      = Tier.FREE
-        verified_user_id = f'ip:{get_remote_address()}'
+        # Use a placeholder IP since we don't have the request object always
+        if request is not None and request.client:
+            ip = request.client.host or '0.0.0.0'
+        else:
+            ip = '0.0.0.0'
+        verified_user_id = f'ip:{ip}'
 
     # No daily limit for signed-in users — free, pro, or ultra all get unlimited access.
     # Guest limits are handled separately by guest_gate() before this function is called.

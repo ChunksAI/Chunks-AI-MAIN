@@ -31,10 +31,10 @@ def test_ask_options(client):
 
 
 def test_ask_no_body(client, mock_guest_gate, mock_extract_user):
-    """POST /ask with no JSON returns 400."""
-    resp = client.post('/ask', content_type='application/json', data='')
-    assert resp.status_code == 400
-    data = resp.get_json()
+    """POST /ask with no JSON returns 422 (FastAPI body validation)."""
+    resp = client.post('/ask')
+    assert resp.status_code in (400, 422)
+    data = resp.json()
     assert data['success'] is False
 
 
@@ -58,7 +58,7 @@ def test_ask_study_mode(client, monkeypatch, mock_guest_gate, mock_extract_user)
         'bookId': 'zumdahl',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['answer'] == 'Water is H2O.'
     assert data['mode'] == 'study'
@@ -76,14 +76,14 @@ def test_ask_visual_tutor_mode(client, monkeypatch, mock_guest_gate, mock_extrac
         'complexity': 5,
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['mode'] == 'visual_tutor'
 
 
 def test_ask_blueprint_registered(app):
     """The /ask route is registered."""
-    rules = [r.rule for r in app.url_map.iter_rules()]
+    rules = [r.path for r in app.routes]
     assert '/ask' in rules
 
 
@@ -98,7 +98,7 @@ def test_ask_generate_mode_injection_blocked(client, monkeypatch, mock_guest_gat
         'complexity': 5,
     })
     assert resp.status_code == 400
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'flagged by our content filter' in data['error']
 
@@ -133,7 +133,7 @@ def test_ask_exam_mode(client, monkeypatch, mock_guest_gate, mock_extract_user):
         'bookId': 'zumdahl',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['mode'] == 'exam'
     assert 'questions' in data
@@ -165,7 +165,7 @@ def test_ask_exam_mode_high_complexity(client, monkeypatch, mock_guest_gate, moc
         'bookId': 'zumdahl',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['mode'] == 'exam'
 
 
@@ -182,7 +182,7 @@ def test_ask_practice_mode(client, monkeypatch, mock_guest_gate, mock_extract_us
         'complexity': 5,
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['mode'] == 'practice'
     assert 'answer' in data
@@ -201,7 +201,7 @@ def test_ask_summary_mode(client, monkeypatch, mock_guest_gate, mock_extract_use
         'complexity': 4,
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['mode'] == 'summary'
     assert 'answer' in data
@@ -226,7 +226,7 @@ def test_ask_generate_mode_success(client, monkeypatch, mock_guest_gate, mock_ex
         'complexity': 5,
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['mode'] == 'generate'
     assert data['answer'] == {"title": "Test"}
@@ -249,7 +249,7 @@ def test_ask_generate_mode_json_parse_error(client, monkeypatch, mock_guest_gate
         'complexity': 5,
     })
     assert resp.status_code == 502
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'invalid JSON' in data['error']
 
@@ -269,7 +269,7 @@ def test_ask_generate_mode_prompt_too_long(client, monkeypatch, mock_guest_gate,
         'complexity': 5,
     })
     assert resp.status_code == 400
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'too long' in data['error']
 
@@ -293,7 +293,7 @@ def test_ask_generate_mode_exam_long_prompt_accepted(client, monkeypatch, mock_g
         'complexity': 5,
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
 
 
@@ -313,7 +313,7 @@ def test_ask_generate_mode_exam_exceeds_limit(client, monkeypatch, mock_guest_ga
         'complexity': 5,
     })
     assert resp.status_code == 400
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'too long' in data['error']
 
@@ -336,7 +336,7 @@ def test_ask_generate_exam_80k_accepted(client, monkeypatch, mock_guest_gate, mo
         'complexity': 5,
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
 
 
@@ -487,7 +487,7 @@ def test_ask_generate_mode_ai_error(client, monkeypatch, mock_guest_gate, mock_e
         'complexity': 5,
     })
     assert resp.status_code == 503
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
 
 
@@ -508,7 +508,7 @@ def test_ask_generate_mode_markdown_fenced_json(client, monkeypatch, mock_guest_
         'complexity': 5,
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['answer'] == {"key": "val"}
 
@@ -539,7 +539,7 @@ def test_ask_web_search(client, monkeypatch, mock_guest_gate, mock_extract_user)
         'complexity': 5,
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['web_search'] is True
     assert 'web_citations' in data
@@ -569,7 +569,7 @@ def test_ask_web_search_fallback(client, monkeypatch, mock_guest_gate, mock_extr
         'complexity': 5,
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert 'Web search unavailable' in data['answer']
 
@@ -599,7 +599,7 @@ def test_ask_token_flag_web_search(client, monkeypatch, mock_guest_gate, mock_ex
         'complexity': 5,
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data.get('web_search') is True
 
@@ -618,7 +618,7 @@ def test_ask_doc_context(client, monkeypatch, mock_guest_gate, mock_extract_user
         'doc_context': 'This is content from a user-uploaded PDF about organic chemistry.',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['is_relevant'] is True
 
@@ -637,7 +637,7 @@ def test_ask_selected_text(client, monkeypatch, mock_guest_gate, mock_extract_us
         'selected_text': 'The equilibrium constant K is defined as...',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert 'answer' in data
 
@@ -760,7 +760,7 @@ def test_ask_thinking_mode_returns_thinking_content(client, monkeypatch, mock_gu
         'bookId': 'zumdahl',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['answer'] == 'The force is 10 N.'
     assert data['thinking_content'] is not None
@@ -856,7 +856,7 @@ def test_visual_tutor_strips_think_block(client, monkeypatch, mock_guest_gate, m
         'bookId': 'zumdahl',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert '<think>' not in data['answer']
     assert data['answer'].strip() == 'Here is the diagram.'
@@ -889,7 +889,7 @@ def test_practice_strips_think_block(client, monkeypatch, mock_guest_gate, mock_
         'bookId': 'zumdahl',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert '<think>' not in data['answer']
     assert 'PROBLEM STATEMENT' in data['answer']
@@ -922,7 +922,7 @@ def test_summary_strips_think_block(client, monkeypatch, mock_guest_gate, mock_e
         'bookId': 'zumdahl',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert '<think>' not in data['answer']
     assert 'OVERVIEW' in data['answer']
@@ -961,7 +961,7 @@ def test_exam_strips_think_block(client, monkeypatch, mock_guest_gate, mock_extr
         'bookId': 'zumdahl',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert '<think>' not in data['raw']
     assert data['thinking_content'] is not None

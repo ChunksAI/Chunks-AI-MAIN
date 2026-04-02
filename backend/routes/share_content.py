@@ -15,14 +15,14 @@ from __future__ import annotations
 
 import logging
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
-from routes.validation import validate_request
 from routes.schemas import ShareCreateRequest
 
 logger = logging.getLogger(__name__)
 
-share_bp = Blueprint("share", __name__)
+router = APIRouter()
 
 # ── URL helpers ────────────────────────────────────────────────────────────────
 
@@ -41,60 +41,56 @@ def _share_url(share_type: str, share_id: str) -> str:
 
 # ── POST /api/share ────────────────────────────────────────────────────────────
 
-@share_bp.route("/api/share", methods=["POST", "OPTIONS"])
-@validate_request(ShareCreateRequest)
-def create_share():
+@router.post("/api/share")
+def create_share(request: Request, body: ShareCreateRequest):
     """Create a shareable link.  Requires a valid JWT."""
-    if request.method == "OPTIONS":
-        return jsonify({"ok": True})
-
     try:
         from services.auth import _extract_verified_user
-        verified_user_id, _tier = _extract_verified_user()
+        verified_user_id, _tier = _extract_verified_user(request)
     except Exception as exc:
-        return jsonify({"success": False, "error": "Authentication required"}), 401
+        return JSONResponse({"success": False, "error": "Authentication required"}, status_code=401)
 
-    data = request.get_json(silent=True) or {}
+    data = body.model_dump()
     share_type = data.get("type")
     payload = data.get("data", {})
 
     if share_type not in ("deck", "exam", "plan"):
-        return jsonify({"success": False, "error": "Invalid share type"}), 400
+        return JSONResponse({"success": False, "error": "Invalid share type"}, status_code=400)
 
     try:
         from services.share_store import create_share
         share_id = create_share(share_type, payload, user_id=verified_user_id)
     except Exception as exc:
         logger.exception("share_store.create_share failed")
-        return jsonify({"success": False, "error": str(exc)}), 500
+        return JSONResponse({"success": False, "error": str(exc)}, status_code=500)
 
     url = _share_url(share_type, share_id)
     logger.info("Share created type=%s id=%s user=%s", share_type, share_id, verified_user_id)
-    return jsonify({"success": True, "share_id": share_id, "url": url})
+    return {"success": True, "share_id": share_id, "url": url}
 
 
 # ── GET /api/share/<share_id> ──────────────────────────────────────────────────
 
-@share_bp.route("/api/share/<share_id>", methods=["GET"])
-def get_share(share_id: str):
+@router.get("/api/share/{share_id}")
+def get_share(request: Request, share_id: str):
     """Retrieve share data.  Public — no authentication required."""
     if not share_id or len(share_id) > 64:
-        return jsonify({"success": False, "error": "Invalid share ID"}), 400
+        return JSONResponse({"success": False, "error": "Invalid share ID"}, status_code=400)
 
     try:
         from services.share_store import get_share as _get
         record = _get(share_id)
     except Exception as exc:
         logger.exception("share_store.get_share failed")
-        return jsonify({"success": False, "error": "Internal error"}), 500
+        return JSONResponse({"success": False, "error": "Internal error"}, status_code=500)
 
     if record is None:
-        return jsonify({"success": False, "error": "Share not found"}), 404
+        return JSONResponse({"success": False, "error": "Share not found"}, status_code=404)
 
-    return jsonify({
+    return {
         "success":    True,
         "share_id":   record["share_id"],
         "type":       record["type"],
         "data":       record["data"],
         "created_at": record.get("created_at", ""),
-    })
+    }

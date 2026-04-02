@@ -89,10 +89,9 @@ def test_create_share_requires_auth(client, monkeypatch):
     resp = client.post(
         "/api/share",
         json={"type": "deck", "data": SAMPLE_DECK_DATA},
-        content_type="application/json",
     )
     assert resp.status_code == 401
-    assert resp.get_json()["success"] is False
+    assert resp.json()["success"] is False
 
 
 # ── Deck share ─────────────────────────────────────────────────────────────────
@@ -103,10 +102,9 @@ def test_create_deck_share(client, monkeypatch):
     resp = client.post(
         "/api/share",
         json={"type": "deck", "data": SAMPLE_DECK_DATA},
-        content_type="application/json",
     )
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data["success"] is True
     assert "share_id" in data
     assert len(data["share_id"]) == 32  # UUID4 hex
@@ -120,14 +118,13 @@ def test_get_deck_share(client, monkeypatch):
     create_resp = client.post(
         "/api/share",
         json={"type": "deck", "data": SAMPLE_DECK_DATA},
-        content_type="application/json",
     )
-    share_id = create_resp.get_json()["share_id"]
+    share_id = create_resp.json()["share_id"]
 
     # Retrieve (no auth needed)
     resp = client.get(f"/api/share/{share_id}")
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data["success"] is True
     assert data["type"] == "deck"
     assert data["data"]["title"] == "Acid-Base Equilibrium"
@@ -143,10 +140,9 @@ def test_create_exam_share(client, monkeypatch):
     resp = client.post(
         "/api/share",
         json={"type": "exam", "data": SAMPLE_EXAM_DATA},
-        content_type="application/json",
     )
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data["success"] is True
     assert "/share/exam.html?id=" in data["url"]
 
@@ -157,13 +153,12 @@ def test_get_exam_share(client, monkeypatch):
     create_resp = client.post(
         "/api/share",
         json={"type": "exam", "data": SAMPLE_EXAM_DATA},
-        content_type="application/json",
     )
-    share_id = create_resp.get_json()["share_id"]
+    share_id = create_resp.json()["share_id"]
 
     resp = client.get(f"/api/share/{share_id}")
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data["type"] == "exam"
     assert data["data"]["score"] == 75
     assert data["data"]["total"] == 8
@@ -177,10 +172,9 @@ def test_create_plan_share(client, monkeypatch):
     resp = client.post(
         "/api/share",
         json={"type": "plan", "data": SAMPLE_PLAN_DATA},
-        content_type="application/json",
     )
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data["success"] is True
     assert "/share/study-plan.html?id=" in data["url"]
 
@@ -191,13 +185,12 @@ def test_get_plan_share(client, monkeypatch):
     create_resp = client.post(
         "/api/share",
         json={"type": "plan", "data": SAMPLE_PLAN_DATA},
-        content_type="application/json",
     )
-    share_id = create_resp.get_json()["share_id"]
+    share_id = create_resp.json()["share_id"]
 
     resp = client.get(f"/api/share/{share_id}")
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data["type"] == "plan"
     assert data["data"]["readiness"] == 40
     assert len(data["data"]["nodes"]) == 1
@@ -209,7 +202,7 @@ def test_get_share_not_found(client):
     """GET /api/share/<unknown_id> returns 404."""
     resp = client.get("/api/share/doesnotexist00000000000000000000")
     assert resp.status_code == 404
-    assert resp.get_json()["success"] is False
+    assert resp.json()["success"] is False
 
 
 def test_get_share_invalid_id_too_long(client):
@@ -224,7 +217,6 @@ def test_create_share_invalid_type(client, monkeypatch):
     resp = client.post(
         "/api/share",
         json={"type": "invalid", "data": {}},
-        content_type="application/json",
     )
     assert resp.status_code == 422
 
@@ -235,7 +227,6 @@ def test_create_share_missing_type(client, monkeypatch):
     resp = client.post(
         "/api/share",
         json={"data": {}},
-        content_type="application/json",
     )
     assert resp.status_code == 422
 

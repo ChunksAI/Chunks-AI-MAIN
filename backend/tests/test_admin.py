@@ -111,7 +111,7 @@ def test_verify_access_admin_no_pin(client):
         )
         # No PIN hash → denies by default-deny policy (pin check returns False)
         # but pin_required is based on whether hash exists
-        body = r.get_json()
+        body = r.json()
         assert r.status_code in (200, 403)
         if r.status_code == 200:
             assert body['success'] is True
@@ -135,7 +135,7 @@ def test_verify_access_pin_required(client):
             headers={'Authorization': f'Bearer {token}'},
         )
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is True
         assert body['pin_required'] is True
 
@@ -156,7 +156,7 @@ def test_verify_access_correct_pin(client):
             json={'pin': '123456'},
         )
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is True
         assert body['pin_required'] is False
         assert body['role'] == 'owner'
@@ -178,7 +178,7 @@ def test_verify_access_wrong_pin(client):
             json={'pin': '000000'},
         )
         assert r.status_code == 403
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is False
         assert 'Incorrect PIN' in body['error']
 
@@ -188,7 +188,7 @@ def test_verify_access_wrong_pin(client):
 def test_admin_ping(client):
     r = client.get('/api/admin/ping')
     assert r.status_code == 200
-    body = r.get_json()
+    body = r.json()
     assert body['ok'] is True
     assert 'supabase_url_set' in body
     assert 'admin_emails_hardcoded' in body
@@ -220,7 +220,7 @@ def test_routing_table_admin(client):
                 headers=_admin_headers(email),
             )
             assert r.status_code == 200
-            body = r.get_json()
+            body = r.json()
             assert body['success'] is True
 
 
@@ -277,7 +277,7 @@ def test_get_users_not_configured(client):
     with patch.dict(os.environ, env):
         r = client.get('/api/admin/users', headers=headers)
         assert r.status_code == 500
-        assert 'not configured' in r.get_json()['error']
+        assert 'not configured' in r.json()['error']
 
 
 def test_get_users_success(client):
@@ -296,7 +296,7 @@ def test_get_users_success(client):
          patch.object(ctx, 'session', MagicMock(get=MagicMock(return_value=mock_resp))):
         r = client.get('/api/admin/users', headers=headers)
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is True
         assert len(body['users']) == 1
 
@@ -340,7 +340,7 @@ def test_update_user_success(client):
          patch.object(ctx, 'session', MagicMock(patch=MagicMock(return_value=mock_resp))):
         r = client.patch('/api/admin/users/test@x.com', headers=headers, json={'plan': 'pro'})
         assert r.status_code == 200
-        assert r.get_json()['success'] is True
+        assert r.json()['success'] is True
 
 
 def test_update_user_supabase_error(client):
@@ -382,7 +382,7 @@ def test_delete_user_success(client):
          patch.object(ctx, 'session', MagicMock(delete=MagicMock(return_value=mock_resp))):
         r = client.delete('/api/admin/users/test@x.com', headers=headers)
         assert r.status_code == 200
-        assert r.get_json()['success'] is True
+        assert r.json()['success'] is True
 
 
 def test_delete_user_supabase_error(client):
@@ -432,7 +432,7 @@ def test_openrouter_credits_success(client):
          patch.object(ctx, 'OPENROUTER_API_KEY', 'test-key'):
         r = client.get('/api/admin/openrouter-credits', headers=headers)
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is True
         assert body['key_info']['label'] == 'test-key'
         assert body['usage_summary']['total_requests'] == 2
@@ -535,7 +535,7 @@ def test_jwt_malformed(client):
 
 
 def test_admin_blueprints_registered(app):
-    rules = [r.rule for r in app.url_map.iter_rules()]
+    rules = [r.path for r in app.routes]
     assert '/api/admin/verify-access' in rules
     assert '/api/admin/ping' in rules
     assert '/api/admin/routing-table' in rules
@@ -581,7 +581,7 @@ def test_usage_report_admin_all_users(client, monkeypatch):
     with patch.dict(os.environ, env):
         r = client.get('/api/admin/usage-report', headers=headers)
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is True
         assert 'users' in body
 
@@ -600,7 +600,7 @@ def test_usage_report_admin_single_user(client, monkeypatch):
     with patch.dict(os.environ, env):
         r = client.get('/api/admin/usage-report?user_id=u1', headers=headers)
         assert r.status_code == 200
-        body = r.get_json()
+        body = r.json()
         assert body['success'] is True
         assert body['user_id'] == 'u1'
 
@@ -638,7 +638,7 @@ def test_user_usage_invalid_token(client, monkeypatch):
         headers={'Authorization': 'Bearer some-invalid-token'},
     )
     assert r.status_code == 401
-    body = r.get_json()
+    body = r.json()
     assert 'Invalid or expired' in body['error']
 
 
@@ -662,7 +662,7 @@ def test_user_usage_success(client, monkeypatch):
         headers={'Authorization': 'Bearer valid-token'},
     )
     assert r.status_code == 200
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is True
     assert body['user_id'] == 'user-123'
 
@@ -687,5 +687,5 @@ def test_user_usage_with_month(client, monkeypatch):
         headers={'Authorization': 'Bearer valid-token'},
     )
     assert r.status_code == 200
-    body = r.get_json()
+    body = r.json()
     assert body['success'] is True

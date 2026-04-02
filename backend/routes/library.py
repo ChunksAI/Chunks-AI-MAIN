@@ -11,33 +11,30 @@ from __future__ import annotations
 
 import logging
 
-from flask import Blueprint, Response, jsonify, request, stream_with_context
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from routes.shared import ctx
-from routes.validation import validate_request
 from routes.schemas import LoadBookRequest
 from guest_limits import GuestLimitExceeded, guest_gate
 
 logger = logging.getLogger(__name__)
 
-library_bp = Blueprint('library', __name__)
+router = APIRouter()
 
 
-@library_bp.route('/get-library', methods=['GET'])
-def get_library():
+@router.get('/get-library')
+def get_library(request: Request):
     from services.books import BOOK_LIBRARY
     books = [
         {'id': bid, 'name': info['name'], 'author': info['author'], 'available': True}
         for bid, info in BOOK_LIBRARY.items()
     ]
-    return jsonify({'success': True, 'books': books})
+    return {'success': True, 'books': books}
 
 
-@library_bp.route('/load-book', methods=['POST', 'OPTIONS'])
-@validate_request(LoadBookRequest)
-def load_book():
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
+@router.post('/load-book')
+def load_book(request: Request, body: LoadBookRequest):
     try:
         try:
             guest_gate(request, 'library', ctx.redis)
@@ -45,50 +42,48 @@ def load_book():
             return _gle.response()
 
         from services.books import BOOK_LIBRARY, get_book_index
-        data    = request.json
+        data    = body.model_dump()
         book_id = data.get('bookId')
         logger.info(f"Load book request: {book_id}")
 
         if book_id not in BOOK_LIBRARY:
-            return jsonify({'success': False, 'error': f'Book "{book_id}" not found'}), 404
+            return JSONResponse({'success': False, 'error': f'Book "{book_id}" not found'}, status_code=404)
 
         book     = BOOK_LIBRARY[book_id]
         searcher = get_book_index(book_id)
 
         if not searcher.chunks:
-            return jsonify({'success': False, 'error': 'Failed to load chunks from R2'}), 500
+            return JSONResponse({'success': False, 'error': 'Failed to load chunks from R2'}, status_code=500)
 
-        return jsonify({
+        return {
             'success':      True,
             'book_id':      book_id,
             'book_name':    book['name'],
             'author':       book['author'],
             'chunks_count': len(searcher.chunks)
-        })
+        }
 
     except Exception as e:
         logger.exception("Unhandled error")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
-@library_bp.route('/pdf/<book_id>', methods=['GET'])
-def serve_pdf(book_id):
+@router.get('/pdf/{book_id}')
+def serve_pdf(request: Request, book_id: str):
     from services.books import BOOK_LIBRARY
     if book_id not in BOOK_LIBRARY:
-        return jsonify({'error': 'Book not found'}), 404
+        return JSONResponse({'error': 'Book not found'}, status_code=404)
 
     pdf_url = BOOK_LIBRARY[book_id]['pdf_url']
     logger.info(f"Proxying PDF for: {book_id}")
     try:
         r = ctx.session.get(pdf_url, timeout=60, stream=True)
         r.raise_for_status()
-        return Response(
-            stream_with_context(r.iter_content(chunk_size=8192)),
-            content_type='application/pdf',
-            headers={
-                'Content-Disposition': f'inline; filename="{book_id}.pdf"',
-            }
+        return StreamingResponse(
+            r.iter_content(chunk_size=8192),
+            media_type='application/pdf',
+            headers={'Content-Disposition': f'inline; filename="{book_id}.pdf"'}
         )
     except Exception as e:
         logger.error(f"PDF proxy error: {e}")
-        return jsonify({'error': str(e)}), 500
+        return JSONResponse({'error': str(e)}, status_code=500)

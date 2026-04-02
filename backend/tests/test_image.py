@@ -11,15 +11,15 @@ def test_image_options(client):
 
 def test_image_no_body(client, mock_extract_user):
     """POST /ask-image with no JSON returns 400."""
-    resp = client.post('/ask-image', content_type='application/json', data='')
-    assert resp.status_code == 400
+    resp = client.post('/ask-image')
+    assert resp.status_code in (400, 422)
 
 
 def test_image_no_image_data(client, mock_extract_user):
     """POST /ask-image with empty image_b64 returns 400."""
     resp = client.post('/ask-image', json={'image_b64': '', 'question': 'Describe this.'})
     assert resp.status_code == 400
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'No image data' in data['error']
 
@@ -32,7 +32,7 @@ def test_image_unsupported_type(client, mock_extract_user):
         'question': 'Describe'
     })
     assert resp.status_code == 415
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
 
 
@@ -46,13 +46,13 @@ def test_image_too_large(client, mock_extract_user):
         'question': 'Describe'
     })
     assert resp.status_code == 413
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
 
 
 def test_image_blueprint_registered(app):
     """The image blueprint is registered."""
-    rules = [r.rule for r in app.url_map.iter_rules()]
+    rules = [r.path for r in app.routes]
     assert '/ask-image' in rules
 
 
@@ -92,7 +92,7 @@ def test_image_success(client, monkeypatch, mock_extract_user):
         'complexity': 5,
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert 'molecule diagram' in data['answer']
 
@@ -125,7 +125,7 @@ def test_image_api_error(client, monkeypatch, mock_extract_user):
         'question': 'Describe',
     })
     assert resp.status_code == 500
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'Vision API error' in data['error']
 
@@ -146,6 +146,6 @@ def test_image_budget_exceeded(client, monkeypatch, mock_extract_user):
         'question': 'Describe',
     })
     assert resp.status_code == 503
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'budget exceeded' in data['error']

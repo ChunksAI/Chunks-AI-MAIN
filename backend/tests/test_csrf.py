@@ -3,17 +3,7 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 
-# ---------------------------------------------------------------------------
-# Fixture — temporarily enable CSRF on the shared test app
-# ---------------------------------------------------------------------------
-
-@pytest.fixture
-def csrf_client(app, client):
-    """Test client with CSRF enforcement turned ON."""
-    app.config['WTF_CSRF_ENABLED'] = True
-    yield client
-    app.config['WTF_CSRF_ENABLED'] = False     # restore for other tests
-
+# csrf_client fixture is defined in conftest.py — it toggles server._csrf_disabled.
 
 # ---------------------------------------------------------------------------
 # Unit tests — helper functions
@@ -76,7 +66,7 @@ def test_post_with_untrusted_origin_blocked(csrf_client):
         json={'question': 'hi'},
     )
     assert resp.status_code == 403
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'origin not allowed' in data['error'].lower()
 
@@ -89,7 +79,7 @@ def test_post_with_untrusted_referer_blocked(csrf_client):
         json={'question': 'hi'},
     )
     assert resp.status_code == 403
-    data = resp.get_json()
+    data = resp.json()
     assert 'origin not allowed' in data['error'].lower()
 
 
@@ -134,7 +124,7 @@ def test_options_with_untrusted_origin_not_blocked(csrf_client):
 # ---------------------------------------------------------------------------
 
 def test_default_fixtures_bypass_csrf(client):
-    """The standard test client (WTF_CSRF_ENABLED=False) bypasses CSRF."""
+    """The standard test client (server._csrf_disabled=True) bypasses CSRF."""
     resp = client.post(
         '/ask',
         headers={'Origin': 'https://evil-site.example.com'},

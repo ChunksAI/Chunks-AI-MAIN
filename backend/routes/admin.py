@@ -16,16 +16,17 @@ import hmac as _hmac
 import logging
 import os
 
-from flask import Blueprint, request, jsonify
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 from urllib.parse import quote
 
 from routes.shared import ctx
-from routes.validation import validate_request
+from typing import Optional
 from routes.schemas import AdminVerifyRequest, AdminUpdateUserRequest
 
 logger = logging.getLogger(__name__)
 
-admin_bp = Blueprint('admin', __name__, url_prefix='/api/admin')
+router = APIRouter()
 
 
 # ── Admin email → role map (loaded from environment variables) ───────────────
@@ -351,9 +352,8 @@ def _check_admin_role(jwt_token: str) -> tuple:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
-@admin_bp.route('/verify-access', methods=['POST', 'OPTIONS'])
-@validate_request(AdminVerifyRequest, allow_empty=True)
-def verify_access():
+@router.post('/api/admin/verify-access')
+def verify_access(request: Request, body: Optional[AdminVerifyRequest] = None):
     """
     Two-phase admin verification.
     Phase 1 (no pin): verify JWT → check admin role → return role info + pin_required flag.
@@ -361,20 +361,17 @@ def verify_access():
 
     Always returns JSON — never raises a 500 to the client without a message.
     """
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
-
     # Wrap the entire handler in a top-level try so the client always gets
     # a meaningful JSON error rather than an unformatted 500 page.
     try:
         auth_header = request.headers.get('Authorization', '')
         if not auth_header.startswith('Bearer '):
             logger.warning('verify_access: missing or malformed Authorization header')
-            return jsonify({'success': False, 'error': 'Unauthorized — missing token'}), 401
+            return JSONResponse({'success': False, 'error': 'Unauthorized — missing token'}, status_code=401)
 
         jwt_token = auth_header[7:].strip()
         if not jwt_token:
-            return jsonify({'success': False, 'error': 'Unauthorized — empty token'}), 401
+            return JSONResponse({'success': False, 'error': 'Unauthorized — empty token'}, status_code=401)
 
         # ── Role check — never raises ──────────────────────────────────────────
         verified, role = _check_admin_role(jwt_token)
@@ -386,21 +383,18 @@ def verify_access():
                 f'verify_access: access denied for email="{attempted_email}" '
                 f'(not in admin list or JWT decode failed)'
             )
-            return jsonify({
+            return JSONResponse({
                 'success': False,
                 'error': 'Forbidden — not an admin account',
-            }), 403
+            }, status_code=403)
 
         email = (verified.get('email', '') or '').strip().lower()
         if not email:
             logger.warning('verify_access: verified dict has no email — denying')
-            return jsonify({'success': False, 'error': 'Could not determine email from token'}), 403
+            return JSONResponse({'success': False, 'error': 'Could not determine email from token'}, status_code=403)
 
         # ── Parse request body ─────────────────────────────────────────────────
-        try:
-            data = request.get_json(silent=True) or {}
-        except Exception:
-            data = {}
+        data = body.model_dump() if body is not None else {}
         pin = str(data.get('pin', '') or '').strip()
 
         # ── PIN hash check ─────────────────────────────────────────────────────
@@ -431,22 +425,22 @@ def verify_access():
                 f'granting access without PIN check. '
                 f'Set ADMIN_PIN_HASH_OWNER in Railway env vars to enforce a PIN.'
             )
-            return jsonify({
+            return {
                 'success':      True,
                 'role':         role,
                 'email':        email,
                 'pin_required': False,
-            })
+            }
 
         # ── PIN required but not yet submitted → prompt client ─────────────────
         if not pin:
             logger.info(f'verify_access: PIN required for {email!r}, prompting client')
-            return jsonify({
+            return {
                 'success':      True,
                 'role':         role,
                 'email':        email,
                 'pin_required': True,
-            })
+            }
 
         # ── PIN submitted → verify it (never raises) ───────────────────────────
         try:
@@ -457,38 +451,35 @@ def verify_access():
 
         if not pin_ok:
             logger.warning(f'verify_access: wrong PIN for {email!r}')
-            return jsonify({
+            return JSONResponse({
                 'success': False,
                 'error':   'Incorrect PIN',
-            }), 403
+            }, status_code=403)
 
         logger.info(f'verify_access: fully verified {email!r} ({role})')
-        return jsonify({
+        return {
             'success':      True,
             'role':         role,
             'email':        email,
             'pin_required': False,
-        })
+        }
 
     except Exception as e:
         # Last-resort catch — log full traceback so Railway logs show the real error.
         logger.exception(f'verify_access: unexpected top-level error: {e}')
-        return jsonify({
+        return JSONResponse({
             'success': False,
             'error':   f'Server error ({type(e).__name__}): {str(e)[:200]}',
             'hint':    'Check Railway deployment logs for the full traceback.',
-        }), 500
+        }, status_code=500)
 
 
-@admin_bp.route('/ping', methods=['GET', 'OPTIONS'])
-def admin_ping():
+@router.get('/api/admin/ping')
+def admin_ping(request: Request):
     """
     Health-check endpoint — returns 200 with env config summary.
     Useful for debugging PIN issues without needing a valid JWT.
     """
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
-
     supabase_url = getattr(ctx, 'SUPABASE_URL', '') or ''
     supabase_key = getattr(ctx, 'SUPABASE_SERVICE_KEY', '') or ''
     or_key       = getattr(ctx, 'OPENROUTER_API_KEY', '') or ''
@@ -496,7 +487,7 @@ def admin_ping():
     owner_hash = os.environ.get('ADMIN_PIN_HASH_OWNER', '')
     admin_hash = os.environ.get('ADMIN_PIN_HASH_ADMIN', '')
 
-    return jsonify({
+    return {
         'ok': True,
         'supabase_url_set':     bool(supabase_url),
         'service_key_set':      bool(supabase_key),
@@ -506,54 +497,48 @@ def admin_ping():
         'admin_pin_hash_set':   bool(admin_hash),
         'admin_pin_hash_len':   len(admin_hash),
         'admin_emails_hardcoded': list(_get_admin_emails().keys()),
-    })
+    }
 
 
-@admin_bp.route('/routing-table', methods=['GET', 'OPTIONS'])
-def routing_table_endpoint():
+@router.get('/api/admin/routing-table')
+def routing_table_endpoint(request: Request):
     """Return the full AI routing table. Requires admin JWT."""
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
-
     auth_header = request.headers.get('Authorization', '')
     if not auth_header.startswith('Bearer '):
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        return JSONResponse({'success': False, 'error': 'Unauthorized'}, status_code=401)
 
     jwt_token       = auth_header[7:]
     verified, role  = _check_admin_role(jwt_token)
     if not verified:
-        return jsonify({'success': False, 'error': 'Unauthorized — admin required'}), 401
+        return JSONResponse({'success': False, 'error': 'Unauthorized — admin required'}, status_code=401)
 
     from ai_router import routing_table, _get_models
-    return jsonify({
+    return {
         'success': True,
         'models':  _get_models(),
         'routes':  routing_table(),
-    })
+    }
 
 
 
-@admin_bp.route('/users', methods=['GET', 'OPTIONS'])
-def get_users():
+@router.get('/api/admin/users')
+def get_users(request: Request):
     """Return all users from Supabase using service key (bypasses RLS)."""
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
-
     auth_header = request.headers.get('Authorization', '')
     if not auth_header.startswith('Bearer '):
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        return JSONResponse({'success': False, 'error': 'Unauthorized'}, status_code=401)
 
     jwt_token = auth_header[7:]
     verified, role = _check_admin_role(jwt_token)
     if not verified or not role:
-        return jsonify({'success': False, 'error': 'Forbidden — admin required'}), 403
+        return JSONResponse({'success': False, 'error': 'Forbidden — admin required'}, status_code=403)
 
     supabase_url = getattr(ctx, 'SUPABASE_URL', '') or ''
     service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '') or ''
     _sess        = getattr(ctx, 'session', None)
 
     if not supabase_url or not service_key or not _sess:
-        return jsonify({'success': False, 'error': 'Server not configured'}), 500
+        return JSONResponse({'success': False, 'error': 'Server not configured'}, status_code=500)
 
     try:
         resp = _sess.get(
@@ -566,38 +551,34 @@ def get_users():
             timeout=10,
         )
         if resp.status_code != 200:
-            return jsonify({'success': False, 'error': f'Supabase returned {resp.status_code}'}), 502
-        return jsonify({'success': True, 'users': resp.json()})
+            return JSONResponse({'success': False, 'error': f'Supabase returned {resp.status_code}'}, status_code=502)
+        return {'success': True, 'users': resp.json()}
     except Exception as e:
         logger.exception('get_users error')
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
-@admin_bp.route('/users/<email>', methods=['PATCH', 'OPTIONS'])
-@validate_request(AdminUpdateUserRequest, allow_empty=True)
-def update_user(email):
+@router.patch('/api/admin/users/{email}')
+def update_user(request: Request, email: str, body: AdminUpdateUserRequest = None):
     """Update a user row using service key (bypasses RLS)."""
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
-
     auth_header = request.headers.get('Authorization', '')
     if not auth_header.startswith('Bearer '):
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        return JSONResponse({'success': False, 'error': 'Unauthorized'}, status_code=401)
 
     jwt_token = auth_header[7:]
     verified, role = _check_admin_role(jwt_token)
     if not verified or not role:
-        return jsonify({'success': False, 'error': 'Forbidden — admin required'}), 403
+        return JSONResponse({'success': False, 'error': 'Forbidden — admin required'}, status_code=403)
 
     supabase_url = getattr(ctx, 'SUPABASE_URL', '') or ''
     service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '') or ''
     _sess        = getattr(ctx, 'session', None)
 
     if not supabase_url or not service_key or not _sess:
-        return jsonify({'success': False, 'error': 'Server not configured'}), 500
+        return JSONResponse({'success': False, 'error': 'Server not configured'}, status_code=500)
 
     try:
-        data = request.get_json(silent=True) or {}
+        data = body.model_dump()
         from urllib.parse import quote as _quote
         resp = _sess.patch(
             f'{supabase_url}/rest/v1/users',
@@ -612,34 +593,31 @@ def update_user(email):
             timeout=10,
         )
         if resp.status_code not in (200, 204):
-            return jsonify({'success': False, 'error': f'Supabase returned {resp.status_code}: {resp.text[:200]}'}), 502
-        return jsonify({'success': True})
+            return JSONResponse({'success': False, 'error': f'Supabase returned {resp.status_code}: {resp.text[:200]}'}, status_code=502)
+        return {'success': True}
     except Exception as e:
         logger.exception('update_user error')
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
-@admin_bp.route('/users/<email>', methods=['DELETE', 'OPTIONS'])
-def delete_user(email):
+@router.delete('/api/admin/users/{email}')
+def delete_user(request: Request, email: str):
     """Delete a user row using service key (bypasses RLS)."""
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
-
     auth_header = request.headers.get('Authorization', '')
     if not auth_header.startswith('Bearer '):
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        return JSONResponse({'success': False, 'error': 'Unauthorized'}, status_code=401)
 
     jwt_token = auth_header[7:]
     verified, role = _check_admin_role(jwt_token)
     if not verified or not role:
-        return jsonify({'success': False, 'error': 'Forbidden — admin required'}), 403
+        return JSONResponse({'success': False, 'error': 'Forbidden — admin required'}, status_code=403)
 
     supabase_url = getattr(ctx, 'SUPABASE_URL', '') or ''
     service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '') or ''
     _sess        = getattr(ctx, 'session', None)
 
     if not supabase_url or not service_key or not _sess:
-        return jsonify({'success': False, 'error': 'Server not configured'}), 500
+        return JSONResponse({'success': False, 'error': 'Server not configured'}, status_code=500)
 
     try:
         resp = _sess.delete(
@@ -652,28 +630,25 @@ def delete_user(email):
             timeout=10,
         )
         if resp.status_code not in (200, 204):
-            return jsonify({'success': False, 'error': f'Supabase returned {resp.status_code}'}), 502
-        return jsonify({'success': True})
+            return JSONResponse({'success': False, 'error': f'Supabase returned {resp.status_code}'}, status_code=502)
+        return {'success': True}
     except Exception as e:
         logger.exception('delete_user error')
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
-@admin_bp.route('/openrouter-credits', methods=['GET', 'OPTIONS'])
-def openrouter_credits():
+@router.get('/api/admin/openrouter-credits')
+def openrouter_credits(request: Request):
     """OpenRouter key usage + per-model spend breakdown. Requires admin JWT."""
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
-
     auth_header = request.headers.get('Authorization', '')
     if not auth_header.startswith('Bearer '):
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        return JSONResponse({'success': False, 'error': 'Unauthorized'}, status_code=401)
 
     jwt_token      = auth_header[7:]
     verified_admin, role = _check_admin_role(jwt_token)
     if not verified_admin or not role:
         logger.warning('Admin openrouter-credits: JWT check failed')
-        return jsonify({'success': False, 'error': 'Unauthorized — admin required'}), 401
+        return JSONResponse({'success': False, 'error': 'Unauthorized — admin required'}, status_code=401)
 
     try:
         key_resp = ctx.session.get(
@@ -682,7 +657,7 @@ def openrouter_credits():
             timeout=10,
         )
         if key_resp.status_code != 200:
-            return jsonify({'success': False, 'error': f'OpenRouter returned {key_resp.status_code}'}), 502
+            return JSONResponse({'success': False, 'error': f'OpenRouter returned {key_resp.status_code}'}, status_code=502)
 
         key_data  = key_resp.json().get('data', {})
         key_usage = float(key_data.get('usage', 0) or 0)
@@ -723,7 +698,7 @@ def openrouter_credits():
         if key_limit is not None:
             remaining = round(float(key_limit) - key_usage, 6)
 
-        return jsonify({
+        return {
             'success': True,
             'key_info': {
                 'label':          key_data.get('label', ''),
@@ -743,15 +718,15 @@ def openrouter_credits():
                 'generation_status': gen_resp.status_code,
                 'key_usage_raw':     key_usage,
             },
-        })
+        }
 
     except Exception as e:
         logger.exception('openrouter_credits error')
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
-@admin_bp.route('/usage-report', methods=['GET', 'OPTIONS'])
-def usage_report():
+@router.get('/api/admin/usage-report')
+def usage_report(request: Request):
     """Per-user monthly token usage report. Requires admin JWT.
 
     Query params
@@ -761,33 +736,30 @@ def usage_report():
     user_id : str, optional
         If provided, return usage for that single user only.
     """
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
-
     auth_header = request.headers.get('Authorization', '')
     if not auth_header.startswith('Bearer '):
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        return JSONResponse({'success': False, 'error': 'Unauthorized'}, status_code=401)
 
     jwt_token = auth_header[7:]
     verified, role = _check_admin_role(jwt_token)
     if not verified or not role:
-        return jsonify({'success': False, 'error': 'Forbidden — admin required'}), 403
+        return JSONResponse({'success': False, 'error': 'Forbidden — admin required'}, status_code=403)
 
     from services import token_budget
 
-    month   = (request.args.get('month') or '').strip() or None
-    user_id = (request.args.get('user_id') or '').strip()
+    month   = (request.query_params.get('month') or '').strip() or None
+    user_id = (request.query_params.get('user_id') or '').strip()
 
     if user_id:
         report = token_budget.get_user_monthly_usage(user_id, month)
     else:
         report = token_budget.get_monthly_usage_report(month)
 
-    return jsonify({'success': True, **report})
+    return {'success': True, **report}
 
 
-@admin_bp.route('/user-usage', methods=['GET', 'OPTIONS'])
-def user_usage():
+@router.get('/api/admin/user-usage')
+def user_usage(request: Request):
     """Authenticated user's own monthly token usage.
 
     Any signed-in user can call this to see their own usage.
@@ -797,25 +769,22 @@ def user_usage():
     month : str, optional
         ``YYYY-MM`` format. Defaults to current UTC month.
     """
-    if request.method == 'OPTIONS':
-        return jsonify({}), 200
-
     auth_header = request.headers.get('Authorization', '')
     if not auth_header.startswith('Bearer '):
-        return jsonify({'success': False, 'error': 'Unauthorized — sign in required'}), 401
+        return JSONResponse({'success': False, 'error': 'Unauthorized — sign in required'}, status_code=401)
 
     jwt_token = auth_header[7:].strip()
     if not jwt_token:
-        return jsonify({'success': False, 'error': 'Unauthorized — empty token'}), 401
+        return JSONResponse({'success': False, 'error': 'Unauthorized — empty token'}, status_code=401)
 
     from services.auth import _verify_supabase_jwt
     from services import token_budget
 
     user = _verify_supabase_jwt(jwt_token)
     if not user or not user.get('id'):
-        return jsonify({'success': False, 'error': 'Invalid or expired token'}), 401
+        return JSONResponse({'success': False, 'error': 'Invalid or expired token'}, status_code=401)
 
-    month = (request.args.get('month') or '').strip() or None
+    month = (request.query_params.get('month') or '').strip() or None
     report = token_budget.get_user_monthly_usage(user['id'], month)
 
-    return jsonify({'success': True, **report})
+    return {'success': True, **report}

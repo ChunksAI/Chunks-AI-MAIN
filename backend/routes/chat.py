@@ -13,23 +13,20 @@ import os
 import random
 import re
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from routes.shared import ctx
-from routes.validation import validate_request
 from routes.schemas import AskRequest
 from guest_limits import GuestLimitExceeded, guest_gate
 
 logger = logging.getLogger(__name__)
 
-chat_bp = Blueprint('chat', __name__)
+router = APIRouter()
 
 
-@chat_bp.route('/ask', methods=['POST', 'OPTIONS'])
-@validate_request(AskRequest)
-def ask():
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
+@router.post('/ask')
+def ask(request: Request, body: AskRequest):
     try:
         from services.auth import _extract_verified_user
         from services.ai import (
@@ -39,14 +36,10 @@ def ask():
         from services.prompt_guard import screen_prompt
         from services.books import BOOK_LIBRARY, TextbookSearch, get_book_index
         from ai_router import route, route_for_mode
-        from server import (
-            _ask_cache_key, _ask_cache_get, _ask_cache_set, _ask_is_cacheable,
-            _parse_mcq,
-        )
+        from services.ask_cache import _ask_cache_key, _ask_cache_get, _ask_cache_set, _ask_is_cacheable
+        from services.mcq_parser import _parse_mcq
 
-        data = request.get_json(silent=True)
-        if not data:
-            return jsonify({'success': False, 'error': 'Invalid or missing JSON body'}), 400
+        data = body.model_dump()
 
         question      = data.get('question', '')
         complexity    = max(1, min(10, int(data.get('complexity', 3))))
@@ -87,14 +80,14 @@ def ask():
             cached_payload = _ask_cache_get(_cache_key_val)
             if cached_payload:
                 cached_payload['cached'] = True
-                return jsonify(cached_payload)
+                return cached_payload
 
         # ── Server-side tier + daily limit enforcement ────────────────────────
-        verified_user_id, user_tier = _extract_verified_user()
+        verified_user_id, user_tier = _extract_verified_user(request)
 
         # ── Per-user, per-device rate limiting ────────────────────────────────
         from services.device_abuse import check_device_rate_limit
-        _device_block = check_device_rate_limit(verified_user_id)
+        _device_block = check_device_rate_limit(verified_user_id, request)
         if _device_block is not None:
             return _device_block
 
@@ -173,7 +166,7 @@ def ask():
                 if _sem_hit:
                     _sem_hit['cached'] = True
                     _sem_hit['semantic_cached'] = True
-                    return jsonify(_sem_hit)
+                    return _sem_hit
             else:
                 _sem_eligible = False
 
@@ -280,7 +273,7 @@ def ask():
             answer = call_ai(question, system_prompt=vt_system, model=selected_model, history=history,
                              endpoint='chat_visual', user_id=verified_user_id)
             answer, thinking_content = extract_thinking_content(answer)
-            return jsonify({
+            return {
                 'success':        True,
                 'mode':           'visual_tutor',
                 'answer':         answer,
@@ -290,7 +283,7 @@ def ask():
                 'sources':        [],
                 'complexity_used': complexity,
                 'thinking_content': thinking_content,
-            })
+            }
 
         # ── MODE: EXAM ────────────────────────────────────────────────────────
         if mode == 'exam':
@@ -392,7 +385,7 @@ Rules:
                              endpoint='chat_exam', user_id=verified_user_id)
             answer, thinking_content = extract_thinking_content(answer)
             questions = _parse_mcq(answer)
-            return jsonify({
+            return {
                 'success':        True,
                 'mode':           'exam',
                 'raw':            answer,
@@ -405,7 +398,7 @@ Rules:
                 'complexity_used': complexity,
                 'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf',
                 'thinking_content': thinking_content,
-            })
+            }
 
         # ── MODE: PRACTICE ────────────────────────────────────────────────────
         elif mode == 'practice':
@@ -428,7 +421,7 @@ Structure your response like this:
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
                              endpoint='chat_practice', user_id=verified_user_id)
             answer, thinking_content = extract_thinking_content(answer)
-            return jsonify({
+            return {
                 'success':        True,
                 'mode':           'practice',
                 'answer':         answer,
@@ -439,7 +432,7 @@ Structure your response like this:
                 'complexity_used': complexity,
                 'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf',
                 'thinking_content': thinking_content,
-            })
+            }
 
         # ── MODE: SUMMARY ─────────────────────────────────────────────────────
         elif mode == 'summary':
@@ -480,7 +473,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                                book_id=book_id, model_used=selected_model)
             if _sem_eligible and _sem_ctx_hash and _query_emb_list:
                 _answer_cache.store(_query_emb_list, _sem_ctx_hash, _resp)
-            return jsonify(_resp)
+            return _resp
 
         # ── MODE: GENERATE ────────────────────────────────────────────────────
         elif mode == 'generate':
@@ -493,10 +486,10 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     "generate mode: prompt rejected — length %d exceeds %d (user %s)",
                     len(question), _GEN_MAX_LEN, verified_user_id,
                 )
-                return jsonify({
+                return JSONResponse({
                     'success': False,
                     'error': f'Prompt too long ({len(question)} chars). Maximum is {_GEN_MAX_LEN}.',
-                }), 400
+                }, status_code=400)
 
             # Exam and study-plan prompts are template-generated by the frontend
             # with only the user-supplied topic and uploaded document content
@@ -524,12 +517,12 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     "generate mode: injection detected (%s) in prompt (user %s): %r",
                     _injection_method, verified_user_id, question[:120],
                 )
-                return jsonify({
+                return JSONResponse({
                     'success': False,
                     'error': 'Your topic was flagged by our content filter. '
                              'Please rephrase your topic and try again.',
                     'reason': 'content_filter',
-                }), 400
+                }, status_code=400)
 
             logger.info("generate mode: prompt len=%d user=%s", len(question), verified_user_id)
 
@@ -554,10 +547,10 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     "generate mode: call_ai failed (user %s): %s",
                     verified_user_id, _ai_err,
                 )
-                return jsonify({
+                return JSONResponse({
                     'success': False,
                     'error': f'AI model unavailable — {_ai_err}. Please retry.',
-                }), 503
+                }, status_code=503)
 
             _cleaned = raw_json.strip()
             if _cleaned.startswith('```'):
@@ -569,18 +562,18 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     "generate mode: model returned non-JSON (user %s): %r — error: %s",
                     verified_user_id, raw_json[:200], _je,
                 )
-                return jsonify({
+                return JSONResponse({
                     'success': False,
                     'error': 'AI returned invalid JSON. Please try again.',
                     'raw': raw_json,
-                }), 502
+                }, status_code=502)
 
             _gen_resp = {'success': True, 'mode': 'generate', 'answer': parsed}
             if _cache_eligible and _cache_key_val:
                 _ask_cache_set(_cache_key_val, _gen_resp,
                                task_type=task_type, mode=mode,
                                book_id=book_id, model_used=selected_model)
-            return jsonify(_gen_resp)
+            return _gen_resp
 
         # ── MODE: STUDY (default) ─────────────────────────────────────────────
         else:
@@ -603,7 +596,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
                     web_citations = []
                 answer, thinking_content = extract_thinking_content(answer)
-                return jsonify({
+                return {
                     'success':        True,
                     'mode':           'study',
                     'answer':         answer,
@@ -615,7 +608,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     'sources':        [],
                     'complexity_used': complexity,
                     'thinking_content': thinking_content,
-                })
+                }
 
             if selected_text:
                 prompt = f"""You are a tutor for {book_label}.
@@ -676,8 +669,8 @@ Answer helpfully and clearly."""
                                book_id=book_id, model_used=selected_model)
             if _sem_eligible and _sem_ctx_hash and _query_emb_list:
                 _answer_cache.store(_query_emb_list, _sem_ctx_hash, _resp)
-            return jsonify(_resp)
+            return _resp
 
     except Exception as e:
         logger.exception("Unhandled error")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
