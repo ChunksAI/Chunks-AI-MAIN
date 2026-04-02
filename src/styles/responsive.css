@@ -715,6 +715,12 @@
     min-height: 0 !important;
   }
 
+  /* On mobile, .chat-bar is hidden — chat container starts right below .ws-panel-tabs only */
+  #screen-workspace #ws-chat-content,
+  #screen-workspace #ws-notes-panel {
+    top: var(--ws-chat-tabs-h) !important; /* only .ws-panel-tabs, .chat-bar is hidden */
+  }
+
   /* Bubbles */
   .bubble-user { max-width: 84% !important; }
   .ai-text     { font-size: 13px !important; }
