@@ -67,6 +67,15 @@ let _db = null;
 /** true once init() has finished and the cache is fully populated */
 let _ready = false;
 
+/**
+ * true once _doInit() has completed (either successfully or with an error).
+ * Used to guard UI renders that depend on IDB-backed data.
+ */
+let _initDone = false;
+
+/** Callbacks queued via onInitDone() — flushed when init completes */
+const _initDoneCallbacks = [];
+
 /** Keys written before _db was open — flushed at end of init() */
 const _dirty = new Set();
 
@@ -108,6 +117,35 @@ export function isIdbKey(key) {
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
+
+/**
+ * Returns true once init() has completed (either successfully or with an
+ * error). Useful for guarding UI renders that depend on IDB-backed data so
+ * they don't paint a default/empty state before the cache is warm.
+ *
+ * @returns {boolean}
+ */
+export function isInitDone() { return _initDone; }
+
+/**
+ * Register a callback to run once init() completes.  If init() has already
+ * finished the callback is called synchronously on the next microtask tick.
+ *
+ * @param {() => void} fn
+ */
+export function onInitDone(fn) {
+  if (_initDone) { Promise.resolve().then(fn); return; }
+  _initDoneCallbacks.push(fn);
+}
+
+/** @internal Flush all queued onInitDone callbacks. */
+function _flushInitDoneCallbacks() {
+  _initDone = true;
+  for (const fn of _initDoneCallbacks) {
+    try { fn(); } catch (e) { console.warn('[idbStorage] onInitDone callback error:', e); }
+  }
+  _initDoneCallbacks.length = 0;
+}
 
 /**
  * Synchronous read — returns the JS value from the in-memory cache.
@@ -301,6 +339,7 @@ async function _doInit() {
     }
 
     _ready = true;
+    _flushInitDoneCallbacks();
     console.info(
       `[idbStorage] ready — ${_cache.size} keys loaded, ` +
       `${keysToMigrate.length} migrated from localStorage`,
@@ -317,5 +356,7 @@ async function _doInit() {
     } else {
       showStorageError('migration');
     }
+    // Still flush callbacks so UI renders correctly via the localStorage fallback.
+    _flushInitDoneCallbacks();
   }
 }

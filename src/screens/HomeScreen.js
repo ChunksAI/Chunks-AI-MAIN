@@ -36,7 +36,7 @@ import { showToast } from '../components/Toast.js';
 import { _getStudyMode } from '../components/SettingsModal.js';
 import { homeMarkdown, sanitize } from '../utils/render.js';
 import { lsGet } from '../utils/storage.js';
-import { idbKeys } from '../lib/idbStorage.js';
+import { idbKeys, isInitDone as _idbIsInitDone, onInitDone as _onIdbInitDone } from '../lib/idbStorage.js';
 import { ChunksDB } from '../lib/chunksDb.js';
 import { subscribeToHomeMessages, unsubscribeHomeMessages } from '../state/home/homeMessagesRealtime.js';
 import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../components/ThinkingAccordion.js';
@@ -532,8 +532,12 @@ export function mountHomeScreen() {
   if (heading) heading.innerHTML  = pick.h;
   if (sub)     sub.textContent    = pick.s;
 
-  // Render recent activities or fallback chips
+  // Render recent activities or fallback chips.
+  // If IDB hasn't initialised yet _renderHomeActivities returns early (empty
+  // container).  The onInitDone callback below fires once the cache is warm
+  // and renders the correct section on first paint with no flash.
   _renderHomeActivities();
+  _onIdbInitDone(_renderHomeActivities);
 
   // Wire incognito modal listeners immediately after DOM is injected
   _wireIncognitoListeners();
@@ -550,6 +554,14 @@ const _SUGGEST_CHIPS = [
 export function _renderHomeActivities() {
   const container = document.getElementById('home-activities-section');
   if (!container) return;
+
+  // Wait for IDB to initialise so we read from the warm cache, not a stale
+  // (empty) localStorage fallback.  Show nothing until the data is ready —
+  // this prevents the "Try Asking" flash before Recent Activity loads.
+  if (!_idbIsInitDone()) {
+    container.innerHTML = '';
+    return;
+  }
 
   const _esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const _barColor = pct => pct >= 80 ? 'var(--green)' : pct >= 20 ? 'var(--gold)' : 'var(--text-4)';
