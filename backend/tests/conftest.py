@@ -1,14 +1,14 @@
 """
 backend/tests/conftest.py — Shared pytest fixtures.
 
-All tests use the Flask test client created here.
+All tests use the Starlette TestClient (compatible with FastAPI) created here.
 External dependencies (OpenRouter, Supabase, Redis) are mocked so tests
 never make real network calls.
 """
 from __future__ import annotations
 
-import sys
 import os
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,14 +16,14 @@ import pytest
 # Ensure the backend directory is on the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+# Disable CSRF checks in tests
+os.environ.setdefault('TESTING', 'true')
+
 
 @pytest.fixture(scope='session')
 def app():
-    """Create a Flask test application with all external calls mocked."""
-    # Mock out requests.Session before server.py is imported so _build_session
-    # returns a mock session that never touches the network.
+    """Create a FastAPI test application with all external calls mocked."""
     mock_session = MagicMock()
-    # ping() response for Redis mock
     mock_redis = MagicMock()
     mock_redis.ping.return_value = True
     mock_redis.get.return_value = None   # cache miss by default
@@ -31,18 +31,14 @@ def app():
     with patch('requests.Session', return_value=mock_session), \
          patch('redis.from_url', return_value=mock_redis):
         import server as srv
-        srv.app.config.update({
-            'TESTING': True,
-            'WTF_CSRF_ENABLED': False,
-            'RATELIMIT_ENABLED': False,   # disable rate limits in tests
-        })
         yield srv.app
 
 
 @pytest.fixture
 def client(app):
-    """Return a Flask test client."""
-    return app.test_client()
+    """Return a Starlette/FastAPI test client."""
+    from starlette.testclient import TestClient
+    return TestClient(app, raise_server_exceptions=False)
 
 
 @pytest.fixture

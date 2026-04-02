@@ -23,9 +23,9 @@ import pickle
 import threading
 import requests as _requests
 
-from flask import Blueprint, request, jsonify
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
-from routes.validation import validate_request
 from routes.schemas import PaevBuildIndexRequest, PaevAskRequest
 
 logger = logging.getLogger(__name__)
@@ -128,7 +128,7 @@ def _r2_exists(book_id) -> bool:
 
 # ── Import shared BOOK_LIBRARY ────────────────────────────────────────────────
 try:
-    from server import BOOK_LIBRARY
+    from services.books import BOOK_LIBRARY
 except ImportError:
     BOOK_LIBRARY = {
         'zumdahl':  {'name': 'General Chemistry',              'author': 'Zumdahl & Zumdahl',      'chunks_url': f'{R2_BUCKET_URL}/data/zumdhal_chunks_with_embeddings.json'},
@@ -348,12 +348,12 @@ def _get_book(book_id: str):
         return None, None, None
 
 
-# ── Blueprint ─────────────────────────────────────────────────────────────────
-paev_bp = Blueprint('paev', __name__, url_prefix='/paev')
+# ── Router ────────────────────────────────────────────────────────────────────
+paev_router = APIRouter(prefix='/paev')
 
 
-@paev_bp.route('/status', methods=['GET'])
-def get_status():
+@paev_router.get('/status')
+def get_status(request: Request):
     statuses = {}
     r2_ok = bool(_r2_client())
     for book_id in BOOK_LIBRARY:
@@ -366,69 +366,65 @@ def get_status():
             statuses[book_id] = {'stage': 'cached_on_disk'}
         else:
             statuses[book_id] = {'stage': 'not_built'}
-    return jsonify({'success': True, 'books': statuses, 'r2_configured': r2_ok})
+    return {'success': True, 'books': statuses, 'r2_configured': r2_ok}
 
 
-@paev_bp.route('/build-index', methods=['POST', 'OPTIONS'])
-@validate_request(PaevBuildIndexRequest)
-def build_index():
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
-
-    data    = request.json or {}
+@paev_router.post('/build-index')
+def build_index(request: Request, body: PaevBuildIndexRequest):
+    data    = body.model_dump()
     book_id = data.get('bookId', 'zumdahl')
     sample  = float(data.get('fingerprintSampleRate', 0.3))
 
     if book_id not in BOOK_LIBRARY:
-        return jsonify({'success': False, 'error': f'Unknown book: {book_id}'}), 404
+        return JSONResponse({'success': False, 'error': f'Unknown book: {book_id}'}, status_code=404)
 
     current = _paev_status_get(book_id) or {}
     stage   = current.get('stage') if isinstance(current, dict) else None
 
     if stage == 'ready':
-        return jsonify({'success': True, 'message': 'Already built', 'status': current})
+        return {'success': True, 'message': 'Already built', 'status': current}
 
     if stage not in (None, '', 'not_built', 'error'):
-        return jsonify({'success': True, 'message': 'Build in progress', 'status': current})
+        return {'success': True, 'message': 'Build in progress', 'status': current}
 
     _paev_status_set(book_id, {'stage': 'queued', 'pct': 0})
     t = threading.Thread(target=_build_book, args=(book_id, sample), daemon=True)
     t.start()
 
-    return jsonify({
+    return {
         'success': True,
         'message': f'Build started for {book_id}',
         'book': BOOK_LIBRARY[book_id]['name'],
         'r2_configured': bool(_r2_client()),
-    })
+    }
 
 
-@paev_bp.route('/graph/<book_id>', methods=['GET'])
-def get_graph(book_id: str):
+@paev_router.get('/graph/{book_id}')
+def get_graph(request: Request, book_id: str):
     _, _, graph = _get_book(book_id)
     if not graph:
-        return jsonify({'success': False, 'error': 'Not built yet.'}), 404
+        return JSONResponse({'success': False, 'error': 'Not built yet.'}, status_code=404)
     top_concepts = sorted(
         [(name, len(node.dependent_concepts)) for name, node in graph.nodes.items()],
         key=lambda x: x[1], reverse=True
     )[:20]
-    return jsonify({
+    return {
         'success': True, 'book_id': book_id,
         'total_concepts': len(graph.nodes),
         'total_edges': sum(len(v) for v in graph.edges.values()),
         'top_concepts': [{'concept': c, 'dependents': d} for c, d in top_concepts],
-    })
+    }
 
 
-@paev_bp.route('/learning-path', methods=['GET'])
-def get_learning_path():
-    book_id = request.args.get('bookId', 'zumdahl')
-    concept = request.args.get('concept', '')
+@paev_router.get('/learning-path')
+def get_learning_path(request: Request):
+    book_id = request.query_params.get('bookId', 'zumdahl')
+    concept = request.query_params.get('concept', '')
     if not concept:
-        return jsonify({'success': False, 'error': 'concept param required'}), 400
+        return JSONResponse({'success': False, 'error': 'concept param required'}, status_code=400)
     _, _, graph = _get_book(book_id)
     if not graph:
-        return jsonify({'success': False, 'error': 'Book not built yet'}), 404
+        return JSONResponse({'success': False, 'error': 'Book not built yet'}, status_code=404)
     path = graph.get_learning_path(concept.lower())
     locations = []
     for prereq in path:
@@ -439,49 +435,46 @@ def get_learning_path():
                 'section': node.section_num, 'page': node.page,
                 'bloom_level': node.bloom_level_introduced
             })
-    return jsonify({'success': True, 'concept': concept, 'learning_path': locations})
+    return {'success': True, 'concept': concept, 'learning_path': locations}
 
 
-@paev_bp.route('/ask', methods=['POST', 'OPTIONS'])
-@validate_request(PaevAskRequest)
-def paev_ask():
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
+@paev_router.post('/ask')
+def paev_ask(request: Request, body: PaevAskRequest):
     try:
-        data       = request.json or {}
+        data       = body.model_dump()
         question   = data.get('question', '').strip()
         book_id    = data.get('bookId', 'zumdahl')
         complexity = max(1, min(10, int(data.get('complexity', 5))))
         history    = data.get('history', [])
 
         if not question:
-            return jsonify({'success': False, 'error': 'question is required'}), 400
+            return JSONResponse({'success': False, 'error': 'question is required'}, status_code=400)
         if book_id not in BOOK_LIBRARY:
-            return jsonify({'success': False, 'error': f'Unknown book: {book_id}'}), 404
+            return JSONResponse({'success': False, 'error': f'Unknown book: {book_id}'}, status_code=404)
 
         idx, fps, graph = _get_book(book_id)
         if not idx:
-            return jsonify({
+            return JSONResponse({
                 'success': False,
                 'error': f'Book "{book_id}" not indexed yet. Call POST /paev/build-index first.',
                 'hint': {'bookId': book_id}
-            }), 404
+            }, status_code=404)
 
         result = _verifier.run(
             question=question, index=idx, fingerprints=fps,
             graph=graph, student_complexity=complexity, history=history
         )
         out = EpistemicVerifier.result_to_dict(result)
-        return jsonify({'success': True, **out})
+        return {'success': True, **out}
 
     except Exception as e:
         logger.exception('PAEV ask error')
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
 def register_paev(app, *, redis=None):
     global _redis
     _redis = redis
-    app.register_blueprint(paev_bp)
+    app.include_router(paev_router)
     r2_ok = bool(_r2_client())
     logger.info(f'PAEV routes registered | R2: {"configured" if r2_ok else "NOT configured — add R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME"}')

@@ -15,9 +15,10 @@ import json
 import math
 import logging
 from datetime import datetime, date, timedelta
-from flask import Blueprint, request, jsonify
+from fastapi import APIRouter, Request, Body
+from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse
 
-from routes.validation import validate_request
 from routes.schemas import (
     ProgressReadinessRequest,
     ProgressWeakSpotsRequest,
@@ -28,7 +29,7 @@ from routes.schemas import (
 
 logger = logging.getLogger(__name__)
 
-progress_bp = Blueprint('progress', __name__, url_prefix='/progress')
+progress_router = APIRouter(prefix='/progress')
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -65,9 +66,8 @@ def _best_quiz_score(p):
     return max((q.get('score', 0) for q in quizzes), default=0)
 
 
-@progress_bp.route('/readiness', methods=['POST', 'OPTIONS'])
-@validate_request(ProgressReadinessRequest)
-def compute_readiness():
+@progress_router.post('/readiness')
+def compute_readiness(request: Request, body: ProgressReadinessRequest):
     """
     Compute exam readiness score (0–100) from client-side progress data.
     Weights:
@@ -77,10 +77,7 @@ def compute_readiness():
       15% — Study consistency (streak / days until exam)
       10% — Study time (hours invested)
     """
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
-
-    data     = request.json or {}
+    data     = body.model_dump()
     progress = data.get('progress', {})
     exam_date_str = data.get('examDate', '')
 
@@ -149,7 +146,7 @@ def compute_readiness():
         verdict = "Just getting started. Consistency is key."
         color   = '#ef4444'
 
-    return jsonify({
+    return {
         'success':   True,
         'readiness': readiness,
         'verdict':   verdict,
@@ -161,20 +158,16 @@ def compute_readiness():
             'consistency':       round(consistency_score),
             'study_time':        round(time_score),
         }
-    })
+    }
 
 
-@progress_bp.route('/weak-spots', methods=['POST', 'OPTIONS'])
-@validate_request(ProgressWeakSpotsRequest)
-def get_weak_spots():
+@progress_router.post('/weak-spots')
+def get_weak_spots(request: Request, body: ProgressWeakSpotsRequest):
     """
     Rank topics by weakness. Returns topics that need most work.
     Input: progress.quizResults = [{topic, score, wrongTopics: ['entropy','equilibrium']}]
     """
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
-
-    data     = request.json or {}
+    data     = body.model_dump()
     progress = data.get('progress', {})
 
     # Count wrong answers per topic
@@ -227,44 +220,40 @@ def get_weak_spots():
 
     weak_spots.sort(key=lambda x: x['errorRate'], reverse=True)
 
-    return jsonify({
+    return JSONResponse({
         'success':    True,
         'weakSpots':  weak_spots[:10],
         'totalWeak':  len([w for w in weak_spots if w['severity'] in ('high', 'medium')]),
     })
 
 
-@progress_bp.route('/study-plan', methods=['POST', 'OPTIONS'])
-@validate_request(ProgressStudyPlanRequest)
-def generate_study_plan():
+@progress_router.post('/study-plan')
+def generate_study_plan(request: Request, body: ProgressStudyPlanRequest):
     """
     Generate a daily study plan.
     Input: { examDate, bookId, progress, weakSpots }
     Returns: { days: [{date, tasks: [{type, topic, duration, priority}]}] }
     """
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
-
-    data          = request.json or {}
+    data = body.model_dump()
     exam_date_str = data.get('examDate', '')
     book_id       = data.get('bookId', 'zumdahl')
     progress      = data.get('progress', {})
     weak_spots    = data.get('weakSpots', [])
 
     if not exam_date_str:
-        return jsonify({'success': False, 'error': 'examDate required'}), 400
+        return JSONResponse({'success': False, 'error': 'examDate required'}, status_code=400)
 
     try:
         exam_dt   = datetime.strptime(exam_date_str, '%Y-%m-%d').date()
         days_left = (exam_dt - date.today()).days
     except Exception:
-        return jsonify({'success': False, 'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+        return JSONResponse({'success': False, 'error': 'Invalid date format. Use YYYY-MM-DD'}, status_code=400)
 
     if days_left < 0:
-        return jsonify({'success': False, 'error': 'Exam date is in the past'}), 400
+        return JSONResponse({'success': False, 'error': 'Exam date is in the past'}, status_code=400)
 
     if days_left == 0:
-        return jsonify({
+        return {
             'success': True,
             'daysLeft': 0,
             'days': [{
@@ -340,23 +329,19 @@ def generate_study_plan():
             'totalMinutes': sum(t['duration'] for t in tasks),
         })
 
-    return jsonify({
+    return {
         'success':  True,
         'daysLeft': days_left,
         'examDate': exam_date_str,
         'bookId':   book_id,
         'days':     days,
-    })
+    }
 
 
-@progress_bp.route('/badges', methods=['POST', 'OPTIONS'])
-@validate_request(ProgressBadgesRequest)
-def compute_badges():
+@progress_router.post('/badges')
+def compute_badges(request: Request, body: ProgressBadgesRequest):
     """Compute which badges have been earned from progress data."""
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
-
-    data     = request.json or {}
+    data = body.model_dump()
     progress = data.get('progress', {})
 
     earned = []
@@ -379,26 +364,22 @@ def compute_badges():
         else:
             locked.append(entry)
 
-    return jsonify({
+    return {
         'success': True,
         'earned':  earned,
         'locked':  locked[:6],  # Show next 6 to earn
         'total':   len(BADGE_DEFINITIONS),
         'earnedCount': len(earned),
-    })
+    }
 
 
-@progress_bp.route('/streak-check', methods=['POST', 'OPTIONS'])
-@validate_request(ProgressStreakCheckRequest)
-def streak_check():
+@progress_router.post('/streak-check')
+def streak_check(request: Request, body: ProgressStreakCheckRequest):
     """
     Server-side streak validation.
     Prevents streak gaming by verifying timestamps.
     """
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
-
-    data          = request.json or {}
+    data = body.model_dump()
     last_studied  = data.get('lastStudied', '')
     current_streak = int(data.get('currentStreak', 0))
 
@@ -406,12 +387,12 @@ def streak_check():
     yesterday = today - timedelta(days=1)
 
     if not last_studied:
-        return jsonify({'success': True, 'streak': 0, 'status': 'no_history'})
+        return {'success': True, 'streak': 0, 'status': 'no_history'}
 
     try:
         last_dt = datetime.fromisoformat(last_studied.replace('Z', '+00:00')).date()
     except Exception:
-        return jsonify({'success': True, 'streak': current_streak, 'status': 'parse_error'})
+        return {'success': True, 'streak': current_streak, 'status': 'parse_error'}
 
     if last_dt == today:
         status = 'active_today'
@@ -423,14 +404,14 @@ def streak_check():
         status = 'broken'
         streak = 0
 
-    return jsonify({
+    return {
         'success': True,
         'streak':  streak,
         'status':  status,
         'lastStudied': last_studied,
-    })
+    }
 
 
 def register_progress(app):
-    app.register_blueprint(progress_bp)
+    app.include_router(progress_router)
     logger.info('✅ Progress routes: /progress/readiness /progress/weak-spots /progress/study-plan /progress/badges')
