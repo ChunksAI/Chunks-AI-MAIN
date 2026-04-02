@@ -264,10 +264,13 @@
   color: #090900;
   flex-shrink: 0;
   align-self: center;
-  transition: background var(--t-fast), transform var(--t-fast) var(--ease-spring);
+  transition: background var(--t-fast), transform var(--t-fast) var(--ease-spring), opacity 150ms ease;
 }
 .ask-send:hover { background: var(--gold-bright); transform: scale(1.05); }
 .ask-send:active { transform: scale(0.96); }
+/* Stop state — same size/color, square icon */
+.ask-send--stop { border-radius: 8px; }
+.ask-send--stop:hover { background: var(--gold-bright); transform: scale(1.05); }
 
 /* ── Quick action cards ─────────────────────────────────── */
 .quick-grid {

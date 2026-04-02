@@ -327,6 +327,37 @@ export let _homeSessionId = null;
 let homeIsTyping = false;
 let _homeLastInputTime = 0;
 let _thinkStart = 0;  // timestamp (ms) when AI thinking began — for elapsed time display
+let _homeAbortController = null;
+
+// ── Free-scroll: track whether the user has manually scrolled up ──────────
+let _homeUserScrolled      = false;
+let _homeProgrammaticDepth  = 0; // reference-counted; >0 means a programmatic scroll is in progress
+
+// ── Send/Stop icon SVGs ───────────────────────────────────────────────────
+const _HOME_SEND_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+const _HOME_STOP_SVG = `<svg width="11" height="11" viewBox="0 0 10 10"><rect x="0" y="0" width="10" height="10" rx="2" ry="2" fill="currentColor"/></svg>`;
+
+/** Swap a home send button between send ↔ stop states. */
+function _homeSetGenerating(btn, on) {
+  if (!btn) return;
+  if (on) {
+    btn.innerHTML = _HOME_STOP_SVG;
+    btn.classList.add('ask-send--stop');
+    btn.disabled = false;
+  } else {
+    btn.innerHTML = _HOME_SEND_SVG;
+    btn.classList.remove('ask-send--stop');
+    btn.disabled = false;
+  }
+}
+
+/** Abort the active home AI request and restore the send button. */
+export function homeStopGeneration() {
+  if (_homeAbortController) {
+    _homeAbortController.abort();
+    _homeAbortController = null;
+  }
+}
 
 // ── Incognito chat state (lives only in memory — never written to storage) ────
 let _incogHistory = [];
@@ -737,6 +768,7 @@ const _IMAGE_ONLY_LABEL = '[Image]';
 export function homeAppendUser(text, images = []) {
   const container = document.getElementById('home-chat-history');
   // Image bubble first (separate bubble) — matches Claude.ai / ChatGPT layout
+  let firstBubble = null;
   if (images.length > 0) {
     const imgBubble = document.createElement('div');
     imgBubble.className = 'hc-user';
@@ -750,6 +782,7 @@ export function homeAppendUser(text, images = []) {
       imgBubble.appendChild(wrap);
     });
     container.appendChild(imgBubble);
+    firstBubble = imgBubble;
   }
   // Text bubble second (separate bubble below images)
   if (text) {
@@ -757,8 +790,13 @@ export function homeAppendUser(text, images = []) {
     textBubble.className = 'hc-user';
     textBubble.appendChild(document.createTextNode(text));
     container.appendChild(textBubble);
+    if (!firstBubble) firstBubble = textBubble;
   }
-  homeScrollBottom();
+  if (firstBubble) {
+    _homeProgrammaticDepth++;
+    firstBubble.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => { _homeProgrammaticDepth = Math.max(0, _homeProgrammaticDepth - 1); }, 600);
+  }
 }
 
 /** Handle for the currently-mounted ThinkingAccordion (if any). */
@@ -909,6 +947,9 @@ export function homeAppendError(msg) {
 export function homeScrollBottom(instant = false) {
   const area = document.getElementById('home-scroll-area');
   if (!area) return;
+  if (!instant && _homeUserScrolled) return;
+  _homeProgrammaticDepth++;
+  const dec = () => { _homeProgrammaticDepth = Math.max(0, _homeProgrammaticDepth - 1); };
   if (instant) {
     area.style.scrollBehavior = 'auto';
     area.scrollTop = area.scrollHeight;
@@ -916,6 +957,7 @@ export function homeScrollBottom(instant = false) {
   } else {
     area.scrollTop = area.scrollHeight;
   }
+  requestAnimationFrame(dec);
 }
 
 // ── Hide landing when first message sent ──────────────────────────────────────
@@ -973,8 +1015,9 @@ export function homeToggleThinking(mode) {
 }
 
 export async function homeSendMessage() {
-  if (homeIsTyping) return;
+  if (homeIsTyping) { homeStopGeneration(); return; }
   if (!guestGate('general')) return; // guest limit check
+  _homeUserScrolled = false; // allow auto-scroll for the new response
   // Mark that the user is actively in this session — prevents sync from overwriting mid-conversation
   _homeLastInputTime = Date.now();
   const bar = document.getElementById('home-input-bar');
@@ -1035,9 +1078,11 @@ export async function homeSendMessage() {
   }
 
   homeIsTyping = true;
+  _homeAbortController = new AbortController();
+  const { signal } = _homeAbortController;
   homeAppendThinking(!!imageAtt);
   _thinkStart = Date.now();
-  if (sendBtn) sendBtn.disabled = true;
+  _homeSetGenerating(sendBtn, true);
 
   try {
     let res;
@@ -1047,6 +1092,7 @@ export async function homeSendMessage() {
       const complexity = (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })();
       res = await fetch(`${API_BASE}/ask-image`, {
         method: 'POST',
+        signal,
         headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
         body: JSON.stringify({
           image_b64:  imgB64,
@@ -1060,6 +1106,7 @@ export async function homeSendMessage() {
       // ── Text path: route to /ask ──────────────────────────────────────────
       res = await fetch(`${API_BASE}/ask`, {
         method: 'POST',
+        signal,
         headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
         body: JSON.stringify({
           question,
@@ -1112,6 +1159,7 @@ export async function homeSendMessage() {
         await typewriteResponse(textEl, cleanAnswer, {
           render: homeMarkdown,
           onScroll: homeScrollBottom,
+          isCancelled: () => signal.aborted,
         });
       }
 
@@ -1128,12 +1176,21 @@ export async function homeSendMessage() {
       }
     }
   } catch (e) {
-    homeRemoveThinking();
-    homeAppendError('Could not reach the server. Check your connection.');
-    homeHistory.pop();
+    if (e?.name === 'AbortError') {
+      homeRemoveThinking();
+      // Keep whatever text has already been rendered — do not pop history here
+    } else {
+      homeRemoveThinking();
+      homeAppendError('Could not reach the server. Check your connection.');
+      homeHistory.pop();
+    }
   } finally {
     homeIsTyping = false;
-    if (sendBtn) sendBtn.disabled = false;
+    _homeAbortController = null;
+    const topSendBtn    = document.getElementById('home-send-btn');
+    const bottomSendBtn = document.getElementById('home-send-btn-bottom');
+    _homeSetGenerating(topSendBtn, false);
+    _homeSetGenerating(bottomSendBtn, false);
   }
 }
 
@@ -1372,6 +1429,16 @@ function _wireHomeListeners() {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); homeSendMessage(); }
     });
     bottomInput.addEventListener('input', function () { homeAutoResize(this); });
+  }
+
+  // ── Free-scroll: detect manual scrolling in the chat area ────────────────
+  const scrollArea = document.getElementById('home-scroll-area');
+  if (scrollArea) {
+    scrollArea.addEventListener('scroll', function() {
+      if (_homeProgrammaticDepth > 0) return;
+      const atBottom = this.scrollHeight - this.scrollTop - this.clientHeight < 100;
+      _homeUserScrolled = !atBottom;
+    });
   }
 }
 

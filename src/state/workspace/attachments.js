@@ -5,7 +5,7 @@
  */
 
 import { ws } from './state.js';
-import { wsChatSend, _wsAsk, wsAutoResize, wsScrollBottom } from './chat.js';
+import { wsChatSend, _wsAsk, wsAutoResize, wsScrollBottom, wsStopGeneration, wsMarkProgrammaticScroll } from './chat.js';
 import { $el, $qsa, removeClass, addClass } from '../domHelpers.js';
 import { showToast } from '../../components/Toast.js';
 
@@ -119,7 +119,7 @@ export function _wsRenderPreview() {
 // Patch wsChatSend to include attachments
 const _origWsChatSend = wsChatSend;
 window.wsChatSend = async function() {
-  if (ws.typing) return;
+  if (ws.typing) { wsStopGeneration(); return; }
   const inp = $el('ws-chat-input');
   const question = inp.value.trim();
   if (!question && !ws.attachments.length) return;
@@ -144,19 +144,25 @@ window.wsChatSend = async function() {
   const welcome = document.getElementById('ws-welcome-state');
   if (welcome) welcome.remove();
   // Attachments bubble first (separate bubble), then text bubble below — matches Claude.ai / ChatGPT layout
+  let firstBubble = null;
   if (attachHtml) {
     const attachBubble = document.createElement('div');
     attachBubble.className = 'msg msg-user';
     attachBubble.innerHTML = `<div class="bubble-user">${attachHtml}</div>`;
     msgs.appendChild(attachBubble);
+    firstBubble = attachBubble;
   }
   if (textHtml || selQuote) {
     const d = document.createElement('div');
     d.className = 'msg msg-user';
     d.innerHTML = `<div class="bubble-user">${selQuote}${textHtml}</div>`;
     msgs.appendChild(d);
+    if (!firstBubble) firstBubble = d;
   }
-  wsScrollBottom();
+  if (firstBubble) {
+    wsMarkProgrammaticScroll();
+    firstBubble.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   // Extract image for vision API; only append text metadata for non-image files
   const imageAtt = ws.attachments.find(a => a.type === 'image') || null;

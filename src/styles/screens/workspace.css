@@ -899,10 +899,13 @@
   display: flex; align-items: center; justify-content: center;
   color: #090900; flex-shrink: 0;
   box-shadow: 0 2px 8px rgba(232, 172, 46, 0.35);
-  transition: background 200ms ease, transform 200ms ease, box-shadow 200ms ease;
+  transition: background 200ms ease, transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease;
 }
 .chat-send:hover { background: var(--gold-bright); transform: scale(1.08); box-shadow: 0 3px 12px rgba(232, 172, 46, 0.50); }
 .chat-send:active { transform: scale(0.94); }
+/* Stop state — same size/color, square icon */
+.chat-send--stop { border-radius: 8px; animation: none; }
+.chat-send--stop:hover { background: var(--gold-bright); transform: scale(1.08); }
 .mic-btn {
   /* inherits .chat-footer-btn – only override when mic is active */
 }

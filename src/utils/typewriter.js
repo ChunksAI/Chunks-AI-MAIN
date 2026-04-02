@@ -86,10 +86,13 @@ export async function typewriteResponse(element, fullText, {
   }
 
   // Final render to ensure the full text is complete and formatted
-  if (render) {
-    element.innerHTML = render(fullText);
-  } else {
-    element.textContent = fullText;
+  // Skip if cancelled so only the partial text typed so far is shown
+  if (!isCancelled?.()) {
+    if (render) {
+      element.innerHTML = render(fullText);
+    } else {
+      element.textContent = fullText;
+    }
   }
 
   onScroll?.();
