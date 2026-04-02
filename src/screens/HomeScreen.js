@@ -547,13 +547,6 @@ const _SUGGEST_CHIPS = [
   'The French Revolution', 'Supply and Demand', 'Pythagorean Theorem'
 ];
 
-const _SOURCE_META = {
-  general:   { icon: '💬', label: 'Chat' },
-  workspace: { icon: '📚', label: 'Textbook' },
-  visual:    { icon: '🎨', label: 'Visual Tutor' },
-  exam:      { icon: '📝', label: 'Exam' },
-};
-
 export function _renderHomeActivities() {
   const container = document.getElementById('home-activities-section');
   if (!container) return;
@@ -623,26 +616,10 @@ export function _renderHomeActivities() {
     }
   } catch (_) {}
 
-  // ── 4. Most recent completed exam ───────────────────────────────────────────
-  let lastExam = null;
-  try {
-    const examRecent = JSON.parse(localStorage.getItem('exam_recent') || '[]');
-    if (examRecent.length > 0) {
-      const e = examRecent[0];
-      if (e.topic) lastExam = { topic: e.topic, score: e.score ?? 0, date: e.date || '' };
-    }
-  } catch (_) {}
-
-  // ── 5. Recent chats (up to 3) ───────────────────────────────────────────────
-  let storedRecents = [];
-  try { storedRecents = JSON.parse(localStorage.getItem('chunks_recent') || '[]'); } catch (_) {}
-  if (!Array.isArray(storedRecents)) storedRecents = [];
-  const recentChats = storedRecents.slice(0, 3);
-
   // ── No activity at all → show "Try asking" for new users ───────────────────
-  if (!lastBook && !lastPlan && !lastDeck && !lastExam && recentChats.length === 0) {
+  if (!lastBook && !lastPlan && !lastDeck) {
     container.innerHTML = `
-      <p class="prompts-label">Try asking</p>
+      <p class="prompts-label" style="text-align:center;">Try asking</p>
       <div class="prompts-chips">
         ${_SUGGEST_CHIPS.map(t =>
           `<button class="prompt-chip" data-action="homeSetInput-text">${t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</button>`
@@ -708,45 +685,9 @@ export function _renderHomeActivities() {
       </div>`;
   }
 
-  if (lastExam) {
-    richCards += `
-      <div class="ra-card" data-ra-action="exam">
-        <div class="ra-card-main">
-          <span class="ra-icon">📝</span>
-          <div class="ra-card-text">
-            <span class="ra-label">${_esc(lastExam.topic)}</span>
-            <span class="ra-card-meta">Exam · ${lastExam.score}%${lastExam.date ? ' · ' + _esc(lastExam.date) : ''}</span>
-          </div>
-        </div>
-        <div class="ra-card-footer">
-          <div class="ra-card-bar"><div class="ra-card-bar-fill" style="width:${lastExam.score}%;background:${_barColor(lastExam.score)};"></div></div>
-          <button class="ra-card-btn">Review →</button>
-        </div>
-      </div>`;
-  }
-
-  const chatRows = recentChats.map(item => {
-    const meta = _SOURCE_META[item.source] || _SOURCE_META.general;
-    return `<div class="ra-item" data-recent-id="${_esc(item.id)}">
-      <span class="ra-icon">${meta.icon}</span>
-      <span class="ra-label">${_esc(item.label || item.question || '')}</span>
-      <span class="ra-type">${meta.label}</span>
-      <svg class="ra-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
-    </div>`;
-  }).join('');
-
   container.innerHTML = `
     <p class="prompts-label">Recent activity</p>
-    <div class="ra-list">${richCards}${chatRows}</div>`;
-
-  // Wire click handlers for chat items
-  container.querySelectorAll('.ra-item').forEach(el => {
-    el.addEventListener('click', () => {
-      const id = el.dataset.recentId;
-      const found = storedRecents.find(r => r.id === id) || (window._recentItems || []).find(r => r.id === id);
-      if (found && typeof window._clickRecent === 'function') window._clickRecent(found);
-    });
-  });
+    <div class="ra-list">${richCards}</div>`;
 
   // Wire click handlers for rich cards
   container.querySelectorAll('.ra-card').forEach(el => {
@@ -761,8 +702,6 @@ export function _renderHomeActivities() {
         setTimeout(() => { if (typeof window.spSwitchToPlan === 'function') window.spSwitchToPlan(id); }, 100);
       } else if (action === 'flash') {
         if (typeof window.showScreen === 'function') window.showScreen('flash');
-      } else if (action === 'exam') {
-        if (typeof window.showScreen === 'function') window.showScreen('exam');
       }
     });
   });
