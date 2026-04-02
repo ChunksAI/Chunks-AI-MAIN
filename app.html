@@ -1180,6 +1180,9 @@ window._renderRecentList  = _renderRecentList;
 window._setActiveRecent   = _setActiveRecent;
 window._saveRecent        = _saveRecent;
 window._saveSession       = _saveSession;
+// Exposes the `let _recentItems` binding (not a window property) so ES modules
+// can wipe it atomically.  clearAllHistory() in SettingsModal.js calls this.
+window._clearRecentItems  = function() { _recentItems = []; };
 
 // ── Chat search popup ─────────────────────────────────────────────────────
 (function() {

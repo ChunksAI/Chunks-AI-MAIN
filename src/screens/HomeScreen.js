@@ -634,10 +634,10 @@ export function _renderHomeActivities() {
   } catch (_) {}
 
   // ── 5. Recent chats (up to 3) ───────────────────────────────────────────────
-  let _storedRecents = [];
-  try { _storedRecents = JSON.parse(localStorage.getItem('chunks_recent') || '[]'); } catch (_) {}
-  if (!Array.isArray(_storedRecents)) _storedRecents = [];
-  const recentChats = _storedRecents.slice(0, 3);
+  let storedRecents = [];
+  try { storedRecents = JSON.parse(localStorage.getItem('chunks_recent') || '[]'); } catch (_) {}
+  if (!Array.isArray(storedRecents)) storedRecents = [];
+  const recentChats = storedRecents.slice(0, 3);
 
   // ── No activity at all → show "Try asking" for new users ───────────────────
   if (!lastBook && !lastPlan && !lastDeck && !lastExam && recentChats.length === 0) {
@@ -743,7 +743,7 @@ export function _renderHomeActivities() {
   container.querySelectorAll('.ra-item').forEach(el => {
     el.addEventListener('click', () => {
       const id = el.dataset.recentId;
-      const found = _storedRecents.find(r => r.id === id) || (window._recentItems || []).find(r => r.id === id);
+      const found = storedRecents.find(r => r.id === id) || (window._recentItems || []).find(r => r.id === id);
       if (found && typeof window._clickRecent === 'function') window._clickRecent(found);
     });
   });
