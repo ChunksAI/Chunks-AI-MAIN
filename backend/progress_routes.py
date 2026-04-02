@@ -17,7 +17,6 @@ import logging
 from datetime import datetime, date, timedelta
 from fastapi import APIRouter, Request, Body
 from fastapi.responses import JSONResponse
-from fastapi.responses import JSONResponse
 
 from routes.schemas import (
     ProgressReadinessRequest,

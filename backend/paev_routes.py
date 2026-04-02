@@ -216,9 +216,15 @@ _fp_builder = EpistemicFingerprintBuilder(api_key=API_KEY, model=MODEL)
 _verifier   = EpistemicVerifier(api_key=API_KEY, model=MODEL)
 
 # ── Local path helpers ────────────────────────────────────────────────────────
-def _idx_path(book_id):   return os.path.join(INDEX_DIR, f'{book_id}_index.json')
-def _fp_path(book_id):    return os.path.join(INDEX_DIR, f'{book_id}_fingerprints.json')
-def _graph_path(book_id): return os.path.join(INDEX_DIR, f'{book_id}_graph.json')
+import re as _re
+
+def _safe_book_id(book_id: str) -> str:
+    """Sanitize book_id so it can never escape the index directory."""
+    return _re.sub(r'[^A-Za-z0-9_\-]', '', book_id)[:128]
+
+def _idx_path(book_id):   return os.path.join(INDEX_DIR, f'{_safe_book_id(book_id)}_index.json')
+def _fp_path(book_id):    return os.path.join(INDEX_DIR, f'{_safe_book_id(book_id)}_fingerprints.json')
+def _graph_path(book_id): return os.path.join(INDEX_DIR, f'{_safe_book_id(book_id)}_graph.json')
 
 def _fps_to_dict(fps):
     return {k: v.to_dict() for k, v in fps.items()}
@@ -230,6 +236,7 @@ def _fps_from_dict(raw):
 
 # ── Build pipeline ────────────────────────────────────────────────────────────
 def _build_book(book_id: str, fp_sample_rate: float = 0.3):
+    book_id = _safe_book_id(book_id)
     """Full build. Saves results to R2 + Redis."""
     try:
         _paev_status_set(book_id, {'stage': 'loading_chunks', 'pct': 5})
@@ -287,6 +294,7 @@ def _build_book(book_id: str, fp_sample_rate: float = 0.3):
 
 
 def _get_book(book_id: str):
+    book_id = _safe_book_id(book_id)
     """
     Load order:
       1. Redis cache
@@ -401,6 +409,7 @@ def build_index(request: Request, body: PaevBuildIndexRequest):
 
 @paev_router.get('/graph/{book_id}')
 def get_graph(request: Request, book_id: str):
+    book_id = _safe_book_id(book_id)
     _, _, graph = _get_book(book_id)
     if not graph:
         return JSONResponse({'success': False, 'error': 'Not built yet.'}, status_code=404)

@@ -1,11 +1,10 @@
 """
-backend/routes/validation.py — Pydantic request validation decorator (no-op stub).
+backend/routes/validation.py — No-op request validation decorator.
 
-With FastAPI, request body validation is handled natively by declaring the
-request body as a Pydantic model parameter in the route function signature.
-This module retains a no-op ``validate_request`` decorator so that existing
-imports compile without modification during the migration; the decorator is
-simply a pass-through that applies no logic.
+FastAPI handles request body validation natively via Pydantic model parameters.
+This module exists as a permanent compatibility shim so any remaining imports
+of ``validate_request`` from this module continue to compile without change.
+The decorator is a simple pass-through that applies no logic.
 """
 from __future__ import annotations
 
