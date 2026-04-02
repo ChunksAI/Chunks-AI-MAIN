@@ -5,6 +5,12 @@
    Depends on: tokens.css
 ═══════════════════════════════════════════════════════════ */
 
+/* ── Workspace layout tokens ─────────────────────────────── */
+:root {
+  --ws-chat-bar-h:  50px; /* .chat-bar height */
+  --ws-chat-tabs-h: 34px; /* .ws-panel-tabs height */
+}
+
 /* ═══════════════════════════════════════════════════════════
    SCREEN 2 — STUDY WORKSPACE
 ═══════════════════════════════════════════════════════════ */
@@ -359,11 +365,36 @@
 .chat-panel {
   flex: 1 1 0; min-width: 260px; display: flex; flex-direction: column;
   overflow: hidden; background: var(--bg);
+  position: relative; /* positioning context for the isolated chat container */
+}
+
+/* ── Isolated chat content container ─────────────────────────────────────────
+   Occupies all space below .chat-bar + .ws-panel-tabs.
+   Uses absolute positioning to be fully decoupled from page scroll context. */
+#ws-chat-content {
+  position: absolute;
+  top: calc(var(--ws-chat-bar-h) + var(--ws-chat-tabs-h));
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Notes panel occupies the same space, shown instead of chat content */
+#ws-notes-panel {
+  position: absolute;
+  top: calc(var(--ws-chat-bar-h) + var(--ws-chat-tabs-h));
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
 }
 
 .chat-bar {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 12px 0 14px; height: 50px;
+  padding: 0 12px 0 14px; height: var(--ws-chat-bar-h);
   border-bottom: 1px solid var(--border-xs);
   background: linear-gradient(180deg, var(--surface-2) 0%, var(--surface-1) 100%);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 12px rgba(0,0,0,0.25);
@@ -456,7 +487,7 @@
   border-bottom: 1px solid var(--border-xs);
   background: var(--surface-0);
   flex-shrink: 0;
-  height: 34px;
+  height: var(--ws-chat-tabs-h);
 }
 .ws-tabs-spacer { flex: 1; }
 .ws-page-label {

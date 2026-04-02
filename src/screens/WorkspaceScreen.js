@@ -253,10 +253,10 @@ const WORKSPACE_HTML = /* html */`
     </div>
 
     <!-- Chat content (shown by default) -->
-    <div id="ws-chat-content" style="display:flex;flex:1;min-height:0;flex-direction:column;overflow:hidden;">
+    <div id="ws-chat-content" style="display:flex;">
 
     <div class="messages" id="ws-messages">
-      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;text-align:center;padding:40px;">
+      <div id="ws-welcome-state" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;text-align:center;padding:40px;">
         <div style="width:56px;height:56px;border-radius:16px;background:var(--violet-muted);border:1px solid var(--violet-border);display:flex;align-items:center;justify-content:center;">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="1.5" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </div>
@@ -379,7 +379,7 @@ const WORKSPACE_HTML = /* html */`
     </div><!-- /ws-chat-content -->
 
     <!-- Notes panel (hidden by default) — Smart Notes Panel (Preact island) -->
-    <div id="ws-notes-panel" style="display:none;flex:1;min-height:0;flex-direction:column;overflow:hidden;">
+    <div id="ws-notes-panel" style="display:none;flex-direction:column;">
       <!-- SmartNotesPanel Preact island is mounted here by WorkspaceScreen._initNotes() -->
     </div>
 
