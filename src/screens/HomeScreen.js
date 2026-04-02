@@ -619,7 +619,7 @@ export function _renderHomeActivities() {
   // ── No activity at all → show "Try asking" for new users ───────────────────
   if (!lastBook && !lastPlan && !lastDeck) {
     container.innerHTML = `
-      <p class="prompts-label" style="text-align:center;">Try asking</p>
+      <p class="prompts-label">Try asking</p>
       <div class="prompts-chips">
         ${_SUGGEST_CHIPS.map(t =>
           `<button class="prompt-chip" data-action="homeSetInput-text">${t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</button>`
