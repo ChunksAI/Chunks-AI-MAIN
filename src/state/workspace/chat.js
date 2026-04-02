@@ -14,6 +14,36 @@ import { handleCommand, syncContextFromWorkspace, updateContext } from '../comma
 import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../../utils/typewriter.js';
 
+// ── Send / Stop button icons ──────────────────────────────────────────────
+const _SEND_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+const _STOP_SVG = `<svg width="10" height="10" viewBox="0 0 10 10"><rect x="0" y="0" width="10" height="10" rx="2" ry="2" fill="currentColor"/></svg>`;
+
+// ── AbortController for active requests ──────────────────────────────────
+let _wsAbortController = null;
+
+/** Swap the workspace send button between send ↔ stop states. */
+function _wsSetGenerating(on) {
+  const btn = $el('ws-chat-send');
+  if (!btn) return;
+  if (on) {
+    btn.innerHTML = _STOP_SVG;
+    btn.classList.add('chat-send--stop');
+    btn.disabled = false;
+  } else {
+    btn.innerHTML = _SEND_SVG;
+    btn.classList.remove('chat-send--stop');
+    btn.disabled = false;
+  }
+}
+
+/** Abort the active workspace AI request and restore the send button. */
+export function wsStopGeneration() {
+  if (_wsAbortController) {
+    _wsAbortController.abort();
+    _wsAbortController = null;
+  }
+}
+
 // ── Toast (delegated to Toast.js — Task 20) ───────────────────────────────
 
 export function wsShowToast(icon, text, color) {
@@ -484,7 +514,7 @@ export function wsToggleThinking(mode) {
 }
 
 export async function wsChatSend() {
-  if (ws.typing) return;
+  if (ws.typing) { wsStopGeneration(); return; }
   const inp = $el('ws-chat-input');
   const question = inp.value.trim();
   if (!question) return;
@@ -515,8 +545,9 @@ export async function wsChatSend() {
  */
 export async function _wsAsk(question, imageAtt = null) {
   ws.typing = true;
-  const sendBtn = $el('ws-chat-send');
-  if (sendBtn) sendBtn.disabled = true;
+  _wsAbortController = new AbortController();
+  const { signal } = _wsAbortController;
+  _wsSetGenerating(true);
   wsAppendThinking(!!imageAtt);
   const capturedSelection = ws.selectedText;
   ws.selectedText = '';  // clear so it doesn't bleed into follow-up questions
@@ -530,6 +561,7 @@ export async function _wsAsk(question, imageAtt = null) {
       const imgB64 = imageAtt.dataUrl.split(',')[1] || '';
       res = await fetch(`${API_BASE}/ask-image`, {
         method: 'POST',
+        signal,
         headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
         body: JSON.stringify({
           image_b64:  imgB64,
@@ -555,6 +587,7 @@ export async function _wsAsk(question, imageAtt = null) {
       for (let _attempt = 0; _attempt <= 3; _attempt++) {
         res = await fetch(`${API_BASE}/ask`, {
           method: 'POST',
+          signal,
           headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
           body: JSON.stringify(body),
         });
@@ -622,6 +655,7 @@ export async function _wsAsk(question, imageAtt = null) {
         await typewriteResponse(textEl, cleanAnswer, {
           render: typeof wsRender === 'function' ? wsRender : undefined,
           onScroll: wsScrollBottom,
+          isCancelled: () => signal.aborted,
         });
       }
 
@@ -641,13 +675,18 @@ export async function _wsAsk(question, imageAtt = null) {
       syncContextFromWorkspace();
     }
   } catch (e) {
-    wsRemoveThinking();
-    wsAppendError('Could not reach the server. Check your connection.');
-    ws.chatHistory.pop();
+    if (e?.name === 'AbortError') {
+      wsRemoveThinking();
+      // Keep whatever text has already been rendered — do not pop history here
+    } else {
+      wsRemoveThinking();
+      wsAppendError('Could not reach the server. Check your connection.');
+      ws.chatHistory.pop();
+    }
   } finally {
     ws.typing = false;
-    const sendBtn = $el('ws-chat-send');
-    if (sendBtn) sendBtn.disabled = false;
+    _wsAbortController = null;
+    _wsSetGenerating(false);
   }
 }
 

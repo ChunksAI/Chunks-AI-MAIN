@@ -5,7 +5,7 @@
  */
 
 import { ws } from './state.js';
-import { wsChatSend, _wsAsk, wsAutoResize, wsScrollBottom } from './chat.js';
+import { wsChatSend, _wsAsk, wsAutoResize, wsScrollBottom, wsStopGeneration } from './chat.js';
 import { $el, $qsa, removeClass, addClass } from '../domHelpers.js';
 import { showToast } from '../../components/Toast.js';
 
@@ -119,7 +119,7 @@ export function _wsRenderPreview() {
 // Patch wsChatSend to include attachments
 const _origWsChatSend = wsChatSend;
 window.wsChatSend = async function() {
-  if (ws.typing) return;
+  if (ws.typing) { wsStopGeneration(); return; }
   const inp = $el('ws-chat-input');
   const question = inp.value.trim();
   if (!question && !ws.attachments.length) return;

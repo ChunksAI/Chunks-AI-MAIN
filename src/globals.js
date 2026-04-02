@@ -142,6 +142,7 @@ import {
   wsClearChat, wsAppendUser, wsAppendThinking, wsRemoveThinking,
   wsAppendAI, wsAppendError, wsCopyMsg, _wsRegenerate,
   wsToggleWebSearch, wsToggleThinking, wsToggleThinkMenu,
+  wsStopGeneration,
   filterLibrary, filterLibSection,
   wsToggleAttachMenu, wsAttachTrigger, wsHandleAttach,
   homeToggleAttachMenu, homeAttachTrigger, homeHandleAttach,
@@ -198,6 +199,7 @@ window._wsRegenerate       = _wsRegenerate;
 window.wsToggleWebSearch   = wsToggleWebSearch;
 window.wsToggleThinking    = wsToggleThinking;
 window.wsToggleThinkMenu   = wsToggleThinkMenu;
+window.wsStopGeneration    = wsStopGeneration;
 window.filterLibrary       = filterLibrary;
 window.filterLibSection    = filterLibSection;
 window.wsToggleAttachMenu  = wsToggleAttachMenu;
@@ -494,7 +496,7 @@ import {
   homeSetMode, homeSetInput, homeHandlePdfUpload, homeAutoResize,
   homeAppendUser, homeAppendThinking, homeRemoveThinking,
   homeAppendAI, homeAppendError,
-  homeScrollBottom, homeHideLanding, homeSendMessage,
+  homeScrollBottom, homeHideLanding, homeSendMessage, homeStopGeneration,
   homeToggleWebSearch, homeToggleThinking,
   openIncognitoChat, closeIncognitoChat, incognitoSendMessage,
   _renderHomeActivities,
@@ -512,6 +514,7 @@ window.homeAppendError    = homeAppendError;
 window.homeScrollBottom   = homeScrollBottom;
 window.homeHideLanding    = homeHideLanding;
 window.homeSendMessage    = homeSendMessage;
+window.homeStopGeneration = homeStopGeneration;
 window.homeToggleWebSearch= homeToggleWebSearch;
 window.homeToggleThinking = homeToggleThinking;
 window._renderHomeActivities = _renderHomeActivities;
