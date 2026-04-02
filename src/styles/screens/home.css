@@ -132,7 +132,7 @@
 
 .home-h1 em {
   font-style: normal;
-  background: linear-gradient(125deg, var(--gold) 15%, #f97316 88%);
+  background: linear-gradient(125deg, var(--gold) 15%, var(--gold-bright) 88%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -140,7 +140,7 @@
 
 /* Study mode: calmer accent gradient, not so intense */
 [data-theme="study"] .home-h1 em {
-  background: linear-gradient(125deg, #c07818 20%, #b87a10 85%);
+  background: linear-gradient(125deg, var(--gold) 20%, var(--fc-accent) 85%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
