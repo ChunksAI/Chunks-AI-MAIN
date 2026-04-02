@@ -606,13 +606,13 @@ export function _renderHomeActivities() {
       deckEntries.sort((a, b) => (b[1].lastStudied || '').localeCompare(a[1].lastStudied || ''));
       const [deckId, stats] = deckEntries[0];
       const deck = decks.find(d => d.id === deckId);
-      if (deck) lastDeck = { deckId, name: deck.name, pct: stats.pct || 0 };
+      if (deck) lastDeck = { deckId, name: deck.name, pct: stats.pct || 0, cardCount: deck.card_count || 0 };
     }
     // Fallback: most recently created deck if none have been studied yet
     if (!lastDeck && decks.length > 0) {
       const sorted = decks.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
       const d = sorted[0];
-      if (d?.name) lastDeck = { deckId: d.id, name: d.name, pct: 0 };
+      if (d?.name) lastDeck = { deckId: d.id, name: d.name, pct: 0, cardCount: d.card_count || 0 };
     }
   } catch (_) {}
 
@@ -636,58 +636,40 @@ export function _renderHomeActivities() {
       ? `Page ${lastBook.lastPage} of ${lastBook.totalPages} · ${lastBook.pct}%`
       : `Page ${lastBook.lastPage}`;
     richCards += `
-      <div class="ra-card" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
-        <div class="ra-card-main">
-          <span class="ra-icon">📚</span>
-          <div class="ra-card-text">
-            <span class="ra-label">${_esc(lastBook.title)}</span>
-            <span class="ra-card-meta">${_esc(meta)}</span>
-          </div>
-        </div>
-        <div class="ra-card-footer">
-          <div class="ra-card-bar"><div class="ra-card-bar-fill" style="width:${lastBook.pct}%;background:${_barColor(lastBook.pct)};"></div></div>
-          <button class="ra-card-btn">Continue →</button>
-        </div>
+      <div class="ra-card book" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
+        <div class="qc-icon gold">📚</div>
+        <div class="qc-title">${_esc(lastBook.title)}</div>
+        <div class="qc-desc">${_esc(meta)}</div>
+        <button class="ra-card-btn">Continue →</button>
       </div>`;
   }
 
   if (lastPlan) {
     richCards += `
-      <div class="ra-card" data-ra-action="plan" data-ra-id="${_esc(lastPlan.planId)}">
-        <div class="ra-card-main">
-          <span class="ra-icon">📋</span>
-          <div class="ra-card-text">
-            <span class="ra-label">${_esc(lastPlan.topic)}</span>
-            <span class="ra-card-meta">Study Plan · ${lastPlan.barPct}% mastered</span>
-          </div>
-        </div>
-        <div class="ra-card-footer">
-          <div class="ra-card-bar"><div class="ra-card-bar-fill" style="width:${lastPlan.barPct}%;background:${_barColor(lastPlan.barPct)};"></div></div>
-          <button class="ra-card-btn">Resume →</button>
-        </div>
+      <div class="ra-card plan" data-ra-action="plan" data-ra-id="${_esc(lastPlan.planId)}">
+        <div class="qc-icon violet">📋</div>
+        <div class="qc-title">${_esc(lastPlan.topic)}</div>
+        <div class="qc-desc">Study Plan · ${lastPlan.barPct}% mastered</div>
+        <button class="ra-card-btn">Resume →</button>
       </div>`;
   }
 
   if (lastDeck) {
+    const deckMeta = lastDeck.cardCount
+      ? `${lastDeck.cardCount} cards · ${lastDeck.pct}% mastered`
+      : `Flashcards · ${lastDeck.pct}% mastered`;
     richCards += `
-      <div class="ra-card" data-ra-action="flash" data-ra-id="${_esc(lastDeck.deckId)}">
-        <div class="ra-card-main">
-          <span class="ra-icon">🃏</span>
-          <div class="ra-card-text">
-            <span class="ra-label">${_esc(lastDeck.name)}</span>
-            <span class="ra-card-meta">Flashcards · ${lastDeck.pct}% mastered</span>
-          </div>
-        </div>
-        <div class="ra-card-footer">
-          <div class="ra-card-bar"><div class="ra-card-bar-fill" style="width:${lastDeck.pct}%;background:${_barColor(lastDeck.pct)};"></div></div>
-          <button class="ra-card-btn">Review →</button>
-        </div>
+      <div class="ra-card flash" data-ra-action="flash" data-ra-id="${_esc(lastDeck.deckId)}">
+        <div class="qc-icon teal">🃏</div>
+        <div class="qc-title">${_esc(lastDeck.name)}</div>
+        <div class="qc-desc">${_esc(deckMeta)}</div>
+        <button class="ra-card-btn">Review →</button>
       </div>`;
   }
 
   container.innerHTML = `
     <p class="prompts-label">Recent activity</p>
-    <div class="ra-list">${richCards}</div>`;
+    <div class="ra-grid">${richCards}</div>`;
 
   // Wire click handlers for rich cards
   container.querySelectorAll('.ra-card').forEach(el => {
