@@ -36,18 +36,13 @@ import { showToast } from '../components/Toast.js';
 import { _getStudyMode } from '../components/SettingsModal.js';
 import { homeMarkdown, sanitize } from '../utils/render.js';
 import { lsGet } from '../utils/storage.js';
-import { idbKeys, init as _idbInit } from '../lib/idbStorage.js';
+import { idbKeys } from '../lib/idbStorage.js';
 import { ChunksDB } from '../lib/chunksDb.js';
 import { subscribeToHomeMessages, unsubscribeHomeMessages } from '../state/home/homeMessagesRealtime.js';
 import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../utils/typewriter.js';
 import { ws } from '../state/workspace/state.js';
 import { _homeRenderPreview } from '../state/workspace/attachments.js';
-
-// true once IDB has warmed its in-memory cache; guards _renderHomeActivities()
-// so it never renders the default "Try Asking" section before persisted activity
-// data (stored in IDB) has been loaded.
-let _idbReady = false;
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -537,14 +532,8 @@ export function mountHomeScreen() {
   if (heading) heading.innerHTML  = pick.h;
   if (sub)     sub.textContent    = pick.s;
 
-  // Render recent activities or fallback chips.
-  // Defer until IDB is warm so we never flash the "Try Asking" default before
-  // persisted activity data has been loaded into the in-memory cache.
-  // _idbInit() is idempotent — it returns the same in-flight/resolved promise
-  // regardless of how many times it is called.
-  _idbInit()
-    .then(() => { _idbReady = true; _renderHomeActivities(); })
-    .catch(() => { _idbReady = true; _renderHomeActivities(); });
+  // Render recent activities or fallback chips
+  _renderHomeActivities();
 
   // Wire incognito modal listeners immediately after DOM is injected
   _wireIncognitoListeners();
@@ -561,15 +550,6 @@ const _SUGGEST_CHIPS = [
 export function _renderHomeActivities() {
   const container = document.getElementById('home-activities-section');
   if (!container) return;
-
-  // Guard: do not render before IDB has warmed its cache. Any call that
-  // arrives before _idbReady (e.g. from _renderAllRecent during app boot)
-  // shows an empty container rather than the "Try Asking" default, preventing
-  // a flash when persisted activity data is only available in IDB.
-  if (!_idbReady) {
-    container.innerHTML = '';
-    return;
-  }
 
   const _esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const _barColor = pct => pct >= 80 ? 'var(--green)' : pct >= 20 ? 'var(--gold)' : 'var(--text-4)';
