@@ -144,19 +144,24 @@ window.wsChatSend = async function() {
   const welcome = document.getElementById('ws-welcome-state');
   if (welcome) welcome.remove();
   // Attachments bubble first (separate bubble), then text bubble below — matches Claude.ai / ChatGPT layout
+  let firstBubble = null;
   if (attachHtml) {
     const attachBubble = document.createElement('div');
     attachBubble.className = 'msg msg-user';
     attachBubble.innerHTML = `<div class="bubble-user">${attachHtml}</div>`;
     msgs.appendChild(attachBubble);
+    firstBubble = attachBubble;
   }
   if (textHtml || selQuote) {
     const d = document.createElement('div');
     d.className = 'msg msg-user';
     d.innerHTML = `<div class="bubble-user">${selQuote}${textHtml}</div>`;
     msgs.appendChild(d);
+    if (!firstBubble) firstBubble = d;
   }
-  wsScrollBottom();
+  if (firstBubble) {
+    firstBubble.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   // Extract image for vision API; only append text metadata for non-image files
   const imageAtt = ws.attachments.find(a => a.type === 'image') || null;

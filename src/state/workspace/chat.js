@@ -89,7 +89,8 @@ export function wsAppendUser(text, selectedText) {
     ? `<div style="margin-bottom:7px;padding:7px 10px;border-left:2px solid var(--gold);background:var(--gold-muted);border-radius:0 6px 6px 0;font-size:11px;color:var(--text-3);line-height:1.5;font-style:italic;">"${selectedText.slice(0,160).replace(/&/g,'&amp;').replace(/</g,'&lt;')}${selectedText.length>160?'…':''}"</div>`
     : '';
   d.innerHTML = `<div class="bubble-user">${quoteHtml}${escaped}</div>`;
-  msgs.appendChild(d); wsScrollBottom();
+  msgs.appendChild(d);
+  d.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 export function _wsAvatarSvg() {

@@ -764,6 +764,7 @@ const _IMAGE_ONLY_LABEL = '[Image]';
 export function homeAppendUser(text, images = []) {
   const container = document.getElementById('home-chat-history');
   // Image bubble first (separate bubble) — matches Claude.ai / ChatGPT layout
+  let firstBubble = null;
   if (images.length > 0) {
     const imgBubble = document.createElement('div');
     imgBubble.className = 'hc-user';
@@ -777,6 +778,7 @@ export function homeAppendUser(text, images = []) {
       imgBubble.appendChild(wrap);
     });
     container.appendChild(imgBubble);
+    firstBubble = imgBubble;
   }
   // Text bubble second (separate bubble below images)
   if (text) {
@@ -784,8 +786,11 @@ export function homeAppendUser(text, images = []) {
     textBubble.className = 'hc-user';
     textBubble.appendChild(document.createTextNode(text));
     container.appendChild(textBubble);
+    if (!firstBubble) firstBubble = textBubble;
   }
-  homeScrollBottom();
+  if (firstBubble) {
+    firstBubble.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 /** Handle for the currently-mounted ThinkingAccordion (if any). */
