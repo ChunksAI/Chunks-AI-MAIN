@@ -312,13 +312,14 @@ app.add_middleware(
 
 # ── CSRF origin check middleware ──────────────────────────────────────────────
 _CSRF_SAFE_METHODS = frozenset(('GET', 'HEAD', 'OPTIONS'))
-_TESTING = os.environ.get('TESTING', '').lower() == 'true'
+# Mutable flag so tests can toggle CSRF enforcement at runtime
+_csrf_disabled: bool = os.environ.get('TESTING', '').lower() == 'true'
 
 
 @app.middleware("http")
 async def csrf_origin_check(request: Request, call_next):
     """Block state-changing requests whose Origin/Referer is untrusted."""
-    if _TESTING:
+    if _csrf_disabled:
         return await call_next(request)
 
     if request.method in _CSRF_SAFE_METHODS:
@@ -369,13 +370,34 @@ async def security_headers(request: Request, call_next):
     response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
     response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
     response.headers['Content-Security-Policy'] = _CSP
-    response.headers.pop('server', None)
-    response.headers.pop('x-powered-by', None)
+    if 'server' in response.headers:
+        del response.headers['server']
+    if 'x-powered-by' in response.headers:
+        del response.headers['x-powered-by']
 
     return response
 
 
 # ── Exception handlers ────────────────────────────────────────────────────────
+from fastapi.exceptions import RequestValidationError  # noqa: E402
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(request: Request, exc: RequestValidationError):
+    """Return a consistent error envelope for Pydantic validation failures."""
+    errors = []
+    for e in exc.errors():
+        err = {k: v for k, v in e.items() if k != 'ctx'}
+        if 'ctx' in e:
+            err['ctx'] = {k: str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+                          for k, v in e['ctx'].items()}
+        errors.append(err)
+    return JSONResponse(
+        {'success': False, 'error': 'Validation error', 'details': errors},
+        status_code=422,
+    )
+
+
 @app.exception_handler(413)
 async def too_large(request: Request, exc):
     return JSONResponse({'success': False, 'error': 'File too large. Maximum is 25 MB.'}, status_code=413)

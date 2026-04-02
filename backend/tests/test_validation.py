@@ -12,7 +12,7 @@ def test_ask_invalid_complexity_type(client, mock_guest_gate, mock_extract_user)
         'complexity': 'not-a-number',
     })
     assert resp.status_code == 422
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert data['error'] == 'Validation error'
     assert isinstance(data['details'], list)
@@ -97,7 +97,7 @@ def test_load_book_missing_book_id(client, mock_guest_gate, mock_extract_user):
     """POST /load-book with missing bookId returns 422."""
     resp = client.post('/load-book', json={})
     assert resp.status_code == 422
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
 
 
@@ -140,10 +140,10 @@ def test_options_bypass_validation(client, url):
     '/generate-quiz', '/ask-image', '/load-book',
 ])
 def test_missing_json_returns_400(client, mock_guest_gate, mock_extract_user, url):
-    """POST with no JSON body returns 400 from the validate_request decorator."""
-    resp = client.post(url, content_type='application/json', data='')
-    assert resp.status_code == 400
-    data = resp.get_json()
+    """POST with no JSON body returns 422 from FastAPI body validation."""
+    resp = client.post(url)
+    assert resp.status_code == 422
+    data = resp.json()
     assert data['success'] is False
 
 
@@ -153,7 +153,7 @@ def test_validation_error_has_details(client, mock_guest_gate, mock_extract_user
     """422 responses include a 'details' list describing each error."""
     resp = client.post('/generate-flashcards', json={'count': 'not-int'})
     assert resp.status_code == 422
-    data = resp.get_json()
+    data = resp.json()
     assert 'details' in data
     assert len(data['details']) >= 1
     # Each detail should have 'type', 'loc', and 'msg' (Pydantic v2 format)

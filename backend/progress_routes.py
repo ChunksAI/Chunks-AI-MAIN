@@ -264,7 +264,7 @@ def generate_study_plan(request: Request, body: ProgressStudyPlanRequest):
                     {'type': 'rest',      'topic': 'Eat well, sleep early',       'duration': 0,  'priority': 'high'},
                 ]
             }]
-        })
+        }
 
     # Build task pool
     # Priority 1: weak spots (high error rate topics)

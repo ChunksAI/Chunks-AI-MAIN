@@ -11,9 +11,9 @@ def test_flashcards_options(client):
 
 def test_flashcards_no_body(client, mock_guest_gate, mock_extract_user):
     """POST /generate-flashcards with no JSON body returns 400."""
-    resp = client.post('/generate-flashcards', content_type='application/json', data='')
-    assert resp.status_code == 400
-    data = resp.get_json()
+    resp = client.post('/generate-flashcards')
+    assert resp.status_code in (400, 422)
+    data = resp.json()
     assert data['success'] is False
 
 
@@ -36,7 +36,7 @@ def test_flashcards_success(client, monkeypatch, mock_guest_gate, mock_extract_u
 
     resp = client.post('/generate-flashcards', json={'topic': 'acids and bases', 'count': 2})
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert 'flashcards' in data
     assert len(data['flashcards']) >= 1
@@ -61,7 +61,7 @@ def test_flashcards_success_without_hints(client, monkeypatch, mock_guest_gate, 
 
     resp = client.post('/generate-flashcards', json={'topic': 'acids and bases', 'count': 2})
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert len(data['flashcards']) == 2
     # Cards without HINT lines should not have the hint key
@@ -70,5 +70,5 @@ def test_flashcards_success_without_hints(client, monkeypatch, mock_guest_gate, 
 
 def test_flashcards_blueprint_registered(app):
     """The flashcards blueprint is registered with correct route."""
-    rules = [r.rule for r in app.url_map.iter_rules()]
+    rules = [r.path for r in app.routes]
     assert '/generate-flashcards' in rules

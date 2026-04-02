@@ -12,19 +12,18 @@ import services.device_abuse as da
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _make_request_ctx(app, headers=None):
-    """Return a Flask request context with custom headers."""
+    """Return a mock Starlette Request with custom headers."""
+    from unittest.mock import MagicMock
     _headers = {
-        'User-Agent': 'TestBrowser/1.0',
-        'X-Device-Id': 'test-device-abc',
+        'user-agent': 'TestBrowser/1.0',
+        'x-device-id': 'test-device-abc',
     }
     if headers:
-        _headers.update(headers)
-    return app.test_request_context(
-        '/ask',
-        method='POST',
-        headers=_headers,
-        environ_base={'REMOTE_ADDR': '10.0.0.1'},
-    )
+        _headers.update({k.lower(): v for k, v in headers.items()})
+    mock_req = MagicMock()
+    mock_req.client.host = '10.0.0.1'
+    mock_req.headers.get = lambda key, default='': _headers.get(key.lower(), default)
+    return mock_req
 
 
 # ── Unit tests for _build_device_key ──────────────────────────────────────────
@@ -33,40 +32,40 @@ class TestBuildDeviceKey:
     """Tests for device key construction."""
 
     def test_same_inputs_produce_same_key(self, app):
-        with _make_request_ctx(app):
-            key1 = da._build_device_key('user-123')
-            key2 = da._build_device_key('user-123')
-            assert key1 == key2
+        req = _make_request_ctx(app)
+        key1 = da._build_device_key('user-123', req)
+        key2 = da._build_device_key('user-123', req)
+        assert key1 == key2
 
     def test_different_user_produces_different_key(self, app):
-        with _make_request_ctx(app):
-            key1 = da._build_device_key('user-123')
-            key2 = da._build_device_key('user-456')
-            assert key1 != key2
+        req = _make_request_ctx(app)
+        key1 = da._build_device_key('user-123', req)
+        key2 = da._build_device_key('user-456', req)
+        assert key1 != key2
 
     def test_different_device_header_produces_different_key(self, app):
-        with _make_request_ctx(app, headers={'X-Device-Id': 'device-A'}):
-            key_a = da._build_device_key('user-123')
-        with _make_request_ctx(app, headers={'X-Device-Id': 'device-B'}):
-            key_b = da._build_device_key('user-123')
+        req = _make_request_ctx(app, headers={'X-Device-Id': 'device-A'})
+        key_a = da._build_device_key('user-123', req)
+        req = _make_request_ctx(app, headers={'X-Device-Id': 'device-B'})
+        key_b = da._build_device_key('user-123', req)
         assert key_a != key_b
 
     def test_different_user_agent_produces_different_key(self, app):
-        with _make_request_ctx(app, headers={'User-Agent': 'Chrome/1'}):
-            key_a = da._build_device_key('user-123')
-        with _make_request_ctx(app, headers={'User-Agent': 'Firefox/2'}):
-            key_b = da._build_device_key('user-123')
+        req = _make_request_ctx(app, headers={'User-Agent': 'Chrome/1'})
+        key_a = da._build_device_key('user-123', req)
+        req = _make_request_ctx(app, headers={'User-Agent': 'Firefox/2'})
+        key_b = da._build_device_key('user-123', req)
         assert key_a != key_b
 
     def test_key_contains_user_id(self, app):
-        with _make_request_ctx(app):
-            key = da._build_device_key('user-123')
-            assert key.startswith('user-123:')
+        req = _make_request_ctx(app)
+        key = da._build_device_key('user-123', req)
+        assert key.startswith('user-123:')
 
     def test_missing_device_header_still_works(self, app):
-        with _make_request_ctx(app, headers={'X-Device-Id': ''}):
-            key = da._build_device_key('user-123')
-            assert key.startswith('user-123:')
+        req = _make_request_ctx(app, headers={'X-Device-Id': ''})
+        key = da._build_device_key('user-123', req)
+        assert key.startswith('user-123:')
 
 
 # ── Unit tests for in-memory sliding window ───────────────────────────────────
@@ -170,15 +169,16 @@ class TestCheckDeviceRateLimit:
 
     def test_empty_user_id_returns_none(self, app):
         """No user → fail open (guest_gate handles those)."""
-        with _make_request_ctx(app):
-            assert da.check_device_rate_limit('') is None
-            assert da.check_device_rate_limit(None) is None
+        req = _make_request_ctx(app)
+        assert da.check_device_rate_limit('', req) is None
+        assert da.check_device_rate_limit(None, req) is None
 
     def test_allows_normal_usage(self, app):
         """A few requests should not be blocked."""
-        with _make_request_ctx(app):
-            for _ in range(5):
-                assert da.check_device_rate_limit('user-123') is None
+        req = _make_request_ctx(app)
+
+        for _ in range(5):
+            assert da.check_device_rate_limit('user-123', req) is None
 
     def test_blocks_after_burst_limit(self, app):
         """Exceeding the per-minute burst limit returns 429."""
@@ -186,14 +186,16 @@ class TestCheckDeviceRateLimit:
         original = da.RATE_LIMITS
         da.RATE_LIMITS = [(60, 3, 120)]  # 3 per minute
         try:
-            with _make_request_ctx(app):
-                for _ in range(3):
-                    assert da.check_device_rate_limit('user-burst') is None
-                # 4th request should be blocked
-                result = da.check_device_rate_limit('user-burst')
-                assert result is not None
-                resp, status = result
-                assert status == 429
+            req = _make_request_ctx(app)
+
+            for _ in range(3):
+                assert da.check_device_rate_limit('user-burst', req) is None
+            # 4th request should be blocked
+            result = da.check_device_rate_limit('user-burst', req)
+            assert result is not None
+            resp = result
+            status = resp.status_code
+            assert status == 429
         finally:
             da.RATE_LIMITS = original
 
@@ -202,13 +204,14 @@ class TestCheckDeviceRateLimit:
         original = da.RATE_LIMITS
         da.RATE_LIMITS = [(60, 2, 120)]
         try:
-            with _make_request_ctx(app):
-                # Fill user-a's quota
-                for _ in range(2):
-                    da.check_device_rate_limit('user-a')
-                assert da.check_device_rate_limit('user-a') is not None
-                # user-b should still be fine
-                assert da.check_device_rate_limit('user-b') is None
+            req = _make_request_ctx(app)
+
+            # Fill user-a's quota
+            for _ in range(2):
+                da.check_device_rate_limit('user-a', req)
+            assert da.check_device_rate_limit('user-a', req) is not None
+            # user-b should still be fine
+            assert da.check_device_rate_limit('user-b', req) is None
         finally:
             da.RATE_LIMITS = original
 
@@ -217,13 +220,15 @@ class TestCheckDeviceRateLimit:
         original = da.RATE_LIMITS
         da.RATE_LIMITS = [(60, 2, 120)]
         try:
-            with _make_request_ctx(app, headers={'X-Device-Id': 'device-1'}):
-                for _ in range(2):
-                    da.check_device_rate_limit('user-x')
-                assert da.check_device_rate_limit('user-x') is not None
+            req = _make_request_ctx(app, headers={'X-Device-Id': 'device-1'})
 
-            with _make_request_ctx(app, headers={'X-Device-Id': 'device-2'}):
-                assert da.check_device_rate_limit('user-x') is None
+            for _ in range(2):
+                da.check_device_rate_limit('user-x', req)
+            assert da.check_device_rate_limit('user-x', req) is not None
+
+            req = _make_request_ctx(app, headers={'X-Device-Id': 'device-2'})
+
+            assert da.check_device_rate_limit('user-x', req) is None
         finally:
             da.RATE_LIMITS = original
 
@@ -241,20 +246,20 @@ class TestDeviceRateLimited:
 
     def test_response_returns_429(self, app):
         exc = da.DeviceRateLimited('user-123', 'minute', 30)
-        with app.app_context():
-            resp, status = exc.response()
-            assert status == 429
+        resp = exc.response()
+        assert resp.status_code == 429
 
     def test_response_json_has_required_fields(self, app):
         exc = da.DeviceRateLimited('user-123', 'hour', 200)
-        with app.app_context():
-            resp, status = exc.response()
-            data = resp.get_json()
-            assert data['success'] is False
-            assert data['rate_limited'] is True
-            assert data['window'] == 'hour'
-            assert data['limit'] == 200
-            assert 'error' in data
+        resp = exc.response()
+        data = resp.body
+        import json
+        data = json.loads(data)
+        assert data['success'] is False
+        assert data['rate_limited'] is True
+        assert data['window'] == 'hour'
+        assert data['limit'] == 200
+        assert 'error' in data
 
 
 # ── Tests for init() ──────────────────────────────────────────────────────────

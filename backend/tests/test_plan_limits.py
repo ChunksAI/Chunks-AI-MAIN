@@ -103,7 +103,7 @@ class TestPlanLimitExceeded:
         exc = PlanLimitExceeded('monthly_research', 0, 0, 'free')
         with pytest.importorskip('flask').Flask(__name__).test_request_context():
             resp, status = exc.response()
-            data = resp.get_json()
+            data = resp.json()
             assert status == 429
             assert data['plan_limited'] is True
             assert data['upgrade_needed'] is True
@@ -113,7 +113,7 @@ class TestPlanLimitExceeded:
         exc = PlanLimitExceeded('daily_messages', 25, 25, 'free')
         with pytest.importorskip('flask').Flask(__name__).test_request_context():
             resp, status = exc.response()
-            data = resp.get_json()
+            data = resp.json()
             assert status == 429
             assert data['plan_limited'] is True
             assert data['limit'] == 25

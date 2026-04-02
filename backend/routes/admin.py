@@ -559,7 +559,7 @@ def get_users(request: Request):
 
 
 @router.patch('/api/admin/users/{email}')
-def update_user(request: Request, email: str, body: AdminUpdateUserRequest):
+def update_user(request: Request, email: str, body: AdminUpdateUserRequest = None):
     """Update a user row using service key (bypasses RLS)."""
     auth_header = request.headers.get('Authorization', '')
     if not auth_header.startswith('Bearer '):

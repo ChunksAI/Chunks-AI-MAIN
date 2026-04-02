@@ -32,7 +32,7 @@ def test_study_materials_no_slides(client, mock_guest_gate, mock_extract_user):
     """POST /generate-study-materials with no slides returns 400."""
     resp = client.post('/generate-study-materials', json={'type': 'notes', 'slides': []})
     assert resp.status_code == 400
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
 
 
@@ -44,7 +44,7 @@ def test_study_materials_success(client, monkeypatch, mock_guest_gate, mock_extr
     slides = [{'slide_number': 1, 'title': 'Intro', 'content': ['Hello world'], 'notes': ''}]
     resp = client.post('/generate-study-materials', json={'type': 'notes', 'slides': slides})
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert 'materials' in data
 
@@ -59,13 +59,13 @@ def test_quiz_no_slides(client, mock_guest_gate, mock_extract_user):
     """POST /generate-quiz with no slides returns 400."""
     resp = client.post('/generate-quiz', json={'slides': [], 'count': 5})
     assert resp.status_code == 400
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
 
 
 def test_study_blueprints_registered(app):
     """Both study endpoints are registered."""
-    rules = [r.rule for r in app.url_map.iter_rules()]
+    rules = [r.path for r in app.routes]
     assert '/generate-study-materials' in rules
     assert '/generate-quiz' in rules
 
@@ -77,7 +77,7 @@ def test_study_materials_reviewer(client, monkeypatch, mock_guest_gate, mock_ext
     _study_mocks(monkeypatch)
     resp = client.post('/generate-study-materials', json={'type': 'reviewer', 'slides': SAMPLE_SLIDES})
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert 'reviewer' in data['materials']
 
@@ -87,7 +87,7 @@ def test_study_materials_flashcards(client, monkeypatch, mock_guest_gate, mock_e
     _study_mocks(monkeypatch)
     resp = client.post('/generate-study-materials', json={'type': 'flashcards', 'slides': SAMPLE_SLIDES})
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert 'flashcards' in data['materials']
 
@@ -97,7 +97,7 @@ def test_study_materials_summary(client, monkeypatch, mock_guest_gate, mock_extr
     _study_mocks(monkeypatch)
     resp = client.post('/generate-study-materials', json={'type': 'summary', 'slides': SAMPLE_SLIDES})
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert 'summary' in data['materials']
 
@@ -107,7 +107,7 @@ def test_study_materials_quiz(client, monkeypatch, mock_guest_gate, mock_extract
     _study_mocks(monkeypatch)
     resp = client.post('/generate-study-materials', json={'type': 'quiz', 'slides': SAMPLE_SLIDES})
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert 'quiz' in data['materials']
 
@@ -117,7 +117,7 @@ def test_study_materials_all(client, monkeypatch, mock_guest_gate, mock_extract_
     _study_mocks(monkeypatch)
     resp = client.post('/generate-study-materials', json={'type': 'all', 'slides': SAMPLE_SLIDES})
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert 'all' in data['materials']
 
@@ -127,7 +127,7 @@ def test_study_materials_unknown_type(client, monkeypatch, mock_guest_gate, mock
     _study_mocks(monkeypatch)
     resp = client.post('/generate-study-materials', json={'type': 'custom_thing', 'slides': SAMPLE_SLIDES})
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert 'custom_thing' in data['materials']
 
@@ -138,7 +138,7 @@ def test_study_materials_truncation(client, monkeypatch, mock_guest_gate, mock_e
     big_slides = [{'slide_number': 1, 'title': 'Big', 'content': ['x' * 30000], 'notes': ''}]
     resp = client.post('/generate-study-materials', json={'type': 'notes', 'slides': big_slides})
     assert resp.status_code == 200
-    assert resp.get_json()['success'] is True
+    assert resp.json()['success'] is True
 
 
 def test_study_materials_empty_content_slides(client, monkeypatch, mock_guest_gate, mock_extract_user):
@@ -147,7 +147,7 @@ def test_study_materials_empty_content_slides(client, monkeypatch, mock_guest_ga
     empty_slides = [{'slide_number': 1, 'title': 'Empty', 'content': ['', '  '], 'notes': ''}]
     resp = client.post('/generate-study-materials', json={'type': 'notes', 'slides': empty_slides})
     assert resp.status_code == 400
-    assert resp.get_json()['success'] is False
+    assert resp.json()['success'] is False
 
 
 # ── generate-quiz with different difficulties and modes ──────────────────────
@@ -167,7 +167,7 @@ def test_quiz_success_easy(client, monkeypatch, mock_guest_gate, mock_extract_us
         'difficulty': 'easy',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['difficulty'] == 'easy'
     assert len(data['questions']) == 1
@@ -186,7 +186,7 @@ def test_quiz_success_hard(client, monkeypatch, mock_guest_gate, mock_extract_us
         'difficulty': 'hard',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['difficulty'] == 'hard'
 
@@ -204,7 +204,7 @@ def test_quiz_success_medium(client, monkeypatch, mock_guest_gate, mock_extract_
         'difficulty': 'medium',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['difficulty'] == 'medium'
 
@@ -223,7 +223,7 @@ def test_quiz_situational_mode(client, monkeypatch, mock_guest_gate, mock_extrac
         'mode': 'situational',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
 
 
@@ -236,7 +236,7 @@ def test_quiz_no_readable_content(client, monkeypatch, mock_guest_gate, mock_ext
         'count': 5,
     })
     assert resp.status_code == 400
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'No readable content' in data['error']
 
@@ -253,7 +253,7 @@ def test_quiz_parse_failure(client, monkeypatch, mock_guest_gate, mock_extract_u
         'count': 5,
     })
     assert resp.status_code == 500
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'Could not parse' in data['error']
 
@@ -271,7 +271,7 @@ def test_quiz_with_existing_questions(client, monkeypatch, mock_guest_gate, mock
         'existingQuestions': ['What is water?', 'Define pH'],
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
 
 
@@ -294,7 +294,7 @@ def test_quiz_question_type_truefalse(client, monkeypatch, mock_guest_gate, mock
         'question_type': 'truefalse',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     # Verify the AI was called with a prompt containing the true/false instruction
     call_args = ai_svc.call_ai.call_args
@@ -318,7 +318,7 @@ def test_quiz_question_type_fillinblank(client, monkeypatch, mock_guest_gate, mo
         'question_type': 'fillinblank',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     call_args = ai_svc.call_ai.call_args
     prompt_text = call_args[0][0] if call_args[0] else ''
@@ -341,7 +341,7 @@ def test_quiz_question_type_matching(client, monkeypatch, mock_guest_gate, mock_
         'question_type': 'matching',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     call_args = ai_svc.call_ai.call_args
     prompt_text = call_args[0][0] if call_args[0] else ''
@@ -363,7 +363,7 @@ def test_quiz_invalid_question_type_defaults_to_mcq(client, monkeypatch, mock_gu
         'question_type': 'invalid_type',
     })
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
 
 

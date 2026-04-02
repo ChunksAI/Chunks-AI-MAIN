@@ -27,10 +27,10 @@ def test_null_origin_not_allowed():
 
 def test_vercel_regex_scoped_to_project():
     """The Vercel regex must match only chunks-ai* deployments."""
-    import server
-    patterns = [o for o in server.CORS_ORIGINS if hasattr(o, 'match')]
-    assert len(patterns) == 1
-    pat = patterns[0]
+    import re, server
+    # In FastAPI the regex is a string passed to allow_origin_regex
+    assert hasattr(server, '_VERCEL_ORIGIN_REGEX')
+    pat = re.compile(server._VERCEL_ORIGIN_REGEX)
     # Should match project preview deployments
     assert pat.match('https://chunks-ai.vercel.app')
     assert pat.match('https://chunks-ai-abc123.vercel.app')

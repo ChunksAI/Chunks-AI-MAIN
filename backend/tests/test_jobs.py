@@ -101,15 +101,15 @@ def test_ask_async_options(client):
 
 def test_ask_async_no_body(client):
     """POST /ask-async with no JSON returns 400."""
-    resp = client.post('/ask-async', content_type='application/json', data='')
-    assert resp.status_code == 400
+    resp = client.post('/ask-async')
+    assert resp.status_code in (400, 422)
 
 
 def test_ask_async_empty_question(client):
     """POST /ask-async with empty question returns 400."""
     resp = client.post('/ask-async', json={'question': '', 'mode': 'study'})
     assert resp.status_code == 400
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
 
 
@@ -125,7 +125,7 @@ def test_ask_async_returns_job_id(client, monkeypatch, mock_guest_gate):
         'complexity': 3,
     })
     assert resp.status_code == 202
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['jobId'] == 'abc123def456'
     assert data['status'] == 'queued'
@@ -136,7 +136,7 @@ def test_get_job_not_found(client):
     """GET /jobs/<bad_id> returns 404."""
     resp = client.get('/jobs/does-not-exist')
     assert resp.status_code == 404
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
 
 
@@ -151,7 +151,7 @@ def test_get_job_queued(client, monkeypatch):
 
     resp = client.get('/jobs/someid')
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['status'] == 'queued'
     assert data['jobId'] == 'someid'
 
@@ -167,7 +167,7 @@ def test_get_job_completed(client, monkeypatch):
 
     resp = client.get('/jobs/someid')
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['status'] == 'completed'
     assert data['result']['answer'] == 'H2O'
 
@@ -183,16 +183,16 @@ def test_get_job_failed(client, monkeypatch):
 
     resp = client.get('/jobs/someid')
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['status'] == 'failed'
     assert data['error'] == 'Something went wrong'
 
 
 def test_jobs_blueprint_registered(app):
     """The /ask-async and /jobs/<job_id> routes are registered."""
-    rules = [r.rule for r in app.url_map.iter_rules()]
+    rules = [r.path for r in app.routes]
     assert '/ask-async' in rules
-    assert '/jobs/<job_id>' in rules
+    assert '/jobs/{job_id}' in rules
 
 
 def test_ask_async_validation(client):
@@ -222,14 +222,13 @@ def test_run_ask_job_basic(app, monkeypatch):
     mock_searcher.has_embeddings = False
     monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
 
-    with app.app_context():
-        result = _run_ask_job({
-            'question': 'What is pH?',
-            'mode': 'study',
-            'complexity': 3,
-            'bookId': 'zumdahl',
-            '_verified_user_id': 'test-user',
-        })
+    result = _run_ask_job({
+        'question': 'What is pH?',
+        'mode': 'study',
+        'complexity': 3,
+        'bookId': 'zumdahl',
+        '_verified_user_id': 'test-user',
+    })
     assert result['success'] is True
     assert result['mode'] == 'study'
     assert result['answer'] == 'Job answer'
@@ -250,14 +249,13 @@ def test_run_ask_job_with_doc_context(app, monkeypatch):
     mock_searcher.has_embeddings = False
     monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
 
-    with app.app_context():
-        result = _run_ask_job({
-            'question': 'Summarize this',
-            'mode': 'study',
-            'complexity': 5,
-            'doc_context': 'This is a user-uploaded document about organic chemistry.',
-            '_verified_user_id': 'test-user',
-        })
+    result = _run_ask_job({
+        'question': 'Summarize this',
+        'mode': 'study',
+        'complexity': 5,
+        'doc_context': 'This is a user-uploaded document about organic chemistry.',
+        '_verified_user_id': 'test-user',
+    })
     assert result['success'] is True
     assert result['is_relevant'] is True
 
@@ -278,13 +276,12 @@ def test_run_ask_job_with_token_flags(app, monkeypatch):
     mock_searcher.has_embeddings = False
     monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
 
-    with app.app_context():
-        result = _run_ask_job({
-            'question': '[THINKING_MODE] Explain entropy',
-            'mode': 'study',
-            'complexity': 5,
-            '_verified_user_id': 'test-user',
-        })
+    result = _run_ask_job({
+        'question': '[THINKING_MODE] Explain entropy',
+        'mode': 'study',
+        'complexity': 5,
+        '_verified_user_id': 'test-user',
+    })
     assert result['success'] is True
 
 
@@ -303,14 +300,13 @@ def test_run_ask_job_with_selected_text(app, monkeypatch):
     mock_searcher.has_embeddings = False
     monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
 
-    with app.app_context():
-        result = _run_ask_job({
-            'question': 'What does this mean?',
-            'mode': 'study',
-            'complexity': 5,
-            'selected_text': 'The equilibrium constant is...',
-            '_verified_user_id': 'test-user',
-        })
+    result = _run_ask_job({
+        'question': 'What does this mean?',
+        'mode': 'study',
+        'complexity': 5,
+        'selected_text': 'The equilibrium constant is...',
+        '_verified_user_id': 'test-user',
+    })
     assert result['success'] is True
 
 
@@ -327,7 +323,7 @@ def test_ask_async_exception(client, monkeypatch, mock_guest_gate):
         'complexity': 3,
     })
     assert resp.status_code == 500
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
 
 
@@ -338,5 +334,5 @@ def test_get_job_status_exception(client, monkeypatch):
 
     resp = client.get('/jobs/someid')
     assert resp.status_code == 500
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False

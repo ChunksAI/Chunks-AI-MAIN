@@ -7,7 +7,7 @@ def test_home(client):
     """GET / returns 200 with API metadata."""
     resp = client.get('/')
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['name'] == 'Chunks Chemistry API'
     assert data['status'] == 'running'
     assert 'endpoints' in data
@@ -17,7 +17,7 @@ def test_ping(client):
     """GET /ping returns ok status."""
     resp = client.get('/ping')
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['status'] == 'ok'
     assert 'model' in data
 
@@ -26,7 +26,7 @@ def test_health(client):
     """GET /health returns healthy status."""
     resp = client.get('/health')
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['status'] == 'healthy'
     assert 'books_available' in data
 
@@ -35,7 +35,7 @@ def test_api_config(client):
     """GET /api/config returns supabase config keys."""
     resp = client.get('/api/config')
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert 'supabaseUrl' in data
     assert 'supabaseAnonKey' in data
 
@@ -51,7 +51,7 @@ def test_api_plan_limits(client):
     """GET /api/plan-limits returns plan limits for all tiers."""
     resp = client.get('/api/plan-limits')
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert 'free' in data['plans']
     assert 'pro' in data['plans']
@@ -65,7 +65,7 @@ def test_api_me_plan_unauthenticated(client, mock_extract_user):
     # mock_extract_user returns ip:127.0.0.1 (guest) by default
     resp = client.get('/api/me/plan')
     assert resp.status_code == 401
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
 
 
@@ -78,7 +78,7 @@ def test_api_me_plan_authenticated(client, monkeypatch):
 
     resp = client.get('/api/me/plan')
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['plan'] == 'free'
     assert 'limits' in data
@@ -96,6 +96,6 @@ def test_api_me_plan_pro_user(client, monkeypatch):
 
     resp = client.get('/api/me/plan')
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['plan'] == 'pro'
     assert data['limits']['daily_messages'] == -1

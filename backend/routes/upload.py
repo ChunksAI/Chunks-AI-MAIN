@@ -24,7 +24,7 @@ router = APIRouter()
 
 
 @router.post('/upload-document')
-def upload_document(request: Request, file: UploadFile = File(...)):
+def upload_document(request: Request, file: UploadFile = File(default=None)):
     try:
         from services.auth import _extract_verified_user
         from services.books import ALLOWED_EXTENSIONS, allowed_file

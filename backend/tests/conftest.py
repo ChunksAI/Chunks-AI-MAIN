@@ -16,7 +16,7 @@ import pytest
 # Ensure the backend directory is on the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-# Disable CSRF checks in tests
+# Disable CSRF checks in tests by default
 os.environ.setdefault('TESTING', 'true')
 
 
@@ -36,9 +36,32 @@ def app():
 
 @pytest.fixture
 def client(app):
-    """Return a Starlette/FastAPI test client."""
+    """Return a Starlette/FastAPI test client.
+
+    Includes a default Origin header so that CORS preflight (OPTIONS) requests
+    are handled correctly by the CORSMiddleware.
+    """
     from starlette.testclient import TestClient
-    return TestClient(app, raise_server_exceptions=False)
+    return TestClient(
+        app,
+        raise_server_exceptions=False,
+        headers={'Origin': 'http://localhost:5173', 'Access-Control-Request-Method': 'POST'},
+    )
+
+
+@pytest.fixture
+def csrf_client(app):
+    """Test client with CSRF enforcement turned ON.
+
+    Uses a fresh client WITHOUT a default Origin header so CSRF tests can
+    precisely control which headers are sent.
+    """
+    import server
+    from starlette.testclient import TestClient
+    server._csrf_disabled = False
+    with TestClient(app, raise_server_exceptions=False) as tc:
+        yield tc
+    server._csrf_disabled = True   # restore — CSRF off for other tests
 
 
 @pytest.fixture

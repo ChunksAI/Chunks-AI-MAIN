@@ -13,7 +13,7 @@ def test_ingest_youtube_missing_url(client, mock_extract_user):
     """POST /ingest-youtube with no url returns 400."""
     resp = client.post('/ingest-youtube', json={})
     assert resp.status_code == 400
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'url is required' in data['error']
 
@@ -22,14 +22,14 @@ def test_ingest_youtube_invalid_url(client, mock_extract_user):
     """POST /ingest-youtube with an unrecognised URL returns 400."""
     resp = client.post('/ingest-youtube', json={'url': 'https://example.com/not-youtube'})
     assert resp.status_code == 400
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'video ID' in data['error']
 
 
 def test_ingest_youtube_blueprint_registered(app):
     """The youtube blueprint is registered with the correct route."""
-    rules = [r.rule for r in app.url_map.iter_rules()]
+    rules = [r.path for r in app.routes]
     assert '/ingest-youtube' in rules
 
 
@@ -85,7 +85,7 @@ def test_ingest_youtube_success(client, mock_extract_user):
                            json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
 
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert data['video_id'] == 'dQw4w9WgXcQ'
     assert data['title'] == 'My Video'
@@ -112,7 +112,7 @@ def test_ingest_youtube_youtu_be_url(client, mock_extract_user):
                            json={'url': 'https://youtu.be/dQw4w9WgXcQ'})
 
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['video_id'] == 'dQw4w9WgXcQ'
 
 
@@ -139,7 +139,7 @@ def test_ingest_youtube_no_transcript(client, mock_extract_user):
                            json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
 
     assert resp.status_code == 422
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
 
 
@@ -203,7 +203,7 @@ def test_ingest_youtube_ip_blocked(client, mock_extract_user):
                            json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
 
     assert resp.status_code == 422
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'blocking' in data['error'].lower()
     assert 'YOUTUBE_PROXY_URL' in data['error']
@@ -237,7 +237,7 @@ def test_ingest_youtube_request_blocked(client, mock_extract_user):
                            json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
 
     assert resp.status_code == 422
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert 'YOUTUBE_PROXY_URL' in data['error']
 
@@ -386,7 +386,7 @@ def test_ingest_youtube_retries_on_429_then_succeeds(client, mock_extract_user, 
                            json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
 
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert 'Retry succeeded' in data['transcript']
     # Verify sleep was called once (between attempt 1 and 2)
@@ -427,7 +427,7 @@ def test_ingest_youtube_429_all_retries_exhausted_no_proxy(client, mock_extract_
                            json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
 
     assert resp.status_code == 429
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     assert '429' in data['error']
     assert 'WEBSHARE_PROXY_USERNAME' in data['error']
@@ -467,7 +467,7 @@ def test_ingest_youtube_429_all_retries_exhausted_with_proxy(client, mock_extrac
                            json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
 
     assert resp.status_code == 429
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
     # Should mention proxy is configured but rate-limited, not tell user to set up proxy
     assert 'proxy' in data['error'].lower()

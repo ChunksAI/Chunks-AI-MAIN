@@ -7,7 +7,7 @@ def test_get_library(client):
     """GET /get-library returns the book list."""
     resp = client.get('/get-library')
     assert resp.status_code == 200
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is True
     assert isinstance(data['books'], list)
     assert len(data['books']) > 0
@@ -21,7 +21,7 @@ def test_load_book_unknown(client, mock_guest_gate, mock_extract_user):
     """POST /load-book with an unknown bookId returns 404."""
     resp = client.post('/load-book', json={'bookId': 'nonexistent_book_xyz'})
     assert resp.status_code == 404
-    data = resp.get_json()
+    data = resp.json()
     assert data['success'] is False
 
 
@@ -35,7 +35,7 @@ def test_pdf_unknown_book(client):
     """GET /pdf/<book_id> with an unknown book_id returns 404."""
     resp = client.get('/pdf/nonexistent_book_xyz')
     assert resp.status_code == 404
-    data = resp.get_json()
+    data = resp.json()
     assert 'error' in data
 
 
@@ -45,7 +45,7 @@ def test_load_book_known_fails_gracefully(client, mock_guest_gate, mock_extract_
     resp = client.post('/load-book', json={'bookId': 'zumdahl'})
     # Either loads (unlikely in test) or returns a safe error or rate limited
     assert resp.status_code in (200, 429, 500)
-    data = resp.get_json()
+    data = resp.json()
     assert 'success' in data
 
 
@@ -66,7 +66,7 @@ def test_pdf_proxy_success(client, monkeypatch):
 
     resp = client.get('/pdf/zumdahl')
     assert resp.status_code == 200
-    assert resp.content_type == 'application/pdf'
+    assert resp.headers['content-type'] == 'application/pdf'
 
 
 def test_pdf_proxy_error(client, monkeypatch):
@@ -79,5 +79,5 @@ def test_pdf_proxy_error(client, monkeypatch):
 
     resp = client.get('/pdf/zumdahl')
     assert resp.status_code == 500
-    data = resp.get_json()
+    data = resp.json()
     assert 'error' in data
