@@ -9,7 +9,7 @@ import { _wsUpdateBadge, _loadPdfJs, _wsRenderPage, wsFitWidth, _wsAttachResizeO
 import { _wsBuildOutline, _wsUpdateOutlineActive } from './outline.js';
 import { API_BASE }    from '../../lib/api.js';
 import { trackBookOpen, trackBookPage } from '../../lib/bookProgress.js';
-import { isGuest, showLoginWall } from '../../lib/guestLimits.js';
+import { isGuest, guestGate, recordUsage } from '../../lib/guestLimits.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
 import { checkStorageQuota } from '../../utils/storageQuota.js';
 import { lsGet, lsSet } from '../../utils/storage.js';
@@ -78,14 +78,12 @@ export async function selectBook(bookId) {
   if (typeof closeLibraryModal === 'function') closeLibraryModal();
   const meta = wsBookMeta[bookId];
   if (!meta) return;
-  // Guest: allow if this is the first book OR the same book as before
+  // Guest: allow if this is the same book as before; gate on any new book
   if (isGuest()) {
     const prevBook = localStorage.getItem('chunks_guest_book');
-    if (prevBook && prevBook !== bookId) {
-      showLoginWall('library');
-      return;
+    if (prevBook !== bookId) {
+      if (!guestGate('library')) return;
     }
-    if (!prevBook) localStorage.setItem('chunks_guest_book', bookId);
   }
 
   // Leave user-doc mode
@@ -337,6 +335,13 @@ export async function selectBook(bookId) {
     _wsAttachResizeObserver();
 
     _wsShowWelcome(meta);
+    if (isGuest()) {
+      const prevBook = localStorage.getItem('chunks_guest_book');
+      if (prevBook !== bookId) {
+        localStorage.setItem('chunks_guest_book', bookId);
+        recordUsage('library');
+      }
+    }
     await _wsBuildOutline(ws.pdfDoc, bookId);
 
     // Fetch fresh chat history for this book from Supabase (authoritative source).
