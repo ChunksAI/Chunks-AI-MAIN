@@ -390,7 +390,7 @@
 /* ── Recent Activities list ─────────────────────────────── */
 #home-activities-section {
   width: 100%;
-  max-width: 620px;
+  max-width: 780px;
   position: relative; z-index: 1;
 }
 
@@ -398,6 +398,13 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  width: 100%;
+}
+
+.ra-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
   width: 100%;
 }
 
@@ -465,30 +472,45 @@
 
 /* ── Rich activity cards ────────────────────────────── */
 .ra-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: var(--r-md);
-  border: 1px solid var(--border-xs);
   background: var(--surface-1);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-lg);
+  padding: 18px 18px 16px;
   cursor: pointer;
-  transition: background var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
+  display: flex; flex-direction: column; gap: 6px;
+  transition: border-color var(--t-fast), background var(--t-fast), transform var(--t-mid) var(--ease-spring), box-shadow var(--t-fast);
+  position: relative;
+  overflow: hidden;
   text-align: left;
 }
+.ra-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
 .ra-card:hover {
+  border-color: var(--border-sm);
   background: var(--surface-2);
-  border-color: var(--border-md);
+  transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
+.ra-card:hover::before { opacity: 1; }
+.ra-card.book::before  { background: linear-gradient(90deg, var(--gold),   transparent); }
+.ra-card.plan::before  { background: linear-gradient(90deg, var(--violet), transparent); }
+.ra-card.flash::before { background: linear-gradient(90deg, var(--teal),   transparent); }
 [data-theme="study"] .ra-card {
   background: #ffffff;
   border-color: rgba(0,0,0,0.06);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05), 0 2px 12px rgba(0,0,0,0.04);
 }
 [data-theme="study"] .ra-card:hover {
-  border-color: rgba(0,0,0,0.11);
-  box-shadow: 0 3px 10px rgba(0,0,0,0.07);
+  background: #ffffff;
+  border-color: rgba(0,0,0,0.10);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.05);
+  transform: translateY(-2px);
 }
 .ra-card-main {
   display: flex;
@@ -537,6 +559,8 @@
   padding: 0;
   flex-shrink: 0;
   font-family: var(--font-body);
+  margin-top: auto;
+  padding-top: 6px;
 }
 .ra-card-btn:hover { color: var(--text-1); }
 
