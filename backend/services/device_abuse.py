@@ -43,7 +43,7 @@ import logging
 import time
 from typing import Optional
 
-from flask import jsonify, request
+from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
@@ -73,21 +73,20 @@ def init(redis=None) -> None:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
-def _get_client_ip() -> str:
-    """Return the real client IP (ProxyFix-corrected).
+def _get_client_ip(request=None) -> str:
+    """Return the real client IP.
 
     Falls back to a per-request unique value so that requests without a
     remote address don't share a single rate-limit bucket.
     """
-    addr = request.remote_addr
-    if addr:
-        return addr
+    if request is not None and request.client:
+        return request.client.host or '0.0.0.0'
     # No remote address — use hash of available headers to avoid a shared bucket
     import uuid
     return f'unknown:{uuid.uuid4().hex[:12]}'
 
 
-def _build_device_key(user_id: str) -> str:
+def _build_device_key(user_id: str, request=None) -> str:
     """
     Build a composite device identifier from multiple signals.
 
@@ -99,9 +98,13 @@ def _build_device_key(user_id: str) -> str:
     This avoids relying on any single signal (especially fingerprints)
     and makes it expensive for abusers to rotate all three simultaneously.
     """
-    device_header = request.headers.get('X-Device-Id', '').strip()[:128]
-    user_agent = request.headers.get('User-Agent', '').strip()[:256]
-    ip = _get_client_ip()
+    if request is not None:
+        device_header = request.headers.get('x-device-id', '').strip()[:128]
+        user_agent = request.headers.get('user-agent', '').strip()[:256]
+    else:
+        device_header = ''
+        user_agent = ''
+    ip = _get_client_ip(request)
 
     # Hash the composite to get a fixed-length key
     raw = f'{device_header}|{user_agent}|{ip}'
@@ -199,8 +202,8 @@ class DeviceRateLimited(Exception):
         )
 
     def response(self):
-        """Return a Flask (response, status_code) tuple."""
-        return jsonify({
+        """Return a JSONResponse ready to be returned from a FastAPI view."""
+        return JSONResponse({
             'success': False,
             'error': (
                 f'Too many requests. Limit: {self.limit} per {self.window}. '
@@ -209,7 +212,7 @@ class DeviceRateLimited(Exception):
             'rate_limited': True,
             'window': self.window,
             'limit': self.limit,
-        }), 429
+        }, status_code=429)
 
 
 _WINDOW_LABELS = {
@@ -219,20 +222,20 @@ _WINDOW_LABELS = {
 }
 
 
-def check_device_rate_limit(user_id: str) -> Optional[tuple]:
+def check_device_rate_limit(user_id: str, request=None) -> 'JSONResponse | None':
     """
     Check whether the current request from (user_id, device) is within
     all rate-limit windows.
 
     Returns None if the request is allowed.
-    Returns a (response, 429) tuple if any window is exceeded.
+    Returns a JSONResponse (429) if any window is exceeded.
 
     Call this at the TOP of an endpoint, after user authentication.
     """
     if not user_id:
         return None  # fail open for unauthenticated — guest_gate handles those
 
-    device_key = _build_device_key(user_id)
+    device_key = _build_device_key(user_id, request)
     now = time.time()
 
     for window_secs, max_reqs, ttl in RATE_LIMITS:

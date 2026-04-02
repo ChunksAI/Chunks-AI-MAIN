@@ -3,13 +3,16 @@ Chunks Chemistry - Production Server
 Cloud-ready with R2 storage integration
 
 server.py — App factory: configuration, middleware, error handlers,
-             cache helpers, blueprint registration.
+             cache helpers, router registration.
 
 Business logic has been moved to:
-  services/auth.py     — Tier enum, JWT verification, tier lookup
-  services/ai.py       — call_ai(), web search, sanitisation
-  services/books.py    — BOOK_LIBRARY, TextbookSearch, book cache
-  services/documents.py — PDF/DOCX/PPTX extraction
+  services/auth.py          — Tier enum, JWT verification, tier lookup
+  services/ai.py            — call_ai(), web search, sanitisation
+  services/books.py         — BOOK_LIBRARY, TextbookSearch, book cache
+  services/documents.py     — PDF/DOCX/PPTX extraction
+  services/ask_cache.py     — Redis + Supabase cache for /ask queries
+  services/material_cache.py — Redis cache for study materials
+  services/mcq_parser.py    — MCQ text parser
 
 Route handlers have been moved to:
   routes/health.py     — /, /ping, /health, /api/config
@@ -19,26 +22,30 @@ Route handlers have been moved to:
   routes/upload.py     — /upload-document
   routes/study.py      — /generate-study-materials, /generate-quiz
   routes/image.py      — /ask-image
-  routes/admin.py      — /api/admin/* (unchanged)
+  routes/admin.py      — /api/admin/*
 """
 
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+import logging
+import os
+import re
+
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-import json
-import os
-import re
-import hashlib
-import logging
-import time
-from datetime import datetime, timedelta
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, RedirectResponse
+
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 import redis as redis_lib
-from ai_router import route, route_for_mode
-from guest_limits import guest_gate, enforce_exam_constraints_for_guest, GuestLimitExceeded
+
+from ai_router import route, route_for_mode  # noqa: F401 — re-exported for route files
+from guest_limits import (  # noqa: F401
+    guest_gate, enforce_exam_constraints_for_guest, GuestLimitExceeded,
+)
 
 
 # ── Logging ───────────────────────────────────────────────────────────────────
@@ -53,14 +60,16 @@ logger = logging.getLogger(__name__)
 _SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
 try:
     import sentry_sdk
-    from sentry_sdk.integrations.flask   import FlaskIntegration
-    from sentry_sdk.integrations.logging import LoggingIntegration
+    from sentry_sdk.integrations.fastapi   import FastApiIntegration
+    from sentry_sdk.integrations.starlette import StarletteIntegration
+    from sentry_sdk.integrations.logging   import LoggingIntegration
 
     if _SENTRY_DSN:
         sentry_sdk.init(
             dsn=_SENTRY_DSN,
             integrations=[
-                FlaskIntegration(transaction_style='url'),
+                StarletteIntegration(transaction_style='url'),
+                FastApiIntegration(transaction_style='url'),
                 LoggingIntegration(level=logging.WARNING, event_level=logging.ERROR),
             ],
             traces_sample_rate=0.10,
@@ -91,234 +100,6 @@ def _build_session():
 
 _session = _build_session()
 
-app = Flask(__name__)
-
-# ── ProxyFix ──────────────────────────────────────────────────────────────────
-from werkzeug.middleware.proxy_fix import ProxyFix
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
-
-# ── CORS ──────────────────────────────────────────────────────────────────────
-FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
-BACKEND_URL  = os.environ.get('BACKEND_URL',  'http://localhost:5000')
-
-_is_production = os.environ.get('PRODUCTION', 'false').lower() == 'true'
-
-# Production domains — always allowed
-_PRODUCTION_ORIGINS = [
-    "https://chunks.online",
-    "https://www.chunks.online",
-    "https://chunks-ai.vercel.app",
-]
-
-# Development-only origins — never allowed in production
-_DEV_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "http://localhost:5000",
-    "http://localhost:5500",
-    "http://127.0.0.1:5500",
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5173",
-]
-
-_allowed = list(_PRODUCTION_ORIGINS)
-if not _is_production:
-    _allowed.extend(_DEV_ORIGINS)
-    if FRONTEND_URL and FRONTEND_URL not in _allowed:
-        _allowed.append(FRONTEND_URL)
-
-# Extra origins from env (comma-separated). Wildcard '*' is never accepted.
-_raw_origins = os.environ.get('ALLOWED_ORIGINS', '')
-if _raw_origins and _raw_origins != '*':
-    _allowed.extend(o.strip() for o in _raw_origins.split(',') if o.strip())
-elif _raw_origins == '*':
-    logger.warning(
-        "⚠️  ALLOWED_ORIGINS='*' is ignored — CORS is restricted to "
-        "explicit domains. Set specific origins or leave unset."
-    )
-
-# Deduplicate while preserving order
-CORS_ORIGINS = list(dict.fromkeys(_allowed))
-# Allow Vercel preview deployments scoped to this project only
-CORS_ORIGINS.append(re.compile(r'^https://chunks-ai(?:-[a-z0-9]+)*\.vercel\.app$'))
-
-logger.info("CORS mode: %s", 'PRODUCTION' if _is_production else 'DEVELOPMENT')
-logger.info("CORS allowed origins: %s",
-            [o if isinstance(o, str) else o.pattern for o in CORS_ORIGINS])
-
-CORS(app,
-     origins=CORS_ORIGINS,
-     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Device-Id"],
-     methods=["GET", "POST", "OPTIONS"],
-     supports_credentials=False,
-     max_age=86400)
-
-
-# ── CSRF Origin Validation ────────────────────────────────────────────────────
-# For every state-changing request (POST, PUT, PATCH, DELETE) we verify that
-# the Origin (or Referer) header, *when present*, belongs to the same set of
-# trusted origins used by CORS.  Requests that carry neither header are let
-# through — they originate from non-browser clients (curl, Postman, mobile
-# apps) which are not vulnerable to CSRF.  HTML-form or XHR-based CSRF
-# attacks always include an Origin (or at minimum a Referer) set by the
-# browser, so an invalid value is a reliable signal of a cross-site attack.
-
-_CSRF_SAFE_METHODS = frozenset(('GET', 'HEAD', 'OPTIONS'))
-
-
-def _origin_is_allowed(origin: str) -> bool:
-    """Return True if *origin* matches any entry in CORS_ORIGINS."""
-    return any(
-        (o.match(origin) if hasattr(o, 'match') else o == origin)
-        for o in CORS_ORIGINS
-    )
-
-
-def _extract_origin_from_referer(referer: str) -> str:
-    """Extract the scheme+host+port portion from a Referer URL."""
-    try:
-        from urllib.parse import urlparse
-        p = urlparse(referer)
-        if p.scheme and p.netloc:
-            return f"{p.scheme}://{p.netloc}"
-    except Exception:
-        pass
-    return ''
-
-
-@app.before_request
-def csrf_origin_check():
-    """Block state-changing requests whose Origin/Referer is untrusted."""
-    if app.config.get('TESTING') and not app.config.get('WTF_CSRF_ENABLED', True):
-        return None                       # disabled in test suite
-
-    if request.method in _CSRF_SAFE_METHODS:
-        return None                       # safe methods — nothing to check
-
-    origin = request.headers.get('Origin', '').strip()
-    if origin:
-        if _origin_is_allowed(origin):
-            return None                   # trusted origin ✓
-        logger.warning("CSRF block: untrusted Origin %r on %s %s",
-                       origin, request.method, request.path)
-        return jsonify({
-            'success': False,
-            'error':   'Forbidden — origin not allowed',
-        }), 403
-
-    # No Origin header — fall back to Referer
-    referer = request.headers.get('Referer', '').strip()
-    if referer:
-        ref_origin = _extract_origin_from_referer(referer)
-        if ref_origin and _origin_is_allowed(ref_origin):
-            return None                   # trusted referer ✓
-        logger.warning("CSRF block: untrusted Referer %r on %s %s",
-                       referer, request.method, request.path)
-        return jsonify({
-            'success': False,
-            'error':   'Forbidden — origin not allowed',
-        }), 403
-
-    # Neither header present → non-browser client; allow
-    return None
-
-
-@app.after_request
-def after_request(response):
-    origin = request.headers.get('Origin', '')
-    if origin:
-        _origin_ok = any(
-            (o.match(origin) if hasattr(o, 'match') else o == origin)
-            for o in CORS_ORIGINS
-        )
-        if _origin_ok:
-            response.headers['Access-Control-Allow-Origin'] = origin
-            response.headers['Access-Control-Allow-Headers'] = (
-                'Content-Type, Authorization, X-Requested-With, X-Device-Id'
-            )
-            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-    if request.headers.get('X-Forwarded-Proto', 'https') == 'http':
-        https_url = request.url.replace('http://', 'https://', 1)
-        from flask import redirect as _redir
-        return _redir(https_url, code=301)
-
-    response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'DENY'
-    response.headers['X-XSS-Protection'] = '1; mode=block'
-    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
-    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
-    response.headers.pop('Server', None)
-    response.headers.pop('X-Powered-By', None)
-
-    _csp_parts = [
-        "default-src 'self'",
-        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
-        "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
-        "font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com",
-        (
-            "img-src 'self' data: blob: "
-            "https://api.chunks.online "
-            "https://api.chunks.online "
-            "https://*.r2.dev"
-        ),
-        (
-            "connect-src 'self' "
-            "https://api.chunks.online "
-            "https://api.chunks.online "
-            "https://*.supabase.co "
-            "https://api.semanticscholar.org"
-        ),
-        "worker-src blob: https://cdnjs.cloudflare.com",
-        "frame-src 'none'",
-        "frame-ancestors 'none'",
-        "base-uri 'self'",
-        "form-action 'self'",
-        "upgrade-insecure-requests",
-    ]
-    response.headers['Content-Security-Policy'] = '; '.join(_csp_parts)
-
-    return response
-
-
-# ── Redis client + Rate Limiting ──────────────────────────────────────────────
-_REDIS_URL = os.environ.get('REDIS_URL', '')
-
-_redis: redis_lib.Redis | None = None
-if _REDIS_URL:
-    try:
-        _redis = redis_lib.from_url(
-            _REDIS_URL,
-            decode_responses=True,
-            socket_connect_timeout=3,
-            socket_timeout=3,
-        )
-        _redis.ping()
-        _limiter_storage = _REDIS_URL
-        logger.info("Redis connected: %s", _REDIS_URL.split("@")[-1])
-    except Exception as _redis_err:
-        logger.warning("⚠️  Redis connection failed (%s) — falling back to in-memory.", _redis_err)
-        _redis = None
-        _limiter_storage = "memory://"
-else:
-    _limiter_storage = "memory://"
-    logger.warning(
-        "⚠️  REDIS_URL not set — rate limiter using in-memory storage. "
-        "Limits reset on restart and are NOT shared across workers. "
-        "Add a Redis instance and set REDIS_URL for production."
-    )
-
-limiter = Limiter(
-    key_func=get_remote_address,
-    app=app,
-    default_limits=["500 per hour", "120 per minute"],
-    storage_uri=_limiter_storage,
-    strategy="fixed-window"
-)
-
-# ── Upload size limit 25MB ────────────────────────────────────────────────────
-app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024
-
 # ── App config ────────────────────────────────────────────────────────────────
 OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY', 'your-key-here')
 R2_BUCKET_URL      = os.environ.get('R2_BUCKET_URL', 'https://pub-xxxxx.r2.dev')
@@ -337,6 +118,30 @@ SUPABASE_ANON_KEY    = os.environ.get('SUPABASE_ANON_KEY', '')
 
 FREE_TIER_DAILY_LIMIT = 20
 MAX_HISTORY_TURNS     = 10
+
+# ── Redis client ──────────────────────────────────────────────────────────────
+_REDIS_URL = os.environ.get('REDIS_URL', '')
+
+_redis: redis_lib.Redis | None = None
+if _REDIS_URL:
+    try:
+        _redis = redis_lib.from_url(
+            _REDIS_URL,
+            decode_responses=True,
+            socket_connect_timeout=3,
+            socket_timeout=3,
+        )
+        _redis.ping()
+        logger.info("Redis connected: %s", _REDIS_URL.split("@")[-1])
+    except Exception as _redis_err:
+        logger.warning("⚠️  Redis connection failed (%s) — falling back to in-memory.", _redis_err)
+        _redis = None
+else:
+    logger.warning(
+        "⚠️  REDIS_URL not set — rate limiter using in-memory storage. "
+        "Limits reset on restart and are NOT shared across workers. "
+        "Add a Redis instance and set REDIS_URL for production."
+    )
 
 # ── Initialise service modules ────────────────────────────────────────────────
 import services.auth as _auth_svc
@@ -386,262 +191,214 @@ _plan_limits_svc.init(redis=_redis)
 import services.device_abuse as _device_abuse_svc  # noqa: E402
 _device_abuse_svc.init(redis=_redis)
 
+# ── Initialise cache service modules ─────────────────────────────────────────
+import services.material_cache as _material_cache_svc
+_material_cache_svc.init(redis=_redis)
+
+import services.ask_cache as _ask_cache_svc
+_ask_cache_svc.init(
+    redis                = _redis,
+    session              = _session,
+    supabase_url         = SUPABASE_URL,
+    supabase_service_key = SUPABASE_SERVICE_KEY,
+)
+
 # ── Re-export BOOK_LIBRARY for backward compatibility ─────────────────────────
-# paev_routes.py and other existing modules do: from server import BOOK_LIBRARY
-from services.books import BOOK_LIBRARY  # noqa: E402 — re-export
+from services.books import BOOK_LIBRARY  # noqa: F401, E402 — re-export
 
-# ── Material cache (Redis-backed) ──────────────────────────────────────────────
-_MATERIAL_CACHE_TTL = 86400          # 24 hours
+# ── Re-export cache helpers for backward compatibility ────────────────────────
+# Routes previously imported these from server; they now live in service modules.
+from services.material_cache import _cache_key, _cache_get, _cache_set  # noqa: F401, E402
+from services.ask_cache import (  # noqa: F401, E402
+    _ask_cache_key, _ask_cache_get, _ask_cache_set, _ask_is_cacheable,
+)
+from services.mcq_parser import _parse_mcq  # noqa: F401, E402
 
-def _cache_key(book_id: str, topic: str, mtype: str, count: int) -> str:
-    norm = re.sub(r'[^a-z0-9]', '_', topic.lower().strip())[:60]
-    return f"{mtype}:{book_id}:{norm}:{count}"
+# ── CORS ──────────────────────────────────────────────────────────────────────
+FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
 
-def _cache_get(key: str):
-    if _redis is None:
-        return None
-    try:
-        raw = _redis.get(key)
-        if raw is not None:
-            return json.loads(raw)
-    except Exception as exc:
-        logger.warning("material_cache GET error: %s", exc)
-    return None
+_is_production = PRODUCTION
 
-def _cache_set(key: str, value) -> None:
-    if _redis is None:
-        return
-    try:
-        _redis.setex(key, _MATERIAL_CACHE_TTL, json.dumps(value, default=str))
-    except Exception as exc:
-        logger.warning("material_cache SET error: %s", exc)
+_PRODUCTION_ORIGINS = [
+    "https://chunks.online",
+    "https://www.chunks.online",
+    "https://chunks-ai.vercel.app",
+]
+_DEV_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:5000",
+    "http://localhost:5500",
+    "http://127.0.0.1:5500",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+]
 
+_allowed = list(_PRODUCTION_ORIGINS)
+if not _is_production:
+    _allowed.extend(_DEV_ORIGINS)
+    if FRONTEND_URL and FRONTEND_URL not in _allowed:
+        _allowed.append(FRONTEND_URL)
 
-# ── Redis query cache for /ask ─────────────────────────────────────────────────
-_ASK_CACHE_TTL       = 3600
-_ASK_CACHEABLE_MODES = frozenset(['study', 'summary', 'general', 'concise', 'detailed', 'generate'])
-
-def _ask_cache_key(book_id: str, task_type: str | None, mode: str,
-                   complexity: int, question: str, doc_context: str = '') -> str:
-    canonical = f"{book_id}|{task_type or mode}|{complexity}|{question.strip().lower()}"
-    if doc_context:
-        ctx_hash  = hashlib.sha256(doc_context.encode()).hexdigest()[:12]
-        canonical += f"|{ctx_hash}"
-    digest    = hashlib.sha256(canonical.encode()).hexdigest()[:16]
-    return f"ask:v1:{digest}"
-
-def _ask_cache_get(key: str) -> dict | None:
-    if _redis:
-        try:
-            raw = _redis.get(key)
-            if raw:
-                logger.debug("ask_cache HIT (redis) key=%s", key)
-                return json.loads(raw)
-        except Exception as e:
-            logger.warning("ask_cache redis GET error: %s", e)
-    sb_hit = _sb_cache_get(key)
-    if sb_hit:
-        if _redis:
-            try:
-                _redis.setex(key, _ASK_CACHE_TTL, json.dumps(sb_hit, default=str))
-            except Exception:
-                pass
-        return sb_hit
-    return None
-
-def _ask_cache_set(key: str, payload: dict, *,
-                   task_type: str | None = None, mode: str = '',
-                   book_id: str = '', model_used: str = '') -> None:
-    if _redis:
-        try:
-            _redis.setex(key, _ASK_CACHE_TTL, json.dumps(payload, default=str))
-        except Exception as e:
-            logger.warning("ask_cache redis SET error: %s", e)
-    _sb_cache_set(key, payload, task_type=task_type, mode=mode,
-                  book_id=book_id, model_used=model_used)
-
-def _ask_is_cacheable(mode: str, history: list, web_search: bool,
-                      thinking_mode: str | None) -> bool:
-    return (
-        mode in _ASK_CACHEABLE_MODES
-        and not history
-        and not web_search
-        and not thinking_mode
+_raw_origins = os.environ.get('ALLOWED_ORIGINS', '')
+if _raw_origins and _raw_origins != '*':
+    _allowed.extend(o.strip() for o in _raw_origins.split(',') if o.strip())
+elif _raw_origins == '*':
+    logger.warning(
+        "⚠️  ALLOWED_ORIGINS='*' is ignored — CORS is restricted to "
+        "explicit domains. Set specific origins or leave unset."
     )
 
+CORS_ORIGINS = list(dict.fromkeys(_allowed))
+_VERCEL_ORIGIN_REGEX = r'^https://chunks-ai(?:-[a-z0-9]+)*\.vercel\.app$'
 
-# ── Supabase persistent cache tier ────────────────────────────────────────────
-_SB_CACHE_TTL_DAYS = 7
+logger.info("CORS mode: %s", 'PRODUCTION' if _is_production else 'DEVELOPMENT')
+logger.info("CORS allowed origins: %s", CORS_ORIGINS)
 
-def _sb_headers() -> dict:
-    return {
-        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-        "apikey":        SUPABASE_SERVICE_KEY,
-        "Content-Type":  "application/json",
-        "Prefer":        "return=minimal",
-    }
 
-def _sb_cache_get(key: str) -> dict | None:
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        return None
+def _origin_is_allowed(origin: str) -> bool:
+    """Return True if *origin* matches the explicit list or the Vercel regex."""
+    if origin in CORS_ORIGINS:
+        return True
+    return bool(re.match(_VERCEL_ORIGIN_REGEX, origin))
+
+
+def _extract_origin_from_referer(referer: str) -> str:
+    """Extract the scheme+host+port portion from a Referer URL."""
     try:
-        resp = _session.get(
-            f"{SUPABASE_URL}/rest/v1/query_cache",
-            params={
-                "cache_key": f"eq.{key}",
-                "expires_at": f"gt.{__import__('datetime').datetime.utcnow().isoformat()}",
-                "select":    "answer",
-                "limit":     "1",
-            },
-            headers=_sb_headers(),
-            timeout=3,
+        from urllib.parse import urlparse
+        p = urlparse(referer)
+        if p.scheme and p.netloc:
+            return f"{p.scheme}://{p.netloc}"
+    except Exception:
+        pass
+    return ''
+
+
+# ── CSP policy ────────────────────────────────────────────────────────────────
+_CSP = '; '.join([
+    "default-src 'self'",
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com",
+    "img-src 'self' data: blob: https://api.chunks.online https://*.r2.dev",
+    "connect-src 'self' https://api.chunks.online https://*.supabase.co https://api.semanticscholar.org",
+    "worker-src blob: https://cdnjs.cloudflare.com",
+    "frame-src 'none'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "upgrade-insecure-requests",
+])
+
+# ── FastAPI app ───────────────────────────────────────────────────────────────
+app = FastAPI(title="Chunks Chemistry API", version="2.0")
+
+# ── Rate limiter ──────────────────────────────────────────────────────────────
+from routes.limiter import limiter  # noqa: E402
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ── CORS middleware ───────────────────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_origin_regex=_VERCEL_ORIGIN_REGEX,
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Device-Id"],
+    allow_methods=["GET", "POST", "OPTIONS", "PATCH", "DELETE"],
+    allow_credentials=False,
+    max_age=86400,
+)
+
+# ── CSRF origin check middleware ──────────────────────────────────────────────
+_CSRF_SAFE_METHODS = frozenset(('GET', 'HEAD', 'OPTIONS'))
+_TESTING = os.environ.get('TESTING', '').lower() == 'true'
+
+
+@app.middleware("http")
+async def csrf_origin_check(request: Request, call_next):
+    """Block state-changing requests whose Origin/Referer is untrusted."""
+    if _TESTING:
+        return await call_next(request)
+
+    if request.method in _CSRF_SAFE_METHODS:
+        return await call_next(request)
+
+    origin = request.headers.get('origin', '').strip()
+    if origin:
+        if _origin_is_allowed(origin):
+            return await call_next(request)
+        logger.warning("CSRF block: untrusted Origin %r on %s %s",
+                       origin, request.method, request.url.path)
+        return JSONResponse(
+            {'success': False, 'error': 'Forbidden — origin not allowed'},
+            status_code=403,
         )
-        if resp.status_code == 200:
-            rows = resp.json()
-            if rows:
-                try:
-                    _session.post(
-                        f"{SUPABASE_URL}/rest/v1/rpc/increment_cache_hit",
-                        json={"p_cache_key": key},
-                        headers=_sb_headers(),
-                        timeout=2,
-                    )
-                except Exception:
-                    pass
-                logger.debug("ask_cache HIT (supabase) key=%s", key)
-                return rows[0]["answer"]
-    except Exception as e:
-        logger.warning("sb_cache GET error: %s", e)
-    return None
 
-def _sb_cache_set(key: str, payload: dict, task_type: str | None,
-                  mode: str, book_id: str, model_used: str) -> None:
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        return
-    try:
-        import datetime
-        expires = (datetime.datetime.utcnow() +
-                   datetime.timedelta(days=_SB_CACHE_TTL_DAYS)).isoformat()
-        _session.post(
-            f"{SUPABASE_URL}/rest/v1/query_cache",
-            json={
-                "cache_key":  key,
-                "answer":     payload,
-                "task_type":  task_type,
-                "mode":       mode,
-                "book_id":    book_id,
-                "model_used": model_used,
-                "expires_at": expires,
-            },
-            headers={**_sb_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"},
-            timeout=4,
+    referer = request.headers.get('referer', '').strip()
+    if referer:
+        ref_origin = _extract_origin_from_referer(referer)
+        if ref_origin and _origin_is_allowed(ref_origin):
+            return await call_next(request)
+        logger.warning("CSRF block: untrusted Referer %r on %s %s",
+                       referer, request.method, request.url.path)
+        return JSONResponse(
+            {'success': False, 'error': 'Forbidden — origin not allowed'},
+            status_code=403,
         )
-    except Exception as e:
-        logger.warning("sb_cache SET error: %s", e)
+
+    # Neither header present → non-browser client; allow
+    return await call_next(request)
 
 
-# ── MCQ parser (used by routes/chat.py and routes/study.py) ──────────────────
+# ── Security headers middleware ───────────────────────────────────────────────
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    # HTTP → HTTPS redirect in production
+    forwarded_proto = request.headers.get('x-forwarded-proto', 'https')
+    if PRODUCTION and forwarded_proto == 'http':
+        https_url = str(request.url).replace('http://', 'https://', 1)
+        return RedirectResponse(url=https_url, status_code=301)
 
-def _parse_mcq(raw_text):
-    """Parse AI-generated MCQ text into a list of question dicts.
+    response = await call_next(request)
 
-    Supports standard A-D multiple choice as well as A-B True/False
-    format (options regex accepts A-F to be lenient).
-    """
-    questions = []
-    blocks = re.split(r'\n(?=Q\d+\.)', raw_text.strip())
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
+    response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains; preload'
+    response.headers['Content-Security-Policy'] = _CSP
+    response.headers.pop('server', None)
+    response.headers.pop('x-powered-by', None)
 
-    for block in blocks:
-        block = block.strip()
-        if not block:
-            continue
-
-        lines = block.splitlines()
-        q_obj = {'number': None, 'question': '', 'options': {}, 'answer': '', 'explanation': ''}
-        active_field = None
-        explanation_lines = []
-
-        for line in lines:
-            stripped = line.strip()
-            if not stripped:
-                if active_field == 'explanation':
-                    explanation_lines.append('')
-                continue
-
-            m = re.match(r'^Q(\d+)\.\s*(.*)', stripped)
-            if m:
-                q_obj['number'] = int(m.group(1))
-                q_obj['question'] = m.group(2)
-                active_field = 'question'
-                continue
-
-            m = re.match(r'^([A-F])[).]\s*(.*)', stripped)
-            if m:
-                q_obj['options'][m.group(1)] = m.group(2)
-                active_field = 'option'
-                continue
-
-            m = re.match(r'^Answer:\s*(.*)', stripped, re.IGNORECASE)
-            if m:
-                q_obj['answer'] = m.group(1).strip()
-                active_field = 'answer'
-                continue
-
-            m = re.match(r'^Explanation:\s*(.*)', stripped, re.IGNORECASE)
-            if m:
-                first_line = m.group(1).strip()
-                if first_line:
-                    explanation_lines.append(first_line)
-                active_field = 'explanation'
-                continue
-
-            if active_field == 'explanation':
-                explanation_lines.append(stripped)
-            elif active_field == 'question':
-                q_obj['question'] = q_obj['question'] + ' ' + stripped
-
-        if explanation_lines:
-            q_obj['explanation'] = '\n'.join(explanation_lines).strip()
-
-        if q_obj['number'] is not None:
-            questions.append(q_obj)
-
-    return questions
+    return response
 
 
-# ── Error handlers ────────────────────────────────────────────────────────────
+# ── Exception handlers ────────────────────────────────────────────────────────
+@app.exception_handler(413)
+async def too_large(request: Request, exc):
+    return JSONResponse({'success': False, 'error': 'File too large. Maximum is 25 MB.'}, status_code=413)
 
-@app.errorhandler(413)
-def too_large(e):
-    return jsonify({'success': False, 'error': 'File too large. Maximum is 25 MB.'}), 413
 
-@app.errorhandler(429)
-def rate_limited(e):
-    return jsonify({'success': False, 'error': 'Too many requests. Please slow down.'}), 429
+@app.exception_handler(404)
+async def not_found(request: Request, exc):
+    return JSONResponse({'success': False, 'error': 'Endpoint not found.'}, status_code=404)
 
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({'success': False, 'error': 'Endpoint not found.'}), 404
 
-@app.errorhandler(405)
-def method_not_allowed(e):
-    return jsonify({'success': False, 'error': 'Method not allowed.'}), 405
+@app.exception_handler(405)
+async def method_not_allowed(request: Request, exc):
+    return JSONResponse({'success': False, 'error': 'Method not allowed.'}, status_code=405)
 
-@app.errorhandler(500)
-def internal_error(e):
+
+@app.exception_handler(500)
+async def internal_error(request: Request, exc):
     logger.exception("Unhandled 500 error")
-    return jsonify({'success': False, 'error': 'Internal server error.'}), 500
+    return JSONResponse({'success': False, 'error': 'Internal server error.'}, status_code=500)
 
 
-# ── PAEV and progress routes ──────────────────────────────────────────────────
-from paev_routes import register_paev
-register_paev(app, redis=_redis)
-
-from progress_routes import register_progress
-register_progress(app)
-
-# ── Shared context — populate before registering blueprints ──────────────────
-from routes.shared import ctx as _ctx
+# ── Shared context — populate before registering routers ─────────────────────
+from routes.shared import ctx as _ctx  # noqa: E402
 _ctx._init(
     session              = _session,
     SUPABASE_URL         = SUPABASE_URL,
@@ -659,91 +416,44 @@ _ctx._init(
     limiter              = limiter,
 )
 
-# ── Blueprint registration ────────────────────────────────────────────────────
-from routes.admin     import admin_bp
-from routes.health    import health_bp
-from routes.library   import library_bp
-from routes.flashcards import flashcards_bp
-from routes.upload    import upload_bp
-from routes.study     import study_bp
-from routes.youtube   import youtube_bp
-from routes.image     import image_bp
-from routes.chat      import chat_bp
-from routes.jobs          import jobs_bp
-from routes.share_content import share_bp
+# ── Router registration ───────────────────────────────────────────────────────
+from routes.admin         import router as admin_router      # noqa: E402
+from routes.health        import router as health_router     # noqa: E402
+from routes.library       import router as library_router    # noqa: E402
+from routes.flashcards    import router as flashcards_router  # noqa: E402
+from routes.upload        import router as upload_router     # noqa: E402
+from routes.study         import router as study_router      # noqa: E402
+from routes.youtube       import router as youtube_router    # noqa: E402
+from routes.image         import router as image_router      # noqa: E402
+from routes.chat          import router as chat_router       # noqa: E402
+from routes.jobs          import router as jobs_router       # noqa: E402
+from routes.share_content import router as share_router      # noqa: E402
 
-app.register_blueprint(admin_bp)
-app.register_blueprint(health_bp)
-app.register_blueprint(library_bp)
-app.register_blueprint(flashcards_bp)
-app.register_blueprint(upload_bp)
-app.register_blueprint(study_bp)
-app.register_blueprint(image_bp)
-app.register_blueprint(chat_bp)
-app.register_blueprint(jobs_bp)
-app.register_blueprint(share_bp)
-app.register_blueprint(youtube_bp)
+app.include_router(admin_router)
+app.include_router(health_router)
+app.include_router(library_router)
+app.include_router(flashcards_router)
+app.include_router(upload_router)
+app.include_router(study_router)
+app.include_router(image_router)
+app.include_router(chat_router)
+app.include_router(jobs_router)
+app.include_router(share_router)
+app.include_router(youtube_router)
+
+# ── PAEV and progress routes ──────────────────────────────────────────────────
+from paev_routes    import register_paev      # noqa: E402
+from progress_routes import register_progress  # noqa: E402
+register_paev(app, redis=_redis)
+register_progress(app)
 
 # ── Initialise async job queue ────────────────────────────────────────────────
-from services.job_queue import job_queue as _job_queue
+from services.job_queue import job_queue as _job_queue  # noqa: E402
 _job_queue.init(redis=_redis)
 
 # ── Initialise share store ────────────────────────────────────────────────────
-import services.share_store as _share_store_svc
+import services.share_store as _share_store_svc  # noqa: E402
 _share_store_svc.init(redis=_redis)
-
-# ── Rate-limit decorators for blueprints that use ctx.limiter ─────────────────
-# Apply per-endpoint limits directly here so limiter is available at startup.
-limiter.limit('10 per minute; 30 per hour',
-              exempt_when=lambda: request.method == 'OPTIONS')(
-    app.view_functions['library.load_book']
-)
-limiter.limit('20 per minute; 100 per hour')(
-    app.view_functions['library.serve_pdf']
-)
-limiter.limit('10 per minute; 60 per hour',
-              exempt_when=lambda: request.method == 'OPTIONS')(
-    app.view_functions['flashcards.generate_flashcards']
-)
-limiter.limit('10 per minute; 50 per hour',
-              exempt_when=lambda: request.method == 'OPTIONS')(
-    app.view_functions['upload.upload_document']
-)
-limiter.limit('5 per minute; 20 per hour',
-              exempt_when=lambda: request.method == 'OPTIONS')(
-    app.view_functions['study.generate_study_materials']
-)
-limiter.limit('10 per minute; 60 per hour',
-              exempt_when=lambda: request.method == 'OPTIONS')(
-    app.view_functions['study.generate_quiz']
-)
-limiter.limit('10 per minute; 40 per hour',
-              exempt_when=lambda: request.method == 'OPTIONS')(
-    app.view_functions['image.ask_image']
-)
-limiter.limit(
-    '20 per minute; 100 per hour',
-    exempt_when=lambda: (
-        request.method == 'OPTIONS' or
-        request.headers.get('Authorization', '').strip().startswith('Bearer ')
-    )
-)(app.view_functions['chat.ask'])
-limiter.limit('120 per minute; 500 per hour')(
-    app.view_functions['health.get_client_config']
-)
-limiter.limit('60 per minute')(
-    app.view_functions['health.ping']
-)
-limiter.limit(
-    '20 per minute; 100 per hour',
-    exempt_when=lambda: (
-        request.method == 'OPTIONS' or
-        request.headers.get('Authorization', '').strip().startswith('Bearer ')
-    )
-)(app.view_functions['jobs.ask_async'])
-limiter.limit('120 per minute; 500 per hour')(
-    app.view_functions['jobs.get_job_status']
-)
 
 
 # ============================================
@@ -751,12 +461,13 @@ limiter.limit('120 per minute; 500 per hour')(
 # ============================================
 
 if __name__ == '__main__':
+    import uvicorn
     logger.info("=" * 60)
-    logger.info("🧪 CHUNKS CHEMISTRY - PRODUCTION SERVER")
+    logger.info("🧪 CHUNKS CHEMISTRY - PRODUCTION SERVER (FastAPI/ASGI)")
     logger.info("=" * 60)
     logger.info(f"Mode: {'PRODUCTION' if PRODUCTION else 'DEVELOPMENT'}")
     logger.info(f"Books: {len(BOOK_LIBRARY)}")
     logger.info(f"R2: {'Configured' if R2_BUCKET_URL != 'https://pub-xxxxx.r2.dev' else 'NOT CONFIGURED'}")
     logger.info(f"API: {'Configured' if OPENROUTER_API_KEY != 'your-key-here' else 'NOT CONFIGURED'}")
     logger.info(f"Port: {PORT}")
-    app.run(host='0.0.0.0', port=PORT, debug=False)
+    uvicorn.run(app, host='0.0.0.0', port=PORT, log_level='info')

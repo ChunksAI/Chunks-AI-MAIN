@@ -45,7 +45,8 @@ def upload_document(request: Request, file: UploadFile = File(...)):
                 'error': 'Unsupported file type. Allowed: PDF, DOCX, PPTX'
             }, status_code=400)
 
-        temp_path = f"chunks_{uuid.uuid4().hex}_{safe_name}"
+        import tempfile
+        temp_path = os.path.join(tempfile.gettempdir(), f"chunks_{uuid.uuid4().hex}_{safe_name}")
         with open(temp_path, 'wb') as f:
             shutil.copyfileobj(file.file, f)
 
