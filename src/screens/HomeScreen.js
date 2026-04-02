@@ -573,7 +573,7 @@ export function _renderHomeActivities() {
   // ── 2. Most recent study plan ───────────────────────────────────────────────
   let lastPlan = null;
   try {
-    const allPlans = JSON.parse(localStorage.getItem('sp_all_plans') || '{}');
+    const allPlans = lsGet('sp_all_plans') || {};
     const entries = Object.entries(allPlans);
     if (entries.length > 0) {
       entries.sort((a, b) => (b[1].savedAt || 0) - (a[1].savedAt || 0));
@@ -599,8 +599,8 @@ export function _renderHomeActivities() {
   // ── 3. Most recently studied or created flashcard deck ─────────────────────
   let lastDeck = null;
   try {
-    const decks = JSON.parse(localStorage.getItem('chunks_fc_decks_v1') || '[]');
-    const masteryStore = JSON.parse(localStorage.getItem('chunks_fc_mastery_v1') || '{}');
+    const decks = lsGet('chunks_fc_decks_v1') || [];
+    const masteryStore = lsGet('chunks_fc_mastery_v1') || {};
     const deckEntries = Object.entries(masteryStore);
     if (deckEntries.length > 0) {
       deckEntries.sort((a, b) => (b[1].lastStudied || '').localeCompare(a[1].lastStudied || ''));
