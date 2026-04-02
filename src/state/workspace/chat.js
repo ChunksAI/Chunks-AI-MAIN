@@ -104,7 +104,8 @@ export function wsAppendUser(text, selectedText) {
   d.innerHTML = `<div class="bubble-user">${quoteHtml}${escaped}</div>`;
   msgs.appendChild(d);
   wsMarkProgrammaticScroll(1000);
-  d.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const targetTop = d.getBoundingClientRect().top - msgs.getBoundingClientRect().top + msgs.scrollTop;
+  msgs.scrollTo({ top: targetTop, behavior: 'smooth' });
 }
 
 export function _wsAvatarSvg() {
