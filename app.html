@@ -880,7 +880,7 @@ function _clickRecent(item) {
       }
     };
 
-    if (item.bookId !== _wsBookId) {
+    if (item.bookId !== _wsBookId || !_wsPdfDoc) {
       selectBook(item.bookId).then(() => setTimeout(_doRestore, 400));
     } else {
       setTimeout(_doRestore, 80);

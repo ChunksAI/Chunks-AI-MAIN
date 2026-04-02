@@ -169,6 +169,12 @@ Object.defineProperty(window, '_wsBookId', {
   configurable: true,
 });
 
+// _wsPdfDoc exposes the current PDF.js document (null when no PDF is loaded)
+Object.defineProperty(window, '_wsPdfDoc', {
+  get: () => ws.pdfDoc,
+  configurable: true,
+});
+
 window.wsPrevPage          = wsPrevPage;
 window.wsNextPage          = wsNextPage;
 window.wsGoToPage          = wsGoToPage;
