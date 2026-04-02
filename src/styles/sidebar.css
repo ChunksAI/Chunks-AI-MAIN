@@ -209,6 +209,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  max-width: none;
   cursor: pointer;
   padding: 6px 8px 3px 10px;
   border-radius: var(--r-sm);
