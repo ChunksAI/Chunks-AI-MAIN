@@ -610,14 +610,14 @@ export function _renderHomeActivities() {
     const masteryStore = JSON.parse(localStorage.getItem('chunks_fc_mastery_v1') || '{}');
     const deckEntries = Object.entries(masteryStore);
     if (deckEntries.length > 0) {
-      deckEntries.sort((a, b) => (b[1].lastStudied || '') > (a[1].lastStudied || '') ? 1 : -1);
+      deckEntries.sort((a, b) => (b[1].lastStudied || '').localeCompare(a[1].lastStudied || ''));
       const [deckId, stats] = deckEntries[0];
       const deck = decks.find(d => d.id === deckId);
       if (deck) lastDeck = { deckId, name: deck.name, pct: stats.pct || 0 };
     }
     // Fallback: most recently created deck if none have been studied yet
     if (!lastDeck && decks.length > 0) {
-      const sorted = decks.slice().sort((a, b) => (b.created_at || '') > (a.created_at || '') ? 1 : -1);
+      const sorted = decks.slice().sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
       const d = sorted[0];
       if (d?.name) lastDeck = { deckId: d.id, name: d.name, pct: 0 };
     }
