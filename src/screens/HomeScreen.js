@@ -542,11 +542,6 @@ export function mountHomeScreen() {
 
 // ── Recent Activities / Suggestion chips ─────────────────────────────────────
 
-const _SUGGEST_CHIPS = [
-  'Photosynthesis', "Newton's Laws of Motion", 'Cell Division',
-  'The French Revolution', 'Supply and Demand', 'Pythagorean Theorem'
-];
-
 const _SOURCE_META = {
   general:   { icon: '💬', label: 'Chat' },
   workspace: { icon: '📚', label: 'Textbook' },
@@ -620,15 +615,65 @@ export function _renderHomeActivities() {
   // ── 4. Recent chats (up to 3) ───────────────────────────────────────────────
   const recentChats = Array.isArray(window._recentItems) ? window._recentItems.slice(0, 3) : [];
 
-  // ── No activity at all → show "Try asking" for new users ───────────────────
+  // ── No activity at all → show quick-start cards for new users ─────────────
   if (!lastBook && !lastPlan && !lastDeck && recentChats.length === 0) {
     container.innerHTML = `
-      <p class="prompts-label">Try asking</p>
-      <div class="prompts-chips">
-        ${_SUGGEST_CHIPS.map(t =>
-          `<button class="prompt-chip" data-action="homeSetInput-text">${t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</button>`
-        ).join('')}
+      <p class="prompts-label">Continue Studying</p>
+      <div class="ra-list">
+        <div class="ra-card" data-ra-action="quickstart-book">
+          <div class="ra-card-main">
+            <span class="ra-icon">📚</span>
+            <div class="ra-card-text">
+              <span class="ra-label">Open a Textbook</span>
+              <span class="ra-card-meta">Browse your library and study alongside AI</span>
+            </div>
+          </div>
+          <div class="ra-card-footer">
+            <div class="ra-card-bar"><div class="ra-card-bar-fill" style="width:0%;"></div></div>
+            <button class="ra-card-btn">Start →</button>
+          </div>
+        </div>
+        <div class="ra-card" data-ra-action="quickstart-plan">
+          <div class="ra-card-main">
+            <span class="ra-icon">📋</span>
+            <div class="ra-card-text">
+              <span class="ra-label">Create a Study Plan</span>
+              <span class="ra-card-meta">Build a personalized learning roadmap for any topic</span>
+            </div>
+          </div>
+          <div class="ra-card-footer">
+            <div class="ra-card-bar"><div class="ra-card-bar-fill" style="width:0%;"></div></div>
+            <button class="ra-card-btn">Start →</button>
+          </div>
+        </div>
+        <div class="ra-card" data-ra-action="quickstart-flash">
+          <div class="ra-card-main">
+            <span class="ra-icon">🃏</span>
+            <div class="ra-card-text">
+              <span class="ra-label">Make Flashcards</span>
+              <span class="ra-card-meta">Generate and review study cards from any chapter</span>
+            </div>
+          </div>
+          <div class="ra-card-footer">
+            <div class="ra-card-bar"><div class="ra-card-bar-fill" style="width:0%;"></div></div>
+            <button class="ra-card-btn">Start →</button>
+          </div>
+        </div>
       </div>`;
+
+    container.querySelectorAll('.ra-card').forEach(el => {
+      el.addEventListener('click', () => {
+        const action = el.dataset.raAction;
+        if (action === 'quickstart-book') {
+          if (typeof window.openLibraryModal === 'function') window.openLibraryModal();
+          else document.querySelector('[data-action="openLibraryModal"]')?.click();
+        } else if (action === 'quickstart-plan') {
+          if (typeof window.showScreen === 'function') window.showScreen('studyplan');
+        } else if (action === 'quickstart-flash') {
+          if (typeof window.showScreen === 'function') window.showScreen('flash');
+        }
+      });
+    });
     return;
   }
 
@@ -700,7 +745,7 @@ export function _renderHomeActivities() {
   }).join('');
 
   container.innerHTML = `
-    <p class="prompts-label">Recent activity</p>
+    <p class="prompts-label">Continue Studying</p>
     <div class="ra-list">${richCards}${chatRows}</div>`;
 
   // Wire click handlers for chat items
