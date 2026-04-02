@@ -205,19 +205,34 @@ ${powerNavHTML}
 
     <div class="sidebar-divider"></div>
 
-    <div class="sidebar-history-header">
-      <span class="sidebar-history-label">Recents</span>
+    <div class="sidebar-history-header" style="justify-content:flex-end;">
       <button class="sidebar-search-btn" data-action="openChatSearch-self" title="Search chats" aria-label="Search chats">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
     </div>
 
     <div class="sidebar-history-scroll" id="sidebar-history-scroll">
-      <!-- Document-grouped recents (visible) -->
-      <div id="sidebar-doc-groups-${screen}" class="sidebar-doc-groups"></div>
+      <!-- Recent Chats section (Home AI chat history) -->
+      <div class="sidebar-history-section" id="sidebar-recent-chats-section-${screen}">
+        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="sidebar-recent-chats-section-${screen}">
+          Recent Chats
+          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div id="sidebar-recent-chats-${screen}" class="sidebar-recent-chats-list hist-list"></div>
+      </div>
 
-      <!-- Legacy per-category lists (hidden, kept for _renderAllRecent compatibility) -->
+      <!-- Recent Workspace section (PDF/textbook session history) -->
+      <div class="sidebar-history-section" id="sidebar-recent-workspace-section-${screen}">
+        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="sidebar-recent-workspace-section-${screen}">
+          Recent Workspace
+          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+        </div>
+        <div id="sidebar-recent-workspace-${screen}" class="sidebar-recent-workspace-list sidebar-doc-groups hist-list"></div>
+      </div>
+
+      <!-- Legacy lists (hidden, kept for _renderAllRecent compatibility) -->
       <div style="display:none;" aria-hidden="true">
+        <div id="sidebar-doc-groups-${screen}" class="sidebar-doc-groups"></div>
         <div id="${ids.general}" class="recent-list hist-list"></div>
         <div id="${ids.workspace}" class="recent-list hist-list"></div>
         <div id="${ids.visual}" class="recent-list hist-list"></div>
@@ -304,16 +319,23 @@ export function mountSidebars() {
   // We use sessionStorage flag 'chunks_hist_initialized' to distinguish
   // "first mount this session" from "user toggled and reloaded".
   const _histInitialized = (() => { try { return sessionStorage.getItem('chunks_hist_initialized') === '1'; } catch(e) { return false; } })();
+
+  const _histScreens = ['home', 'workspace', 'library', 'flash', 'research', 'exam', 'studyplan', 'visual'];
+  const _histSectionIds = _histScreens.flatMap(s => [
+    'sidebar-recent-chats-section-' + s,
+    'sidebar-recent-workspace-section-' + s,
+  ]);
+
   if (!_histInitialized) {
     // First mount this session — clear any stale collapsed state so everything is expanded
-    ['hist-section-general','hist-section-workspace','hist-section-visual','hist-section-exam'].forEach(id => {
+    _histSectionIds.forEach(id => {
       try { sessionStorage.removeItem('hist_collapsed_' + id); } catch(e) {}
     });
     try { sessionStorage.setItem('chunks_hist_initialized', '1'); } catch(e) {}
   }
 
   // Restore persisted collapsed state for each history section
-  ['hist-section-general','hist-section-workspace','hist-section-visual','hist-section-exam'].forEach(id => {
+  _histSectionIds.forEach(id => {
     try {
       const collapsed = sessionStorage.getItem('hist_collapsed_' + id) === '1';
       if (collapsed) {
