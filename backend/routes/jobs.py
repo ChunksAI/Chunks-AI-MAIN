@@ -10,15 +10,15 @@ from __future__ import annotations
 
 import logging
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from routes.shared import ctx
-from routes.validation import validate_request
 from routes.schemas import AskAsyncRequest
 
 logger = logging.getLogger(__name__)
 
-jobs_bp = Blueprint('jobs', __name__)
+router = APIRouter()
 
 
 def _run_ask_job(data: dict) -> dict:
@@ -36,10 +36,8 @@ def _run_ask_job(data: dict) -> dict:
     from services.prompt_guard import screen_prompt  # noqa: F811
     from services.books import BOOK_LIBRARY, TextbookSearch, get_book_index
     from ai_router import route, route_for_mode
-    from server import (
-        _ask_cache_key, _ask_cache_get, _ask_cache_set, _ask_is_cacheable,
-        _parse_mcq,
-    )
+    from services.ask_cache import _ask_cache_key, _ask_cache_get, _ask_cache_set, _ask_is_cacheable
+    from services.mcq_parser import _parse_mcq
     import json  # noqa: E401
     import os
     import random
@@ -247,30 +245,25 @@ Answer helpfully and clearly."""
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
-@jobs_bp.route('/ask-async', methods=['POST', 'OPTIONS'])
-@validate_request(AskAsyncRequest)
-def ask_async():
+@router.post('/ask-async')
+def ask_async(request: Request, body: AskAsyncRequest):
     """Accept the same payload as /ask but return a jobId immediately."""
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
     try:
         from services.job_queue import job_queue
         from services.auth import _extract_verified_user
 
-        data = request.get_json(silent=True)
-        if not data:
-            return jsonify({'success': False, 'error': 'Invalid or missing JSON body'}), 400
+        data = body.model_dump()
 
         question = data.get('question', '').strip()
         if not question:
-            return jsonify({'success': False, 'error': 'question is required'}), 400
+            return JSONResponse({'success': False, 'error': 'question is required'}, status_code=400)
 
         # Capture user_id while we still have request context
-        verified_user_id, _tier = _extract_verified_user()
+        verified_user_id, _tier = _extract_verified_user(request)
 
         # ── Per-user, per-device rate limiting ────────────────────────────
         from services.device_abuse import check_device_rate_limit
-        _device_block = check_device_rate_limit(verified_user_id)
+        _device_block = check_device_rate_limit(verified_user_id, request)
         if _device_block is not None:
             return _device_block
 
@@ -278,29 +271,29 @@ def ask_async():
 
         job_id = job_queue.enqueue(_run_ask_job, data)
 
-        return jsonify({
+        return JSONResponse({
             'success': True,
             'jobId':   job_id,
             'status':  'queued',
-        }), 202
+        }, status_code=202)
 
     except Exception as e:
         logger.exception("Unhandled error in /ask-async")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
-@jobs_bp.route('/jobs/<job_id>', methods=['GET'])
-def get_job_status(job_id: str):
+@router.get('/jobs/{job_id}')
+def get_job_status(request: Request, job_id: str):
     """Poll for the status / result of an async job."""
     try:
         from services.job_queue import job_queue
 
         info = job_queue.get_status(job_id)
         if info is None:
-            return jsonify({
+            return JSONResponse({
                 'success': False,
                 'error':   'Job not found',
-            }), 404
+            }, status_code=404)
 
         status = info.get('status', 'unknown')
         resp: dict = {
@@ -314,8 +307,8 @@ def get_job_status(job_id: str):
         elif status == 'failed':
             resp['error'] = info.get('error', 'Unknown error')
 
-        return jsonify(resp)
+        return resp
 
     except Exception as e:
         logger.exception("Unhandled error in /jobs/<job_id>")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)

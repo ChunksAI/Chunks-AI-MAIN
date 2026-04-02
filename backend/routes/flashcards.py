@@ -10,27 +10,22 @@ from __future__ import annotations
 import logging
 import re
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from routes.shared import ctx
-from routes.validation import validate_request
 from routes.schemas import FlashcardsRequest
 from guest_limits import GuestLimitExceeded, guest_gate
 
 logger = logging.getLogger(__name__)
 
-flashcards_bp = Blueprint('flashcards', __name__)
+router = APIRouter()
 
 
-@flashcards_bp.route('/generate-flashcards', methods=['POST', 'OPTIONS'])
-@validate_request(FlashcardsRequest)
-def generate_flashcards():
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
+@router.post('/generate-flashcards')
+def generate_flashcards(request: Request, body: FlashcardsRequest):
     try:
-        data = request.get_json(silent=True)
-        if not data:
-            return jsonify({'success': False, 'error': 'Invalid or missing JSON body'}), 400
+        data = body.model_dump()
         try:
             guest_gate(request, 'workspace', ctx.redis)
         except GuestLimitExceeded as _gle:
@@ -42,11 +37,11 @@ def generate_flashcards():
 
         # Verify JWT and enforce daily limit
         from services.auth import _extract_verified_user
-        verified_user_id, _tier = _extract_verified_user()
+        verified_user_id, _tier = _extract_verified_user(request)
 
         # ── Per-user, per-device rate limiting ────────────────────────────
         from services.device_abuse import check_device_rate_limit
-        _device_block = check_device_rate_limit(verified_user_id)
+        _device_block = check_device_rate_limit(verified_user_id, request)
         if _device_block is not None:
             return _device_block
 
@@ -57,7 +52,7 @@ def generate_flashcards():
         except PlanLimitExceeded as _ple:
             return _ple.response()
 
-        from server import _cache_key, _cache_get, _cache_set
+        from services.material_cache import _cache_key, _cache_get, _cache_set
         from ai_router import route
         from services.books import get_book_index
         from services.ai import call_ai
@@ -67,7 +62,7 @@ def generate_flashcards():
         cached  = _cache_get(cache_k)
         if cached:
             logger.info(f"⚡ Cache HIT flashcards: {topic} ({book_id})")
-            return jsonify({**cached, 'cached': True})
+            return {**cached, 'cached': True}
         logger.info(f"🔄 Cache MISS flashcards: {topic} ({book_id})")
 
         context_block = ""
@@ -138,13 +133,13 @@ Rules:
                     flashcards.append({'front': q_match.group(1).strip(), 'back': a_match.group(1).strip()})
 
         if not flashcards:
-            return jsonify({'success': False, 'error': 'Failed to parse flashcards', 'raw': raw}), 500
+            return JSONResponse({'success': False, 'error': 'Failed to parse flashcards', 'raw': raw}, status_code=500)
 
         logger.info(f"Generated {len(flashcards)} flashcards for: {topic}")
         result_payload = {'success': True, 'flashcards': flashcards, 'count': len(flashcards), 'topic': topic}
         _cache_set(cache_k, result_payload)
-        return jsonify(result_payload)
+        return result_payload
 
     except Exception as e:
         logger.exception("Unhandled error")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)

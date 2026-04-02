@@ -12,25 +12,22 @@ import hashlib
 import logging
 import re
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from routes.shared import ctx
-from routes.validation import validate_request
 from routes.schemas import StudyMaterialsRequest, QuizRequest
 from guest_limits import GuestLimitExceeded, guest_gate, enforce_exam_constraints_for_guest
 
 logger = logging.getLogger(__name__)
 
-study_bp = Blueprint('study', __name__)
+router = APIRouter()
 
 
-@study_bp.route('/generate-study-materials', methods=['POST', 'OPTIONS'])
-@validate_request(StudyMaterialsRequest)
-def generate_study_materials():
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
+@router.post('/generate-study-materials')
+def generate_study_materials(request: Request, body: StudyMaterialsRequest):
     try:
-        data = request.json
+        data = body.model_dump()
         try:
             guest_gate(request, 'studyplan', ctx.redis)
         except GuestLimitExceeded as _gle:
@@ -41,11 +38,11 @@ def generate_study_materials():
 
         # Verify JWT and enforce daily limit
         from services.auth import _extract_verified_user
-        verified_user_id, _tier = _extract_verified_user()
+        verified_user_id, _tier = _extract_verified_user(request)
 
         # ── Per-user, per-device rate limiting ────────────────────────────
         from services.device_abuse import check_device_rate_limit
-        _device_block = check_device_rate_limit(verified_user_id)
+        _device_block = check_device_rate_limit(verified_user_id, request)
         if _device_block is not None:
             return _device_block
 
@@ -56,7 +53,7 @@ def generate_study_materials():
         except PlanLimitExceeded as _ple:
             return _ple.response()
 
-        from server import _cache_key, _cache_get, _cache_set
+        from services.material_cache import _cache_key, _cache_get, _cache_set
         from ai_router import route
         from services.ai import call_ai
 
@@ -66,10 +63,10 @@ def generate_study_materials():
         _sm_cached  = _cache_get(_sm_cache_k)
         if _sm_cached:
             logger.info(f"⚡ Cache HIT study-materials: {material_type}")
-            return jsonify({**_sm_cached, 'cached': True})
+            return {**_sm_cached, 'cached': True}
 
         if not slides:
-            return jsonify({'success': False, 'error': 'No slide content provided'}), 400
+            return JSONResponse({'success': False, 'error': 'No slide content provided'}, status_code=400)
 
         full_content = ""
         for slide in slides:
@@ -84,7 +81,7 @@ def generate_study_materials():
                 full_content += f"\n[Speaker Notes: {notes}]"
 
         if not full_content.strip():
-            return jsonify({'success': False, 'error': 'No readable content found in slides'}), 400
+            return JSONResponse({'success': False, 'error': 'No readable content found in slides'}, status_code=400)
 
         char_limit = 24000
         content_for_ai = full_content.strip()[:char_limit]
@@ -98,170 +95,131 @@ def generate_study_materials():
             content_for_ai += truncation_note
 
         if material_type == 'notes':
-            prompt = f"""You are a meticulous academic note-taker. Below is the EXACT text extracted from a student's lecture slides.
-
-YOUR TASK: Write comprehensive, well-organized study notes based STRICTLY on the content below.
-
-RULES:
-- Cover EVERY topic, concept, definition, formula, and example that appears in the slides
-- Do NOT add information that is not in the slides
-- Do NOT skip any slide or section
-- Use clear headings that match the slide titles
-- Preserve all technical terms, formulas, and specific details exactly as they appear
-- If a slide has bullet points, expand them into full explanatory sentences
-- Format: use markdown with ## for main sections, ### for subsections, and bullet points for lists
-
-SLIDE CONTENT:
-{content_for_ai}
-
-Now write the complete study notes:"""
+            prompt = (
+                "You are a meticulous academic note-taker. Below is the EXACT text extracted from a student's lecture slides.\n\n"
+                "YOUR TASK: Write comprehensive, well-organized study notes based STRICTLY on the content below.\n\n"
+                "RULES:\n"
+                "- Cover EVERY topic, concept, definition, formula, and example that appears in the slides\n"
+                "- Do NOT add information that is not in the slides\n"
+                "- Do NOT skip any slide or section\n"
+                "- Use clear headings that match the slide titles\n"
+                "- Preserve all technical terms, formulas, and specific details exactly as they appear\n"
+                "- If a slide has bullet points, expand them into full explanatory sentences\n"
+                "- Format: use markdown with ## for main sections, ### for subsections, and bullet points for lists\n\n"
+                "SLIDE CONTENT:\n" + content_for_ai + "\n\nNow write the complete study notes:"
+            )
 
         elif material_type == 'reviewer':
-            prompt = f"""You are a senior academic exam coach who has written board review books. Below is the EXACT text from a student's lecture slides.
-
-YOUR TASK: Create a comprehensive, high-yield exam reviewer from this content. Be thorough and precise — students depend on this to pass their exams.
-
-OUTPUT STRUCTURE (use these exact markdown headings):
-
-## 📌 Topic Overview
-Write 3–5 sentences summarizing the core theme of this material and what students are expected to master.
-
-## 🔑 High-Yield Concepts
-List every testable concept, definition, mechanism, and principle found in the slides. For each:
-- **Term/Concept**: Clear, exam-ready definition or explanation
-- Flag with ⚠️ anything that appears repeatedly or is emphasized in the slides (likely to be on the exam)
-
-## 🧮 Formulas & Equations
-List every formula, equation, or quantitative relationship in the slides. For each:
-- Write it clearly with variable definitions
-- Add a one-line note on when/how to apply it
-
-## 📊 Key Values, Constants & Comparisons
-Extract all specific numbers, thresholds, units, classifications, or comparative data.
-
-## 🧠 Mnemonics & Memory Tips
-Create 3–6 original mnemonics or memory hooks for the hardest-to-remember facts from the slides.
-
-## ❓ Practice Questions (10 questions)
-Write 10 exam-style questions directly from the slide content. Mix question types:
-- 5 multiple choice (A/B/C/D with answer and explanation)
-- 3 short-answer (with model answer)
-- 2 "explain why" or "compare and contrast" style
-
-For each MCQ:
-Q: [question]
-A) | B) | C) | D)
-✅ Answer: [letter] — [1-sentence explanation referencing the slide content]
-
-## 🚨 Common Mistakes to Avoid
-List 3–5 common misconceptions or errors students make on this topic, based on what the slides emphasize.
-
-## ⚡ Last-Minute Cheat Sheet
-A condensed bullet list of the 10–15 most important facts to review the night before the exam.
-
-RULES:
-- Base EVERYTHING strictly on the provided slide content
-- Do NOT fabricate, guess, or add external information
-- If slides mention a specific number, value, or name — include it exactly
-- Be as detailed as the content allows — do NOT be generic
-- Use markdown formatting throughout
-
-SLIDE CONTENT:
-{content_for_ai}
-
-Write the complete exam reviewer:"""
+            prompt = (
+                "You are a senior academic exam coach who has written board review books. Below is the EXACT text from a student's lecture slides.\n\n"
+                "YOUR TASK: Create a comprehensive, high-yield exam reviewer from this content. Be thorough and precise — students depend on this to pass their exams.\n\n"
+                "OUTPUT STRUCTURE (use these exact markdown headings):\n\n"
+                "## 📌 Topic Overview\n"
+                "Write 3–5 sentences summarizing the core theme of this material and what students are expected to master.\n\n"
+                "## 🔑 High-Yield Concepts\n"
+                "List every testable concept, definition, mechanism, and principle found in the slides. For each:\n"
+                "- **Term/Concept**: Clear, exam-ready definition or explanation\n"
+                "- Flag with ⚠️ anything that appears repeatedly or is emphasized in the slides (likely to be on the exam)\n\n"
+                "## 🧮 Formulas & Equations\n"
+                "List every formula, equation, or quantitative relationship in the slides. For each:\n"
+                "- Write it clearly with variable definitions\n"
+                "- Add a one-line note on when/how to apply it\n\n"
+                "## 📊 Key Values, Constants & Comparisons\n"
+                "Extract all specific numbers, thresholds, units, classifications, or comparative data.\n\n"
+                "## 🧠 Mnemonics & Memory Tips\n"
+                "Create 3–6 original mnemonics or memory hooks for the hardest-to-remember facts from the slides.\n\n"
+                "## ❓ Practice Questions (10 questions)\n"
+                "Write 10 exam-style questions directly from the slide content. Mix question types:\n"
+                "- 5 multiple choice (A/B/C/D with answer and explanation)\n"
+                "- 3 short-answer (with model answer)\n"
+                "- 2 \"explain why\" or \"compare and contrast\" style\n\n"
+                "For each MCQ:\n"
+                "Q: [question]\n"
+                "A) | B) | C) | D)\n"
+                "✅ Answer: [letter] — [1-sentence explanation referencing the slide content]\n\n"
+                "## 🚨 Common Mistakes to Avoid\n"
+                "List 3–5 common misconceptions or errors students make on this topic, based on what the slides emphasize.\n\n"
+                "## ⚡ Last-Minute Cheat Sheet\n"
+                "A condensed bullet list of the 10–15 most important facts to review the night before the exam.\n\n"
+                "RULES:\n"
+                "- Base EVERYTHING strictly on the provided slide content\n"
+                "- Do NOT fabricate, guess, or add external information\n"
+                "- If slides mention a specific number, value, or name — include it exactly\n"
+                "- Be as detailed as the content allows — do NOT be generic\n"
+                "- Use markdown formatting throughout\n\n"
+                "SLIDE CONTENT:\n" + content_for_ai + "\n\nWrite the complete exam reviewer:"
+            )
 
         elif material_type == 'flashcards':
-            prompt = f"""You are a flashcard creator. Below is the EXACT text from lecture slides.
-
-YOUR TASK: Create 15-20 flashcards based STRICTLY on this content.
-
-FORMAT for each card:
-CARD [N]
-Q: [Question about a specific concept, term, or fact from the slides]
-A: [Precise answer drawn directly from the slide content]
-
-RULES:
-- Every question must be answerable using the slide content provided
-- Cover key terms, definitions, processes, formulas, and important facts
-- Do NOT create questions about topics not in the slides
-
-SLIDE CONTENT:
-{content_for_ai}
-
-Create the flashcards:"""
+            prompt = (
+                "You are a flashcard creator. Below is the EXACT text from lecture slides.\n\n"
+                "YOUR TASK: Create 15-20 flashcards based STRICTLY on this content.\n\n"
+                "FORMAT for each card:\n"
+                "CARD [N]\n"
+                "Q: [Question about a specific concept, term, or fact from the slides]\n"
+                "A: [Precise answer drawn directly from the slide content]\n\n"
+                "RULES:\n"
+                "- Every question must be answerable using the slide content provided\n"
+                "- Cover key terms, definitions, processes, formulas, and important facts\n"
+                "- Do NOT create questions about topics not in the slides\n\n"
+                "SLIDE CONTENT:\n" + content_for_ai + "\n\nCreate the flashcards:"
+            )
 
         elif material_type == 'summary':
-            prompt = f"""You are a study guide writer. Below is the EXACT text from lecture slides.
-
-YOUR TASK: Create a concise one-page summary sheet based STRICTLY on this content.
-
-Include:
-1. MAIN TOPIC & OVERVIEW (2-3 sentences)
-2. KEY CONCEPTS & DEFINITIONS (from the slides only)
-3. IMPORTANT FORMULAS/EQUATIONS (if any appear in the slides)
-4. CRITICAL FACTS TO REMEMBER (the most testable points from the slides)
-
-RULES:
-- Only include what is in the slides
-- Be concise but complete
-
-SLIDE CONTENT:
-{content_for_ai}
-
-Write the summary sheet:"""
+            prompt = (
+                "You are a study guide writer. Below is the EXACT text from lecture slides.\n\n"
+                "YOUR TASK: Create a concise one-page summary sheet based STRICTLY on this content.\n\n"
+                "Include:\n"
+                "1. MAIN TOPIC & OVERVIEW (2-3 sentences)\n"
+                "2. KEY CONCEPTS & DEFINITIONS (from the slides only)\n"
+                "3. IMPORTANT FORMULAS/EQUATIONS (if any appear in the slides)\n"
+                "4. CRITICAL FACTS TO REMEMBER (the most testable points from the slides)\n\n"
+                "RULES:\n"
+                "- Only include what is in the slides\n"
+                "- Be concise but complete\n\n"
+                "SLIDE CONTENT:\n" + content_for_ai + "\n\nWrite the summary sheet:"
+            )
 
         elif material_type == 'quiz':
-            prompt = f"""You are a quiz generator. Below is the EXACT text from lecture slides.
-
-YOUR TASK: Generate exactly 10 multiple-choice questions based STRICTLY on this content.
-
-STRICT FORMAT:
-Q1. [Question text based on the slide content]
-A) [option]
-B) [option]
-C) [option]
-D) [option]
-Answer: [correct letter]
-Explanation: [brief explanation referencing the slide content]
-
-RULES:
-- All 10 questions must be directly answerable from the slide content provided
-- Do NOT ask about topics not covered in the slides
-- Only ONE correct answer per question
-
-SLIDE CONTENT:
-{content_for_ai}
-
-Generate the quiz:"""
+            prompt = (
+                "You are a quiz generator. Below is the EXACT text from lecture slides.\n\n"
+                "YOUR TASK: Generate exactly 10 multiple-choice questions based STRICTLY on this content.\n\n"
+                "STRICT FORMAT:\n"
+                "Q1. [Question text based on the slide content]\n"
+                "A) [option]\n"
+                "B) [option]\n"
+                "C) [option]\n"
+                "D) [option]\n"
+                "Answer: [correct letter]\n"
+                "Explanation: [brief explanation referencing the slide content]\n\n"
+                "RULES:\n"
+                "- All 10 questions must be directly answerable from the slide content provided\n"
+                "- Do NOT ask about topics not covered in the slides\n"
+                "- Only ONE correct answer per question\n\n"
+                "SLIDE CONTENT:\n" + content_for_ai + "\n\nGenerate the quiz:"
+            )
 
         elif material_type == 'all':
-            prompt = f"""You are a comprehensive study material generator. Below is the EXACT text from lecture slides.
-
-YOUR TASK: Generate ALL of the following based STRICTLY on this content:
-
-1. STUDY NOTES - Comprehensive notes covering every topic in the slides
-2. KEY FLASHCARDS - 10 Q&A cards for the most important concepts
-3. SUMMARY SHEET - A concise overview of the main points
-4. 5 PRACTICE QUESTIONS - Multiple choice questions from the slide content
-
-RULES:
-- Base EVERYTHING strictly on the provided slide content
-- Do NOT add external information
-- Label each section clearly
-
-SLIDE CONTENT:
-{content_for_ai}
-
-Generate all study materials:"""
+            prompt = (
+                "You are a comprehensive study material generator. Below is the EXACT text from lecture slides.\n\n"
+                "YOUR TASK: Generate ALL of the following based STRICTLY on this content:\n\n"
+                "1. STUDY NOTES - Comprehensive notes covering every topic in the slides\n"
+                "2. KEY FLASHCARDS - 10 Q&A cards for the most important concepts\n"
+                "3. SUMMARY SHEET - A concise overview of the main points\n"
+                "4. 5 PRACTICE QUESTIONS - Multiple choice questions from the slide content\n\n"
+                "RULES:\n"
+                "- Base EVERYTHING strictly on the provided slide content\n"
+                "- Do NOT add external information\n"
+                "- Label each section clearly\n\n"
+                "SLIDE CONTENT:\n" + content_for_ai + "\n\nGenerate all study materials:"
+            )
 
         else:
-            prompt = f"""You are an academic assistant. Below is the EXACT text from lecture slides.
-
-Create detailed {material_type} based STRICTLY on this content. Do not add information not present in the slides.
-
-SLIDE CONTENT:
-{content_for_ai}"""
+            prompt = (
+                f"You are an academic assistant. Below is the EXACT text from lecture slides.\n\n"
+                f"Create detailed {material_type} based STRICTLY on this content. Do not add information not present in the slides.\n\n"
+                "SLIDE CONTENT:\n" + content_for_ai
+            )
 
         result = call_ai(prompt, system_prompt=(
             "You are an expert academic assistant and exam coach who creates precise, high-yield study materials. "
@@ -274,23 +232,20 @@ SLIDE CONTENT:
 
         sm_payload = {'success': True, 'materials': {material_type: result}}
         _cache_set(_sm_cache_k, sm_payload)
-        return jsonify(sm_payload)
+        return sm_payload
 
     except Exception as e:
         logger.exception("Unhandled error")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
-@study_bp.route('/generate-quiz', methods=['POST', 'OPTIONS'])
-@validate_request(QuizRequest)
-def generate_quiz():
-    if request.method == 'OPTIONS':
-        return jsonify({'ok': True})
+@router.post('/generate-quiz')
+def generate_quiz(request: Request, body: QuizRequest):
     try:
-        data = request.json or {}
+        data = body.model_dump()
         try:
             guest_gate(request, 'exam', ctx.redis)
-            data = enforce_exam_constraints_for_guest(data)
+            data = enforce_exam_constraints_for_guest(request, data)
         except GuestLimitExceeded as _gle:
             return _gle.response()
 
@@ -302,11 +257,11 @@ def generate_quiz():
         existing_questions = data.get('existingQuestions', [])
 
         from services.auth import _extract_verified_user
-        verified_user_id, _tier = _extract_verified_user()
+        verified_user_id, _tier = _extract_verified_user(request)
 
         # ── Per-user, per-device rate limiting ────────────────────────────
         from services.device_abuse import check_device_rate_limit
-        _device_block = check_device_rate_limit(verified_user_id)
+        _device_block = check_device_rate_limit(verified_user_id, request)
         if _device_block is not None:
             return _device_block
 
@@ -319,10 +274,10 @@ def generate_quiz():
 
         from ai_router import route
         from services.ai import call_ai
-        from server import _parse_mcq
+        from services.mcq_parser import _parse_mcq
 
         if not slides:
-            return jsonify({'success': False, 'error': 'No slide content provided'}), 400
+            return JSONResponse({'success': False, 'error': 'No slide content provided'}, status_code=400)
 
         full_content = ""
         for slide in slides:
@@ -337,7 +292,7 @@ def generate_quiz():
 
         content_for_ai = full_content.strip()[:24000]
         if not content_for_ai:
-            return jsonify({'success': False, 'error': 'No readable content in slides'}), 400
+            return JSONResponse({'success': False, 'error': 'No readable content in slides'}, status_code=400)
 
         difficulty_instructions = {
             'easy': (
@@ -442,36 +397,32 @@ def generate_quiz():
                 "Aim to cover every major section."
             )
 
-        prompt = f"""You are an expert exam writer who creates board-quality multiple choice questions for university students.
-Below is the EXACT text from a student's lecture slides.
-
-YOUR TASK: Generate exactly {count} multiple-choice questions based STRICTLY on this content.
-
-{diff_text}{mode_instruction}{qtype_instruction}{coverage_note}{no_repeat_block}
-
-STRICT OUTPUT FORMAT — follow this exactly for every question, no deviations:
-Q1. [Question text — write a complete, grammatically correct question]
-A) [option — complete sentence or phrase, not just a word]
-B) [option]
-C) [option]
-D) [option]
-Answer: [single letter: A, B, C, or D]
-Explanation: [3–5 sentences: (1) why the correct answer is right with specific evidence from the slides, (2) why the most tempting wrong answer is wrong, (3) a memory tip or key insight to help the student remember this for the exam]
-
-QUALITY RULES:
-- Every question must test a DIFFERENT concept — no two questions on the same fact
-- All {count} questions must be answerable from the slide content below — no outside knowledge
-- Only ONE correct answer per question — the other three must be clearly wrong (but tempting)
-- Questions must be SPECIFIC — never ask vague questions like "Which is important?"
-- Options must all be the same grammatical form and similar length
-- Never start questions with "According to the slides" — write naturally
-- Do NOT add headers, numbering schemes, or commentary — just Q1 through Q{count} in sequence
-- Start immediately with Q1 — no preamble
-
-SLIDE CONTENT:
-{content_for_ai}
-
-Generate the quiz:"""
+        prompt = (
+            "You are an expert exam writer who creates board-quality multiple choice questions for university students.\n"
+            "Below is the EXACT text from a student's lecture slides.\n\n"
+            f"YOUR TASK: Generate exactly {count} multiple-choice questions based STRICTLY on this content.\n\n"
+            f"{diff_text}{mode_instruction}{qtype_instruction}{coverage_note}{no_repeat_block}\n\n"
+            "STRICT OUTPUT FORMAT — follow this exactly for every question, no deviations:\n"
+            "Q1. [Question text — write a complete, grammatically correct question]\n"
+            "A) [option — complete sentence or phrase, not just a word]\n"
+            "B) [option]\n"
+            "C) [option]\n"
+            "D) [option]\n"
+            "Answer: [single letter: A, B, C, or D]\n"
+            "Explanation: [3–5 sentences: (1) why the correct answer is right with specific evidence from the slides, "
+            "(2) why the most tempting wrong answer is wrong, (3) a memory tip or key insight to help the student remember this for the exam]\n\n"
+            "QUALITY RULES:\n"
+            "- Every question must test a DIFFERENT concept — no two questions on the same fact\n"
+            f"- All {count} questions must be answerable from the slide content below — no outside knowledge\n"
+            "- Only ONE correct answer per question — the other three must be clearly wrong (but tempting)\n"
+            "- Questions must be SPECIFIC — never ask vague questions like \"Which is important?\"\n"
+            "- Options must all be the same grammatical form and similar length\n"
+            "- Never start questions with \"According to the slides\" — write naturally\n"
+            f"- Do NOT add headers, numbering schemes, or commentary — just Q1 through Q{count} in sequence\n"
+            "- Start immediately with Q1 — no preamble\n\n"
+            "SLIDE CONTENT:\n"
+            + content_for_ai + "\n\nGenerate the quiz:"
+        )
 
         raw = call_ai(prompt, system_prompt=(
             "You are an expert exam writer with 20 years of experience creating board-level multiple choice questions. "
@@ -489,16 +440,16 @@ Generate the quiz:"""
 
         questions = _parse_mcq(raw)
         if not questions:
-            return jsonify({'success': False, 'error': 'Could not parse quiz output. Try again.', 'raw': raw}), 500
+            return JSONResponse({'success': False, 'error': 'Could not parse quiz output. Try again.', 'raw': raw}, status_code=500)
 
-        return jsonify({
+        return {
             'success':    True,
             'questions':  questions,
             'count':      len(questions),
             'difficulty': difficulty,
             'raw':        raw
-        })
+        }
 
     except Exception as e:
         logger.exception("Unhandled error")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)

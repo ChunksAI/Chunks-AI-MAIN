@@ -11,16 +11,17 @@ GET  /api/me/plan  Authenticated user's plan, limits, and usage
 """
 from __future__ import annotations
 
-from flask import Blueprint, jsonify, request
+from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 
 from routes.shared import ctx
 
-health_bp = Blueprint('health', __name__)
+router = APIRouter()
 
 
-@health_bp.route('/')
-def home():
-    return jsonify({
+@router.get('/')
+def home(request: Request):
+    return {
         'name': 'Chunks Chemistry API',
         'version': '2.0',
         'status': 'running',
@@ -36,53 +37,50 @@ def home():
             'quiz': '/generate-quiz',
             'ask_image': '/ask-image'
         }
-    })
+    }
 
 
-@health_bp.route('/ping', methods=['GET'])
-def ping():
+@router.get('/ping')
+def ping(request: Request):
     # Static liveness check — does NOT call the AI API.
-    limiter = getattr(ctx, 'limiter', None)
-    if limiter:
-        limiter.limit('60 per minute')(lambda: None)()
-    return jsonify({
+    return {
         'status':      'ok',
         'model':       ctx.MODEL,
         'api_key_set': ctx.OPENROUTER_API_KEY != 'your-key-here',
         'r2_set':      ctx.R2_BUCKET_URL != 'https://pub-xxxxx.r2.dev',
-    })
+    }
 
 
-@health_bp.route('/health', methods=['GET'])
-def health():
+@router.get('/health')
+def health(request: Request):
     from services.books import BOOK_LIBRARY
-    return jsonify({
+    return {
         'status': 'healthy',
         'mode': 'production' if ctx.PRODUCTION else 'development',
         'books_available': list(BOOK_LIBRARY.keys()),
         'r2_configured': ctx.R2_BUCKET_URL != 'https://pub-xxxxx.r2.dev',
         'api_configured': ctx.OPENROUTER_API_KEY != 'your-key-here'
-    })
+    }
 
 
-@health_bp.route('/api/config', methods=['GET', 'OPTIONS'])
-def get_client_config():
+@router.get('/api/config')
+def get_client_config(request: Request):
     """Return public config values the frontend needs (no secrets here)."""
-    return jsonify({
+    return {
         'supabaseUrl':     ctx.SUPABASE_URL,
         'supabaseAnonKey': ctx.SUPABASE_ANON_KEY,
-    })
+    }
 
 
-@health_bp.route('/api/plan-limits', methods=['GET', 'OPTIONS'])
-def get_plan_limits():
+@router.get('/api/plan-limits')
+def get_plan_limits(request: Request):
     """Return plan limits for all tiers (public — no auth required)."""
     from services.plan_limits import PLAN_LIMITS
-    return jsonify({'success': True, 'plans': PLAN_LIMITS})
+    return {'success': True, 'plans': PLAN_LIMITS}
 
 
-@health_bp.route('/api/me/plan', methods=['GET', 'OPTIONS'])
-def get_my_plan():
+@router.get('/api/me/plan')
+def get_my_plan(request: Request):
     """Return the authenticated user's plan, limits, and current usage.
 
     Requires a valid Supabase JWT in the Authorization header.
@@ -91,11 +89,11 @@ def get_my_plan():
     from services.auth import _extract_verified_user
     from services.plan_limits import get_plan_limits, get_usage, PLAN_LIMITS
 
-    user_id, tier = _extract_verified_user()
+    user_id, tier = _extract_verified_user(request)
 
     # Unauthenticated (IP-based) users get a 401
     if user_id.startswith('ip:'):
-        return jsonify({'success': False, 'error': 'Authentication required'}), 401
+        return JSONResponse({'success': False, 'error': 'Authentication required'}, status_code=401)
 
     tier_str = tier.value if hasattr(tier, 'value') else str(tier).lower()
     limits = get_plan_limits(tier_str)
@@ -105,9 +103,9 @@ def get_my_plan():
     for feature in limits:
         usage[feature] = get_usage(user_id, feature)
 
-    return jsonify({
+    return {
         'success': True,
         'plan':    tier_str,
         'limits':  limits,
         'usage':   usage,
-    })
+    }
