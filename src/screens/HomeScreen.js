@@ -1171,14 +1171,10 @@ export async function homeSendMessage() {
   } finally {
     homeIsTyping = false;
     _homeAbortController = null;
-    const bar2 = document.getElementById('home-input-bar');
-    const chatActive2 = bar2 && bar2.style.display !== 'none';
-    const btn1 = document.getElementById('home-send-btn');
-    const btn2 = document.getElementById('home-send-btn-bottom');
-    _homeSetGenerating(chatActive2 ? btn2 : btn1, false);
-    // Also reset the inactive button to ensure consistency
-    if (chatActive2 && btn1) _homeSetGenerating(btn1, false);
-    if (!chatActive2 && btn2) _homeSetGenerating(btn2, false);
+    const topSendBtn    = document.getElementById('home-send-btn');
+    const bottomSendBtn = document.getElementById('home-send-btn-bottom');
+    _homeSetGenerating(topSendBtn, false);
+    _homeSetGenerating(bottomSendBtn, false);
   }
 }
 
