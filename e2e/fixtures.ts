@@ -154,6 +154,20 @@ export async function installApiMocks(page: Page) {
 }
 
 /**
+ * Inject guest-mode flag into sessionStorage so the app boots in guest mode.
+ * Must be called BEFORE navigating to app.html.
+ */
+export async function injectGuestSession(page: Page) {
+  await page.addInitScript(() => {
+    try {
+      sessionStorage.setItem('chunks_guest_mode', '1');
+    } catch {
+      /* storage unavailable — ignore */
+    }
+  });
+}
+
+/**
  * Inject a fake Supabase session into localStorage so the app boots as
  * an authenticated user.  Must be called BEFORE navigating to app.html.
  */
@@ -207,6 +221,8 @@ type Fixtures = {
   mockApi: Page;
   /** A page with API mocks + fake auth session. */
   authedPage: Page;
+  /** A page with API mocks + guest mode flag set in sessionStorage. */
+  guestPage: Page;
 };
 
 export const test = base.extend<Fixtures>({
@@ -218,6 +234,12 @@ export const test = base.extend<Fixtures>({
   authedPage: async ({ page }, use) => {
     await installApiMocks(page);
     await injectAuthSession(page);
+    await use(page);
+  },
+
+  guestPage: async ({ page }, use) => {
+    await installApiMocks(page);
+    await injectGuestSession(page);
     await use(page);
   },
 });
