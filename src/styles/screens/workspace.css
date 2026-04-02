@@ -1238,7 +1238,7 @@
   50%       { opacity: 0.85; }
 }
 #home-ask-input { max-height: 160px; overflow-y: auto; }
-#screen-home main { overflow-y: auto; scrollbar-width: thin; }
+#screen-home main { overflow: hidden; }
 
 /* ── ThinkingAccordion ─────────────────────────────────────────────────────
    Reusable "Deep Thinking" collapsible component shown before AI responses
