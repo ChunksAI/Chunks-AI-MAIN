@@ -2425,6 +2425,8 @@ async function _researchFetchWithRetry(bodyObj, signal, _statusEl) {
 }
 
 async function _researchStart() {
+  if (_isGuestMode() && !window.guestGate?.('research')) return;
+
   const title   = document.getElementById('research-title-input')?.value.trim();
   const problem = document.getElementById('research-problem-input')?.value.trim() || '';
   const field   = document.getElementById('research-field-input')?.value.trim() || '';
@@ -7249,7 +7251,7 @@ document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
 
     // Guest mode: allow navigation and toggle buttons; block everything else in sidebar
     if (_isGuestMode() && el.closest('.sidebar')) {
-      const _SIDEBAR_ALWAYS_ALLOWED = ['toggleSidebar-self', 'handleLogoClick-self', 'showScreen', 'drawerNav'];
+      const _SIDEBAR_ALWAYS_ALLOWED = ['toggleSidebar-self', 'handleLogoClick-self', 'showScreen', 'drawerNav', 'goHome'];
       if (!_SIDEBAR_ALWAYS_ALLOWED.includes(action)) return;
     }
 
