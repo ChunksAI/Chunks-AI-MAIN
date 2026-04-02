@@ -765,7 +765,7 @@ export function homeAppendUser(text, images = []) {
 let _homeThinkingHandle = null;
 let _homeThinkingWrap   = null;
 
-export function homeAppendThinking() {
+export function homeAppendThinking(hasImage = false) {
   // Remove any leftover accordion from a prior request
   homeRemoveThinking();
 
@@ -777,8 +777,26 @@ export function homeAppendThinking() {
   _homeThinkingWrap = wrap;
 
   if (_homeThinking === 'off') {
-    // Simple blinking dot indicator for non-thinking mode
-    wrap.innerHTML = `<div class="hc-ai-body" style="padding:4px 0;"><span class="ws-typing-dot"></span></div>`;
+    if (hasImage) {
+      // Animated "Analyzing image..." text indicator for image messages
+      const span = document.createElement('span');
+      span.className = 'ws-analyzing-text';
+      span.textContent = 'Analyzing image.';
+      let dots = 1;
+      const timer = setInterval(() => {
+        dots = (dots % 3) + 1;
+        span.textContent = 'Analyzing image' + '.'.repeat(dots);
+      }, 500);
+      wrap._labelTimer = timer;
+      const body = document.createElement('div');
+      body.className = 'hc-ai-body';
+      body.style.padding = '4px 0';
+      body.appendChild(span);
+      wrap.appendChild(body);
+    } else {
+      // Simple blinking dot indicator for text-only messages
+      wrap.innerHTML = `<div class="hc-ai-body" style="padding:4px 0;"><span class="ws-typing-dot"></span></div>`;
+    }
   } else {
     const bodyWrap = document.createElement('div');
     bodyWrap.className = 'hc-ai-body';
@@ -1017,7 +1035,7 @@ export async function homeSendMessage() {
   }
 
   homeIsTyping = true;
-  homeAppendThinking();
+  homeAppendThinking(!!imageAtt);
   _thinkStart = Date.now();
   if (sendBtn) sendBtn.disabled = true;
 

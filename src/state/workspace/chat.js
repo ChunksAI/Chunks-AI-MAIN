@@ -76,7 +76,7 @@ let _wsThinkingHandle = null;
 let _wsThinkingWrap   = null;
 let _wsThinkStart     = 0;
 
-export function wsAppendThinking() {
+export function wsAppendThinking(hasImage = false) {
   const msgs = $el('ws-messages');
   // Remove any leftover accordion from a prior request
   wsRemoveThinking();
@@ -87,8 +87,30 @@ export function wsAppendThinking() {
   _wsThinkingWrap.id = 'ws-thinking-msg';
 
   if (ws.thinking === 'off') {
-    // Simple blinking dot indicator for non-thinking mode
-    _wsThinkingWrap.innerHTML = `<div class="ai-row"><div class="ai-body" style="padding:4px 0;"><span class="ws-typing-dot"></span></div></div>`;
+    if (hasImage) {
+      // Animated "Analyzing image..." text indicator for image messages
+      const span = document.createElement('span');
+      span.className = 'ws-analyzing-text';
+      span.textContent = 'Analyzing image.';
+      let dots = 1;
+      const timer = setInterval(() => {
+        dots = (dots % 3) + 1;
+        span.textContent = 'Analyzing image' + '.'.repeat(dots);
+      }, 500);
+      _wsThinkingWrap._labelTimer = timer;
+      _wsThinkingWrap.innerHTML = '';
+      const row = document.createElement('div');
+      row.className = 'ai-row';
+      const body = document.createElement('div');
+      body.className = 'ai-body';
+      body.style.padding = '4px 0';
+      body.appendChild(span);
+      row.appendChild(body);
+      _wsThinkingWrap.appendChild(row);
+    } else {
+      // Simple blinking dot indicator for text-only messages
+      _wsThinkingWrap.innerHTML = `<div class="ai-row"><div class="ai-body" style="padding:4px 0;"><span class="ws-typing-dot"></span></div></div>`;
+    }
     msgs.appendChild(_wsThinkingWrap);
   } else {
     const container = document.createElement('div');
@@ -114,12 +136,13 @@ export function wsRemoveThinking() {
     _wsThinkingHandle = null;
   }
   if (_wsThinkingWrap) {
+    if (_wsThinkingWrap._labelTimer) clearInterval(_wsThinkingWrap._labelTimer);
     _wsThinkingWrap.remove();
     _wsThinkingWrap = null;
   }
   // Fallback: remove by id in case something else created it
   const el = $el('ws-thinking-msg');
-  if (el) el.remove();
+  if (el) { if (el._labelTimer) clearInterval(el._labelTimer); el.remove(); }
 }
 
 /**
@@ -494,7 +517,7 @@ export async function _wsAsk(question, imageAtt = null) {
   ws.typing = true;
   const sendBtn = $el('ws-chat-send');
   if (sendBtn) sendBtn.disabled = true;
-  wsAppendThinking();
+  wsAppendThinking(!!imageAtt);
   const capturedSelection = ws.selectedText;
   ws.selectedText = '';  // clear so it doesn't bleed into follow-up questions
   try {
