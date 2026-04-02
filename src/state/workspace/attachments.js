@@ -5,7 +5,7 @@
  */
 
 import { ws } from './state.js';
-import { wsChatSend, _wsAsk, wsAutoResize, wsScrollBottom, wsStopGeneration } from './chat.js';
+import { wsChatSend, _wsAsk, wsAutoResize, wsScrollBottom, wsStopGeneration, wsMarkProgrammaticScroll } from './chat.js';
 import { $el, $qsa, removeClass, addClass } from '../domHelpers.js';
 import { showToast } from '../../components/Toast.js';
 
@@ -160,6 +160,7 @@ window.wsChatSend = async function() {
     if (!firstBubble) firstBubble = d;
   }
   if (firstBubble) {
+    wsMarkProgrammaticScroll();
     firstBubble.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 

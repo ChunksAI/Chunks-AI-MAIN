@@ -329,6 +329,10 @@ let _homeLastInputTime = 0;
 let _thinkStart = 0;  // timestamp (ms) when AI thinking began — for elapsed time display
 let _homeAbortController = null;
 
+// ── Free-scroll: track whether the user has manually scrolled up ──────────
+let _homeUserScrolled      = false;
+let _homeProgrammaticDepth  = 0; // reference-counted; >0 means a programmatic scroll is in progress
+
 // ── Send/Stop icon SVGs ───────────────────────────────────────────────────
 const _HOME_SEND_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
 const _HOME_STOP_SVG = `<svg width="11" height="11" viewBox="0 0 10 10"><rect x="0" y="0" width="10" height="10" rx="2" ry="2" fill="currentColor"/></svg>`;
@@ -789,7 +793,9 @@ export function homeAppendUser(text, images = []) {
     if (!firstBubble) firstBubble = textBubble;
   }
   if (firstBubble) {
+    _homeProgrammaticDepth++;
     firstBubble.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => { _homeProgrammaticDepth = Math.max(0, _homeProgrammaticDepth - 1); }, 600);
   }
 }
 
@@ -941,6 +947,9 @@ export function homeAppendError(msg) {
 export function homeScrollBottom(instant = false) {
   const area = document.getElementById('home-scroll-area');
   if (!area) return;
+  if (!instant && _homeUserScrolled) return;
+  _homeProgrammaticDepth++;
+  const dec = () => { _homeProgrammaticDepth = Math.max(0, _homeProgrammaticDepth - 1); };
   if (instant) {
     area.style.scrollBehavior = 'auto';
     area.scrollTop = area.scrollHeight;
@@ -948,6 +957,7 @@ export function homeScrollBottom(instant = false) {
   } else {
     area.scrollTop = area.scrollHeight;
   }
+  requestAnimationFrame(dec);
 }
 
 // ── Hide landing when first message sent ──────────────────────────────────────
@@ -1007,6 +1017,7 @@ export function homeToggleThinking(mode) {
 export async function homeSendMessage() {
   if (homeIsTyping) { homeStopGeneration(); return; }
   if (!guestGate('general')) return; // guest limit check
+  _homeUserScrolled = false; // allow auto-scroll for the new response
   // Mark that the user is actively in this session — prevents sync from overwriting mid-conversation
   _homeLastInputTime = Date.now();
   const bar = document.getElementById('home-input-bar');
@@ -1418,6 +1429,16 @@ function _wireHomeListeners() {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); homeSendMessage(); }
     });
     bottomInput.addEventListener('input', function () { homeAutoResize(this); });
+  }
+
+  // ── Free-scroll: detect manual scrolling in the chat area ────────────────
+  const scrollArea = document.getElementById('home-scroll-area');
+  if (scrollArea) {
+    scrollArea.addEventListener('scroll', function() {
+      if (_homeProgrammaticDepth > 0) return;
+      const atBottom = this.scrollHeight - this.scrollTop - this.clientHeight < 100;
+      _homeUserScrolled = !atBottom;
+    });
   }
 }
 

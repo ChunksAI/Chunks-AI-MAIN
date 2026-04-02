@@ -21,6 +21,10 @@ const _STOP_SVG = `<svg width="10" height="10" viewBox="0 0 10 10"><rect x="0" y
 // ── AbortController for active requests ──────────────────────────────────
 let _wsAbortController = null;
 
+// ── Free-scroll: track whether the user has manually scrolled up ──────────
+let _wsUserScrolled       = false;
+let _wsProgrammaticDepth  = 0; // reference-counted; >0 means a programmatic scroll is in progress
+
 /** Swap the workspace send button between send ↔ stop states. */
 function _wsSetGenerating(on) {
   const btn = $el('ws-chat-send');
@@ -34,6 +38,13 @@ function _wsSetGenerating(on) {
     btn.classList.remove('chat-send--stop');
     btn.disabled = false;
   }
+}
+
+/** Mark an upcoming programmatic scroll so the free-scroll listener ignores it. */
+export function wsMarkProgrammaticScroll(ms = 600) {
+  _wsProgrammaticDepth++;
+  const dec = () => { _wsProgrammaticDepth = Math.max(0, _wsProgrammaticDepth - 1); };
+  if (ms === 0) requestAnimationFrame(dec); else setTimeout(dec, ms);
 }
 
 /** Abort the active workspace AI request and restore the send button. */
@@ -63,7 +74,9 @@ export function wsAutoResize(el) {
 }
 export function wsScrollBottom() {
   const msgs = $el('ws-messages');
-  if (msgs) msgs.scrollTop = msgs.scrollHeight;
+  if (!msgs || _wsUserScrolled) return;
+  wsMarkProgrammaticScroll(0); // rAF-based: clears after the scroll event fires
+  msgs.scrollTop = msgs.scrollHeight;
 }
 export function wsClearChat() {
   ws.chatHistory = [];
@@ -90,6 +103,7 @@ export function wsAppendUser(text, selectedText) {
     : '';
   d.innerHTML = `<div class="bubble-user">${quoteHtml}${escaped}</div>`;
   msgs.appendChild(d);
+  wsMarkProgrammaticScroll();
   d.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -546,6 +560,7 @@ export async function wsChatSend() {
  */
 export async function _wsAsk(question, imageAtt = null) {
   ws.typing = true;
+  _wsUserScrolled = false;
   _wsAbortController = new AbortController();
   const { signal } = _wsAbortController;
   _wsSetGenerating(true);
@@ -698,4 +713,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window.wsChatSend(); }
   });
   $el('ws-chat-input')?.addEventListener('input', function() { wsAutoResize(this); });
+
+  // ── Free-scroll: detect manual scrolling in the messages panel ───────────
+  $el('ws-messages')?.addEventListener('scroll', function() {
+    if (_wsProgrammaticDepth > 0) return;
+    const atBottom = this.scrollHeight - this.scrollTop - this.clientHeight < 100;
+    _wsUserScrolled = !atBottom;
+  });
 });
