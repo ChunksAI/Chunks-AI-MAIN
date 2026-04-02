@@ -103,7 +103,7 @@ export function wsAppendUser(text, selectedText) {
     : '';
   d.innerHTML = `<div class="bubble-user">${quoteHtml}${escaped}</div>`;
   msgs.appendChild(d);
-  wsMarkProgrammaticScroll();
+  wsMarkProgrammaticScroll(1000);
   d.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 

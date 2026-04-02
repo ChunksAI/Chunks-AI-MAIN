@@ -795,7 +795,7 @@ export function homeAppendUser(text, images = []) {
   if (firstBubble) {
     _homeProgrammaticDepth++;
     firstBubble.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTimeout(() => { _homeProgrammaticDepth = Math.max(0, _homeProgrammaticDepth - 1); }, 600);
+    setTimeout(() => { _homeProgrammaticDepth = Math.max(0, _homeProgrammaticDepth - 1); }, 1000);
   }
 }
 
@@ -1023,7 +1023,6 @@ export async function homeSendMessage() {
   const bar = document.getElementById('home-input-bar');
   const chatActive = bar && bar.style.display !== 'none';
   const inp     = document.getElementById(chatActive ? 'home-ask-input-bottom' : 'home-ask-input');
-  const sendBtn = document.getElementById(chatActive ? 'home-send-btn-bottom' : 'home-send-btn');
 
   const question  = inp.value.trim();
   // Capture image attachments before anything async clears them
@@ -1082,7 +1081,9 @@ export async function homeSendMessage() {
   const { signal } = _homeAbortController;
   homeAppendThinking(!!imageAtt);
   _thinkStart = Date.now();
-  _homeSetGenerating(sendBtn, true);
+  // Update both buttons — homeHideLanding() may have swapped which one is visible
+  _homeSetGenerating(document.getElementById('home-send-btn'), true);
+  _homeSetGenerating(document.getElementById('home-send-btn-bottom'), true);
 
   try {
     let res;
