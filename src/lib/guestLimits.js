@@ -29,6 +29,7 @@ export const GUEST_LIMITS = {
   visual:     1,
   research:   1,
   exam:       1,
+  flash:      2,
 };
 
 const STORAGE_KEY  = 'chunks_guest_usage';   // localStorage: usage counts
@@ -305,6 +306,13 @@ const FEATURE_LABELS = {
     title: 'Exam limit reached',
     desc:  `Guests can take ${GUEST_LIMITS.exam} practice exam. Sign in to take more.`,
   },
+  flash:     {
+    svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
+    color: 'var(--violet)',
+    bg:    'var(--violet-muted)',
+    title: 'Flashcard limit reached',
+    desc:  `Guests can generate ${GUEST_LIMITS.flash} flashcard decks. Sign in to create more.`,
+  },
   abuse:     {
     svg: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
     color: 'var(--text-2,#9898ae)',
@@ -429,7 +437,7 @@ export function showLoginWall(feature = 'general', opts = {}) {
 const SCREEN_PREVIEW_LABELS = {
   workspace: `You have ${GUEST_LIMITS.workspace} free workspace messages as a guest`,
   library:   `You can open ${GUEST_LIMITS.library} book as a guest`,
-  flash:     `You can explore flashcards as a guest`,
+  flash:     `You can generate ${GUEST_LIMITS.flash} flashcard decks as a guest`,
   studyplan: `You can generate ${GUEST_LIMITS.studyplan} study plan as a guest`,
   visual:    `You can run ${GUEST_LIMITS.visual} visual tutor lesson as a guest`,
   research:  `You can generate ${GUEST_LIMITS.research} research section as a guest`,
@@ -458,10 +466,15 @@ export function showGuestScreenPreview(screen) {
   const bannerId = 'guest-screen-preview-banner';
   document.getElementById(bannerId)?.remove();
 
+  // Center in the main content area, accounting for any visible sidebar
+  const sidebar = document.querySelector('.sidebar');
+  const sidebarW = (sidebar && sidebar.getBoundingClientRect().width) || 0;
+  const leftVal = sidebarW > 0 ? `calc(50% + ${Math.round(sidebarW / 2)}px)` : '50%';
+
   const banner = document.createElement('div');
   banner.id = bannerId;
   banner.style.cssText = [
-    'position:fixed;top:12px;left:50%;transform:translateX(-50%);',
+    `position:fixed;top:12px;left:${leftVal};transform:translateX(-50%);`,
     'z-index:9999;',
     'background:var(--surface-2,#171820);',
     'border:1px solid var(--border-sm,#2a2b38);',

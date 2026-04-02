@@ -11,6 +11,7 @@ import { showToast } from '../../components/Toast.js';
 import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 import { FlashcardDB } from '../../lib/flashcardDb.js';
 import { _getStudyMode } from '../../components/SettingsModal.js';
+import { guestGate, recordUsage } from '../../lib/guestLimits.js';
 
 // ── PDF upload → flashcard deck ─────────────────────────────────────────────
 
@@ -126,6 +127,8 @@ export function _aiParams(base) {
 // ── Generate from bar ───────────────────────────────────────────────────────
 
 export async function _fcGenerateFromBar() {
+  if (!guestGate('flash')) return;
+
   const topicEl = $el('fc-topic-input');
   const countEl = $el('fc-count-input');
   if (!topicEl) return;
@@ -163,6 +166,7 @@ export async function _fcGenerateFromBar() {
     const deck = await FlashcardDB.fcSaveDeck(topic, cards);
 
     topicEl.value = '';
+    recordUsage('flash');
     _fcSetGenBusy(false);
     showToast?.('✦', `${cards.length} cards created — "${topic}"`, 'var(--gold)');
 

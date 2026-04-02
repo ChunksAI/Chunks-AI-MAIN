@@ -718,9 +718,11 @@ export function clearAllHistory() {
       ).forEach(k => localStorage.removeItem(k));
 
       // ── Reset in-memory state via window bridges ──────────
-      // _recentItems is a live getter — clear via _saveRecent pattern
-      if (Array.isArray(window._recentItems)) window._recentItems.length = 0;
-      if (window._activeRecentId !== undefined) window._activeRecentId = null;
+      // _recentItems is a let in app.html (not on window) — use the dedicated
+      // bridge to wipe it; the old .length=0 approach was a no-op.
+      window._clearRecentItems?.();
+      // Use the proper bridge to deactivate the highlighted sidebar item.
+      window._setActiveRecent?.(null);
       if (window.homeHistory !== undefined)     window.homeHistory    = [];
       if (window._homeSessionId !== undefined)  window._homeSessionId = null;
       if (window._wsChatHistory !== undefined)  window._wsChatHistory = [];
