@@ -450,6 +450,9 @@ function goHome() {
   if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
 
   showScreen('home');
+
+  // Refresh the Recent Activity / Try Asking section with the latest data
+  if (typeof window._renderHomeActivities === 'function') window._renderHomeActivities();
 }
 
 function newChat() {

@@ -603,25 +603,44 @@ export function _renderHomeActivities() {
     }
   } catch (_) {}
 
-  // ── 3. Most recently studied flashcard deck ─────────────────────────────────
+  // ── 3. Most recently studied or created flashcard deck ─────────────────────
   let lastDeck = null;
   try {
+    const decks = JSON.parse(localStorage.getItem('chunks_fc_decks_v1') || '[]');
     const masteryStore = JSON.parse(localStorage.getItem('chunks_fc_mastery_v1') || '{}');
     const deckEntries = Object.entries(masteryStore);
     if (deckEntries.length > 0) {
       deckEntries.sort((a, b) => (b[1].lastStudied || '') > (a[1].lastStudied || '') ? 1 : -1);
       const [deckId, stats] = deckEntries[0];
-      const decks = JSON.parse(localStorage.getItem('chunks_fc_decks_v1') || '[]');
       const deck = decks.find(d => d.id === deckId);
       if (deck) lastDeck = { deckId, name: deck.name, pct: stats.pct || 0 };
     }
+    // Fallback: most recently created deck if none have been studied yet
+    if (!lastDeck && decks.length > 0) {
+      const sorted = decks.slice().sort((a, b) => (b.created_at || '') > (a.created_at || '') ? 1 : -1);
+      const d = sorted[0];
+      if (d?.name) lastDeck = { deckId: d.id, name: d.name, pct: 0 };
+    }
   } catch (_) {}
 
-  // ── 4. Recent chats (up to 3) ───────────────────────────────────────────────
-  const recentChats = Array.isArray(window._recentItems) ? window._recentItems.slice(0, 3) : [];
+  // ── 4. Most recent completed exam ───────────────────────────────────────────
+  let lastExam = null;
+  try {
+    const examRecent = JSON.parse(localStorage.getItem('exam_recent') || '[]');
+    if (examRecent.length > 0) {
+      const e = examRecent[0];
+      if (e.topic) lastExam = { topic: e.topic, score: e.score ?? 0, date: e.date || '' };
+    }
+  } catch (_) {}
+
+  // ── 5. Recent chats (up to 3) ───────────────────────────────────────────────
+  let _storedRecents = [];
+  try { _storedRecents = JSON.parse(localStorage.getItem('chunks_recent') || '[]'); } catch (_) {}
+  if (!Array.isArray(_storedRecents)) _storedRecents = [];
+  const recentChats = _storedRecents.slice(0, 3);
 
   // ── No activity at all → show "Try asking" for new users ───────────────────
-  if (!lastBook && !lastPlan && !lastDeck && recentChats.length === 0) {
+  if (!lastBook && !lastPlan && !lastDeck && !lastExam && recentChats.length === 0) {
     container.innerHTML = `
       <p class="prompts-label">Try asking</p>
       <div class="prompts-chips">
@@ -689,6 +708,23 @@ export function _renderHomeActivities() {
       </div>`;
   }
 
+  if (lastExam) {
+    richCards += `
+      <div class="ra-card" data-ra-action="exam">
+        <div class="ra-card-main">
+          <span class="ra-icon">📝</span>
+          <div class="ra-card-text">
+            <span class="ra-label">${_esc(lastExam.topic)}</span>
+            <span class="ra-card-meta">Exam · ${lastExam.score}%${lastExam.date ? ' · ' + _esc(lastExam.date) : ''}</span>
+          </div>
+        </div>
+        <div class="ra-card-footer">
+          <div class="ra-card-bar"><div class="ra-card-bar-fill" style="width:${lastExam.score}%;background:${_barColor(lastExam.score)};"></div></div>
+          <button class="ra-card-btn">Review →</button>
+        </div>
+      </div>`;
+  }
+
   const chatRows = recentChats.map(item => {
     const meta = _SOURCE_META[item.source] || _SOURCE_META.general;
     return `<div class="ra-item" data-recent-id="${_esc(item.id)}">
@@ -707,7 +743,7 @@ export function _renderHomeActivities() {
   container.querySelectorAll('.ra-item').forEach(el => {
     el.addEventListener('click', () => {
       const id = el.dataset.recentId;
-      const found = (window._recentItems || []).find(r => r.id === id);
+      const found = _storedRecents.find(r => r.id === id) || (window._recentItems || []).find(r => r.id === id);
       if (found && typeof window._clickRecent === 'function') window._clickRecent(found);
     });
   });
@@ -725,6 +761,8 @@ export function _renderHomeActivities() {
         setTimeout(() => { if (typeof window.spSwitchToPlan === 'function') window.spSwitchToPlan(id); }, 100);
       } else if (action === 'flash') {
         if (typeof window.showScreen === 'function') window.showScreen('flash');
+      } else if (action === 'exam') {
+        if (typeof window.showScreen === 'function') window.showScreen('exam');
       }
     });
   });
