@@ -795,7 +795,7 @@ export function homeAppendUser(text, images = []) {
   if (firstBubble) {
     _homeProgrammaticDepth++;
     firstBubble.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTimeout(() => { _homeProgrammaticDepth = Math.max(0, _homeProgrammaticDepth - 1); }, 600);
+    setTimeout(() => { _homeProgrammaticDepth = Math.max(0, _homeProgrammaticDepth - 1); }, 1000);
   }
 }
 

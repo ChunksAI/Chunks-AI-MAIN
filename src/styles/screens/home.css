@@ -21,6 +21,7 @@
 
 .home-scroll-area {
   flex: 1;
+  min-height: 0;
   width: 100%;
   overflow-y: auto;
   display: flex;
