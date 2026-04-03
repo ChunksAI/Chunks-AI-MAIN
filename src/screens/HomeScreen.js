@@ -793,9 +793,13 @@ export function homeAppendUser(text, images = []) {
     if (!firstBubble) firstBubble = textBubble;
   }
   if (firstBubble) {
-    _homeProgrammaticDepth++;
-    firstBubble.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTimeout(() => { _homeProgrammaticDepth = Math.max(0, _homeProgrammaticDepth - 1); }, 1000);
+    const area = document.getElementById('home-scroll-area');
+    if (area) {
+      _homeProgrammaticDepth++;
+      const targetTop = firstBubble.getBoundingClientRect().top - area.getBoundingClientRect().top + area.scrollTop;
+      area.scrollTo({ top: targetTop, behavior: 'smooth' });
+      setTimeout(() => { _homeProgrammaticDepth = Math.max(0, _homeProgrammaticDepth - 1); }, 1000);
+    }
   }
 }
 
