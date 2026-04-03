@@ -105,28 +105,54 @@ Rules:
         ), model=route('flashcard_complex' if count > 10 else 'flashcard_simple', complexity=5),
            endpoint='flashcards', user_id=verified_user_id)
 
-        flashcards = []
-        blocks = re.split(r'\bCARD\b', raw, flags=re.IGNORECASE)
-        for block in blocks:
-            block = block.strip()
-            if not block:
-                continue
-            front_match = re.search(r'FRONT:\s*(.+?)(?=BACK:|HINT:|$)', block, re.IGNORECASE | re.DOTALL)
-            back_match  = re.search(r'BACK:\s*(.+?)(?=HINT:|END|CARD|$)', block, re.IGNORECASE | re.DOTALL)
-            hint_match  = re.search(r'HINT:\s*(.+?)(?=END|CARD|$)', block, re.IGNORECASE | re.DOTALL)
-            if front_match and back_match:
-                front = front_match.group(1).strip().rstrip('END').strip()
-                back  = back_match.group(1).strip().rstrip('END').strip()
-                hint  = hint_match.group(1).strip().rstrip('END').strip() if hint_match else ''
+        # Strip markdown code fences that some models add (```plaintext ... ```)
+        cleaned = re.sub(r'```[a-zA-Z]*\n?', '', raw).strip()
+
+        def _parse_card_blocks(text):
+            """Parse CARD … END blocks and extract front/back/hint."""
+            cards = []
+            blocks = re.split(r'\bCARD\b', text, flags=re.IGNORECASE)
+            for block in blocks:
+                block = block.strip()
+                if not block:
+                    continue
+                front_match = re.search(r'FRONT:\s*(.+?)(?=BACK:|HINT:|END\b|$)', block, re.IGNORECASE | re.DOTALL)
+                back_match  = re.search(r'BACK:\s*(.+?)(?=HINT:|END\b|CARD\b|$)', block, re.IGNORECASE | re.DOTALL)
+                hint_match  = re.search(r'HINT:\s*(.+?)(?=END\b|CARD\b|$)', block, re.IGNORECASE | re.DOTALL)
+                if front_match and back_match:
+                    front = front_match.group(1).strip().rstrip('END').strip()
+                    back  = back_match.group(1).strip().rstrip('END').strip()
+                    hint  = hint_match.group(1).strip().rstrip('END').strip() if hint_match else ''
+                    if front and back:
+                        card = {'front': front, 'back': back}
+                        if hint:
+                            card['hint'] = hint
+                        cards.append(card)
+            return cards
+
+        flashcards = _parse_card_blocks(cleaned)
+
+        if len(flashcards) < count:
+            # Fallback 1: FRONT:/BACK: pairs without CARD markers (some models skip the delimiter)
+            fronts = list(re.finditer(r'FRONT:\s*(.+?)(?=BACK:|FRONT:|END\b|$)', cleaned, re.IGNORECASE | re.DOTALL))
+            backs  = list(re.finditer(r'BACK:\s*(.+?)(?=HINT:|FRONT:|END\b|$)', cleaned, re.IGNORECASE | re.DOTALL))
+            hints  = list(re.finditer(r'HINT:\s*(.+?)(?=FRONT:|END\b|$)', cleaned, re.IGNORECASE | re.DOTALL))
+            candidate = []
+            for i, (fm, bm) in enumerate(zip(fronts, backs)):
+                front = fm.group(1).strip().rstrip('END').strip()
+                back  = bm.group(1).strip().rstrip('END').strip()
+                hint  = hints[i].group(1).strip().rstrip('END').strip() if i < len(hints) else ''
                 if front and back:
                     card = {'front': front, 'back': back}
                     if hint:
                         card['hint'] = hint
-                    flashcards.append(card)
+                    candidate.append(card)
+            if len(candidate) > len(flashcards):
+                flashcards = candidate
 
         if not flashcards:
-            # Fallback: Q:/A: format
-            for block in re.split(r'\n(?=Q\d*[:.\s])', raw):
+            # Fallback 2: Q:/A: format
+            for block in re.split(r'\n(?=Q\d*[:.\s])', cleaned):
                 q_match = re.search(r'Q\d*[:.\s]\s*(.+?)(?=A[:.\s]\s|$)', block, re.DOTALL)
                 a_match = re.search(r'A[:.\s]\s*(.+)', block, re.DOTALL)
                 if q_match and a_match:

@@ -68,6 +68,52 @@ def test_flashcards_success_without_hints(client, monkeypatch, mock_guest_gate, 
     assert 'hint' not in data['flashcards'][0]
 
 
+def test_flashcards_markdown_fenced(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """POST /generate-flashcards succeeds when AI wraps output in markdown code fences."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+
+    ai_response = (
+        "```plaintext\n"
+        "CARD\nFRONT: What is an acid?\nBACK: A proton donor.\nHINT: Brønsted-Lowry.\nEND\n"
+        "CARD\nFRONT: What is a base?\nBACK: A proton acceptor.\nHINT: Opposite of acid.\nEND\n"
+        "```"
+    )
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value=ai_response))
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/generate-flashcards', json={'topic': 'acids and bases', 'count': 2})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['success'] is True
+    assert len(data['flashcards']) == 2
+
+
+def test_flashcards_no_card_markers(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """POST /generate-flashcards succeeds when AI omits CARD markers but uses FRONT/BACK."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+
+    ai_response = (
+        "FRONT: What is an acid?\nBACK: A proton donor.\nHINT: Brønsted-Lowry.\nEND\n"
+        "FRONT: What is a base?\nBACK: A proton acceptor.\nHINT: Opposite of acid.\nEND\n"
+    )
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value=ai_response))
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/generate-flashcards', json={'topic': 'acids and bases', 'count': 2})
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['success'] is True
+    assert len(data['flashcards']) == 2
+
+
 def test_flashcards_blueprint_registered(app):
     """The flashcards blueprint is registered with correct route."""
     rules = [r.path for r in app.routes]
