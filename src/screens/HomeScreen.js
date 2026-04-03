@@ -792,7 +792,10 @@ export function homeAppendUser(text, images = []) {
     if (!firstBubble) firstBubble = textBubble;
   }
   if (firstBubble) {
-    firstBubble.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const scrollContainer = document.getElementById('home-scroll-area');
+    if (scrollContainer) {
+      scrollContainer.scrollTop = firstBubble.getBoundingClientRect().top - scrollContainer.getBoundingClientRect().top + scrollContainer.scrollTop;
+    }
   }
 }
 
