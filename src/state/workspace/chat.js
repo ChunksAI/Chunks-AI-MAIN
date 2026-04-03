@@ -621,7 +621,8 @@ export async function wsChatSend() {
   // ── End command intercept ─────────────────────────────────────────────────
 
   // ── Canvas: push mock artifact for visual-explanation requests ──────────
-  if (_isVisualRequest(question) && window.canvas) {
+  const isVisual = _isVisualRequest(question);
+  if (isVisual && window.canvas) {
     window.canvas.setArtifact(_buildMockArtifact(question));
     wsShowPanel('canvas');
   }
@@ -633,7 +634,7 @@ export async function wsChatSend() {
   ws.chatHistory.push({ role: 'user', content: question });
   recordUsage('workspace'); // track guest usage
   renderUsageBar('ws-chat-input-area', 'workspace');
-  await _wsAsk(question);
+  await _wsAsk(question, null, isVisual);
 }
 
 /**
@@ -641,8 +642,11 @@ export async function wsChatSend() {
  * @param {{ dataUrl: string, mimeType: string }|null} [imageAtt]
  *   When provided, the request is routed to /ask-image (vision endpoint)
  *   instead of /ask, and the image is sent as base64.
+ * @param {boolean} [isVisual]
+ *   When true, overrides the mode to 'visual_tutor' so the backend returns
+ *   structured JSON, and the response is parsed to update the Canvas panel.
  */
-export async function _wsAsk(question, imageAtt = null) {
+export async function _wsAsk(question, imageAtt = null, isVisual = false) {
   ws.typing = true;
   _wsUserScrolled = false;
   _wsAbortController = new AbortController();
@@ -674,6 +678,7 @@ export async function _wsAsk(question, imageAtt = null) {
     } else {
       // ── Text path: send to /ask with optional retry on 429 ────────────────
       const body = { question, bookId: ws.bookId || 'none', mode, complexity, history: ws.chatHistory.slice(-10) };
+      if (isVisual) body.mode = 'visual_tutor';
       if (ws.webSearch)              body.web_search = true;
       if (ws.thinking === 'think')   body.thinking   = 'thinking';
       if (ws.thinking === 'deep')    body.thinking   = 'deep';
@@ -740,8 +745,51 @@ export async function _wsAsk(question, imageAtt = null) {
 
       // ── Client-side <think> extraction (safety net if backend missed it) ──
       const { answer, thinkingContent: clientThinking } = extractThinkBlock(data.answer || '');
-      const cleanAnswer     = answer || 'No response.';
       const thinkingContent = data.thinking_content || clientThinking || null;
+
+      // ── Visual mode: parse JSON artifact and update Canvas with real AI data ──
+      if (isVisual && window.canvas) {
+        let parsedArtifact = null;
+        try {
+          // Strip markdown code fences the model may have emitted despite instructions
+          const rawJson = (answer || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+          const candidate = JSON.parse(rawJson);
+          if (candidate && candidate.type === 'visual_explanation' && Array.isArray(candidate.steps)) {
+            parsedArtifact = candidate;
+          }
+        } catch (_) {
+          // JSON parse failed — canvas keeps the mock artifact shown earlier
+        }
+        if (parsedArtifact) {
+          window.canvas.setArtifact(parsedArtifact);
+          wsShowPanel('canvas');
+        }
+
+        // ThinkingAccordion finalise (if active)
+        if (!imageAtt && ws.thinking !== 'off') {
+          await _wsFinalizeThinking(thinkingContent);
+        }
+
+        // Show a brief confirmation message in chat instead of raw JSON
+        const confirmMsg = '✅ Visual explanation ready — see the Canvas tab.';
+        const aiEl = wsAppendAI('', [], question, null);
+        const textEl = aiEl?.querySelector('.ai-text');
+        if (textEl) {
+          await typewriteResponse(textEl, confirmMsg, {
+            render: typeof wsRender === 'function' ? wsRender : undefined,
+            onScroll: wsScrollBottom,
+            isCancelled: () => signal.aborted,
+          });
+        }
+        ws.chatHistory.push({ role: 'assistant', content: confirmMsg, blocks: [] });
+        if (aiEl) aiEl.dataset.histIdx = String(ws.chatHistory.length - 1);
+        if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
+        updateContext({ topic: question.slice(0, 120), screen: 'workspace' });
+        syncContextFromWorkspace();
+        return;
+      }
+
+      const cleanAnswer     = answer || 'No response.';
 
       // ── ThinkingAccordion: finalize with real steps if thinking was active ──
       // Await the step animation so the accordion collapses before the AI
