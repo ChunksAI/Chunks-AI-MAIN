@@ -422,202 +422,130 @@ let _vtpLoadingTimer  = null;   // interval for loading animation
 let _vtpLessonCache   = {};     // topic → lesson (session memory, no re-fetch)
 
 const VTP_LESSON_PROMPT = (topic) =>
-`You are the lesson engine for Chunks AI — a visual tutoring app.
-Generate a 5-step visual lesson for: "${topic}"
+`You are the lesson engine for Chunks AI, a visual tutoring app.
+Your job: generate a complete 5-step visual lesson for: "${topic}"
 
-Return ONLY raw JSON. No markdown fences, no explanation.
+THINKING PROCESS (do this mentally before writing JSON):
+1. What is the CORE mechanism or relationship in this topic?
+2. Which steps require showing CHANGE OVER TIME vs STRUCTURE vs FLOW vs COMPARISON?
+3. Pick draw types that make the concept VISIBLE, not just label it.
+4. Every step's visual should show something different from the previous one.
+
+Return ONLY valid JSON — no markdown fences, no explanation text, just the raw JSON object.
 
 {
-  "hook": "One punchy sentence — the surprising or confusing thing about this topic",
-  "summary": ["takeaway 1", "takeaway 2", "takeaway 3", "takeaway 4"],
+  "hook": "One punchy sentence — what makes this topic confusing OR why it matters",
+  "summary": ["key takeaway 1", "key takeaway 2", "key takeaway 3", "key takeaway 4"],
   "relatedTopics": ["Related concept 1", "Related concept 2", "Related concept 3"],
   "quiz": {
     "onStep": 3,
-    "q": "A specific MCQ testing the core mechanic — not a definition",
+    "q": "A specific multiple-choice question testing the core mechanism",
     "options": [
-      {"text": "correct answer — concrete and specific", "correct": true},
-      {"text": "plausible distractor", "correct": false},
-      {"text": "plausible distractor", "correct": false},
-      {"text": "plausible distractor", "correct": false}
+      {"text": "correct answer — accurate and specific", "correct": true},
+      {"text": "plausible wrong answer", "correct": false},
+      {"text": "plausible wrong answer", "correct": false},
+      {"text": "plausible wrong answer", "correct": false}
     ],
-    "feedbackRight": "✓ 1 sentence explaining WHY this is right",
-    "feedbackWrong": "✗ 1 sentence naming the common mistake + the correct idea"
+    "feedbackRight": "✓ Why this answer is correct — 1 sentence, specific to the topic",
+    "feedbackWrong": "✗ The common mistake and the right idea — 1 sentence"
   },
   "steps": [
     {
-      "label": "Step 1 — Short evocative title (not 'Introduction')",
-      "text": "<strong>One bold hook sentence.</strong> 2–3 teaching sentences. Use <em>key terms</em> inline.",
-      "simple": "Restate the idea in one plain sentence a 12-year-old would understand.",
-      "challenge": "Retrieval question testing just this step — max 12 words, ends with ?",
-      "draw": { },
+      "label": "Step 1 — Short Title",
+      "text": "<strong>Hook sentence that states the key idea.</strong> 2–3 clear educational sentences. Use <em>key terms</em> in italics.",
+      "simple": "One plain-English sentence. No jargon. Like explaining to a 12-year-old.",
+      "challenge": "One specific question testing this step's core idea? (max 12 words)",
+      "draw": { ... see draw types below ... },
       "contextualReplies": [
-        "Answer to the most likely student question about this step — specific, not generic",
-        "Answer to a second likely question",
-        "Answer to a third likely question"
+        "Direct answer to the challenge question — 2 sentences max",
+        "Answer to a likely follow-up question about this step",
+        "Another specific answer the student might need"
       ]
     }
+    // ... steps 2–5
   ]
 }
 
-═══════════════════════════════════════════════════════
-VISUAL TYPES — pick the best one per step
-═══════════════════════════════════════════════════════
+════════════════════════════════════════════════
+DRAW TYPES — pick the one that best SHOWS the concept
+════════════════════════════════════════════════
 
-━━━ "scene" — two objects with animated particles flowing between them ━━━
-Use for: heat transfer, diffusion, electrical flow, nutrient transport, data transmission,
-         inheritance, conduction, osmosis, signal propagation — ANY directional transfer.
-Rule: left = active source (emits/sends), right = passive sink (receives/absorbs).
-Labels must be SHORT and EVOCATIVE — the student should immediately picture the real thing.
+TYPE "flow" — USE FOR: sequences, pipelines, cause-and-effect chains, multi-step processes
+{"type":"flow","items":[{"label":"Stage name","sub":"1 key detail","color":"amber"}],"note":"footer takeaway"}
+2–5 items. Colors: amber, blue, teal, red, green, purple.
+EXAMPLE: digestion steps, signal transduction, assembly line, water treatment
 
-{"type":"scene",
- "left":{"label":"HOT COFFEE","sub":"T = 90°C","color":"amber"},
- "right":{"label":"ICE CUBE","sub":"T = 0°C","color":"blue"},
- "arrow":{"label":"heat (q)"},
- "note":"heat always flows hot → cold"}
+TYPE "cycle" — USE FOR: repeating loops, feedback systems, circular processes, seasons
+{"type":"cycle","items":[{"label":"Stage","sub":"detail","color":"amber"}],"center":"optional center label","note":"footer"}
+3–5 items arranged in a circle with curved arrows.
+EXAMPLE: water cycle, cell cycle, krebs cycle, economic cycles, seasons
 
-GOOD label pairs: "SUN" / "EARTH", "NEURON" / "SYNAPSE", "HIGH [P]" / "LOW [P]",
-  "LUNGS" / "BLOOD", "SERVER" / "CLIENT", "BATTERY" / "RESISTOR", "DONOR" / "ACCEPTOR"
-BAD labels (never use): "SOURCE" / "SINK", "Object A" / "Object B", "Left" / "Right"
+TYPE "compare" — USE FOR: two contrasting things, pros/cons, before/after, two competing theories
+{"type":"compare","leftLabel":"Thing A","leftPoints":["point 1","point 2","point 3"],"leftColor":"red","rightLabel":"Thing B","rightPoints":["point 1","point 2","point 3"],"rightColor":"teal","note":"footer"}
+EXAMPLE: DNA vs RNA, mitosis vs meiosis, keynesian vs classical economics
 
-━━━ "particles" — two zones of bouncing particles showing contrast in state/energy ━━━
-Use for: kinetic theory, gas pressure, diffusion, concentration gradients, osmosis,
-         brownian motion, states of matter, neural firing rates, market activity.
-Left = high-energy/fast/concentrated (large + fast). Right = low-energy/slow/sparse (small + slow).
-Labels must state the MEASURABLE quantity — not a vague descriptor.
+TYPE "scale" — USE FOR: spectrums, ranges, gradients, rankings, pH-like scales with named positions
+{"type":"scale","lowLabel":"Low end label","highLabel":"High end label","lowColor":"red","highColor":"teal","markers":[{"label":"Name","value":0.15,"sub":"detail"},{"label":"Name","value":0.5,"sub":"detail"}],"note":"footer"}
+value: 0.0 (left) to 1.0 (right). Use up to 6 markers with alternating above/below positions.
+EXAMPLE: pH scale, electromagnetic spectrum, risk spectrum, temperature scale
 
-{"type":"particles",
- "leftLabel":"HIGH CONCENTRATION","leftSub":"many solute molecules","leftColor":"amber",
- "rightLabel":"LOW CONCENTRATION","rightSub":"few solute molecules","rightColor":"teal",
- "flowLabel":"net diffusion →","note":"molecules move down their concentration gradient"}
+TYPE "mindmap" — USE FOR: definitions with multiple properties, categories radiating from one concept, taxonomy
+{"type":"mindmap","center":"Core concept","color":"amber","branches":[{"label":"Property","sub":"detail","color":"blue"}],"note":"footer"}
+3–6 branches. Great for "What IS X?" steps.
+EXAMPLE: properties of water, types of bonds, organelle functions, economic factors
 
-━━━ "graph" — animated curve drawn on labeled axes ━━━
-Use for: any mathematical relationship, growth/decay, inverse/direct proportion,
-         wave functions, market curves, reaction rates, pH curve, distance-time graphs.
-shape options: "linear" | "exponential" | "inverse" | "bell" | "sine" | "logistic" | "decay"
-annotations: 2–4 labeled points at meaningful x positions (0.0–1.0 = left to right).
+TYPE "equation" — USE FOR: formulas where understanding each symbol matters (uses sketch-style boxes)
+{"type":"equation","formula":"A = B × C","parts":[{"symbol":"A","name":"Full name","unit":"unit","color":"amber"}],"note":"plain-English meaning"}
+EXAMPLE: F=ma, E=mc², PV=nRT, GDP formula
 
-{"type":"graph",
- "xLabel":"Time (s)","yLabel":"Velocity (m/s)",
- "shape":"linear",
- "lineColor":"teal",
- "annotations":[{"x":0.15,"label":"starts slow"},{"x":0.8,"label":"constant speed"}],
- "note":"uniform acceleration = straight line on v-t graph"}
+TYPE "labeled_equation" — USE FOR: formulas where real-world examples help (uses clean monospace style + example cards)
+{"type":"labeled_equation","formula":"A = B × C","parts":[{"symbol":"A","name":"full name","sub":"(unit)","color":"amber"}],"cards":[{"label":"Example","value":"specific value","color":"amber"}],"note":"footer"}
+2–4 cards with real specific values. USE THIS over "equation" whenever you have good real-world numbers.
+EXAMPLE: q=mcΔT with water/iron/copper values, F=ma with car/feather examples
 
-━━━ "labeled_equation" — large formula, color-coded term breakdown, example cards ━━━
-Use for: ANY step introducing a formula (F=ma, PV=nRT, q=mcΔT, E=hf, v=fλ, etc.).
-Each part: symbol (as it appears in formula), name (plain English), sub (unit in brackets).
-Cards: 2–3 real examples with specific numbers — make them memorable and contrasting.
+TYPE "bullets" — USE FOR: key facts, summary lists, rules, properties when no other type fits better
+{"type":"bullets","title":"Optional heading","items":[{"icon":"→","text":"Point — keep under 55 chars"}],"color":"teal","note":"footer"}
+Max 5 items. AVOID using bullets when another type would show the concept more vividly.
 
-{"type":"labeled_equation",
- "formula":"q = m · c · ΔT",
- "parts":[
-   {"symbol":"q","name":"heat energy","sub":"(joules)","color":"amber"},
-   {"symbol":"m","name":"mass","sub":"(grams)","color":"blue"},
-   {"symbol":"c","name":"specific heat","sub":"(J/g°C)","color":"teal"},
-   {"symbol":"ΔT","name":"temp change","sub":"(°C)","color":"red"}
- ],
- "cards":[
-   {"label":"Water","value":"c = 4.18","color":"teal"},
-   {"label":"Iron","value":"c = 0.45","color":"amber"},
-   {"label":"Copper","value":"c = 0.39","color":"red"}
- ],
- "note":"high c = needs more energy to change temperature"}
+TYPE "particles" — USE FOR: any two contrasting STATES where size/speed/energy differs (bouncing animation)
+{"type":"particles","leftLabel":"State A","leftSub":"descriptor","leftColor":"amber","rightLabel":"State B","rightSub":"descriptor","rightColor":"blue","flowLabel":"what transfers","note":"takeaway"}
+Left = larger, faster particles. Right = smaller, slower.
+EXAMPLE: hot vs cold molecules, concentrated vs dilute solution, excited vs ground state atoms, high vs low pressure
 
-━━━ "scale" — gradient spectrum bar with labeled pin markers ━━━
-Use for: pH, temperature scales, electromagnetic spectrum, Richter scale, decibels,
-         geological time, economic inequality, risk levels, voltage ranges.
-Markers must have SPECIFIC, real-world examples and numeric values — never vague.
+TYPE "scene" — USE FOR: directional transfer or flow between two specific NAMED entities (animated particles flow left→right)
+{"type":"scene","left":{"label":"SOURCE","sub":"brief descriptor","color":"amber"},"right":{"label":"SINK","sub":"brief descriptor","color":"blue"},"arrow":{"label":"flow label"},"note":"takeaway"}
+Labels go INSIDE the ovals. Use for any step showing transfer between two identifiable things.
+EXAMPLE: hot coffee → cold air (heat loss), sun → plant (photosynthesis), heart → body (blood flow), neuron → neuron (signal)
 
-{"type":"scale",
- "lowLabel":"ACID (pH 0)","highLabel":"BASE (pH 14)",
- "lowColor":"red","highColor":"teal",
- "markers":[
-   {"label":"Stomach acid","value":0.14,"sub":"pH 2"},
-   {"label":"Pure water","value":0.5,"sub":"pH 7"},
-   {"label":"Baking soda","value":0.64,"sub":"pH 9"},
-   {"label":"Bleach","value":0.86,"sub":"pH 12"}
- ],
- "note":"each pH unit = 10× more acidic or basic than the last"}
+TYPE "bar_chart" — USE FOR: comparing quantities, rankings, distributions, data that shows relative magnitude
+{"type":"bar_chart","title":"Chart title","bars":[{"label":"Item","value":85,"color":"amber","sub":"optional note"}],"unit":"% or unit","note":"footer"}
+2–7 bars. values are 0–100 (relative scale, not absolute). Heights proportional.
+EXAMPLE: specific heat capacities, atomic radii, electronegativity values, country GDP, organ sizes
 
-━━━ "cycle" — circular nodes with curved arrows showing a repeating process ━━━
-Use for: cell cycle, water cycle, carbon cycle, ATP synthesis, economic cycles,
-         feedback loops, seasons, organism lifecycle, circadian rhythms, hormonal loops.
-Use 3–5 nodes. Each node: short label (the stage name) + sub (1 specific fact about it).
+TYPE "timeline" — USE FOR: historical sequence, development over time, chronological events, phases
+{"type":"timeline","title":"optional title","events":[{"year":"1905","label":"Event name","sub":"detail","color":"amber"}],"note":"footer"}
+3–6 events. year can be any label (e.g. "Phase 1", "Week 1", "1800s").
+EXAMPLE: history of atomic model, stages of mitosis by time, evolution timeline, economic history
 
-{"type":"cycle",
- "items":[
-   {"label":"G1","sub":"cell grows in size","color":"amber"},
-   {"label":"S Phase","sub":"DNA replicates","color":"blue"},
-   {"label":"G2","sub":"prepares to divide","color":"teal"},
-   {"label":"Mitosis","sub":"cell splits in two","color":"purple"}
- ],
- "center":"Cell Cycle",
- "note":"one full cycle takes ~24 hours in human cells"}
+TYPE "wave" — USE FOR: periodic phenomena, oscillations, waves, cycles that repeat with measurable properties
+{"type":"wave","title":"optional title","waves":[{"label":"Wave name","amplitude":1.0,"frequency":1.0,"color":"amber","sub":"property note"}],"note":"footer"}
+1–3 waves overlaid. amplitude: 0.3–1.5. frequency: 0.5–3.0 (relative).
+EXAMPLE: sound waves at different pitches, EM spectrum comparison, action potential, seismic waves
 
-━━━ "mindmap" — central concept radiating to labelled branches ━━━
-Use for: listing organelles/parts/types, properties of a concept, factors affecting X,
-         schools of thought, examples of a category, causes of an event.
-Each branch sub must be a SPECIFIC fact or number — not a vague adjective.
-
-{"type":"mindmap",
- "center":"Mitochondria",
- "color":"amber",
- "branches":[
-   {"label":"Powerhouse","sub":"makes 36 ATP per glucose","color":"teal"},
-   {"label":"Double membrane","sub":"inner folds called cristae","color":"blue"},
-   {"label":"Own DNA","sub":"maternally inherited","color":"purple"},
-   {"label":"Count","sub":"10–2000 per cell","color":"green"},
-   {"label":"Apoptosis","sub":"triggers programmed death","color":"red"}
- ],
- "note":"mitochondria were once free-living bacteria (endosymbiosis theory)"}
-
-━━━ "flow" — linear chain of named stages with connecting arrows ━━━
-Use for: enzyme pathways, digestion steps, signal transduction, legislative process,
-         computer program flow, historical chains of cause and effect.
-Each node must name a SPECIFIC stage — never "Step 1" or "Stage A".
-
-{"type":"flow",
- "items":[
-   {"label":"Glucose","sub":"6C starting sugar","color":"amber"},
-   {"label":"Pyruvate","sub":"2× 3C molecules","color":"teal"},
-   {"label":"Acetyl-CoA","sub":"enters Krebs cycle","color":"blue"},
-   {"label":"ATP","sub":"36 molecules net","color":"green"}
- ],
- "note":"glycolysis in cytoplasm — rest inside mitochondria"}
-
-(Use "bullets" ONLY if none of the above types fit. It is a last resort.)
-
-═══════════════════════════════════════════════════════
-SELECTION RULES — follow these exactly
-═══════════════════════════════════════════════════════
-
-PRIORITY ORDER — use the first type that genuinely fits the step concept:
-1. scene          → directional transfer between two distinct objects
-2. particles      → contrast in quantity, energy, or state across two zones
-3. graph          → any quantitative or mathematical relationship
-4. labeled_equation → any formula being introduced
-5. cycle          → any repeating or circular process
-6. scale          → any spectrum, range, or ranked measure
-7. mindmap        → any set of properties, types, or named parts
-8. flow           → any linear sequence of distinct stages
-9. bullets        → LAST RESORT only — avoid for steps 1–4
-
-BANNED PATTERNS (never do these):
-- scene labels "SOURCE" / "SINK" — always use the real-world object names
-- sub fields like "detail" or "descriptor" — always write the actual fact
-- bullets on steps 1, 2, 3, or 4 unless truly nothing else fits
-- two consecutive steps using the same draw type
-- omitting the "note" field — it must always have a one-line takeaway
-
-CONTENT QUALITY RULES:
-- "sub" fields = specific facts or numbers, never vague descriptions
-- "cards" in labeled_equation = real values (e.g. "c = 4.18"), not placeholders
-- "annotations" in graph = real-world thresholds with meaningful labels
-- scale markers = real examples with specific numeric values
-- contextualReplies = the actual tutor answer, never "that's a great question"
-- challenge question = tests a specific mechanism, not just a definition recall
-
-Generate exactly 5 steps. All content must be specific and accurate for "${topic}".`;
+════════════════════════════════════════════════
+RULES
+════════════════════════════════════════════════
+- Generate EXACTLY 5 steps.
+- No two ADJACENT steps may use the same draw type.
+- Use animated types (particles, scene) for any step showing dynamic transfer or change.
+- Use bar_chart when you have REAL comparative data (specific heat, wavelengths, etc.)
+- Use wave for ANY step about periodic phenomena — do not use bullets for this.
+- Use timeline for any historical development step.
+- Make every label, sub-label, and note SPECIFIC to "${topic}" — no generic filler.
+- contextualReplies[0] must directly answer the challenge question in 1–2 sentences.
+- quiz options must use real domain-specific terminology, not abstract placeholders.
+- challenge: retrieval-practice question, tests the CORE idea of that step, ends with ?, max 12 words.
+- relatedTopics: 3 adjacent concepts worth learning next (short names, e.g. "Le Chatelier's Principle").`;
 
 async function _vtpFetchLesson(topic) {
   // Cache hit — instant
@@ -771,16 +699,11 @@ function _vtpDrawSpec(spec) {
   const CAVEAT   = "'Caveat', cursive";
   const MONO     = "'DM Mono', 'Courier New', monospace";
 
-  // Seeded rand — same jitter on every render for same spec type.
-  // Multiplier 997 (prime) and offset 13 spread seeds across the PRNG range.
-  const TYPE_SEEDS = { flow: 1, equation: 2, compare: 3, scale: 4, bullets: 5, mindmap: 6, cycle: 7, particles: 8, scene: 9, labeled_equation: 10, graph: 11 };
-  const SEED_MULTIPLIER = 997; // prime — spreads seeds well across PRNG range
-  const SEED_OFFSET     = 13;  // small offset to avoid seed=0 for the first type
-  const _r = _vtpMakeRand((TYPE_SEEDS[spec.type] || 9) * SEED_MULTIPLIER + SEED_OFFSET);
+  const TYPE_SEEDS = { flow: 1, equation: 2, compare: 3, scale: 4, bullets: 5, mindmap: 6, cycle: 7, particles: 8, scene: 9, labeled_equation: 10, bar_chart: 11, timeline: 12, wave: 13 };
+  const _r = _vtpMakeRand((TYPE_SEEDS[spec.type] || 9) * 997 + 13);
 
-  // ── Sketch primitives ──────────────────────────────────────────────────
+  // ── Sketch primitives (identical to original) ──────────────────────────────
 
-  // Wobbly line using a single bezier curve
   function sketchLine(x1, y1, x2, y2, wobble) {
     wobble = wobble ?? 2.5;
     const dx = x2 - x1, dy = y2 - y1;
@@ -798,7 +721,6 @@ function _vtpDrawSpec(spec) {
     ctx.stroke();
   }
 
-  // Open-head hand-drawn arrow
   function sketchArrow(x1, y1, x2, y2, wobble) {
     ctx.lineCap = 'round';
     sketchLine(x1, y1, x2, y2, wobble ?? 2.5);
@@ -806,44 +728,31 @@ function _vtpDrawSpec(spec) {
     const len = 13, spread = 0.42;
     ctx.beginPath();
     ctx.moveTo(x2 + (_r() - 0.5) * 2, y2 + (_r() - 0.5) * 2);
-    ctx.lineTo(
-      x2 - len * Math.cos(angle - spread) + (_r() - 0.5) * 2,
-      y2 - len * Math.sin(angle - spread) + (_r() - 0.5) * 2
-    );
+    ctx.lineTo(x2 - len * Math.cos(angle - spread) + (_r() - 0.5) * 2, y2 - len * Math.sin(angle - spread) + (_r() - 0.5) * 2);
     ctx.stroke();
     ctx.beginPath();
     ctx.moveTo(x2 + (_r() - 0.5) * 2, y2 + (_r() - 0.5) * 2);
-    ctx.lineTo(
-      x2 - len * Math.cos(angle + spread) + (_r() - 0.5) * 2,
-      y2 - len * Math.sin(angle + spread) + (_r() - 0.5) * 2
-    );
+    ctx.lineTo(x2 - len * Math.cos(angle + spread) + (_r() - 0.5) * 2, y2 - len * Math.sin(angle + spread) + (_r() - 0.5) * 2);
     ctx.stroke();
   }
 
-  // Curved arrow along an arc (for cycle type)
   function sketchCurvedArrow(x1, y1, x2, y2, cpx, cpy) {
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(x1 + (_r() - 0.5) * 2, y1 + (_r() - 0.5) * 2);
     ctx.quadraticCurveTo(cpx, cpy, x2 + (_r() - 0.5) * 2, y2 + (_r() - 0.5) * 2);
     ctx.stroke();
-    // arrowhead
     const angle = Math.atan2(y2 - cpy, x2 - cpx);
     const len = 11, spread = 0.42;
-    ctx.beginPath();
-    ctx.moveTo(x2, y2);
-    ctx.lineTo(x2 - len * Math.cos(angle - spread), y2 - len * Math.sin(angle - spread));
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x2, y2);
-    ctx.lineTo(x2 - len * Math.cos(angle + spread), y2 - len * Math.sin(angle + spread));
-    ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - len * Math.cos(angle - spread), y2 - len * Math.sin(angle - spread)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - len * Math.cos(angle + spread), y2 - len * Math.sin(angle + spread)); ctx.stroke();
   }
 
-  // Hand-drawn box — each side drawn as a slightly wobbly line with overshoot
   function sketchBox(x, y, w, h, fillStyle, strokeStyle, wobble) {
     wobble = wobble ?? 2;
-    const ov = 3; // corner overshoot
+    const ov = 3;
     if (fillStyle) {
       const j = 1.5;
       ctx.beginPath();
@@ -856,14 +765,13 @@ function _vtpDrawSpec(spec) {
     }
     if (strokeStyle) {
       ctx.strokeStyle = strokeStyle; ctx.lineWidth = 2; ctx.lineCap = 'round';
-      sketchLine(x - ov, y + (_r() - 0.5) * wobble, x + w + ov, y + (_r() - 0.5) * wobble, wobble); // top
-      sketchLine(x + w + (_r() - 0.5) * wobble, y - ov, x + w + (_r() - 0.5) * wobble, y + h + ov, wobble); // right
-      sketchLine(x + w + ov, y + h + (_r() - 0.5) * wobble, x - ov, y + h + (_r() - 0.5) * wobble, wobble); // bottom
-      sketchLine(x + (_r() - 0.5) * wobble, y + h + ov, x + (_r() - 0.5) * wobble, y - ov, wobble); // left
+      sketchLine(x - ov, y + (_r() - 0.5) * wobble, x + w + ov, y + (_r() - 0.5) * wobble, wobble);
+      sketchLine(x + w + (_r() - 0.5) * wobble, y - ov, x + w + (_r() - 0.5) * wobble, y + h + ov, wobble);
+      sketchLine(x + w + ov, y + h + (_r() - 0.5) * wobble, x - ov, y + h + (_r() - 0.5) * wobble, wobble);
+      sketchLine(x + (_r() - 0.5) * wobble, y + h + ov, x + (_r() - 0.5) * wobble, y - ov, wobble);
     }
   }
 
-  // Hand-drawn oval — two offset half-arcs
   function sketchOval(ox, oy, rx, ry, fillStyle, strokeStyle) {
     if (fillStyle) {
       ctx.beginPath(); ctx.ellipse(ox, oy, rx, ry, 0, 0, Math.PI * 2);
@@ -883,7 +791,6 @@ function _vtpDrawSpec(spec) {
     }
   }
 
-  // Text using Caveat handwriting font
   function label(text, x, y, size, color, align, weight) {
     ctx.font = `${weight || '400'} ${size}px ${CAVEAT}`;
     ctx.fillStyle = color;
@@ -892,7 +799,6 @@ function _vtpDrawSpec(spec) {
     ctx.fillText(text, x, y);
   }
 
-  // Footnote at bottom of canvas
   function note(text) {
     if (!text) return;
     ctx.font = `400 13px ${CAVEAT}`; ctx.fillStyle = TEXT_MUT;
@@ -900,7 +806,15 @@ function _vtpDrawSpec(spec) {
     ctx.fillText(text, cx, H - 28);
   }
 
-  // ── FLOW — oval nodes with hand-drawn arrows ─────────────────────────────
+  function _animDotGrid() {
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    for (let gx = 44; gx < W; gx += 44)
+      for (let gy = 44; gy < H; gy += 44) {
+        ctx.beginPath(); ctx.arc(gx, gy, 1.3, 0, Math.PI * 2); ctx.fill();
+      }
+  }
+
+  // ── FLOW ────────────────────────────────────────────────────────────────────
   if (spec.type === 'flow') {
     const items = (spec.items || []).slice(0, 5);
     const n = items.length;
@@ -908,7 +822,6 @@ function _vtpDrawSpec(spec) {
     const RY = Math.min(38, RX * 0.58);
     const GAP = (W - 80 - n * RX * 2) / (n - 1 || 1);
     const startX = 40 + RX;
-    // Pre-compute Y positions with slight organic offset
     const posY = items.map(() => cy + (_r() - 0.5) * 22);
 
     items.forEach((item, i) => {
@@ -917,16 +830,13 @@ function _vtpDrawSpec(spec) {
       const ny = posY[i];
       draw(() => {
         ctx.lineWidth = 2; ctx.lineCap = 'round';
-        // Arrow from previous node edge to this node edge
         if (i > 0) {
           const prevNx = startX + (i - 1) * (RX * 2 + GAP);
           const prevNy = posY[i - 1];
           ctx.strokeStyle = TEXT_MUT;
           sketchArrow(prevNx + RX + 4, prevNy, nx - RX - 4, ny);
         }
-        // Oval node
         sketchOval(nx, ny, RX, RY, c.fill, c.stroke);
-        // Label text
         label(item.label || '', nx, ny - (item.sub ? 7 : 0), 14, c.text, 'center', '700');
         if (item.sub) label(item.sub, nx, ny + 11, 12, TEXT_SEC, 'center', '400');
       }, 80 + i * 140);
@@ -935,7 +845,7 @@ function _vtpDrawSpec(spec) {
     return;
   }
 
-  // ── EQUATION — large formula + sketchy part boxes ────────────────────────
+  // ── EQUATION ────────────────────────────────────────────────────────────────
   if (spec.type === 'equation') {
     const parts   = (spec.parts || []).slice(0, 4);
     const formula = spec.formula || '';
@@ -944,16 +854,13 @@ function _vtpDrawSpec(spec) {
     const gap     = Math.min(28, (W - 80 - n * BOX_W) / (n - 1 || 1));
     const startX  = (W - (n * BOX_W + (n - 1) * gap)) / 2;
 
-    // Formula written large in Caveat
     draw(() => {
       ctx.font = `700 34px ${CAVEAT}`; ctx.fillStyle = TEXT_PRI;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(formula, cx, cy - 72);
-      // Wavy underline
       ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
       const ulY = cy - 52, ulX1 = cx - 120, ulX2 = cx + 120;
-      ctx.beginPath();
-      ctx.moveTo(ulX1, ulY);
+      ctx.beginPath(); ctx.moveTo(ulX1, ulY);
       for (let x = ulX1; x <= ulX2; x += 8) {
         ctx.lineTo(x + 4, ulY + (_r() - 0.5) * 4);
         ctx.lineTo(x + 8, ulY + (_r() - 0.5) * 2);
@@ -973,13 +880,11 @@ function _vtpDrawSpec(spec) {
       }, 300 + i * 150);
     });
 
-    draw(() => {
-      if (spec.note) label(spec.note, cx, cy + 82, 14, TEXT_SEC, 'center', '400');
-    }, 300 + parts.length * 150 + 100);
+    draw(() => { if (spec.note) label(spec.note, cx, cy + 82, 14, TEXT_SEC, 'center', '400'); }, 300 + parts.length * 150 + 100);
     return;
   }
 
-  // ── COMPARE — two sketch columns with zigzag divider ─────────────────────
+  // ── COMPARE ─────────────────────────────────────────────────────────────────
   if (spec.type === 'compare') {
     const lPts = (spec.leftPoints  || []).slice(0, 4);
     const rPts = (spec.rightPoints || []).slice(0, 4);
@@ -999,7 +904,6 @@ function _vtpDrawSpec(spec) {
       });
     }, 80);
 
-    // Zigzag divider (hand-drawn feel)
     draw(() => {
       ctx.strokeStyle = 'rgba(255,255,255,0.09)'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
       const zigX = cx, zigY1 = TOP_Y, zigY2 = TOP_Y + COL_H;
@@ -1026,7 +930,7 @@ function _vtpDrawSpec(spec) {
     return;
   }
 
-  // ── SCALE — rough gradient bar with pin markers ───────────────────────────
+  // ── SCALE ───────────────────────────────────────────────────────────────────
   if (spec.type === 'scale') {
     const markers = (spec.markers || []).slice(0, 6);
     const lCol    = _vtpCol(spec.lowColor  || 'red');
@@ -1034,7 +938,6 @@ function _vtpDrawSpec(spec) {
     const BAR_X   = 64, BAR_Y = cy - 14, BAR_W = W - 128, BAR_H = 26;
 
     draw(() => {
-      // Gradient bar
       const steps = 24;
       for (let i = 0; i < steps; i++) {
         const t  = i / steps;
@@ -1050,12 +953,11 @@ function _vtpDrawSpec(spec) {
         ctx.fillStyle = `rgba(${r},${g},${b},0.24)`;
         ctx.fillRect(BAR_X + i * (BAR_W / steps), BAR_Y, BAR_W / steps + 1, BAR_H);
       }
-      // Rough border
       ctx.strokeStyle = 'rgba(255,255,255,0.13)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
-      sketchLine(BAR_X, BAR_Y + (_r() - 0.5) * 2, BAR_X + BAR_W, BAR_Y + (_r() - 0.5) * 2, 1.5); // top
-      sketchLine(BAR_X + BAR_W, BAR_Y + (_r() - 0.5) * 2, BAR_X + BAR_W, BAR_Y + BAR_H + (_r() - 0.5) * 2, 1.5); // right
-      sketchLine(BAR_X + BAR_W, BAR_Y + BAR_H + (_r() - 0.5) * 2, BAR_X, BAR_Y + BAR_H + (_r() - 0.5) * 2, 1.5); // bottom
-      sketchLine(BAR_X, BAR_Y + BAR_H + (_r() - 0.5) * 2, BAR_X, BAR_Y + (_r() - 0.5) * 2, 1.5); // left
+      sketchLine(BAR_X, BAR_Y + (_r() - 0.5) * 2, BAR_X + BAR_W, BAR_Y + (_r() - 0.5) * 2, 1.5);
+      sketchLine(BAR_X + BAR_W, BAR_Y + (_r() - 0.5) * 2, BAR_X + BAR_W, BAR_Y + BAR_H + (_r() - 0.5) * 2, 1.5);
+      sketchLine(BAR_X + BAR_W, BAR_Y + BAR_H + (_r() - 0.5) * 2, BAR_X, BAR_Y + BAR_H + (_r() - 0.5) * 2, 1.5);
+      sketchLine(BAR_X, BAR_Y + BAR_H + (_r() - 0.5) * 2, BAR_X, BAR_Y + (_r() - 0.5) * 2, 1.5);
       label(spec.lowLabel  || 'Low',  BAR_X + 2,          BAR_Y - 16, 14, lCol.text, 'left',  '600');
       label(spec.highLabel || 'High', BAR_X + BAR_W - 2,  BAR_Y - 16, 14, rCol.text, 'right', '600');
     }, 80);
@@ -1064,10 +966,8 @@ function _vtpDrawSpec(spec) {
       const x = BAR_X + (m.value || 0) * BAR_W;
       const above = i % 2 === 0;
       draw(() => {
-        // Pin stem
         ctx.strokeStyle = TEXT_PRI; ctx.lineWidth = 2; ctx.lineCap = 'round';
         sketchLine(x, BAR_Y, x, BAR_Y + BAR_H, 1);
-        // Pin head
         sketchOval(x, above ? BAR_Y - 18 : BAR_Y + BAR_H + 18, 5, 4, TEXT_PRI, null);
         label(m.label || '', x, above ? BAR_Y - 38 : BAR_Y + BAR_H + 38, 15, TEXT_PRI, 'center', '700');
         if (m.sub) label(m.sub, x, above ? BAR_Y - 22 : BAR_Y + BAR_H + 22, 12, TEXT_SEC, 'center', '400');
@@ -1078,7 +978,7 @@ function _vtpDrawSpec(spec) {
     return;
   }
 
-  // ── BULLETS — notebook-style hand-drawn items ────────────────────────────
+  // ── BULLETS ─────────────────────────────────────────────────────────────────
   if (spec.type === 'bullets') {
     const items  = (spec.items || []).slice(0, 5);
     const c      = _vtpCol(spec.color || 'teal');
@@ -1094,35 +994,30 @@ function _vtpDrawSpec(spec) {
 
     items.forEach((item, i) => {
       const by = startY + i * (ITEM_H + GAP);
-      // Slight horizontal jitter for notebook feel
       const jx = (_r() - 0.5) * 4;
       draw(() => {
-        sketchBox(startX + jx, by, BOX_W, ITEM_H, c.fill, c.stroke + '60');
-        // Hand-drawn bullet circle
-        ctx.strokeStyle = c.stroke; ctx.lineWidth = 2;
-        sketchOval(startX + jx + 20, by + ITEM_H / 2, 8, 7, c.fill, c.stroke);
-        label(item.icon || '·', startX + jx + 20, by + ITEM_H / 2, 14, c.text, 'center', '700');
-        // Item text
-        ctx.font = `400 15px ${CAVEAT}`; ctx.fillStyle = TEXT_PRI;
+        sketchBox(startX + jx, by, BOX_W, ITEM_H - 4, c.fill + '55', c.stroke + '60');
+        ctx.font = `500 15px ${CAVEAT}`; ctx.fillStyle = c.text;
         ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText((item.text || '').slice(0, 68), startX + jx + 38, by + ITEM_H / 2, BOX_W - 50);
-      }, 80 + i * 120);
+        ctx.fillText((item.icon || '→') + ' ', startX + jx + 14, by + ITEM_H / 2 - 2);
+        ctx.fillStyle = TEXT_PRI;
+        ctx.fillText((item.text || '').slice(0, 55), startX + jx + 36, by + ITEM_H / 2 - 2);
+      }, 80 + i * 110);
     });
 
-    draw(() => note(spec.note), 80 + items.length * 120 + 100);
+    draw(() => note(spec.note), 80 + items.length * 110 + 140);
     return;
   }
 
-  // ── MINDMAP — central bubble with radiating labelled branches ────────────
+  // ── MINDMAP ──────────────────────────────────────────────────────────────────
   if (spec.type === 'mindmap') {
     const branches = (spec.branches || []).slice(0, 6);
     const n        = branches.length;
-    const CX       = cx, CY = cy;
-    const INNER_R  = Math.min(60, W * 0.1);
-    const OUTER_R  = Math.min(INNER_R * 2.8, W * 0.28);
+    const INNER_R  = Math.min(62, W * 0.1);
+    const OUTER_R  = Math.min(W * 0.36, H * 0.38);
+    const CX = cx, CY = cy - 8;
     const cCol     = _vtpCol(spec.color || 'amber');
 
-    // Central bubble
     draw(() => {
       ctx.lineWidth = 2;
       sketchOval(CX, CY, INNER_R, INNER_R * 0.65, cCol.fill, cCol.stroke);
@@ -1132,13 +1027,10 @@ function _vtpDrawSpec(spec) {
     branches.forEach((b, i) => {
       const angle = (2 * Math.PI * i / n) - Math.PI / 2;
       const bCol  = _vtpCol(b.color || 'blue');
-      // Branch endpoint
       const bx = CX + Math.cos(angle) * OUTER_R;
       const by = CY + Math.sin(angle) * OUTER_R;
-      // Connection point on inner oval
       const ix = CX + Math.cos(angle) * INNER_R;
       const iy = CY + Math.sin(angle) * INNER_R * 0.65;
-      // Branch oval size
       const brx = Math.min(54, W * 0.085);
       const bry = Math.min(24, brx * 0.46);
 
@@ -1155,7 +1047,7 @@ function _vtpDrawSpec(spec) {
     return;
   }
 
-  // ── CYCLE — circular flow with curved hand-drawn arrows ──────────────────
+  // ── CYCLE ────────────────────────────────────────────────────────────────────
   if (spec.type === 'cycle') {
     const items = (spec.items || []).slice(0, 5);
     const n     = items.length;
@@ -1170,15 +1062,12 @@ function _vtpDrawSpec(spec) {
       const c  = _vtpCol(item.color || 'amber');
 
       draw(() => {
-        // Curved arrow from this node to next
         const nextAngle = (2 * Math.PI * ((i + 1) % n) / n) - Math.PI / 2;
         const ex = cx + Math.cos(nextAngle) * R;
         const ey = cy + Math.sin(nextAngle) * R;
-        // Control point slightly toward center for inward curve
         const midAngle = (angle + nextAngle) / 2;
         const cpx = cx + Math.cos(midAngle) * R * 0.6;
         const cpy = cy + Math.sin(midAngle) * R * 0.6;
-        // Adjust arrow endpoints to oval edges using actual direction between nodes
         const ddx = ex - nx, ddy = ey - ny;
         const dist = Math.hypot(ddx, ddy) || 1;
         const ux = ddx / dist, uy = ddy / dist;
@@ -1190,14 +1079,12 @@ function _vtpDrawSpec(spec) {
         ctx.strokeStyle = TEXT_MUT; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
         sketchCurvedArrow(fromX, fromY, toX, toY, cpx, cpy);
 
-        // Node oval
         sketchOval(nx, ny, NRX, NRY, c.fill, c.stroke);
         label(item.label || '', nx, ny - (item.sub ? 6 : 0), 13, c.text, 'center', '700');
         if (item.sub) label(item.sub, nx, ny + 10, 11, TEXT_SEC, 'center', '400');
       }, 80 + i * 130);
     });
 
-    // Central label
     if (spec.center) {
       draw(() => label(spec.center, cx, cy, 15, TEXT_SEC, 'center', '400'), 80 + n * 130);
     }
@@ -1205,19 +1092,7 @@ function _vtpDrawSpec(spec) {
     return;
   }
 
-  // ── Shared dot-grid painter for animated draw types ──────────────────────
-  function _animDotGrid() {
-    ctx.fillStyle = 'rgba(255,255,255,0.03)';
-    for (let gx = 44; gx < W; gx += 44)
-      for (let gy = 44; gy < H; gy += 44) {
-        ctx.beginPath(); ctx.arc(gx, gy, 1.3, 0, Math.PI * 2); ctx.fill();
-      }
-  }
-
-  // ── PARTICLES — two free zones of bouncing circles, no panel boxes ──────
-  // Left side: large, fast particles with dark halo + bright core
-  // Right side: smaller, slower particles with matching halo treatment
-  // Universal: works for any two-state contrast (energy, concentration, speed, etc.)
+  // ── PARTICLES (animated) ─────────────────────────────────────────────────────
   if (spec.type === 'particles') {
     const lCol = _vtpCol(spec.leftColor  || 'amber');
     const rCol = _vtpCol(spec.rightColor || 'blue');
@@ -1225,9 +1100,8 @@ function _vtpDrawSpec(spec) {
     const TOP  = 42;
     const BOT  = H - 36;
     const PAD  = 24;
-    const HALO = 'rgba(10,10,18,0.88)'; // neutral dark halo — works for any color
+    const HALO = 'rgba(10,10,18,0.88)';
 
-    // Left half: large, fast, halo+core particles
     const lParts = Array.from({length: 10}, () => ({
       x:  PAD + _r() * (HALF - PAD - 20),
       y:  TOP + 18 + _r() * (BOT - TOP - 36),
@@ -1237,7 +1111,6 @@ function _vtpDrawSpec(spec) {
     }));
     lParts.forEach(p => { p.ir = p.r * 0.38 + 2; });
 
-    // Right half: smaller, slower, halo+core particles (same visual language, less energy)
     const rParts = Array.from({length: 13}, () => ({
       x:  HALF + 20 + _r() * (W - HALF - PAD - 20),
       y:  TOP + 18 + _r() * (BOT - TOP - 36),
@@ -1251,7 +1124,6 @@ function _vtpDrawSpec(spec) {
       ctx.clearRect(0, 0, W, H);
       _animDotGrid();
 
-      // Subtle vertical center divider
       ctx.save();
       ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
       ctx.setLineDash([4, 6]);
@@ -1259,7 +1131,6 @@ function _vtpDrawSpec(spec) {
       ctx.setLineDash([]);
       ctx.restore();
 
-      // Labels at top of each half
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = `600 14px ${MONO}`; ctx.fillStyle = lCol.text;
       ctx.fillText(spec.leftLabel || 'State A', HALF * 0.45, TOP - 16);
@@ -1274,7 +1145,6 @@ function _vtpDrawSpec(spec) {
         ctx.fillText(spec.rightSub, HALF + HALF * 0.55, TOP - 2);
       }
 
-      // Left particles — large outer dark ring + bright colored core
       lParts.forEach(p => {
         p.x += p.vx; p.y += p.vy;
         if (p.x - p.r < PAD)         { p.vx =  Math.abs(p.vx); }
@@ -1287,7 +1157,6 @@ function _vtpDrawSpec(spec) {
         ctx.fillStyle = lCol.stroke; ctx.fill();
       });
 
-      // Right particles — smaller outer dark ring + bright colored core
       rParts.forEach(p => {
         p.x += p.vx; p.y += p.vy;
         if (p.x - p.r < HALF + 10)   { p.vx =  Math.abs(p.vx); }
@@ -1300,7 +1169,6 @@ function _vtpDrawSpec(spec) {
         ctx.fillStyle = rCol.stroke; ctx.fill();
       });
 
-      // Arrow + flow label crossing the center divider
       const arY = cy + 12;
       ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(HALF - 30, arY); ctx.lineTo(HALF + 22, arY); ctx.stroke();
@@ -1313,26 +1181,18 @@ function _vtpDrawSpec(spec) {
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(spec.flowLabel, HALF, arY + 17);
       }
-
-      // Note at bottom
       if (spec.note) {
         ctx.font = `400 13px ${MONO}`; ctx.fillStyle = TEXT_MUT;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(spec.note, cx, BOT + 20);
       }
-
       _vtpAnimFrame = requestAnimationFrame(_drawParticlesFrame);
     }
-
     _drawParticlesFrame();
     return;
   }
 
-  // ── SCENE — two labeled objects with animated particle flow between them ────
-  // Universal: works for physics, biology, economics, computing, any domain.
-  // Source (left): large oval with orbiting activity dots showing it emits/transfers.
-  // Sink (right): large oval, passive.
-  // Flow: large halo+core particles travel left→right between the objects.
+  // ── SCENE (animated) ─────────────────────────────────────────────────────────
   if (spec.type === 'scene') {
     const lSpec  = spec.left  || {};
     const rSpec  = spec.right || {};
@@ -1340,18 +1200,14 @@ function _vtpDrawSpec(spec) {
     const lCol   = _vtpCol(lSpec.color || 'amber');
     const rCol   = _vtpCol(rSpec.color || 'blue');
 
-    // Object sizing and positioning
     const OBJ_RX = Math.min(W * 0.12, 70);
     const OBJ_RY = Math.min(H * 0.25, 58);
     const LCX    = W * 0.14 + OBJ_RX;
     const RCX    = W - W * 0.14 - OBJ_RX;
     const ICY    = cy;
-
-    // Particle zone between the two objects
     const PZ_X1  = LCX + OBJ_RX + 10;
     const PZ_X2  = RCX - OBJ_RX - 10;
 
-    // Large flowing particles — neutral dark halo + colored bright core
     const flowParts = Array.from({length: 7}, () => ({
       x:     PZ_X1 + (PZ_X2 - PZ_X1) * (_r() * 0.88),
       yOff:  (_r() - 0.5) * 44,
@@ -1360,7 +1216,6 @@ function _vtpDrawSpec(spec) {
       speed: 0.9 + _r() * 1.4,
     }));
 
-    // Orbiting activity dots on source object (show it actively emits/transfers)
     const ORBIT_N = 3;
     let _orbitPhase = 0;
 
@@ -1369,7 +1224,6 @@ function _vtpDrawSpec(spec) {
       _animDotGrid();
       _orbitPhase += 0.028;
 
-      // Arrow spanning above both objects with flow label
       const arX1   = LCX + OBJ_RX + 14;
       const arX2   = RCX - OBJ_RX - 14;
       const arrowY = ICY - OBJ_RY - 24;
@@ -1385,7 +1239,6 @@ function _vtpDrawSpec(spec) {
         ctx.fillText(arSpec.label, (arX1 + arX2) / 2, arrowY - 14);
       }
 
-      // Flowing particles (drawn before objects so objects render on top)
       flowParts.forEach(p => {
         p.x += p.speed;
         if (p.x > PZ_X2 + p.r + 6) p.x = PZ_X1 - p.r;
@@ -1396,12 +1249,10 @@ function _vtpDrawSpec(spec) {
         ctx.fillStyle = lCol.stroke; ctx.fill();
       });
 
-      // Draw objects as hand-drawn ovals with label inside
       ctx.lineWidth = 2.5;
       sketchOval(LCX, ICY, OBJ_RX, OBJ_RY, lCol.fill, lCol.stroke);
       sketchOval(RCX, ICY, OBJ_RX * 0.88, OBJ_RY * 0.88, rCol.fill, rCol.stroke);
 
-      // Orbiting activity dots on source (universal: energy, signal, output)
       for (let d = 0; d < ORBIT_N; d++) {
         const a = _orbitPhase + (2 * Math.PI * d / ORBIT_N);
         const dx = LCX + Math.cos(a) * (OBJ_RX + 14);
@@ -1410,7 +1261,6 @@ function _vtpDrawSpec(spec) {
         ctx.fillStyle = lCol.stroke; ctx.fill();
       }
 
-      // Labels inside objects
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = `700 13px ${MONO}`; ctx.fillStyle = lCol.text;
       ctx.fillText(lSpec.label || '', LCX, ICY - (lSpec.sub ? 8 : 0));
@@ -1424,22 +1274,18 @@ function _vtpDrawSpec(spec) {
         ctx.font = `400 11px ${MONO}`; ctx.fillStyle = TEXT_SEC;
         ctx.fillText(rSpec.sub, RCX, ICY + 10);
       }
-
-      // Note
       if (spec.note) {
         ctx.font = `400 13px ${MONO}`; ctx.fillStyle = TEXT_MUT;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(spec.note, cx, H - 18);
       }
-
       _vtpAnimFrame = requestAnimationFrame(_drawSceneFrame);
     }
-
     _drawSceneFrame();
     return;
   }
 
-  // ── LABELED_EQUATION — large formula + downward arrows + color labels + cards
+  // ── LABELED_EQUATION ─────────────────────────────────────────────────────────
   if (spec.type === 'labeled_equation') {
     const parts   = (spec.parts  || []).slice(0, 5);
     const cards   = (spec.cards  || []).slice(0, 4);
@@ -1457,32 +1303,26 @@ function _vtpDrawSpec(spec) {
     const spacing = Math.min(130, (W - 60) / n);
     const startX  = cx - (n - 1) * spacing / 2;
 
-    // Formula
     draw(() => {
       ctx.font = `600 38px ${MONO}`; ctx.fillStyle = TEXT_PRI;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(formula, cx, FORM_Y);
     }, 60);
 
-    // Per-part arrows and labels
     parts.forEach((p, i) => {
       const c = _vtpCol(p.color || 'amber');
       const px = startX + i * spacing;
       draw(() => {
-        // Colored vertical arrow pointing down
         ctx.strokeStyle = c.stroke; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(px, ARROW_Y1); ctx.lineTo(px, ARROW_Y2); ctx.stroke();
-        // Arrowhead
         const AL = 9;
         ctx.beginPath(); ctx.moveTo(px, ARROW_Y2);
         ctx.lineTo(px - AL * 0.5, ARROW_Y2 - AL); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(px, ARROW_Y2);
         ctx.lineTo(px + AL * 0.5, ARROW_Y2 - AL); ctx.stroke();
-        // Name
         ctx.font = `500 13px ${MONO}`; ctx.fillStyle = c.text;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText((p.name || '').slice(0, 20), px, LABEL_Y);
-        // Sub / unit
         if (p.sub) {
           ctx.font = `400 11px ${MONO}`; ctx.fillStyle = TEXT_SEC;
           ctx.fillText(p.sub, px, SUB_Y);
@@ -1490,7 +1330,6 @@ function _vtpDrawSpec(spec) {
       }, 200 + i * 140);
     });
 
-    // Example cards at bottom
     if (hasCards) {
       const CARD_W = Math.min(110, (W - 60) / cards.length - 8);
       const cardTotalW = cards.length * CARD_W + (cards.length - 1) * 10;
@@ -1499,7 +1338,6 @@ function _vtpDrawSpec(spec) {
         const c  = _vtpCol(card.color || 'teal');
         const cx2 = cardStartX + i * (CARD_W + 10);
         draw(() => {
-          // Card: transparent fill, colored border only (matches reference)
           ctx.fillStyle = 'rgba(0,0,0,0)';
           ctx.strokeStyle = c.stroke; ctx.lineWidth = 2;
           ctx.fillRect(cx2, CARD_Y, CARD_W, CARD_H);
@@ -1513,7 +1351,6 @@ function _vtpDrawSpec(spec) {
       });
     }
 
-    // Note
     draw(() => {
       if (spec.note) {
         ctx.font = `400 13px ${MONO}`; ctx.fillStyle = TEXT_MUT;
@@ -1524,185 +1361,297 @@ function _vtpDrawSpec(spec) {
     return;
   }
 
-  // ── GRAPH — animated curve drawn on clean axes ───────────────────────────
-  // Shapes: linear | exponential | inverse | bell | sine | logistic | decay
-  // Annotations: labeled vertical pins at x positions (0.0–1.0)
-  if (spec.type === 'graph') {
-    const shape       = spec.shape       || 'linear';
-    const xLabel      = spec.xLabel      || 'x';
-    const yLabel      = spec.yLabel      || 'y';
-    const annotations = (spec.annotations || []).slice(0, 4);
-    const lineColName = spec.lineColor   || 'teal';
-    const lCol        = _vtpCol(lineColName);
+  // ── BAR_CHART — animated vertical bars with value labels ─────────────────────
+  // NEW TYPE: use for comparative data (specific heat, sizes, amounts, rankings)
+  if (spec.type === 'bar_chart') {
+    const bars  = (spec.bars || []).slice(0, 7);
+    const n     = bars.length;
+    const title = spec.title || '';
+    const unit  = spec.unit  || '';
 
-    // Layout
-    const PAD_L = 58, PAD_R = 28, PAD_T = 32, PAD_B = 52;
-    const AX_X1 = PAD_L, AX_X2 = W - PAD_R;
-    const AX_Y1 = PAD_T, AX_Y2 = H - PAD_B;
-    const AX_W  = AX_X2 - AX_X1;
-    const AX_H  = AX_Y2 - AX_Y1;
+    const CHART_TOP  = 44;
+    const CHART_BOT  = H - 64;
+    const CHART_H    = CHART_BOT - CHART_TOP;
+    const TOTAL_W    = W - 80;
+    const BAR_W      = Math.min(58, (TOTAL_W / n) * 0.62);
+    const GAP        = (TOTAL_W - n * BAR_W) / (n + 1);
+    const START_X    = 40 + GAP;
 
-    // Curve function — maps t (0..1) → y (0..1), upward = higher y value
-    function curveFn(t) {
-      switch (shape) {
-        case 'exponential': return Math.min(1, (Math.exp(t * 3.5) - 1) / (Math.exp(3.5) - 1));
-        case 'decay':       return Math.exp(-t * 3.5);
-        case 'inverse':     return Math.min(1, 0.08 / Math.max(0.001, t));
-        case 'bell':        return Math.exp(-Math.pow((t - 0.5) * 4, 2));
-        case 'sine':        return 0.5 + 0.48 * Math.sin(t * Math.PI * 2);
-        case 'logistic':    return 1 / (1 + Math.exp(-10 * (t - 0.5)));
-        default:            return t; // linear
-      }
-    }
-
-    // Convert curve coords to canvas coords
-    function toCanvas(t, v) {
-      return { x: AX_X1 + t * AX_W, y: AX_Y2 - v * AX_H };
-    }
-
-    // Build full path points
-    const N = 120;
-    const pts = [];
-    for (let i = 0; i <= N; i++) {
-      const t = i / N;
-      pts.push(toCanvas(t, curveFn(t)));
-    }
-
-    // Animation state
-    let _graphProgress = 0;
-    const DRAW_SPEED   = 0.012; // fraction of curve drawn per frame
-
-    function _drawGraphFrame() {
-      ctx.clearRect(0, 0, W, H);
-      _animDotGrid();
-
-      // ── Axes ──
-      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-      ctx.lineWidth   = 1.5;
-      ctx.lineCap     = 'round';
-
-      // Y axis
-      ctx.beginPath(); ctx.moveTo(AX_X1, AX_Y1 - 6); ctx.lineTo(AX_X1, AX_Y2 + 4); ctx.stroke();
-      // X axis
-      ctx.beginPath(); ctx.moveTo(AX_X1 - 4, AX_Y2); ctx.lineTo(AX_X2 + 6, AX_Y2); ctx.stroke();
-
-      // Axis arrowheads
-      ctx.fillStyle = 'rgba(255,255,255,0.18)';
-      // Y arrowhead (pointing up)
-      ctx.beginPath();
-      ctx.moveTo(AX_X1, AX_Y1 - 8);
-      ctx.lineTo(AX_X1 - 4, AX_Y1 + 2);
-      ctx.lineTo(AX_X1 + 4, AX_Y1 + 2);
-      ctx.closePath(); ctx.fill();
-      // X arrowhead (pointing right)
-      ctx.beginPath();
-      ctx.moveTo(AX_X2 + 8, AX_Y2);
-      ctx.lineTo(AX_X2 - 2, AX_Y2 - 4);
-      ctx.lineTo(AX_X2 - 2, AX_Y2 + 4);
-      ctx.closePath(); ctx.fill();
-
-      // Axis labels
-      ctx.font = `500 12px ${MONO}`; ctx.fillStyle = TEXT_SEC; ctx.textBaseline = 'middle';
-      // Y label — rotated
-      ctx.save();
-      ctx.translate(14, AX_Y1 + AX_H / 2);
-      ctx.rotate(-Math.PI / 2);
-      ctx.textAlign = 'center';
-      ctx.fillText(yLabel.slice(0, 22), 0, 0);
-      ctx.restore();
-      // X label
-      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(xLabel.slice(0, 28), AX_X1 + AX_W / 2, AX_Y2 + 10);
-
-      // ── Grid lines (subtle) ──
-      ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
-      [0.25, 0.5, 0.75].forEach(t => {
-        const gx = AX_X1 + t * AX_W;
-        const gy = AX_Y2 - t * AX_H;
-        ctx.beginPath(); ctx.moveTo(gx, AX_Y1); ctx.lineTo(gx, AX_Y2); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(AX_X1, gy); ctx.lineTo(AX_X2, gy); ctx.stroke();
-      });
-
-      // ── Animated curve ──
-      if (_graphProgress < 1) _graphProgress = Math.min(1, _graphProgress + DRAW_SPEED);
-      const visiblePts = pts.slice(0, Math.max(2, Math.floor(_graphProgress * pts.length)));
-
-      // Glow pass (wider, transparent)
-      ctx.beginPath();
-      ctx.moveTo(visiblePts[0].x, visiblePts[0].y);
-      visiblePts.forEach(p => ctx.lineTo(p.x, p.y));
-      ctx.strokeStyle = lCol.stroke.replace(')', ', 0.18)').replace('rgb', 'rgba');
-      ctx.lineWidth = 8; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.stroke();
-
-      // Main curve
-      ctx.beginPath();
-      ctx.moveTo(visiblePts[0].x, visiblePts[0].y);
-      visiblePts.forEach(p => ctx.lineTo(p.x, p.y));
-      ctx.strokeStyle = lCol.stroke;
-      ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-      ctx.stroke();
-
-      // Leading dot (bright head of the curve while drawing)
-      if (_graphProgress < 1) {
-        const tip = visiblePts[visiblePts.length - 1];
-        ctx.beginPath(); ctx.arc(tip.x, tip.y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = lCol.stroke; ctx.fill();
-      }
-
-      // ── Annotations — fade in after curve reaches their x position ──
-      annotations.forEach((ann, i) => {
-        const xFrac = Math.max(0, Math.min(1, ann.x || 0));
-        if (_graphProgress < xFrac + 0.05) return; // wait until curve passes this point
-        const fade = Math.min(1, (_graphProgress - xFrac - 0.05) / 0.08);
-        const cp   = toCanvas(xFrac, curveFn(xFrac));
-        const above = i % 2 === 0; // alternate above/below to avoid overlap
-
-        ctx.save();
-        ctx.globalAlpha = fade;
-
-        // Vertical dashed pin
-        ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 1;
-        ctx.setLineDash([3, 4]);
-        ctx.beginPath();
-        ctx.moveTo(cp.x, AX_Y2);
-        ctx.lineTo(cp.x, cp.y + (above ? 6 : -6));
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Dot at curve point
-        ctx.beginPath(); ctx.arc(cp.x, cp.y, 4.5, 0, Math.PI * 2);
-        ctx.fillStyle = lCol.stroke; ctx.fill();
-
-        // Label
-        const lblY = above ? cp.y - 18 : cp.y + 18;
-        ctx.font = `500 11px ${MONO}`; ctx.fillStyle = lCol.text;
+    // Draw title
+    if (title) {
+      draw(() => {
+        ctx.font = `600 15px ${MONO}`; ctx.fillStyle = TEXT_SEC;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText((ann.label || '').slice(0, 22), cp.x, lblY);
-
-        ctx.restore();
-      });
-
-      // ── Note at bottom ──
-      if (spec.note) {
-        ctx.font = `400 12px ${MONO}`; ctx.fillStyle = TEXT_MUT;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(spec.note, cx, H - 14);
-      }
-
-      _vtpAnimFrame = requestAnimationFrame(_drawGraphFrame);
+        ctx.fillText(title, cx, 22);
+      }, 60);
     }
 
-    _drawGraphFrame();
+    // Draw baseline
+    draw(() => {
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+      sketchLine(36, CHART_BOT, W - 36, CHART_BOT, 1);
+    }, 80);
+
+    // Animated bars — grow from bottom
+    const maxVal = Math.max(...bars.map(b => b.value || 1), 1);
+
+    bars.forEach((bar, i) => {
+      const c    = _vtpCol(bar.color || 'teal');
+      const bx   = START_X + i * (BAR_W + GAP);
+      const pct  = (bar.value || 0) / maxVal;
+      const fullH = Math.round(pct * CHART_H * 0.88);
+
+      draw(() => {
+        // Animated fill using rAF-based growth
+        let progress = 0;
+        const speed  = 0.055;
+        function growBar() {
+          progress = Math.min(1, progress + speed);
+          const bh = Math.round(fullH * progress);
+          const by = CHART_BOT - bh;
+          ctx.clearRect(bx - 2, CHART_TOP - 10, BAR_W + 4, CHART_H + 20);
+
+          // Bar fill
+          ctx.fillStyle = c.fill;
+          ctx.fillRect(bx, by, BAR_W, bh);
+          // Bar top accent stripe
+          ctx.fillStyle = c.stroke;
+          ctx.fillRect(bx, by, BAR_W, Math.min(3, bh));
+          // Bar border
+          ctx.strokeStyle = c.stroke; ctx.lineWidth = 1.5;
+          ctx.strokeRect(bx, by, BAR_W, bh);
+
+          // Value label at top of bar
+          if (progress >= 0.95) {
+            ctx.font = `600 12px ${MONO}`; ctx.fillStyle = c.text;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+            const valLabel = (bar.value || '') + (unit ? ' ' + unit : '');
+            ctx.fillText(valLabel, bx + BAR_W / 2, by - 4);
+          }
+
+          if (progress < 1) requestAnimationFrame(growBar);
+        }
+        growBar();
+
+        // Bar label below baseline
+        ctx.font = `500 11px ${MONO}`; ctx.fillStyle = TEXT_PRI;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+        ctx.fillText((bar.label || '').slice(0, 10), bx + BAR_W / 2, CHART_BOT + 6);
+        if (bar.sub) {
+          ctx.font = `400 10px ${MONO}`; ctx.fillStyle = TEXT_MUT;
+          ctx.fillText((bar.sub || '').slice(0, 12), bx + BAR_W / 2, CHART_BOT + 19);
+        }
+      }, 100 + i * 80);
+    });
+
+    draw(() => note(spec.note), 100 + n * 80 + 200);
     return;
   }
 
-  // ── GENERIC FALLBACK ─────────────────────────────────────────────────────
+  // ── TIMELINE — horizontal with staggered reveal ───────────────────────────────
+  // NEW TYPE: use for historical development, phases, chronological events
+  if (spec.type === 'timeline') {
+    const events = (spec.events || []).slice(0, 6);
+    const n      = events.length;
+    const title  = spec.title || '';
+
+    const LINE_Y  = cy - 8;
+    const LINE_X1 = 48;
+    const LINE_X2 = W - 48;
+    const spacing = (LINE_X2 - LINE_X1) / (n - 1 || 1);
+
+    // Title
+    if (title) {
+      draw(() => {
+        ctx.font = `600 15px ${MONO}`; ctx.fillStyle = TEXT_SEC;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(title, cx, 22);
+      }, 40);
+    }
+
+    // Spine line
+    draw(() => {
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      sketchLine(LINE_X1, LINE_Y, LINE_X2, LINE_Y, 1.5);
+    }, 60);
+
+    events.forEach((ev, i) => {
+      const c    = _vtpCol(ev.color || 'amber');
+      const ex   = LINE_X1 + i * spacing;
+      const above = i % 2 === 0;
+      const stemY1 = above ? LINE_Y - 14 : LINE_Y + 14;
+      const textY  = above ? LINE_Y - 58 : LINE_Y + 58;
+      const yearY  = above ? LINE_Y - 32 : LINE_Y + 32;
+
+      draw(() => {
+        // Dot on the spine
+        ctx.beginPath(); ctx.arc(ex, LINE_Y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = c.stroke; ctx.fill();
+        ctx.beginPath(); ctx.arc(ex, LINE_Y, 3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(10,10,18,0.9)'; ctx.fill();
+
+        // Stem
+        ctx.strokeStyle = c.stroke + '90'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+        sketchLine(ex, LINE_Y, ex, stemY1, 1);
+
+        // Year / phase label
+        ctx.font = `700 12px ${MONO}`; ctx.fillStyle = c.text;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText((ev.year || '').slice(0, 10), ex, yearY);
+
+        // Event name
+        ctx.font = `500 13px ${CAVEAT}`; ctx.fillStyle = TEXT_PRI;
+        ctx.fillText((ev.label || '').slice(0, 18), ex, textY);
+
+        // Sub detail
+        if (ev.sub) {
+          ctx.font = `400 11px ${CAVEAT}`; ctx.fillStyle = TEXT_SEC;
+          const subY = above ? textY + 16 : textY - 16;
+          ctx.fillText((ev.sub || '').slice(0, 20), ex, subY);
+        }
+      }, 80 + i * 130);
+    });
+
+    draw(() => note(spec.note), 80 + n * 130 + 160);
+    return;
+  }
+
+  // ── WAVE — overlaid animated sine waves ──────────────────────────────────────
+  // NEW TYPE: use for any periodic phenomena (sound, light, action potential, etc.)
+  if (spec.type === 'wave') {
+    const waves = (spec.waves || []).slice(0, 3);
+    const title = spec.title || '';
+
+    const WAVE_Y = cy;
+    const PAD    = 48;
+    const WAVE_W = W - PAD * 2;
+
+    // Title
+    if (title) {
+      draw(() => {
+        ctx.font = `600 15px ${MONO}`; ctx.fillStyle = TEXT_SEC;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(title, cx, 22);
+      }, 40);
+    }
+
+    // Axes
+    draw(() => {
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1; ctx.lineCap = 'round';
+      // X axis
+      ctx.beginPath(); ctx.moveTo(PAD, WAVE_Y); ctx.lineTo(W - PAD, WAVE_Y); ctx.stroke();
+      // Y axis
+      ctx.beginPath(); ctx.moveTo(PAD, cy - 80); ctx.lineTo(PAD, cy + 80); ctx.stroke();
+    }, 60);
+
+    // Legend
+    draw(() => {
+      waves.forEach((w, i) => {
+        const c = _vtpCol(w.color || (i === 0 ? 'amber' : i === 1 ? 'teal' : 'purple'));
+        const ly = H - 48 + i * 0;  // stack if needed
+        const legendX = PAD + i * Math.floor((W - PAD * 2) / waves.length);
+        ctx.strokeStyle = c.stroke; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(legendX, H - 42); ctx.lineTo(legendX + 20, H - 42); ctx.stroke();
+        ctx.font = `500 12px ${MONO}`; ctx.fillStyle = c.text;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText((w.label || '').slice(0, 18), legendX + 26, H - 42);
+        if (w.sub) {
+          ctx.font = `400 10px ${MONO}`; ctx.fillStyle = TEXT_MUT;
+          ctx.fillText(w.sub, legendX + 26, H - 28);
+        }
+      });
+    }, 80);
+
+    // Animated wave drawing
+    let _wavePhase = 0;
+    function _drawWaveFrame() {
+      ctx.clearRect(0, 0, W, H);
+      _animDotGrid();
+
+      // Redraw title + axes
+      if (title) {
+        ctx.font = `600 15px ${MONO}`; ctx.fillStyle = TEXT_SEC;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(title, cx, 22);
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(PAD, WAVE_Y); ctx.lineTo(W - PAD, WAVE_Y); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(PAD, cy - 90); ctx.lineTo(PAD, cy + 90); ctx.stroke();
+
+      // Draw each wave
+      waves.forEach((w, wi) => {
+        const c    = _vtpCol(w.color || (wi === 0 ? 'amber' : wi === 1 ? 'teal' : 'purple'));
+        const amp  = (w.amplitude  || 1.0) * 55;
+        const freq = (w.frequency  || 1.0);
+        const phase = _wavePhase + wi * 0.5;
+
+        ctx.strokeStyle = c.stroke;
+        ctx.lineWidth   = wi === 0 ? 2.5 : 1.8;
+        ctx.lineCap     = 'round';
+        ctx.globalAlpha = wi === 0 ? 1.0 : 0.65;
+
+        ctx.beginPath();
+        for (let px = 0; px <= WAVE_W; px += 2) {
+          const x = PAD + px;
+          const y = WAVE_Y + amp * Math.sin((px / WAVE_W) * freq * Math.PI * 2 + phase);
+          if (px === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        // Amplitude marker on first cycle
+        if (wi === 0) {
+          const peakX = PAD + WAVE_W / (freq * 4);
+          const peakY = WAVE_Y - amp;
+          ctx.strokeStyle = c.stroke + '50'; ctx.lineWidth = 1;
+          ctx.setLineDash([3, 4]);
+          ctx.beginPath(); ctx.moveTo(peakX, WAVE_Y); ctx.lineTo(peakX, peakY); ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.font = `400 10px ${MONO}`; ctx.fillStyle = c.text;
+          ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+          ctx.fillText('A', peakX + 4, peakY + 6);
+        }
+      });
+
+      // Legend
+      waves.forEach((w, i) => {
+        const c = _vtpCol(w.color || (i === 0 ? 'amber' : i === 1 ? 'teal' : 'purple'));
+        const legendX = PAD + i * Math.floor((W - PAD * 2) / Math.max(waves.length, 1));
+        ctx.strokeStyle = c.stroke; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(legendX, H - 42); ctx.lineTo(legendX + 20, H - 42); ctx.stroke();
+        ctx.font = `500 12px ${MONO}`; ctx.fillStyle = c.text;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText((w.label || '').slice(0, 18), legendX + 26, H - 42);
+        if (w.sub) {
+          ctx.font = `400 10px ${MONO}`; ctx.fillStyle = TEXT_MUT;
+          ctx.fillText(w.sub, legendX + 26, H - 28);
+        }
+      });
+
+      if (spec.note) {
+        ctx.font = `400 12px ${MONO}`; ctx.fillStyle = TEXT_MUT;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(spec.note, cx, H - 10);
+      }
+
+      _wavePhase += 0.03;
+      _vtpAnimFrame = requestAnimationFrame(_drawWaveFrame);
+    }
+    _drawWaveFrame();
+    return;
+  }
+
+  // ── GENERIC FALLBACK ─────────────────────────────────────────────────────────
   draw(() => {
-    sketchBox(cx - 138, cy - 50, 276, 100, 'rgba(232,172,46,0.07)', '#e8ac2e');
-    label(_vtpCurrentTopic, cx, cy - 10, 20, TEXT_PRI, 'center', '700');
-    label(`Step ${_vtpStepIdx + 1} of ${_vtpTotalSteps}`, cx, cy + 16, 14, TEXT_SEC);
-  }, 160);
+    ctx.font = `600 18px ${MONO}`; ctx.fillStyle = TEXT_SEC;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(spec.type || 'Visual', cx, cy - 20);
+    if (spec.note) {
+      ctx.font = `400 14px ${MONO}`; ctx.fillStyle = TEXT_MUT;
+      ctx.fillText(spec.note, cx, cy + 20);
+    }
+  }, 60);
 }
 
 
