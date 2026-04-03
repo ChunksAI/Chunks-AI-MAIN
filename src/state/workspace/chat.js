@@ -411,6 +411,9 @@ export function _wsRenderMessageFromBlocks(msgId, blocks, bookName) {
           <button class="msg-act ws-read-aloud-btn" aria-pressed="false" onclick="wsReadAloud(document.querySelector('#${msgId} .ai-text')?.innerText||'','${msgId}')">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg> Read
           </button>
+          <button class="msg-act msg-act--canvas" id="cvs-btn-${msgId}" onclick="wsSendToCanvas(this, \`${safeQ}\`)">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg> Visualize
+          </button>
           ${jumpToPageHtml}
           ${searchModeBadge}
         </div>
@@ -850,6 +853,104 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
     _wsAbortController = null;
     _wsSetGenerating(false);
   }
+}
+
+// ── Send to Canvas ────────────────────────────────────────────────────────
+
+/**
+ * Convert a chat response into a visual Canvas artifact.
+ *
+ * Called from the "Visualize" action button on AI messages.  Sends the
+ * original question to the backend's visual_tutor mode and routes the
+ * resulting structured artifact to the Canvas panel.
+ *
+ * @param {HTMLElement} btn      - The clicked button (used for loading state)
+ * @param {string}      question - The original question that produced the response
+ */
+export async function wsSendToCanvas(btn, question) {
+  if (!question) {
+    if (typeof window.wsShowToast === 'function') {
+      window.wsShowToast('No question available to visualize.');
+    }
+    return;
+  }
+
+  // ── Require Canvas panel ─────────────────────────────────────────────────
+  if (!window.canvas) {
+    if (typeof window.wsShowToast === 'function') {
+      window.wsShowToast('Canvas is not available yet — please try again.');
+    }
+    return;
+  }
+
+  // ── Loading state ────────────────────────────────────────────────────────
+  const origHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"/></svg> Visualizing…`;
+
+  // Show mock artifact and switch to Canvas while the real request loads
+  window.canvas.setArtifact(_buildMockArtifact(question));
+  wsShowPanel('canvas');
+
+  try {
+    const authHeader = await _getAuthHeader?.() ?? {};
+    const body = {
+      question,
+      bookId: ws.bookId || 'none',
+      mode: 'visual_tutor',
+      complexity: 5,
+      history: [],
+    };
+
+    const res = await fetch(`${API_BASE}/ask`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+    const { answer } = extractThinkBlock(data.answer || '');
+
+    // Strip markdown fences the model may have emitted despite instructions
+    const rawJson = (answer || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    const candidate = JSON.parse(rawJson);
+
+    let parsedArtifact = null;
+    if (candidate) {
+      const t = candidate.type;
+      if ((t === 'visual_explanation' || t === 'timeline') && Array.isArray(candidate.steps)) {
+        parsedArtifact = candidate;
+      } else if (t === 'diagram' && typeof candidate.svg === 'string' && Array.isArray(candidate.labels)) {
+        parsedArtifact = candidate;
+      } else if (
+        t === 'compare' &&
+        Array.isArray(candidate.items) &&
+        candidate.items.length >= 2 &&
+        candidate.items.every(it => it && typeof it.name === 'string' && Array.isArray(it.attributes))
+      ) {
+        parsedArtifact = candidate;
+      }
+    }
+
+    if (parsedArtifact) {
+      window.canvas.setArtifact(parsedArtifact);
+    }
+    // If JSON parsing failed the canvas already shows the mock artifact — keep it.
+
+  } catch (e) {
+    console.error('[wsSendToCanvas] Failed to generate visual artifact:', e);
+    if (typeof window.wsShowToast === 'function') {
+      window.wsShowToast('Could not generate visualization — please try again.');
+    }
+    btn.disabled = false;
+    btn.innerHTML = origHtml;
+    return;
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = origHtml;
 }
 
 // ── Keyboard listener ─────────────────────────────────────────────────────
