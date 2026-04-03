@@ -7,7 +7,9 @@
  * Canvas workspace tab.
  *
  * State:
- *  • activeArtifact — null (empty state) | artifact object
+ *  • activeArtifact  — null (empty state) | artifact object
+ *  • regenerating    — boolean, true while the mock regenerate animation runs
+ *  • contentKey      — increments on each new artifact so the fade-in replays
  *
  * Artifact format (visual_explanation):
  *  {
@@ -24,12 +26,15 @@
  */
 
 import { h, render } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 /** Stagger delay between consecutive step card fade-in animations (ms). */
 const CARD_ANIM_STAGGER_MS = 60;
+
+/** Duration of the mock regenerate animation (ms). */
+const REGEN_DURATION_MS = 900;
 
 // ── VisualExplanationRenderer ────────────────────────────────────────────────
 
@@ -120,17 +125,78 @@ function EmptyState() {
   return h('div', { class: 'cvp-empty' },
     h('div', { class: 'cvp-empty-icon' },
       h('svg', {
-        width: '32', height: '32', viewBox: '0 0 24 24',
+        width: '28', height: '28', viewBox: '0 0 24 24',
         fill: 'none', stroke: 'currentColor',
-        'stroke-width': '1.5', 'stroke-linecap': 'round',
+        'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
       },
         h('rect', { x: '3', y: '3', width: '18', height: '18', rx: '2' }),
         h('path', { d: 'M3 9h18' }),
         h('path', { d: 'M9 21V9' }),
       )
     ),
+    h('p', { class: 'cvp-empty-heading' }, 'Visual Canvas'),
     h('p', { class: 'cvp-empty-text' },
-      'Ask something in chat to generate a visual explanation'
+      'Ask for a visual explanation in chat and it will appear here as an interactive card view.'
+    ),
+    h('div', { class: 'cvp-empty-hint' },
+      h('span', { class: 'cvp-empty-hint-label' }, 'Try asking:'),
+      h('button', {
+        class: 'cvp-empty-prompt',
+        onClick: () => {
+          const inp = document.getElementById('ws-chat-input');
+          if (inp) {
+            inp.value = 'Explain photosynthesis visually';
+            inp.focus();
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+            if (typeof window.wsShowPanel === 'function') window.wsShowPanel('chat');
+          }
+        },
+      }, '"Explain photosynthesis visually"'),
+    ),
+  );
+}
+
+// ── CanvasToolbar ─────────────────────────────────────────────────────────────
+
+/**
+ * Toolbar shown above the artifact content.
+ *   • "← Chat"      — switches back to the chat panel
+ *   • "↻ Regenerate" — triggers a mock regenerate animation
+ */
+function CanvasToolbar({ onBackToChat, onRegenerate, regenerating }) {
+  return h('div', { class: 'cvp-toolbar' },
+    h('button', {
+      class: 'cvp-toolbar-btn cvp-btn-back',
+      onClick: onBackToChat,
+      title: 'Back to Chat',
+    },
+      h('svg', {
+        width: '13', height: '13', viewBox: '0 0 24 24',
+        fill: 'none', stroke: 'currentColor',
+        'stroke-width': '2.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+      },
+        h('polyline', { points: '15 18 9 12 15 6' }),
+      ),
+      'Chat',
+    ),
+    h('div', { class: 'cvp-toolbar-spacer' }),
+    h('button', {
+      class: `cvp-toolbar-btn cvp-btn-regen${regenerating ? ' cvp-btn-regen--spinning' : ''}`,
+      onClick: onRegenerate,
+      disabled: regenerating,
+      title: 'Regenerate explanation',
+    },
+      h('svg', {
+        class: 'cvp-regen-icon',
+        width: '13', height: '13', viewBox: '0 0 24 24',
+        fill: 'none', stroke: 'currentColor',
+        'stroke-width': '2.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+      },
+        h('path', { d: 'M23 4v6h-6' }),
+        h('path', { d: 'M1 20v-6h6' }),
+        h('path', { d: 'M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15' }),
+      ),
+      regenerating ? 'Regenerating…' : 'Regenerate',
     ),
   );
 }
@@ -139,17 +205,58 @@ function EmptyState() {
 
 function CanvasPanel({ artifactSignal }) {
   const [activeArtifact, setActiveArtifact] = useState(null);
+  const [regenerating, setRegenerating]     = useState(false);
+  // Increments each time a new artifact is set so the fade-in animation replays
+  const [contentKey, setContentKey]         = useState(0);
+  const regenTimer  = useRef(null);
+  const regenTimer2 = useRef(null);
+
+  const artifactRef = useRef(null);
 
   // Bridge: expose setActiveArtifact via the artifactSignal ref so the
   // mount helper can wire up window.canvas.setArtifact / clearArtifact.
   useEffect(() => {
-    artifactSignal.current = setActiveArtifact;
+    artifactSignal.current = (artifact) => {
+      artifactRef.current = artifact;
+      setActiveArtifact(artifact);
+      setContentKey(k => k + 1);
+    };
+    return () => {
+      if (regenTimer.current)  clearTimeout(regenTimer.current);
+      if (regenTimer2.current) clearTimeout(regenTimer2.current);
+    };
   }, [artifactSignal]);
+
+  function handleBackToChat() {
+    if (typeof window.wsShowPanel === 'function') window.wsShowPanel('chat');
+  }
+
+  function handleRegenerate() {
+    if (regenerating || !artifactRef.current) return;
+    const snapshot = artifactRef.current;
+    setRegenerating(true);
+    regenTimer.current = setTimeout(() => {
+      // Mock: briefly clear then restore artifact to replay the card animations
+      setActiveArtifact(null);
+      regenTimer2.current = setTimeout(() => {
+        setActiveArtifact(snapshot);
+        setContentKey(k => k + 1);
+        setRegenerating(false);
+      }, 120);
+    }, REGEN_DURATION_MS);
+  }
 
   return h('div', { class: 'cvp-root' },
     activeArtifact
-      ? h('div', { class: 'cvp-content' },
-          h(ArtifactRenderer, { artifact: activeArtifact }),
+      ? h('div', { class: 'cvp-with-toolbar' },
+          h(CanvasToolbar, {
+            onBackToChat: handleBackToChat,
+            onRegenerate: handleRegenerate,
+            regenerating,
+          }),
+          h('div', { class: 'cvp-content', key: contentKey },
+            h(ArtifactRenderer, { artifact: activeArtifact }),
+          ),
         )
       : h(EmptyState, null),
   );
