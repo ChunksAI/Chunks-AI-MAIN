@@ -186,8 +186,10 @@ export function wsRemoveThinking() {
 /**
  * Finalize the ThinkingAccordion with actual thinking content, then detach
  * the handle so it stays in the DOM as a collapsed summary.
+ * Returns a Promise that resolves when the step animation has fully played out
+ * (so callers can await it before starting the AI-response typewriter).
  */
-function _wsFinalizeThinking(thinkingContent) {
+async function _wsFinalizeThinking(thinkingContent) {
   if (!_wsThinkingWrap) return;
   const elapsed = Math.round((Date.now() - _wsThinkStart) / 1000);
 
@@ -216,9 +218,13 @@ function _wsFinalizeThinking(thinkingContent) {
   _wsThinkingWrap.appendChild(container);
   _wsThinkingWrap.removeAttribute('id'); // no longer the "thinking" placeholder
 
-  createThinkingAccordion(container, { steps, elapsed, tags });
+  const accordionHandle = createThinkingAccordion(container, { steps, elapsed, tags });
   _wsThinkingWrap = null;
   wsScrollBottom();
+
+  // Wait for the step-reveal animation to complete.  The accordion will
+  // auto-collapse once done, giving the clean "think first, then respond" UX.
+  await accordionHandle.animationDone;
 }
 
 // ── Flashcard result card HTML ─────────────────────────────────────────────────
@@ -653,8 +659,10 @@ export async function _wsAsk(question, imageAtt = null) {
       const thinkingContent = data.thinking_content || clientThinking || null;
 
       // ── ThinkingAccordion: finalize with real steps if thinking was active ──
+      // Await the step animation so the accordion collapses before the AI
+      // response typewriter starts (think first, then respond).
       if (!imageAtt && ws.thinking !== 'off') {
-        _wsFinalizeThinking(thinkingContent);
+        await _wsFinalizeThinking(thinkingContent);
       }
 
       // ── Typewriter: render AI response word by word ──

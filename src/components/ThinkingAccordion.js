@@ -294,10 +294,19 @@ export function createThinkingAccordion(container, {
   };
 
   if (hasSteps) {
-    _animateSteps(steps, elapsed, tags, handle, _intervals, container, () => _cancelled);
+    // Store the animation promise so callers can await completion before
+    // rendering the AI response (think-first, then respond behaviour).
+    handle.animationDone = _animateSteps(
+      steps, elapsed, tags, handle, _intervals, container, () => _cancelled,
+    ).then(() => {
+      // Auto-collapse once all steps have been revealed so the thinking block
+      // is neatly tucked away before the AI response starts rendering.
+      if (!_cancelled) handle.update({ open: false });
+    });
   } else {
     // No content to animate — show finalised state immediately
     handle.update({ isStreaming: false, elapsed, tags });
+    handle.animationDone = Promise.resolve();
   }
 
   return handle;

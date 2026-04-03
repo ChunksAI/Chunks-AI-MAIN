@@ -900,7 +900,7 @@ export function homeAppendAI(text, sources, { typewrite = false } = {}) {
  * @param {number}      elapsed          Seconds elapsed while the model was thinking.
  * @param {'think'|'deep'} thinkingMode  Active thinking mode.
  */
-export function homeAppendThinkingAccordion(thinkingContent, elapsed, thinkingMode) {
+export async function homeAppendThinkingAccordion(thinkingContent, elapsed, thinkingMode) {
   // Clean up any existing streaming accordion handle
   if (_homeThinkingHandle) {
     _homeThinkingHandle.unmount();
@@ -932,8 +932,12 @@ export function homeAppendThinkingAccordion(thinkingContent, elapsed, thinkingMo
   const tags = inferThinkingTags(steps, thinkingContent || '');
   const container = document.createElement('div');
   wrap.appendChild(container);
-  createThinkingAccordion(container, { steps, elapsed, tags, isStreaming: false });
+  const accordionHandle = createThinkingAccordion(container, { steps, elapsed, tags, isStreaming: false });
   homeScrollBottom();
+
+  // Wait for the step-reveal animation to complete.  The accordion will
+  // auto-collapse once done, giving the clean "think first, then respond" UX.
+  await accordionHandle.animationDone;
 }
 
 export function homeAppendError(msg) {
@@ -1144,7 +1148,9 @@ export async function homeSendMessage() {
 
       if (!imageAtt && _homeThinking !== 'off') {
         const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
-        homeAppendThinkingAccordion(thinkingContent, elapsed, _homeThinking);
+        // Await the step animation so the accordion collapses before the AI
+        // response typewriter starts (think first, then respond).
+        await homeAppendThinkingAccordion(thinkingContent, elapsed, _homeThinking);
       } else if (!imageAtt) {
         // Not in thinking mode — remove the streaming accordion
         homeRemoveThinking();

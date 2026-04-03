@@ -83,6 +83,7 @@ export const ThinkingAccordionIsland = forwardRef(function ThinkingAccordionIsla
     if (patch.elapsed     !== undefined) setElapsed(patch.elapsed);
     if (patch.tags        !== undefined) setTags(patch.tags);
     if (patch.isStreaming !== undefined) setIsStreaming(patch.isStreaming);
+    if (patch.open        !== undefined) setOpen(patch.open);
   }, []);
 
   useImperativeHandle(ref, () => ({ update }), [update]);
