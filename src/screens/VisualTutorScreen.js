@@ -420,6 +420,7 @@ function _vtpCol(name) { return VTP_COLORS[name] || VTP_COLORS.amber; }
 let _vtpLoadingAbort  = null;   // AbortController for in-flight fetch
 let _vtpLoadingTimer  = null;   // interval for loading animation
 let _vtpLessonCache   = {};     // topic → lesson (session memory, no re-fetch)
+let _vtpDrawCodeCache = {};     // "${topic}::${stepIdx}" → compiled draw fn (Stage 2 cache)
 
 const VTP_LESSON_PROMPT = (topic) =>
 `You are the lesson engine for Chunks AI, a visual tutoring app for students.
@@ -449,7 +450,7 @@ Return ONLY valid JSON — no markdown fences, no explanation text, just the raw
       "text": "<strong>Hook sentence.</strong> 2-3 clear educational sentences. Use <em>key terms</em>.",
       "simple": "One plain-English sentence. No jargon.",
       "challenge": "One specific question testing this step (end with ?) — under 12 words",
-      "draw": { ... see draw types below ... },
+      "drawBrief": "2-4 sentence illustration description — see rules below",
       "contextualReplies": [
         "Direct answer to likely student question about this step",
         "Answer to another likely question",
@@ -459,49 +460,17 @@ Return ONLY valid JSON — no markdown fences, no explanation text, just the raw
   ]
 }
 
-For each step's "draw" field choose the best type:
+For each step's "drawBrief" field, write 2-4 sentences describing the ideal illustration in plain English.
+Be specific and concrete — name real objects, their appearance, colors, labels, layout, and any motion.
 
-TYPE "flow" — sequences, processes, cause-and-effect:
-{"type":"flow","items":[{"label":"Name","sub":"1 detail","color":"amber"}],"note":"footer"}
-Use 2–5 items. Colors: amber, blue, teal, red, green, purple.
-
-TYPE "equation" — formulas with labeled parts:
-{"type":"equation","formula":"A = B × C","parts":[{"symbol":"A","name":"Full name","unit":"unit","color":"amber"},{"symbol":"B","name":"Full name","unit":"unit","color":"blue"},{"symbol":"C","name":"Full name","unit":"unit","color":"teal"}],"note":"plain-English meaning"}
-
-TYPE "compare" — two contrasting things side by side:
-{"type":"compare","leftLabel":"Left","leftPoints":["point 1","point 2","point 3"],"leftColor":"red","rightLabel":"Right","rightPoints":["point 1","point 2","point 3"],"rightColor":"teal","note":"footer"}
-
-TYPE "scale" — spectrum, range, gradient:
-{"type":"scale","lowLabel":"Low end","highLabel":"High end","lowColor":"red","highColor":"teal","markers":[{"label":"Name","value":0.15,"sub":"detail"},{"label":"Name","value":0.5,"sub":"detail"}],"note":"footer"}
-value is 0.0 (left edge) to 1.0 (right edge).
-
-TYPE "bullets" — key facts or summary points:
-{"type":"bullets","title":"Optional heading","items":[{"icon":"→","text":"Point one — keep under 55 chars"},{"icon":"→","text":"Point two"}],"color":"teal","note":"footer"}
-Max 5 items.
-
-TYPE "mindmap" — central concept with radiating branches (great for definitions, categories, properties):
-{"type":"mindmap","center":"Core concept","color":"amber","branches":[{"label":"Branch","sub":"detail","color":"blue"},{"label":"Branch","sub":"detail","color":"teal"}],"note":"footer"}
-Use 3–6 branches. Each branch has a label (short name) and optional sub (1 detail phrase).
-
-TYPE "cycle" — circular repeating process or feedback loop:
-{"type":"cycle","items":[{"label":"Step","sub":"detail","color":"amber"},{"label":"Step","sub":"detail","color":"blue"}],"center":"optional center label","note":"footer"}
-Use 3–5 items arranged in a circle with curved arrows.
-
-TYPE "particles" — two open regions of freely bouncing circles representing ANY two contrasting states (fast/slow, high/low concentration, active/passive, etc.):
-{"type":"particles","leftLabel":"State A","leftSub":"1-phrase descriptor","leftColor":"amber","rightLabel":"State B","rightSub":"1-phrase descriptor","rightColor":"blue","flowLabel":"what moves across","note":"one-line takeaway"}
-Both sides use the same halo+core visual. Left = larger, faster. Right = smaller, slower. Color matches topic (amber=energy/active, blue=calm/slow, green=growth, purple=electric/neural, etc.).
-
-TYPE "scene" — two labeled objects (ovals) with animated particles flowing from source to sink, and orbiting dots on the source showing it actively emits/transfers (works for ANY directional transfer: heat, nutrients, data, money, electrical charge, signals):
-{"type":"scene","left":{"label":"SOURCE","sub":"brief descriptor","color":"amber"},"right":{"label":"SINK","sub":"brief descriptor","color":"blue"},"arrow":{"label":"flow label"},"note":"one-line takeaway"}
-Labels go INSIDE the objects. Use for any step showing directional flow or transfer between two entities.
-
-TYPE "labeled_equation" — large formula with downward color-coded arrows and labels per term, optional example cards at the bottom:
-{"type":"labeled_equation","formula":"A = B × C","parts":[{"symbol":"A","name":"full name","sub":"(unit)","color":"amber"},{"symbol":"B","name":"full name","sub":"(unit)","color":"blue"},{"symbol":"C","name":"full name","sub":"(unit)","color":"teal"}],"cards":[{"label":"Example 1","value":"val=1.5","color":"amber"},{"label":"Example 2","value":"val=0.8","color":"blue"}],"note":"footer"}
-cards: 2–4 optional real-world examples with specific values (omit if not applicable). Use for any step that introduces a formula.
-
+Good examples:
+• Heat transfer: "A glowing amber mug on the left with animated steam wisps rising, labeled 'HOT'. A blue ice cube on the right with a crystalline pattern, labeled 'COLD'. Glowing amber particles drift left-to-right between them. Arrow above labeled 'q'. Caption: heat flows spontaneously from hot to cold."
+• DNA replication: "Two entwined helical strands (amber and teal) slowly unzipping at a central fork. Left strand labeled 'Template (3′→5′)'. New complementary base pairs (small colored dots) assembling on the right. Caption: DNA polymerase synthesizes 5′→3′."
+• Supply and demand: "A coordinate grid, X-axis 'Quantity', Y-axis 'Price'. A downward-sloping red curve labeled 'D (Demand)'. An upward-sloping teal curve labeled 'S (Supply)'. They cross at a dot labeled 'Equilibrium'. Dashed lines from the intersection to both axes. Caption: market clears where supply meets demand."
+• Mitosis: "A large oval cell (blue outline) with a dark nucleus in the center. Inside the nucleus, 4 amber rod-shaped chromosomes lined up at the center. Dashed lines showing the cell beginning to pinch inward at the equator. Caption: metaphase — chromosomes align before separation."
 
 - Generate exactly 5 steps.
-- Use a DIFFERENT draw type for each step where possible. Use particles or scene for any two-state or directional-flow step across ANY domain, labeled_equation for formula steps, mindmap or cycle for category/process steps.
+- Make each drawBrief describe a DIFFERENT kind of illustration (graph, diagram, flowing particles, labeled objects, formula, network, cross-section…).
 - Make content specific and accurate for "${topic}" — NOT generic filler.
 - contextualReplies must be real, specific answers a tutor would give — not "great question!".
 - quiz options must be specific to the topic, not abstract.
@@ -558,7 +527,7 @@ async function _vtpFetchLesson(topic) {
       label: `Step ${i} — Summary`,
       text:  `<strong>Wrapping up.</strong> Let's consolidate what you've learned about ${topic}.`,
       simple: `Review the key ideas about ${topic}.`,
-      draw:  { type: 'bullets', items: [{ icon: '→', text: `Key idea about ${topic}` }], color: 'teal' },
+      drawBrief: `Key points about ${topic} — a clean bullet-list overview of the core concepts.`,
       contextualReplies: [`That's a great question about ${topic}.`],
     });
   }
@@ -577,11 +546,20 @@ async function _vtpFetchLesson(topic) {
     feedbackWrong:  `✗ Focus on the core relationship in ${topic}.`,
   };
 
-  // Normalise every step's draw field — string keys from old lessons → object
+  // Normalise every step's draw brief field.
+  // • New lessons  → step.drawBrief is a string from Stage 1 AI.
+  // • Old sessions → step.draw is an object; those go through the legacy spec renderer.
+  //                  We leave step.drawBrief absent so _vtpFadeAndDrawBrief falls back correctly.
   lesson.steps.forEach(step => {
-    if (!step.draw || typeof step.draw === 'string') {
-      step.draw = { type: 'bullets', items: [{ icon: '→', text: step.label || 'Key idea' }], color: 'amber' };
+    if (!step.drawBrief && step.draw && typeof step.draw === 'string') {
+      step.drawBrief = step.draw; // promote old string draw field
     }
+    // If still no drawBrief and no legacy draw object, generate a minimal brief
+    if (!step.drawBrief && !step.draw) {
+      step.drawBrief = `Illustration for: ${step.label || _vtpCurrentTopic}`;
+    }
+    // If step.draw (object) exists but no drawBrief, leave drawBrief undefined —
+    // _vtpFadeAndDrawBrief will route to the legacy spec renderer via the null/object check.
   });
 
   _vtpLessonCache[topic] = lesson;
@@ -631,8 +609,158 @@ function _vtpShowLoadingError(msg) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SEEDED PRNG — consistent sketch jitter per draw type
+// STAGE 2 — AI VISUAL CODER
+// For each step, a second AI call reads the drawBrief and writes a Canvas2D
+// function body: draw(ctx, W, H, t). Executed via new Function, cached per step.
+// Falls back to a text rendering of the brief on any error.
 // ─────────────────────────────────────────────────────────────────────────────
+
+const VTP_DRAW_CODE_PROMPT = (brief, stepLabel, topic) =>
+`You are a Canvas2D illustration expert for Chunks AI, a dark-themed educational app.
+
+Write a JavaScript function body for this signature:
+  draw(ctx, W, H, t)
+  • ctx — Canvas2D 2d context
+  • W, H — canvas pixel dimensions (use these for ALL positions/sizes, never hard-code pixels)
+  • t — elapsed time in seconds (for subtle animation)
+
+The canvas background is already cleared and has a faint dot grid. Do NOT call clearRect or draw the background.
+
+Draw a beautiful, accurate illustration that matches this brief exactly:
+"${brief}"
+
+Topic context: illustrating "${stepLabel}" for a lesson on "${topic}".
+
+STRICT RULES — follow every one:
+1. Return ONLY the raw JavaScript function body — no function keyword, no wrapper, no markdown fences, no comments.
+2. All positions and sizes must scale with W and H (e.g. W*0.5, H*0.3).
+3. Color palette: amber=#e8ac2e  blue=#60a5fa  teal=#2dd4bf  red=#f87171  green=#4ade80  purple=#a78bfa  text=#ededf0  muted=#9898ae  dim=#55556a
+4. Fonts: "Caveat, cursive" for hand-written labels; "DM Mono, monospace" for formulas/numbers.
+5. Use t ONLY for subtle animation (gentle float, slow rotation, flowing particles). Keep movement ≤ 5% of W or H.
+6. Draw specific, recognisable shapes matching the brief (mug, helix, curve, cell, circuit…).
+7. Include all text labels exactly as described in the brief.
+8. Keep the total code under 80 lines.
+9. No DOM access, no fetch, no alert/confirm/prompt/eval.`;
+
+async function _vtpFetchDrawCode(brief, stepLabel, topic, cacheKey) {
+  const authHeader = await _getAuthHeader?.() ?? {};
+  const res = await fetch(`${API_BASE}/ask`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeader },
+    body: JSON.stringify({
+      question:   VTP_DRAW_CODE_PROMPT(brief, stepLabel, topic),
+      mode:       'visual_tutor',
+      bookId:     'none',
+      complexity: 8,
+      history:    [],
+    }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  let code = (data.answer ?? data.response ?? data.text ?? '').trim();
+  // Strip markdown fences if any
+  code = code.replace(/^```(?:javascript|js)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  if (!code) throw new Error('Empty draw code');
+  // Compile — will throw on syntax errors immediately
+  // eslint-disable-next-line no-new-func
+  const fn = new Function('ctx', 'W', 'H', 't', code);
+  _vtpDrawCodeCache[cacheKey] = fn;
+  return fn;
+}
+
+// Draw a "generating visual…" state on the canvas (one-time paint, no rAF)
+function _vtpShowCanvasGenerating(brief) {
+  if (!_vtpCtx) return;
+  const ctx = _vtpCtx, W = _vtpW, H = _vtpH, cx = W / 2, cy = H / 2;
+  ctx.font = '400 14px DM Mono, monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // Word-wrap the brief into lines
+  const words = (brief || '').split(' ');
+  const maxW = W - 100;
+  let line = '', lines = [];
+  for (const w of words) {
+    const test = line ? line + ' ' + w : w;
+    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; }
+    else line = test;
+  }
+  if (line) lines.push(line);
+  const lineH = 22, totalH = lines.length * lineH;
+  lines.slice(0, 6).forEach((l, i) => {
+    ctx.fillStyle = `rgba(255,255,255,${0.20 - i * 0.02})`;
+    ctx.fillText(l, cx, cy - totalH / 2 + i * lineH + lineH / 2);
+  });
+  ctx.font = '400 11px DM Mono, monospace'; ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.fillText('Generating visual…', cx, H - 30);
+}
+
+// Render a brief as text fallback (same layout without the spinner label)
+function _vtpShowCanvasFallback(brief) {
+  if (!_vtpCtx) return;
+  _vtpClearCanvas();
+  _vtpShowCanvasGenerating(brief);
+  // Overwrite the "Generating…" footer with nothing (clear that line)
+  _vtpCtx.clearRect(0, _vtpH - 50, _vtpW, 40);
+}
+
+// Run a compiled draw function in a rAF loop (replaces static + animated types)
+function _vtpRunDrawFn(fn, brief) {
+  if (_vtpAnimFrame !== null) { cancelAnimationFrame(_vtpAnimFrame); _vtpAnimFrame = null; }
+  const t0 = performance.now();
+  function frame() {
+    if (!_vtpCtx) return;
+    const t = (performance.now() - t0) / 1000;
+    _vtpCtx.clearRect(0, 0, _vtpW, _vtpH);
+    _vtpDrawDotGrid();
+    try { fn(_vtpCtx, _vtpW, _vtpH, t); }
+    catch (e) {
+      console.warn('[VTP] Draw fn runtime error:', e.message);
+      cancelAnimationFrame(_vtpAnimFrame);
+      _vtpAnimFrame = null;
+      if (brief) _vtpShowCanvasFallback(brief);
+      return;
+    }
+    _vtpAnimFrame = requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+// Orchestrator: check cache → show loading state → fetch Stage 2 code → execute
+async function _vtpFadeAndDrawBrief(brief, step, idx) {
+  // Legacy path: old restored sessions have step.draw (object), no drawBrief
+  if (!brief || typeof brief === 'object') {
+    _vtpFadeAndDraw(brief || { type: 'bullets', items: [{ icon: '→', text: step?.label || '' }], color: 'amber' });
+    return;
+  }
+
+  const cacheKey = `${_vtpCurrentTopic}::${idx}`;
+
+  // Cancel any running animation
+  if (_vtpAnimFrame !== null) { cancelAnimationFrame(_vtpAnimFrame); _vtpAnimFrame = null; }
+
+  // Cache hit — render immediately
+  if (_vtpDrawCodeCache[cacheKey]) {
+    _vtpClearCanvas();
+    _vtpRunDrawFn(_vtpDrawCodeCache[cacheKey], brief);
+    return;
+  }
+
+  // Show brief as loading placeholder synchronously (no delay — avoids race with fast cache hits)
+  _vtpClearCanvas();
+  _vtpShowCanvasGenerating(brief);
+
+  try {
+    const stepLabel = (step?.label || '').split('—').slice(1).join('—').trim() || (step?.label || '');
+    const fn = await _vtpFetchDrawCode(brief, stepLabel, _vtpCurrentTopic, cacheKey);
+    if (idx !== _vtpStepIdx) return; // stale — user moved on
+    _vtpClearCanvas();
+    _vtpRunDrawFn(fn, brief);
+  } catch (_err) {
+    if (idx !== _vtpStepIdx) return;
+    _vtpShowCanvasFallback(brief);
+  }
+}
+
+
 function _vtpMakeRand(seed) {
   let s = (seed ^ 0xdeadbeef) >>> 0;
   return () => {
@@ -1713,7 +1841,9 @@ function _vtpRenderStep(idx) {
   _vtpUpdateDots(idx);
   _vtpUpdateProgress(idx);
   _vtpSound('tick');
-  _vtpFadeAndDraw(step.draw || { type: 'bullets', items: [{ icon: '→', text: step.label || _vtpCurrentTopic }], color: 'amber' });
+  // Stage 2 path: use AI-generated draw function from drawBrief
+  // Falls back to legacy spec renderer when drawBrief is absent (old restored sessions)
+  _vtpFadeAndDrawBrief(step.drawBrief || step.draw || null, step, idx);
 
   _vtpTypeText(step.text, () => {
     _vtpStepBusy = false;
@@ -2426,6 +2556,13 @@ if (typeof window !== 'undefined') window._vtClear = function() {
   _vtpStepBusy    = false;
   _vtpAutoplay    = false;
 
+  // Wipe draw code cache entries for the current topic
+  if (_vtpCurrentTopic) {
+    Object.keys(_vtpDrawCodeCache).forEach(k => {
+      if (k.startsWith(_vtpCurrentTopic + '::')) delete _vtpDrawCodeCache[k];
+    });
+  }
+
   // Wipe all lesson DOM state so nothing bleeds into the next session
   _vtpResetLessonDOM();
 
@@ -2686,8 +2823,13 @@ export function mountVisualTutorScreen() {
 
     const retryBtn = document.getElementById('vtp-loading-retry');
     if (retryBtn) retryBtn.addEventListener('click', () => {
-      // Clear cache for this topic so we re-fetch
-      if (_vtpCurrentTopic) delete _vtpLessonCache[_vtpCurrentTopic];
+      // Clear lesson + draw code caches for this topic so we re-fetch everything
+      if (_vtpCurrentTopic) {
+        delete _vtpLessonCache[_vtpCurrentTopic];
+        Object.keys(_vtpDrawCodeCache).forEach(k => {
+          if (k.startsWith(_vtpCurrentTopic + '::')) delete _vtpDrawCodeCache[k];
+        });
+      }
       _vtpStartLesson();
     });
 
@@ -2701,7 +2843,14 @@ export function mountVisualTutorScreen() {
         _vtpW = area.offsetWidth; _vtpH = area.offsetHeight;
         _vtpCanvas.width = _vtpW; _vtpCanvas.height = _vtpH;
         _vtpClearCanvas();
-        if (_vtpLesson?.steps[_vtpStepIdx]) _vtpDrawSpec(_vtpLesson.steps[_vtpStepIdx].draw);
+        const step = _vtpLesson?.steps[_vtpStepIdx];
+        if (!step) return;
+        if (step.drawBrief) {
+          // Re-run cached fn (new path) — fetchless since cache key survives resize
+          _vtpFadeAndDrawBrief(step.drawBrief, step, _vtpStepIdx);
+        } else if (step.draw) {
+          _vtpDrawSpec(step.draw);
+        }
       }, 150);
     });
 
