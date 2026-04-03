@@ -302,6 +302,10 @@ function _getAuthHeader() {
 
 const RECENT_MAX = 50;
 const CHAT_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+// Pattern matching the legacy fallback label 'Session XXXXXXXX' (8 hex chars).
+// Used in _saveSession and _hydrateRecentFromRemote to detect sessions that still
+// carry a UUID-derived label so they can be upgraded to a meaningful title.
+const _SESSION_FALLBACK_RE = /^Session [0-9a-f]{8}$/;
 
 // Runtime guest mode check — single source of truth
 const _isGuestMode = () => sessionStorage.getItem('chunks_guest_mode') === '1';
@@ -355,6 +359,22 @@ function _saveSession(id, historyArr) {
     localStorage.setItem('chunks_session_' + id, JSON.stringify(sessionData));
   }
   localStorage.setItem('chunks_active_home_session', id);
+  // Auto-generate a label from the first user message when the session still has
+  // a generic fallback label ('New Chat' or the legacy 'Session XXXXXXXX' pattern).
+  // This ensures a meaningful title is persisted to Supabase on the very next save.
+  if (recentItem && (_SESSION_FALLBACK_RE.test(recentItem.label) || recentItem.label === 'New Chat' || !recentItem.label)) {
+    const firstUser = (historyArr || []).find(m => m.role === 'user');
+    if (firstUser?.content) {
+      const content = firstUser.content;
+      const newLabel = content.length > 32 ? content.slice(0, 32).trimEnd() + '…' : content;
+      if (newLabel !== recentItem.label) {
+        recentItem.label    = newLabel;
+        recentItem.question = content.slice(0, 80);
+        _saveRecent();
+        _renderAllRecent();
+      }
+    }
+  }
   // Sync to Supabase using the valid UUID
   if (supabaseId) {
     window.ChunksDB?.chat?.saveFull?.({
@@ -1381,6 +1401,10 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
       r.label    = bestLabel;
       r.question = newTitle || bestLabel;
       labelUpdated = true;
+    } else if (!bestLabel && _SESSION_FALLBACK_RE.test(r.label)) {
+      // Upgrade legacy 'Session XXXXXXXX' fallback labels to 'New Chat'
+      r.label = 'New Chat';
+      labelUpdated = true;
     }
   });
 
@@ -1409,7 +1433,7 @@ window._hydrateRecentFromRemote = function(remoteSessions) {
         }
       } catch(_) {}
     }
-    if (!label) label = 'Session ' + remote.id.slice(0, 8);
+    if (!label) label = 'New Chat';
     if (label.length > 32) label = label.slice(0, 32).trimEnd() + '…';
 
     // Prefer locally-known source (preserves 'exam'/'visual'/'workspace').
