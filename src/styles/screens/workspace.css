@@ -550,6 +550,7 @@
 .messages {
   flex: 1; min-height: 0; overflow-y: auto;
   overscroll-behavior: contain;
+  contain: content;
   padding: 20px 24px;
   display: flex; flex-direction: column; gap: 18px;
 }

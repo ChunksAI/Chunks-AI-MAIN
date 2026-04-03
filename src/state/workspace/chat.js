@@ -97,7 +97,7 @@ export function wsAppendUser(text, selectedText) {
     : '';
   d.innerHTML = `<div class="bubble-user">${quoteHtml}${escaped}</div>`;
   msgs.appendChild(d);
-  wsScrollBottom();
+  d.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 export function _wsAvatarSvg() {
