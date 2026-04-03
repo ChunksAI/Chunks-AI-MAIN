@@ -554,11 +554,10 @@ function _isVisualRequest(question) {
 }
 
 /**
- * Builds a mock visual_explanation artifact derived from the user's question.
- * When the backend is wired up this will be replaced by the real AI response.
+ * Derives a display title for the visual explanation from the user's question
+ * by stripping common filler phrases so the result reads cleanly.
  */
-function _buildMockArtifact(question) {
-  // Strip common filler so the title reads cleanly.
+function _deriveVisualTitle(question) {
   const titleBase = question
     .replace(/explain\s+(this\s+)?visually[?!\.]*\s*/gi, '')
     .replace(/show\s+me\s+visually[?!\.]*\s*/gi, '')
@@ -566,46 +565,9 @@ function _buildMockArtifact(question) {
     .replace(/visualize[?!\.]*\s*/gi, '')
     .trim();
 
-  const title = titleBase.length > _MIN_TITLE_LEN
+  return titleBase.length > _MIN_TITLE_LEN
     ? titleBase.charAt(0).toUpperCase() + titleBase.slice(1)
     : 'Visual Explanation';
-
-  return {
-    type: 'visual_explanation',
-    title,
-    steps: [
-      {
-        heading: 'Overview',
-        text: 'A high-level look at the concept and why it matters.',
-        visual: '🔭',
-      },
-      {
-        heading: 'Core Idea',
-        text: 'The fundamental principle behind this topic, broken down simply.',
-        visual: '💡',
-      },
-      {
-        heading: 'How It Works',
-        text: 'Step-by-step mechanics — what happens, and in what order.',
-        visual: '⚙️',
-      },
-      {
-        heading: 'Real-World Example',
-        text: 'A concrete scenario that brings the concept to life.',
-        visual: '🌍',
-      },
-      {
-        heading: 'Key Takeaway',
-        text: 'The one thing to remember after studying this topic.',
-        visual: '🎯',
-      },
-      {
-        heading: 'Common Pitfalls',
-        text: 'Mistakes learners often make — and how to avoid them.',
-        visual: '⚠️',
-      },
-    ],
-  };
 }
 
 export async function wsChatSend() {
@@ -623,10 +585,10 @@ export async function wsChatSend() {
   }
   // ── End command intercept ─────────────────────────────────────────────────
 
-  // ── Canvas: push mock artifact for visual-explanation requests ──────────
+  // ── Canvas: show loading skeleton for visual-explanation requests ──────────
   const isVisual = _isVisualRequest(question);
   if (isVisual && window.canvas) {
-    window.canvas.setArtifact(_buildMockArtifact(question));
+    window.canvas.setLoading(_deriveVisualTitle(question));
     wsShowPanel('canvas');
   }
   // ── End canvas intercept ──────────────────────────────────────────────────
@@ -773,11 +735,14 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
             }
           }
         } catch (_) {
-          // JSON parse failed — canvas keeps the mock artifact shown earlier
+          // JSON parse failed — parsedArtifact stays null; else branch below clears loading
         }
         if (parsedArtifact) {
           window.canvas.setArtifact(parsedArtifact);
           wsShowPanel('canvas');
+        } else {
+          // No valid artifact (parse error or unrecognized format) — clear loading skeleton
+          window.canvas.clearArtifact();
         }
 
         // ThinkingAccordion finalise (if active)
@@ -888,8 +853,8 @@ export async function wsSendToCanvas(btn, question) {
   btn.disabled = true;
   btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83"/></svg> Visualizing…`;
 
-  // Show mock artifact and switch to Canvas while the real request loads
-  window.canvas.setArtifact(_buildMockArtifact(question));
+  // Show loading skeleton and switch to Canvas while the real request loads
+  window.canvas.setLoading(_deriveVisualTitle(question));
   wsShowPanel('canvas');
 
   try {
@@ -936,11 +901,15 @@ export async function wsSendToCanvas(btn, question) {
 
     if (parsedArtifact) {
       window.canvas.setArtifact(parsedArtifact);
+    } else {
+      // JSON parsing failed or format unrecognized — clear the loading skeleton
+      window.canvas.clearArtifact();
     }
-    // If JSON parsing failed the canvas already shows the mock artifact — keep it.
 
   } catch (e) {
     console.error('[wsSendToCanvas] Failed to generate visual artifact:', e);
+    // Clear loading skeleton so canvas returns to empty state
+    window.canvas.clearArtifact();
     if (typeof window.wsShowToast === 'function') {
       window.wsShowToast('Could not generate visualization — please try again.');
     }

@@ -765,6 +765,36 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* Shimmer keyframe — used by skeleton loading cards */
+@keyframes cvp-shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+
+/* Skeleton elements — shared shimmer style */
+.cvp-skel-emoji,
+.cvp-skel-badge,
+.cvp-skel-heading,
+.cvp-skel-text {
+  display: block;
+  border-radius: var(--r-sm);
+  background: linear-gradient(
+    90deg,
+    var(--surface-3) 25%,
+    var(--surface-4) 50%,
+    var(--surface-3) 75%
+  );
+  background-size: 200% 100%;
+  animation: cvp-shimmer 1.4s ease infinite;
+}
+
+.cvp-skel-card { pointer-events: none; }
+.cvp-skel-emoji   { width: 36px; height: 36px; border-radius: 50%; }
+.cvp-skel-badge   { width: 44px; height: 16px; }
+.cvp-skel-heading { width: 70%; height: 14px; margin-top: 2px; }
+.cvp-skel-text    { width: 100%; height: 11px; margin-top: 4px; }
+.cvp-skel-text--short { width: 60%; }
+
 .cvp-visual-explanation {
   display: flex;
   flex-direction: column;
