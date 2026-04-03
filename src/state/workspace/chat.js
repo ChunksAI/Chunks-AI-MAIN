@@ -754,8 +754,13 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
           // Strip markdown code fences the model may have emitted despite instructions
           const rawJson = (answer || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
           const candidate = JSON.parse(rawJson);
-          if (candidate && (candidate.type === 'visual_explanation' || candidate.type === 'timeline') && Array.isArray(candidate.steps)) {
-            parsedArtifact = candidate;
+          if (candidate) {
+            const t = candidate.type;
+            if ((t === 'visual_explanation' || t === 'timeline') && Array.isArray(candidate.steps)) {
+              parsedArtifact = candidate;
+            } else if (t === 'diagram' && typeof candidate.svg === 'string' && Array.isArray(candidate.labels) && candidate.labels.every(l => l && typeof l.id === 'string')) {
+              parsedArtifact = candidate;
+            }
           }
         } catch (_) {
           // JSON parse failed — canvas keeps the mock artifact shown earlier

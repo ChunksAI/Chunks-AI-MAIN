@@ -1083,6 +1083,221 @@
   margin: 0;
 }
 
+/* ── DiagramRenderer ── */
+
+.cvp-diagram {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Hero header */
+.cvp-dg-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-xs);
+}
+
+.cvp-dg-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(160, 100, 255, 0.1);
+  border: 1px solid rgba(160, 100, 255, 0.25);
+  color: #a064ff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  width: fit-content;
+}
+
+.cvp-dg-title {
+  font-family: var(--font-head);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-1);
+  margin: 0;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.cvp-dg-meta {
+  font-size: 12px;
+  color: var(--text-4);
+  margin: 0;
+}
+
+/* SVG container */
+.cvp-dg-svg-wrap {
+  background: var(--surface-1);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+
+.cvp-dg-svg {
+  width: 100%;
+  display: block;
+  cursor: pointer;
+}
+
+/* Make the injected SVG responsive */
+.cvp-dg-svg svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Highlight a selected labeled part */
+.cvp-dg-svg [data-dg-selected="true"] {
+  fill: var(--gold, #f5a623) !important;
+  opacity: 0.85;
+}
+
+/* Clickable SVG parts — show pointer on hover for labeled elements */
+.cvp-dg-svg [id] {
+  cursor: pointer;
+  transition: opacity 140ms;
+}
+
+.cvp-dg-svg [id]:hover {
+  opacity: 0.75;
+}
+
+/* Info card — shown when a part is selected */
+.cvp-dg-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface-2);
+  border: 1px solid var(--gold-border, rgba(245,166,35,0.3));
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  animation: cvp-fade-up 220ms var(--ease-snap) both;
+}
+
+.cvp-dg-info-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cvp-dg-info-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.cvp-dg-info-desc {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.65;
+  margin: 0;
+}
+
+.cvp-dg-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1px solid var(--border-sm);
+  background: var(--surface-3);
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background 140ms var(--ease-snap),
+    color 140ms var(--ease-snap);
+}
+
+.cvp-dg-clear:hover {
+  background: var(--surface-4);
+  color: var(--text-1);
+}
+
+/* Legend */
+.cvp-dg-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.cvp-dg-legend-heading {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-4);
+  margin: 0;
+}
+
+.cvp-dg-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.cvp-dg-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background 140ms var(--ease-snap),
+    border-color 140ms var(--ease-snap);
+}
+
+.cvp-dg-legend-item:hover {
+  background: var(--surface-2);
+  border-color: var(--border-xs);
+}
+
+.cvp-dg-legend-item--active {
+  background: var(--gold-muted);
+  border-color: var(--gold-border);
+}
+
+.cvp-dg-legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-sm);
+  flex-shrink: 0;
+  transition: background 140ms;
+}
+
+.cvp-dg-legend-item--active .cvp-dg-legend-dot {
+  background: var(--gold, #f5a623);
+}
+
+.cvp-dg-legend-name {
+  font-size: 12.5px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.cvp-dg-legend-item--active .cvp-dg-legend-name {
+  color: var(--gold);
+  font-weight: 600;
+}
+
 .ws-notes-textarea {
   flex: 1;
   width: 100%;

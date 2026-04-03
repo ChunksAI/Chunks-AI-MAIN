@@ -277,13 +277,19 @@ def ask(request: Request, body: AskRequest):
                 "'what are the steps of X', 'walk me through X', historical events, procedures):\n"
                 '{"type":"timeline","title":"<topic>","steps":['
                 '{"label":"...","text":"...","icon":"..."}]}\n\n'
-                "Rules for BOTH formats:\n"
-                "- Use 4 to 6 steps\n"
+                "FORMAT C — diagram "
+                "('draw X', 'show me X', 'what does X look like', anatomy, structure, geography, "
+                "any question asking for a visual illustration of a physical or conceptual structure):\n"
+                '{"type":"diagram","title":"<topic>","svg":"<SVG_MARKUP>","labels":['
+                '{"id":"<element_id>","name":"<part name>","description":"<1-2 sentence explanation>"}]}\n\n'
+                "Rules for ALL formats:\n"
                 "- Write at Grade 6 reading level — simple words, short sentences\n"
-                "- Use everyday analogies to explain concepts\n"
                 "- The 'title' should name the topic being explained, not restate the question\n"
                 "- Never reference textbooks, page numbers, or external sources\n"
                 "- Never add any text, keys, or markdown outside the JSON object\n\n"
+                "Additional rules for visual_explanation and timeline:\n"
+                "- Use 4 to 6 steps\n"
+                "- Use everyday analogies to explain concepts\n\n"
                 "Additional rules for visual_explanation steps:\n"
                 "- 'heading': short label (3-5 words)\n"
                 "- 'text': 1-2 sentences explaining the step\n"
@@ -291,7 +297,17 @@ def ask(request: Request, body: AskRequest):
                 "Additional rules for timeline steps:\n"
                 "- 'label': very short step name (3-4 words max)\n"
                 "- 'text': 1-2 simple sentences explaining this step\n"
-                "- 'icon': a single emoji that represents this step"
+                "- 'icon': a single emoji that represents this step\n\n"
+                "Additional rules for diagram:\n"
+                "- Generate clean, simple SVG using only basic shapes: "
+                "rect, circle, ellipse, path, line, polygon, text\n"
+                "- Set viewBox='0 0 400 300' on the root <svg> element\n"
+                "- Add width='100%' height='auto' to the root <svg>\n"
+                "- Give every major labeled part a unique id attribute that matches an entry in 'labels'\n"
+                "- Use neutral fill colors (no white fills — use #e8e8e8 or similar light grays)\n"
+                "- Keep the SVG markup compact and valid; inside the JSON string, escape every double-quote as a backslash followed by a quote\n"
+                "- Include 3 to 7 labeled parts\n"
+                "- Each label 'description' is 1-2 simple sentences"
             )
             answer = call_ai(question, system_prompt=vt_system, model=selected_model, history=history,
                              endpoint='chat_visual', user_id=verified_user_id)

@@ -27,8 +27,14 @@
  *    title: string,
  *    steps: [{ label, text, icon }]
  *  }
+ *  diagram:
+ *  {
+ *    type: "diagram",
+ *    title: string,
+ *    svg: string,       // raw SVG markup; element ids match labels[].id
+ *    labels: [{ id, name, description }]
+ *  }
  *
- * External API (window.canvas):
  *  • window.canvas.setArtifact(artifact)  — set/replace the active artifact
  *  • window.canvas.clearArtifact()        — reset to empty state
  *
@@ -36,8 +42,9 @@
  */
 
 import { h, render } from 'preact';
-import { useState, useEffect, useRef } from 'preact/hooks';
+import { useState, useEffect, useRef, useMemo } from 'preact/hooks';
 import { API_BASE, _getAuthHeader } from '../lib/api.js';
+import { sanitize } from '../utils/render.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -191,6 +198,134 @@ function TimelineRenderer({ artifact }) {
   );
 }
 
+// ── DiagramRenderer ───────────────────────────────────────────────────────────
+
+/**
+ * Renders a diagram artifact: injects raw SVG full-width, wires up click
+ * delegation to select labelled parts, shows an info card for the selection,
+ * and renders a legend of all parts below the diagram.
+ *
+ * Interaction model:
+ *   • Click a labelled SVG element (matched by id) → select it, show card
+ *   • Click again or "Clear selection" → deselect
+ *   • Highlighted element gets data-dg-selected="true" → CSS accent fill
+ *   • Legend items are also clickable
+ */
+function DiagramRenderer({ artifact }) {
+  const { title, svg = '', labels = [] } = artifact;
+  const [selectedId, setSelectedId] = useState(null);
+  const svgWrapRef = useRef(null);
+
+  // id → label lookup built once (or when labels change)
+  const labelMap = useMemo(() => {
+    const m = {};
+    labels.forEach(l => { m[l.id] = l; });
+    return m;
+  }, [labels]);
+
+  // Inject SVG markup and attach click delegation whenever svg/labels change
+  useEffect(() => {
+    const wrap = svgWrapRef.current;
+    if (!wrap) return;
+
+    wrap.innerHTML = sanitize(svg);
+
+    function handleClick(e) {
+      let el = e.target;
+      // Walk up the DOM tree to find an element whose id is a known label
+      while (el && el !== wrap) {
+        if (el.id && Object.prototype.hasOwnProperty.call(labelMap, el.id)) {
+          setSelectedId(prev => (prev === el.id ? null : el.id));
+          return;
+        }
+        el = el.parentElement;
+      }
+      // Click on unlabelled area — deselect
+      setSelectedId(null);
+    }
+
+    wrap.addEventListener('click', handleClick);
+    return () => wrap.removeEventListener('click', handleClick);
+  }, [svg, labelMap]);
+
+  // Sync highlight attribute on the SVG element whenever selectedId changes
+  useEffect(() => {
+    const wrap = svgWrapRef.current;
+    if (!wrap) return;
+    wrap.querySelectorAll('[data-dg-selected]').forEach(el => {
+      el.removeAttribute('data-dg-selected');
+    });
+    if (selectedId) {
+      const el = wrap.querySelector('#' + CSS.escape(selectedId));
+      if (el) el.setAttribute('data-dg-selected', 'true');
+    }
+  }, [selectedId]);
+
+  const selectedLabel = selectedId ? labelMap[selectedId] : null;
+
+  return h('div', { class: 'cvp-diagram' },
+
+    /* ── Hero header ──────────────────────────────────────── */
+    h('div', { class: 'cvp-dg-hero' },
+      h('div', { class: 'cvp-dg-hero-badge' },
+        h('svg', {
+          width: '13', height: '13', viewBox: '0 0 24 24',
+          fill: 'none', stroke: 'currentColor',
+          'stroke-width': '2.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+        },
+          h('rect', { x: '3', y: '3', width: '18', height: '18', rx: '2' }),
+          h('circle', { cx: '8.5', cy: '8.5', r: '1.5' }),
+          h('polyline', { points: '21 15 16 10 5 21' }),
+        ),
+        'Diagram',
+      ),
+      h('h2', { class: 'cvp-dg-title' }, title),
+      h('p', { class: 'cvp-dg-meta' },
+        `${labels.length} labelled part${labels.length !== 1 ? 's' : ''} — tap to explore`
+      ),
+    ),
+
+    /* ── SVG area ─────────────────────────────────────────── */
+    h('div', { class: 'cvp-dg-svg-wrap' },
+      h('div', { class: 'cvp-dg-svg', ref: svgWrapRef }),
+    ),
+
+    /* ── Info card for selected part ──────────────────────── */
+    selectedLabel
+      ? h('div', { class: 'cvp-dg-info' },
+          h('div', { class: 'cvp-dg-info-top' },
+            h('strong', { class: 'cvp-dg-info-name' }, selectedLabel.name),
+            h('button', {
+              class: 'cvp-dg-clear',
+              onClick: () => setSelectedId(null),
+              title: 'Clear selection',
+            }, '✕'),
+          ),
+          h('p', { class: 'cvp-dg-info-desc' }, selectedLabel.description),
+        )
+      : null,
+
+    /* ── Legend ───────────────────────────────────────────── */
+    labels.length > 0 && h('div', { class: 'cvp-dg-legend' },
+      h('p', { class: 'cvp-dg-legend-heading' }, 'Parts'),
+      h('ul', { class: 'cvp-dg-legend-list' },
+        labels.map(l =>
+          h('li', {
+            key: l.id,
+            class: `cvp-dg-legend-item${selectedId === l.id ? ' cvp-dg-legend-item--active' : ''}`,
+            onClick: () => setSelectedId(prev => (prev === l.id ? null : l.id)),
+            role: 'button',
+            tabIndex: 0,
+          },
+            h('span', { class: 'cvp-dg-legend-dot', 'aria-hidden': 'true' }),
+            h('span', { class: 'cvp-dg-legend-name' }, l.name),
+          )
+        )
+      ),
+    ),
+  );
+}
+
 // ── ArtifactRenderer ─────────────────────────────────────────────────────────
 
 /**
@@ -203,6 +338,9 @@ function ArtifactRenderer({ artifact }) {
   }
   if (artifact.type === 'timeline') {
     return h(TimelineRenderer, { artifact });
+  }
+  if (artifact.type === 'diagram') {
+    return h(DiagramRenderer, { artifact });
   }
   return h('div', { class: 'cvp-unknown' },
     h('p', { class: 'cvp-unknown-text' },
@@ -256,7 +394,7 @@ function EmptyState() {
  *   • "✦ Simplify"   — calls AI to simplify the current artifact for beginners
  *   • "↻ Regenerate" — triggers a mock regenerate animation
  */
-function CanvasToolbar({ onBackToChat, onSimplify, onRegenerate, regenerating, simplifying }) {
+function CanvasToolbar({ onBackToChat, onSimplify, onRegenerate, regenerating, simplifying, showSimplify }) {
   const busy = regenerating || simplifying;
   return h('div', { class: 'cvp-toolbar' },
     h('button', {
@@ -274,7 +412,7 @@ function CanvasToolbar({ onBackToChat, onSimplify, onRegenerate, regenerating, s
       'Chat',
     ),
     h('div', { class: 'cvp-toolbar-spacer' }),
-    h('button', {
+    showSimplify && h('button', {
       class: `cvp-toolbar-btn cvp-btn-simplify${simplifying ? ' cvp-btn-simplify--loading' : ''}`,
       onClick: onSimplify,
       disabled: busy,
@@ -364,6 +502,9 @@ function CanvasPanel({ artifactSignal }) {
     if (regenerating || simplifying || !artifactRef.current) return;
     const artifact = artifactRef.current;
 
+    // Diagram artifacts contain raw SVG — simplification via text steps is not applicable
+    if (artifact.type === 'diagram') return;
+
     simplifyCtrl.current?.abort();
     simplifyCtrl.current = new AbortController();
 
@@ -424,6 +565,7 @@ function CanvasPanel({ artifactSignal }) {
             onRegenerate: handleRegenerate,
             regenerating,
             simplifying,
+            showSimplify: activeArtifact?.type !== 'diagram',
           }),
           h('div', { class: 'cvp-content', key: contentKey },
             h(ArtifactRenderer, { artifact: activeArtifact }),
