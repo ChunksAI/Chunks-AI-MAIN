@@ -19,6 +19,7 @@
  */
 
 import { mountSmartNotesPanel, mountStickyStrip } from '../components/SmartNotesPanel.jsx';
+import { mountCanvasPanel } from '../components/CanvasPanel.jsx';
 import { wsFitWidth } from '../state/workspace/pdf.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
@@ -413,6 +414,7 @@ export function mountWorkspaceScreen() {
   setTimeout(() => {
     mountSmartNotesPanel(document.getElementById('ws-notes-panel'));
     mountStickyStrip(document.getElementById('ws-sticky-strip'));
+    mountCanvasPanel(document.getElementById('ws-canvas-panel'));
   }, 0);
 }
 
