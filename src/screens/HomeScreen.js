@@ -39,7 +39,7 @@ import { lsGet } from '../utils/storage.js';
 import { idbKeys } from '../lib/idbStorage.js';
 import { ChunksDB } from '../lib/chunksDb.js';
 import { subscribeToHomeMessages, unsubscribeHomeMessages } from '../state/home/homeMessagesRealtime.js';
-import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../components/ThinkingAccordion.js';
+import { createThinkingAccordion } from '../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../utils/typewriter.js';
 import { ws } from '../state/workspace/state.js';
 import { _homeRenderPreview } from '../state/workspace/attachments.js';
@@ -845,11 +845,10 @@ export function homeAppendThinking(hasImage = false) {
 
     wrap.appendChild(bodyWrap);
 
-    // Mount ThinkingAccordion in streaming mode (empty steps, live timer)
+    // Mount ThinkingAccordion in streaming mode (empty text, live header dot)
     _homeThinkingHandle = createThinkingAccordion(container, {
-      steps: [],
+      thinkingText: '',
       elapsed: 0,
-      tags: [],
       isStreaming: true,
     });
   }
@@ -922,21 +921,19 @@ export async function homeAppendThinkingAccordion(thinkingContent, elapsed, thin
     document.getElementById('home-chat-history').appendChild(wrap);
   }
 
-  const steps = thinkingContent ? parseThinkingSteps(thinkingContent) : [];
-  // When the model produced no real thinking content, remove the placeholder silently
-  if (steps.length === 0) {
+  // When the model produced no thinking content, remove the placeholder silently
+  if (!thinkingContent) {
     wrap.remove();
     homeScrollBottom();
     return;
   }
-  const tags = inferThinkingTags(steps, thinkingContent || '');
   const container = document.createElement('div');
   wrap.appendChild(container);
-  const accordionHandle = createThinkingAccordion(container, { steps, elapsed, tags, isStreaming: false });
+  const accordionHandle = createThinkingAccordion(container, { thinkingText: thinkingContent, elapsed, isStreaming: false });
   homeScrollBottom();
 
-  // Wait for the step-reveal animation to complete.  The accordion will
-  // auto-collapse once done, giving the clean "think first, then respond" UX.
+  // animationDone resolves immediately (no animation), then the accordion is
+  // already auto-collapsed.  Await it so callers get the expected Promise.
   await accordionHandle.animationDone;
 }
 
