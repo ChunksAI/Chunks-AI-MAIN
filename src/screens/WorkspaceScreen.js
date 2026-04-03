@@ -19,6 +19,7 @@
  */
 
 import { mountSmartNotesPanel, mountStickyStrip } from '../components/SmartNotesPanel.jsx';
+import { mountCanvasPanel } from '../components/CanvasPanel.jsx';
 import { wsFitWidth } from '../state/workspace/pdf.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
