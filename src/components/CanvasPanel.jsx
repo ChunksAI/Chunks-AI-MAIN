@@ -289,6 +289,16 @@ function DiagramRenderer({ artifact }) {
 
     wrap.innerHTML = sanitize(svg);
 
+    // Ensure the injected SVG is always centered and fills its container
+    const svgEl = wrap.querySelector('svg');
+    if (svgEl) {
+      if (!svgEl.getAttribute('preserveAspectRatio')) {
+        svgEl.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+      }
+      svgEl.setAttribute('width', '100%');
+      svgEl.removeAttribute('height');
+    }
+
     function handleClick(e) {
       let el = e.target;
       // Walk up the DOM tree to find an element whose id is a known label
