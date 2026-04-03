@@ -11,7 +11,7 @@ import pytest
 def _auth_mock(monkeypatch, user_id="user-abc", tier="free"):
     """Patch _extract_verified_user to return a fixed authenticated user."""
     import services.auth as auth_svc
-    mock = MagicMock(return_value=(user_id, tier))
+    mock = MagicMock(return_value=(user_id, tier, False))
     monkeypatch.setattr(auth_svc, "_extract_verified_user", mock)
     return mock
 

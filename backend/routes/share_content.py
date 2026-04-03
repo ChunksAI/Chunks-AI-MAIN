@@ -46,7 +46,7 @@ def create_share(request: Request, body: ShareCreateRequest):
     """Create a shareable link.  Requires a valid JWT."""
     try:
         from services.auth import _extract_verified_user
-        verified_user_id, _tier = _extract_verified_user(request)
+        verified_user_id, _tier, _is_exempt = _extract_verified_user(request)
     except Exception as exc:
         return JSONResponse({"success": False, "error": "Authentication required"}, status_code=401)
 

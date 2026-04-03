@@ -73,7 +73,7 @@ def test_api_me_plan_authenticated(client, monkeypatch):
     """GET /api/me/plan with valid auth returns plan info."""
     import services.auth as auth_svc
     from services.auth import Tier
-    mock = MagicMock(return_value=('user-123', Tier.FREE))
+    mock = MagicMock(return_value=('user-123', Tier.FREE, False))
     monkeypatch.setattr(auth_svc, '_extract_verified_user', mock)
 
     resp = client.get('/api/me/plan')
@@ -91,7 +91,7 @@ def test_api_me_plan_pro_user(client, monkeypatch):
     """GET /api/me/plan for pro user returns pro limits."""
     import services.auth as auth_svc
     from services.auth import Tier
-    mock = MagicMock(return_value=('user-456', Tier.PRO))
+    mock = MagicMock(return_value=('user-456', Tier.PRO, False))
     monkeypatch.setattr(auth_svc, '_extract_verified_user', mock)
 
     resp = client.get('/api/me/plan')
