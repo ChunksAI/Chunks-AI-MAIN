@@ -2220,7 +2220,7 @@
 #screen-home main { overflow: hidden; }
 
 /* ── ThinkingAccordion ─────────────────────────────────────────────────────
-   Claude-style collapsible reasoning list shown before AI responses when a
+   Claude-style collapsible reasoning block shown before AI responses when a
    thinking/deep-thinking model was used. ─────────────────────────────────── */
 
 /* Outer row wrapper for the ThinkingAccordion in the home chat history */
@@ -2275,7 +2275,7 @@
   50%       { opacity: 1;   transform: scale(1.1); }
 }
 
-/* Header summary text (comma-joined step titles) */
+/* Header summary text */
 .ta-summary {
   flex: 1;
   min-width: 0;
@@ -2292,56 +2292,38 @@
   color: var(--text-4);
 }
 
-/* ── Expanded step list ─────────────────────────────────────────────────────── */
-.ta-list {
-  padding: 4px 0 10px;
+/* ── Raw thinking text scrollable box ──────────────────────────────────────── */
+.ta-raw-text {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 10px 14px;
   border-top: 1px solid var(--border-xs);
 }
-
-/* Individual step row — fades in when appended during animation */
-.ta-list-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 7px 14px;
-  animation: ta-step-in 0.18s ease forwards;
-}
-@keyframes ta-step-in {
-  from { opacity: 0; transform: translateY(3px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-/* Step / Done icon */
-.ta-item-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: var(--text-4);
-}
-
-/* Step title */
-.ta-item-title {
-  font-size: 13px;
-  color: var(--text-2);
-  line-height: 1.4;
-}
-
-/* Done row */
-.ta-done-icon { color: var(--text-3); }
-.ta-done-title { color: var(--text-3); }
-
-.ta-empty {
-  font-size: 12px;
-  color: var(--text-4);
-  padding: 8px 14px;
+.ta-raw-text pre {
   margin: 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-3);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-/* Study mode overrides */
+/* Done footer row */
+.ta-footer-done {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 10px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.ta-footer-done svg { flex-shrink: 0; color: var(--text-3); }
+
+/* Study theme overrides */
 [data-theme="study"] .ta-wrap { background: #f5f0e8; }
 [data-theme="study"] .ta-header-btn:hover { background: #ede8df; }
-[data-theme="study"] .ta-list { border-color: rgba(0,0,0,0.07); }
+[data-theme="study"] .ta-raw-text { border-color: rgba(0,0,0,0.07); }
 
 /* ── PDF text layer — enables text selection for "Ask AI" ─────────────────
    PDF.js renders invisible spans that sit on top of the canvas.

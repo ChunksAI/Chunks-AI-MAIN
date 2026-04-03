@@ -12,7 +12,7 @@ import { showToast }   from '../../components/Toast.js';
 import { $el, setHtml, addClass, removeClass, toggleClass } from '../domHelpers.js';
 import { handleCommand, syncContextFromWorkspace, updateContext } from '../commandEngine.js';
 import { wsShowPanel } from '../../screens/WorkspaceScreen.js';
-import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../../components/ThinkingAccordion.js';
+import { createThinkingAccordion } from '../../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../../utils/typewriter.js';
 
 // ── Send / Stop button icons ──────────────────────────────────────────────
@@ -157,11 +157,10 @@ export function wsAppendThinking(hasImage = false) {
     _wsThinkingWrap.appendChild(container);
     msgs.appendChild(_wsThinkingWrap);
 
-    // Mount ThinkingAccordion in streaming mode (empty steps, live timer)
+    // Mount ThinkingAccordion in streaming mode (empty text, live header dot)
     _wsThinkingHandle = createThinkingAccordion(container, {
-      steps: [],
+      thinkingText: '',
       elapsed: 0,
-      tags: [],
       isStreaming: true,
     });
   }
@@ -200,31 +199,27 @@ async function _wsFinalizeThinking(thinkingContent) {
     _wsThinkingHandle = null;
   }
 
-  // Build steps from real thinking content
-  const steps = thinkingContent ? parseThinkingSteps(thinkingContent) : [];
-
+  // Build accordion from real thinking content
   // If the model produced no thinking content, remove the placeholder silently
-  if (steps.length === 0) {
+  if (!thinkingContent) {
     _wsThinkingWrap.remove();
     _wsThinkingWrap = null;
     return;
   }
 
-  const tags = inferThinkingTags(steps, thinkingContent || '');
-
-  // Create a fresh container and mount the accordion with real steps
+  // Create a fresh container and mount the accordion with real content
   const container = document.createElement('div');
   container.style.cssText = 'width:100%;';
   _wsThinkingWrap.innerHTML = '';
   _wsThinkingWrap.appendChild(container);
   _wsThinkingWrap.removeAttribute('id'); // no longer the "thinking" placeholder
 
-  const accordionHandle = createThinkingAccordion(container, { steps, elapsed, tags });
+  const accordionHandle = createThinkingAccordion(container, { thinkingText: thinkingContent, elapsed });
   _wsThinkingWrap = null;
   wsScrollBottom();
 
-  // Wait for the step-reveal animation to complete.  The accordion will
-  // auto-collapse once done, giving the clean "think first, then respond" UX.
+  // animationDone resolves immediately (no animation), then the accordion is
+  // already auto-collapsed.  Await it so callers get the expected Promise.
   await accordionHandle.animationDone;
 }
 

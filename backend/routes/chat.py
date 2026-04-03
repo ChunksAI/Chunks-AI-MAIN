@@ -227,14 +227,10 @@ def ask(request: Request, body: AskRequest):
             book_author = book_info.get('author', '')
             book_label  = f"{book_name} by {book_author}" if book_author else book_name
 
-        EQUATION_SUBJECTS = {'chemistry', 'physics', 'biochemistry', 'mathematics', 'engineering'}
-        needs_latex = any(s in book_name.lower() for s in EQUATION_SUBJECTS)
         latex_instruction = (
             "Use LaTeX notation for all equations and formulas. "
             "Inline math: $...$ — Display math: $$...$$ — "
             r"Example: $$K_{eq} = \frac{[C]^c[D]^d}{[A]^a[B]^b}$$"
-        ) if needs_latex else (
-            "Use plain text for any formulas or technical notation."
         )
 
         _identity_variants = [

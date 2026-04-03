@@ -354,7 +354,8 @@ export function wsRender(raw) {
  * @returns {string}   Sanitised HTML
  */
 export function spExplainMarkdown(text) {
-  let t = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let { t, math } = _extractMath(text);
+  t = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
   function inlineFormat(s) {
     return s
@@ -430,7 +431,7 @@ export function spExplainMarkdown(text) {
     return '';
   }).join('');
 
-  return sanitize(html);
+  return sanitize(_restoreMath(html, math));
 }
 
 // ── Internal table renderer (shared) ──────────────────────────────────────
