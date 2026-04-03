@@ -38,8 +38,8 @@ const _Chevron = ({ up }) => h('svg', {
 );
 
 /** Returns the elapsed-time label shown after thinking completes. */
-function _elapsedLabel(n) {
-  return n < 10 ? 'Thought for a few seconds' : `Thought for ${n} seconds`;
+function _elapsedLabel(seconds) {
+  return seconds < 10 ? 'Thought for a few seconds' : `Thought for ${seconds} seconds`;
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ export const ThinkingAccordionIsland = forwardRef(function ThinkingAccordionIsla
     open && h('div', { class: 'ta-raw-text' },
       thinkingText
         ? h('pre', null, thinkingText)
-        : h('pre', { style: 'opacity:0.45' }, 'Thinking…'),
+        : h('pre', { style: { opacity: 0.45 } }, 'Thinking…'),
     ),
 
     // ── Footer "Done" row (only when not streaming) ────────────────────
