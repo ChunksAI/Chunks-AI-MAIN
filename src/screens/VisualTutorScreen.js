@@ -487,9 +487,20 @@ TYPE "cycle" — circular repeating process or feedback loop:
 {"type":"cycle","items":[{"label":"Step","sub":"detail","color":"amber"},{"label":"Step","sub":"detail","color":"blue"}],"center":"optional center label","note":"footer"}
 Use 3–5 items arranged in a circle with curved arrows.
 
-Rules:
+TYPE "particles" — two animated panels of bouncing circles (kinetic energy, diffusion, gas laws, any fast-vs-slow concept):
+{"type":"particles","leftLabel":"HOT","leftSub":"fast particles","leftColor":"amber","rightLabel":"COLD","rightSub":"slow particles","rightColor":"blue","flowLabel":"energy transfer","note":"footer"}
+leftLabel/rightLabel: 1–3 word state name. leftSub/rightSub: one short descriptor phrase. flowLabel: what transfers (optional).
+
+TYPE "scene" — two labeled objects with an arrow and animated flow dots between them (heat transfer, electrical current, diffusion, osmosis, input→output):
+{"type":"scene","left":{"label":"SOURCE","sub":"brief description","color":"amber"},"right":{"label":"SINK","sub":"brief description","color":"blue"},"arrow":{"label":"symbol or quantity"},"note":"footer"}
+
+TYPE "labeled_equation" — large formula with downward color-coded arrows and labels per term, optional example cards at the bottom:
+{"type":"labeled_equation","formula":"A = B × C","parts":[{"symbol":"A","name":"full name","sub":"(unit)","color":"amber"},{"symbol":"B","name":"full name","sub":"(unit)","color":"blue"},{"symbol":"C","name":"full name","sub":"(unit)","color":"teal"}],"cards":[{"label":"Example 1","value":"val=1.5","color":"amber"},{"label":"Example 2","value":"val=0.8","color":"blue"}],"note":"footer"}
+cards: 2–4 optional real-world examples with specific values (omit if not applicable). Use for any step that introduces a formula.
+
+
 - Generate exactly 5 steps.
-- Use a DIFFERENT draw type for each step where possible. Prefer mindmap or cycle when the concept has categories or repeating processes.
+- Use a DIFFERENT draw type for each step where possible. Prefer particles or scene for motion/transfer/energy steps, labeled_equation for formula steps, mindmap or cycle for category/process steps.
 - Make content specific and accurate for "${topic}" — NOT generic filler.
 - contextualReplies must be real, specific answers a tutor would give — not "great question!".
 - quiz options must be specific to the topic, not abstract.
@@ -646,10 +657,11 @@ function _vtpDrawSpec(spec) {
   const TEXT_SEC = '#9898ae';
   const TEXT_MUT = '#55556a';
   const CAVEAT   = "'Caveat', cursive";
+  const MONO     = "'DM Mono', 'Courier New', monospace";
 
   // Seeded rand — same jitter on every render for same spec type.
   // Multiplier 997 (prime) and offset 13 spread seeds across the PRNG range.
-  const TYPE_SEEDS = { flow: 1, equation: 2, compare: 3, scale: 4, bullets: 5, mindmap: 6, cycle: 7 };
+  const TYPE_SEEDS = { flow: 1, equation: 2, compare: 3, scale: 4, bullets: 5, mindmap: 6, cycle: 7, particles: 8, scene: 9, labeled_equation: 10 };
   const SEED_MULTIPLIER = 997; // prime — spreads seeds well across PRNG range
   const SEED_OFFSET     = 13;  // small offset to avoid seed=0 for the first type
   const _r = _vtpMakeRand((TYPE_SEEDS[spec.type] || 9) * SEED_MULTIPLIER + SEED_OFFSET);
@@ -1081,6 +1093,288 @@ function _vtpDrawSpec(spec) {
     return;
   }
 
+  // ── PARTICLES — two animated regions of bouncing circles ─────────────────
+  if (spec.type === 'particles') {
+    const lCol    = _vtpCol(spec.leftColor  || 'amber');
+    const rCol    = _vtpCol(spec.rightColor || 'blue');
+    const GAP     = Math.max(48, W * 0.07);
+    const PAD     = Math.max(20, W * 0.03);
+    const PANEL_W = (W - 2 * PAD - GAP) / 2;
+    const PY      = 50;
+    const PANEL_H = H - PY - 48;
+    const LX = PAD, RX = PAD + PANEL_W + GAP;
+
+    // Init particles with seeded PRNG so positions are deterministic
+    const lParts = Array.from({length: 12}, () => ({
+      x:  LX + 18 + _r() * (PANEL_W - 36),
+      y:  PY + 18 + _r() * (PANEL_H - 36),
+      vx: (_r() - 0.5) * 4.2,
+      vy: (_r() - 0.5) * 4.2,
+      r:  5 + _r() * 10,
+    }));
+    const rParts = Array.from({length: 15}, () => ({
+      x:  RX + 18 + _r() * (PANEL_W - 36),
+      y:  PY + 18 + _r() * (PANEL_H - 36),
+      vx: (_r() - 0.5) * 1.4,
+      vy: (_r() - 0.5) * 1.4,
+      r:  4 + _r() * 6,
+    }));
+
+    function _dotGrid() {
+      ctx.fillStyle = 'rgba(255,255,255,0.03)';
+      for (let gx = 44; gx < W; gx += 44)
+        for (let gy = 44; gy < H; gy += 44) {
+          ctx.beginPath(); ctx.arc(gx, gy, 1.3, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+
+    function _drawParticlesFrame() {
+      ctx.clearRect(0, 0, W, H);
+      _dotGrid();
+
+      // Panels
+      function panel(x, w, c) {
+        ctx.fillStyle = c.fill; ctx.strokeStyle = c.stroke; ctx.lineWidth = 1.5;
+        ctx.fillRect(x, PY, w, PANEL_H); ctx.strokeRect(x, PY, w, PANEL_H);
+      }
+      panel(LX, PANEL_W, lCol);
+      panel(RX, PANEL_W, rCol);
+
+      // Labels
+      ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+      ctx.font = `600 15px ${MONO}`; ctx.fillStyle = lCol.text;
+      ctx.fillText(spec.leftLabel || 'A', LX + PANEL_W / 2, PY - 18);
+      ctx.fillStyle = rCol.text;
+      ctx.fillText(spec.rightLabel || 'B', RX + PANEL_W / 2, PY - 18);
+      if (spec.leftSub) {
+        ctx.font = `400 12px ${MONO}`; ctx.fillStyle = TEXT_SEC;
+        ctx.fillText(spec.leftSub, LX + PANEL_W / 2, PY + 18);
+      }
+      if (spec.rightSub) {
+        ctx.font = `400 12px ${MONO}`; ctx.fillStyle = TEXT_SEC;
+        ctx.fillText(spec.rightSub, RX + PANEL_W / 2, PY + 18);
+      }
+
+      // Arrow between panels
+      const ax1 = LX + PANEL_W + 6, ax2 = RX - 6, ay = PY + PANEL_H / 2;
+      ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 1.5;
+      sketchArrow(ax1, ay, ax2, ay, 1);
+      if (spec.flowLabel) {
+        ctx.font = `400 12px ${MONO}`; ctx.fillStyle = lCol.text;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(spec.flowLabel, (ax1 + ax2) / 2, ay - 15);
+      }
+
+      // Note
+      if (spec.note) {
+        ctx.font = `400 13px ${MONO}`; ctx.fillStyle = TEXT_MUT;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(spec.note, cx, H - 22);
+      }
+
+      // Left particles (fast/large)
+      lParts.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x - p.r < LX + 3)           { p.vx =  Math.abs(p.vx); }
+        if (p.x + p.r > LX + PANEL_W - 3) { p.vx = -Math.abs(p.vx); }
+        if (p.y - p.r < PY + 3)           { p.vy =  Math.abs(p.vy); }
+        if (p.y + p.r > PY + PANEL_H - 3) { p.vy = -Math.abs(p.vy); }
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = lCol.stroke + '28'; ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.42, 0, Math.PI * 2);
+        ctx.fillStyle = lCol.stroke; ctx.fill();
+      });
+
+      // Right particles (slow/small)
+      rParts.forEach(p => {
+        p.x += p.vx; p.y += p.vy;
+        if (p.x - p.r < RX + 3)           { p.vx =  Math.abs(p.vx); }
+        if (p.x + p.r > RX + PANEL_W - 3) { p.vx = -Math.abs(p.vx); }
+        if (p.y - p.r < PY + 3)           { p.vy =  Math.abs(p.vy); }
+        if (p.y + p.r > PY + PANEL_H - 3) { p.vy = -Math.abs(p.vy); }
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = rCol.stroke + '28'; ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.45, 0, Math.PI * 2);
+        ctx.fillStyle = rCol.stroke; ctx.fill();
+      });
+
+      _vtpAnimFrame = requestAnimationFrame(_drawParticlesFrame);
+    }
+
+    _drawParticlesFrame();
+    return;
+  }
+
+  // ── SCENE — two labeled objects with animated transfer dots between them ───
+  if (spec.type === 'scene') {
+    const lSpec  = spec.left  || {};
+    const rSpec  = spec.right || {};
+    const arSpec = spec.arrow || {};
+    const lCol   = _vtpCol(lSpec.color || 'amber');
+    const rCol   = _vtpCol(rSpec.color || 'blue');
+    const BOX_W  = Math.min(160, W * 0.22);
+    const BOX_H  = Math.min(120, H * 0.42);
+    const LBX    = W * 0.05, RBX = W - W * 0.05 - BOX_W;
+    const BY     = cy - BOX_H / 2;
+
+    // Flow dots from left box right edge to right box left edge
+    const flowAX1 = LBX + BOX_W + 6, flowAX2 = RBX - 6;
+    const flowDots = Array.from({length: 6}, (_, i) => ({
+      x:  flowAX1 + (flowAX2 - flowAX1) * (_r() * 0.85),
+      oy: (_r() - 0.5) * 18,
+      speed: 0.8 + _r() * 1.2,
+    }));
+
+    function _dotGrid2() {
+      ctx.fillStyle = 'rgba(255,255,255,0.03)';
+      for (let gx = 44; gx < W; gx += 44)
+        for (let gy = 44; gy < H; gy += 44) {
+          ctx.beginPath(); ctx.arc(gx, gy, 1.3, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+
+    function _drawSceneFrame() {
+      ctx.clearRect(0, 0, W, H);
+      _dotGrid2();
+
+      // Left box
+      ctx.fillStyle = lCol.fill; ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 2;
+      ctx.fillRect(LBX, BY, BOX_W, BOX_H); ctx.strokeRect(LBX, BY, BOX_W, BOX_H);
+      ctx.font = `700 17px ${MONO}`; ctx.fillStyle = lCol.text;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(lSpec.label || '', LBX + BOX_W / 2, BY + BOX_H / 2 - (lSpec.sub ? 10 : 0));
+      if (lSpec.sub) {
+        ctx.font = `400 12px ${MONO}`; ctx.fillStyle = TEXT_SEC;
+        ctx.fillText(lSpec.sub, LBX + BOX_W / 2, BY + BOX_H / 2 + 14);
+      }
+
+      // Right box
+      ctx.fillStyle = rCol.fill; ctx.strokeStyle = rCol.stroke; ctx.lineWidth = 2;
+      ctx.fillRect(RBX, BY, BOX_W, BOX_H); ctx.strokeRect(RBX, BY, BOX_W, BOX_H);
+      ctx.font = `700 17px ${MONO}`; ctx.fillStyle = rCol.text;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(rSpec.label || '', RBX + BOX_W / 2, BY + BOX_H / 2 - (rSpec.sub ? 10 : 0));
+      if (rSpec.sub) {
+        ctx.font = `400 12px ${MONO}`; ctx.fillStyle = TEXT_SEC;
+        ctx.fillText(rSpec.sub, RBX + BOX_W / 2, BY + BOX_H / 2 + 14);
+      }
+
+      // Arrow + label
+      ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 2;
+      sketchArrow(flowAX1, cy, flowAX2, cy, 1.5);
+      if (arSpec.label) {
+        ctx.font = `400 14px ${MONO}`; ctx.fillStyle = lCol.text;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(arSpec.label, (flowAX1 + flowAX2) / 2, cy - 20);
+      }
+
+      // Animated dots
+      flowDots.forEach(d => {
+        d.x += d.speed;
+        if (d.x > flowAX2 + 8) d.x = flowAX1;
+        ctx.beginPath(); ctx.arc(d.x, cy + d.oy, 4.5, 0, Math.PI * 2);
+        ctx.fillStyle = lCol.stroke; ctx.fill();
+        ctx.beginPath(); ctx.arc(d.x, cy + d.oy, 2, 0, Math.PI * 2);
+        ctx.fillStyle = '#ededf0'; ctx.fill();
+      });
+
+      // Note
+      if (spec.note) {
+        ctx.font = `400 13px ${MONO}`; ctx.fillStyle = TEXT_MUT;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(spec.note, cx, H - 22);
+      }
+
+      _vtpAnimFrame = requestAnimationFrame(_drawSceneFrame);
+    }
+
+    _drawSceneFrame();
+    return;
+  }
+
+  // ── LABELED_EQUATION — large formula + downward arrows + color labels + cards
+  if (spec.type === 'labeled_equation') {
+    const parts   = (spec.parts  || []).slice(0, 5);
+    const cards   = (spec.cards  || []).slice(0, 4);
+    const formula = spec.formula || '';
+    const n       = parts.length;
+    const hasCards = cards.length > 0;
+    const FORM_Y   = hasCards ? cy - 80 : cy - 55;
+    const ARROW_Y1 = FORM_Y + 32;
+    const ARROW_Y2 = FORM_Y + 68;
+    const LABEL_Y  = FORM_Y + 82;
+    const SUB_Y    = FORM_Y + 100;
+    const CARD_Y   = H - 72;
+    const CARD_W   = Math.min(110, (W - 60) / Math.max(cards.length, 1) - 8);
+    const CARD_H   = 42;
+
+    const spacing = Math.min(130, (W - 60) / n);
+    const startX  = cx - (n - 1) * spacing / 2;
+
+    // Formula
+    draw(() => {
+      ctx.font = `600 38px ${MONO}`; ctx.fillStyle = TEXT_PRI;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(formula, cx, FORM_Y);
+    }, 60);
+
+    // Per-part arrows and labels
+    parts.forEach((p, i) => {
+      const c = _vtpCol(p.color || 'amber');
+      const px = startX + i * spacing;
+      draw(() => {
+        // Colored vertical arrow pointing down
+        ctx.strokeStyle = c.stroke; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(px, ARROW_Y1); ctx.lineTo(px, ARROW_Y2); ctx.stroke();
+        // Arrowhead
+        const AL = 9;
+        ctx.beginPath(); ctx.moveTo(px, ARROW_Y2);
+        ctx.lineTo(px - AL * 0.5, ARROW_Y2 - AL); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(px, ARROW_Y2);
+        ctx.lineTo(px + AL * 0.5, ARROW_Y2 - AL); ctx.stroke();
+        // Name
+        ctx.font = `500 13px ${MONO}`; ctx.fillStyle = c.text;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText((p.name || '').slice(0, 20), px, LABEL_Y);
+        // Sub / unit
+        if (p.sub) {
+          ctx.font = `400 11px ${MONO}`; ctx.fillStyle = TEXT_SEC;
+          ctx.fillText(p.sub, px, SUB_Y);
+        }
+      }, 200 + i * 140);
+    });
+
+    // Example cards at bottom
+    if (hasCards) {
+      const cardTotalW = cards.length * CARD_W + (cards.length - 1) * 10;
+      const cardStartX = (W - cardTotalW) / 2;
+      cards.forEach((card, i) => {
+        const c  = _vtpCol(card.color || 'teal');
+        const cx2 = cardStartX + i * (CARD_W + 10);
+        draw(() => {
+          ctx.fillStyle = c.fill; ctx.strokeStyle = c.stroke; ctx.lineWidth = 1.5;
+          ctx.fillRect(cx2, CARD_Y, CARD_W, CARD_H);
+          ctx.strokeRect(cx2, CARD_Y, CARD_W, CARD_H);
+          ctx.font = `500 13px ${MONO}`; ctx.fillStyle = TEXT_PRI;
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText((card.label || '').slice(0, 14), cx2 + CARD_W / 2, CARD_Y + 13);
+          ctx.font = `400 12px ${MONO}`; ctx.fillStyle = c.text;
+          ctx.fillText((card.value || '').slice(0, 14), cx2 + CARD_W / 2, CARD_Y + 30);
+        }, 200 + parts.length * 140 + i * 110);
+      });
+    }
+
+    // Note
+    draw(() => {
+      if (spec.note) {
+        ctx.font = `400 13px ${MONO}`; ctx.fillStyle = TEXT_MUT;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(spec.note, cx, H - (hasCards ? 16 : 22));
+      }
+    }, 200 + parts.length * 140 + cards.length * 110 + 80);
+    return;
+  }
+
   // ── GENERIC FALLBACK ─────────────────────────────────────────────────────
   draw(() => {
     sketchBox(cx - 138, cy - 50, 276, 100, 'rgba(232,172,46,0.07)', '#e8ac2e');
@@ -1185,6 +1479,7 @@ let _vtpWeakSteps    = [];
 let _vtpResizeTimer  = null;
 let _vtpAskHistory   = []; // [{q: string, a: string}] — in-lesson Q&A thread
 let _vtpChallengeRevealed = false; // true once the model answer is shown
+let _vtpAnimFrame         = null;  // rAF handle for animated draw types (particles/scene)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SOUND ENGINE  (Web Audio API — no file assets needed)
@@ -1296,6 +1591,7 @@ function _vtpDrawDotGrid() {
 }
 
 function _vtpClearCanvas() {
+  if (_vtpAnimFrame !== null) { cancelAnimationFrame(_vtpAnimFrame); _vtpAnimFrame = null; }
   if (!_vtpCtx) return;
   _vtpCtx.clearRect(0, 0, _vtpW, _vtpH);
   _vtpDrawDotGrid();
