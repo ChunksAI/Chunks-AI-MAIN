@@ -479,9 +479,17 @@ TYPE "bullets" — key facts or summary points:
 {"type":"bullets","title":"Optional heading","items":[{"icon":"→","text":"Point one — keep under 55 chars"},{"icon":"→","text":"Point two"}],"color":"teal","note":"footer"}
 Max 5 items.
 
+TYPE "mindmap" — central concept with radiating branches (great for definitions, categories, properties):
+{"type":"mindmap","center":"Core concept","color":"amber","branches":[{"label":"Branch","sub":"detail","color":"blue"},{"label":"Branch","sub":"detail","color":"teal"}],"note":"footer"}
+Use 3–6 branches. Each branch has a label (short name) and optional sub (1 detail phrase).
+
+TYPE "cycle" — circular repeating process or feedback loop:
+{"type":"cycle","items":[{"label":"Step","sub":"detail","color":"amber"},{"label":"Step","sub":"detail","color":"blue"}],"center":"optional center label","note":"footer"}
+Use 3–5 items arranged in a circle with curved arrows.
+
 Rules:
 - Generate exactly 5 steps.
-- Use a DIFFERENT draw type for each step where possible.
+- Use a DIFFERENT draw type for each step where possible. Prefer mindmap or cycle when the concept has categories or repeating processes.
 - Make content specific and accurate for "${topic}" — NOT generic filler.
 - contextualReplies must be real, specific answers a tutor would give — not "great question!".
 - quiz options must be specific to the topic, not abstract.
@@ -611,8 +619,21 @@ function _vtpShowLoadingError(msg) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SPEC-BASED CANVAS RENDERER
-// Five draw types: flow | equation | compare | scale | bullets
+// SEEDED PRNG — consistent sketch jitter per draw type
+// ─────────────────────────────────────────────────────────────────────────────
+function _vtpMakeRand(seed) {
+  let s = (seed ^ 0xdeadbeef) >>> 0;
+  return () => {
+    s = Math.imul(s ^ (s >>> 16), 0x45d9f3b);
+    s = Math.imul(s ^ (s >>> 16), 0x45d9f3b);
+    s = (s ^ (s >>> 16)) >>> 0;
+    return s / 0x100000000;
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SPEC-BASED CANVAS RENDERER — hand-drawn / sketch style
+// Draw types: flow | equation | compare | scale | bullets | mindmap | cycle
 // ─────────────────────────────────────────────────────────────────────────────
 
 function _vtpDrawSpec(spec) {
@@ -621,237 +642,450 @@ function _vtpDrawSpec(spec) {
   const ctx = _vtpCtx, W = _vtpW, H = _vtpH;
   const cx = W / 2, cy = H / 2;
   const draw = (fn, delay) => setTimeout(fn, delay);
-  const TEXT_PRI  = '#ededf0';
-  const TEXT_SEC  = '#9898ae';
-  const TEXT_MUT  = '#55556a';
+  const TEXT_PRI = '#ededf0';
+  const TEXT_SEC = '#9898ae';
+  const TEXT_MUT = '#55556a';
+  const CAVEAT   = "'Caveat', cursive";
 
-  // ── Shared helpers ──────────────────────────────────────────────────────
-  function roundRect(x, y, w, h, r, fillStyle, strokeStyle) {
-    ctx.beginPath(); ctx.roundRect(x, y, w, h, r);
-    if (fillStyle)   { ctx.fillStyle   = fillStyle;   ctx.fill();   }
-    if (strokeStyle) { ctx.strokeStyle = strokeStyle; ctx.lineWidth = 1.5; ctx.stroke(); }
+  // Seeded rand — same jitter on every render for same spec type.
+  // Multiplier 997 (prime) and offset 13 spread seeds across the PRNG range.
+  const TYPE_SEEDS = { flow: 1, equation: 2, compare: 3, scale: 4, bullets: 5, mindmap: 6, cycle: 7 };
+  const SEED_MULTIPLIER = 997; // prime — spreads seeds well across PRNG range
+  const SEED_OFFSET     = 13;  // small offset to avoid seed=0 for the first type
+  const _r = _vtpMakeRand((TYPE_SEEDS[spec.type] || 9) * SEED_MULTIPLIER + SEED_OFFSET);
+
+  // ── Sketch primitives ──────────────────────────────────────────────────
+
+  // Wobbly line using a single bezier curve
+  function sketchLine(x1, y1, x2, y2, wobble) {
+    wobble = wobble ?? 2.5;
+    const dx = x2 - x1, dy = y2 - y1;
+    const len = Math.hypot(dx, dy) || 1;
+    const px = -dy / len, py = dx / len;
+    ctx.beginPath();
+    ctx.moveTo(x1 + (_r() - 0.5) * wobble, y1 + (_r() - 0.5) * wobble);
+    ctx.bezierCurveTo(
+      x1 + dx * 0.3 + px * (_r() - 0.5) * wobble * 4,
+      y1 + dy * 0.3 + py * (_r() - 0.5) * wobble * 4,
+      x1 + dx * 0.7 + px * (_r() - 0.5) * wobble * 4,
+      y1 + dy * 0.7 + py * (_r() - 0.5) * wobble * 4,
+      x2 + (_r() - 0.5) * wobble, y2 + (_r() - 0.5) * wobble
+    );
+    ctx.stroke();
   }
+
+  // Open-head hand-drawn arrow
+  function sketchArrow(x1, y1, x2, y2, wobble) {
+    ctx.lineCap = 'round';
+    sketchLine(x1, y1, x2, y2, wobble ?? 2.5);
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const len = 13, spread = 0.42;
+    ctx.beginPath();
+    ctx.moveTo(x2 + (_r() - 0.5) * 2, y2 + (_r() - 0.5) * 2);
+    ctx.lineTo(
+      x2 - len * Math.cos(angle - spread) + (_r() - 0.5) * 2,
+      y2 - len * Math.sin(angle - spread) + (_r() - 0.5) * 2
+    );
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x2 + (_r() - 0.5) * 2, y2 + (_r() - 0.5) * 2);
+    ctx.lineTo(
+      x2 - len * Math.cos(angle + spread) + (_r() - 0.5) * 2,
+      y2 - len * Math.sin(angle + spread) + (_r() - 0.5) * 2
+    );
+    ctx.stroke();
+  }
+
+  // Curved arrow along an arc (for cycle type)
+  function sketchCurvedArrow(x1, y1, x2, y2, cpx, cpy) {
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x1 + (_r() - 0.5) * 2, y1 + (_r() - 0.5) * 2);
+    ctx.quadraticCurveTo(cpx, cpy, x2 + (_r() - 0.5) * 2, y2 + (_r() - 0.5) * 2);
+    ctx.stroke();
+    // arrowhead
+    const angle = Math.atan2(y2 - cpy, x2 - cpx);
+    const len = 11, spread = 0.42;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - len * Math.cos(angle - spread), y2 - len * Math.sin(angle - spread));
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - len * Math.cos(angle + spread), y2 - len * Math.sin(angle + spread));
+    ctx.stroke();
+  }
+
+  // Hand-drawn box — each side drawn as a slightly wobbly line with overshoot
+  function sketchBox(x, y, w, h, fillStyle, strokeStyle, wobble) {
+    wobble = wobble ?? 2;
+    const ov = 3; // corner overshoot
+    if (fillStyle) {
+      const j = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x + (_r() - 0.5) * j, y + (_r() - 0.5) * j);
+      ctx.lineTo(x + w + (_r() - 0.5) * j, y + (_r() - 0.5) * j);
+      ctx.lineTo(x + w + (_r() - 0.5) * j, y + h + (_r() - 0.5) * j);
+      ctx.lineTo(x + (_r() - 0.5) * j, y + h + (_r() - 0.5) * j);
+      ctx.closePath();
+      ctx.fillStyle = fillStyle; ctx.fill();
+    }
+    if (strokeStyle) {
+      ctx.strokeStyle = strokeStyle; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      sketchLine(x - ov, y + (_r() - 0.5) * wobble, x + w + ov, y + (_r() - 0.5) * wobble, wobble); // top
+      sketchLine(x + w + (_r() - 0.5) * wobble, y - ov, x + w + (_r() - 0.5) * wobble, y + h + ov, wobble); // right
+      sketchLine(x + w + ov, y + h + (_r() - 0.5) * wobble, x - ov, y + h + (_r() - 0.5) * wobble, wobble); // bottom
+      sketchLine(x + (_r() - 0.5) * wobble, y + h + ov, x + (_r() - 0.5) * wobble, y - ov, wobble); // left
+    }
+  }
+
+  // Hand-drawn oval — two offset half-arcs
+  function sketchOval(ox, oy, rx, ry, fillStyle, strokeStyle) {
+    if (fillStyle) {
+      ctx.beginPath(); ctx.ellipse(ox, oy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fillStyle = fillStyle; ctx.fill();
+    }
+    if (strokeStyle) {
+      ctx.strokeStyle = strokeStyle; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      const r1 = (_r() - 0.5) * 0.12, r2 = (_r() - 0.5) * 0.12;
+      const ox1 = (_r() - 0.5) * 2, oy1 = (_r() - 0.5) * 2;
+      const ox2 = (_r() - 0.5) * 2, oy2 = (_r() - 0.5) * 2;
+      ctx.beginPath();
+      ctx.ellipse(ox + ox1, oy + oy1, rx + (_r() - 0.5) * 2, ry + (_r() - 0.5) * 2, r1, 0, Math.PI + 0.15);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(ox + ox2, oy + oy2, rx + (_r() - 0.5) * 2, ry + (_r() - 0.5) * 2, r2, Math.PI, Math.PI * 2 + 0.15);
+      ctx.stroke();
+    }
+  }
+
+  // Text using Caveat handwriting font
   function label(text, x, y, size, color, align, weight) {
-    ctx.font = `${weight||'normal'} ${size}px sans-serif`;
-    ctx.fillStyle   = color;
-    ctx.textAlign   = align || 'center';
+    ctx.font = `${weight || '400'} ${size}px ${CAVEAT}`;
+    ctx.fillStyle = color;
+    ctx.textAlign = align || 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, x, y);
   }
+
+  // Footnote at bottom of canvas
   function note(text) {
     if (!text) return;
-    ctx.font = '11px sans-serif'; ctx.fillStyle = TEXT_MUT;
+    ctx.font = `400 13px ${CAVEAT}`; ctx.fillStyle = TEXT_MUT;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(text, cx, H - 30);
+    ctx.fillText(text, cx, H - 28);
   }
 
-  // ── FLOW ────────────────────────────────────────────────────────────────
+  // ── FLOW — oval nodes with hand-drawn arrows ─────────────────────────────
   if (spec.type === 'flow') {
     const items = (spec.items || []).slice(0, 5);
     const n = items.length;
-    const BOX_W = Math.min(130, (W - 80) / n - 20);
-    const BOX_H = 64;
-    const GAP   = (W - 80 - n * BOX_W) / (n - 1 || 1);
-    const startX = 40;
-    const rowY  = cy - BOX_H / 2 - 10;
+    const RX = Math.min(70, (W - 80) / (n * 2.5));
+    const RY = Math.min(38, RX * 0.58);
+    const GAP = (W - 80 - n * RX * 2) / (n - 1 || 1);
+    const startX = 40 + RX;
+    // Pre-compute Y positions with slight organic offset
+    const posY = items.map(() => cy + (_r() - 0.5) * 22);
 
     items.forEach((item, i) => {
       const c = _vtpCol(item.color || 'amber');
-      const bx = startX + i * (BOX_W + GAP);
+      const nx = startX + i * (RX * 2 + GAP);
+      const ny = posY[i];
       draw(() => {
-        // Arrow before box (except first)
+        ctx.lineWidth = 2; ctx.lineCap = 'round';
+        // Arrow from previous node edge to this node edge
         if (i > 0) {
-          const ax = bx - GAP + 4;
-          ctx.strokeStyle = TEXT_MUT; ctx.lineWidth = 1.5;
-          ctx.beginPath(); ctx.moveTo(ax, rowY + BOX_H / 2); ctx.lineTo(bx - 6, rowY + BOX_H / 2); ctx.stroke();
-          // arrowhead
-          ctx.fillStyle = TEXT_MUT; ctx.beginPath();
-          ctx.moveTo(bx - 4, rowY + BOX_H / 2);
-          ctx.lineTo(bx - 10, rowY + BOX_H / 2 - 5);
-          ctx.lineTo(bx - 10, rowY + BOX_H / 2 + 5);
-          ctx.fill();
+          const prevNx = startX + (i - 1) * (RX * 2 + GAP);
+          const prevNy = posY[i - 1];
+          ctx.strokeStyle = TEXT_MUT;
+          sketchArrow(prevNx + RX + 4, prevNy, nx - RX - 4, ny);
         }
-        roundRect(bx, rowY, BOX_W, BOX_H, 10, c.fill, c.stroke);
-        label(item.label || '', bx + BOX_W / 2, rowY + 22, 13, c.text, 'center', '600');
-        if (item.sub) label(item.sub, bx + BOX_W / 2, rowY + 42, 11, TEXT_SEC);
-      }, 80 + i * 130);
+        // Oval node
+        sketchOval(nx, ny, RX, RY, c.fill, c.stroke);
+        // Label text
+        label(item.label || '', nx, ny - (item.sub ? 7 : 0), 14, c.text, 'center', '700');
+        if (item.sub) label(item.sub, nx, ny + 11, 12, TEXT_SEC, 'center', '400');
+      }, 80 + i * 140);
     });
-    draw(() => note(spec.note), 80 + n * 130 + 200);
+    draw(() => note(spec.note), 80 + n * 140 + 180);
     return;
   }
 
-  // ── EQUATION ────────────────────────────────────────────────────────────
+  // ── EQUATION — large formula + sketchy part boxes ────────────────────────
   if (spec.type === 'equation') {
-    const parts  = (spec.parts || []).slice(0, 4);
+    const parts   = (spec.parts || []).slice(0, 4);
     const formula = spec.formula || '';
-    const BOX_W  = 120, BOX_H = 70;
-    const n      = parts.length;
-    const gap    = Math.min(30, (W - 80 - n * BOX_W) / (n - 1 || 1));
-    const startX = (W - (n * BOX_W + (n - 1) * gap)) / 2;
+    const BOX_W   = 118, BOX_H = 68;
+    const n       = parts.length;
+    const gap     = Math.min(28, (W - 80 - n * BOX_W) / (n - 1 || 1));
+    const startX  = (W - (n * BOX_W + (n - 1) * gap)) / 2;
 
-    // Formula at top
+    // Formula written large in Caveat
     draw(() => {
-      ctx.font = 'bold 28px sans-serif'; ctx.fillStyle = TEXT_PRI;
+      ctx.font = `700 34px ${CAVEAT}`; ctx.fillStyle = TEXT_PRI;
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(formula, cx, cy - 70);
+      ctx.fillText(formula, cx, cy - 72);
+      // Wavy underline
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+      const ulY = cy - 52, ulX1 = cx - 120, ulX2 = cx + 120;
+      ctx.beginPath();
+      ctx.moveTo(ulX1, ulY);
+      for (let x = ulX1; x <= ulX2; x += 8) {
+        ctx.lineTo(x + 4, ulY + (_r() - 0.5) * 4);
+        ctx.lineTo(x + 8, ulY + (_r() - 0.5) * 2);
+      }
+      ctx.stroke();
     }, 80);
-
-    // Divider
-    draw(() => {
-      ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
-      ctx.beginPath(); ctx.moveTo(80, cy - 40); ctx.lineTo(W - 80, cy - 40); ctx.stroke();
-    }, 200);
 
     parts.forEach((p, i) => {
       const c  = _vtpCol(p.color || 'amber');
       const bx = startX + i * (BOX_W + gap);
-      const by = cy - 20;
+      const by = cy - 18;
       draw(() => {
-        roundRect(bx, by, BOX_W, BOX_H, 10, c.fill, c.stroke);
-        label(p.symbol || '', bx + BOX_W / 2, by + 18, 18, c.text, 'center', 'bold');
-        label(p.name   || '', bx + BOX_W / 2, by + 40, 11, TEXT_PRI);
-        if (p.unit) label(p.unit, bx + BOX_W / 2, by + 56, 10, TEXT_SEC);
-      }, 300 + i * 140);
+        sketchBox(bx, by, BOX_W, BOX_H, c.fill, c.stroke);
+        label(p.symbol || '', bx + BOX_W / 2, by + 18, 22, c.text, 'center', '700');
+        label(p.name   || '', bx + BOX_W / 2, by + 40, 13, TEXT_PRI, 'center', '400');
+        if (p.unit) label(p.unit, bx + BOX_W / 2, by + 56, 11, TEXT_SEC, 'center', '400');
+      }, 300 + i * 150);
     });
 
     draw(() => {
-      if (spec.note) label(spec.note, cx, cy + 80, 12, TEXT_SEC, 'center');
-    }, 300 + parts.length * 140 + 100);
+      if (spec.note) label(spec.note, cx, cy + 82, 14, TEXT_SEC, 'center', '400');
+    }, 300 + parts.length * 150 + 100);
     return;
   }
 
-  // ── COMPARE ─────────────────────────────────────────────────────────────
+  // ── COMPARE — two sketch columns with zigzag divider ─────────────────────
   if (spec.type === 'compare') {
     const lPts = (spec.leftPoints  || []).slice(0, 4);
     const rPts = (spec.rightPoints || []).slice(0, 4);
     const lCol = _vtpCol(spec.leftColor  || 'red');
     const rCol = _vtpCol(spec.rightColor || 'teal');
-    const COL_W = W * 0.38, COL_X_L = W * 0.06, COL_X_R = W * 0.56;
-    const TOP_Y = cy - 110;
+    const COL_W = W * 0.38, COL_H = 210;
+    const COL_X_L = W * 0.05, COL_X_R = W * 0.57;
+    const TOP_Y   = cy - COL_H / 2 - 8;
 
     draw(() => {
-      // Left column
-      roundRect(COL_X_L, TOP_Y, COL_W, 220, 12, lCol.fill, lCol.stroke);
-      label(spec.leftLabel || 'Left', COL_X_L + COL_W / 2, TOP_Y + 22, 14, lCol.text, 'center', '600');
+      sketchBox(COL_X_L, TOP_Y, COL_W, COL_H, lCol.fill, lCol.stroke);
+      label(spec.leftLabel || 'Left', COL_X_L + COL_W / 2, TOP_Y + 22, 16, lCol.text, 'center', '700');
       lPts.forEach((pt, i) => {
-        ctx.font = '12px sans-serif'; ctx.fillStyle = TEXT_PRI;
+        ctx.font = `400 13px ${CAVEAT}`; ctx.fillStyle = TEXT_PRI;
         ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        const maxW = COL_W - 28;
-        // word-wrap simple
-        ctx.fillText('• ' + pt.slice(0, 38), COL_X_L + 14, TOP_Y + 52 + i * 36, maxW);
+        ctx.fillText('◦ ' + pt.slice(0, 36), COL_X_L + 14, TOP_Y + 52 + i * 36, COL_W - 28);
       });
     }, 80);
 
-    // VS badge
+    // Zigzag divider (hand-drawn feel)
     draw(() => {
-      roundRect(cx - 18, cy - 12, 36, 24, 12, 'rgba(255,255,255,0.06)', 'rgba(255,255,255,0.15)');
-      label('VS', cx, cy, 12, TEXT_SEC, 'center', '600');
-    }, 180);
+      ctx.strokeStyle = 'rgba(255,255,255,0.09)'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+      const zigX = cx, zigY1 = TOP_Y, zigY2 = TOP_Y + COL_H;
+      ctx.beginPath(); ctx.moveTo(zigX, zigY1);
+      for (let y = zigY1; y <= zigY2; y += 14) {
+        ctx.lineTo(zigX + (_r() - 0.5) * 6, y + 7);
+        ctx.lineTo(zigX + (_r() - 0.5) * 4, y + 14);
+      }
+      ctx.stroke();
+      label('VS', cx, cy, 18, TEXT_MUT, 'center', '700');
+    }, 200);
 
     draw(() => {
-      // Right column
-      roundRect(COL_X_R, TOP_Y, COL_W, 220, 12, rCol.fill, rCol.stroke);
-      label(spec.rightLabel || 'Right', COL_X_R + COL_W / 2, TOP_Y + 22, 14, rCol.text, 'center', '600');
+      sketchBox(COL_X_R, TOP_Y, COL_W, COL_H, rCol.fill, rCol.stroke);
+      label(spec.rightLabel || 'Right', COL_X_R + COL_W / 2, TOP_Y + 22, 16, rCol.text, 'center', '700');
       rPts.forEach((pt, i) => {
-        ctx.font = '12px sans-serif'; ctx.fillStyle = TEXT_PRI;
+        ctx.font = `400 13px ${CAVEAT}`; ctx.fillStyle = TEXT_PRI;
         ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText('• ' + pt.slice(0, 38), COL_X_R + 14, TOP_Y + 52 + i * 36, COL_W - 28);
+        ctx.fillText('◦ ' + pt.slice(0, 36), COL_X_R + 14, TOP_Y + 52 + i * 36, COL_W - 28);
       });
-    }, 280);
+    }, 340);
 
-    draw(() => note(spec.note), 480);
+    draw(() => note(spec.note), 520);
     return;
   }
 
-  // ── SCALE ───────────────────────────────────────────────────────────────
+  // ── SCALE — rough gradient bar with pin markers ───────────────────────────
   if (spec.type === 'scale') {
-    const markers  = (spec.markers || []).slice(0, 6);
-    const lCol = _vtpCol(spec.lowColor  || 'red');
-    const rCol = _vtpCol(spec.highColor || 'teal');
-    const BAR_X = 60, BAR_Y = cy - 16, BAR_W = W - 120, BAR_H = 28;
+    const markers = (spec.markers || []).slice(0, 6);
+    const lCol    = _vtpCol(spec.lowColor  || 'red');
+    const rCol    = _vtpCol(spec.highColor || 'teal');
+    const BAR_X   = 64, BAR_Y = cy - 14, BAR_W = W - 128, BAR_H = 26;
 
     draw(() => {
-      // Gradient bar via steps
-      const steps = 20;
+      // Gradient bar
+      const steps = 24;
       for (let i = 0; i < steps; i++) {
         const t  = i / steps;
-        // blend two colors by drawing overlapping rects
-        const r1 = parseInt(lCol.stroke.slice(1,3)||'f8',16);
-        const g1 = parseInt(lCol.stroke.slice(3,5)||'71',16);
-        const b1 = parseInt(lCol.stroke.slice(5,7)||'71',16);
-        const r2 = parseInt(rCol.stroke.slice(1,3)||'2d',16);
-        const g2 = parseInt(rCol.stroke.slice(3,5)||'d4',16);
-        const b2 = parseInt(rCol.stroke.slice(5,7)||'bf',16);
-        const r  = Math.round(r1 + (r2-r1)*t);
-        const g  = Math.round(g1 + (g2-g1)*t);
-        const b  = Math.round(b1 + (b2-b1)*t);
-        ctx.fillStyle = `rgba(${r},${g},${b},0.22)`;
-        ctx.fillRect(BAR_X + i*(BAR_W/steps), BAR_Y, BAR_W/steps + 1, BAR_H);
+        const r1 = parseInt(lCol.stroke.slice(1, 3) || 'f8', 16);
+        const g1 = parseInt(lCol.stroke.slice(3, 5) || '71', 16);
+        const b1 = parseInt(lCol.stroke.slice(5, 7) || '71', 16);
+        const r2 = parseInt(rCol.stroke.slice(1, 3) || '2d', 16);
+        const g2 = parseInt(rCol.stroke.slice(3, 5) || 'd4', 16);
+        const b2 = parseInt(rCol.stroke.slice(5, 7) || 'bf', 16);
+        const r  = Math.round(r1 + (r2 - r1) * t);
+        const g  = Math.round(g1 + (g2 - g1) * t);
+        const b  = Math.round(b1 + (b2 - b1) * t);
+        ctx.fillStyle = `rgba(${r},${g},${b},0.24)`;
+        ctx.fillRect(BAR_X + i * (BAR_W / steps), BAR_Y, BAR_W / steps + 1, BAR_H);
       }
-      // Bar border
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
-      ctx.strokeRect(BAR_X, BAR_Y, BAR_W, BAR_H);
-      // End labels
-      label(spec.lowLabel  || 'Low',  BAR_X + 4,          BAR_Y - 16, 11, lCol.text, 'left');
-      label(spec.highLabel || 'High', BAR_X + BAR_W - 4,  BAR_Y - 16, 11, rCol.text, 'right');
+      // Rough border
+      ctx.strokeStyle = 'rgba(255,255,255,0.13)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+      sketchLine(BAR_X, BAR_Y + (_r() - 0.5) * 2, BAR_X + BAR_W, BAR_Y + (_r() - 0.5) * 2, 1.5); // top
+      sketchLine(BAR_X + BAR_W, BAR_Y + (_r() - 0.5) * 2, BAR_X + BAR_W, BAR_Y + BAR_H + (_r() - 0.5) * 2, 1.5); // right
+      sketchLine(BAR_X + BAR_W, BAR_Y + BAR_H + (_r() - 0.5) * 2, BAR_X, BAR_Y + BAR_H + (_r() - 0.5) * 2, 1.5); // bottom
+      sketchLine(BAR_X, BAR_Y + BAR_H + (_r() - 0.5) * 2, BAR_X, BAR_Y + (_r() - 0.5) * 2, 1.5); // left
+      label(spec.lowLabel  || 'Low',  BAR_X + 2,          BAR_Y - 16, 14, lCol.text, 'left',  '600');
+      label(spec.highLabel || 'High', BAR_X + BAR_W - 2,  BAR_Y - 16, 14, rCol.text, 'right', '600');
     }, 80);
 
     markers.forEach((m, i) => {
       const x = BAR_X + (m.value || 0) * BAR_W;
       const above = i % 2 === 0;
       draw(() => {
-        // Tick
-        ctx.strokeStyle = TEXT_PRI; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.moveTo(x, BAR_Y); ctx.lineTo(x, BAR_Y + BAR_H); ctx.stroke();
-        // Marker dot
-        ctx.fillStyle = TEXT_PRI; ctx.beginPath(); ctx.arc(x, above ? BAR_Y - 18 : BAR_Y + BAR_H + 18, 3, 0, Math.PI*2); ctx.fill();
-        // Label
-        label(m.label || '', x, above ? BAR_Y - 34 : BAR_Y + BAR_H + 34, 12, TEXT_PRI, 'center', '600');
-        if (m.sub) label(m.sub, x, above ? BAR_Y - 18 : BAR_Y + BAR_H + 18, 10, TEXT_SEC);
-      }, 200 + i * 120);
+        // Pin stem
+        ctx.strokeStyle = TEXT_PRI; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        sketchLine(x, BAR_Y, x, BAR_Y + BAR_H, 1);
+        // Pin head
+        sketchOval(x, above ? BAR_Y - 18 : BAR_Y + BAR_H + 18, 5, 4, TEXT_PRI, null);
+        label(m.label || '', x, above ? BAR_Y - 38 : BAR_Y + BAR_H + 38, 15, TEXT_PRI, 'center', '700');
+        if (m.sub) label(m.sub, x, above ? BAR_Y - 22 : BAR_Y + BAR_H + 22, 12, TEXT_SEC, 'center', '400');
+      }, 220 + i * 130);
     });
 
-    draw(() => note(spec.note), 200 + markers.length * 120 + 150);
+    draw(() => note(spec.note), 220 + markers.length * 130 + 140);
     return;
   }
 
-  // ── BULLETS ─────────────────────────────────────────────────────────────
+  // ── BULLETS — notebook-style hand-drawn items ────────────────────────────
   if (spec.type === 'bullets') {
-    const items = (spec.items || []).slice(0, 5);
-    const c = _vtpCol(spec.color || 'teal');
-    const ITEM_H = 52, PAD = 18;
-    const BOX_W = Math.min(W - 120, 520);
-    const totalH = items.length * ITEM_H + (items.length - 1) * 8;
-    const startY = cy - totalH / 2 - 10;
+    const items  = (spec.items || []).slice(0, 5);
+    const c      = _vtpCol(spec.color || 'teal');
+    const ITEM_H = 50, GAP = 8;
+    const BOX_W  = Math.min(W - 100, 520);
+    const totalH = items.length * ITEM_H + (items.length - 1) * GAP;
+    const startY = cy - totalH / 2 - 8;
     const startX = (W - BOX_W) / 2;
 
     if (spec.title) {
-      draw(() => label(spec.title, cx, startY - 28, 14, TEXT_PRI, 'center', '600'), 60);
+      draw(() => label(spec.title, cx, startY - 28, 16, TEXT_PRI, 'center', '700'), 60);
     }
 
     items.forEach((item, i) => {
-      const by = startY + i * (ITEM_H + 8);
+      const by = startY + i * (ITEM_H + GAP);
+      // Slight horizontal jitter for notebook feel
+      const jx = (_r() - 0.5) * 4;
       draw(() => {
-        roundRect(startX, by, BOX_W, ITEM_H, 10, c.fill, c.stroke + '50');
-        // Icon/bullet
-        label(item.icon || '→', startX + PAD + 6, by + ITEM_H / 2, 14, c.text, 'center', 'bold');
-        // Text — with simple overflow clip
-        ctx.font = '13px sans-serif'; ctx.fillStyle = TEXT_PRI;
+        sketchBox(startX + jx, by, BOX_W, ITEM_H, c.fill, c.stroke + '60');
+        // Hand-drawn bullet circle
+        ctx.strokeStyle = c.stroke; ctx.lineWidth = 2;
+        sketchOval(startX + jx + 20, by + ITEM_H / 2, 8, 7, c.fill, c.stroke);
+        label(item.icon || '·', startX + jx + 20, by + ITEM_H / 2, 14, c.text, 'center', '700');
+        // Item text
+        ctx.font = `400 15px ${CAVEAT}`; ctx.fillStyle = TEXT_PRI;
         ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        const text = (item.text || '').slice(0, 70);
-        ctx.fillText(text, startX + PAD + 22, by + ITEM_H / 2, BOX_W - PAD * 2 - 22);
-      }, 80 + i * 110);
+        ctx.fillText((item.text || '').slice(0, 68), startX + jx + 38, by + ITEM_H / 2, BOX_W - 50);
+      }, 80 + i * 120);
     });
 
-    draw(() => note(spec.note), 80 + items.length * 110 + 100);
+    draw(() => note(spec.note), 80 + items.length * 120 + 100);
     return;
   }
 
-  // ── GENERIC FALLBACK (shouldn't normally reach here) ───────────────────
+  // ── MINDMAP — central bubble with radiating labelled branches ────────────
+  if (spec.type === 'mindmap') {
+    const branches = (spec.branches || []).slice(0, 6);
+    const n        = branches.length;
+    const CX       = cx, CY = cy;
+    const INNER_R  = Math.min(60, W * 0.1);
+    const OUTER_R  = Math.min(INNER_R * 2.8, W * 0.28);
+    const cCol     = _vtpCol(spec.color || 'amber');
+
+    // Central bubble
+    draw(() => {
+      ctx.lineWidth = 2;
+      sketchOval(CX, CY, INNER_R, INNER_R * 0.65, cCol.fill, cCol.stroke);
+      label(spec.center || '', CX, CY, 15, cCol.text, 'center', '700');
+    }, 60);
+
+    branches.forEach((b, i) => {
+      const angle = (2 * Math.PI * i / n) - Math.PI / 2;
+      const bCol  = _vtpCol(b.color || 'blue');
+      // Branch endpoint
+      const bx = CX + Math.cos(angle) * OUTER_R;
+      const by = CY + Math.sin(angle) * OUTER_R;
+      // Connection point on inner oval
+      const ix = CX + Math.cos(angle) * INNER_R;
+      const iy = CY + Math.sin(angle) * INNER_R * 0.65;
+      // Branch oval size
+      const brx = Math.min(54, W * 0.085);
+      const bry = Math.min(24, brx * 0.46);
+
+      draw(() => {
+        ctx.strokeStyle = bCol.stroke + 'a0'; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+        sketchLine(ix, iy, bx, by, 2);
+        sketchOval(bx, by, brx, bry, bCol.fill, bCol.stroke);
+        label(b.label || '', bx, by - (b.sub ? 6 : 0), 13, bCol.text, 'center', '700');
+        if (b.sub) label(b.sub, bx, by + 10, 11, TEXT_SEC, 'center', '400');
+      }, 140 + i * 110);
+    });
+
+    draw(() => note(spec.note), 140 + n * 110 + 160);
+    return;
+  }
+
+  // ── CYCLE — circular flow with curved hand-drawn arrows ──────────────────
+  if (spec.type === 'cycle') {
+    const items = (spec.items || []).slice(0, 5);
+    const n     = items.length;
+    const R     = Math.min(W * 0.3, H * 0.32);
+    const NRX   = Math.min(58, W * 0.095);
+    const NRY   = Math.min(28, NRX * 0.5);
+
+    items.forEach((item, i) => {
+      const angle = (2 * Math.PI * i / n) - Math.PI / 2;
+      const nx = cx + Math.cos(angle) * R;
+      const ny = cy + Math.sin(angle) * R;
+      const c  = _vtpCol(item.color || 'amber');
+
+      draw(() => {
+        // Curved arrow from this node to next
+        const nextAngle = (2 * Math.PI * ((i + 1) % n) / n) - Math.PI / 2;
+        const ex = cx + Math.cos(nextAngle) * R;
+        const ey = cy + Math.sin(nextAngle) * R;
+        // Control point slightly toward center for inward curve
+        const midAngle = (angle + nextAngle) / 2;
+        const cpx = cx + Math.cos(midAngle) * R * 0.6;
+        const cpy = cy + Math.sin(midAngle) * R * 0.6;
+        // Adjust arrow endpoints to oval edges using actual direction between nodes
+        const ddx = ex - nx, ddy = ey - ny;
+        const dist = Math.hypot(ddx, ddy) || 1;
+        const ux = ddx / dist, uy = ddy / dist;
+        const fromX = nx + ux * NRX * 0.85;
+        const fromY = ny + uy * NRY * 0.85;
+        const toX   = ex - ux * NRX * 0.85;
+        const toY   = ey - uy * NRY * 0.85;
+
+        ctx.strokeStyle = TEXT_MUT; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+        sketchCurvedArrow(fromX, fromY, toX, toY, cpx, cpy);
+
+        // Node oval
+        sketchOval(nx, ny, NRX, NRY, c.fill, c.stroke);
+        label(item.label || '', nx, ny - (item.sub ? 6 : 0), 13, c.text, 'center', '700');
+        if (item.sub) label(item.sub, nx, ny + 10, 11, TEXT_SEC, 'center', '400');
+      }, 80 + i * 130);
+    });
+
+    // Central label
+    if (spec.center) {
+      draw(() => label(spec.center, cx, cy, 15, TEXT_SEC, 'center', '400'), 80 + n * 130);
+    }
+    draw(() => note(spec.note), 80 + n * 130 + 160);
+    return;
+  }
+
+  // ── GENERIC FALLBACK ─────────────────────────────────────────────────────
   draw(() => {
-    roundRect(cx - 140, cy - 52, 280, 104, 16, 'rgba(232,172,46,0.07)', 'rgba(232,172,46,0.18)');
-    label(_vtpCurrentTopic, cx, cy - 10, 18, TEXT_PRI, 'center', 'bold');
-    label(`Step ${_vtpStepIdx + 1} of ${_vtpTotalSteps}`, cx, cy + 16, 12, TEXT_SEC);
+    sketchBox(cx - 138, cy - 50, 276, 100, 'rgba(232,172,46,0.07)', '#e8ac2e');
+    label(_vtpCurrentTopic, cx, cy - 10, 20, TEXT_PRI, 'center', '700');
+    label(`Step ${_vtpStepIdx + 1} of ${_vtpTotalSteps}`, cx, cy + 16, 14, TEXT_SEC);
   }, 160);
 }
 
