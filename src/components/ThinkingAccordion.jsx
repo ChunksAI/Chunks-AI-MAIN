@@ -3,8 +3,8 @@
  * src/components/ThinkingAccordion.jsx
  *
  * Reusable "Deep Thinking" accordion that shows the AI's reasoning steps.
- * Collapses to a single labelled row; expands to reveal each thought step
- * with title, description, completion state, elapsed time and skill tags.
+ * Claude-style: a collapsible header summarising the steps, expanding to a
+ * clean list of step titles + a "Done" row when complete.
  *
  * Usage (via ThinkingAccordion.js bridge):
  *   import { createThinkingAccordion } from './ThinkingAccordion.js';
@@ -12,46 +12,43 @@
  *   handle.update({ steps: newSteps, elapsed: 42 });
  */
 
-import { h, Fragment } from 'preact';
+import { h } from 'preact';
 import { useState, useCallback, useImperativeHandle } from 'preact/hooks';
 import { forwardRef } from 'preact/compat';
 
-// ── Brain icon (inline SVG, matches the design images) ───────────────────────
-const _BrainIcon = () => h('svg', {
-  width: 20, height: 20, viewBox: '0 0 24 24',
+// ── Step icon (document with lines) ──────────────────────────────────────────
+const _StepIcon = () => h('svg', {
+  width: 15, height: 15, viewBox: '0 0 24 24',
   fill: 'none', stroke: 'currentColor',
   'stroke-width': '1.75', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
   'aria-hidden': 'true',
 },
-  h('path', { d: 'M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z' }),
-  h('path', { d: 'M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z' }),
+  h('path', { d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }),
+  h('polyline', { points: '14 2 14 8 20 8' }),
+  h('line', { x1: '16', y1: '13', x2: '8', y2: '13' }),
+  h('line', { x1: '16', y1: '17', x2: '8', y2: '17' }),
 );
 
-// ── Chevron icon ─────────────────────────────────────────────────────────────
-const _Chevron = ({ up }) => h('svg', {
-  width: 14, height: 14, viewBox: '0 0 24 24',
+// ── Done icon (circle checkmark) ──────────────────────────────────────────────
+const _DoneIcon = () => h('svg', {
+  width: 15, height: 15, viewBox: '0 0 24 24',
   fill: 'none', stroke: 'currentColor',
-  'stroke-width': '2.2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-  class: `ta-chevron-icon${up ? ' ta-chevron-up' : ''}`,
+  'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+  'aria-hidden': 'true',
+},
+  h('circle', { cx: 12, cy: 12, r: 10 }),
+  h('polyline', { points: '9 12 11 14 15 10' }),
+);
+
+// ── Chevron ───────────────────────────────────────────────────────────────────
+const _Chevron = ({ up }) => h('svg', {
+  width: 12, height: 12, viewBox: '0 0 24 24',
+  fill: 'none', stroke: 'currentColor',
+  'stroke-width': '2.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
   'aria-hidden': 'true',
 },
   h('polyline', { points: up ? '18 15 12 9 6 15' : '6 9 12 15 18 9' }),
 );
-
-// ── Tag colour map ────────────────────────────────────────────────────────────
-const _TAG_COLORS = {
-  logic:     'var(--violet)',
-  recall:    'var(--teal)',
-  structure: 'var(--gold)',
-  analysis:  'var(--violet)',
-  reasoning: 'var(--teal)',
-  math:      'var(--gold)',
-  synthesis: 'var(--teal)',
-};
-
-function _tagColor(tag) {
-  return _TAG_COLORS[tag.toLowerCase()] || 'var(--text-3)';
-}
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -59,9 +56,9 @@ function _tagColor(tag) {
  * ThinkingAccordionIsland
  *
  * Props (initial):
- *   steps      — [{title:string, description:string, done:boolean}]
- *   elapsed    — number (seconds shown in footer)
- *   tags       — string[] (skill pills shown in footer)
+ *   steps      — [{title:string, status:string}]
+ *   elapsed    — number (unused visually, kept for bridge API compat)
+ *   tags       — string[] (unused visually, kept for bridge API compat)
  *   isStreaming — boolean (animates header dot while AI is still thinking)
  *
  * Imperative handle (via ref):
@@ -72,16 +69,12 @@ export const ThinkingAccordionIsland = forwardRef(function ThinkingAccordionIsla
   ref,
 ) {
   const [steps,       setSteps]       = useState(initSteps);
-  const [elapsed,     setElapsed]     = useState(initElapsed);
-  const [tags,        setTags]        = useState(initTags);
   const [isStreaming, setIsStreaming]  = useState(initStreaming);
-  // Auto-open when streaming so steps appear immediately as they are added
+  // Auto-open when streaming so steps appear immediately
   const [open,        setOpen]        = useState(initStreaming);
 
   const update = useCallback((patch = {}) => {
     if (patch.steps       !== undefined) setSteps(patch.steps);
-    if (patch.elapsed     !== undefined) setElapsed(patch.elapsed);
-    if (patch.tags        !== undefined) setTags(patch.tags);
     if (patch.isStreaming !== undefined) setIsStreaming(patch.isStreaming);
     if (patch.open        !== undefined) setOpen(patch.open);
   }, []);
@@ -90,69 +83,38 @@ export const ThinkingAccordionIsland = forwardRef(function ThinkingAccordionIsla
 
   const toggle = useCallback(() => setOpen(o => !o), []);
 
-  return h(Fragment, null,
-    // ── Outer wrapper ───────────────────────────────────────────────────
-    h('div', { class: 'ta-wrap' },
+  // Header summary: join first few step titles, truncate with ellipsis
+  const summary = steps.length > 0
+    ? steps.slice(0, 4).map(s => s.title).join(', ') + (steps.length > 4 ? ', …' : '')
+    : isStreaming ? 'Thinking…' : 'Reasoning steps';
 
-      // ── Mini header bar ("• Deep thinking …") ─────────────────────
-      h('div', { class: 'ta-header' },
-        h('span', { class: `ta-header-dot${isStreaming ? ' ta-header-dot--spin' : ''}`, 'aria-hidden': 'true' }),
-        h('span', { class: 'ta-header-label' },
-          'Deep thinking',
-          isStreaming && h('span', { class: 'ta-ellipsis', 'aria-hidden': 'true' }, ' …'),
-        ),
-      ),
+  return h('div', { class: 'ta-wrap' },
 
-      // ── Collapsible row ────────────────────────────────────────────
-      h('button', {
-        class: `ta-accordion${open ? ' ta-accordion--open' : ''}`,
-        onClick: toggle,
-        'aria-expanded': String(open),
-        type: 'button',
-      },
-        h('span', { class: 'ta-acc-icon', 'aria-hidden': 'true' }, h(_BrainIcon)),
-        h('div', { class: 'ta-acc-text' },
-          h('span', { class: 'ta-acc-title' }, 'Reasoning through this'),
-          h('span', { class: 'ta-acc-sub' }, open ? 'Tap to hide' : 'Tap to see thought process'),
-        ),
-        h(_Chevron, { up: open }),
-      ),
+    // ── Collapsible header ─────────────────────────────────────────────
+    h('button', {
+      class: 'ta-header-btn',
+      onClick: toggle,
+      'aria-expanded': String(open),
+      type: 'button',
+    },
+      isStreaming && h('span', { class: 'ta-stream-dot', 'aria-hidden': 'true' }),
+      h('span', { class: 'ta-summary' }, summary),
+      h(_Chevron, { up: open }),
+    ),
 
-      // ── Expanded body ──────────────────────────────────────────────
-      open && h('div', { class: 'ta-body', role: 'region' },
-        steps.length === 0
-          ? h('p', { class: 'ta-empty' }, isStreaming ? 'Thinking…' : 'No reasoning steps available.')
-          : h(Fragment, null,
-              steps.map((step, i) =>
-                h('div', { class: 'ta-step', key: i },
-                  h('span', {
-                    class: `ta-step-dot${step.status === 'done' ? ' done' : step.status === 'active' ? ' active' : ''}`,
-                    'aria-hidden': 'true',
-                  }),
-                  h('div', { class: 'ta-step-content' },
-                    h('div', { class: 'ta-step-title' }, step.title),
-                    step.description &&
-                      h('div', { class: 'ta-step-desc' }, step.description),
-                    step.status === 'active' &&
-                      h('span', { class: 'ta-step-progress', 'aria-label': 'in progress' }, '• •'),
-                  ),
-                ),
-              ),
-              h('div', { class: 'ta-footer' },
-                h('span', { class: 'ta-elapsed' },
-                  isStreaming ? `Thinking for ${elapsed}s` : `Thought for ${elapsed}s`,
-                ),
-                tags.length > 0 && h('span', { class: 'ta-tags' },
-                  tags.map(t =>
-                    h('span', {
-                      class: 'ta-tag',
-                      key: t,
-                      style: `--tag-color:${_tagColor(t)}`,
-                    }, t),
-                  ),
-                ),
-              ),
+    // ── Expanded step list ─────────────────────────────────────────────
+    open && h('div', { class: 'ta-list', role: 'list' },
+      steps.length === 0
+        ? h('p', { class: 'ta-empty' }, 'Thinking…')
+        : steps.map((step, i) =>
+            h('div', { class: 'ta-list-item', key: i, role: 'listitem' },
+              h('span', { class: 'ta-item-icon', 'aria-hidden': 'true' }, h(_StepIcon)),
+              h('span', { class: 'ta-item-title' }, step.title),
             ),
+          ),
+      !isStreaming && steps.length > 0 && h('div', { class: 'ta-list-item ta-done-item', role: 'listitem' },
+        h('span', { class: 'ta-item-icon ta-done-icon', 'aria-hidden': 'true' }, h(_DoneIcon)),
+        h('span', { class: 'ta-item-title ta-done-title' }, 'Done'),
       ),
     ),
   );
