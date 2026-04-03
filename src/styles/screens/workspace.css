@@ -1167,6 +1167,7 @@
   border: 1px solid var(--border-xs);
   border-radius: var(--r-lg);
   overflow: hidden;
+  padding: 16px;
 }
 
 .cvp-dg-svg {

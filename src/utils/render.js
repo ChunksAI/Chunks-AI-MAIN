@@ -81,7 +81,7 @@ const _sanitizeCfg = {
     'data-ws-chip',  // workspace page-jump chips (kept so afterSanitizeAttributes hook can add onclick)
     'data-task-item', // interactive checklist items
     // SVG / KaTeX attributes
-    'viewBox','xmlns','width','height','fill','stroke','stroke-width',
+    'viewBox','xmlns','width','height','preserveAspectRatio','fill','stroke','stroke-width',
     'stroke-linecap','stroke-linejoin','d','points','x','y','x1','y1',
     'x2','y2','cx','cy','r','rx','ry','transform','opacity',
     'stop-color','stop-opacity','gradientUnits','gradientTransform',
