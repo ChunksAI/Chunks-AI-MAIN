@@ -11,6 +11,7 @@ import { guestGate, recordUsage, renderUsageBar, isGuest, showLoginWall } from '
 import { showToast }   from '../../components/Toast.js';
 import { $el, setHtml, addClass, removeClass, toggleClass } from '../domHelpers.js';
 import { handleCommand, syncContextFromWorkspace, updateContext } from '../commandEngine.js';
+import { wsShowPanel } from '../../screens/WorkspaceScreen.js';
 import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../../utils/typewriter.js';
 
@@ -527,6 +528,83 @@ export function wsToggleThinking(mode) {
   removeClass($el('ws-think-menu'), 'open');
 }
 
+
+// ── Canvas: visual-explanation helpers ───────────────────────────────────────
+
+/** Minimum character length for a question remainder to be used as artifact title. */
+const _MIN_TITLE_LEN = 4;
+
+/**
+ * Returns true when the question appears to be asking for a visual explanation
+ * (e.g. "explain this visually", "show me visually", "visual breakdown", …).
+ */
+function _isVisualRequest(question) {
+  const q = question.toLowerCase();
+  return (
+    (q.includes('explain') && q.includes('visual')) ||
+    q.includes('show me visually') ||
+    q.includes('visual breakdown') ||
+    q.includes('visualize') ||
+    q.includes('visual explanation') ||
+    q.includes('explain visually')
+  );
+}
+
+/**
+ * Builds a mock visual_explanation artifact derived from the user's question.
+ * When the backend is wired up this will be replaced by the real AI response.
+ */
+function _buildMockArtifact(question) {
+  // Strip common filler so the title reads cleanly.
+  const titleBase = question
+    .replace(/explain\s+(this\s+)?visually[?!\.]*\s*/gi, '')
+    .replace(/show\s+me\s+visually[?!\.]*\s*/gi, '')
+    .replace(/visual(ly)?\s+(breakdown|explanation)\s+of\s*/gi, '')
+    .replace(/visualize[?!\.]*\s*/gi, '')
+    .trim();
+
+  const title = titleBase.length > _MIN_TITLE_LEN
+    ? titleBase.charAt(0).toUpperCase() + titleBase.slice(1)
+    : 'Visual Explanation';
+
+  return {
+    type: 'visual_explanation',
+    title,
+    steps: [
+      {
+        heading: 'Overview',
+        text: 'A high-level look at the concept and why it matters.',
+        visual: '🔭',
+      },
+      {
+        heading: 'Core Idea',
+        text: 'The fundamental principle behind this topic, broken down simply.',
+        visual: '💡',
+      },
+      {
+        heading: 'How It Works',
+        text: 'Step-by-step mechanics — what happens, and in what order.',
+        visual: '⚙️',
+      },
+      {
+        heading: 'Real-World Example',
+        text: 'A concrete scenario that brings the concept to life.',
+        visual: '🌍',
+      },
+      {
+        heading: 'Key Takeaway',
+        text: 'The one thing to remember after studying this topic.',
+        visual: '🎯',
+      },
+      {
+        heading: 'Common Pitfalls',
+        text: 'Mistakes learners often make — and how to avoid them.',
+        visual: '⚠️',
+      },
+    ],
+  };
+}
+
 export async function wsChatSend() {
   if (ws.typing) { wsStopGeneration(); return; }
   const inp = $el('ws-chat-input');
@@ -542,13 +620,21 @@ export async function wsChatSend() {
   }
   // ── End command intercept ─────────────────────────────────────────────────
 
+  // ── Canvas: push mock artifact for visual-explanation requests ──────────
+  const isVisual = _isVisualRequest(question);
+  if (isVisual && window.canvas) {
+    window.canvas.setArtifact(_buildMockArtifact(question));
+    wsShowPanel('canvas');
+  }
+  // ── End canvas intercept ──────────────────────────────────────────────────
+
   inp.placeholder = 'Ask a follow-up about Chapter 3…';
   wsAppendUser(question, ws.selectedText);
   inp.value = ''; wsAutoResize(inp); inp.focus();
   ws.chatHistory.push({ role: 'user', content: question });
   recordUsage('workspace'); // track guest usage
   renderUsageBar('ws-chat-input-area', 'workspace');
-  await _wsAsk(question);
+  await _wsAsk(question, null, isVisual);
 }
 
 /**
@@ -556,8 +642,11 @@ export async function wsChatSend() {
  * @param {{ dataUrl: string, mimeType: string }|null} [imageAtt]
  *   When provided, the request is routed to /ask-image (vision endpoint)
  *   instead of /ask, and the image is sent as base64.
+ * @param {boolean} [isVisual]
+ *   When true, overrides the mode to 'visual_tutor' so the backend returns
+ *   structured JSON, and the response is parsed to update the Canvas panel.
  */
-export async function _wsAsk(question, imageAtt = null) {
+export async function _wsAsk(question, imageAtt = null, isVisual = false) {
   ws.typing = true;
   _wsUserScrolled = false;
   _wsAbortController = new AbortController();
@@ -589,6 +678,7 @@ export async function _wsAsk(question, imageAtt = null) {
     } else {
       // ── Text path: send to /ask with optional retry on 429 ────────────────
       const body = { question, bookId: ws.bookId || 'none', mode, complexity, history: ws.chatHistory.slice(-10) };
+      if (isVisual) body.mode = 'visual_tutor';
       if (ws.webSearch)              body.web_search = true;
       if (ws.thinking === 'think')   body.thinking   = 'thinking';
       if (ws.thinking === 'deep')    body.thinking   = 'deep';
@@ -655,8 +745,63 @@ export async function _wsAsk(question, imageAtt = null) {
 
       // ── Client-side <think> extraction (safety net if backend missed it) ──
       const { answer, thinkingContent: clientThinking } = extractThinkBlock(data.answer || '');
-      const cleanAnswer     = answer || 'No response.';
       const thinkingContent = data.thinking_content || clientThinking || null;
+
+      // ── Visual mode: parse JSON artifact and update Canvas with real AI data ──
+      if (isVisual && window.canvas) {
+        let parsedArtifact = null;
+        try {
+          // Strip markdown code fences the model may have emitted despite instructions
+          const rawJson = (answer || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+          const candidate = JSON.parse(rawJson);
+          if (candidate) {
+            const t = candidate.type;
+            if ((t === 'visual_explanation' || t === 'timeline') && Array.isArray(candidate.steps)) {
+              parsedArtifact = candidate;
+            } else if (t === 'diagram' && typeof candidate.svg === 'string' && Array.isArray(candidate.labels) && candidate.labels.every(l => l && typeof l.id === 'string')) {
+              parsedArtifact = candidate;
+            } else if (
+              t === 'compare' &&
+              Array.isArray(candidate.items) &&
+              candidate.items.length >= 2 &&
+              candidate.items.every(it => it && typeof it.name === 'string' && Array.isArray(it.attributes))
+            ) {
+              parsedArtifact = candidate;
+            }
+          }
+        } catch (_) {
+          // JSON parse failed — canvas keeps the mock artifact shown earlier
+        }
+        if (parsedArtifact) {
+          window.canvas.setArtifact(parsedArtifact);
+          wsShowPanel('canvas');
+        }
+
+        // ThinkingAccordion finalise (if active)
+        if (!imageAtt && ws.thinking !== 'off') {
+          await _wsFinalizeThinking(thinkingContent);
+        }
+
+        // Show a brief confirmation message in chat instead of raw JSON
+        const confirmMsg = '✅ Visual explanation ready — see the Canvas tab.';
+        const aiEl = wsAppendAI('', [], question, null);
+        const textEl = aiEl?.querySelector('.ai-text');
+        if (textEl) {
+          await typewriteResponse(textEl, confirmMsg, {
+            render: typeof wsRender === 'function' ? wsRender : undefined,
+            onScroll: wsScrollBottom,
+            isCancelled: () => signal.aborted,
+          });
+        }
+        ws.chatHistory.push({ role: 'assistant', content: confirmMsg, blocks: [] });
+        if (aiEl) aiEl.dataset.histIdx = String(ws.chatHistory.length - 1);
+        if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
+        updateContext({ topic: question.slice(0, 120), screen: 'workspace' });
+        syncContextFromWorkspace();
+        return;
+      }
+
+      const cleanAnswer     = answer || 'No response.';
 
       // ── ThinkingAccordion: finalize with real steps if thinking was active ──
       // Await the step animation so the accordion collapses before the AI

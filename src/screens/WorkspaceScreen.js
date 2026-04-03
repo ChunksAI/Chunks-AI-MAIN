@@ -19,6 +19,7 @@
  */
 
 import { mountSmartNotesPanel, mountStickyStrip } from '../components/SmartNotesPanel.jsx';
+import { mountCanvasPanel } from '../components/CanvasPanel.jsx';
 import { wsFitWidth } from '../state/workspace/pdf.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
@@ -248,6 +249,10 @@ const WORKSPACE_HTML = /* html */`
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
         Notes
       </button>
+      <button class="ws-ptab" id="ws-tab-canvas" onclick="wsShowPanel('canvas')">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+        Canvas
+      </button>
       <div class="ws-tabs-spacer"></div>
       <span class="ws-page-label" id="ws-chat-page-label"></span>
     </div>
@@ -383,6 +388,10 @@ const WORKSPACE_HTML = /* html */`
       <!-- SmartNotesPanel Preact island is mounted here by WorkspaceScreen._initNotes() -->
     </div>
 
+    <!-- Canvas panel (hidden by default) -->
+    <div id="ws-canvas-panel" style="display:none;flex-direction:column;">
+    </div>
+
   </section>
 </div>
 `;
@@ -405,6 +414,7 @@ export function mountWorkspaceScreen() {
   setTimeout(() => {
     mountSmartNotesPanel(document.getElementById('ws-notes-panel'));
     mountStickyStrip(document.getElementById('ws-sticky-strip'));
+    mountCanvasPanel(document.getElementById('ws-canvas-panel'));
   }, 0);
 }
 
@@ -423,34 +433,43 @@ function _escHtml(str) {
   return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// ── Panel tab toggle (Chat ↔ Notes) ──────────────────────────────────────────
+// ── Panel tab toggle (Chat ↔ Notes ↔ Canvas) ─────────────────────────────────
 
 /**
- * Toggle between the "Chat" and "Notes" panels in the right-hand section.
+ * Toggle between the "Chat", "Notes", and "Canvas" panels in the right-hand section.
  * Called from the tab buttons' onclick handlers.
  */
 export function wsShowPanel(tab) {
-  const chatContent = document.getElementById('ws-chat-content');
-  const notesPanel  = document.getElementById('ws-notes-panel');
-  const tabChat     = document.getElementById('ws-tab-chat');
-  const tabNotes    = document.getElementById('ws-tab-notes');
-  if (!chatContent || !notesPanel) return;
+  const chatContent  = document.getElementById('ws-chat-content');
+  const notesPanel   = document.getElementById('ws-notes-panel');
+  const canvasPanel  = document.getElementById('ws-canvas-panel');
+  const tabChat      = document.getElementById('ws-tab-chat');
+  const tabNotes     = document.getElementById('ws-tab-notes');
+  const tabCanvas    = document.getElementById('ws-tab-canvas');
+  if (!chatContent || !notesPanel || !canvasPanel) return;
+
+  // Hide all panels and deactivate all tabs
+  chatContent.style.display  = 'none';
+  notesPanel.style.display   = 'none';
+  canvasPanel.style.display  = 'none';
+  tabChat?.classList.remove('ws-ptab-active');
+  tabNotes?.classList.remove('ws-ptab-active');
+  tabCanvas?.classList.remove('ws-ptab-active');
 
   if (tab === 'notes') {
-    chatContent.style.display = 'none';
-    notesPanel.style.display  = 'flex';
-    tabChat?.classList.remove('ws-ptab-active');
+    notesPanel.style.display = 'flex';
     tabNotes?.classList.add('ws-ptab-active');
     // Focus the contenteditable notes area (SmartNotesPanel)
     setTimeout(() => {
       const editable = notesPanel.querySelector('.snp-notes-area');
       editable?.focus();
     }, 0);
+  } else if (tab === 'canvas') {
+    canvasPanel.style.display = 'flex';
+    tabCanvas?.classList.add('ws-ptab-active');
   } else {
     chatContent.style.display = 'flex';
-    notesPanel.style.display  = 'none';
     tabChat?.classList.add('ws-ptab-active');
-    tabNotes?.classList.remove('ws-ptab-active');
   }
 }
 
