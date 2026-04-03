@@ -142,7 +142,7 @@ import {
   wsClearChat, wsAppendUser, wsAppendThinking, wsRemoveThinking,
   wsAppendAI, wsAppendError, wsCopyMsg, _wsRegenerate,
   wsToggleWebSearch, wsToggleThinking, wsToggleThinkMenu,
-  wsStopGeneration, wsSendToCanvas,
+  wsStopGeneration,
   filterLibrary, filterLibSection,
   wsToggleAttachMenu, wsAttachTrigger, wsHandleAttach,
   homeToggleAttachMenu, homeAttachTrigger, homeHandleAttach,
@@ -200,7 +200,6 @@ window.wsToggleWebSearch   = wsToggleWebSearch;
 window.wsToggleThinking    = wsToggleThinking;
 window.wsToggleThinkMenu   = wsToggleThinkMenu;
 window.wsStopGeneration    = wsStopGeneration;
-window.wsSendToCanvas      = wsSendToCanvas;
 window.filterLibrary       = filterLibrary;
 window.filterLibSection    = filterLibSection;
 window.wsToggleAttachMenu  = wsToggleAttachMenu;

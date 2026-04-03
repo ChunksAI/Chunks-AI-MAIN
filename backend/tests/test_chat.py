@@ -64,23 +64,6 @@ def test_ask_study_mode(client, monkeypatch, mock_guest_gate, mock_extract_user)
     assert data['mode'] == 'study'
 
 
-def test_ask_visual_tutor_mode(client, monkeypatch, mock_guest_gate, mock_extract_user):
-    """POST /ask in visual_tutor mode passes question straight through."""
-    import services.ai as ai_svc
-
-    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value='{"type": "diagram"}'))
-
-    resp = client.post('/ask', json={
-        'question': '{"type": "diagram", "topic": "acid-base"}',
-        'mode': 'visual_tutor',
-        'complexity': 5,
-    })
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data['success'] is True
-    assert data['mode'] == 'visual_tutor'
-
-
 def test_ask_blueprint_registered(app):
     """The /ask route is registered."""
     rules = [r.path for r in app.routes]
@@ -832,36 +815,6 @@ def test_ask_no_thinking_mode_system_prompt_no_think_instruction(client, monkeyp
 
 
 # ── <think> stripping in non-study modes ──────────────────────────────────────
-
-def test_visual_tutor_strips_think_block(client, monkeypatch, mock_guest_gate, mock_extract_user):
-    """visual_tutor mode strips <think>...</think> from the answer and returns thinking_content."""
-    import services.ai as ai_svc
-    import services.books as books_svc
-    import services.device_abuse as device_mod
-
-    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
-    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
-    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(
-        return_value='<think>\nDraw a circle first.\n</think>\n\nHere is the diagram.'
-    ))
-    mock_searcher = MagicMock()
-    mock_searcher.chunks = []
-    mock_searcher.has_embeddings = False
-    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
-
-    resp = client.post('/ask', json={
-        'question': 'Draw a water molecule',
-        'mode': 'visual_tutor',
-        'complexity': 5,
-        'bookId': 'zumdahl',
-    })
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data['success'] is True
-    assert '<think>' not in data['answer']
-    assert data['answer'].strip() == 'Here is the diagram.'
-    assert data['thinking_content'] is not None
-    assert 'Draw a circle' in data['thinking_content']
 
 
 def test_practice_strips_think_block(client, monkeypatch, mock_guest_gate, mock_extract_user):
