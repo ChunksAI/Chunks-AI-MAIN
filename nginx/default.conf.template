@@ -1,0 +1,95 @@
+# nginx/default.conf.template
+#
+# Served by the frontend container (nginx:1.27-alpine).
+# At container startup the official nginx image runs envsubst on all
+# *.template files in /etc/nginx/templates/ and writes the result to
+# /etc/nginx/conf.d/.  The ${CHUNKS_BACKEND_URL} placeholder below is
+# therefore replaced with the value of the CHUNKS_BACKEND_URL environment
+# variable before nginx starts.
+#
+# The sub_filter directive injects a tiny inline <script> that sets
+# window.CHUNKS_BACKEND_URL before the Vite bundle loads, allowing
+# src/lib/api.js to pick up the correct backend URL at runtime without
+# requiring a rebuild of the frontend image.
+
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+
+    # ── Gzip compression ──────────────────────────────────────────────────
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types
+        text/plain
+        text/css
+        application/javascript
+        application/json
+        image/svg+xml;
+
+    # ── Security headers ──────────────────────────────────────────────────
+    add_header X-Content-Type-Options  "nosniff"                         always;
+    add_header X-Frame-Options         "DENY"                            always;
+    add_header Referrer-Policy         "strict-origin-when-cross-origin" always;
+    add_header X-XSS-Protection        "1; mode=block"                   always;
+
+    # ── Runtime backend-URL injection ─────────────────────────────────────
+    # Replaces </head> in every HTML response with a script that sets
+    # window.CHUNKS_BACKEND_URL, allowing src/lib/api.js to use it.
+    # ${CHUNKS_BACKEND_URL} is substituted by envsubst at container startup.
+    sub_filter '</head>' '<script>window.CHUNKS_BACKEND_URL="${CHUNKS_BACKEND_URL}";</script></head>';
+    sub_filter_once on;
+    sub_filter_types text/html;
+
+    # ── Hashed static assets (JS, CSS, images) ────────────────────────────
+    # Content-hashed filenames — safe to cache aggressively.
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # ── Public/cover assets ───────────────────────────────────────────────
+    location /covers/ {
+        try_files $uri =404;
+    }
+
+    # ── Marketing / info pages (homepage.html) ────────────────────────────
+    location = / {
+        add_header Cache-Control "public, max-age=0, must-revalidate";
+        try_files /homepage.html =404;
+    }
+
+    location ~* ^/(ChunksAI|about|features|pricing)$ {
+        add_header Cache-Control "public, max-age=0, must-revalidate";
+        try_files /homepage.html =404;
+    }
+
+    location /company/ {
+        add_header Cache-Control "public, max-age=0, must-revalidate";
+        try_files /homepage.html =404;
+    }
+
+    # ── Standalone pages ──────────────────────────────────────────────────
+    location = /admin {
+        add_header Cache-Control "public, max-age=0, must-revalidate";
+        try_files /admin.html =404;
+    }
+
+    location = /privacy {
+        add_header Cache-Control "public, max-age=0, must-revalidate";
+        try_files /privacy.html =404;
+    }
+
+    location = /terms {
+        add_header Cache-Control "public, max-age=0, must-revalidate";
+        try_files /terms.html =404;
+    }
+
+    # ── SPA catch-all (app.html) ──────────────────────────────────────────
+    # All unmatched paths fall through to the main SPA entry point.
+    location / {
+        add_header Cache-Control "public, max-age=0, must-revalidate";
+        try_files $uri /app.html;
+    }
+}

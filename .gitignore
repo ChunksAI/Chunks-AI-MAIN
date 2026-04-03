@@ -3,10 +3,13 @@ node_modules/
 __pycache__/
 *.pyc
 
-# Environment variables
+# Environment variables (.env.example is intentionally committed)
 .env
 .env.local
 .env.*.local
+
+# Docker Compose local overrides
+docker-compose.override.yml
 
 # Playwright
 test-results/

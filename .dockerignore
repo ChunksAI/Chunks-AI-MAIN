@@ -1,0 +1,34 @@
+# Backend has its own Dockerfile and build context (./backend)
+backend/
+
+# Node dependencies and build artefacts (installed/built inside the container)
+node_modules/
+dist/
+
+# End-to-end tests and reports
+e2e/
+playwright-report/
+test-results/
+blob-report/
+
+# Git metadata
+.git/
+.gitignore
+
+# CI / GitHub Actions
+.github/
+
+# Documentation
+*.md
+
+# Secrets and local env overrides
+.env
+.env.local
+.env.*.local
+
+# OS artefacts
+.DS_Store
+Thumbs.db
+
+# TypeScript incremental build info
+tsconfig.tsbuildinfo
