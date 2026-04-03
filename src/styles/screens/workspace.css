@@ -531,6 +531,17 @@
 /* Notes scratchpad panel */
 #ws-notes-panel { background: var(--bg); }
 
+/* Canvas panel occupies the same space as chat/notes */
+#ws-canvas-panel {
+  position: absolute;
+  top: calc(var(--ws-chat-bar-h) + var(--ws-chat-tabs-h));
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+
 .ws-notes-textarea {
   flex: 1;
   width: 100%;
