@@ -1,0 +1,14 @@
+# Non-secret configuration shared by the api and worker pods.
+# Secrets (API keys, Supabase credentials, etc.) live in k8s/secret.yaml.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chunks-api-config
+  namespace: chunks
+data:
+  PORT: "5000"
+  PRODUCTION: "true"
+  # 1 worker per pod — Kubernetes scales pods horizontally via the HPA.
+  # Increase this only if you need thread-level concurrency within a single pod.
+  GUNICORN_WORKERS: "1"
+  ALLOWED_ORIGINS: "https://chunks.online,https://www.chunks.online"

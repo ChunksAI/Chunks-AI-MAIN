@@ -27,20 +27,23 @@ COPY . .
 
 # Disable .pyc file generation and enable unbuffered stdout/stderr so logs
 # appear immediately in docker logs / Cloud logging pipelines.
+#
+# GUNICORN_WORKERS — number of gunicorn worker processes per container.
+# Default is 1 so that Kubernetes scales horizontally (more pods, not more
+# workers per pod).  Set to 3 or higher in docker-compose for local dev where
+# there is only a single container acting as the whole backend.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PORT=5000
+    PORT=5000 \
+    GUNICORN_WORKERS=1
 
 EXPOSE 5000
 
 # Default: run the gunicorn web server (matches backend/Procfile "web" process).
 # Override CMD in docker-compose to run the RQ worker instead.
-CMD ["gunicorn", "server:app", \
-     "-k", "uvicorn.workers.UvicornWorker", \
-     "-w", "3", \
-     "--timeout", "120", \
-     "--bind", "0.0.0.0:5000", \
-     "--access-logfile", "-", \
-     "--error-logfile", "-", \
-     "--max-requests", "1000", \
-     "--max-requests-jitter", "100"]
+# Shell form is required here so that ${GUNICORN_WORKERS} and ${PORT} are
+# expanded at container startup from the environment.
+# The string is kept on one line inside the JSON array to avoid any ambiguity
+# with backslash-newline handling inside quoted shell strings.
+CMD ["sh", "-c", \
+     "exec gunicorn server:app -k uvicorn.workers.UvicornWorker -w ${GUNICORN_WORKERS} --timeout 120 --bind 0.0.0.0:${PORT} --access-logfile - --error-logfile - --max-requests 1000 --max-requests-jitter 100"]

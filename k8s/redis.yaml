@@ -1,0 +1,104 @@
+# ── k8s/redis.yaml ────────────────────────────────────────────────────────────
+# Redis is deployed as a single-replica StatefulSet so that the persistent
+# volume (AOF journal) survives pod restarts.  The RQ job queue and the
+# rate-limiter counter state are stored here.
+#
+# For high-availability Redis (replicas + Sentinel / Cluster) consider
+# using the Bitnami Redis Helm chart instead:
+#   helm install redis bitnami/redis --namespace chunks \
+#     --set auth.enabled=false \
+#     --set replica.replicaCount=2
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── StatefulSet ───────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+  namespace: chunks
+  labels:
+    app: redis
+    app.kubernetes.io/component: cache
+spec:
+  serviceName: redis-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          # Enable AOF persistence so data survives pod restarts.
+          command: ["redis-server", "--appendonly", "yes"]
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+
+---
+# ── Headless service (StatefulSet DNS) ───────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-headless
+  namespace: chunks
+  labels:
+    app: redis
+spec:
+  selector:
+    app: redis
+  clusterIP: None
+  ports:
+    - port: 6379
+      targetPort: 6379
+
+---
+# ── ClusterIP service (application access) ───────────────────────────────────
+# api and worker pods connect via redis://redis:6379.
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: chunks
+  labels:
+    app: redis
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379

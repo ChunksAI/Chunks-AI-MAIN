@@ -1,0 +1,100 @@
+# ── k8s/ingress.yaml ──────────────────────────────────────────────────────────
+# nginx Ingress that terminates TLS and routes to frontend + api services.
+#
+# Prerequisites
+# ─────────────
+# 1. nginx Ingress Controller:
+#      helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+#      helm install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx --create-namespace
+#
+# 2. cert-manager (automatic Let's Encrypt TLS):
+#      helm repo add jetstack https://charts.jetstack.io
+#      helm install cert-manager jetstack/cert-manager \
+#        --namespace cert-manager --create-namespace \
+#        --set installCRDs=true
+#
+# 3. ClusterIssuer for Let's Encrypt (run once after cert-manager is ready):
+#      kubectl apply -f - <<'EOF'
+#      apiVersion: cert-manager.io/v1
+#      kind: ClusterIssuer
+#      metadata:
+#        name: letsencrypt-prod
+#      spec:
+#        acme:
+#          server: https://acme-v02.api.letsencrypt.org/directory
+#          email: your-email@example.com    # ← replace
+#          privateKeySecretRef:
+#            name: letsencrypt-prod-key
+#          solvers:
+#            - http01:
+#                ingress:
+#                  class: nginx
+#      EOF
+#
+# 4. Update your DNS:
+#      chunks.online      A → <EXTERNAL-IP of ingress-nginx LoadBalancer>
+#      www.chunks.online  A → <same IP>
+#      api.chunks.online  A → <same IP>
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: chunks-ingress
+  namespace: chunks
+  annotations:
+    # Use the nginx ingress class installed above.
+    # 120 s is sufficient because all long-running operations (document
+    # processing, exam generation, etc.) are dispatched to the RQ worker queue
+    # asynchronously — the API returns a job ID immediately and the client polls
+    # for results.  Increase these only if you add synchronous long-polling.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    # Allow up to 50 MB request bodies (PDF uploads).
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # cert-manager will provision and renew TLS certificates automatically.
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # Redirect all plain HTTP to HTTPS.
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - chunks.online
+        - www.chunks.online
+      secretName: chunks-frontend-tls
+    - hosts:
+        - api.chunks.online
+      secretName: chunks-api-tls
+  rules:
+    # ── Frontend (chunks.online) ────────────────────────────────────────────
+    - host: chunks.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+    - host: www.chunks.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+    # ── API (api.chunks.online) ─────────────────────────────────────────────
+    - host: api.chunks.online
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 5000

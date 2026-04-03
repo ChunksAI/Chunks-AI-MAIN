@@ -48,6 +48,9 @@ services:
       PORT: "5000"
       REDIS_URL: "redis://redis:6379"
       PRODUCTION: "true"
+      # 3 workers per container for local dev (single container = whole backend).
+      # In Kubernetes this is set to 1 via the ConfigMap and pods scale out instead.
+      GUNICORN_WORKERS: "3"
       # Allow requests from the browser when the frontend is served on port 80.
       ALLOWED_ORIGINS: "http://localhost,http://localhost:80"
     depends_on:
