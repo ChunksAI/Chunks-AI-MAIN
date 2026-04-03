@@ -13,10 +13,56 @@
 const _wait = ms => new Promise(res => setTimeout(res, ms));
 
 /**
+ * When a model embeds its entire response — including the final answer —
+ * inside the `<think>` block with nothing after `</think>`, this helper
+ * tries to split the thinking string into `{ answer, thinkingContent }`.
+ *
+ * Strategy:
+ *   1. Look for an explicit "Final answer:" / "In summary:" marker paragraph.
+ *   2. Fall back to the last double-newline-separated paragraph.
+ *
+ * Returns `{ answer: '', thinkingContent: original }` when no split is found.
+ *
+ * @param {string} thinking  Inner content of the `<think>` block.
+ * @returns {{ answer: string, thinkingContent: string|null }}
+ */
+function _salvageAnswerFromThinking(thinking) {
+  if (!thinking) return { answer: '', thinkingContent: thinking };
+
+  // 1. Explicit final-answer marker
+  const MARKER = /\*{0,2}(?:final\s+answer|my\s+answer)\*{0,2}\s*[:\-–]|(?:in\s+(?:summary|conclusion|short))[,:]?\s/i;
+  const markerMatch = MARKER.exec(thinking);
+  if (markerMatch) {
+    const prevBreak = thinking.lastIndexOf('\n\n', markerMatch.index);
+    const splitAt = prevBreak !== -1 ? prevBreak + 2 : markerMatch.index;
+    const candidate = thinking.slice(splitAt).trim();
+    if (candidate) {
+      return { answer: candidate, thinkingContent: thinking.slice(0, splitAt).trim() || null };
+    }
+  }
+
+  // 2. Last blank-line-separated paragraph
+  const lastBreak = thinking.lastIndexOf('\n\n');
+  if (lastBreak !== -1) {
+    const candidate = thinking.slice(lastBreak).trim();
+    if (candidate) {
+      return { answer: candidate, thinkingContent: thinking.slice(0, lastBreak).trim() || null };
+    }
+  }
+
+  return { answer: '', thinkingContent: thinking || null };
+}
+
+/**
  * Strip any `<think>…</think>` block from `text` and return the two parts
  * separately.  This is the frontend safety-net: the backend should already
  * do this, but if it misses (wrong mode, malformed tags, etc.) we make sure
  * the raw `<think>` markup never reaches the chat panel.
+ *
+ * Also handles the edge case where the model embeds its final answer inside
+ * the `<think>` block with nothing after `</think>` — the last paragraph of
+ * the thinking content is salvaged as the answer so the user always sees a
+ * meaningful response.
  *
  * @param {string} text  Raw AI response that may contain a `<think>` block.
  * @returns {{ answer: string, thinkingContent: string|null }}
@@ -28,17 +74,23 @@ export function extractThinkBlock(text) {
   // Closed <think>…</think> block — strip all occurrences, capture first
   const match = text.match(/<think>([\s\S]*?)<\/think>/i);
   if (match) {
-    const thinkingContent = match[1].trim() || null;
-    const answer = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-    // Return empty string rather than falling back to original text (which
-    // contains the raw <think> tags and would display them as escaped text).
+    let thinkingContent = match[1].trim() || null;
+    let answer = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+    // If nothing came after </think>, the model embedded the answer inside
+    // the thinking block — salvage the final answer from there.
+    if (!answer && thinkingContent) {
+      ({ answer, thinkingContent } = _salvageAnswerFromThinking(thinkingContent));
+    }
     return { answer, thinkingContent };
   }
   // Unclosed <think> tag — everything from the tag onward is thinking content
   const partialMatch = text.match(/([\s\S]*?)<think>([\s\S]*)/i);
   if (partialMatch) {
-    const answer = partialMatch[1].trim();
-    const thinkingContent = partialMatch[2].trim() || null;
+    let answer = partialMatch[1].trim();
+    let thinkingContent = partialMatch[2].trim() || null;
+    if (!answer && thinkingContent) {
+      ({ answer, thinkingContent } = _salvageAnswerFromThinking(thinkingContent));
+    }
     return { answer, thinkingContent };
   }
   return { answer: text, thinkingContent: null };

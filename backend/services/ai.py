@@ -76,16 +76,66 @@ def sanitize_user_memory(text, max_len=500):
 
 # ── Thinking content extractor ────────────────────────────────────────────────
 
+# Markers that clearly signal the start of a "final answer" paragraph inside
+# a <think> block when the model forgets to write the answer after </think>.
+_FINAL_ANSWER_MARKER = re.compile(
+    r'(?:'
+    r'\*{0,2}(?:final\s+answer|my\s+answer)\*{0,2}\s*[:\-–]'
+    r'|(?:in\s+(?:summary|conclusion|short))[,:]?\s'
+    r')',
+    re.IGNORECASE,
+)
+
+
+def _salvage_answer_from_thinking(thinking: str) -> tuple[str, str]:
+    """Try to split a ``thinking`` string into *(answer, updated_thinking)*.
+
+    Called when a model embeds its entire response — including the final
+    answer — inside the ``<think>`` block, leaving nothing after ``</think>``.
+    Strategy:
+      1. Look for an explicit "Final answer:" / "In summary:" marker paragraph.
+      2. Fall back to the last double-newline-separated paragraph.
+
+    Returns ``('', thinking)`` when no usable split point is found.
+    """
+    if not thinking:
+        return '', thinking
+
+    # 1. Explicit final-answer marker anywhere in the text
+    m = _FINAL_ANSWER_MARKER.search(thinking)
+    if m:
+        # Walk back to the start of that paragraph (after the preceding \n\n)
+        split_at = thinking.rfind('\n\n', 0, m.start())
+        split_at = split_at + 2 if split_at != -1 else m.start()
+        candidate = thinking[split_at:].strip()
+        if candidate:
+            return candidate, thinking[:split_at].strip()
+
+    # 2. Last blank-line-separated paragraph as a fallback
+    last_break = thinking.rfind('\n\n')
+    if last_break != -1:
+        candidate = thinking[last_break:].strip()
+        if candidate:
+            return candidate, thinking[:last_break].strip()
+
+    return '', thinking
+
+
 def extract_thinking_content(text: str) -> tuple[str, str | None]:
     """Extract ``<think>…</think>`` reasoning blocks from a model response.
 
-    Some reasoning models (e.g. DeepSeek-R1, QwQ) wrap their internal chain-
-    of-thought inside ``<think>`` tags before emitting the final answer.  This
-    helper peels that block out so the caller can surface it separately in the
-    UI without polluting the visible answer text.
+    Some reasoning models (e.g. DeepSeek-R1, QwQ, Gemini 2.5 Flash) wrap
+    their internal chain-of-thought inside ``<think>`` tags before emitting
+    the final answer.  This helper peels that block out so the caller can
+    surface it separately in the UI without polluting the visible answer text.
 
-    Also handles unclosed ``<think>`` tags (model truncated mid-thought) by
-    treating everything after the opening tag as thinking content.
+    Also handles two edge cases:
+    * **Unclosed ``<think>``** — model truncated mid-thought; everything after
+      the opening tag is treated as thinking content.
+    * **Answer inside ``<think>``** — the model wrote the final answer inside
+      the block with nothing after ``</think>``.  In this case the last
+      paragraph of the thinking content is salvaged as the answer so the user
+      always sees a meaningful response.
 
     Returns:
         (answer, thinking) — *thinking* is ``None`` when no ``<think>`` block
@@ -98,12 +148,18 @@ def extract_thinking_content(text: str) -> tuple[str, str | None]:
     if match:
         thinking = match.group(1).strip()
         answer = re.sub(r'<think>[\s\S]*?</think>', '', text, flags=re.IGNORECASE).strip()
+        # If nothing came after </think>, the model embedded the answer inside
+        # the thinking block — salvage the final answer from there.
+        if not answer and thinking:
+            answer, thinking = _salvage_answer_from_thinking(thinking)
         return answer, thinking or None
     # Unclosed <think> tag — everything from the tag onward is thinking content
     partial = re.search(r'<think>([\s\S]*)', text, re.IGNORECASE)
     if partial:
         thinking = partial.group(1).strip()
         answer = text[:partial.start()].strip()
+        if not answer and thinking:
+            answer, thinking = _salvage_answer_from_thinking(thinking)
         return answer, thinking or None
     return text, None
 
