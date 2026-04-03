@@ -858,6 +858,7 @@ export function homeAppendThinking(hasImage = false) {
 
 export function homeRemoveThinking() {
   if (_homeThinkingHandle) {
+    if (_homeThinkingHandle._revealTimer) clearTimeout(_homeThinkingHandle._revealTimer);
     _homeThinkingHandle.unmount();
     _homeThinkingHandle = null;
   }

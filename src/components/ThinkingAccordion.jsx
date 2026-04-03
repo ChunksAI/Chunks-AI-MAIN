@@ -2,29 +2,43 @@
 /**
  * src/components/ThinkingAccordion.jsx
  *
- * Reusable "Deep Thinking" accordion that shows the AI's raw reasoning text.
- * Collapsible header: "Thinking…" while streaming, elapsed label when done.
- * Body: scrollable raw <think> text; footer "Done" row when complete.
+ * Reusable "Deep Thinking" accordion that shows the AI's reasoning steps.
+ * Collapsed by default — header shows "Thinking…" (+ pulsing dot) while the
+ * model is reasoning, or "Thought for X seconds" when done.
+ * Expanded body lists step labels with document icons; a ✓ Done row caps the
+ * list when reasoning is complete.
  *
  * Usage (via ThinkingAccordion.js bridge):
  *   import { createThinkingAccordion } from './ThinkingAccordion.js';
  *   const handle = createThinkingAccordion(containerEl, { thinkingText, elapsed, isStreaming });
- *   handle.update({ thinkingText: newText, elapsed: 42 });
+ *   handle.update({ steps: ['Step A', 'Step B'], open: true });
  */
 
 import { h } from 'preact';
 import { useState, useCallback, useImperativeHandle } from 'preact/hooks';
 import { forwardRef } from 'preact/compat';
 
-// ── Done icon (circle checkmark) ──────────────────────────────────────────────
+// ── Done icon (circle checkmark) ─────────────────────────────────────────────
 const _DoneIcon = () => h('svg', {
-  width: 15, height: 15, viewBox: '0 0 24 24',
+  width: 14, height: 14, viewBox: '0 0 24 24',
   fill: 'none', stroke: 'currentColor',
   'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
   'aria-hidden': 'true',
 },
   h('circle', { cx: 12, cy: 12, r: 10 }),
   h('polyline', { points: '9 12 11 14 15 10' }),
+);
+
+// ── Document icon (shown beside each step) ────────────────────────────────────
+const _DocIcon = () => h('svg', {
+  width: 13, height: 13, viewBox: '0 0 24 24',
+  fill: 'none', stroke: 'currentColor',
+  'stroke-width': '2', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+  'aria-hidden': 'true',
+  style: { flexShrink: 0, color: 'var(--text-4)' },
+},
+  h('path', { d: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z' }),
+  h('polyline', { points: '14 2 14 8 20 8' }),
 );
 
 // ── Chevron ───────────────────────────────────────────────────────────────────
@@ -48,28 +62,28 @@ function _elapsedLabel(seconds) {
  * ThinkingAccordionIsland
  *
  * Props (initial):
- *   thinkingText — string  (raw <think> content)
- *   elapsed      — number  (seconds, used for header label when done)
- *   isStreaming  — boolean (animates header dot while AI is still thinking)
+ *   steps        — string[]  (step labels extracted from thinking content)
+ *   elapsed      — number    (seconds, used for header label when done)
+ *   isStreaming  — boolean   (animates header dot while AI is still thinking)
  *
  * Imperative handle (via ref):
- *   update({ thinkingText?, elapsed?, isStreaming?, open? }) — partial state update
+ *   update({ steps?, elapsed?, isStreaming?, open? }) — partial state update
  */
 export const ThinkingAccordionIsland = forwardRef(function ThinkingAccordionIsland(
-  { thinkingText: initText = '', elapsed: initElapsed = 0, isStreaming: initStreaming = false },
+  { steps: initSteps = [], elapsed: initElapsed = 0, isStreaming: initStreaming = false },
   ref,
 ) {
-  const [thinkingText, setThinkingText] = useState(initText);
-  const [elapsed,      setElapsed]      = useState(initElapsed);
-  const [isStreaming,  setIsStreaming]   = useState(initStreaming);
-  // Auto-open when streaming so text appears immediately
-  const [open,         setOpen]         = useState(initStreaming);
+  const [steps,       setSteps]       = useState(initSteps);
+  const [elapsed,     setElapsed]     = useState(initElapsed);
+  const [isStreaming, setIsStreaming]  = useState(initStreaming);
+  // Always collapsed by default — user must click to expand
+  const [open,        setOpen]        = useState(false);
 
   const update = useCallback((patch = {}) => {
-    if (patch.thinkingText !== undefined) setThinkingText(patch.thinkingText);
-    if (patch.elapsed      !== undefined) setElapsed(patch.elapsed);
-    if (patch.isStreaming  !== undefined) setIsStreaming(patch.isStreaming);
-    if (patch.open         !== undefined) setOpen(patch.open);
+    if (patch.steps       !== undefined) setSteps(patch.steps);
+    if (patch.elapsed     !== undefined) setElapsed(patch.elapsed);
+    if (patch.isStreaming !== undefined) setIsStreaming(patch.isStreaming);
+    if (patch.open        !== undefined) setOpen(patch.open);
   }, []);
 
   useImperativeHandle(ref, () => ({ update }), [update]);
@@ -93,16 +107,28 @@ export const ThinkingAccordionIsland = forwardRef(function ThinkingAccordionIsla
     ),
 
     // ── Expanded body ──────────────────────────────────────────────────
-    open && h('div', { class: 'ta-raw-text' },
-      thinkingText
-        ? h('pre', null, thinkingText)
-        : h('pre', { style: { opacity: 0.45 } }, 'Thinking…'),
-    ),
-
-    // ── Footer "Done" row (only when not streaming) ────────────────────
-    open && !isStreaming && h('div', { class: 'ta-footer-done' },
-      h(_DoneIcon),
-      'Done',
+    open && h('div', { class: 'ta-steps-body' },
+      isStreaming
+        // While AI is still thinking: three pulsing dots
+        ? h('div', { class: 'ta-steps-waiting', 'aria-label': 'Thinking' },
+            h('span', { class: 'ta-wait-dot' }),
+            h('span', { class: 'ta-wait-dot' }),
+            h('span', { class: 'ta-wait-dot' }),
+          )
+        // After thinking: step-by-step labels with document icons
+        : steps.length > 0 && h('ul', { class: 'ta-steps-list', role: 'list' },
+            steps.map((step, i) =>
+              h('li', { key: step + i, class: 'ta-step-item' },
+                h(_DocIcon),
+                h('span', { class: 'ta-step-label' }, step),
+              ),
+            ),
+            // ✓ Done row at the bottom of the list
+            h('li', { class: 'ta-step-done' },
+              h(_DoneIcon),
+              h('span', null, 'Done'),
+            ),
+          ),
     ),
   );
 });
