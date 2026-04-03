@@ -271,13 +271,14 @@ def ask_async(request: Request, body: AskAsyncRequest):
             return JSONResponse({'success': False, 'error': 'question is required'}, status_code=400)
 
         # Capture user_id while we still have request context
-        verified_user_id, _tier = _extract_verified_user(request)
+        verified_user_id, _tier, _is_exempt = _extract_verified_user(request)
 
         # ── Per-user, per-device rate limiting ────────────────────────────
-        from services.device_abuse import check_device_rate_limit
-        _device_block = check_device_rate_limit(verified_user_id, request)
-        if _device_block is not None:
-            return _device_block
+        if not _is_exempt:
+            from services.device_abuse import check_device_rate_limit
+            _device_block = check_device_rate_limit(verified_user_id, request)
+            if _device_block is not None:
+                return _device_block
 
         data['_verified_user_id'] = verified_user_id
 

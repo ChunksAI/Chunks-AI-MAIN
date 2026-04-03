@@ -89,7 +89,7 @@ def get_my_plan(request: Request):
     from services.auth import _extract_verified_user
     from services.plan_limits import get_plan_limits, get_usage, PLAN_LIMITS
 
-    user_id, tier = _extract_verified_user(request)
+    user_id, tier, _is_exempt = _extract_verified_user(request)
 
     # Unauthenticated (IP-based) users get a 401
     if user_id.startswith('ip:'):

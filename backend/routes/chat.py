@@ -99,20 +99,22 @@ def ask(request: Request, body: AskRequest):
                 return cached_payload
 
         # ── Server-side tier + daily limit enforcement ────────────────────────
-        verified_user_id, user_tier = _extract_verified_user(request)
+        verified_user_id, user_tier, _is_exempt = _extract_verified_user(request)
 
         # ── Per-user, per-device rate limiting ────────────────────────────────
-        from services.device_abuse import check_device_rate_limit
-        _device_block = check_device_rate_limit(verified_user_id, request)
-        if _device_block is not None:
-            return _device_block
+        if not _is_exempt:
+            from services.device_abuse import check_device_rate_limit
+            _device_block = check_device_rate_limit(verified_user_id, request)
+            if _device_block is not None:
+                return _device_block
 
         # ── Plan-based usage limit ────────────────────────────────────────────
-        from services.plan_limits import check_plan_limit, PlanLimitExceeded
-        try:
-            check_plan_limit(verified_user_id, user_tier, 'daily_messages')
-        except PlanLimitExceeded as _ple:
-            return _ple.response()
+        if not _is_exempt:
+            from services.plan_limits import check_plan_limit, PlanLimitExceeded
+            try:
+                check_plan_limit(verified_user_id, user_tier, 'daily_messages')
+            except PlanLimitExceeded as _ple:
+                return _ple.response()
 
         # Parse injected token flags from legacy frontend path
         token_flags = []

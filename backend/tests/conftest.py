@@ -78,7 +78,7 @@ def mock_extract_user(monkeypatch):
     """Patch _extract_verified_user to return a fixed guest user."""
     import services.auth as auth_svc
     from services.auth import Tier
-    mock = MagicMock(return_value=('ip:127.0.0.1', Tier.FREE))
+    mock = MagicMock(return_value=('ip:127.0.0.1', Tier.FREE, False))
     monkeypatch.setattr(auth_svc, '_extract_verified_user', mock)
     return mock
 

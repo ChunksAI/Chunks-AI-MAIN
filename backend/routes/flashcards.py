@@ -37,20 +37,22 @@ def generate_flashcards(request: Request, body: FlashcardsRequest):
 
         # Verify JWT and enforce daily limit
         from services.auth import _extract_verified_user
-        verified_user_id, _tier = _extract_verified_user(request)
+        verified_user_id, _tier, _is_exempt = _extract_verified_user(request)
 
         # ── Per-user, per-device rate limiting ────────────────────────────
-        from services.device_abuse import check_device_rate_limit
-        _device_block = check_device_rate_limit(verified_user_id, request)
-        if _device_block is not None:
-            return _device_block
+        if not _is_exempt:
+            from services.device_abuse import check_device_rate_limit
+            _device_block = check_device_rate_limit(verified_user_id, request)
+            if _device_block is not None:
+                return _device_block
 
         # ── Plan-based usage limit ────────────────────────────────────────
-        from services.plan_limits import check_plan_limit, PlanLimitExceeded
-        try:
-            check_plan_limit(verified_user_id, _tier, 'monthly_flashcard_sets')
-        except PlanLimitExceeded as _ple:
-            return _ple.response()
+        if not _is_exempt:
+            from services.plan_limits import check_plan_limit, PlanLimitExceeded
+            try:
+                check_plan_limit(verified_user_id, _tier, 'monthly_flashcard_sets')
+            except PlanLimitExceeded as _ple:
+                return _ple.response()
 
         from services.material_cache import _cache_key, _cache_get, _cache_set
         from ai_router import route
