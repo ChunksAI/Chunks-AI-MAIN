@@ -55,7 +55,7 @@ def _get_models() -> dict:
     return {
         'small':  os.environ.get('SMALL_MODEL',  'openai/gpt-4o-mini'),
         'medium': medium,
-        'large':  os.environ.get('LARGE_MODEL',  medium),   # falls back to medium if not set
+        'large':  os.environ.get('LARGE_MODEL',  'google/gemini-2.5-flash'),
         'think':  os.environ.get('THINK_MODEL',  'deepseek/deepseek-r1-distill-llama-70b:free'),
         'deep':   os.environ.get('DEEP_MODEL',   'deepseek/deepseek-r1:free'),
     }
