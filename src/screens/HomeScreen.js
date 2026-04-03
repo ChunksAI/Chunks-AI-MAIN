@@ -792,7 +792,7 @@ export function homeAppendUser(text, images = []) {
     if (!firstBubble) firstBubble = textBubble;
   }
   if (firstBubble) {
-    homeScrollBottom();
+    firstBubble.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
 
