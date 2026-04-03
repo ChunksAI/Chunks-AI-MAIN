@@ -11,6 +11,7 @@ import { guestGate, recordUsage, renderUsageBar, isGuest, showLoginWall } from '
 import { showToast }   from '../../components/Toast.js';
 import { $el, setHtml, addClass, removeClass, toggleClass } from '../domHelpers.js';
 import { handleCommand, syncContextFromWorkspace, updateContext } from '../commandEngine.js';
+import { wsShowPanel } from '../../screens/WorkspaceScreen.js';
 import { createThinkingAccordion, parseThinkingSteps, inferThinkingTags } from '../../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../../utils/typewriter.js';
 
@@ -527,6 +528,83 @@ export function wsToggleThinking(mode) {
   removeClass($el('ws-think-menu'), 'open');
 }
 
+
+// ── Canvas: visual-explanation helpers ───────────────────────────────────────
+
+/** Minimum character length for a question remainder to be used as artifact title. */
+const _MIN_TITLE_LEN = 4;
+
+/**
+ * Returns true when the question appears to be asking for a visual explanation
+ * (e.g. "explain this visually", "show me visually", "visual breakdown", …).
+ */
+function _isVisualRequest(question) {
+  const q = question.toLowerCase();
+  return (
+    (q.includes('explain') && q.includes('visual')) ||
+    q.includes('show me visually') ||
+    q.includes('visual breakdown') ||
+    q.includes('visualize') ||
+    q.includes('visual explanation') ||
+    q.includes('explain visually')
+  );
+}
+
+/**
+ * Builds a mock visual_explanation artifact derived from the user's question.
+ * When the backend is wired up this will be replaced by the real AI response.
+ */
+function _buildMockArtifact(question) {
+  // Strip common filler so the title reads cleanly.
+  const titleBase = question
+    .replace(/explain\s+(this\s+)?visually[?!\.]*\s*/gi, '')
+    .replace(/show\s+me\s+visually[?!\.]*\s*/gi, '')
+    .replace(/visual(ly)?\s+(breakdown|explanation)\s+of\s*/gi, '')
+    .replace(/visualize[?!\.]*\s*/gi, '')
+    .trim();
+
+  const title = titleBase.length > _MIN_TITLE_LEN
+    ? titleBase.charAt(0).toUpperCase() + titleBase.slice(1)
+    : 'Visual Explanation';
+
+  return {
+    type: 'visual_explanation',
+    title,
+    steps: [
+      {
+        heading: 'Overview',
+        text: 'A high-level look at the concept and why it matters.',
+        visual: '🔭',
+      },
+      {
+        heading: 'Core Idea',
+        text: 'The fundamental principle behind this topic, broken down simply.',
+        visual: '💡',
+      },
+      {
+        heading: 'How It Works',
+        text: 'Step-by-step mechanics — what happens, and in what order.',
+        visual: '⚙️',
+      },
+      {
+        heading: 'Real-World Example',
+        text: 'A concrete scenario that brings the concept to life.',
+        visual: '🌍',
+      },
+      {
+        heading: 'Key Takeaway',
+        text: 'The one thing to remember after studying this topic.',
+        visual: '🎯',
+      },
+      {
+        heading: 'Common Pitfalls',
+        text: 'Mistakes learners often make — and how to avoid them.',
+        visual: '⚠️',
+      },
+    ],
+  };
+}
+
 export async function wsChatSend() {
   if (ws.typing) { wsStopGeneration(); return; }
   const inp = $el('ws-chat-input');
@@ -541,6 +619,13 @@ export async function wsChatSend() {
     return;
   }
   // ── End command intercept ─────────────────────────────────────────────────
+
+  // ── Canvas: push mock artifact for visual-explanation requests ──────────
+  if (_isVisualRequest(question) && window.canvas) {
+    window.canvas.setArtifact(_buildMockArtifact(question));
+    wsShowPanel('canvas');
+  }
+  // ── End canvas intercept ──────────────────────────────────────────────────
 
   inp.placeholder = 'Ask a follow-up about Chapter 3…';
   wsAppendUser(question, ws.selectedText);
