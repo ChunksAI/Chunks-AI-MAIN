@@ -1093,6 +1093,15 @@ function _vtpDrawSpec(spec) {
     return;
   }
 
+  // ── Shared dot-grid painter for animated draw types ──────────────────────
+  function _animDotGrid() {
+    ctx.fillStyle = 'rgba(255,255,255,0.03)';
+    for (let gx = 44; gx < W; gx += 44)
+      for (let gy = 44; gy < H; gy += 44) {
+        ctx.beginPath(); ctx.arc(gx, gy, 1.3, 0, Math.PI * 2); ctx.fill();
+      }
+  }
+
   // ── PARTICLES — two animated regions of bouncing circles ─────────────────
   if (spec.type === 'particles') {
     const lCol    = _vtpCol(spec.leftColor  || 'amber');
@@ -1120,17 +1129,9 @@ function _vtpDrawSpec(spec) {
       r:  4 + _r() * 6,
     }));
 
-    function _dotGrid() {
-      ctx.fillStyle = 'rgba(255,255,255,0.03)';
-      for (let gx = 44; gx < W; gx += 44)
-        for (let gy = 44; gy < H; gy += 44) {
-          ctx.beginPath(); ctx.arc(gx, gy, 1.3, 0, Math.PI * 2); ctx.fill();
-        }
-    }
-
     function _drawParticlesFrame() {
       ctx.clearRect(0, 0, W, H);
-      _dotGrid();
+      _animDotGrid();
 
       // Panels
       function panel(x, w, c) {
@@ -1225,17 +1226,9 @@ function _vtpDrawSpec(spec) {
       speed: 0.8 + _r() * 1.2,
     }));
 
-    function _dotGrid2() {
-      ctx.fillStyle = 'rgba(255,255,255,0.03)';
-      for (let gx = 44; gx < W; gx += 44)
-        for (let gy = 44; gy < H; gy += 44) {
-          ctx.beginPath(); ctx.arc(gx, gy, 1.3, 0, Math.PI * 2); ctx.fill();
-        }
-    }
-
     function _drawSceneFrame() {
       ctx.clearRect(0, 0, W, H);
-      _dotGrid2();
+      _animDotGrid();
 
       // Left box
       ctx.fillStyle = lCol.fill; ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 2;
@@ -1305,7 +1298,6 @@ function _vtpDrawSpec(spec) {
     const LABEL_Y  = FORM_Y + 82;
     const SUB_Y    = FORM_Y + 100;
     const CARD_Y   = H - 72;
-    const CARD_W   = Math.min(110, (W - 60) / Math.max(cards.length, 1) - 8);
     const CARD_H   = 42;
 
     const spacing = Math.min(130, (W - 60) / n);
@@ -1346,6 +1338,8 @@ function _vtpDrawSpec(spec) {
 
     // Example cards at bottom
     if (hasCards) {
+      const CARD_W = Math.min(110, (W - 60) / cards.length - 8);
+      const CARD_H = 42;
       const cardTotalW = cards.length * CARD_W + (cards.length - 1) * 10;
       const cardStartX = (W - cardTotalW) / 2;
       cards.forEach((card, i) => {
