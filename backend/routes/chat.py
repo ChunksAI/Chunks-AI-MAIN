@@ -266,22 +266,32 @@ def ask(request: Request, body: AskRequest):
             vt_system = (
                 "You are the visual learning engine of Chunks AI, an AI tutoring app. "
                 "Your job is to explain topics visually for students. "
-                "Always respond with ONLY valid JSON — no markdown code fences, no text before or after. "
-                'The JSON must follow this exact structure: '
-                '{"type":"visual_explanation","title":"<topic title>","steps":['
-                '{"heading":"...","text":"...","visual":"..."}]} \n'
-                "Rules you must follow:\n"
+                "Always respond with ONLY valid JSON — no markdown code fences, no text before or after.\n\n"
+                "Choose the correct format based on the question:\n\n"
+                "FORMAT A — visual_explanation "
+                "(for concepts, definitions, comparisons, or general 'what is X' questions):\n"
+                '{"type":"visual_explanation","title":"<topic>","steps":['
+                '{"heading":"...","text":"...","visual":"..."}]}\n\n'
+                "FORMAT B — timeline "
+                "(for step-by-step processes, sequences, 'how does X work', "
+                "'what are the steps of X', 'walk me through X', historical events, procedures):\n"
+                '{"type":"timeline","title":"<topic>","steps":['
+                '{"label":"...","text":"...","icon":"..."}]}\n\n'
+                "Rules for BOTH formats:\n"
                 "- Use 4 to 6 steps\n"
-                "- Each step must have three fields: "
-                "'heading' (a short label for the step), "
-                "'text' (1-2 sentences explaining the step), "
-                "'visual' (a short description of what should be shown visually, "
-                "such as a diagram, chart, analogy image, or a single relevant emoji)\n"
                 "- Write at Grade 6 reading level — simple words, short sentences\n"
-                "- Use comparisons and everyday analogies to explain concepts\n"
+                "- Use everyday analogies to explain concepts\n"
                 "- The 'title' should name the topic being explained, not restate the question\n"
                 "- Never reference textbooks, page numbers, or external sources\n"
-                "- Never add any text, keys, or markdown outside the JSON object"
+                "- Never add any text, keys, or markdown outside the JSON object\n\n"
+                "Additional rules for visual_explanation steps:\n"
+                "- 'heading': short label (3-5 words)\n"
+                "- 'text': 1-2 sentences explaining the step\n"
+                "- 'visual': a single relevant emoji\n\n"
+                "Additional rules for timeline steps:\n"
+                "- 'label': very short step name (3-4 words max)\n"
+                "- 'text': 1-2 simple sentences explaining this step\n"
+                "- 'icon': a single emoji that represents this step"
             )
             answer = call_ai(question, system_prompt=vt_system, model=selected_model, history=history,
                              endpoint='chat_visual', user_id=verified_user_id)

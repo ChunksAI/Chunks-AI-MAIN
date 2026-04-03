@@ -754,7 +754,7 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
           // Strip markdown code fences the model may have emitted despite instructions
           const rawJson = (answer || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
           const candidate = JSON.parse(rawJson);
-          if (candidate && candidate.type === 'visual_explanation' && Array.isArray(candidate.steps)) {
+          if (candidate && (candidate.type === 'visual_explanation' || candidate.type === 'timeline') && Array.isArray(candidate.steps)) {
             parsedArtifact = candidate;
           }
         } catch (_) {

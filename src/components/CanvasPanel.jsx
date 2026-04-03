@@ -9,13 +9,23 @@
  * State:
  *  • activeArtifact  — null (empty state) | artifact object
  *  • regenerating    — boolean, true while the mock regenerate animation runs
+ *  • simplifying     — boolean, true while the AI simplify request is in flight
  *  • contentKey      — increments on each new artifact so the fade-in replays
  *
- * Artifact format (visual_explanation):
+ * Supported artifact types:
+ *
+ *  visual_explanation:
  *  {
  *    type: "visual_explanation",
  *    title: string,
  *    steps: [{ heading, text, visual }]
+ *  }
+ *
+ *  timeline:
+ *  {
+ *    type: "timeline",
+ *    title: string,
+ *    steps: [{ label, text, icon }]
  *  }
  *
  * External API (window.canvas):
@@ -103,6 +113,84 @@ function VisualExplanationRenderer({ artifact }) {
   );
 }
 
+// ── TimelineRenderer ──────────────────────────────────────────────────────────
+
+/** Stagger delay between consecutive timeline step animations (ms). */
+const TIMELINE_STAGGER_MS = 80;
+
+/**
+ * Renders a timeline artifact as a vertical connected step list.
+ *
+ * Layout (left → right per step):
+ *   • Gutter — numbered circle (emoji icon or step number) + connecting line
+ *   • Body   — bold label + explanation text
+ *
+ * Steps fade in sequentially via CSS animation-delay. The last step
+ * receives a finish marker (gold circle) instead of the connecting line.
+ */
+function TimelineRenderer({ artifact }) {
+  const { title, steps = [] } = artifact;
+
+  return h('div', { class: 'cvp-timeline' },
+
+    /* ── Hero header ──────────────────────────────────────── */
+    h('div', { class: 'cvp-tl-hero' },
+      h('div', { class: 'cvp-tl-hero-badge' },
+        h('svg', {
+          width: '13', height: '13', viewBox: '0 0 24 24',
+          fill: 'none', stroke: 'currentColor',
+          'stroke-width': '2.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+        },
+          h('line', { x1: '8', y1: '6', x2: '21', y2: '6' }),
+          h('line', { x1: '8', y1: '12', x2: '21', y2: '12' }),
+          h('line', { x1: '8', y1: '18', x2: '21', y2: '18' }),
+          h('line', { x1: '3', y1: '6', x2: '3.01', y2: '6' }),
+          h('line', { x1: '3', y1: '12', x2: '3.01', y2: '12' }),
+          h('line', { x1: '3', y1: '18', x2: '3.01', y2: '18' }),
+        ),
+        'Timeline',
+      ),
+      h('h2', { class: 'cvp-tl-title' }, title),
+      h('p', { class: 'cvp-tl-meta' },
+        `${steps.length} step${steps.length !== 1 ? 's' : ''}`
+      ),
+    ),
+
+    /* ── Step list ────────────────────────────────────────── */
+    h('ol', { class: 'cvp-tl-list' },
+      steps.map((step, i) => {
+        const isLast = i === steps.length - 1;
+        return h('li', {
+          class: `cvp-tl-step${isLast ? ' cvp-tl-step--last' : ''}`,
+          key: i,
+          style: `animation-delay:${i * TIMELINE_STAGGER_MS}ms`,
+        },
+
+          /* Left gutter: line + circle */
+          h('div', { class: 'cvp-tl-gutter', 'aria-hidden': 'true' },
+            h('div', {
+              class: `cvp-tl-circle${isLast ? ' cvp-tl-circle--finish' : ''}`,
+            },
+              isLast
+                ? h('span', { class: 'cvp-tl-finish-star' }, '★')
+                : step.icon
+                  ? h('span', { class: 'cvp-tl-icon' }, step.icon)
+                  : h('span', { class: 'cvp-tl-num' }, i + 1),
+            ),
+            !isLast && h('div', { class: 'cvp-tl-line' }),
+          ),
+
+          /* Right body: label + text */
+          h('div', { class: 'cvp-tl-body' },
+            h('strong', { class: 'cvp-tl-label' }, step.label),
+            h('p', { class: 'cvp-tl-text' }, step.text),
+          ),
+        );
+      })
+    ),
+  );
+}
+
 // ── ArtifactRenderer ─────────────────────────────────────────────────────────
 
 /**
@@ -112,6 +200,9 @@ function VisualExplanationRenderer({ artifact }) {
 function ArtifactRenderer({ artifact }) {
   if (artifact.type === 'visual_explanation') {
     return h(VisualExplanationRenderer, { artifact });
+  }
+  if (artifact.type === 'timeline') {
+    return h(TimelineRenderer, { artifact });
   }
   return h('div', { class: 'cvp-unknown' },
     h('p', { class: 'cvp-unknown-text' },
@@ -279,11 +370,14 @@ function CanvasPanel({ artifactSignal }) {
     setSimplifying(true);
     try {
       const authHeader = await _getAuthHeader();
-      // Build a compact summary of the artifact to keep the prompt tight
+
+      // Build a compact summary of the artifact to keep the prompt tight.
+      // Both artifact types have a 'steps' array; use whichever label field exists.
       const stepsSummary = (artifact.steps || [])
-        .map((s, i) => `${i + 1}. ${s.heading}: ${s.text}`)
+        .map((s, i) => `${i + 1}. ${s.heading || s.label}: ${s.text}`)
         .join('\n');
-      const question = `Simplify this visual explanation further for beginners. Keep the same topic but use simpler words, shorter sentences, and more everyday analogies.\n\nTopic: ${artifact.title}\n\nCurrent steps:\n${stepsSummary}`;
+      const question = `Simplify this visual explanation further for beginners. Keep the same topic and the same format (${artifact.type}) but use simpler words, shorter sentences, and more everyday analogies.\n\nTopic: ${artifact.title}\n\nCurrent steps:\n${stepsSummary}`;
+
       const res = await fetch(`${API_BASE}/ask`, {
         method: 'POST',
         signal: simplifyCtrl.current.signal,
@@ -302,7 +396,8 @@ function CanvasPanel({ artifactSignal }) {
       const data = await res.json();
       const raw = (data.answer || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       const candidate = JSON.parse(raw);
-      if (candidate?.type === 'visual_explanation' && Array.isArray(candidate.steps)) {
+      const validTypes = ['visual_explanation', 'timeline'];
+      if (candidate && validTypes.includes(candidate.type) && Array.isArray(candidate.steps)) {
         artifactRef.current = candidate;
         setActiveArtifact(candidate);
         setContentKey(k => k + 1);
