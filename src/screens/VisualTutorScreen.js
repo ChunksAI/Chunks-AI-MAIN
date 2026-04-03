@@ -487,13 +487,13 @@ TYPE "cycle" — circular repeating process or feedback loop:
 {"type":"cycle","items":[{"label":"Step","sub":"detail","color":"amber"},{"label":"Step","sub":"detail","color":"blue"}],"center":"optional center label","note":"footer"}
 Use 3–5 items arranged in a circle with curved arrows.
 
-TYPE "particles" — two open regions of freely bouncing circles, NO panels or borders (kinetic energy, diffusion, gas laws, fast-vs-slow concepts):
-{"type":"particles","leftLabel":"HOT","leftSub":"fast particles","leftColor":"amber","rightLabel":"COLD","rightSub":"slow particles","rightColor":"blue","flowLabel":"energy transfer","note":"Temperature = average kinetic energy of particles"}
-Hot side: large orange circles with dark halos, fast. Cold side: smaller solid blue circles, slow. Open space, just a subtle center divider.
+TYPE "particles" — two open regions of freely bouncing circles representing ANY two contrasting states (fast/slow, high/low concentration, active/passive, etc.):
+{"type":"particles","leftLabel":"State A","leftSub":"1-phrase descriptor","leftColor":"amber","rightLabel":"State B","rightSub":"1-phrase descriptor","rightColor":"blue","flowLabel":"what moves across","note":"one-line takeaway"}
+Both sides use the same halo+core visual. Left = larger, faster. Right = smaller, slower. Color matches topic (amber=energy/active, blue=calm/slow, green=growth, purple=electric/neural, etc.).
 
-TYPE "scene" — illustrated mug icon (HOT source, left) + crystal icon (COLD sink, right), large glowing particles flying between them, labeled top arrow (heat transfer, conduction, radiation, any directional flow):
-{"type":"scene","left":{"label":"HOT","sub":"T = high","color":"amber"},"right":{"label":"COLD","sub":"T = low","color":"blue"},"arrow":{"label":"q"},"note":"heat flows spontaneously from hot → cold"}
-Always use scene for the directional flow step. The left object is always drawn as a mug/cup; the right object as a crystal/rectangle with an X inside.
+TYPE "scene" — two labeled objects (ovals) with animated particles flowing from source to sink, and orbiting dots on the source showing it actively emits/transfers (works for ANY directional transfer: heat, nutrients, data, money, electrical charge, signals):
+{"type":"scene","left":{"label":"SOURCE","sub":"brief descriptor","color":"amber"},"right":{"label":"SINK","sub":"brief descriptor","color":"blue"},"arrow":{"label":"flow label"},"note":"one-line takeaway"}
+Labels go INSIDE the objects. Use for any step showing directional flow or transfer between two entities.
 
 TYPE "labeled_equation" — large formula with downward color-coded arrows and labels per term, optional example cards at the bottom:
 {"type":"labeled_equation","formula":"A = B × C","parts":[{"symbol":"A","name":"full name","sub":"(unit)","color":"amber"},{"symbol":"B","name":"full name","sub":"(unit)","color":"blue"},{"symbol":"C","name":"full name","sub":"(unit)","color":"teal"}],"cards":[{"label":"Example 1","value":"val=1.5","color":"amber"},{"label":"Example 2","value":"val=0.8","color":"blue"}],"note":"footer"}
@@ -501,7 +501,7 @@ cards: 2–4 optional real-world examples with specific values (omit if not appl
 
 
 - Generate exactly 5 steps.
-- Use a DIFFERENT draw type for each step where possible. Prefer particles or scene for motion/transfer/energy steps, labeled_equation for formula steps, mindmap or cycle for category/process steps.
+- Use a DIFFERENT draw type for each step where possible. Use particles or scene for any two-state or directional-flow step across ANY domain, labeled_equation for formula steps, mindmap or cycle for category/process steps.
 - Make content specific and accurate for "${topic}" — NOT generic filler.
 - contextualReplies must be real, specific answers a tutor would give — not "great question!".
 - quiz options must be specific to the topic, not abstract.
@@ -1104,27 +1104,29 @@ function _vtpDrawSpec(spec) {
   }
 
   // ── PARTICLES — two free zones of bouncing circles, no panel boxes ──────
-  // Hot side: large orange particles with dark outer halos + bright cores
-  // Cold side: smaller solid blue particles, no halos
+  // Left side: large, fast particles with dark halo + bright core
+  // Right side: smaller, slower particles with matching halo treatment
+  // Universal: works for any two-state contrast (energy, concentration, speed, etc.)
   if (spec.type === 'particles') {
     const lCol = _vtpCol(spec.leftColor  || 'amber');
     const rCol = _vtpCol(spec.rightColor || 'blue');
     const HALF = W / 2;
-    const TOP  = 42;                  // top bound for particles
-    const BOT  = H - 36;             // bottom bound
-    const PAD  = 24;                 // horizontal edge padding
+    const TOP  = 42;
+    const BOT  = H - 36;
+    const PAD  = 24;
+    const HALO = 'rgba(10,10,18,0.88)'; // neutral dark halo — works for any color
 
-    // Hot (left half): large, fast, dark-halo particles
+    // Left half: large, fast, halo+core particles
     const lParts = Array.from({length: 10}, () => ({
       x:  PAD + _r() * (HALF - PAD - 20),
       y:  TOP + 18 + _r() * (BOT - TOP - 36),
       vx: (_r() - 0.5) * 7.2,
       vy: (_r() - 0.5) * 7.2,
-      r:  14 + _r() * 11,  // outer (dark halo) radius
+      r:  14 + _r() * 11,
     }));
-    lParts.forEach(p => { p.ir = p.r * 0.38 + 2; }); // inner bright core
+    lParts.forEach(p => { p.ir = p.r * 0.38 + 2; });
 
-    // Cold (right half): medium, slow, solid particles
+    // Right half: smaller, slower, halo+core particles (same visual language, less energy)
     const rParts = Array.from({length: 13}, () => ({
       x:  HALF + 20 + _r() * (W - HALF - PAD - 20),
       y:  TOP + 18 + _r() * (BOT - TOP - 36),
@@ -1132,6 +1134,7 @@ function _vtpDrawSpec(spec) {
       vy: (_r() - 0.5) * 2.1,
       r:  7 + _r() * 7,
     }));
+    rParts.forEach(p => { p.ir = p.r * 0.50; });
 
     function _drawParticlesFrame() {
       ctx.clearRect(0, 0, W, H);
@@ -1148,19 +1151,19 @@ function _vtpDrawSpec(spec) {
       // Labels at top of each half
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.font = `600 14px ${MONO}`; ctx.fillStyle = lCol.text;
-      ctx.fillText(spec.leftLabel || 'HOT', HALF * 0.45, TOP - 16);
+      ctx.fillText(spec.leftLabel || 'State A', HALF * 0.45, TOP - 16);
       if (spec.leftSub) {
         ctx.font = `400 11px ${MONO}`; ctx.fillStyle = TEXT_SEC;
         ctx.fillText(spec.leftSub, HALF * 0.45, TOP - 2);
       }
       ctx.font = `600 14px ${MONO}`; ctx.fillStyle = rCol.text;
-      ctx.fillText(spec.rightLabel || 'COLD', HALF + HALF * 0.55, TOP - 16);
+      ctx.fillText(spec.rightLabel || 'State B', HALF + HALF * 0.55, TOP - 16);
       if (spec.rightSub) {
         ctx.font = `400 11px ${MONO}`; ctx.fillStyle = TEXT_SEC;
         ctx.fillText(spec.rightSub, HALF + HALF * 0.55, TOP - 2);
       }
 
-      // Hot particles — dark outer ring + bright colored core
+      // Left particles — large outer dark ring + bright colored core
       lParts.forEach(p => {
         p.x += p.vx; p.y += p.vy;
         if (p.x - p.r < PAD)         { p.vx =  Math.abs(p.vx); }
@@ -1168,12 +1171,12 @@ function _vtpDrawSpec(spec) {
         if (p.y - p.r < TOP)         { p.vy =  Math.abs(p.vy); }
         if (p.y + p.r > BOT)         { p.vy = -Math.abs(p.vy); }
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(22, 13, 3, 0.90)'; ctx.fill();
+        ctx.fillStyle = HALO; ctx.fill();
         ctx.beginPath(); ctx.arc(p.x, p.y, p.ir, 0, Math.PI * 2);
         ctx.fillStyle = lCol.stroke; ctx.fill();
       });
 
-      // Cold particles — solid fill
+      // Right particles — smaller outer dark ring + bright colored core
       rParts.forEach(p => {
         p.x += p.vx; p.y += p.vy;
         if (p.x - p.r < HALF + 10)   { p.vx =  Math.abs(p.vx); }
@@ -1181,6 +1184,8 @@ function _vtpDrawSpec(spec) {
         if (p.y - p.r < TOP)         { p.vy =  Math.abs(p.vy); }
         if (p.y + p.r > BOT)         { p.vy = -Math.abs(p.vy); }
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = HALO; ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.ir, 0, Math.PI * 2);
         ctx.fillStyle = rCol.stroke; ctx.fill();
       });
 
@@ -1212,10 +1217,11 @@ function _vtpDrawSpec(spec) {
     return;
   }
 
-  // ── SCENE — illustrated mug+crystal icons, large glowing particles flowing ─
-  // Left icon (HOT): trapezoidal mug with animated steam lines
-  // Right icon (COLD): rectangle with X-pattern inside
-  // Particles: large dark-halo + bright-core circles flowing L→R between icons
+  // ── SCENE — two labeled objects with animated particle flow between them ────
+  // Universal: works for physics, biology, economics, computing, any domain.
+  // Source (left): large oval with orbiting activity dots showing it emits/transfers.
+  // Sink (right): large oval, passive.
+  // Flow: large halo+core particles travel left→right between the objects.
   if (spec.type === 'scene') {
     const lSpec  = spec.left  || {};
     const rSpec  = spec.right || {};
@@ -1223,76 +1229,39 @@ function _vtpDrawSpec(spec) {
     const lCol   = _vtpCol(lSpec.color || 'amber');
     const rCol   = _vtpCol(rSpec.color || 'blue');
 
-    // Icon sizing and positioning
-    const ICO_W  = Math.min(W * 0.16, 96);
-    const ICO_H  = Math.min(H * 0.54, 148);
-    const LCX    = W * 0.10 + ICO_W / 2;
-    const RCX    = W - W * 0.10 - ICO_W / 2;
-    const ICY    = cy - 10;
+    // Object sizing and positioning
+    const OBJ_RX = Math.min(W * 0.12, 70);
+    const OBJ_RY = Math.min(H * 0.25, 58);
+    const LCX    = W * 0.14 + OBJ_RX;
+    const RCX    = W - W * 0.14 - OBJ_RX;
+    const ICY    = cy;
 
-    // Particle zone between icons
-    const PZ_X1  = LCX + ICO_W / 2 + 12;
-    const PZ_X2  = RCX - ICO_W / 2 - 12;
+    // Particle zone between the two objects
+    const PZ_X1  = LCX + OBJ_RX + 10;
+    const PZ_X2  = RCX - OBJ_RX - 10;
 
-    // Large glowing particles — dark outer halo + bright inner core
+    // Large flowing particles — neutral dark halo + colored bright core
     const flowParts = Array.from({length: 7}, () => ({
       x:     PZ_X1 + (PZ_X2 - PZ_X1) * (_r() * 0.88),
-      yOff:  (_r() - 0.5) * 48,
-      r:     15 + _r() * 10,   // outer (dark) radius
-      ir:    5  + _r() * 5,    // inner (bright) radius
-      speed: 0.9 + _r() * 1.5,
+      yOff:  (_r() - 0.5) * 44,
+      r:     14 + _r() * 9,
+      ir:    5  + _r() * 4,
+      speed: 0.9 + _r() * 1.4,
     }));
 
-    let _steamPhase = 0;
-
-    // Draw mug/cup shape (trapezoid + handle)
-    function _drawMug(icx, icy, w, h, col) {
-      const tw = w * 0.90, bw = w * 0.68;
-      const tx = icx - tw / 2, bx = icx - bw / 2;
-      const ty = icy - h / 2,  by = icy + h / 2;
-      ctx.fillStyle = col.fill;
-      ctx.beginPath();
-      ctx.moveTo(tx, ty); ctx.lineTo(tx + tw, ty);
-      ctx.lineTo(bx + bw, by); ctx.lineTo(bx, by);
-      ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = col.stroke; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(tx, ty); ctx.lineTo(tx + tw, ty);
-      ctx.lineTo(bx + bw, by); ctx.lineTo(bx, by);
-      ctx.closePath(); ctx.stroke();
-      // Handle arc on right
-      ctx.beginPath();
-      ctx.arc(tx + tw + 10, icy + h * 0.06, h * 0.22, -Math.PI * 0.58, Math.PI * 0.58);
-      ctx.stroke();
-    }
-
-    // Draw crystal/snowflake shape (rectangle + X lines inside)
-    function _drawCrystal(icx, icy, w, h, col) {
-      const hw = w / 2, hh = h / 2;
-      ctx.fillStyle = col.fill;
-      ctx.fillRect(icx - hw, icy - hh, w, h);
-      ctx.strokeStyle = col.stroke; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
-      ctx.strokeRect(icx - hw, icy - hh, w, h);
-      // X pattern
-      const ix = hw * 0.52, iy = hh * 0.52;
-      ctx.save();
-      ctx.globalAlpha = 0.5; ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.moveTo(icx - ix, icy - iy); ctx.lineTo(icx + ix, icy + iy);
-      ctx.moveTo(icx + ix, icy - iy); ctx.lineTo(icx - ix, icy + iy);
-      ctx.stroke();
-      ctx.restore();
-    }
+    // Orbiting activity dots on source object (show it actively emits/transfers)
+    const ORBIT_N = 3;
+    let _orbitPhase = 0;
 
     function _drawSceneFrame() {
       ctx.clearRect(0, 0, W, H);
       _animDotGrid();
-      _steamPhase += 0.025;
+      _orbitPhase += 0.028;
 
-      // Arrow spanning icon-to-icon above the particle zone
-      const arX1   = LCX + ICO_W / 2 + 16;
-      const arX2   = RCX - ICO_W / 2 - 16;
-      const arrowY = ICY - ICO_H * 0.54;
+      // Arrow spanning above both objects with flow label
+      const arX1   = LCX + OBJ_RX + 14;
+      const arX2   = RCX - OBJ_RX - 14;
+      const arrowY = ICY - OBJ_RY - 24;
       ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(arX1, arrowY); ctx.lineTo(arX2 - 12, arrowY); ctx.stroke();
       ctx.beginPath();
@@ -1305,54 +1274,44 @@ function _vtpDrawSpec(spec) {
         ctx.fillText(arSpec.label, (arX1 + arX2) / 2, arrowY - 14);
       }
 
-      // Large glowing particles flowing L→R
+      // Flowing particles (drawn before objects so objects render on top)
       flowParts.forEach(p => {
         p.x += p.speed;
         if (p.x > PZ_X2 + p.r + 6) p.x = PZ_X1 - p.r;
         const py = ICY + p.yOff;
-        // dark outer halo
         ctx.beginPath(); ctx.arc(p.x, py, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(15, 9, 2, 0.88)'; ctx.fill();
-        // bright inner core
+        ctx.fillStyle = 'rgba(10,10,18,0.88)'; ctx.fill();
         ctx.beginPath(); ctx.arc(p.x, py, p.ir, 0, Math.PI * 2);
         ctx.fillStyle = lCol.stroke; ctx.fill();
       });
 
-      // Draw icons (particles are drawn before icons so icons render on top)
-      _drawMug(LCX, ICY, ICO_W, ICO_H, lCol);
-      _drawCrystal(RCX, ICY, ICO_W * 0.88, ICO_H * 0.74, rCol);
+      // Draw objects as hand-drawn ovals with label inside
+      ctx.lineWidth = 2.5;
+      sketchOval(LCX, ICY, OBJ_RX, OBJ_RY, lCol.fill, lCol.stroke);
+      sketchOval(RCX, ICY, OBJ_RX * 0.88, OBJ_RY * 0.88, rCol.fill, rCol.stroke);
 
-      // Steam lines above mug (animated)
-      const steamY = ICY - ICO_H / 2 - 5;
-      [-13, 0, 13].forEach((dx, i) => {
-        const ph = _steamPhase + i * 1.25;
-        ctx.save();
-        ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.42;
-        ctx.beginPath();
-        ctx.moveTo(LCX + dx, steamY);
-        ctx.quadraticCurveTo(
-          LCX + dx + Math.sin(ph) * 9,      steamY - 14,
-          LCX + dx + Math.sin(ph + 1) * 6,  steamY - 30
-        );
-        ctx.stroke();
-        ctx.restore();
-      });
+      // Orbiting activity dots on source (universal: energy, signal, output)
+      for (let d = 0; d < ORBIT_N; d++) {
+        const a = _orbitPhase + (2 * Math.PI * d / ORBIT_N);
+        const dx = LCX + Math.cos(a) * (OBJ_RX + 14);
+        const dy = ICY + Math.sin(a) * (OBJ_RY + 10);
+        ctx.beginPath(); ctx.arc(dx, dy, 4, 0, Math.PI * 2);
+        ctx.fillStyle = lCol.stroke; ctx.fill();
+      }
 
-      // Labels below icons
-      const lblY = ICY + ICO_H / 2 + 20;
-      ctx.font = `700 13px ${MONO}`; ctx.fillStyle = lCol.text;
+      // Labels inside objects
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(lSpec.label || '', LCX, lblY);
+      ctx.font = `700 13px ${MONO}`; ctx.fillStyle = lCol.text;
+      ctx.fillText(lSpec.label || '', LCX, ICY - (lSpec.sub ? 8 : 0));
       if (lSpec.sub) {
         ctx.font = `400 11px ${MONO}`; ctx.fillStyle = TEXT_SEC;
-        ctx.fillText(lSpec.sub, LCX, lblY + 16);
+        ctx.fillText(lSpec.sub, LCX, ICY + 10);
       }
       ctx.font = `700 13px ${MONO}`; ctx.fillStyle = rCol.text;
-      ctx.textAlign = 'center';
-      ctx.fillText(rSpec.label || '', RCX, lblY);
+      ctx.fillText(rSpec.label || '', RCX, ICY - (rSpec.sub ? 8 : 0));
       if (rSpec.sub) {
         ctx.font = `400 11px ${MONO}`; ctx.fillStyle = TEXT_SEC;
-        ctx.fillText(rSpec.sub, RCX, lblY + 16);
+        ctx.fillText(rSpec.sub, RCX, ICY + 10);
       }
 
       // Note
