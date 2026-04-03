@@ -116,7 +116,7 @@ Rules:
                 block = block.strip()
                 if not block:
                     continue
-                front_match = re.search(r'FRONT:\s*(.+?)(?=BACK:|HINT:|END\b|$)', block, re.IGNORECASE | re.DOTALL)
+                front_match = re.search(r'FRONT:\s*(.+?)(?=BACK:|HINT:|END\b|CARD\b|$)', block, re.IGNORECASE | re.DOTALL)
                 back_match  = re.search(r'BACK:\s*(.+?)(?=HINT:|END\b|CARD\b|$)', block, re.IGNORECASE | re.DOTALL)
                 hint_match  = re.search(r'HINT:\s*(.+?)(?=END\b|CARD\b|$)', block, re.IGNORECASE | re.DOTALL)
                 if front_match and back_match:
@@ -130,23 +130,37 @@ Rules:
                         cards.append(card)
             return cards
 
-        flashcards = _parse_card_blocks(cleaned)
+        def _parse_front_back_pairs(text):
+            """Fallback: extract FRONT/BACK/HINT triplets without requiring CARD delimiters.
 
-        if len(flashcards) < count:
-            # Fallback 1: FRONT:/BACK: pairs without CARD markers (some models skip the delimiter)
-            fronts = list(re.finditer(r'FRONT:\s*(.+?)(?=BACK:|FRONT:|END\b|$)', cleaned, re.IGNORECASE | re.DOTALL))
-            backs  = list(re.finditer(r'BACK:\s*(.+?)(?=HINT:|FRONT:|END\b|$)', cleaned, re.IGNORECASE | re.DOTALL))
-            hints  = list(re.finditer(r'HINT:\s*(.+?)(?=FRONT:|END\b|$)', cleaned, re.IGNORECASE | re.DOTALL))
-            candidate = []
-            for i, (fm, bm) in enumerate(zip(fronts, backs)):
-                front = fm.group(1).strip().rstrip('END').strip()
-                back  = bm.group(1).strip().rstrip('END').strip()
-                hint  = hints[i].group(1).strip().rstrip('END').strip() if i < len(hints) else ''
+            Uses positional matching: each FRONT is paired with the BACK that immediately
+            follows it in the text, and the HINT (if any) between that BACK and the next
+            FRONT/END marker.  This avoids misalignment from zip-based positional indexing.
+            """
+            cards = []
+            # Find each FRONT…BACK…HINT group as a single non-overlapping chunk.
+            pattern = re.compile(
+                r'FRONT:\s*(?P<front>.+?)(?=BACK:)'
+                r'BACK:\s*(?P<back>.+?)(?=HINT:|FRONT:|END\b|$)'
+                r'(?:HINT:\s*(?P<hint>.+?)(?=FRONT:|END\b|$))?',
+                re.IGNORECASE | re.DOTALL,
+            )
+            for m in pattern.finditer(text):
+                front = m.group('front').strip().rstrip('END').strip()
+                back  = m.group('back').strip().rstrip('END').strip()
+                hint  = (m.group('hint') or '').strip().rstrip('END').strip()
                 if front and back:
                     card = {'front': front, 'back': back}
                     if hint:
                         card['hint'] = hint
-                    candidate.append(card)
+                    cards.append(card)
+            return cards
+
+        flashcards = _parse_card_blocks(cleaned)
+
+        if len(flashcards) < count:
+            # Fallback 1: FRONT:/BACK: pairs without CARD markers (some models skip the delimiter)
+            candidate = _parse_front_back_pairs(cleaned)
             if len(candidate) > len(flashcards):
                 flashcards = candidate
 
