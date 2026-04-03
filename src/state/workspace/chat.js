@@ -170,6 +170,7 @@ export function wsAppendThinking(hasImage = false) {
 
 export function wsRemoveThinking() {
   if (_wsThinkingHandle) {
+    if (_wsThinkingHandle._revealTimer) clearTimeout(_wsThinkingHandle._revealTimer);
     _wsThinkingHandle.unmount();
     _wsThinkingHandle = null;
   }

@@ -69,8 +69,9 @@ export function parseThinkingSteps(text) {
       .replace(/`([^`]+)`/g, '$1')        // inline code
       .trim();
 
-    // Truncate at the first sentence boundary (. ! ?) if it falls early enough
-    const sentEnd = line.search(/[.!?]/);
+    // Truncate at first sentence boundary — require whitespace or end-of-string
+    // after punctuation to avoid splitting on abbreviations like "Dr." or "U.S."
+    const sentEnd = line.search(/[.!?](?=\s|$)/);
     if (sentEnd > MIN_LABEL_LEN && sentEnd < MAX_LABEL_LEN) {
       line = line.slice(0, sentEnd);
     } else if (line.length > MAX_LABEL_LEN) {
@@ -147,8 +148,9 @@ export function createThinkingAccordion(container, {
         revealNext();
       }, 80);
 
-      // Safety: if the handle is unmounted early (e.g. user aborts), resolve
-      // so the Promise doesn't hang. We expose a cancel hook via the timer ref.
+      // Expose the start-timer ref so callers can cancel the animation if
+      // needed (e.g. wsRemoveThinking / homeRemoveThinking on abort).
+      // Clearing the timer prevents updates to a potentially-unmounted island.
       handle._revealTimer = startTimer;
     });
   } else {
@@ -162,5 +164,6 @@ export function createThinkingAccordion(container, {
 
 /**
  * @deprecated No longer used — kept as a no-op stub so existing imports don't break.
+ * Use {@link parseThinkingSteps} to extract step labels from raw thinking text.
  */
 export function inferThinkingTags() { return []; }
