@@ -2266,7 +2266,7 @@
 .ta-stream-dot {
   width: 6px; height: 6px;
   border-radius: 50%;
-  background: var(--violet);
+  background: var(--accent);
   flex-shrink: 0;
   animation: ta-dot-pulse 1.4s ease-in-out infinite;
 }
