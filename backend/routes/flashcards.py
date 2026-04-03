@@ -111,14 +111,16 @@ Rules:
         def _parse_card_blocks(text):
             """Parse CARD … END blocks and extract front/back/hint."""
             cards = []
+            # Each element in blocks is the text between two CARD markers,
+            # so CARD\b cannot appear inside a block — exclude it from lookaheads.
             blocks = re.split(r'\bCARD\b', text, flags=re.IGNORECASE)
             for block in blocks:
                 block = block.strip()
                 if not block:
                     continue
-                front_match = re.search(r'FRONT:\s*(.+?)(?=BACK:|HINT:|END\b|CARD\b|$)', block, re.IGNORECASE | re.DOTALL)
-                back_match  = re.search(r'BACK:\s*(.+?)(?=HINT:|END\b|CARD\b|$)', block, re.IGNORECASE | re.DOTALL)
-                hint_match  = re.search(r'HINT:\s*(.+?)(?=END\b|CARD\b|$)', block, re.IGNORECASE | re.DOTALL)
+                front_match = re.search(r'FRONT:\s*(.+?)(?=BACK:|HINT:|END\b|$)', block, re.IGNORECASE | re.DOTALL)
+                back_match  = re.search(r'BACK:\s*(.+?)(?=HINT:|END\b|$)', block, re.IGNORECASE | re.DOTALL)
+                hint_match  = re.search(r'HINT:\s*(.+?)(?=END\b|$)', block, re.IGNORECASE | re.DOTALL)
                 if front_match and back_match:
                     front = front_match.group(1).strip().rstrip('END').strip()
                     back  = back_match.group(1).strip().rstrip('END').strip()
@@ -131,14 +133,12 @@ Rules:
             return cards
 
         def _parse_front_back_pairs(text):
-            """Fallback: extract FRONT/BACK/HINT triplets without requiring CARD delimiters.
+            """Fallback: extract FRONT/BACK pairs with optional HINT without requiring CARD delimiters.
 
-            Uses positional matching: each FRONT is paired with the BACK that immediately
-            follows it in the text, and the HINT (if any) between that BACK and the next
-            FRONT/END marker.  This avoids misalignment from zip-based positional indexing.
+            Uses a single combined pattern so each FRONT is naturally paired with the
+            BACK (and optional HINT) that immediately follows it, avoiding misalignment.
             """
             cards = []
-            # Find each FRONT…BACK…HINT group as a single non-overlapping chunk.
             pattern = re.compile(
                 r'FRONT:\s*(?P<front>.+?)(?=BACK:)'
                 r'BACK:\s*(?P<back>.+?)(?=HINT:|FRONT:|END\b|$)'
@@ -159,7 +159,9 @@ Rules:
         flashcards = _parse_card_blocks(cleaned)
 
         if len(flashcards) < count:
-            # Fallback 1: FRONT:/BACK: pairs without CARD markers (some models skip the delimiter)
+            # Fallback 1: FRONT:/BACK: pairs without CARD markers (some models skip the delimiter).
+            # Replace (don't merge) primary results to avoid duplicates: _parse_front_back_pairs
+            # scans the full text, so it will find any cards _parse_card_blocks already found.
             candidate = _parse_front_back_pairs(cleaned)
             if len(candidate) > len(flashcards):
                 flashcards = candidate
