@@ -20,7 +20,6 @@ import json
 import logging
 import base64
 import pickle
-import threading
 import requests as _requests
 
 from fastapi import APIRouter, Request
@@ -236,8 +235,25 @@ def _fps_from_dict(raw):
 
 # ── Build pipeline ────────────────────────────────────────────────────────────
 def _build_book(book_id: str, fp_sample_rate: float = 0.3):
-    book_id = _safe_book_id(book_id)
     """Full build. Saves results to R2 + Redis."""
+    book_id = _safe_book_id(book_id)
+    # When running in an RQ worker the module-level _redis may not be
+    # initialised yet.  Bootstrap a connection from the environment variable
+    # so status updates and caching work correctly in the worker process.
+    global _redis
+    if _redis is None:
+        import os as _os
+        import redis as _redis_lib
+        _url = _os.environ.get('REDIS_URL', '')
+        if _url:
+            try:
+                _redis = _redis_lib.from_url(
+                    _url, decode_responses=True,
+                    socket_connect_timeout=3, socket_timeout=3,
+                )
+                _redis.ping()
+            except Exception:
+                _redis = None
     try:
         _paev_status_set(book_id, {'stage': 'loading_chunks', 'pct': 5})
         book_info = BOOK_LIBRARY[book_id]
@@ -396,8 +412,8 @@ def build_index(request: Request, body: PaevBuildIndexRequest):
         return {'success': True, 'message': 'Build in progress', 'status': current}
 
     _paev_status_set(book_id, {'stage': 'queued', 'pct': 0})
-    t = threading.Thread(target=_build_book, args=(book_id, sample), daemon=True)
-    t.start()
+    from services.job_queue import job_queue
+    job_queue.enqueue(_build_book, book_id, sample)
 
     return {
         'success': True,

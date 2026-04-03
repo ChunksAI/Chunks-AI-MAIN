@@ -1,7 +1,8 @@
 """
-backend/services/job_queue.py — Lightweight async job queue.
+backend/services/job_queue.py — Async job queue backed by RQ (Redis Queue).
 
-Provides an in-process thread-pool executor with Redis-backed job storage.
+Workers run in a separate process started via the Procfile ``worker`` entry.
+The web process only enqueues jobs and polls for their status via Redis.
 
 Usage
 -----
@@ -12,18 +13,15 @@ Usage
 """
 from __future__ import annotations
 
-import json
 import logging
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Optional
 
 logger = logging.getLogger(__name__)
 
-# Job TTL in seconds (results kept for 1 hour)
+# Job result/failure TTL in seconds (kept for 1 hour)
 _JOB_TTL = 3600
-_REDIS_PREFIX = "job:"
 
 # ── Job states ────────────────────────────────────────────────────────────────
 STATUS_QUEUED     = "queued"
@@ -31,124 +29,126 @@ STATUS_PROCESSING = "processing"
 STATUS_COMPLETED  = "completed"
 STATUS_FAILED     = "failed"
 
-
-class _JobStore:
-    """Abstract job storage."""
-
-    def save(self, job_id: str, data: dict) -> None:  # pragma: no cover
-        raise NotImplementedError
-
-    def load(self, job_id: str) -> Optional[dict]:  # pragma: no cover
-        raise NotImplementedError
-
-
-class _RedisStore(_JobStore):
-    """Redis-backed store with automatic TTL expiry."""
-
-    def __init__(self, redis_client: Any) -> None:
-        self._r = redis_client
-
-    def save(self, job_id: str, data: dict) -> None:
-        key = f"{_REDIS_PREFIX}{job_id}"
-        self._r.setex(key, _JOB_TTL, json.dumps(data, default=str))
-
-    def load(self, job_id: str) -> Optional[dict]:
-        key = f"{_REDIS_PREFIX}{job_id}"
-        raw = self._r.get(key)
-        if raw is None:
-            return None
-        return json.loads(raw)
+# Mapping from RQ internal statuses to our public status strings
+_RQ_STATUS_MAP: dict[str, str] = {
+    "queued":    STATUS_QUEUED,
+    "deferred":  STATUS_QUEUED,
+    "scheduled": STATUS_QUEUED,
+    "started":   STATUS_PROCESSING,
+    "finished":  STATUS_COMPLETED,
+    "failed":    STATUS_FAILED,
+    "stopped":   STATUS_FAILED,
+    "canceled":  STATUS_FAILED,
+}
 
 
 class JobQueue:
-    """In-process async job queue backed by a thread pool."""
+    """Async job queue backed by RQ (Redis Queue).
+
+    Jobs are executed in a dedicated worker process, decoupled from the web
+    process so background tasks cannot starve HTTP request handling.
+    """
 
     def __init__(self) -> None:
-        self._store: Optional[_JobStore] = None
-        self._pool: Optional[ThreadPoolExecutor] = None
+        self._conn: Any = None   # Redis connection
+        self._queue: Any = None  # rq.Queue
         self._ready = False
 
     # ── lifecycle ─────────────────────────────────────────────────────────────
 
-    def init(self, *, redis: Any = None, max_workers: int = 4) -> None:
+    def init(self, *, redis: Any = None, max_workers: int = 4,
+             _is_async: bool = True) -> None:
         """Initialise the queue.  Call once at application startup.
 
         Requires a working Redis connection.  If Redis is unavailable the
         queue is marked ready but ``enqueue()`` will raise ``RuntimeError``.
+
+        ``_is_async=False`` executes jobs synchronously in the calling thread;
+        intended for unit tests only.
         """
         if redis is not None:
             try:
+                from rq import Queue
                 redis.ping()
-                self._store = _RedisStore(redis)
-                logger.info("JobQueue: using Redis store")
+                self._conn = redis
+                self._queue = Queue(connection=redis, is_async=_is_async)
+                logger.info("JobQueue: using RQ (async=%s)", _is_async)
             except Exception:
-                logger.warning("JobQueue: Redis unavailable — job queue will not function")
-                self._store = None
+                logger.warning("JobQueue: RQ/Redis unavailable — job queue will not function")
+                self._conn = None
+                self._queue = None
         else:
             logger.warning("JobQueue: no Redis provided — job queue will not function")
-            self._store = None
+            self._conn = None
+            self._queue = None
 
-        self._pool = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="job")
         self._ready = True
 
     # ── public API ────────────────────────────────────────────────────────────
 
     def enqueue(self, fn: Callable[..., dict], *args: Any, **kwargs: Any) -> str:
-        """Submit *fn* for background execution. Returns the job ID."""
+        """Submit *fn* for execution in the dedicated worker process.
+
+        Returns the job ID (32-char hex string).
+        """
         if not self._ready:
             raise RuntimeError("JobQueue not initialised — call job_queue.init() first")
-        if self._store is None:
+        if self._queue is None:
             raise RuntimeError("JobQueue requires Redis — set REDIS_URL")
 
         job_id = uuid.uuid4().hex
-        self._store.save(job_id, {
-            "status": STATUS_QUEUED,
-            "created_at": time.time(),
-            "result": None,
-            "error": None,
-        })
-
-        self._pool.submit(self._run, job_id, fn, *args, **kwargs)  # type: ignore[union-attr]
-        logger.info("JobQueue: enqueued job %s", job_id)
+        self._queue.enqueue(
+            fn,
+            *args,
+            job_id=job_id,
+            result_ttl=_JOB_TTL,
+            failure_ttl=_JOB_TTL,
+            **kwargs,
+        )
+        logger.info("JobQueue: enqueued job %s -> %s", job_id, fn.__name__)
         return job_id
 
     def get_status(self, job_id: str) -> Optional[dict]:
         """Return the current state of a job, or *None* if unknown."""
-        if self._store is None:
+        if self._conn is None:
             return None
-        return self._store.load(job_id)
+        try:
+            from rq.job import Job
+            job = Job.fetch(job_id, connection=self._conn)
+        except Exception:
+            return None
 
-    # ── internal ──────────────────────────────────────────────────────────────
+        rq_status_obj = job.get_status()
+        # In RQ 1.16+ get_status() returns a JobStatus enum; use .value for the string
+        if hasattr(rq_status_obj, 'value'):
+            rq_status = rq_status_obj.value
+        else:
+            rq_status = str(rq_status_obj)
+        mapped = _RQ_STATUS_MAP.get(rq_status, rq_status)
 
-    def _run(self, job_id: str, fn: Callable[..., dict], *args: Any, **kwargs: Any) -> None:
-        # Preserve the original created_at timestamp
-        existing = self._store.load(job_id)
-        created_at = existing["created_at"] if existing else time.time()
-        self._store.save(job_id, {
-            "status": STATUS_PROCESSING,
-            "created_at": created_at,
+        data: dict = {
+            "status": mapped,
+            "created_at": job.created_at.timestamp() if job.created_at else time.time(),
             "result": None,
             "error": None,
-        })
-        try:
-            result = fn(*args, **kwargs)
-            self._store.save(job_id, {
-                "status": STATUS_COMPLETED,
-                "created_at": created_at,
-                "completed_at": time.time(),
-                "result": result,
-                "error": None,
-            })
-            logger.info("JobQueue: job %s completed", job_id)
-        except Exception as exc:
-            logger.exception("JobQueue: job %s failed", job_id)
-            self._store.save(job_id, {
-                "status": STATUS_FAILED,
-                "created_at": created_at,
-                "completed_at": time.time(),
-                "result": None,
-                "error": str(exc),
-            })
+        }
+
+        if mapped == STATUS_COMPLETED:
+            data["result"] = job.return_value()
+            if job.ended_at:
+                data["completed_at"] = job.ended_at.timestamp()
+        elif mapped == STATUS_FAILED:
+            try:
+                latest = job.latest_result()
+                exc_str = getattr(latest, 'exc_string', None) or ''
+                lines = [ln for ln in exc_str.splitlines() if ln.strip()]
+                data["error"] = lines[-1] if lines else "Unknown error"
+            except Exception:
+                data["error"] = "Unknown error"
+            if job.ended_at:
+                data["completed_at"] = job.ended_at.timestamp()
+
+        return data
 
 
 # Module-level singleton

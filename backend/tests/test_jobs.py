@@ -6,6 +6,20 @@ from unittest.mock import MagicMock, patch
 from services.job_queue import JobQueue, STATUS_QUEUED, STATUS_COMPLETED, STATUS_FAILED
 
 
+# ── Module-level helpers for RQ unit tests ────────────────────────────────────
+# RQ requires picklable (importable) functions; local/lambda functions can't
+# be used as job targets even in is_async=False mode.
+
+def _test_job_fn():
+    """Return a fixed dict — used by test_job_completes_successfully."""
+    return {"answer": "42"}
+
+
+def _test_fail_fn():
+    """Always raise — used by test_job_failure_stored."""
+    raise ValueError("boom")
+
+
 # ── Unit tests for JobQueue ──────────────────────────────────────────────────
 
 class TestJobQueueUnit:
@@ -13,39 +27,34 @@ class TestJobQueueUnit:
 
     @staticmethod
     def _make_mock_redis():
-        """Create a mock Redis client with a working dict-backed store."""
-        store = {}
-        r = MagicMock()
-        r.ping.return_value = True
-        r.setex.side_effect = lambda k, ttl, v: store.__setitem__(k, v)
-        r.get.side_effect = lambda k: store.get(k)
-        return r
+        """Create an in-memory fake Redis client for testing."""
+        import fakeredis
+        return fakeredis.FakeRedis()
 
     def test_init_no_redis(self):
         q = JobQueue()
         q.init(redis=None)
         assert q._ready is True
-        assert q._store is None
+        assert q._queue is None
 
     def test_init_with_redis(self):
         q = JobQueue()
-        q.init(redis=self._make_mock_redis())
+        q.init(redis=self._make_mock_redis(), _is_async=False)
         assert q._ready is True
-        assert q._store is not None
+        assert q._queue is not None
 
     def test_enqueue_returns_job_id(self):
         q = JobQueue()
-        q.init(redis=self._make_mock_redis())
-        job_id = q.enqueue(lambda: {"ok": True})
+        q.init(redis=self._make_mock_redis(), _is_async=False)
+        job_id = q.enqueue(_test_job_fn)
         assert isinstance(job_id, str)
         assert len(job_id) == 32  # uuid4 hex
 
     def test_job_completes_successfully(self):
         q = JobQueue()
-        q.init(redis=self._make_mock_redis())
-        result_data = {"answer": "42"}
-        job_id = q.enqueue(lambda: result_data)
-        # Wait for the thread to finish
+        q.init(redis=self._make_mock_redis(), _is_async=False)
+        job_id = q.enqueue(_test_job_fn)
+        # With is_async=False, the job runs synchronously on enqueue
         for _ in range(50):
             info = q.get_status(job_id)
             if info and info["status"] == STATUS_COMPLETED:
@@ -54,16 +63,13 @@ class TestJobQueueUnit:
         info = q.get_status(job_id)
         assert info is not None
         assert info["status"] == STATUS_COMPLETED
-        assert info["result"] == result_data
+        assert info["result"] == {"answer": "42"}
 
     def test_job_failure_stored(self):
         q = JobQueue()
-        q.init(redis=self._make_mock_redis())
+        q.init(redis=self._make_mock_redis(), _is_async=False)
 
-        def _fail():
-            raise ValueError("boom")
-
-        job_id = q.enqueue(_fail)
+        job_id = q.enqueue(_test_fail_fn)
         for _ in range(50):
             info = q.get_status(job_id)
             if info and info["status"] == STATUS_FAILED:
@@ -76,19 +82,19 @@ class TestJobQueueUnit:
 
     def test_unknown_job_returns_none(self):
         q = JobQueue()
-        q.init(redis=self._make_mock_redis())
+        q.init(redis=self._make_mock_redis(), _is_async=False)
         assert q.get_status("nonexistent") is None
 
     def test_enqueue_before_init_raises(self):
         q = JobQueue()
         with pytest.raises(RuntimeError, match="not initialised"):
-            q.enqueue(lambda: {})
+            q.enqueue(_test_job_fn)
 
     def test_enqueue_without_redis_raises(self):
         q = JobQueue()
         q.init(redis=None)
         with pytest.raises(RuntimeError, match="requires Redis"):
-            q.enqueue(lambda: {})
+            q.enqueue(_test_job_fn)
 
 
 # ── Integration tests for HTTP endpoints ─────────────────────────────────────

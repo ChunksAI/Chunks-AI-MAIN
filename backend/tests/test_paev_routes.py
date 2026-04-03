@@ -63,16 +63,14 @@ def test_build_index_starts(client):
     """Valid request for a known book starts a background build."""
     with patch('paev_routes._paev_status_get', return_value=None), \
          patch('paev_routes._paev_status_set'), \
-         patch('paev_routes.threading') as mock_threading:
-        mock_thread = MagicMock()
-        mock_threading.Thread.return_value = mock_thread
+         patch('services.job_queue.job_queue.enqueue') as mock_enqueue:
 
         r = client.post('/paev/build-index', json={'bookId': 'zumdahl'})
         assert r.status_code == 200
         body = r.json()
         assert body['success'] is True
         assert 'Build started' in body['message']
-        mock_thread.start.assert_called_once()
+        mock_enqueue.assert_called_once()
 
 
 def test_build_index_already_built(client):
@@ -97,13 +95,12 @@ def test_build_index_error_state(client):
     """After a previous error, re-build is allowed."""
     with patch('paev_routes._paev_status_get', return_value={'stage': 'error', 'error': 'timeout'}), \
          patch('paev_routes._paev_status_set'), \
-         patch('paev_routes.threading') as mock_threading:
-        mock_thread = MagicMock()
-        mock_threading.Thread.return_value = mock_thread
+         patch('services.job_queue.job_queue.enqueue') as mock_enqueue:
 
         r = client.post('/paev/build-index', json={'bookId': 'zumdahl'})
         assert r.status_code == 200
         assert 'Build started' in r.json()['message']
+        mock_enqueue.assert_called_once()
 
 
 # ── GET /paev/graph/<book_id> ─────────────────────────────────────────────────
