@@ -62,6 +62,57 @@ const CARD_ANIM_STAGGER_MS = 60;
 /** Duration of the mock regenerate animation (ms). */
 const REGEN_DURATION_MS = 900;
 
+// ── LoadingState ─────────────────────────────────────────────────────────────
+
+/** Number of skeleton cards shown while the AI generates the visual explanation. */
+const SKELETON_CARD_COUNT = 4;
+
+/**
+ * Skeleton loading placeholder shown on the Canvas panel while the backend
+ * is generating the real visual explanation.  Displays the derived topic title
+ * immediately (so the user knows what's coming) and 4 shimmer cards in place
+ * of the actual step content.
+ */
+function LoadingState({ title }) {
+  return h('div', { class: 'cvp-visual-explanation' },
+    h('div', { class: 'cvp-ve-hero' },
+      h('div', { class: 'cvp-ve-hero-badge' },
+        h('svg', {
+          width: '13', height: '13', viewBox: '0 0 24 24',
+          fill: 'none', stroke: 'currentColor',
+          'stroke-width': '2.5', 'stroke-linecap': 'round',
+        },
+          h('polygon', { points: '12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2' }),
+        ),
+        'Visual Explanation',
+      ),
+      h('h2', { class: 'cvp-ve-title' }, title),
+      h('p', { class: 'cvp-ve-meta' }, 'Generating…'),
+    ),
+    h('ol', { class: 'cvp-ve-grid' },
+      Array.from({ length: SKELETON_CARD_COUNT }, (_, i) =>
+        h('li', {
+          class: 'cvp-ve-card cvp-skel-card',
+          key: i,
+          style: `animation-delay:${i * CARD_ANIM_STAGGER_MS}ms`,
+        },
+          h('div', { class: 'cvp-ve-visual-box', 'aria-hidden': 'true' },
+            h('span', { class: 'cvp-skel-emoji' }),
+          ),
+          h('div', { class: 'cvp-ve-card-body' },
+            h('div', { class: 'cvp-ve-card-top' },
+              h('span', { class: 'cvp-skel-badge' }),
+            ),
+            h('span', { class: 'cvp-skel-heading' }),
+            h('p', { class: 'cvp-skel-text' }),
+            h('p', { class: 'cvp-skel-text cvp-skel-text--short' }),
+          ),
+        )
+      )
+    ),
+  );
+}
+
 // ── VisualExplanationRenderer ────────────────────────────────────────────────
 
 /**
@@ -552,8 +603,9 @@ function CanvasToolbar({ onBackToChat, onSimplify, onRegenerate, regenerating, s
 
 // ── CanvasPanel ───────────────────────────────────────────────────────────────
 
-function CanvasPanel({ artifactSignal }) {
+function CanvasPanel({ artifactSignal, loadingSignal }) {
   const [activeArtifact, setActiveArtifact] = useState(null);
+  const [loading, setLoading]               = useState(null); // { title } | null
   const [regenerating, setRegenerating]     = useState(false);
   const [simplifying, setSimplifying]       = useState(false);
   // Increments each time a new artifact is set so the fade-in animation replays
@@ -566,18 +618,25 @@ function CanvasPanel({ artifactSignal }) {
 
   // Bridge: expose setActiveArtifact via the artifactSignal ref so the
   // mount helper can wire up window.canvas.setArtifact / clearArtifact.
+  // Also wire up loadingSignal for the skeleton loading state.
   useEffect(() => {
     artifactSignal.current = (artifact) => {
+      setLoading(null); // clear any loading skeleton when real artifact arrives
       artifactRef.current = artifact;
       setActiveArtifact(artifact);
       setContentKey(k => k + 1);
+    };
+    loadingSignal.current = ({ title }) => {
+      setActiveArtifact(null);
+      artifactRef.current = null;
+      setLoading({ title });
     };
     return () => {
       if (regenTimer.current)  clearTimeout(regenTimer.current);
       if (regenTimer2.current) clearTimeout(regenTimer2.current);
       simplifyCtrl.current?.abort();
     };
-  }, [artifactSignal]);
+  }, [artifactSignal, loadingSignal]);
 
   function handleBackToChat() {
     if (typeof window.wsShowPanel === 'function') window.wsShowPanel('chat');
@@ -671,7 +730,21 @@ function CanvasPanel({ artifactSignal }) {
             h(ArtifactRenderer, { artifact: activeArtifact }),
           ),
         )
-      : h(EmptyState, null),
+      : loading
+        ? h('div', { class: 'cvp-with-toolbar' },
+            h(CanvasToolbar, {
+              onBackToChat: handleBackToChat,
+              onSimplify: null,
+              onRegenerate: null,
+              regenerating: false,
+              simplifying: false,
+              showSimplify: false,
+            }),
+            h('div', { class: 'cvp-content' },
+              h(LoadingState, { title: loading.title }),
+            ),
+          )
+        : h(EmptyState, null),
   );
 }
 
@@ -687,8 +760,9 @@ export function mountCanvasPanel(container) {
 
   // A mutable ref shared between this scope and the component instance
   const artifactSignal = { current: null };
+  const loadingSignal  = { current: null };
 
-  render(h(CanvasPanel, { artifactSignal }), container);
+  render(h(CanvasPanel, { artifactSignal, loadingSignal }), container);
 
   // Expose the external API on window.canvas
   window.canvas = {
@@ -700,6 +774,11 @@ export function mountCanvasPanel(container) {
     clearArtifact() {
       if (typeof artifactSignal.current === 'function') {
         artifactSignal.current(null);
+      }
+    },
+    setLoading(title) {
+      if (typeof loadingSignal.current === 'function') {
+        loadingSignal.current({ title });
       }
     },
   };

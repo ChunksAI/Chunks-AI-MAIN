@@ -25,6 +25,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _strip_code_fences(text: str) -> str:
+    """Remove markdown code fences the model may have emitted despite instructions.
+
+    Handles both triple-backtick json and plain triple-backtick fences and trims
+    surrounding whitespace, returning a clean JSON string ready for parsing.
+    """
+    return (
+        text.lstrip()
+        .removeprefix('```json')
+        .removeprefix('```')
+        .rstrip()
+        .removesuffix('```')
+        .strip()
+    )
+
+
 @router.post('/ask')
 def ask(request: Request, body: AskRequest):
     try:
@@ -289,7 +305,15 @@ def ask(request: Request, body: AskRequest):
                 "FORMAT C — diagram "
                 "('draw X', 'show me X', 'what does X look like', anatomy, structure, geography, "
                 "any question asking for a visual illustration of a physical or conceptual structure):\n"
-                '{"type":"diagram","title":"<topic>","svg":"<SVG_MARKUP>","labels":['
+                "MANDATORY INTERNAL STEP — before writing the SVG you MUST first plan the diagram "
+                "by including a 'visual_plan' field as the FIRST key in the JSON object. "
+                "The 'visual_plan' is for internal use only and will be hidden from the user; "
+                "include it anyway so your SVG reflects the plan.\n"
+                '{"type":"diagram","title":"<topic>",'
+                '"visual_plan":{"overall_shape":"...","parts":['
+                '{"name":"...","shape_strategy":"...","position":"...","relative_size":"..."}],'
+                '"layout":"..."},'
+                '"svg":"<SVG_MARKUP>","labels":['
                 '{"id":"<element_id>","name":"<part name>","description":"<1-2 sentence explanation>"}]}\n\n'
                 "FORMAT D — compare "
                 "('difference between X and Y', 'compare X and Y', 'X vs Y', "
@@ -315,12 +339,35 @@ def ask(request: Request, body: AskRequest):
                 "- 'text': 1-2 simple sentences explaining this step\n"
                 "- 'icon': a single emoji that represents this step\n\n"
                 "Additional rules for diagram:\n"
-                "- Generate clean, simple SVG using only basic shapes: "
-                "rect, circle, ellipse, path, line, polygon, text\n"
+                "SHAPE RULE — use shapes in this priority order:\n"
+                "  PRIMARY: path (curved silhouettes, organic outlines, complex structures)\n"
+                "  SUPPORT: ellipse (for round but non-circular features)\n"
+                "  MINIMAL: circle (only for truly circular elements)\n"
+                "Do NOT build complex objects using only identical ellipses.\n"
+                "Prefer: curved path silhouettes, layered shapes, asymmetry for realism.\n\n"
+                "DESIGN SYSTEM:\n"
+                "  Colors — primary fill: soft neutrals such as #E8C547 or #BFD7EA; "
+                "secondary parts: a slightly darker or lighter variation of the primary; "
+                "stroke: #2F2F2F at 1.5px width.\n"
+                "  Style — educational, modern, minimal. NOT cartoonish. NOT emoji-like.\n"
+                "  Spacing — maintain clear visual separation between every part.\n\n"
+                "COMPLEXITY RULE:\n"
+                "  Basic topic → simple shapes, fewer parts.\n"
+                "  Advanced topic → more accurate proportions and greater detail.\n"
+                "  Always prioritize: clarity > realism > decoration.\n\n"
+                "LABEL BINDING RULE:\n"
+                "  Every labeled SVG element MUST have an id that exactly matches its label.id entry.\n"
+                "  Each labeled element must be a distinct, non-overlapping clickable region.\n"
+                "  There must be a strict 1:1 mapping: one SVG element per label object, no shared ids.\n\n"
+                "FINAL CHECK — before emitting the SVG, verify internally:\n"
+                "  1. Does the diagram resemble the real object?\n"
+                "  2. Are all parts visually distinguishable?\n"
+                "  3. Are shapes non-repetitive (not just cloned ellipses)?\n"
+                "  4. Is the composition visually balanced?\n"
+                "  If any answer is NO, regenerate the SVG once internally before outputting.\n\n"
+                "SVG FORMAT:\n"
                 "- Set viewBox='0 0 400 300' on the root <svg> element\n"
                 "- Add width='100%' height='auto' to the root <svg>\n"
-                "- Give every major labeled part a unique id attribute that matches an entry in 'labels'\n"
-                "- Use neutral fill colors (no white fills — use #e8e8e8 or similar light grays)\n"
                 "- Keep the SVG markup compact and valid; inside the JSON string, escape every double-quote as a backslash followed by a quote\n"
                 "- Include 3 to 7 labeled parts\n"
                 "- Each label 'description' is 1-2 simple sentences\n\n"
@@ -337,6 +384,17 @@ def ask(request: Request, body: AskRequest):
             answer = call_ai(question, system_prompt=vt_system, model=selected_model, history=history,
                              endpoint='chat_visual', user_id=verified_user_id)
             answer, thinking_content = extract_thinking_content(answer)
+            # Strip the internal visual_plan field from diagram responses so it is
+            # never exposed to the client.  We parse, pop the key, then re-serialise;
+            # if parsing fails we leave the raw answer untouched so the frontend can
+            # handle the error gracefully.
+            try:
+                _artifact = json.loads(_strip_code_fences(answer))
+                if isinstance(_artifact, dict) and _artifact.get('type') == 'diagram':
+                    _artifact.pop('visual_plan', None)
+                    answer = json.dumps(_artifact, ensure_ascii=False)
+            except (ValueError, AttributeError):
+                pass
             return {
                 'success':        True,
                 'mode':           'visual_tutor',
