@@ -26,42 +26,69 @@
 import { h, render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+/** Stagger delay between consecutive step card fade-in animations (ms). */
+const CARD_ANIM_STAGGER_MS = 60;
+
 // ── VisualExplanationRenderer ────────────────────────────────────────────────
 
 /**
- * Renders a visual_explanation artifact as a scrollable list of step cards.
- * Each step shows: visual (emoji / short label), heading, and descriptive text.
+ * Renders a visual_explanation artifact as a responsive 2-column card grid.
+ *
+ * Card layout (top → bottom):
+ *   1. Visual placeholder box — shows step.visual (emoji / icon) centred
+ *      against a subtle gradient background; acts as the "image area"
+ *   2. Step badge + heading row
+ *   3. Descriptive text
+ *
+ * Cards fade in sequentially via CSS animation-delay based on their index.
+ * Hovering a card lifts it slightly (translateY + stronger shadow).
  */
 function VisualExplanationRenderer({ artifact }) {
   const { title, steps = [] } = artifact;
 
   return h('div', { class: 'cvp-visual-explanation' },
-    h('div', { class: 'cvp-ve-header' },
-      h('div', { class: 'cvp-ve-title-row' },
-        h('span', { class: 'cvp-ve-icon' },
-          h('svg', {
-            width: '15', height: '15', viewBox: '0 0 24 24',
-            fill: 'none', stroke: 'currentColor',
-            'stroke-width': '2', 'stroke-linecap': 'round',
-          },
-            h('polygon', { points: '12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2' }),
-          )
+
+    /* ── Hero header ──────────────────────────────────────── */
+    h('div', { class: 'cvp-ve-hero' },
+      h('div', { class: 'cvp-ve-hero-badge' },
+        h('svg', {
+          width: '13', height: '13', viewBox: '0 0 24 24',
+          fill: 'none', stroke: 'currentColor',
+          'stroke-width': '2.5', 'stroke-linecap': 'round',
+        },
+          h('polygon', { points: '12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2' }),
         ),
-        h('h2', { class: 'cvp-ve-title' }, title),
+        'Visual Explanation',
       ),
-      h('div', { class: 'cvp-ve-step-count' }, `${steps.length} step${steps.length !== 1 ? 's' : ''}`),
+      h('h2', { class: 'cvp-ve-title' }, title),
+      h('p', { class: 'cvp-ve-meta' },
+        `${steps.length} step${steps.length !== 1 ? 's' : ''}`
+      ),
     ),
-    h('ol', { class: 'cvp-ve-steps' },
+
+    /* ── Step grid ────────────────────────────────────────── */
+    h('ol', { class: 'cvp-ve-grid' },
       steps.map((step, i) =>
-        h('li', { class: 'cvp-ve-step', key: i },
-          h('div', { class: 'cvp-ve-step-number' }, i + 1),
-          h('div', { class: 'cvp-ve-step-body' },
-            h('div', { class: 'cvp-ve-step-top' },
-              step.visual
-                ? h('span', { class: 'cvp-ve-visual', 'aria-hidden': 'true' }, step.visual)
-                : null,
-              h('strong', { class: 'cvp-ve-heading' }, step.heading),
+        h('li', {
+          class: 'cvp-ve-card',
+          key: i,
+          style: `animation-delay:${i * CARD_ANIM_STAGGER_MS}ms`,
+        },
+          /* Visual placeholder box */
+          h('div', { class: 'cvp-ve-visual-box', 'aria-hidden': 'true' },
+            step.visual
+              ? h('span', { class: 'cvp-ve-visual-emoji' }, step.visual)
+              : h('span', { class: 'cvp-ve-visual-fallback' }, i + 1),
+          ),
+
+          /* Card body */
+          h('div', { class: 'cvp-ve-card-body' },
+            h('div', { class: 'cvp-ve-card-top' },
+              h('span', { class: 'cvp-ve-step-badge' }, `Step ${i + 1}`),
             ),
+            h('strong', { class: 'cvp-ve-heading' }, step.heading),
             h('p', { class: 'cvp-ve-text' }, step.text),
           ),
         )

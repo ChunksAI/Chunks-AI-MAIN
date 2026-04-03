@@ -611,126 +611,168 @@
 
 /* ── VisualExplanationRenderer ── */
 
+/* Fade-in keyframe — used by step cards */
+@keyframes cvp-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .cvp-visual-explanation {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
 }
 
-.cvp-ve-header {
+/* Hero header */
+.cvp-ve-hero {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding-bottom: 14px;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 18px;
   border-bottom: 1px solid var(--border-xs);
 }
 
-.cvp-ve-title-row {
-  display: flex;
+.cvp-ve-hero-badge {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-}
-
-.cvp-ve-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: var(--r-sm);
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
   background: var(--gold-muted);
   border: 1px solid var(--gold-border);
   color: var(--gold);
-  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  width: fit-content;
 }
 
 .cvp-ve-title {
   font-family: var(--font-head);
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 20px;
+  font-weight: 800;
   color: var(--text-1);
   margin: 0;
-  line-height: 1.35;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 
-.cvp-ve-step-count {
-  font-size: 11px;
+.cvp-ve-meta {
+  font-size: 12px;
   color: var(--text-4);
-  white-space: nowrap;
-  flex-shrink: 0;
-  padding-top: 2px;
+  margin: 0;
 }
 
-/* Steps ordered list */
-.cvp-ve-steps {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+/* Responsive 2-column grid; collapses to 1 col below 480 px */
+.cvp-ve-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.cvp-ve-step {
-  display: flex;
-  gap: 12px;
-  background: var(--surface-1);
-  border: 1px solid var(--border-xs);
-  border-radius: var(--r-md);
-  padding: 14px 16px;
-  transition: border-color var(--t-fast);
+@media (max-width: 480px) {
+  .cvp-ve-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
-.cvp-ve-step:hover {
+/* Step card */
+.cvp-ve-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  /* Fade-in animation — delay set inline per card */
+  opacity: 0;
+  animation: cvp-fade-up 320ms var(--ease-snap) forwards;
+  transition:
+    transform 180ms var(--ease-snap),
+    box-shadow 180ms var(--ease-snap),
+    border-color 180ms var(--ease-snap);
+}
+
+.cvp-ve-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.38);
   border-color: var(--border-sm);
 }
 
-.cvp-ve-step-number {
+/* Visual placeholder box — top section of card */
+.cvp-ve-visual-box {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--surface-3);
-  border: 1px solid var(--border-sm);
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-3);
+  height: 80px;
+  background: linear-gradient(135deg, var(--surface-3) 0%, var(--surface-2) 100%);
+  border-bottom: 1px solid var(--border-xs);
   flex-shrink: 0;
-  margin-top: 1px;
 }
 
-.cvp-ve-step-body {
+.cvp-ve-visual-emoji {
+  font-size: 32px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+/* Fallback: step number shown as a large badge when no visual emoji */
+.cvp-ve-visual-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-4);
+  border: 1px solid var(--border-sm);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-3);
+}
+
+/* Card text body */
+.cvp-ve-card-body {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  min-width: 0;
+  padding: 12px 14px 14px;
   flex: 1;
 }
 
-.cvp-ve-step-top {
+.cvp-ve-card-top {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
 }
 
-.cvp-ve-visual {
-  font-size: 16px;
-  line-height: 1;
-  flex-shrink: 0;
+/* "Step N" pill badge */
+.cvp-ve-step-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold);
+  background: var(--gold-muted);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--r-pill);
+  padding: 2px 7px;
 }
 
 .cvp-ve-heading {
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-1);
   line-height: 1.4;
+  display: block;
 }
 
 .cvp-ve-text {
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--text-2);
   line-height: 1.65;
   margin: 0;
