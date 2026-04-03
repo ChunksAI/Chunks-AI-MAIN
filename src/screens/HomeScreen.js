@@ -330,8 +330,7 @@ let _thinkStart = 0;  // timestamp (ms) when AI thinking began — for elapsed t
 let _homeAbortController = null;
 
 // ── Free-scroll: track whether the user has manually scrolled up ──────────
-let _homeUserScrolled      = false;
-let _homeProgrammaticDepth  = 0; // reference-counted; >0 means a programmatic scroll is in progress
+let _homeUserScrolled = false;
 
 // ── Send/Stop icon SVGs ───────────────────────────────────────────────────
 const _HOME_SEND_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
@@ -793,13 +792,7 @@ export function homeAppendUser(text, images = []) {
     if (!firstBubble) firstBubble = textBubble;
   }
   if (firstBubble) {
-    const area = document.getElementById('home-scroll-area');
-    if (area) {
-      _homeProgrammaticDepth++;
-      const targetTop = firstBubble.getBoundingClientRect().top - area.getBoundingClientRect().top + area.scrollTop;
-      area.scrollTo({ top: targetTop, behavior: 'smooth' });
-      setTimeout(() => { _homeProgrammaticDepth = Math.max(0, _homeProgrammaticDepth - 1); }, 1000);
-    }
+    homeScrollBottom();
   }
 }
 
@@ -952,8 +945,6 @@ export function homeScrollBottom(instant = false) {
   const area = document.getElementById('home-scroll-area');
   if (!area) return;
   if (!instant && _homeUserScrolled) return;
-  _homeProgrammaticDepth++;
-  const dec = () => { _homeProgrammaticDepth = Math.max(0, _homeProgrammaticDepth - 1); };
   if (instant) {
     area.style.scrollBehavior = 'auto';
     area.scrollTop = area.scrollHeight;
@@ -961,7 +952,6 @@ export function homeScrollBottom(instant = false) {
   } else {
     area.scrollTop = area.scrollHeight;
   }
-  requestAnimationFrame(dec);
 }
 
 // ── Hide landing when first message sent ──────────────────────────────────────
@@ -1440,7 +1430,6 @@ function _wireHomeListeners() {
   const scrollArea = document.getElementById('home-scroll-area');
   if (scrollArea) {
     scrollArea.addEventListener('scroll', function() {
-      if (_homeProgrammaticDepth > 0) return;
       const atBottom = this.scrollHeight - this.scrollTop - this.clientHeight < 100;
       _homeUserScrolled = !atBottom;
     });

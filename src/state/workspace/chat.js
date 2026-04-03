@@ -22,8 +22,7 @@ const _STOP_SVG = `<svg width="10" height="10" viewBox="0 0 10 10"><rect x="0" y
 let _wsAbortController = null;
 
 // ── Free-scroll: track whether the user has manually scrolled up ──────────
-let _wsUserScrolled       = false;
-let _wsProgrammaticDepth  = 0; // reference-counted; >0 means a programmatic scroll is in progress
+let _wsUserScrolled = false;
 
 /** Swap the workspace send button between send ↔ stop states. */
 function _wsSetGenerating(on) {
@@ -40,12 +39,8 @@ function _wsSetGenerating(on) {
   }
 }
 
-/** Mark an upcoming programmatic scroll so the free-scroll listener ignores it. */
-export function wsMarkProgrammaticScroll(ms = 600) {
-  _wsProgrammaticDepth++;
-  const dec = () => { _wsProgrammaticDepth = Math.max(0, _wsProgrammaticDepth - 1); };
-  if (ms === 0) requestAnimationFrame(dec); else setTimeout(dec, ms);
-}
+/** No-op kept for backward compatibility. */
+export function wsMarkProgrammaticScroll(_ms = 600) {}
 
 /** Abort the active workspace AI request and restore the send button. */
 export function wsStopGeneration() {
@@ -75,7 +70,6 @@ export function wsAutoResize(el) {
 export function wsScrollBottom() {
   const msgs = $el('ws-messages');
   if (!msgs || _wsUserScrolled) return;
-  wsMarkProgrammaticScroll(0); // rAF-based: clears after the scroll event fires
   msgs.scrollTop = msgs.scrollHeight;
 }
 export function wsClearChat() {
@@ -103,9 +97,7 @@ export function wsAppendUser(text, selectedText) {
     : '';
   d.innerHTML = `<div class="bubble-user">${quoteHtml}${escaped}</div>`;
   msgs.appendChild(d);
-  wsMarkProgrammaticScroll(1000);
-  const targetTop = d.getBoundingClientRect().top - msgs.getBoundingClientRect().top + msgs.scrollTop;
-  msgs.scrollTo({ top: targetTop, behavior: 'smooth' });
+  wsScrollBottom();
 }
 
 export function _wsAvatarSvg() {
@@ -717,7 +709,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Free-scroll: detect manual scrolling in the messages panel ───────────
   $el('ws-messages')?.addEventListener('scroll', function() {
-    if (_wsProgrammaticDepth > 0) return;
     const atBottom = this.scrollHeight - this.scrollTop - this.clientHeight < 100;
     _wsUserScrolled = !atBottom;
   });
