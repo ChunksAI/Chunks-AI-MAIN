@@ -212,7 +212,7 @@ function VisualExplanationRenderer({ artifact }) {
                 ),
               ),
               /* Horizontal arrow between the two cards in this row */
-              !isLastInRow && h(HArrow, { key: `harrow-${idx}` }),
+              isLastInRow ? null : h(HArrow, { key: `harrow-${idx}` }),
             ];
           })
         );
