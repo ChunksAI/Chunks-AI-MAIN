@@ -25,6 +25,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _strip_code_fences(text: str) -> str:
+    """Remove markdown code fences the model may have emitted despite instructions.
+
+    Handles both triple-backtick json and plain triple-backtick fences and trims
+    surrounding whitespace, returning a clean JSON string ready for parsing.
+    """
+    return (
+        text.lstrip()
+        .removeprefix('```json')
+        .removeprefix('```')
+        .rstrip()
+        .removesuffix('```')
+        .strip()
+    )
+
+
 @router.post('/ask')
 def ask(request: Request, body: AskRequest):
     try:
@@ -289,7 +305,15 @@ def ask(request: Request, body: AskRequest):
                 "FORMAT C — diagram "
                 "('draw X', 'show me X', 'what does X look like', anatomy, structure, geography, "
                 "any question asking for a visual illustration of a physical or conceptual structure):\n"
-                '{"type":"diagram","title":"<topic>","svg":"<SVG_MARKUP>","labels":['
+                "MANDATORY INTERNAL STEP — before writing the SVG you MUST first plan the diagram "
+                "by including a 'visual_plan' field as the FIRST key in the JSON object. "
+                "The 'visual_plan' is for internal use only and will be hidden from the user; "
+                "include it anyway so your SVG reflects the plan.\n"
+                '{"type":"diagram","title":"<topic>",'
+                '"visual_plan":{"overall_shape":"...","parts":['
+                '{"name":"...","shape_strategy":"...","position":"...","relative_size":"..."}],'
+                '"layout":"..."},'
+                '"svg":"<SVG_MARKUP>","labels":['
                 '{"id":"<element_id>","name":"<part name>","description":"<1-2 sentence explanation>"}]}\n\n'
                 "FORMAT D — compare "
                 "('difference between X and Y', 'compare X and Y', 'X vs Y', "
@@ -337,6 +361,17 @@ def ask(request: Request, body: AskRequest):
             answer = call_ai(question, system_prompt=vt_system, model=selected_model, history=history,
                              endpoint='chat_visual', user_id=verified_user_id)
             answer, thinking_content = extract_thinking_content(answer)
+            # Strip the internal visual_plan field from diagram responses so it is
+            # never exposed to the client.  We parse, pop the key, then re-serialise;
+            # if parsing fails we leave the raw answer untouched so the frontend can
+            # handle the error gracefully.
+            try:
+                _artifact = json.loads(_strip_code_fences(answer))
+                if isinstance(_artifact, dict) and _artifact.get('type') == 'diagram':
+                    _artifact.pop('visual_plan', None)
+                    answer = json.dumps(_artifact, ensure_ascii=False)
+            except (ValueError, AttributeError):
+                pass
             return {
                 'success':        True,
                 'mode':           'visual_tutor',
