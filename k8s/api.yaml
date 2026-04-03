@@ -1,0 +1,168 @@
+# ── k8s/api.yaml ──────────────────────────────────────────────────────────────
+# FastAPI web server (gunicorn + uvicorn workers).
+#
+# Replace YOUR_REGISTRY with your container registry prefix, e.g.:
+#   ghcr.io/chunksai/chunks-api
+#   123456789.dkr.ecr.us-east-1.amazonaws.com/chunks-api
+#
+# Image build + push:
+#   docker build -t YOUR_REGISTRY/chunks-api:latest ./backend
+#   docker push YOUR_REGISTRY/chunks-api:latest
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Deployment ────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: chunks
+  labels:
+    app: api
+    app.kubernetes.io/component: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  # Roll out one new pod at a time; never go below 1 healthy pod.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      # Graceful shutdown — give gunicorn time to finish in-flight requests.
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: api
+          image: YOUR_REGISTRY/chunks-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5000
+              name: http
+          # Non-secret config (PORT, PRODUCTION, GUNICORN_WORKERS, ALLOWED_ORIGINS)
+          # and secrets (API keys, Supabase credentials, R2 bucket URL)
+          envFrom:
+            - configMapRef:
+                name: chunks-api-config
+            - secretRef:
+                name: chunks-api-secret
+          env:
+            # Connect to Redis Sentinel for HA.  The Sentinel service load-balances
+            # across all 3 sentinel pods; redis-py discovers the current master.
+            - name: REDIS_SENTINEL_HOSTS
+              value: redis-sentinel:26379
+            - name: REDIS_MASTER_NAME
+              value: mymaster
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          # Liveness: restart pod if the process is hung.
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: 5000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            failureThreshold: 3
+            timeoutSeconds: 5
+          # Readiness: stop sending traffic until the pod is warm.
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 3
+
+---
+# ── Service (ClusterIP) ───────────────────────────────────────────────────────
+# Internal cluster routing; the Ingress terminates external TLS and proxies here.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: chunks
+  labels:
+    app: api
+spec:
+  selector:
+    app: api
+  ports:
+    - port: 5000
+      targetPort: 5000
+      name: http
+
+---
+# ── HorizontalPodAutoscaler ───────────────────────────────────────────────────
+# Requires metrics-server to be installed in the cluster:
+#   kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+#
+# Scale out aggressively (burst by 4 pods/min) but scale in conservatively
+# (5-minute stabilisation window) to avoid thrashing.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api
+  namespace: chunks
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+  minReplicas: 2
+  maxReplicas: 20
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          # Scale out when average CPU across all pods exceeds 60%.
+          averageUtilization: 60
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          # Scale out when average memory exceeds 75%.
+          averageUtilization: 75
+  behavior:
+    scaleUp:
+      # React quickly to traffic spikes: add up to 4 pods per minute.
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 4
+          periodSeconds: 60
+    scaleDown:
+      # Wait 5 minutes before removing pods to avoid flapping.
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+
+---
+# ── PodDisruptionBudget ───────────────────────────────────────────────────────
+# Ensures at least 1 API pod stays available during cluster maintenance
+# (node drains, rolling cluster upgrades, etc.).
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-pdb
+  namespace: chunks
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: api

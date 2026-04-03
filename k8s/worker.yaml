@@ -1,0 +1,102 @@
+# ── k8s/worker.yaml ───────────────────────────────────────────────────────────
+# RQ background job worker — same image as the api, CMD overridden.
+#
+# CPU-based HPA works reasonably well for RQ workers because workers are
+# CPU-bound while processing jobs and idle otherwise.  For queue-depth-based
+# scaling (scale to 0 when queue is empty, scale up instantly when jobs
+# arrive), consider KEDA with the Redis list scaler:
+#   https://keda.sh/docs/latest/scalers/redis-lists/
+#
+# Replace YOUR_REGISTRY below (same value used in api.yaml).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Deployment ────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: chunks
+  labels:
+    app: worker
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker
+  # Workers finish their current job before shutting down.
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: worker
+    spec:
+      # Allow up to 5 minutes for a long-running job to complete before SIGKILL.
+      terminationGracePeriodSeconds: 300
+      containers:
+        - name: worker
+          image: YOUR_REGISTRY/chunks-api:latest
+          imagePullPolicy: Always
+          # Use the Python entrypoint so that build_redis_client() picks up
+          # REDIS_SENTINEL_HOSTS and connects via Sentinel (Sentinel-aware).
+          # The bare "rq worker --url" CLI does not support Sentinel URLs.
+          command: ["python", "worker.py"]
+          envFrom:
+            - secretRef:
+                name: chunks-api-secret
+          env:
+            # Connect to Redis Sentinel (same as the api pods).
+            - name: REDIS_SENTINEL_HOSTS
+              value: redis-sentinel:26379
+            - name: REDIS_MASTER_NAME
+              value: mymaster
+          resources:
+            # Workers can be CPU-heavy during document processing (NumPy, PDF).
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+
+---
+# ── HorizontalPodAutoscaler ───────────────────────────────────────────────────
+# Scales workers based on CPU utilisation.
+# See the header comment above for queue-depth-based scaling with KEDA.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: worker
+  namespace: chunks
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 30
+    scaleDown:
+      # Wait longer before removing workers — in-flight jobs must complete.
+      stabilizationWindowSeconds: 600
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60

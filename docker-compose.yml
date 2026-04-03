@@ -1,0 +1,98 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Chunks AI — Docker Compose
+#
+# Services
+# ────────
+#   redis    — in-process cache, rate limits, and RQ job queue
+#   api      — FastAPI web server (gunicorn + uvicorn workers, port 5000)
+#   worker   — RQ background job worker (same image as api, CMD overridden)
+#   frontend — nginx serving the Vite-built SPA (port 80)
+#
+# Quick start
+# ───────────
+#   1. cp .env.example .env   # fill in OPENROUTER_API_KEY, SUPABASE_*, R2_BUCKET_URL
+#   2. docker compose up --build
+#   3. Open http://localhost in your browser
+#
+# The API is reachable at http://localhost:5000 and the frontend at
+# http://localhost.  CHUNKS_BACKEND_URL tells the browser-side app where
+# the API lives — change it when deploying behind a real domain.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── Redis ────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    volumes:
+      - redis_data:/data
+
+  # ── API (web server) ──────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    # Credentials loaded from .env (see .env.example for required keys).
+    # The variables below are always set by Compose and take precedence over
+    # any matching keys in .env so they cannot be accidentally overridden.
+    env_file: .env
+    environment:
+      PORT: "5000"
+      REDIS_URL: "redis://redis:6379"
+      PRODUCTION: "true"
+      # 3 workers per container for local dev (single container = whole backend).
+      # In Kubernetes this is set to 1 via the ConfigMap and pods scale out instead.
+      GUNICORN_WORKERS: "3"
+      # Allow requests from the browser when the frontend is served on port 80.
+      ALLOWED_ORIGINS: "http://localhost,http://localhost:80"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:5000/ping')"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # ── Worker (RQ background jobs) ───────────────────────────────────────────
+  worker:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    # Override the default gunicorn CMD with the RQ worker command.
+    command: ["rq", "worker", "--url", "redis://redis:6379", "default"]
+    env_file: .env
+    environment:
+      REDIS_URL: "redis://redis:6379"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ── Frontend (nginx) ──────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: .
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      # URL the *browser* uses to reach the API.  In a local compose setup
+      # both ports are published to the Docker host, so localhost works.
+      # Change to your public API hostname for production deployments.
+      CHUNKS_BACKEND_URL: "http://localhost:5000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  redis_data:

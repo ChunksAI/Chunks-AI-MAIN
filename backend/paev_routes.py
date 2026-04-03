@@ -20,7 +20,6 @@ import json
 import logging
 import base64
 import pickle
-import threading
 import requests as _requests
 
 from fastapi import APIRouter, Request
@@ -236,8 +235,15 @@ def _fps_from_dict(raw):
 
 # ── Build pipeline ────────────────────────────────────────────────────────────
 def _build_book(book_id: str, fp_sample_rate: float = 0.3):
-    book_id = _safe_book_id(book_id)
     """Full build. Saves results to R2 + Redis."""
+    book_id = _safe_book_id(book_id)
+    # When running in an RQ worker the module-level _redis may not be
+    # initialised yet.  Bootstrap a connection using the same factory as the
+    # web server so that Sentinel support is included automatically.
+    global _redis
+    if _redis is None:
+        from services.redis_client import build_redis_client as _build_redis
+        _redis = _build_redis()
     try:
         _paev_status_set(book_id, {'stage': 'loading_chunks', 'pct': 5})
         book_info = BOOK_LIBRARY[book_id]
@@ -396,8 +402,8 @@ def build_index(request: Request, body: PaevBuildIndexRequest):
         return {'success': True, 'message': 'Build in progress', 'status': current}
 
     _paev_status_set(book_id, {'stage': 'queued', 'pct': 0})
-    t = threading.Thread(target=_build_book, args=(book_id, sample), daemon=True)
-    t.start()
+    from services.job_queue import job_queue
+    job_queue.enqueue(_build_book, book_id, sample)
 
     return {
         'success': True,
