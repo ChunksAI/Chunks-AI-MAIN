@@ -27,7 +27,7 @@ class TestJobQueueUnit:
 
     @staticmethod
     def _make_mock_redis():
-        """Create an in-memory fake Redis client for testing."""
+        """Create an isolated fake Redis client for testing."""
         import fakeredis
         return fakeredis.FakeRedis()
 

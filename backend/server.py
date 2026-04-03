@@ -115,6 +115,7 @@ MODEL              = os.environ.get('MODEL', 'openai/gpt-oss-20b:nitroe')
 SUPABASE_URL         = os.environ.get('SUPABASE_URL', '')
 SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
 SUPABASE_ANON_KEY    = os.environ.get('SUPABASE_ANON_KEY', '')
+SUPABASE_JWT_SECRET  = os.environ.get('SUPABASE_JWT_SECRET', '')
 
 FREE_TIER_DAILY_LIMIT = 20
 MAX_HISTORY_TURNS     = 10
@@ -157,6 +158,7 @@ _auth_svc.init(
     supabase_url         = SUPABASE_URL,
     supabase_service_key = SUPABASE_SERVICE_KEY,
     redis                = _redis,
+    jwt_secret           = SUPABASE_JWT_SECRET,
 )
 _ai_svc.init(
     session            = _session,

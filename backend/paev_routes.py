@@ -242,12 +242,12 @@ def _build_book(book_id: str, fp_sample_rate: float = 0.3):
     # so status updates and caching work correctly in the worker process.
     global _redis
     if _redis is None:
-        import os as _os
-        import redis as _redis_lib
-        _url = _os.environ.get('REDIS_URL', '')
+        import os
+        import redis as redis_lib
+        _url = os.environ.get('REDIS_URL', '')
         if _url:
             try:
-                _redis = _redis_lib.from_url(
+                _redis = redis_lib.from_url(
                     _url, decode_responses=True,
                     socket_connect_timeout=3, socket_timeout=3,
                 )
