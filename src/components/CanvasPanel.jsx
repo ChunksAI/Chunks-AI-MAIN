@@ -27,6 +27,7 @@
 
 import { h, render } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
+import { API_BASE, _getAuthHeader } from '../lib/api.js';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -160,10 +161,12 @@ function EmptyState() {
 
 /**
  * Toolbar shown above the artifact content.
- *   • "← Chat"      — switches back to the chat panel
+ *   • "← Chat"       — switches back to the chat panel
+ *   • "✦ Simplify"   — calls AI to simplify the current artifact for beginners
  *   • "↻ Regenerate" — triggers a mock regenerate animation
  */
-function CanvasToolbar({ onBackToChat, onRegenerate, regenerating }) {
+function CanvasToolbar({ onBackToChat, onSimplify, onRegenerate, regenerating, simplifying }) {
+  const busy = regenerating || simplifying;
   return h('div', { class: 'cvp-toolbar' },
     h('button', {
       class: 'cvp-toolbar-btn cvp-btn-back',
@@ -181,9 +184,26 @@ function CanvasToolbar({ onBackToChat, onRegenerate, regenerating }) {
     ),
     h('div', { class: 'cvp-toolbar-spacer' }),
     h('button', {
+      class: `cvp-toolbar-btn cvp-btn-simplify${simplifying ? ' cvp-btn-simplify--loading' : ''}`,
+      onClick: onSimplify,
+      disabled: busy,
+      title: 'Simplify this explanation for beginners',
+    },
+      h('svg', {
+        class: 'cvp-simplify-icon',
+        width: '13', height: '13', viewBox: '0 0 24 24',
+        fill: 'none', stroke: 'currentColor',
+        'stroke-width': '2.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+      },
+        h('circle', { cx: '12', cy: '12', r: '3' }),
+        h('path', { d: 'M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83' }),
+      ),
+      simplifying ? 'Simplifying…' : 'Simplify',
+    ),
+    h('button', {
       class: `cvp-toolbar-btn cvp-btn-regen${regenerating ? ' cvp-btn-regen--spinning' : ''}`,
       onClick: onRegenerate,
-      disabled: regenerating,
+      disabled: busy,
       title: 'Regenerate explanation',
     },
       h('svg', {
@@ -206,12 +226,14 @@ function CanvasToolbar({ onBackToChat, onRegenerate, regenerating }) {
 function CanvasPanel({ artifactSignal }) {
   const [activeArtifact, setActiveArtifact] = useState(null);
   const [regenerating, setRegenerating]     = useState(false);
+  const [simplifying, setSimplifying]       = useState(false);
   // Increments each time a new artifact is set so the fade-in animation replays
   const [contentKey, setContentKey]         = useState(0);
   const regenTimer  = useRef(null);
   const regenTimer2 = useRef(null);
 
-  const artifactRef = useRef(null);
+  const artifactRef  = useRef(null);
+  const simplifyCtrl = useRef(null); // AbortController for in-flight simplify request
 
   // Bridge: expose setActiveArtifact via the artifactSignal ref so the
   // mount helper can wire up window.canvas.setArtifact / clearArtifact.
@@ -224,6 +246,7 @@ function CanvasPanel({ artifactSignal }) {
     return () => {
       if (regenTimer.current)  clearTimeout(regenTimer.current);
       if (regenTimer2.current) clearTimeout(regenTimer2.current);
+      simplifyCtrl.current?.abort();
     };
   }, [artifactSignal]);
 
@@ -232,7 +255,7 @@ function CanvasPanel({ artifactSignal }) {
   }
 
   function handleRegenerate() {
-    if (regenerating || !artifactRef.current) return;
+    if (regenerating || simplifying || !artifactRef.current) return;
     const snapshot = artifactRef.current;
     setRegenerating(true);
     regenTimer.current = setTimeout(() => {
@@ -246,13 +269,66 @@ function CanvasPanel({ artifactSignal }) {
     }, REGEN_DURATION_MS);
   }
 
+  async function handleSimplify() {
+    if (regenerating || simplifying || !artifactRef.current) return;
+    const artifact = artifactRef.current;
+
+    simplifyCtrl.current?.abort();
+    simplifyCtrl.current = new AbortController();
+
+    setSimplifying(true);
+    try {
+      const authHeader = await _getAuthHeader();
+      // Build a compact summary of the artifact to keep the prompt tight
+      const stepsSummary = (artifact.steps || [])
+        .map((s, i) => `${i + 1}. ${s.heading}: ${s.text}`)
+        .join('\n');
+      const question = `Simplify this visual explanation further for beginners. Keep the same topic but use simpler words, shorter sentences, and more everyday analogies.\n\nTopic: ${artifact.title}\n\nCurrent steps:\n${stepsSummary}`;
+      const res = await fetch(`${API_BASE}/ask`, {
+        method: 'POST',
+        signal: simplifyCtrl.current.signal,
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        body: JSON.stringify({
+          question,
+          bookId: 'none',
+          mode: 'visual_tutor',
+          complexity: 3,
+          history: [],
+        }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      const raw = (data.answer || '').replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+      const candidate = JSON.parse(raw);
+      if (candidate?.type === 'visual_explanation' && Array.isArray(candidate.steps)) {
+        artifactRef.current = candidate;
+        setActiveArtifact(candidate);
+        setContentKey(k => k + 1);
+      } else {
+        throw new Error('Unexpected artifact format');
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        if (typeof window.wsShowToast === 'function') {
+          window.wsShowToast('Could not simplify — please try again.');
+        }
+      }
+    } finally {
+      setSimplifying(false);
+    }
+  }
+
   return h('div', { class: 'cvp-root' },
     activeArtifact
       ? h('div', { class: 'cvp-with-toolbar' },
           h(CanvasToolbar, {
             onBackToChat: handleBackToChat,
+            onSimplify: handleSimplify,
             onRegenerate: handleRegenerate,
             regenerating,
+            simplifying,
           }),
           h('div', { class: 'cvp-content', key: contentKey },
             h(ArtifactRenderer, { artifact: activeArtifact }),
