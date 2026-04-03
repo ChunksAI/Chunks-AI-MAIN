@@ -116,19 +116,50 @@ function LoadingState({ title }) {
 // ── VisualExplanationRenderer ────────────────────────────────────────────────
 
 /**
- * Renders a visual_explanation artifact as a responsive 2-column card grid.
+ * Small right-pointing arrow shown between two cards in the same row.
+ * Communicates that the step on the left flows into the step on the right.
+ */
+function HArrow() {
+  return h('div', { class: 'cvp-ve-h-arrow', 'aria-hidden': 'true' },
+    h('svg', { width: '20', height: '20', viewBox: '0 0 20 20', fill: 'none' },
+      h('line', { x1: '2', y1: '10', x2: '14', y2: '10', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round' }),
+      h('polyline', { points: '10,6 14,10 10,14', stroke: 'currentColor', 'stroke-width': '1.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round', fill: 'none' }),
+    ),
+  );
+}
+
+/**
+ * Snake connector shown between rows.
+ * A CSS-drawn right-side-down + bottom-left path with a downward arrowhead
+ * at the left end, visualising the row-wrap flow (col-2 of row N → col-1 of row N+1).
+ */
+function SnakeConnector() {
+  return h('div', { class: 'cvp-ve-snake-connector', 'aria-hidden': 'true' },
+    h('span', { class: 'cvp-ve-snake-tip' }),
+  );
+}
+
+/**
+ * Renders a visual_explanation artifact as a responsive 2-column snake-flow layout.
  *
- * Card layout (top → bottom):
- *   1. Visual placeholder box — shows step.visual (emoji / icon) centred
- *      against a subtle gradient background; acts as the "image area"
- *   2. Step badge + heading row
- *   3. Descriptive text
+ * Steps are grouped into rows of two. Within each row a horizontal arrow (→)
+ * is placed between the cards. Between consecutive rows a snake connector
+ * (right ↓ + bottom ← + arrowhead ↓) shows the wrap-around flow direction.
  *
  * Cards fade in sequentially via CSS animation-delay based on their index.
  * Hovering a card lifts it slightly (translateY + stronger shadow).
+ *
+ * On screens ≤ 480 px the arrows and connectors are hidden and cards stack
+ * vertically; the numbered step badges still convey the sequence.
  */
 function VisualExplanationRenderer({ artifact }) {
   const { title, steps = [] } = artifact;
+
+  // Group steps into rows of 2 for the snake layout
+  const rows = [];
+  for (let i = 0; i < steps.length; i += 2) {
+    rows.push(steps.slice(i, i + 2));
+  }
 
   return h('div', { class: 'cvp-visual-explanation' },
 
@@ -150,31 +181,46 @@ function VisualExplanationRenderer({ artifact }) {
       ),
     ),
 
-    /* ── Step grid ────────────────────────────────────────── */
-    h('ol', { class: 'cvp-ve-grid' },
-      steps.map((step, i) =>
-        h('li', {
-          class: 'cvp-ve-card',
-          key: i,
-          style: `animation-delay:${i * CARD_ANIM_STAGGER_MS}ms`,
-        },
-          /* Visual placeholder box */
-          h('div', { class: 'cvp-ve-visual-box', 'aria-hidden': 'true' },
-            step.visual
-              ? h('span', { class: 'cvp-ve-visual-emoji' }, step.visual)
-              : h('span', { class: 'cvp-ve-visual-fallback' }, i + 1),
-          ),
+    /* ── Snake flow ───────────────────────────────────────── */
+    h('div', { class: 'cvp-ve-flow' },
+      ...rows.flatMap((row, rowIdx) => {
+        const isLastRow = rowIdx === rows.length - 1;
+        const baseIdx = rowIdx * 2;
 
-          /* Card body */
-          h('div', { class: 'cvp-ve-card-body' },
-            h('div', { class: 'cvp-ve-card-top' },
-              h('span', { class: 'cvp-ve-step-badge' }, `Step ${i + 1}`),
-            ),
-            h('strong', { class: 'cvp-ve-heading' }, step.heading),
-            h('p', { class: 'cvp-ve-text' }, step.text),
-          ),
-        )
-      )
+        const rowEl = h('div', { class: 'cvp-ve-row', key: `row-${rowIdx}` },
+          ...row.flatMap((step, colIdx) => {
+            const idx = baseIdx + colIdx;
+            const isLastInRow = colIdx === row.length - 1;
+            return [
+              /* Step card */
+              h('div', {
+                class: 'cvp-ve-card',
+                key: `card-${idx}`,
+                style: `animation-delay:${idx * CARD_ANIM_STAGGER_MS}ms`,
+              },
+                h('div', { class: 'cvp-ve-visual-box', 'aria-hidden': 'true' },
+                  step.visual
+                    ? h('span', { class: 'cvp-ve-visual-emoji' }, step.visual)
+                    : h('span', { class: 'cvp-ve-visual-fallback' }, idx + 1),
+                ),
+                h('div', { class: 'cvp-ve-card-body' },
+                  h('div', { class: 'cvp-ve-card-top' },
+                    h('span', { class: 'cvp-ve-step-badge' }, `Step ${idx + 1}`),
+                  ),
+                  h('strong', { class: 'cvp-ve-heading' }, step.heading),
+                  h('p', { class: 'cvp-ve-text' }, step.text),
+                ),
+              ),
+              /* Horizontal arrow between the two cards in this row */
+              !isLastInRow && h(HArrow, { key: `harrow-${idx}` }),
+            ];
+          })
+        );
+
+        return isLastRow
+          ? [rowEl]
+          : [rowEl, h(SnakeConnector, { key: `snake-${rowIdx}` })];
+      })
     ),
   );
 }

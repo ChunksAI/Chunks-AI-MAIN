@@ -842,6 +842,7 @@
 }
 
 /* Responsive 2-column grid; collapses to 1 col below 480 px */
+/* Used by LoadingState skeleton cards */
 .cvp-ve-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -854,6 +855,90 @@
 @media (max-width: 480px) {
   .cvp-ve-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ── Snake flow layout (VisualExplanationRenderer) ── */
+
+/* Outer column wrapper; rows and snake connectors stack vertically */
+.cvp-ve-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* One row: two cards + a horizontal arrow between them */
+.cvp-ve-row {
+  display: flex;
+  align-items: stretch;
+}
+
+/* Cards inside a row grow equally */
+.cvp-ve-row .cvp-ve-card {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Horizontal right-pointing arrow between cards in the same row */
+.cvp-ve-h-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  color: var(--text-4);
+}
+
+/* Snake connector between rows: right ↓ + bottom ← + arrowhead ↓ at left end */
+.cvp-ve-snake-connector {
+  position: relative;
+  height: 24px;
+}
+
+/* Vertical line descending on the right side */
+.cvp-ve-snake-connector::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 1.5px;
+  background: var(--border-sm);
+}
+
+/* Horizontal line spanning the bottom, right to left */
+.cvp-ve-snake-connector::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1.5px;
+  background: var(--border-sm);
+}
+
+/* Downward-pointing arrowhead at the left end of the bottom line */
+.cvp-ve-snake-tip {
+  position: absolute;
+  left: 4px;
+  bottom: -6px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid var(--border-sm);
+}
+
+/* On narrow screens: stack all cards vertically, hide flow connectors */
+@media (max-width: 480px) {
+  .cvp-ve-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .cvp-ve-h-arrow,
+  .cvp-ve-snake-connector {
+    display: none;
   }
 }
 
