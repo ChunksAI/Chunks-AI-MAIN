@@ -214,6 +214,7 @@ const VT_HTML = `
       <div class="step-prog"><div class="step-prog-fill" id="prog-fill" style="width:0%"></div></div>
       <div class="step-dots" id="step-dots"></div>
       <canvas id="wb-canvas" class="wb-canvas"></canvas>
+      <div id="wb-svg-layer" class="wb-svg-layer" style="display:none;"></div>
 
       <!-- Quiz pre-announce -->
       <div class="quiz-announce" id="quiz-announce">
@@ -609,46 +610,39 @@ function _vtpShowLoadingError(msg) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// STAGE 2 — AI VISUAL CODER
-// For each step, a second AI call reads the drawBrief and writes a Canvas2D
-// function body: draw(ctx, W, H, t). Executed via new Function, cached per step.
-// Falls back to a text rendering of the brief on any error.
+// STAGE 2 — AI SVG RENDERER
+// For each step, a second AI call reads the drawBrief and returns raw SVG markup.
+// The SVG is injected directly into #wb-svg-layer — no eval, no canvas math.
+// Falls back to a styled text card showing the brief on any error.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const VTP_DRAW_CODE_PROMPT = (brief, stepLabel, topic) =>
-`You are a Canvas2D illustration expert for Chunks AI, a dark-themed educational app.
+const VTP_SVG_PROMPT = (brief, stepLabel, topic) =>
+`You are an SVG illustration expert for Chunks AI, a dark-themed educational web app.
 
-Write a JavaScript function body for this signature:
-  draw(ctx, W, H, t)
-  • ctx — Canvas2D 2d context
-  • W, H — canvas pixel dimensions (use these for ALL positions/sizes, never hard-code pixels)
-  • t — elapsed time in seconds (for subtle animation)
-
-The canvas background is already cleared and has a faint dot grid. Do NOT call clearRect or draw the background.
-
-Draw a beautiful, accurate illustration that matches this brief exactly:
+Create a beautiful, accurate SVG illustration that matches this brief exactly:
 "${brief}"
 
 Topic context: illustrating "${stepLabel}" for a lesson on "${topic}".
 
 STRICT RULES — follow every one:
-1. Return ONLY the raw JavaScript function body — no function keyword, no wrapper, no markdown fences, no comments.
-2. All positions and sizes must scale with W and H (e.g. W*0.5, H*0.3).
-3. Color palette: amber=#e8ac2e  blue=#60a5fa  teal=#2dd4bf  red=#f87171  green=#4ade80  purple=#a78bfa  text=#ededf0  muted=#9898ae  dim=#55556a
-4. Fonts: "Caveat, cursive" for hand-written labels; "DM Mono, monospace" for formulas/numbers.
-5. Use t ONLY for subtle animation (gentle float, slow rotation, flowing particles). Keep movement ≤ 5% of W or H.
-6. Draw specific, recognisable shapes matching the brief (mug, helix, curve, cell, circuit…).
-7. Include all text labels exactly as described in the brief.
-8. Keep the total code under 80 lines.
-9. No DOM access, no fetch, no alert/confirm/prompt/eval.`;
+1. Return ONLY raw SVG markup — start with <svg and end with </svg>. No wrapper, no markdown fences, no explanation.
+2. Use viewBox="0 0 560 320" width="100%" height="100%".
+3. Background: transparent (no rect fill for background).
+4. Color palette: amber=#e8ac2e  blue=#60a5fa  teal=#2dd4bf  red=#f87171  green=#4ade80  purple=#a78bfa  text=#ededf0  muted=#9898ae  dim=#55556a
+5. Fonts: font-family="Caveat, cursive" for labels/handwritten text; font-family="DM Mono, monospace" for formulas/numbers.
+6. Draw specific, recognisable shapes matching the brief exactly (mug shape, helix curves, supply/demand axes, cell membrane…).
+7. Include all text labels exactly as described in the brief — legible, positioned near what they label.
+8. You may use <animate> or <animateTransform> for subtle CSS-free SVG animations (gentle float, pulsing glow, flowing arrows). Keep motion small.
+9. Keep the SVG clean and under 120 elements total.
+10. Ensure good contrast — all text must be clearly readable on a dark background (#12121a).`;
 
-async function _vtpFetchDrawCode(brief, stepLabel, topic, cacheKey) {
+async function _vtpFetchSVG(brief, stepLabel, topic, cacheKey) {
   const authHeader = await _getAuthHeader?.() ?? {};
   const res = await fetch(`${API_BASE}/ask`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', ...authHeader },
     body: JSON.stringify({
-      question:   VTP_DRAW_CODE_PROMPT(brief, stepLabel, topic),
+      question:   VTP_SVG_PROMPT(brief, stepLabel, topic),
       mode:       'visual_tutor',
       bookId:     'none',
       complexity: 8,
@@ -657,106 +651,115 @@ async function _vtpFetchDrawCode(brief, stepLabel, topic, cacheKey) {
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  let code = (data.answer ?? data.response ?? data.text ?? '').trim();
+  let svg = (data.answer ?? data.response ?? data.text ?? '').trim();
   // Strip markdown fences if any
-  code = code.replace(/^```(?:javascript|js)?\s*/i, '').replace(/\s*```$/i, '').trim();
-  if (!code) throw new Error('Empty draw code');
-  // Compile — will throw on syntax errors immediately
-  // eslint-disable-next-line no-new-func
-  const fn = new Function('ctx', 'W', 'H', 't', code);
-  _vtpDrawCodeCache[cacheKey] = fn;
-  return fn;
+  svg = svg.replace(/^```(?:svg|xml|html)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  // Must start with <svg
+  const start = svg.indexOf('<svg');
+  if (start === -1) throw new Error('Response did not contain <svg');
+  svg = svg.slice(start);
+  const end = svg.lastIndexOf('</svg>');
+  if (end !== -1) svg = svg.slice(0, end + 6);
+  if (!svg) throw new Error('Empty SVG');
+  _vtpDrawCodeCache[cacheKey] = svg;
+  return svg;
 }
 
-// Draw a "generating visual…" state on the canvas (one-time paint, no rAF)
-function _vtpShowCanvasGenerating(brief) {
-  if (!_vtpCtx) return;
-  const ctx = _vtpCtx, W = _vtpW, H = _vtpH, cx = W / 2, cy = H / 2;
-  ctx.font = '400 14px DM Mono, monospace';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  // Word-wrap the brief into lines
-  const words = (brief || '').split(' ');
-  const maxW = W - 100;
+// Show the SVG layer with the given SVG string; hide the canvas
+function _vtpInjectSVG(svgMarkup) {
+  if (_vtpAnimFrame !== null) { cancelAnimationFrame(_vtpAnimFrame); _vtpAnimFrame = null; }
+  const layer  = document.getElementById('wb-svg-layer');
+  const canvas = document.getElementById('wb-canvas');
+  if (layer) {
+    layer.innerHTML = svgMarkup;
+    layer.style.display = 'block';
+  }
+  if (canvas) canvas.style.display = 'none';
+}
+
+// Show the canvas; clear and hide the SVG layer
+function _vtpShowCanvas() {
+  const layer  = document.getElementById('wb-svg-layer');
+  const canvas = document.getElementById('wb-canvas');
+  if (layer)  { layer.innerHTML = ''; layer.style.display = 'none'; }
+  if (canvas) canvas.style.display = '';
+}
+
+// Loading state: inject a styled SVG placeholder showing the brief text
+function _vtpShowSVGGenerating(brief) {
+  const lines = _vtpWrapText(brief || '', 62);
+  const linesSVG = lines.slice(0, 5).map((l, i) =>
+    `<text x="280" y="${148 + i * 24}" text-anchor="middle" font-family="DM Mono, monospace" font-size="13" fill="rgba(237,237,240,${(0.38 - i * 0.05).toFixed(2)})">${_vtpEscSVG(l)}</text>`
+  ).join('');
+  const svg =
+    `<svg viewBox="0 0 560 320" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">` +
+    linesSVG +
+    `<text x="280" y="296" text-anchor="middle" font-family="DM Mono, monospace" font-size="11" fill="rgba(255,255,255,0.22)">Generating visual…</text>` +
+    `</svg>`;
+  _vtpInjectSVG(svg);
+}
+
+// Fallback: same as loading state but without the "Generating…" line
+function _vtpShowSVGFallback(brief) {
+  const lines = _vtpWrapText(brief || '', 62);
+  const linesSVG = lines.slice(0, 5).map((l, i) =>
+    `<text x="280" y="${148 + i * 24}" text-anchor="middle" font-family="DM Mono, monospace" font-size="13" fill="rgba(237,237,240,${(0.38 - i * 0.05).toFixed(2)})">${_vtpEscSVG(l)}</text>`
+  ).join('');
+  _vtpInjectSVG(
+    `<svg viewBox="0 0 560 320" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">${linesSVG}</svg>`
+  );
+}
+
+// Escape special SVG text characters
+function _vtpEscSVG(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// Wrap text into lines of at most maxChars characters
+function _vtpWrapText(text, maxChars) {
+  const words = text.split(' ');
   let line = '', lines = [];
   for (const w of words) {
     const test = line ? line + ' ' + w : w;
-    if (ctx.measureText(test).width > maxW && line) { lines.push(line); line = w; }
+    if (test.length > maxChars && line) { lines.push(line); line = w; }
     else line = test;
   }
   if (line) lines.push(line);
-  const lineH = 22, totalH = lines.length * lineH;
-  lines.slice(0, 6).forEach((l, i) => {
-    ctx.fillStyle = `rgba(255,255,255,${0.20 - i * 0.02})`;
-    ctx.fillText(l, cx, cy - totalH / 2 + i * lineH + lineH / 2);
-  });
-  ctx.font = '400 11px DM Mono, monospace'; ctx.fillStyle = 'rgba(255,255,255,0.22)';
-  ctx.fillText('Generating visual…', cx, H - 30);
+  return lines;
 }
 
-// Render a brief as text fallback (same layout without the spinner label)
-function _vtpShowCanvasFallback(brief) {
-  if (!_vtpCtx) return;
-  _vtpClearCanvas();
-  _vtpShowCanvasGenerating(brief);
-  // Overwrite the "Generating…" footer with nothing (clear that line)
-  _vtpCtx.clearRect(0, _vtpH - 50, _vtpW, 40);
-}
-
-// Run a compiled draw function in a rAF loop (replaces static + animated types)
-function _vtpRunDrawFn(fn, brief) {
-  if (_vtpAnimFrame !== null) { cancelAnimationFrame(_vtpAnimFrame); _vtpAnimFrame = null; }
-  const t0 = performance.now();
-  function frame() {
-    if (!_vtpCtx) return;
-    const t = (performance.now() - t0) / 1000;
-    _vtpCtx.clearRect(0, 0, _vtpW, _vtpH);
-    _vtpDrawDotGrid();
-    try { fn(_vtpCtx, _vtpW, _vtpH, t); }
-    catch (e) {
-      console.warn('[VTP] Draw fn runtime error:', e.message);
-      cancelAnimationFrame(_vtpAnimFrame);
-      _vtpAnimFrame = null;
-      if (brief) _vtpShowCanvasFallback(brief);
-      return;
-    }
-    _vtpAnimFrame = requestAnimationFrame(frame);
-  }
-  frame();
-}
-
-// Orchestrator: check cache → show loading state → fetch Stage 2 code → execute
+// Orchestrator: check cache → show loading state → fetch SVG → inject
 async function _vtpFadeAndDrawBrief(brief, step, idx) {
   // Legacy path: old restored sessions have step.draw (object), no drawBrief
   if (!brief || typeof brief === 'object') {
+    _vtpShowCanvas();
     _vtpFadeAndDraw(brief || { type: 'bullets', items: [{ icon: '→', text: step?.label || '' }], color: 'amber' });
     return;
   }
 
   const cacheKey = `${_vtpCurrentTopic}::${idx}`;
 
-  // Cancel any running animation
+  // Cancel any running canvas animation
   if (_vtpAnimFrame !== null) { cancelAnimationFrame(_vtpAnimFrame); _vtpAnimFrame = null; }
 
-  // Cache hit — render immediately
+  // Cache hit — inject immediately
   if (_vtpDrawCodeCache[cacheKey]) {
-    _vtpClearCanvas();
-    _vtpRunDrawFn(_vtpDrawCodeCache[cacheKey], brief);
+    _vtpInjectSVG(_vtpDrawCodeCache[cacheKey]);
     return;
   }
 
-  // Show brief as loading placeholder synchronously (no delay — avoids race with fast cache hits)
-  _vtpClearCanvas();
-  _vtpShowCanvasGenerating(brief);
+  // Show brief as loading placeholder synchronously
+  _vtpShowSVGGenerating(brief);
 
   try {
     const stepLabel = (step?.label || '').split('—').slice(1).join('—').trim() || (step?.label || '');
-    const fn = await _vtpFetchDrawCode(brief, stepLabel, _vtpCurrentTopic, cacheKey);
+    const svgMarkup = await _vtpFetchSVG(brief, stepLabel, _vtpCurrentTopic, cacheKey);
     if (idx !== _vtpStepIdx) return; // stale — user moved on
-    _vtpClearCanvas();
-    _vtpRunDrawFn(fn, brief);
+    _vtpInjectSVG(svgMarkup);
   } catch (_err) {
+    console.warn('[VTP] SVG fetch error:', _err.message);
     if (idx !== _vtpStepIdx) return;
-    _vtpShowCanvasFallback(brief);
+    _vtpShowSVGFallback(brief);
   }
 }
 
@@ -1758,6 +1761,11 @@ function _vtpDrawDotGrid() {
 
 function _vtpClearCanvas() {
   if (_vtpAnimFrame !== null) { cancelAnimationFrame(_vtpAnimFrame); _vtpAnimFrame = null; }
+  // Clear SVG layer and restore canvas visibility
+  const svgLayer = document.getElementById('wb-svg-layer');
+  const canvas   = document.getElementById('wb-canvas');
+  if (svgLayer) { svgLayer.innerHTML = ''; svgLayer.style.display = 'none'; }
+  if (canvas)   canvas.style.display = '';
   if (!_vtpCtx) return;
   _vtpCtx.clearRect(0, 0, _vtpW, _vtpH);
   _vtpDrawDotGrid();
@@ -2842,13 +2850,14 @@ export function mountVisualTutorScreen() {
         if (!area) return;
         _vtpW = area.offsetWidth; _vtpH = area.offsetHeight;
         _vtpCanvas.width = _vtpW; _vtpCanvas.height = _vtpH;
-        _vtpClearCanvas();
         const step = _vtpLesson?.steps[_vtpStepIdx];
         if (!step) return;
         if (step.drawBrief) {
-          // Re-run cached fn (new path) — fetchless since cache key survives resize
+          // SVG path — viewBox-based, auto-resizes; re-inject from cache (no re-fetch)
           _vtpFadeAndDrawBrief(step.drawBrief, step, _vtpStepIdx);
         } else if (step.draw) {
+          // Legacy spec path — redraw on canvas
+          _vtpClearCanvas();
           _vtpDrawSpec(step.draw);
         }
       }, 150);
