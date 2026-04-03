@@ -238,22 +238,12 @@ def _build_book(book_id: str, fp_sample_rate: float = 0.3):
     """Full build. Saves results to R2 + Redis."""
     book_id = _safe_book_id(book_id)
     # When running in an RQ worker the module-level _redis may not be
-    # initialised yet.  Bootstrap a connection from the environment variable
-    # so status updates and caching work correctly in the worker process.
+    # initialised yet.  Bootstrap a connection using the same factory as the
+    # web server so that Sentinel support is included automatically.
     global _redis
     if _redis is None:
-        import os
-        import redis as redis_lib
-        _url = os.environ.get('REDIS_URL', '')
-        if _url:
-            try:
-                _redis = redis_lib.from_url(
-                    _url, decode_responses=True,
-                    socket_connect_timeout=3, socket_timeout=3,
-                )
-                _redis.ping()
-            except Exception:
-                _redis = None
+        from services.redis_client import build_redis_client as _build_redis
+        _redis = _build_redis()
     try:
         _paev_status_set(book_id, {'stage': 'loading_chunks', 'pct': 5})
         book_info = BOOK_LIBRARY[book_id]

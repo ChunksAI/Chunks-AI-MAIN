@@ -42,6 +42,8 @@ from slowapi.errors import RateLimitExceeded
 
 import redis as redis_lib
 
+from services.redis_client import build_redis_client as _build_redis_client
+
 from ai_router import route, route_for_mode  # noqa: F401 — re-exported for route files
 from guest_limits import (  # noqa: F401
     guest_gate, enforce_exam_constraints_for_guest, GuestLimitExceeded,
@@ -121,28 +123,9 @@ FREE_TIER_DAILY_LIMIT = 20
 MAX_HISTORY_TURNS     = 10
 
 # ── Redis client ──────────────────────────────────────────────────────────────
-_REDIS_URL = os.environ.get('REDIS_URL', '')
-
-_redis: redis_lib.Redis | None = None
-if _REDIS_URL:
-    try:
-        _redis = redis_lib.from_url(
-            _REDIS_URL,
-            decode_responses=True,
-            socket_connect_timeout=3,
-            socket_timeout=3,
-        )
-        _redis.ping()
-        logger.info("Redis connected: %s", _REDIS_URL.split("@")[-1])
-    except Exception as _redis_err:
-        logger.warning("⚠️  Redis connection failed (%s) — falling back to in-memory.", _redis_err)
-        _redis = None
-else:
-    logger.warning(
-        "⚠️  REDIS_URL not set — rate limiter using in-memory storage. "
-        "Limits reset on restart and are NOT shared across workers. "
-        "Add a Redis instance and set REDIS_URL for production."
-    )
+# Supports both plain Redis (REDIS_URL) and Redis Sentinel HA
+# (REDIS_SENTINEL_HOSTS + REDIS_MASTER_NAME).  See services/redis_client.py.
+_redis: redis_lib.Redis | None = _build_redis_client()
 
 # ── Initialise service modules ────────────────────────────────────────────────
 import services.auth as _auth_svc

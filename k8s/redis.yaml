@@ -1,40 +1,91 @@
 # ── k8s/redis.yaml ────────────────────────────────────────────────────────────
-# Redis is deployed as a single-replica StatefulSet so that the persistent
-# volume (AOF journal) survives pod restarts.  The RQ job queue and the
-# rate-limiter counter state are stored here.
+# Redis high-availability deployment using the Sentinel pattern.
 #
-# For high-availability Redis (replicas + Sentinel / Cluster) consider
-# using the Bitnami Redis Helm chart instead:
+# Architecture
+# ────────────
+#   redis-master     — 1-replica StatefulSet, AOF persistence, accepts writes
+#   redis-replica    — 2-replica StatefulSet, replicate from redis-master
+#   redis-sentinel   — 3-replica Deployment, monitors master and orchestrates
+#                      automatic failover when the master becomes unreachable
+#
+# Application connectivity
+# ────────────────────────
+#   The application (api + worker) never connects directly to the master or
+#   replicas.  It connects to the Sentinel service (redis-sentinel:26379) and
+#   asks it for the current master address.  redis-py's SentinelConnectionPool
+#   transparently follows master elections.
+#
+#   Required env vars on api and worker pods (set in api.yaml / worker.yaml):
+#     REDIS_SENTINEL_HOSTS = redis-sentinel:26379
+#     REDIS_MASTER_NAME    = mymaster
+#
+# Alternative: Bitnami Helm chart
+# ────────────────────────────────
+# For a fully managed HA Redis on Kubernetes the Bitnami chart handles
+# initialisation scripts, dynamic replicaof, and automatic role re-assignment
+# after failover:
+#   helm repo add bitnami https://charts.bitnami.com/bitnami
 #   helm install redis bitnami/redis --namespace chunks \
 #     --set auth.enabled=false \
-#     --set replica.replicaCount=2
+#     --set replica.replicaCount=2 \
+#     --set sentinel.enabled=true \
+#     --set sentinel.masterSet=mymaster
 # ─────────────────────────────────────────────────────────────────────────────
 
-# ── StatefulSet ───────────────────────────────────────────────────────────────
+# ── ConfigMap: sentinel.conf template ────────────────────────────────────────
+# The sentinel pod copies this to a writable emptyDir at startup so that
+# Sentinel can update the config file when it rewrites after a failover.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-sentinel-config
+  namespace: chunks
+  labels:
+    app.kubernetes.io/component: cache
+data:
+  sentinel.conf: |
+    # Monitor the master named "mymaster".
+    # Quorum = 2: at least 2 of the 3 sentinels must agree before a failover.
+    sentinel monitor mymaster redis-master 6379 2
+
+    # Declare the master down after 5 seconds of no successful PING response.
+    sentinel down-after-milliseconds mymaster 5000
+
+    # Maximum time allowed for a failover to complete (60 seconds).
+    sentinel failover-timeout mymaster 60000
+
+    # How many replicas to reconfigure in parallel after a failover.
+    sentinel parallel-syncs mymaster 1
+
+    # Allow connections from anywhere inside the cluster.
+    bind 0.0.0.0
+    protected-mode no
+
+---
+# ── redis-master StatefulSet ─────────────────────────────────────────────────
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: redis
+  name: redis-master
   namespace: chunks
   labels:
-    app: redis
+    app: redis-master
     app.kubernetes.io/component: cache
 spec:
-  serviceName: redis-headless
+  serviceName: redis-master-headless
   replicas: 1
   selector:
     matchLabels:
-      app: redis
+      app: redis-master
   template:
     metadata:
       labels:
-        app: redis
+        app: redis-master
     spec:
       containers:
         - name: redis
           image: redis:7-alpine
-          # Enable AOF persistence so data survives pod restarts.
-          command: ["redis-server", "--appendonly", "yes"]
+          command: ["redis-server", "--appendonly", "yes", "--bind", "0.0.0.0", "--protected-mode", "no"]
           ports:
             - containerPort: 6379
               name: redis
@@ -58,11 +109,11 @@ spec:
             periodSeconds: 5
             failureThreshold: 3
           volumeMounts:
-            - name: redis-data
+            - name: redis-master-data
               mountPath: /data
   volumeClaimTemplates:
     - metadata:
-        name: redis-data
+        name: redis-master-data
       spec:
         accessModes: ["ReadWriteOnce"]
         resources:
@@ -70,35 +121,226 @@ spec:
             storage: 2Gi
 
 ---
-# ── Headless service (StatefulSet DNS) ───────────────────────────────────────
+# ── redis-master services ─────────────────────────────────────────────────────
+# Headless service for stable pod DNS (redis-master-0.redis-master-headless).
 apiVersion: v1
 kind: Service
 metadata:
-  name: redis-headless
+  name: redis-master-headless
   namespace: chunks
   labels:
-    app: redis
+    app: redis-master
 spec:
   selector:
-    app: redis
+    app: redis-master
   clusterIP: None
   ports:
     - port: 6379
       targetPort: 6379
 
 ---
-# ── ClusterIP service (application access) ───────────────────────────────────
-# api and worker pods connect via redis://redis:6379.
+# ClusterIP used by replicas and sentinels to find the master at startup.
 apiVersion: v1
 kind: Service
 metadata:
-  name: redis
+  name: redis-master
   namespace: chunks
   labels:
-    app: redis
+    app: redis-master
 spec:
   selector:
-    app: redis
+    app: redis-master
   ports:
     - port: 6379
       targetPort: 6379
+
+---
+# ── redis-replica StatefulSet ─────────────────────────────────────────────────
+# Two read replicas.  They start as replicas of redis-master.  After a Sentinel
+# failover one replica is promoted; Sentinel sends REPLICAOF commands to the
+# remaining replicas to point them at the new master.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis-replica
+  namespace: chunks
+  labels:
+    app: redis-replica
+    app.kubernetes.io/component: cache
+spec:
+  serviceName: redis-replica-headless
+  replicas: 2
+  selector:
+    matchLabels:
+      app: redis-replica
+  template:
+    metadata:
+      labels:
+        app: redis-replica
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command:
+            - "redis-server"
+            - "--appendonly"
+            - "yes"
+            - "--replicaof"
+            - "redis-master"
+            - "6379"
+            - "--bind"
+            - "0.0.0.0"
+            - "--protected-mode"
+            - "no"
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: redis-replica-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-replica-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 2Gi
+
+---
+# ── redis-replica headless service ────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-replica-headless
+  namespace: chunks
+  labels:
+    app: redis-replica
+spec:
+  selector:
+    app: redis-replica
+  clusterIP: None
+  ports:
+    - port: 6379
+      targetPort: 6379
+
+---
+# ── redis-sentinel Deployment ─────────────────────────────────────────────────
+# Three sentinels provide a quorum of 2 (majority).  Each sentinel:
+#   1. Copies the sentinel.conf template to a writable emptyDir (initContainer).
+#   2. Starts redis-sentinel reading from the writable config.
+#   3. Rewrites the config on failover (safe because it writes to the emptyDir,
+#      not the read-only ConfigMap).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-sentinel
+  namespace: chunks
+  labels:
+    app: redis-sentinel
+    app.kubernetes.io/component: cache
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redis-sentinel
+  # Spread sentinels across nodes if possible.
+  template:
+    metadata:
+      labels:
+        app: redis-sentinel
+    spec:
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: redis-sentinel
+                topologyKey: kubernetes.io/hostname
+      # Copy the read-only ConfigMap to a writable emptyDir so that Sentinel
+      # can rewrite the config file during failover.
+      initContainers:
+        - name: init-config
+          image: redis:7-alpine
+          command: ["sh", "-c", "cp /etc/sentinel/sentinel.conf /data/sentinel.conf"]
+          volumeMounts:
+            - name: sentinel-config-template
+              mountPath: /etc/sentinel
+            - name: sentinel-data
+              mountPath: /data
+      containers:
+        - name: sentinel
+          image: redis:7-alpine
+          command: ["redis-sentinel", "/data/sentinel.conf"]
+          ports:
+            - containerPort: 26379
+              name: sentinel
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "32Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "-p", "26379", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "-p", "26379", "ping"]
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: sentinel-data
+              mountPath: /data
+      volumes:
+        - name: sentinel-config-template
+          configMap:
+            name: redis-sentinel-config
+        - name: sentinel-data
+          emptyDir: {}
+
+---
+# ── redis-sentinel ClusterIP service ─────────────────────────────────────────
+# api and worker pods connect here.  The load balancer distributes queries
+# across all three sentinel pods (any one can answer INFO SENTINEL / GET-MASTER).
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-sentinel
+  namespace: chunks
+  labels:
+    app: redis-sentinel
+spec:
+  selector:
+    app: redis-sentinel
+  ports:
+    - port: 26379
+      targetPort: 26379
+      name: sentinel
+

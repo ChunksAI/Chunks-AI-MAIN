@@ -52,8 +52,12 @@ spec:
             - secretRef:
                 name: chunks-api-secret
           env:
-            - name: REDIS_URL
-              value: redis://redis:6379
+            # Connect to Redis Sentinel for HA.  The Sentinel service load-balances
+            # across all 3 sentinel pods; redis-py discovers the current master.
+            - name: REDIS_SENTINEL_HOSTS
+              value: redis-sentinel:26379
+            - name: REDIS_MASTER_NAME
+              value: mymaster
           resources:
             requests:
               cpu: "250m"

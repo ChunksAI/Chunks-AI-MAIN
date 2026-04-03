@@ -13,14 +13,40 @@ nginx Ingress (LoadBalancer)
   ├── chunks.online / www.chunks.online  →  frontend  (nginx, HPA 2–10 pods)
   └── api.chunks.online                 →  api        (gunicorn/uvicorn, HPA 2–20 pods)
                                                 │
-                                        redis:6379 (StatefulSet)
-                                                │
-                                          worker  (RQ, HPA 1–10 pods)
+                                       redis-sentinel:26379  ← 3-pod Deployment
+                                                │  (discovers & monitors master)
+                                        ┌───────┴────────┐
+                                  redis-master:6379    redis-replica:6379 ×2
+                                  (StatefulSet, 1)     (StatefulSet, 2)
+                                        │
+                                   worker (RQ, HPA 1–10 pods)
 ```
 
 All pods in the `chunks` namespace.  The `api` and `worker` deployments share
-the same container image (`chunks-api`); the worker overrides `CMD` to run
-`rq worker` instead of gunicorn.
+the same container image (`chunks-api`); the worker runs `python worker.py`
+which connects via the Sentinel-aware `build_redis_client()` factory.
+
+### Redis Sentinel HA
+
+`redis.yaml` deploys a Sentinel cluster instead of a single Redis instance:
+
+| Component | Pods | Role |
+|-----------|------|------|
+| `redis-master` | 1 | Accepts all writes; AOF persistence |
+| `redis-replica` | 2 | Read replicas; promoted to master on failover |
+| `redis-sentinel` | 3 | Monitors master, orchestrates automatic failover |
+
+**Failover behaviour:**  If the master pod becomes unreachable for 5 seconds,
+2 of the 3 sentinels agree to promote a replica.  The sentinels notify all
+connected clients (api + worker pods) to reconnect to the new master.  The
+`redis-py` `SentinelConnectionPool` handles this transparently — no restarts
+needed.
+
+**Environment variables** used by api and worker pods:
+```
+REDIS_SENTINEL_HOSTS = redis-sentinel:26379
+REDIS_MASTER_NAME    = mymaster
+```
 
 ## Prerequisites
 
@@ -115,9 +141,12 @@ kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/configmap.yaml
 kubectl apply -f k8s/secret.yaml   # or use option A/B above
 
-# 3. Redis
+# 3. Redis HA (master → replicas → sentinels — order matters)
 kubectl apply -f k8s/redis.yaml
-kubectl rollout status statefulset/redis -n chunks
+# Wait for master to be ready before replicas start replicating.
+kubectl rollout status statefulset/redis-master -n chunks
+kubectl rollout status statefulset/redis-replica -n chunks
+kubectl rollout status deployment/redis-sentinel -n chunks
 
 # 4. API + worker
 kubectl apply -f k8s/api.yaml
@@ -169,10 +198,30 @@ conservative because RQ workers must finish their current job before exiting
 
 ## Rate limiting across replicas
 
-The `slowapi` rate limiter (`backend/routes/limiter.py`) uses Redis as its
-counter store when `REDIS_URL` is set.  This ensures all replicas share the
-same rate-limit counters; without Redis each pod would have an independent
-counter and limits would effectively be multiplied by the pod count.
+The `slowapi` rate limiter (`backend/routes/limiter.py`) uses the Sentinel
+cluster as its counter store (`redis+sentinel://redis-sentinel:26379/mymaster`).
+This ensures all API replicas share the same counters.  On master failover the
+`limits` library reconnects to the new master and counter state is preserved
+(the replica already has the same data via replication).
+
+## Monitoring Redis Sentinel
+
+```bash
+# Check which node is the current master
+kubectl exec -n chunks deploy/redis-sentinel -- \
+  redis-cli -p 26379 sentinel get-master-addr-by-name mymaster
+
+# List all sentinels (expect 3)
+kubectl exec -n chunks deploy/redis-sentinel -- \
+  redis-cli -p 26379 sentinel sentinels mymaster
+
+# Check replication status on master
+kubectl exec -n chunks statefulset/redis-master -- \
+  redis-cli info replication
+
+# Watch for failover events
+kubectl logs -n chunks -l app=redis-sentinel --follow
+```
 
 ## Queue-depth scaling for workers (advanced)
 
@@ -198,9 +247,10 @@ spec:
   minReplicaCount: 0   # scale to zero when queue is empty
   maxReplicaCount: 10
   triggers:
-    - type: redis
+    - type: redis-sentinel
       metadata:
-        address: redis.chunks.svc.cluster.local:6379
+        sentinelAddress: redis-sentinel.chunks.svc.cluster.local:26379
+        masterName: mymaster
         listName: rq:queue:default
         listLength: "5"   # 1 worker per 5 queued jobs
 ```

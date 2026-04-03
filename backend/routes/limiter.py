@@ -10,23 +10,26 @@ RateLimitExceeded exception handler.
 
 Storage backend
 ───────────────
-When REDIS_URL is set the limiter stores counters in Redis so that rate-limit
-state is shared across all replicas (required for horizontal scaling).
-Without REDIS_URL it falls back to an in-process memory store, which is fine
-for single-instance local development but will give each pod its own
-independent counter in a multi-replica deployment.
+The limiter uses the same Redis connectivity as the rest of the application:
+
+  REDIS_SENTINEL_HOSTS set → ``redis+sentinel://host:port/master_name``
+                              (counters shared across all replicas, HA failover)
+  REDIS_URL set            → ``redis://host:port``
+                              (counters shared across replicas, no HA)
+  Neither set              → ``memory://``  (in-process, for local dev only)
+
+The ``redis+sentinel://`` scheme is supported natively by the ``limits``
+library (the storage backend used by slowapi).
 """
 from __future__ import annotations
-
-import os
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-_redis_url = os.environ.get('REDIS_URL')
+from services.redis_client import build_limiter_storage_uri
 
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["500/hour", "120/minute"],
-    storage_uri=_redis_url if _redis_url else "memory://",
+    storage_uri=build_limiter_storage_uri(),
 )

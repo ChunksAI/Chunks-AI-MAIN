@@ -41,14 +41,19 @@ spec:
         - name: worker
           image: YOUR_REGISTRY/chunks-api:latest
           imagePullPolicy: Always
-          # Override the default gunicorn CMD with the RQ worker.
-          command: ["rq", "worker", "--url", "$(REDIS_URL)", "default"]
+          # Use the Python entrypoint so that build_redis_client() picks up
+          # REDIS_SENTINEL_HOSTS and connects via Sentinel (Sentinel-aware).
+          # The bare "rq worker --url" CLI does not support Sentinel URLs.
+          command: ["python", "worker.py"]
           envFrom:
             - secretRef:
                 name: chunks-api-secret
           env:
-            - name: REDIS_URL
-              value: redis://redis:6379
+            # Connect to Redis Sentinel (same as the api pods).
+            - name: REDIS_SENTINEL_HOSTS
+              value: redis-sentinel:26379
+            - name: REDIS_MASTER_NAME
+              value: mymaster
           resources:
             # Workers can be CPU-heavy during document processing (NumPy, PDF).
             requests:
