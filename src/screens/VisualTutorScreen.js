@@ -487,12 +487,13 @@ TYPE "cycle" — circular repeating process or feedback loop:
 {"type":"cycle","items":[{"label":"Step","sub":"detail","color":"amber"},{"label":"Step","sub":"detail","color":"blue"}],"center":"optional center label","note":"footer"}
 Use 3–5 items arranged in a circle with curved arrows.
 
-TYPE "particles" — two animated panels of bouncing circles (kinetic energy, diffusion, gas laws, any fast-vs-slow concept):
-{"type":"particles","leftLabel":"HOT","leftSub":"fast particles","leftColor":"amber","rightLabel":"COLD","rightSub":"slow particles","rightColor":"blue","flowLabel":"energy transfer","note":"footer"}
-leftLabel/rightLabel: 1–3 word state name. leftSub/rightSub: one short descriptor phrase. flowLabel: what transfers (optional).
+TYPE "particles" — two open regions of freely bouncing circles, NO panels or borders (kinetic energy, diffusion, gas laws, fast-vs-slow concepts):
+{"type":"particles","leftLabel":"HOT","leftSub":"fast particles","leftColor":"amber","rightLabel":"COLD","rightSub":"slow particles","rightColor":"blue","flowLabel":"energy transfer","note":"Temperature = average kinetic energy of particles"}
+Hot side: large orange circles with dark halos, fast. Cold side: smaller solid blue circles, slow. Open space, just a subtle center divider.
 
-TYPE "scene" — two labeled objects with an arrow and animated flow dots between them (heat transfer, electrical current, diffusion, osmosis, input→output):
-{"type":"scene","left":{"label":"SOURCE","sub":"brief description","color":"amber"},"right":{"label":"SINK","sub":"brief description","color":"blue"},"arrow":{"label":"symbol or quantity"},"note":"footer"}
+TYPE "scene" — illustrated mug icon (HOT source, left) + crystal icon (COLD sink, right), large glowing particles flying between them, labeled top arrow (heat transfer, conduction, radiation, any directional flow):
+{"type":"scene","left":{"label":"HOT","sub":"T = high","color":"amber"},"right":{"label":"COLD","sub":"T = low","color":"blue"},"arrow":{"label":"q"},"note":"heat flows spontaneously from hot → cold"}
+Always use scene for the directional flow step. The left object is always drawn as a mug/cup; the right object as a crystal/rectangle with an X inside.
 
 TYPE "labeled_equation" — large formula with downward color-coded arrows and labels per term, optional example cards at the bottom:
 {"type":"labeled_equation","formula":"A = B × C","parts":[{"symbol":"A","name":"full name","sub":"(unit)","color":"amber"},{"symbol":"B","name":"full name","sub":"(unit)","color":"blue"},{"symbol":"C","name":"full name","sub":"(unit)","color":"teal"}],"cards":[{"label":"Example 1","value":"val=1.5","color":"amber"},{"label":"Example 2","value":"val=0.8","color":"blue"}],"note":"footer"}
@@ -1102,102 +1103,107 @@ function _vtpDrawSpec(spec) {
       }
   }
 
-  // ── PARTICLES — two animated regions of bouncing circles ─────────────────
+  // ── PARTICLES — two free zones of bouncing circles, no panel boxes ──────
+  // Hot side: large orange particles with dark outer halos + bright cores
+  // Cold side: smaller solid blue particles, no halos
   if (spec.type === 'particles') {
-    const lCol    = _vtpCol(spec.leftColor  || 'amber');
-    const rCol    = _vtpCol(spec.rightColor || 'blue');
-    const GAP     = Math.max(48, W * 0.07);
-    const PAD     = Math.max(20, W * 0.03);
-    const PANEL_W = (W - 2 * PAD - GAP) / 2;
-    const PY      = 50;
-    const PANEL_H = H - PY - 48;
-    const LX = PAD, RX = PAD + PANEL_W + GAP;
+    const lCol = _vtpCol(spec.leftColor  || 'amber');
+    const rCol = _vtpCol(spec.rightColor || 'blue');
+    const HALF = W / 2;
+    const TOP  = 42;                  // top bound for particles
+    const BOT  = H - 36;             // bottom bound
+    const PAD  = 24;                 // horizontal edge padding
 
-    // Init particles with seeded PRNG so positions are deterministic
-    const lParts = Array.from({length: 12}, () => ({
-      x:  LX + 18 + _r() * (PANEL_W - 36),
-      y:  PY + 18 + _r() * (PANEL_H - 36),
-      vx: (_r() - 0.5) * 4.2,
-      vy: (_r() - 0.5) * 4.2,
-      r:  5 + _r() * 10,
+    // Hot (left half): large, fast, dark-halo particles
+    const lParts = Array.from({length: 10}, () => ({
+      x:  PAD + _r() * (HALF - PAD - 20),
+      y:  TOP + 18 + _r() * (BOT - TOP - 36),
+      vx: (_r() - 0.5) * 7.2,
+      vy: (_r() - 0.5) * 7.2,
+      r:  14 + _r() * 11,  // outer (dark halo) radius
     }));
-    const rParts = Array.from({length: 15}, () => ({
-      x:  RX + 18 + _r() * (PANEL_W - 36),
-      y:  PY + 18 + _r() * (PANEL_H - 36),
-      vx: (_r() - 0.5) * 1.4,
-      vy: (_r() - 0.5) * 1.4,
-      r:  4 + _r() * 6,
+    lParts.forEach(p => { p.ir = p.r * 0.38 + 2; }); // inner bright core
+
+    // Cold (right half): medium, slow, solid particles
+    const rParts = Array.from({length: 13}, () => ({
+      x:  HALF + 20 + _r() * (W - HALF - PAD - 20),
+      y:  TOP + 18 + _r() * (BOT - TOP - 36),
+      vx: (_r() - 0.5) * 2.1,
+      vy: (_r() - 0.5) * 2.1,
+      r:  7 + _r() * 7,
     }));
 
     function _drawParticlesFrame() {
       ctx.clearRect(0, 0, W, H);
       _animDotGrid();
 
-      // Panels
-      function panel(x, w, c) {
-        ctx.fillStyle = c.fill; ctx.strokeStyle = c.stroke; ctx.lineWidth = 1.5;
-        ctx.fillRect(x, PY, w, PANEL_H); ctx.strokeRect(x, PY, w, PANEL_H);
-      }
-      panel(LX, PANEL_W, lCol);
-      panel(RX, PANEL_W, rCol);
+      // Subtle vertical center divider
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
+      ctx.setLineDash([4, 6]);
+      ctx.beginPath(); ctx.moveTo(HALF, TOP - 10); ctx.lineTo(HALF, BOT + 8); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
 
-      // Labels
-      ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
-      ctx.font = `600 15px ${MONO}`; ctx.fillStyle = lCol.text;
-      ctx.fillText(spec.leftLabel || 'A', LX + PANEL_W / 2, PY - 18);
-      ctx.fillStyle = rCol.text;
-      ctx.fillText(spec.rightLabel || 'B', RX + PANEL_W / 2, PY - 18);
+      // Labels at top of each half
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = `600 14px ${MONO}`; ctx.fillStyle = lCol.text;
+      ctx.fillText(spec.leftLabel || 'HOT', HALF * 0.45, TOP - 16);
       if (spec.leftSub) {
-        ctx.font = `400 12px ${MONO}`; ctx.fillStyle = TEXT_SEC;
-        ctx.fillText(spec.leftSub, LX + PANEL_W / 2, PY + 18);
+        ctx.font = `400 11px ${MONO}`; ctx.fillStyle = TEXT_SEC;
+        ctx.fillText(spec.leftSub, HALF * 0.45, TOP - 2);
       }
+      ctx.font = `600 14px ${MONO}`; ctx.fillStyle = rCol.text;
+      ctx.fillText(spec.rightLabel || 'COLD', HALF + HALF * 0.55, TOP - 16);
       if (spec.rightSub) {
-        ctx.font = `400 12px ${MONO}`; ctx.fillStyle = TEXT_SEC;
-        ctx.fillText(spec.rightSub, RX + PANEL_W / 2, PY + 18);
+        ctx.font = `400 11px ${MONO}`; ctx.fillStyle = TEXT_SEC;
+        ctx.fillText(spec.rightSub, HALF + HALF * 0.55, TOP - 2);
       }
 
-      // Arrow between panels
-      const ax1 = LX + PANEL_W + 6, ax2 = RX - 6, ay = PY + PANEL_H / 2;
-      ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 1.5;
-      sketchArrow(ax1, ay, ax2, ay, 1);
-      if (spec.flowLabel) {
-        ctx.font = `400 12px ${MONO}`; ctx.fillStyle = lCol.text;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(spec.flowLabel, (ax1 + ax2) / 2, ay - 15);
-      }
-
-      // Note
-      if (spec.note) {
-        ctx.font = `400 13px ${MONO}`; ctx.fillStyle = TEXT_MUT;
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(spec.note, cx, H - 22);
-      }
-
-      // Left particles (fast/large)
+      // Hot particles — dark outer ring + bright colored core
       lParts.forEach(p => {
         p.x += p.vx; p.y += p.vy;
-        if (p.x - p.r < LX + 3)           { p.vx =  Math.abs(p.vx); }
-        if (p.x + p.r > LX + PANEL_W - 3) { p.vx = -Math.abs(p.vx); }
-        if (p.y - p.r < PY + 3)           { p.vy =  Math.abs(p.vy); }
-        if (p.y + p.r > PY + PANEL_H - 3) { p.vy = -Math.abs(p.vy); }
+        if (p.x - p.r < PAD)         { p.vx =  Math.abs(p.vx); }
+        if (p.x + p.r > HALF - 10)   { p.vx = -Math.abs(p.vx); }
+        if (p.y - p.r < TOP)         { p.vy =  Math.abs(p.vy); }
+        if (p.y + p.r > BOT)         { p.vy = -Math.abs(p.vy); }
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = lCol.stroke + '28'; ctx.fill();
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.42, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(22, 13, 3, 0.90)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.ir, 0, Math.PI * 2);
         ctx.fillStyle = lCol.stroke; ctx.fill();
       });
 
-      // Right particles (slow/small)
+      // Cold particles — solid fill
       rParts.forEach(p => {
         p.x += p.vx; p.y += p.vy;
-        if (p.x - p.r < RX + 3)           { p.vx =  Math.abs(p.vx); }
-        if (p.x + p.r > RX + PANEL_W - 3) { p.vx = -Math.abs(p.vx); }
-        if (p.y - p.r < PY + 3)           { p.vy =  Math.abs(p.vy); }
-        if (p.y + p.r > PY + PANEL_H - 3) { p.vy = -Math.abs(p.vy); }
+        if (p.x - p.r < HALF + 10)   { p.vx =  Math.abs(p.vx); }
+        if (p.x + p.r > W - PAD)     { p.vx = -Math.abs(p.vx); }
+        if (p.y - p.r < TOP)         { p.vy =  Math.abs(p.vy); }
+        if (p.y + p.r > BOT)         { p.vy = -Math.abs(p.vy); }
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-        ctx.fillStyle = rCol.stroke + '28'; ctx.fill();
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 0.45, 0, Math.PI * 2);
         ctx.fillStyle = rCol.stroke; ctx.fill();
       });
+
+      // Arrow + flow label crossing the center divider
+      const arY = cy + 12;
+      ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(HALF - 30, arY); ctx.lineTo(HALF + 22, arY); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(HALF + 30, arY);
+      ctx.lineTo(HALF + 30 - 10, arY - 5); ctx.moveTo(HALF + 30, arY);
+      ctx.lineTo(HALF + 30 - 10, arY + 5); ctx.stroke();
+      if (spec.flowLabel) {
+        ctx.font = `400 12px ${MONO}`; ctx.fillStyle = lCol.text;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(spec.flowLabel, HALF, arY + 17);
+      }
+
+      // Note at bottom
+      if (spec.note) {
+        ctx.font = `400 13px ${MONO}`; ctx.fillStyle = TEXT_MUT;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(spec.note, cx, BOT + 20);
+      }
 
       _vtpAnimFrame = requestAnimationFrame(_drawParticlesFrame);
     }
@@ -1206,76 +1212,154 @@ function _vtpDrawSpec(spec) {
     return;
   }
 
-  // ── SCENE — two labeled objects with animated transfer dots between them ───
+  // ── SCENE — illustrated mug+crystal icons, large glowing particles flowing ─
+  // Left icon (HOT): trapezoidal mug with animated steam lines
+  // Right icon (COLD): rectangle with X-pattern inside
+  // Particles: large dark-halo + bright-core circles flowing L→R between icons
   if (spec.type === 'scene') {
     const lSpec  = spec.left  || {};
     const rSpec  = spec.right || {};
     const arSpec = spec.arrow || {};
     const lCol   = _vtpCol(lSpec.color || 'amber');
     const rCol   = _vtpCol(rSpec.color || 'blue');
-    const BOX_W  = Math.min(160, W * 0.22);
-    const BOX_H  = Math.min(120, H * 0.42);
-    const LBX    = W * 0.05, RBX = W - W * 0.05 - BOX_W;
-    const BY     = cy - BOX_H / 2;
 
-    // Flow dots from left box right edge to right box left edge
-    const flowAX1 = LBX + BOX_W + 6, flowAX2 = RBX - 6;
-    const flowDots = Array.from({length: 6}, (_, i) => ({
-      x:  flowAX1 + (flowAX2 - flowAX1) * (_r() * 0.85),
-      oy: (_r() - 0.5) * 18,
-      speed: 0.8 + _r() * 1.2,
+    // Icon sizing and positioning
+    const ICO_W  = Math.min(W * 0.16, 96);
+    const ICO_H  = Math.min(H * 0.54, 148);
+    const LCX    = W * 0.10 + ICO_W / 2;
+    const RCX    = W - W * 0.10 - ICO_W / 2;
+    const ICY    = cy - 10;
+
+    // Particle zone between icons
+    const PZ_X1  = LCX + ICO_W / 2 + 12;
+    const PZ_X2  = RCX - ICO_W / 2 - 12;
+
+    // Large glowing particles — dark outer halo + bright inner core
+    const flowParts = Array.from({length: 7}, () => ({
+      x:     PZ_X1 + (PZ_X2 - PZ_X1) * (_r() * 0.88),
+      yOff:  (_r() - 0.5) * 48,
+      r:     15 + _r() * 10,   // outer (dark) radius
+      ir:    5  + _r() * 5,    // inner (bright) radius
+      speed: 0.9 + _r() * 1.5,
     }));
+
+    let _steamPhase = 0;
+
+    // Draw mug/cup shape (trapezoid + handle)
+    function _drawMug(icx, icy, w, h, col) {
+      const tw = w * 0.90, bw = w * 0.68;
+      const tx = icx - tw / 2, bx = icx - bw / 2;
+      const ty = icy - h / 2,  by = icy + h / 2;
+      ctx.fillStyle = col.fill;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty); ctx.lineTo(tx + tw, ty);
+      ctx.lineTo(bx + bw, by); ctx.lineTo(bx, by);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = col.stroke; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(tx, ty); ctx.lineTo(tx + tw, ty);
+      ctx.lineTo(bx + bw, by); ctx.lineTo(bx, by);
+      ctx.closePath(); ctx.stroke();
+      // Handle arc on right
+      ctx.beginPath();
+      ctx.arc(tx + tw + 10, icy + h * 0.06, h * 0.22, -Math.PI * 0.58, Math.PI * 0.58);
+      ctx.stroke();
+    }
+
+    // Draw crystal/snowflake shape (rectangle + X lines inside)
+    function _drawCrystal(icx, icy, w, h, col) {
+      const hw = w / 2, hh = h / 2;
+      ctx.fillStyle = col.fill;
+      ctx.fillRect(icx - hw, icy - hh, w, h);
+      ctx.strokeStyle = col.stroke; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+      ctx.strokeRect(icx - hw, icy - hh, w, h);
+      // X pattern
+      const ix = hw * 0.52, iy = hh * 0.52;
+      ctx.save();
+      ctx.globalAlpha = 0.5; ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(icx - ix, icy - iy); ctx.lineTo(icx + ix, icy + iy);
+      ctx.moveTo(icx + ix, icy - iy); ctx.lineTo(icx - ix, icy + iy);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     function _drawSceneFrame() {
       ctx.clearRect(0, 0, W, H);
       _animDotGrid();
+      _steamPhase += 0.025;
 
-      // Left box
-      ctx.fillStyle = lCol.fill; ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 2;
-      ctx.fillRect(LBX, BY, BOX_W, BOX_H); ctx.strokeRect(LBX, BY, BOX_W, BOX_H);
-      ctx.font = `700 17px ${MONO}`; ctx.fillStyle = lCol.text;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(lSpec.label || '', LBX + BOX_W / 2, BY + BOX_H / 2 - (lSpec.sub ? 10 : 0));
-      if (lSpec.sub) {
-        ctx.font = `400 12px ${MONO}`; ctx.fillStyle = TEXT_SEC;
-        ctx.fillText(lSpec.sub, LBX + BOX_W / 2, BY + BOX_H / 2 + 14);
-      }
-
-      // Right box
-      ctx.fillStyle = rCol.fill; ctx.strokeStyle = rCol.stroke; ctx.lineWidth = 2;
-      ctx.fillRect(RBX, BY, BOX_W, BOX_H); ctx.strokeRect(RBX, BY, BOX_W, BOX_H);
-      ctx.font = `700 17px ${MONO}`; ctx.fillStyle = rCol.text;
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(rSpec.label || '', RBX + BOX_W / 2, BY + BOX_H / 2 - (rSpec.sub ? 10 : 0));
-      if (rSpec.sub) {
-        ctx.font = `400 12px ${MONO}`; ctx.fillStyle = TEXT_SEC;
-        ctx.fillText(rSpec.sub, RBX + BOX_W / 2, BY + BOX_H / 2 + 14);
-      }
-
-      // Arrow + label
-      ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 2;
-      sketchArrow(flowAX1, cy, flowAX2, cy, 1.5);
+      // Arrow spanning icon-to-icon above the particle zone
+      const arX1   = LCX + ICO_W / 2 + 16;
+      const arX2   = RCX - ICO_W / 2 - 16;
+      const arrowY = ICY - ICO_H * 0.54;
+      ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(arX1, arrowY); ctx.lineTo(arX2 - 12, arrowY); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(arX2, arrowY);
+      ctx.lineTo(arX2 - 11, arrowY - 5); ctx.moveTo(arX2, arrowY);
+      ctx.lineTo(arX2 - 11, arrowY + 5); ctx.stroke();
       if (arSpec.label) {
-        ctx.font = `400 14px ${MONO}`; ctx.fillStyle = lCol.text;
+        ctx.font = `400 13px ${MONO}`; ctx.fillStyle = lCol.text;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(arSpec.label, (flowAX1 + flowAX2) / 2, cy - 20);
+        ctx.fillText(arSpec.label, (arX1 + arX2) / 2, arrowY - 14);
       }
 
-      // Animated dots
-      flowDots.forEach(d => {
-        d.x += d.speed;
-        if (d.x > flowAX2 + 8) d.x = flowAX1;
-        ctx.beginPath(); ctx.arc(d.x, cy + d.oy, 4.5, 0, Math.PI * 2);
+      // Large glowing particles flowing L→R
+      flowParts.forEach(p => {
+        p.x += p.speed;
+        if (p.x > PZ_X2 + p.r + 6) p.x = PZ_X1 - p.r;
+        const py = ICY + p.yOff;
+        // dark outer halo
+        ctx.beginPath(); ctx.arc(p.x, py, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(15, 9, 2, 0.88)'; ctx.fill();
+        // bright inner core
+        ctx.beginPath(); ctx.arc(p.x, py, p.ir, 0, Math.PI * 2);
         ctx.fillStyle = lCol.stroke; ctx.fill();
-        ctx.beginPath(); ctx.arc(d.x, cy + d.oy, 2, 0, Math.PI * 2);
-        ctx.fillStyle = '#ededf0'; ctx.fill();
       });
+
+      // Draw icons (particles are drawn before icons so icons render on top)
+      _drawMug(LCX, ICY, ICO_W, ICO_H, lCol);
+      _drawCrystal(RCX, ICY, ICO_W * 0.88, ICO_H * 0.74, rCol);
+
+      // Steam lines above mug (animated)
+      const steamY = ICY - ICO_H / 2 - 5;
+      [-13, 0, 13].forEach((dx, i) => {
+        const ph = _steamPhase + i * 1.25;
+        ctx.save();
+        ctx.strokeStyle = lCol.stroke; ctx.lineWidth = 1.4; ctx.globalAlpha = 0.42;
+        ctx.beginPath();
+        ctx.moveTo(LCX + dx, steamY);
+        ctx.quadraticCurveTo(
+          LCX + dx + Math.sin(ph) * 9,      steamY - 14,
+          LCX + dx + Math.sin(ph + 1) * 6,  steamY - 30
+        );
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Labels below icons
+      const lblY = ICY + ICO_H / 2 + 20;
+      ctx.font = `700 13px ${MONO}`; ctx.fillStyle = lCol.text;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(lSpec.label || '', LCX, lblY);
+      if (lSpec.sub) {
+        ctx.font = `400 11px ${MONO}`; ctx.fillStyle = TEXT_SEC;
+        ctx.fillText(lSpec.sub, LCX, lblY + 16);
+      }
+      ctx.font = `700 13px ${MONO}`; ctx.fillStyle = rCol.text;
+      ctx.textAlign = 'center';
+      ctx.fillText(rSpec.label || '', RCX, lblY);
+      if (rSpec.sub) {
+        ctx.font = `400 11px ${MONO}`; ctx.fillStyle = TEXT_SEC;
+        ctx.fillText(rSpec.sub, RCX, lblY + 16);
+      }
 
       // Note
       if (spec.note) {
         ctx.font = `400 13px ${MONO}`; ctx.fillStyle = TEXT_MUT;
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(spec.note, cx, H - 22);
+        ctx.fillText(spec.note, cx, H - 18);
       }
 
       _vtpAnimFrame = requestAnimationFrame(_drawSceneFrame);
@@ -1346,7 +1430,9 @@ function _vtpDrawSpec(spec) {
         const c  = _vtpCol(card.color || 'teal');
         const cx2 = cardStartX + i * (CARD_W + 10);
         draw(() => {
-          ctx.fillStyle = c.fill; ctx.strokeStyle = c.stroke; ctx.lineWidth = 1.5;
+          // Card: transparent fill, colored border only (matches reference)
+          ctx.fillStyle = 'rgba(0,0,0,0)';
+          ctx.strokeStyle = c.stroke; ctx.lineWidth = 2;
           ctx.fillRect(cx2, CARD_Y, CARD_W, CARD_H);
           ctx.strokeRect(cx2, CARD_Y, CARD_W, CARD_H);
           ctx.font = `500 13px ${MONO}`; ctx.fillStyle = TEXT_PRI;
