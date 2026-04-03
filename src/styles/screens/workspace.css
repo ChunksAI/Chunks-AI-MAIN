@@ -48,6 +48,8 @@
   display: flex; flex-direction: column;
   border-right: none;
   overflow: hidden; background: var(--bg);
+  position: relative;
+  isolation: isolate;
 }
 
 /* Drag resizer */
@@ -366,6 +368,7 @@
   flex: 1 1 0; min-width: 260px; display: flex; flex-direction: column;
   overflow: hidden; background: var(--bg);
   position: relative; /* positioning context for the isolated chat container */
+  isolation: isolate;
 }
 
 /* ── Isolated chat content container ─────────────────────────────────────────
