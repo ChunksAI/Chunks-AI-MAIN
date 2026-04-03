@@ -282,6 +282,13 @@ def ask(request: Request, body: AskRequest):
                 "any question asking for a visual illustration of a physical or conceptual structure):\n"
                 '{"type":"diagram","title":"<topic>","svg":"<SVG_MARKUP>","labels":['
                 '{"id":"<element_id>","name":"<part name>","description":"<1-2 sentence explanation>"}]}\n\n'
+                "FORMAT D — compare "
+                "('difference between X and Y', 'compare X and Y', 'X vs Y', "
+                "'how is X different from Y', any question comparing two or three distinct concepts, objects, or organisms):\n"
+                '{"type":"compare","title":"<topic>","items":['
+                '{"name":"<item name>","color":"<purple|teal|amber|coral>","attributes":'
+                '[{"label":"<attribute>","value":"<short value>"}]}],'
+                '"key_difference":"<one sentence summary of the main difference>"}\n\n'
                 "Rules for ALL formats:\n"
                 "- Write at Grade 6 reading level — simple words, short sentences\n"
                 "- The 'title' should name the topic being explained, not restate the question\n"
@@ -307,7 +314,16 @@ def ask(request: Request, body: AskRequest):
                 "- Use neutral fill colors (no white fills — use #e8e8e8 or similar light grays)\n"
                 "- Keep the SVG markup compact and valid; inside the JSON string, escape every double-quote as a backslash followed by a quote\n"
                 "- Include 3 to 7 labeled parts\n"
-                "- Each label 'description' is 1-2 simple sentences"
+                "- Each label 'description' is 1-2 simple sentences\n\n"
+                "Additional rules for compare:\n"
+                "- Include 2 or 3 items only\n"
+                "- Every item MUST have the SAME set of attribute labels in the SAME order "
+                "(so rows align across columns)\n"
+                "- Use 4 to 7 attributes per item\n"
+                "- Keep each attribute value under 6 words\n"
+                "- Assign a distinct color to each item using this order: first item 'purple', second 'teal', "
+                "third 'amber' (use 'coral' only if a fourth item is somehow needed)\n"
+                "- The 'key_difference' must be one concise sentence (under 20 words)"
             )
             answer = call_ai(question, system_prompt=vt_system, model=selected_model, history=history,
                              endpoint='chat_visual', user_id=verified_user_id)

@@ -1298,6 +1298,151 @@
   font-weight: 600;
 }
 
+/* ── CompareRenderer ── */
+
+.cvp-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Hero header */
+.cvp-cmp-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-xs);
+}
+
+.cvp-cmp-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(32, 178, 170, 0.1);
+  border: 1px solid rgba(32, 178, 170, 0.25);
+  color: #20b2aa;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  width: fit-content;
+}
+
+.cvp-cmp-title {
+  font-family: var(--font-head);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-1);
+  margin: 0;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+.cvp-cmp-meta {
+  font-size: 12px;
+  color: var(--text-4);
+  margin: 0;
+}
+
+/* Column grid */
+.cvp-cmp-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.cvp-cmp-grid--2 { grid-template-columns: repeat(2, 1fr); }
+.cvp-cmp-grid--3 { grid-template-columns: repeat(3, 1fr); }
+
+/* Single column on narrow viewports */
+@media (max-width: 520px) {
+  .cvp-cmp-grid--2,
+  .cvp-cmp-grid--3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Each item column */
+.cvp-cmp-col {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--cmp-border, var(--border-xs));
+  overflow: hidden;
+}
+
+.cvp-cmp-col-header {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--cmp-text, var(--text-1));
+  background: var(--cmp-bg, var(--surface-2));
+  border-bottom: 1px solid var(--cmp-border, var(--border-xs));
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+
+/* Attribute row */
+.cvp-cmp-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-xs);
+  transition: background 140ms;
+}
+
+.cvp-cmp-row:last-child {
+  border-bottom: none;
+}
+
+/* Differing rows get a faint accent tint */
+.cvp-cmp-row--diff {
+  background: var(--cmp-bg, rgba(255,255,255,0.04));
+}
+
+.cvp-cmp-row-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-4);
+}
+
+.cvp-cmp-row-value {
+  font-size: 12.5px;
+  color: var(--text-1);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Key difference card */
+.cvp-cmp-keydiff {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-md);
+  animation: cvp-fade-up 220ms var(--ease-snap) both;
+}
+
+.cvp-cmp-keydiff-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--gold, #f5a623);
+  letter-spacing: 0.03em;
+}
+
+.cvp-cmp-keydiff-text {
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.65;
+  margin: 0;
+}
+
 .ws-notes-textarea {
   flex: 1;
   width: 100%;

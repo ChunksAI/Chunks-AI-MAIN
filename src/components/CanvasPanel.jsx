@@ -35,6 +35,14 @@
  *    labels: [{ id, name, description }]
  *  }
  *
+ *  compare:
+ *  {
+ *    type: "compare",
+ *    title: string,
+ *    items: [{ name, color, attributes: [{ label, value }] }],
+ *    key_difference: string
+ *  }
+ *
  *  • window.canvas.setArtifact(artifact)  — set/replace the active artifact
  *  • window.canvas.clearArtifact()        — reset to empty state
  *
@@ -326,6 +334,95 @@ function DiagramRenderer({ artifact }) {
   );
 }
 
+// ── CompareRenderer ───────────────────────────────────────────────────────────
+
+/** Maps the four allowed color tokens to their CSS variable pair. */
+const COMPARE_COLORS = {
+  purple: { bg: 'rgba(160,100,255,0.12)', border: 'rgba(160,100,255,0.35)', text: '#a064ff' },
+  teal:   { bg: 'rgba(32,178,170,0.12)',  border: 'rgba(32,178,170,0.35)',  text: '#20b2aa' },
+  amber:  { bg: 'rgba(245,166,35,0.12)',  border: 'rgba(245,166,35,0.35)',  text: '#f5a623' },
+  coral:  { bg: 'rgba(255,99,71,0.12)',   border: 'rgba(255,99,71,0.35)',   text: '#ff6347' },
+};
+
+/**
+ * Renders a compare artifact as a side-by-side column layout.
+ *
+ * Interaction model:
+ *   • All items are displayed simultaneously — no selection needed
+ *   • Rows where every item has a DIFFERENT value get a subtle accent background
+ *   • "Key difference" card is pinned at the bottom
+ *   • On narrow viewports CSS collapses columns to a single column
+ */
+function CompareRenderer({ artifact }) {
+  const { title, items = [], key_difference = '' } = artifact;
+
+  // Collect the full ordered list of attribute labels from the first item.
+  // All items should share the same labels (enforced by the AI prompt).
+  const rowLabels = (items[0]?.attributes || []).map(a => a.label);
+
+  return h('div', { class: 'cvp-compare' },
+
+    /* ── Hero header ──────────────────────────────────────── */
+    h('div', { class: 'cvp-cmp-hero' },
+      h('div', { class: 'cvp-cmp-hero-badge' },
+        h('svg', {
+          width: '13', height: '13', viewBox: '0 0 24 24',
+          fill: 'none', stroke: 'currentColor',
+          'stroke-width': '2.5', 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+        },
+          h('rect', { x: '2', y: '3', width: '20', height: '14', rx: '2' }),
+          h('line', { x1: '12', y1: '3', x2: '12', y2: '17' }),
+        ),
+        'Compare',
+      ),
+      h('h2', { class: 'cvp-cmp-title' }, title),
+      h('p', { class: 'cvp-cmp-meta' },
+        `${items.length} items · ${rowLabels.length} attribute${rowLabels.length !== 1 ? 's' : ''}`
+      ),
+    ),
+
+    /* ── Column grid ──────────────────────────────────────── */
+    h('div', { class: `cvp-cmp-grid cvp-cmp-grid--${items.length}` },
+      items.map((item) => {
+        const palette = COMPARE_COLORS[item.color] || COMPARE_COLORS.purple;
+        const attrMap = {};
+        (item.attributes || []).forEach(a => { attrMap[a.label] = a.value; });
+
+        return h('div', {
+          key: item.name,
+          class: 'cvp-cmp-col',
+          style: `--cmp-bg:${palette.bg};--cmp-border:${palette.border};--cmp-text:${palette.text}`,
+        },
+          /* Column header */
+          h('div', { class: 'cvp-cmp-col-header' }, item.name),
+          /* Attribute rows */
+          rowLabels.map(label => {
+            // A row is "different" when not all items share the same value for this label
+            const allValues = items.map(it =>
+              ((it.attributes || []).find(a => a.label === label) || {}).value || ''
+            );
+            const isDiff = allValues.some(v => v !== allValues[0]);
+
+            return h('div', {
+              key: label,
+              class: `cvp-cmp-row${isDiff ? ' cvp-cmp-row--diff' : ''}`,
+            },
+              h('span', { class: 'cvp-cmp-row-label' }, label),
+              h('span', { class: 'cvp-cmp-row-value' }, attrMap[label] || '—'),
+            );
+          }),
+        );
+      })
+    ),
+
+    /* ── Key difference card ──────────────────────────────── */
+    key_difference && h('div', { class: 'cvp-cmp-keydiff' },
+      h('span', { class: 'cvp-cmp-keydiff-badge' }, '★ Key difference'),
+      h('p', { class: 'cvp-cmp-keydiff-text' }, key_difference),
+    ),
+  );
+}
+
 // ── ArtifactRenderer ─────────────────────────────────────────────────────────
 
 /**
@@ -341,6 +438,9 @@ function ArtifactRenderer({ artifact }) {
   }
   if (artifact.type === 'diagram') {
     return h(DiagramRenderer, { artifact });
+  }
+  if (artifact.type === 'compare') {
+    return h(CompareRenderer, { artifact });
   }
   return h('div', { class: 'cvp-unknown' },
     h('p', { class: 'cvp-unknown-text' },
@@ -502,8 +602,8 @@ function CanvasPanel({ artifactSignal }) {
     if (regenerating || simplifying || !artifactRef.current) return;
     const artifact = artifactRef.current;
 
-    // Diagram artifacts contain raw SVG — simplification via text steps is not applicable
-    if (artifact.type === 'diagram') return;
+    // Diagram and compare artifacts don't have a steps array to simplify
+    if (artifact.type === 'diagram' || artifact.type === 'compare') return;
 
     simplifyCtrl.current?.abort();
     simplifyCtrl.current = new AbortController();
@@ -565,7 +665,7 @@ function CanvasPanel({ artifactSignal }) {
             onRegenerate: handleRegenerate,
             regenerating,
             simplifying,
-            showSimplify: activeArtifact?.type !== 'diagram',
+            showSimplify: activeArtifact?.type !== 'diagram' && activeArtifact?.type !== 'compare',
           }),
           h('div', { class: 'cvp-content', key: contentKey },
             h(ArtifactRenderer, { artifact: activeArtifact }),

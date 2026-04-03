@@ -760,6 +760,13 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
               parsedArtifact = candidate;
             } else if (t === 'diagram' && typeof candidate.svg === 'string' && Array.isArray(candidate.labels) && candidate.labels.every(l => l && typeof l.id === 'string')) {
               parsedArtifact = candidate;
+            } else if (
+              t === 'compare' &&
+              Array.isArray(candidate.items) &&
+              candidate.items.length >= 2 &&
+              candidate.items.every(it => it && typeof it.name === 'string' && Array.isArray(it.attributes))
+            ) {
+              parsedArtifact = candidate;
             }
           }
         } catch (_) {
