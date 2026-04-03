@@ -25,11 +25,21 @@ const _wait = ms => new Promise(res => setTimeout(res, ms));
  */
 export function extractThinkBlock(text) {
   if (!text) return { answer: text, thinkingContent: null };
+  // Closed <think>…</think> block — strip all occurrences, capture first
   const match = text.match(/<think>([\s\S]*?)<\/think>/i);
   if (match) {
     const thinkingContent = match[1].trim() || null;
     const answer = text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
-    return { answer: answer || text, thinkingContent };
+    // Return empty string rather than falling back to original text (which
+    // contains the raw <think> tags and would display them as escaped text).
+    return { answer, thinkingContent };
+  }
+  // Unclosed <think> tag — everything from the tag onward is thinking content
+  const partialMatch = text.match(/([\s\S]*?)<think>([\s\S]*)/i);
+  if (partialMatch) {
+    const answer = partialMatch[1].trim();
+    const thinkingContent = partialMatch[2].trim() || null;
+    return { answer, thinkingContent };
   }
   return { answer: text, thinkingContent: null };
 }

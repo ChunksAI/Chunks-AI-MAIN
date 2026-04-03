@@ -31,7 +31,7 @@ def _run_ask_job(data: dict) -> dict:
     from services.auth import _extract_verified_user, Tier
     from services.ai import (
         call_ai, call_ai_web_search, sanitize_user_memory,
-        should_search_textbook,
+        should_search_textbook, extract_thinking_content,
     )
     from services.prompt_guard import screen_prompt  # noqa: F811
     from services.books import BOOK_LIBRARY, TextbookSearch, get_book_index
@@ -185,6 +185,16 @@ def _run_ask_job(data: dict) -> dict:
         f"{latex_instruction}{memory_block}"
     )
 
+    # ── Thinking mode: instruct model to emit chain-of-thought ────────────
+    if thinking_mode in ('thinking', 'deep'):
+        base_system += (
+            "\n\nIMPORTANT: Before writing your answer, show your complete step-by-step "
+            "reasoning process inside <think>...</think> tags. Work through the problem "
+            "carefully — consider what is being asked, recall relevant concepts, apply any "
+            "necessary formulas or logic, and verify your conclusion. "
+            "After the closing </think> tag, write your final answer to the student."
+        )
+
     # ── Build prompt and call AI ──────────────────────────────────────────
     if selected_text:
         prompt = f"""You are a tutor.
@@ -222,6 +232,7 @@ Answer helpfully and clearly."""
 
     answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
                      endpoint='async_chat', user_id=verified_user_id)
+    answer, thinking_content = extract_thinking_content(answer)
     _resp = {
         'success':        True,
         'mode':           mode,
@@ -233,6 +244,7 @@ Answer helpfully and clearly."""
         'sources':        all_sources,
         'complexity_used': complexity,
         'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf',
+        'thinking_content': thinking_content,
     }
     if _cache_eligible and _cache_key_val:
         _ask_cache_set(_cache_key_val, _resp,

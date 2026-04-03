@@ -685,17 +685,16 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
         ws.chatHistory.pop();
       }
       // When thinking mode is active, preserve the wrap so _wsFinalizeThinking
-      // can repurpose it with real steps; otherwise clean up the streaming accordion.
-      if (ws.thinking === 'off') {
-        wsRemoveThinking();
-      }
+      // can repurpose it with real steps.  When thinking is off, preserve it
+      // too — _wsFinalizeThinking will silently remove it if the model returned
+      // no thinking content, or display an accordion if it did.
     }
 
     if (res.status === 429) {
       // already handled above
-      if (ws.thinking !== 'off') wsRemoveThinking();
+      wsRemoveThinking();
     } else if (!res.ok) {
-      if (ws.thinking !== 'off') wsRemoveThinking();
+      wsRemoveThinking();
       const err = await res.json().catch(() => ({}));
       wsAppendError(err.error || `Server error ${res.status}`);
       ws.chatHistory.pop();
@@ -704,7 +703,7 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
       if (data.guest_limited && isGuest?.() && typeof showLoginWall === 'function') {
         showLoginWall(data.feature || 'workspace');
         ws.chatHistory.pop();
-        if (ws.thinking !== 'off') wsRemoveThinking();
+        wsRemoveThinking();
         return;
       }
 
@@ -746,7 +745,7 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
         }
 
         // ThinkingAccordion finalise (if active)
-        if (!imageAtt && ws.thinking !== 'off') {
+        if (!imageAtt) {
           await _wsFinalizeThinking(thinkingContent);
         }
 
@@ -771,10 +770,12 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
 
       const cleanAnswer     = answer || 'No response.';
 
-      // ── ThinkingAccordion: finalize with real steps if thinking was active ──
-      // Await the step animation so the accordion collapses before the AI
-      // response typewriter starts (think first, then respond).
-      if (!imageAtt && ws.thinking !== 'off') {
+      // ── ThinkingAccordion: finalize with real steps ──────────────────────
+      // Finalize whenever there's a thinking wrap (active for any thinking mode
+      // or when the model spontaneously returned <think> content while in 'off'
+      // mode). _wsFinalizeThinking silently removes the wrap when there are no
+      // steps, or plays the step-reveal animation and collapses before typewriter.
+      if (!imageAtt) {
         await _wsFinalizeThinking(thinkingContent);
       }
 
