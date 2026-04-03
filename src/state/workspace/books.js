@@ -16,7 +16,7 @@ import { lsGet, lsSet } from '../../utils/storage.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 import { subscribeToChatRealtime, unsubscribeChatRealtime } from './chatRealtime.js';
 import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
-import { _wsRenderMessageFromBlocks } from './chat.js';
+import { _wsRenderMessageFromBlocks, _wsBuildBlocks } from './chat.js';
 
 let _wsSaveScrollTm;
 let _noteCardsListenerAttached = false;
@@ -410,13 +410,13 @@ export function _wsRenderHistory(msgs, history) {
         el.dataset.histIdx = String(i);
         msgs.appendChild(el);
       } else {
-        // Legacy messages without blocks — render with plain markdown
-        const el = document.createElement('div');
-        el.className = 'msg msg-ai';
-        const rendered = typeof window.homeMarkdown === 'function'
-          ? window.homeMarkdown(msg.content || '')
-          : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        el.innerHTML = `<div class="ai-row"><div class="ai-body"><div class="ai-text">${rendered}</div></div></div>`;
+        // Messages loaded from Supabase (or legacy localStorage) have no blocks.
+        // Synthesize minimal blocks so the full UI — including action buttons —
+        // is rendered consistently after every page reload.
+        const fallbackBlocks = _wsBuildBlocks(msg.content || '', [], '', null);
+        const msgId = 'ws-msg-hist-' + i + '-' + Date.now();
+        const el = _wsRenderMessageFromBlocks(msgId, fallbackBlocks, bookName);
+        el.dataset.histIdx = String(i);
         msgs.appendChild(el);
       }
     }
