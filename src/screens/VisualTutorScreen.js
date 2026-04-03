@@ -1423,7 +1423,6 @@ function _vtpDrawSpec(spec) {
     // Example cards at bottom
     if (hasCards) {
       const CARD_W = Math.min(110, (W - 60) / cards.length - 8);
-      const CARD_H = 42;
       const cardTotalW = cards.length * CARD_W + (cards.length - 1) * 10;
       const cardStartX = (W - cardTotalW) / 2;
       cards.forEach((card, i) => {
