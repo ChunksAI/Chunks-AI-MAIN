@@ -15,6 +15,7 @@
 import { API_BASE, _getAuthHeader } from '../lib/api.js';
 import { guestGate, recordUsage } from '../lib/guestLimits.js';
 import { showScreen, setNavFromHistory } from '../state/navigation/screens.js';
+import { extractThinkBlock } from '../utils/typewriter.js';
 
 // ── HTML ──────────────────────────────────────────────────────────────────────
 
@@ -2396,8 +2397,10 @@ async function _vtpSendAsk() {
 
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data   = await res.json();
-    const answer = (data.answer ?? data.response ?? data.text ?? '').trim();
-    const reply  = answer || localFallback;
+    const rawAnswer = (data.answer ?? data.response ?? data.text ?? '').trim();
+    // Strip any <think>...</think> blocks (safety net — backend should already do this)
+    const { answer: cleanAnswer } = extractThinkBlock(rawAnswer);
+    const reply  = cleanAnswer || localFallback;
 
     // ── Append to in-lesson conversation thread ────────────────────────────
     _vtpAskHistory.push({ q, a: reply });

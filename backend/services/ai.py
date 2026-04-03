@@ -84,16 +84,26 @@ def extract_thinking_content(text: str) -> tuple[str, str | None]:
     helper peels that block out so the caller can surface it separately in the
     UI without polluting the visible answer text.
 
+    Also handles unclosed ``<think>`` tags (model truncated mid-thought) by
+    treating everything after the opening tag as thinking content.
+
     Returns:
         (answer, thinking) — *thinking* is ``None`` when no ``<think>`` block
         is present, otherwise the stripped inner text.
     """
     if not text:
         return text, None
+    # Closed <think>…</think> block — strip all occurrences, capture first
     match = re.search(r'<think>([\s\S]*?)</think>', text, re.IGNORECASE)
     if match:
         thinking = match.group(1).strip()
         answer = re.sub(r'<think>[\s\S]*?</think>', '', text, flags=re.IGNORECASE).strip()
+        return answer, thinking or None
+    # Unclosed <think> tag — everything from the tag onward is thinking content
+    partial = re.search(r'<think>([\s\S]*)', text, re.IGNORECASE)
+    if partial:
+        thinking = partial.group(1).strip()
+        answer = text[:partial.start()].strip()
         return answer, thinking or None
     return text, None
 

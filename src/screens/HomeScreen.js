@@ -1125,16 +1125,12 @@ export async function homeSendMessage() {
         }),
       });
 
-      // When thinking mode was used, finalize the accordion instead of removing it
-      if (_homeThinking !== 'off') {
-        // Don't remove — homeAppendThinkingAccordion will repurpose the existing wrap
-      } else {
-        homeRemoveThinking();
-      }
+      // Preserve the thinking wrap regardless of mode — homeAppendThinkingAccordion
+      // will repurpose it with real steps or silently remove it if none found.
     }
 
     if (!res.ok) {
-      if (!imageAtt && _homeThinking !== 'off') homeRemoveThinking(); // clean up on error
+      homeRemoveThinking(); // clean up on error
       const err = await res.json().catch(() => ({}));
       homeAppendError(err.error || `Error ${res.status}`);
       homeHistory.pop();
@@ -1146,14 +1142,12 @@ export async function homeSendMessage() {
       const cleanAnswer     = answer || 'No response.';
       const thinkingContent = data.thinking_content || clientThinking || null;
 
-      if (!imageAtt && _homeThinking !== 'off') {
+      if (!imageAtt) {
         const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
-        // Await the step animation so the accordion collapses before the AI
-        // response typewriter starts (think first, then respond).
+        // Finalize the thinking wrap (shows accordion with steps, or silently
+        // removes the placeholder when the model returned no thinking content).
+        // Await animation so accordion collapses before the AI response starts.
         await homeAppendThinkingAccordion(thinkingContent, elapsed, _homeThinking);
-      } else if (!imageAtt) {
-        // Not in thinking mode — remove the streaming accordion
-        homeRemoveThinking();
       }
 
       // ── Typewriter: render AI response word by word ──
