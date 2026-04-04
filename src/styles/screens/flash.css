@@ -69,10 +69,12 @@
 
 .fc-gen-card {
   background: var(--surface-2);
-  border: 1px solid var(--border-xs);
-  border-radius: var(--r-lg, 12px);
+  border: 1px solid var(--border-sm);
+  border-top: 2px solid var(--fc-accent);
+  border-radius: var(--r-lg, 16px);
   margin-bottom: 36px;
   overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);
 }
 
 .fc-gen-header {
@@ -155,12 +157,14 @@
   font-weight: 700;
   padding: 11px 20px;
   cursor: pointer;
-  transition: opacity 0.15s, transform 0.1s;
+  transition: opacity 0.15s, transform 0.15s cubic-bezier(0.4,0,0.2,1), box-shadow 0.15s;
   align-self: flex-start;
 }
 
 .fc-gen-btn:hover:not(:disabled) {
-  opacity: 0.88;
+  opacity: 0.92;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(232,172,46,0.35);
 }
 
 .fc-gen-btn:active:not(:disabled) {
@@ -202,15 +206,16 @@
 .fc-deck-card {
   background: var(--surface-2);
   border: 1px solid var(--border-xs);
-  border-radius: var(--r-md, 10px);
+  border-radius: var(--r-lg, 16px);
   cursor: pointer;
-  transition: border-color 0.15s, transform 0.1s, box-shadow 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 12px rgba(0,0,0,0.05);
+  transition: border-color 0.2s cubic-bezier(0.4,0,0.2,1), transform 0.2s cubic-bezier(0.4,0,0.2,1), box-shadow 0.2s cubic-bezier(0.4,0,0.2,1);
 }
 
 .fc-deck-card:hover {
-  border-color: var(--border-sm);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+  border-color: var(--border-md);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.14), 0 3px 8px rgba(0,0,0,0.08);
 }
 
 .fc-deck-card-inner {
@@ -930,19 +935,23 @@
   border-radius: var(--r-md, 8px);
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s, border-color 0.15s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 2px 8px rgba(0,0,0,0.04);
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
   margin-bottom: 0;
 }
 
 .fc-system-toggle:hover {
   background: var(--surface-3, var(--surface-2));
   border-color: var(--border-sm);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.10), 0 1px 3px rgba(0,0,0,0.06);
 }
 
 .fc-system-toggle.open {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
   border-bottom-color: transparent;
+  box-shadow: none;
+}
 }
 
 .fc-system-toggle-name {
@@ -1063,13 +1072,15 @@
   font-weight: 600;
   padding: 11px 16px;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s cubic-bezier(0.4,0,0.2,1), box-shadow 0.15s;
   white-space: nowrap;
 }
 
 .fc-upload-btn:hover {
   background: var(--surface-4, var(--border-xs));
-  border-color: var(--border-sm);
+  border-color: var(--border-md);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.10);
 }
 
 @media (max-width: 640px) {
@@ -1182,11 +1193,12 @@
   flex-direction: column;
   gap: 10px;
   background: var(--surface-2);
-  border: 1px solid var(--border-xs);
-  border-radius: 16px;
+  border: 1px solid var(--border-sm);
+  border-radius: 18px;
   padding: 16px 20px;
   min-width: 200px;
   flex-shrink: 0;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);
   transition: border-color 0.2s, box-shadow 0.2s;
   cursor: default;
 }
