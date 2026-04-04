@@ -4825,6 +4825,157 @@ let _examAdaptivePools   = null;     // { easy:[], medium:[], hard:[] } — pre-
 let _examAdaptiveEnabled = false;    // true when adaptive ramp is active
 const DIFF_ORDER = ['easy','medium','hard'];
 
+// ── Exam Templates + Sections ─────────────────────────────────────────────
+const EXAM_SECTION_TYPES = {
+  mcq:            { label: 'Multiple Choice',  desc: 'Choose the best answer',        color: '#e8ac2e', typeLabel: 'multiple-choice' },
+  truefalse:      { label: 'True / False',     desc: 'Select true or false',           color: '#2dd4bf', typeLabel: 'true/false' },
+  identification: { label: 'Identification',  desc: 'Name the term or concept',       color: '#e8ac2e', typeLabel: 'multiple-choice' },
+  openended:      { label: 'Essay',            desc: 'Long-form written answer',       color: '#4ade80', typeLabel: 'open-ended' },
+  fillinblank:    { label: 'Fill in Blank',    desc: 'Complete the statement',         color: '#60a5fa', typeLabel: 'fill-in-the-blank' },
+  matching:       { label: 'Matching',         desc: 'Match terms to definitions',     color: '#60a5fa', typeLabel: 'matching' },
+  problem:        { label: 'Problem-solving',  desc: 'Work through a problem',         color: '#a78bfa', typeLabel: 'open-ended' },
+  situational:    { label: 'Situational',      desc: 'Real-world scenario',            color: '#a78bfa', typeLabel: 'situational' },
+};
+
+const EXAM_TEMPLATES = {
+  university:    { name: 'University Standard',  sections: [ {type:'mcq',count:30,pts:1}, {type:'openended',count:2,pts:5}, {type:'identification',count:10,pts:6} ] },
+  quickquiz:     { name: 'Quick Quiz',            sections: [ {type:'mcq',count:10,pts:2}, {type:'truefalse',count:5,pts:1} ] },
+  sciencemidterm:{ name: 'Science Midterm',       sections: [ {type:'mcq',count:20,pts:2}, {type:'openended',count:3,pts:5}, {type:'problem',count:5,pts:6} ] },
+  boardexam:     { name: 'Board Exam Drill',      sections: [ {type:'mcq',count:100,pts:1} ] },
+  comprehensive: { name: 'Comprehensive Final',   sections: [ {type:'mcq',count:25,pts:2}, {type:'identification',count:10,pts:3}, {type:'openended',count:3,pts:10}, {type:'problem',count:2,pts:5} ] },
+  custom:        { name: 'Custom',                sections: [] },
+};
+
+let _examSections       = [];   // active section list (deep-copied from template or user-built)
+let _examActiveTemplate = null; // id of currently selected template card
+
+function examSelectTemplate(id) {
+  _examActiveTemplate = id;
+  document.querySelectorAll('.exam-tpl-card').forEach(c => c.classList.toggle('active', c.dataset.tpl === id));
+
+  const tpl = EXAM_TEMPLATES[id];
+  if (!tpl) return;
+
+  _examSections = tpl.sections.map(s => ({ ...s })); // shallow copy of flat objects (no nested refs)
+
+  const hasSections = _examSections.length > 0 || id === 'custom';
+  const sectionsWrap = document.getElementById('exam-sections-wrap');
+  const tplHint      = document.getElementById('exam-tpl-hint');
+  if (sectionsWrap) sectionsWrap.style.display = hasSections ? '' : 'none';
+  if (tplHint)      tplHint.style.display      = hasSections ? '' : 'none';
+
+  const titleEl = document.getElementById('exam-sections-title');
+  if (titleEl) titleEl.textContent = 'EXAM SECTIONS \u2014 ' + tpl.name.toUpperCase();
+
+  // Hide individual count/type pickers when sections take over
+  const countField = document.getElementById('exam-count-field');
+  const typeField  = document.getElementById('exam-type-field');
+  if (countField) countField.style.display = hasSections ? 'none' : '';
+  if (typeField)  typeField.style.display  = hasSections ? 'none' : '';
+
+  _examSectionsRender();
+}
+
+function _examSectionsRender() {
+  const body = document.getElementById('exam-sections-body');
+  if (!body) return;
+  body.innerHTML = '';
+
+  _examSections.forEach((sec, idx) => {
+    const info = EXAM_SECTION_TYPES[sec.type] || EXAM_SECTION_TYPES.mcq;
+    const typeOptions = Object.entries(EXAM_SECTION_TYPES)
+      .map(([k, v]) => `<option value="${k}"${k === sec.type ? ' selected' : ''}>${v.label}</option>`)
+      .join('');
+
+    const row = document.createElement('div');
+    row.className = 'exam-section-row';
+    row.dataset.idx = idx;
+    row.innerHTML =
+      `<div class="exam-section-type-cell">` +
+        `<span class="exam-section-dot" style="background:${info.color}"></span>` +
+        `<div class="exam-section-type-info">` +
+          `<select class="exam-section-type-sel" onchange="_examSectionEdit(${idx},'type',this.value)">${typeOptions}</select>` +
+          `<div class="exam-section-type-desc">${info.desc}</div>` +
+        `</div>` +
+      `</div>` +
+      `<input class="exam-section-count-inp" type="number" min="1" max="300" value="${parseInt(sec.count)}" oninput="_examSectionEdit(${idx},'count',this.value)">` +
+      `<input class="exam-section-pts-inp" type="number" min="1" max="100" value="${parseInt(sec.pts)}" oninput="_examSectionEdit(${idx},'pts',this.value)">` +
+      `<div class="exam-section-subtotal" id="sec-sub-${idx}">${parseInt(sec.count) * parseInt(sec.pts)} pts</div>` +
+      `<button class="exam-section-del" onclick="examSectionDelete(${idx})" title="Remove">\u00d7</button>`;
+    body.appendChild(row);
+  });
+
+  _examSummaryUpdate();
+}
+
+function _examSectionEdit(idx, field, value) {
+  if (!_examSections[idx]) return;
+  if (field === 'type') {
+    _examSections[idx].type = value;
+    _examSectionsRender(); // full re-render to update dot + desc
+    return;
+  }
+  const n = Math.max(1, parseInt(value) || 1);
+  _examSections[idx][field] = n;
+  const subEl = document.getElementById('sec-sub-' + idx);
+  if (subEl) subEl.textContent = (_examSections[idx].count * _examSections[idx].pts) + ' pts';
+  _examSummaryUpdate();
+}
+
+const _EXAM_MINS_PER_Q       = 1.5; // estimated minutes per question
+const _EXAM_DUR_ROUNDING     = 5;   // round est. duration to nearest N minutes
+
+function _examSummaryUpdate() {
+  const totalQ   = _examSections.reduce((s, x) => s + (parseInt(x.count) || 0), 0);
+  const totalPts = _examSections.reduce((s, x) => s + ((parseInt(x.count) || 0) * (parseInt(x.pts) || 0)), 0);
+  const estMin   = totalQ > 0 ? Math.max(_EXAM_DUR_ROUNDING, Math.round(totalQ * _EXAM_MINS_PER_Q / _EXAM_DUR_ROUNDING) * _EXAM_DUR_ROUNDING) : 0;
+
+  const el = id => document.getElementById(id);
+  if (el('sum-sections'))  el('sum-sections').textContent  = _examSections.length;
+  if (el('sum-questions')) el('sum-questions').textContent = totalQ;
+  if (el('sum-points'))    el('sum-points').textContent    = totalPts + ' pts';
+  if (el('sum-duration'))  el('sum-duration').textContent  = estMin > 0 ? '~' + estMin + ' min' : '—';
+}
+
+function examSectionDelete(idx) {
+  _examSections.splice(idx, 1);
+  _examSectionsRender();
+  // If all sections removed while on custom, restore count/type pickers
+  if (_examSections.length === 0 && _examActiveTemplate === 'custom') {
+    const countField = document.getElementById('exam-count-field');
+    const typeField  = document.getElementById('exam-type-field');
+    if (countField) countField.style.display = '';
+    if (typeField)  typeField.style.display  = '';
+  }
+}
+
+function examSectionAdd() {
+  const picker = document.getElementById('exam-section-add-picker');
+  if (!picker) return;
+  const isVisible = picker.style.display !== 'none';
+  if (isVisible) { picker.style.display = 'none'; return; }
+  // Build type picker buttons
+  picker.innerHTML = '<span class="estp-label">Choose type:</span>' +
+    Object.entries(EXAM_SECTION_TYPES).map(([k, v]) =>
+      `<button class="estp-btn" onclick="examSectionAddType('${k}')">${v.label}</button>`
+    ).join('');
+  picker.style.display = '';
+}
+
+function examSectionAddType(type) {
+  _examSections.push({ type, count: 10, pts: 1 });
+  _examSectionsRender();
+  const picker = document.getElementById('exam-section-add-picker');
+  if (picker) picker.style.display = 'none';
+  // Ensure sections wrap is visible and count/type pickers are hidden
+  const sectionsWrap = document.getElementById('exam-sections-wrap');
+  if (sectionsWrap) sectionsWrap.style.display = '';
+  const countField = document.getElementById('exam-count-field');
+  const typeField  = document.getElementById('exam-type-field');
+  if (countField) countField.style.display = 'none';
+  if (typeField)  typeField.style.display  = 'none';
+}
+
 function examSelectType(btn) {
   document.querySelectorAll('#exam-type-grid .exam-type-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -5626,7 +5777,10 @@ async function examStart() {
     return;
   }
 
-  const count   = parseInt(document.getElementById('exam-count-input').value) || 10;
+  const useSections = _examSections.length > 0;
+  const count   = useSections
+    ? _examSections.reduce((s, x) => s + (parseInt(x.count) || 0), 0)
+    : (parseInt(document.getElementById('exam-count-input').value) || 10);
   const timeSec = parseInt(document.getElementById('exam-time-input').value) || 0;
   _examTopic    = topic || _examSourceLabel || 'Uploaded document';
   _examTimerSec = timeSec;
@@ -5673,7 +5827,22 @@ async function examStart() {
   try {
     let questions;
 
-    if (_examType === 'openended') {
+    if (useSections) {
+      // ── Template/sections mode: generate each section independently ──
+      document.getElementById('exam-loading-text').textContent = 'Generating sections…';
+      const sectionResults = await Promise.all(
+        _examSections.map(section => {
+          const sInfo = EXAM_SECTION_TYPES[section.type] || EXAM_SECTION_TYPES.mcq;
+          const tl = sInfo.typeLabel;
+          if (tl === 'open-ended') {
+            return _examRunOpenEnded(topic, _examSourceText, section.count);
+          }
+          return _examRunQuick(topic, _examSourceText, section.count, tl, _weakContext);
+        })
+      );
+      questions = sectionResults.flat();
+      _examAdaptiveEnabled = false;
+    } else if (_examType === 'openended') {
       questions = await _examRunOpenEnded(topic, _examSourceText, count);
       _examAdaptiveEnabled = false;
     } else if (_examDiff === 'adaptive') {
@@ -5979,8 +6148,8 @@ function _examRenderQuestion() {
       btn.disabled = true;
       const correctText = q.answer.replace(/^[A-DF]\.\s*/,'').trim().toLowerCase();
       const optText = opt.replace(/^[A-DF]\.\s*/,'').trim().toLowerCase();
-      if (i === prev.selected) btn.classList.add(prev.correct ? 'correct' : 'wrong');
-      if (!prev.correct && optText === correctText) btn.classList.add('correct');
+      if (i === prev.selected) btn.classList.add(prev.correct ? 'option--correct' : 'option--wrong');
+      if (!prev.correct && optText === correctText) btn.classList.add('option--correct');
     }
     optEl.appendChild(btn);
   });
@@ -6021,9 +6190,9 @@ function _examSelect(idx, btn) {
 
   document.querySelectorAll('#exam-options .exam-option').forEach((o,i) => {
     o.disabled = true;
-    if (i===idx) o.classList.add(isCorrect?'correct':'wrong');
+    if (i===idx) o.classList.add(isCorrect?'option--correct':'option--wrong');
     const oText = q.options[i].replace(/^[A-DF]\.\s*/,'').trim().toLowerCase();
-    if (!isCorrect && oText === q.answer.replace(/^[A-DF]\.\s*/,'').trim().toLowerCase()) o.classList.add('correct');
+    if (!isCorrect && oText === q.answer.replace(/^[A-DF]\.\s*/,'').trim().toLowerCase()) o.classList.add('option--correct');
   });
   _examShowFeedback(isCorrect, q.explanation);
   document.getElementById('exam-next-btn').disabled = false;
@@ -6752,6 +6921,13 @@ window.examShowHistory     = examShowHistory;
 window.examHideHistory     = examHideHistory;
 window.examClearHistory    = examClearHistory;
 window._examGetWeakContext = _examGetWeakContext;
+
+// Expose template/sections functions for inline handlers in dynamically rendered HTML
+window.examSelectTemplate  = examSelectTemplate;
+window.examSectionDelete   = examSectionDelete;
+window.examSectionAdd      = examSectionAdd;
+window.examSectionAddType  = examSectionAddType;
+window._examSectionEdit    = _examSectionEdit;
 
 // Expose mutable exam source state so ExamScreen.js module can write to them
 Object.defineProperty(window, '_examSourceText',  { get: () => _examSourceText,  set: v => { _examSourceText  = v; }, configurable: true });
