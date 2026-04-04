@@ -5979,8 +5979,8 @@ function _examRenderQuestion() {
       btn.disabled = true;
       const correctText = q.answer.replace(/^[A-DF]\.\s*/,'').trim().toLowerCase();
       const optText = opt.replace(/^[A-DF]\.\s*/,'').trim().toLowerCase();
-      if (i === prev.selected) btn.classList.add(prev.correct ? 'correct' : 'wrong');
-      if (!prev.correct && optText === correctText) btn.classList.add('correct');
+      if (i === prev.selected) btn.classList.add(prev.correct ? 'option--correct' : 'option--wrong');
+      if (!prev.correct && optText === correctText) btn.classList.add('option--correct');
     }
     optEl.appendChild(btn);
   });
@@ -6021,9 +6021,9 @@ function _examSelect(idx, btn) {
 
   document.querySelectorAll('#exam-options .exam-option').forEach((o,i) => {
     o.disabled = true;
-    if (i===idx) o.classList.add(isCorrect?'correct':'wrong');
+    if (i===idx) o.classList.add(isCorrect?'option--correct':'option--wrong');
     const oText = q.options[i].replace(/^[A-DF]\.\s*/,'').trim().toLowerCase();
-    if (!isCorrect && oText === q.answer.replace(/^[A-DF]\.\s*/,'').trim().toLowerCase()) o.classList.add('correct');
+    if (!isCorrect && oText === q.answer.replace(/^[A-DF]\.\s*/,'').trim().toLowerCase()) o.classList.add('option--correct');
   });
   _examShowFeedback(isCorrect, q.explanation);
   document.getElementById('exam-next-btn').disabled = false;
