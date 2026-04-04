@@ -16,7 +16,9 @@
  */
 
 // ── Cache names ───────────────────────────────────────────────────────────
-const STATIC_CACHE  = 'chunks-static-v1';
+// Bump the version suffix whenever app assets change so the activate handler
+// deletes the old cache and the browser fetches fresh files.
+const STATIC_CACHE  = 'chunks-static-v2';
 const PDF_CACHE     = 'chunks-pdf-v1';         // shared with books.js
 const KNOWN_CACHES  = new Set([STATIC_CACHE, PDF_CACHE]);
 
@@ -97,29 +99,41 @@ self.addEventListener('fetch', event => {
   }
 });
 
+// Regex that matches only content-hashed Vite asset filenames (immutable).
+// Files without a hash token (e.g. Vite dev-server paths) always go to network.
+const _HASHED_ASSET_RE = /\/assets\/[^/]+-[A-Za-z0-9_-]{8,}\.(js|css)(\?.*)?$/;
+
 // ── Strategy: cache-first (immutable hashed assets & PDFs) ────────────────
+// Only serve from cache when the filename contains a content hash (8+ hex/base64
+// chars between dashes), which guarantees immutability.  Non-hashed paths (e.g.
+// the Vite dev server, or any file served at a stable URL) fall through to the
+// network so stale code is never returned after a code change.
 async function _cacheFirst(request, cacheName) {
-  const cached = await caches.match(request);
+  const isHashed = _HASHED_ASSET_RE.test(request.url);
+  const cached = isHashed ? await caches.match(request) : null;
   if (cached) return cached;
   try {
     const response = await fetch(request);
-    if (response.ok) {
+    if (response.ok && isHashed) {
       const cache = await caches.open(cacheName);
       cache.put(request, response.clone());
     }
     return response;
   } catch (_) {
-    // Offline and not cached — return a basic offline response
-    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
+    // Offline — return cached copy if available, otherwise a basic offline response
+    return (isHashed && await caches.match(request)) ||
+           new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
   }
 }
 
 // ── Strategy: network-first (navigation / HTML) ──────────────────────────
 async function _networkFirst(request, cacheName, preloadResponse) {
   try {
-    // Use Navigation Preload response when available (started during SW boot)
-    const response = await (preloadResponse || fetch(request));
-    if (response.ok) {
+    // Use Navigation Preload response when available (started during SW boot).
+    // preloadResponse may be a Promise that resolves to undefined if the
+    // preload was not fulfilled, so always fall back to a real fetch in that case.
+    const response = (preloadResponse ? await preloadResponse : null) || await fetch(request);
+    if (response && response.ok) {
       const cache = await caches.open(cacheName);
       cache.put(request, response.clone());
     }
