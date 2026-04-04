@@ -4856,7 +4856,7 @@ function examSelectTemplate(id) {
   const tpl = EXAM_TEMPLATES[id];
   if (!tpl) return;
 
-  _examSections = tpl.sections.map(s => ({ ...s })); // deep copy
+  _examSections = tpl.sections.map(s => ({ ...s })); // shallow copy of flat objects (no nested refs)
 
   const hasSections = _examSections.length > 0 || id === 'custom';
   const sectionsWrap = document.getElementById('exam-sections-wrap');
@@ -4898,9 +4898,9 @@ function _examSectionsRender() {
           `<div class="exam-section-type-desc">${info.desc}</div>` +
         `</div>` +
       `</div>` +
-      `<input class="exam-section-count-inp" type="number" min="1" max="300" value="${sec.count}" oninput="_examSectionEdit(${idx},'count',this.value)">` +
-      `<input class="exam-section-pts-inp" type="number" min="1" max="100" value="${sec.pts}" oninput="_examSectionEdit(${idx},'pts',this.value)">` +
-      `<div class="exam-section-subtotal" id="sec-sub-${idx}">${sec.count * sec.pts} pts</div>` +
+      `<input class="exam-section-count-inp" type="number" min="1" max="300" value="${parseInt(sec.count)}" oninput="_examSectionEdit(${idx},'count',this.value)">` +
+      `<input class="exam-section-pts-inp" type="number" min="1" max="100" value="${parseInt(sec.pts)}" oninput="_examSectionEdit(${idx},'pts',this.value)">` +
+      `<div class="exam-section-subtotal" id="sec-sub-${idx}">${parseInt(sec.count) * parseInt(sec.pts)} pts</div>` +
       `<button class="exam-section-del" onclick="examSectionDelete(${idx})" title="Remove">\u00d7</button>`;
     body.appendChild(row);
   });
@@ -4922,10 +4922,13 @@ function _examSectionEdit(idx, field, value) {
   _examSummaryUpdate();
 }
 
+const _EXAM_MINS_PER_Q       = 1.5; // estimated minutes per question
+const _EXAM_DUR_ROUNDING     = 5;   // round est. duration to nearest N minutes
+
 function _examSummaryUpdate() {
   const totalQ   = _examSections.reduce((s, x) => s + (parseInt(x.count) || 0), 0);
   const totalPts = _examSections.reduce((s, x) => s + ((parseInt(x.count) || 0) * (parseInt(x.pts) || 0)), 0);
-  const estMin   = totalQ > 0 ? Math.max(5, Math.round(totalQ * 1.5 / 5) * 5) : 0;
+  const estMin   = totalQ > 0 ? Math.max(_EXAM_DUR_ROUNDING, Math.round(totalQ * _EXAM_MINS_PER_Q / _EXAM_DUR_ROUNDING) * _EXAM_DUR_ROUNDING) : 0;
 
   const el = id => document.getElementById(id);
   if (el('sum-sections'))  el('sum-sections').textContent  = _examSections.length;
