@@ -1069,7 +1069,8 @@ export function homeFeedback(btn, type) {
 export async function _homeRegenerate(aiWrapEl) {
   if (homeIsTyping) return;
   const histIdx = parseInt(aiWrapEl?.dataset.histIdx ?? '-1');
-  const question = (histIdx > 0 ? homeHistory[histIdx - 1]?.content : null) || '';
+  const prevMsg = histIdx > 0 ? homeHistory[histIdx - 1] : null;
+  const question = (prevMsg?.role === 'user' ? prevMsg.content : null) || '';
   if (!question) return;
 
   aiWrapEl.remove();
