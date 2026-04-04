@@ -120,7 +120,7 @@ window.trapFocus = trapFocus;
 
 // ── State · Navigation ───────────────────────────────────────────────────────
 import {
-  showScreen, drawerNav, mobileNav,
+  showScreen, drawerNav, mobileNav, setNavFromHistory,
   toggleSidebar, handleLogoClick,
   openMobileDrawer, closeMobileDrawer,
 } from './state/navigation/index.js';
@@ -128,6 +128,7 @@ import {
 window.showScreen        = showScreen;
 window.drawerNav         = drawerNav;
 window.mobileNav         = mobileNav;
+window.setNavFromHistory = setNavFromHistory;
 window.toggleSidebar     = toggleSidebar;
 window.handleLogoClick   = handleLogoClick;
 window.openMobileDrawer  = openMobileDrawer;

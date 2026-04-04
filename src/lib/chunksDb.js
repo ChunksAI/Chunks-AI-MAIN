@@ -425,8 +425,21 @@ const chat = {
 
     if (error || !data?.length) return { data: [], error: error || null };
 
-    console.log('[ChunksDB] getSessionByBook — loaded chats for book', bookId, ':', data.length, 'messages');
-    return { data, error: null };
+    // Deduplicate: earlier code inserted the full history on every save, which
+    // created multiple copies of older messages in the table.  Keep only the
+    // first occurrence of each (role, content) pair in chronological order so
+    // the restored history reflects the true conversation sequence.
+    const seen = new Set();
+    const deduped = data.filter(m => {
+      const key = m.role + '\x00' + m.content;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    console.log('[ChunksDB] getSessionByBook — loaded chats for book', bookId, ':',
+      data.length, 'rows →', deduped.length, 'unique messages');
+    return { data: deduped, error: null };
   },
 
   /**
@@ -1501,8 +1514,16 @@ const messages = {
     if (!isLoggedIn() || !sessionId) return { data: null, source: 'local' };
     const { data, error } = await this.fetchMessages({ sessionId });
     if (!error && data?.length) {
-      console.log(`[ChunksDB] messages.loadSession — ${data.length} msgs from Supabase for ${sessionId}`);
-      return { data, source: 'supabase' };
+      // Deduplicate in case older code inserted the full history on every save.
+      const seen = new Set();
+      const deduped = data.filter(m => {
+        const key = m.role + '\x00' + m.content;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      console.log(`[ChunksDB] messages.loadSession — ${data.length} rows → ${deduped.length} unique msgs from Supabase for ${sessionId}`);
+      return { data: deduped, source: 'supabase' };
     }
     console.log(`[ChunksDB] messages.loadSession — fallback to localStorage for ${sessionId}`);
     return { data: null, source: 'local' };
