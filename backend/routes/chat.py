@@ -25,6 +25,17 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Deep Think mode system instruction used by both home and workspace /ask
+# flows. This must remain a system-level prompt (not user-appended) so deep
+# responses are consistently prioritized over concise defaults.
+DEEP_THINK_SYSTEM_PROMPT = (
+    "You are a thorough and detailed study assistant. Always give comprehensive, "
+    "well-structured answers. Include: a clear definition, key components or concepts, "
+    "how it works step by step, real-life examples, and a summary. Use headers, bullet "
+    "points, and organized sections. Never give short or vague answers when Deep Think "
+    "is enabled."
+)
+
 
 def _strip_code_fences(text: str) -> str:
     """Remove markdown code fences the model may have emitted despite instructions.
@@ -238,11 +249,7 @@ def ask(request: Request, body: AskRequest):
 
         def _response_style_instruction(_thinking_mode):
             if _thinking_mode == 'deep':
-                return (
-                    "Give detailed, thorough, and well-structured answers. Include definitions, "
-                    "components, how it works, real-life examples, and a summary. Use headers and "
-                    "organized formatting."
-                )
+                return DEEP_THINK_SYSTEM_PROMPT
             if _thinking_mode == 'thinking':
                 return (
                     "Give balanced, well-reasoned answers. Include key concepts and brief "
