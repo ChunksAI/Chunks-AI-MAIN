@@ -5036,33 +5036,26 @@ function _examSummaryUpdate() {
 
 function examSectionDelete(idx) {
   if (_examSections.length <= 1) return; // minimum 1 section
-  // Animate the row out before removing
   const rows = document.querySelectorAll('.exam-section-row');
   const row  = rows[idx];
+  const doRemove = () => {
+    _examSections.splice(idx, 1);
+    _examSectionsRender();
+  };
   if (row) {
+    // Animate out then remove
     row.style.transition = 'opacity 0.18s, max-height 0.22s ease, padding 0.22s ease';
     row.style.maxHeight  = row.scrollHeight + 'px';
     row.style.overflow   = 'hidden';
     requestAnimationFrame(() => {
-      row.style.opacity   = '0';
-      row.style.maxHeight = '0';
-      row.style.paddingTop = '0';
-      row.style.paddingBottom = '0';
+      row.style.opacity        = '0';
+      row.style.maxHeight      = '0';
+      row.style.paddingTop     = '0';
+      row.style.paddingBottom  = '0';
     });
-    setTimeout(() => {
-      _examSections.splice(idx, 1);
-      _examSectionsRender();
-    }, 230);
-    return;
-  }
-  _examSections.splice(idx, 1);
-  _examSectionsRender();
-  // If all sections removed while on custom, restore count/type pickers
-  if (_examSections.length === 0 && _examActiveTemplate === 'custom') {
-    const countField = document.getElementById('exam-count-field');
-    const typeField  = document.getElementById('exam-type-field');
-    if (countField) countField.style.display = '';
-    if (typeField)  typeField.style.display  = '';
+    setTimeout(doRemove, 230);
+  } else {
+    doRemove();
   }
 }
 
@@ -5897,7 +5890,7 @@ async function examStart() {
   const useSections = _examSections.length > 0;
   const count   = useSections
     ? _examSections.reduce((s, x) => s + (parseInt(x.count) || 0), 0)
-    : (parseInt(document.getElementById('exam-count-input').value) || 10);
+    : (parseInt(document.getElementById('exam-count-input')?.value) || 10);
   const timeSec = parseInt(document.getElementById('exam-time-input').value) || 0;
   _examTopic    = topic || _examSourceLabel || 'Uploaded document';
   _examTimerSec = timeSec;

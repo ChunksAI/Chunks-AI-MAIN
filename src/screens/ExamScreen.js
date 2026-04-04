@@ -303,9 +303,6 @@ const EXAM_HTML = /* html */`
             <div class="ewiz-change-tpl">
               <button onclick="ewizBack()">← Change template</button>
             </div>
-
-            <!-- Hidden fallback count input (used by examStart when no sections) -->
-            <input type="hidden" id="exam-count-input" value="10">
           </div><!-- /ewiz-step-3 -->
 
         </div><!-- /ewiz-wrap -->
