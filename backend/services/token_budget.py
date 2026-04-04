@@ -33,7 +33,10 @@ _redis = None
 
 ENDPOINT_MAX_TOKENS: dict[str, int] = {
     # /ask  (default study mode)
-    'chat':             6_000,
+    # Ceiling raised to 12 000 to accommodate Deep Think mode (10 000 tokens)
+    # and Think mode (3 000 tokens) which must fit the reasoning chain plus
+    # the final answer within the same budget.
+    'chat':            12_000,
     'chat_exam':       10_000,
     'chat_visual':      4_000,
     'chat_practice':    6_000,

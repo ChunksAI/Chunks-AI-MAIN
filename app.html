@@ -827,17 +827,50 @@ function _clickRecent(item) {
         document.getElementById('home-ask-input-bottom')?.focus();
       }, 60);
     } else {
-      // No saved session — pre-fill input to let user send fresh
+      // No local history — set up UI then try to load messages from Supabase.
+      // This handles sessions whose history was cleared by pullAndApply() because
+      // messages now live in the Supabase messages table rather than in the session
+      // metadata blob.
       if (landing) landing.style.display = 'none';
       if (hero) hero.style.display = 'none';
       if (bar) bar.style.display = 'flex';
       if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
       _homeSessionId = item.id;
       window._homeSessionId = item.id;
-      setTimeout(() => {
-        const bi = document.getElementById('home-ask-input-bottom');
-        if (bi) { bi.value = item.question; bi.focus(); homeAutoResize(bi); }
-      }, 80);
+
+      const sessionUuid = session?.supabaseId || item.uuid || null;
+      if (sessionUuid && window.ChunksDB?.isLoggedIn?.()) {
+        // Show a subtle loading indicator while fetching
+        if (chatHistory) chatHistory.innerHTML = '<div class="hc-session-loading">Loading conversation…</div>';
+        (async () => {
+          const { data: remoteMessages } = (await window.ChunksDB.messages.loadSession(sessionUuid)) ?? {};
+          if (remoteMessages?.length) {
+            const remoteSession = { id: item.id, supabaseId: sessionUuid, history: remoteMessages };
+            // Cache locally so subsequent clicks are instant
+            window._lsSet?.('chunks_session_' + item.id, remoteSession);
+            if (typeof window._homeMountSession === 'function') {
+              window._homeMountSession(remoteSession, item.id);
+            } else {
+              setTimeout(() => {
+                if (typeof window._homeMountSession === 'function') {
+                  window._homeMountSession(remoteSession, item.id);
+                }
+              }, 200);
+            }
+            homeHistory = remoteMessages;
+            setTimeout(() => {
+              homeScrollBottom();
+              document.getElementById('home-ask-input-bottom')?.focus();
+            }, 60);
+          } else {
+            // Nothing found in Supabase either — show inline notice
+            if (chatHistory) chatHistory.innerHTML = '<div class="hc-session-unavailable">Session no longer available</div>';
+          }
+        })();
+      } else {
+        // Guest or no UUID — session data is gone
+        if (chatHistory) chatHistory.innerHTML = '<div class="hc-session-unavailable">Session no longer available</div>';
+      }
     }
   } else {
     // Workspace / book question — restore saved session, never re-send
@@ -902,9 +935,9 @@ function _clickRecent(item) {
           document.getElementById('ws-chat-input')?.focus();
         }, 80);
       } else {
-        // No saved session found — pre-fill input so user can re-ask
-        wsSetInput(item.question);
-        setTimeout(() => document.getElementById('ws-chat-input')?.focus(), 80);
+        // No saved session found anywhere — show inline notice
+        const msgs = document.getElementById('ws-messages');
+        if (msgs) msgs.innerHTML = '<div class="ws-session-unavailable">Session no longer available</div>';
       }
     };
 
