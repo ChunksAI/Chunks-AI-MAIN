@@ -6019,7 +6019,7 @@ function examOpenEndedInput(el) {
 
 function _examMd(text) {
   if (!text) return '';
-  if (typeof homeMarkdown !== 'function') return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  if (typeof homeMarkdown !== 'function') return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   return sanitize(homeMarkdown(String(text)));
 }
 function _examMdInline(text) {
@@ -6150,8 +6150,14 @@ function _examRenderQuestion() {
     const letter = q.options.length === 2 ? (i===0?'T':'F') : letters[i];
     const btn = document.createElement('button');
     btn.className = 'exam-option';
-    btn.innerHTML = '<span class="opt-letter">'+letter+'</span><span class="opt-text"></span>';
-    btn.querySelector('.opt-text').innerHTML = _examMdInline(opt.replace(/^[A-DF]\.\s*/,''));
+    const letterSpan = document.createElement('span');
+    letterSpan.className = 'opt-letter';
+    letterSpan.textContent = letter;
+    const textSpan = document.createElement('span');
+    textSpan.className = 'opt-text';
+    textSpan.innerHTML = _examMdInline(opt.replace(/^[A-DF]\.\s*/,''));
+    btn.appendChild(letterSpan);
+    btn.appendChild(textSpan);
     btn.addEventListener('click', () => _examSelect(i, btn));
     const prev = _examAnswers[_examIdx];
     if (prev !== null) {
