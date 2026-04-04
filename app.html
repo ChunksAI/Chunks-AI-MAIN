@@ -815,7 +815,7 @@ function _clickRecent(item) {
       if (typeof window._homeMountSession === 'function') {
         window._homeMountSession(session, item.id);
       } else {
-        // Rare: HomeScreen.js not yet ready — defer briefly.
+        // Rare: HomeScreen.js not yet ready — defer briefly to let module init settle.
         setTimeout(() => window._homeMountSession?.(session, item.id), 200);
       }
 
