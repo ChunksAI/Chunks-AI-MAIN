@@ -812,7 +812,12 @@ function _clickRecent(item) {
       // _homeMountSession is always available when a recent item is clicked (HomeScreen.js
       // has already initialised by this point).  Never inject raw HTML — it loses event
       // handlers when passed through DOMPurify.
-      window._homeMountSession(session, item.id);
+      if (typeof window._homeMountSession === 'function') {
+        window._homeMountSession(session, item.id);
+      } else {
+        // Rare: HomeScreen.js not yet ready — defer briefly.
+        setTimeout(() => window._homeMountSession?.(session, item.id), 200);
+      }
 
       homeHistory = history;
       _homeSessionId = item.id;
@@ -844,8 +849,27 @@ function _clickRecent(item) {
       if (window.ChunksDB?.isLoggedIn()) {
         const { data: freshHistory } = await window.ChunksDB.chat.getSessionByBook(item.bookId);
         if (freshHistory?.length) {
-          window._wsRenderHistory(document.getElementById('ws-messages'), freshHistory);
-          _wsChatHistory = freshHistory;
+          // Supabase only stores role+content — merge thinkContent/thinkDuration/blocks
+          // from the local session so ThinkingAccordions and source citations survive refresh.
+          const wsLocalSession = _loadWsSession(item.bookId);
+          const wsLocalHistory = wsLocalSession?.history || wsLocalSession?.messages || [];
+          const mergedHistory = wsLocalHistory.length ? freshHistory.map((m, idx) => {
+            if (m.role !== 'assistant') return m;
+            const byIndex = wsLocalHistory[idx];
+            const localMatch = (byIndex?.role === 'assistant')
+              ? byIndex
+              : wsLocalHistory.find(lm => lm.role === 'assistant' && lm.content === m.content);
+            if (!localMatch) return m;
+            const merged = { ...m };
+            if (localMatch.thinkContent) {
+              merged.thinkContent  = localMatch.thinkContent;
+              merged.thinkDuration = localMatch.thinkDuration ?? 0;
+            }
+            if (localMatch.blocks?.length) merged.blocks = localMatch.blocks;
+            return merged;
+          }) : freshHistory;
+          window._wsRenderHistory(document.getElementById('ws-messages'), mergedHistory);
+          _wsChatHistory = mergedHistory;
           localStorage.setItem('chunks_active_ws_book', item.bookId);
           window.ChunksDB?.ws?.savePosition?.(item.bookId, {});
           setTimeout(() => document.getElementById('ws-chat-input')?.focus(), 80);
