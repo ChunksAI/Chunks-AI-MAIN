@@ -26,6 +26,7 @@ OPENROUTER_API_KEY: str = ''
 OPENROUTER_URL: str = "https://openrouter.ai/api/v1/chat/completions"
 MAX_HISTORY_TURNS: int = 10
 MODEL: str = 'openai/gpt-oss-20b:nitroe'
+SYSTEM_PROMPT_PREVIEW_LENGTH: int = 300
 
 
 def init(session, openrouter_api_key: str, model: str,
@@ -216,6 +217,11 @@ def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=No
             "temperature": 0.15,
             "max_tokens": effective_max_tokens,
         }
+        _system_preview = (system_prompt or "")[:SYSTEM_PROMPT_PREVIEW_LENGTH]
+        logger.info(
+            "[SYSTEM_PROMPT] len=%d | preview=%s",
+            len(system_prompt or ""), _system_preview,
+        )
         logger.info(
             "Model: %s | max_tokens: %d | endpoint: %s | history: %d turns",
             use_model, effective_max_tokens, endpoint,
