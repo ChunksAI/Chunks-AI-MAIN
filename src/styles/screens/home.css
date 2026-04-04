@@ -573,108 +573,193 @@
 }
 .ra-card-btn:hover { color: var(--text-1); }
 
-/* ── Book card v2: cover thumbnail ───────────────────────── */
-.ra-card-book-v2 {
+/* ── PDF preview card (book) ─────────────────────────────── */
+.ra-card-pdf-preview {
   padding: 0;
   gap: 0;
   overflow: hidden;
+  border-radius: var(--r-lg);
 }
-.ra-book-thumb-wrap {
+.ra-pdf-preview-thumb {
   position: relative;
   width: 100%;
-  aspect-ratio: 2 / 2.8;
+  aspect-ratio: 3 / 4;
   background: var(--surface-3);
   overflow: hidden;
   flex-shrink: 0;
+}
+.ra-pdf-thumb-placeholder {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: linear-gradient(145deg, #1a1c28 0%, var(--surface-3) 100%);
 }
-.ra-book-thumb-img {
+.ra-pdf-thumb-initial {
+  font-size: 42px;
+  font-weight: 800;
+  color: var(--text-4);
+  opacity: 0.4;
+  line-height: 1;
+  font-family: var(--font-body);
+}
+.ra-pdf-canvas {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.35s ease;
+  animation: ra-thumb-fade 0.3s ease;
 }
-.ra-card-book-v2:hover .ra-book-thumb-img {
-  transform: scale(1.04);
+@keyframes ra-thumb-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
-.ra-book-thumb-fallback {
-  width: 100%;
-  height: 100%;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(145deg, var(--gold-muted), var(--surface-3));
-  display: none;
-}
-.ra-book-thumb-overlay {
+.ra-pdf-page-badge {
   position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    transparent 50%,
-    rgba(0,0,0,0.45) 100%
-  );
-  pointer-events: none;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.62);
+  color: rgba(255,255,255,0.82);
+  font-size: 9.5px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  backdrop-filter: blur(4px);
 }
-.ra-book-info {
-  padding: 12px 14px 14px;
+.ra-card-pdf-preview:hover .ra-pdf-page-badge { opacity: 1; }
+.ra-pdf-footer {
+  padding: 10px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 7px;
+  border-top: 1px solid var(--border-xs);
+}
+.ra-pdf-footer-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
   min-width: 0;
 }
-.ra-book-title {
-  font-size: 13px;
-  font-weight: 700;
+.ra-pdf-menu-icon {
+  color: var(--text-4);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.ra-pdf-footer-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.ra-pdf-filename {
+  font-size: 12.5px;
+  font-weight: 600;
   color: var(--text-1);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.3;
 }
-.ra-book-loc {
+.ra-pdf-time {
   font-size: 11px;
-  color: var(--text-3);
-  line-height: 1.4;
+  color: var(--text-4);
 }
-.ra-book-prog-row {
+.ra-pdf-prog-wrap {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-top: 2px;
 }
-.ra-book-prog-bar {
+.ra-pdf-prog-bar {
   flex: 1;
   height: 3px;
   background: var(--border-xs);
   border-radius: 99px;
   overflow: hidden;
 }
-.ra-book-prog-fill {
+.ra-pdf-prog-fill {
   height: 100%;
   border-radius: 99px;
   transition: width 0.5s ease;
 }
-.ra-book-prog-label {
-  font-size: 10.5px;
+.ra-pdf-prog-pct {
+  font-size: 10px;
   color: var(--text-4);
   flex-shrink: 0;
-  white-space: nowrap;
 }
-.ra-book-cta {
-  padding-top: 4px;
-  margin-top: 2px;
-  font-size: 11.5px;
-  letter-spacing: 0.01em;
+[data-theme="study"] .ra-pdf-preview-thumb {
+  background: #e4e5ec;
 }
-/* light theme adjustments */
-[data-theme="study"] .ra-book-thumb-wrap {
-  background: #e8e9ef;
+[data-theme="study"] .ra-pdf-thumb-placeholder {
+  background: linear-gradient(145deg, #d8d9e8 0%, #e4e5ec 100%);
 }
-[data-theme="study"] .ra-book-thumb-overlay {
-  background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.25) 100%);
+[data-theme="study"] .ra-pdf-footer {
+  border-top-color: rgba(0,0,0,0.06);
+}
+
+/* ── Plan / Flash card v2 hero banner ────────────────────── */
+.ra-card-v2 {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.ra-v2-hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 2.8;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.ra-v2-hero--plan {
+  background: linear-gradient(145deg, #2d1f6e 0%, #1a1530 60%, var(--surface-3) 100%);
+}
+.ra-v2-hero--flash {
+  background: linear-gradient(145deg, #0f3b38 0%, #112a2a 60%, var(--surface-3) 100%);
+}
+.ra-v2-hero-icon {
+  font-size: 34px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 8px rgba(0,0,0,0.4));
+}
+.ra-v2-hero-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  background: rgba(255,255,255,0.08);
+  color: var(--text-3);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+.ra-card-v2:hover .ra-v2-hero-icon {
+  animation: ra-icon-bounce 0.4s var(--ease-spring);
+}
+@keyframes ra-icon-bounce {
+  0%   { transform: translateY(0); }
+  40%  { transform: translateY(-6px); }
+  70%  { transform: translateY(2px); }
+  100% { transform: translateY(0); }
+}
+[data-theme="study"] .ra-v2-hero--plan {
+  background: linear-gradient(145deg, #d8d0ff 0%, #eae8ff 60%, #f0eff8 100%);
+}
+[data-theme="study"] .ra-v2-hero--flash {
+  background: linear-gradient(145deg, #b2f0eb 0%, #d9f8f5 60%, #edfaf9 100%);
+}
+[data-theme="study"] .ra-v2-hero-badge {
+  background: rgba(0,0,0,0.06);
+  color: #555;
+  border-color: rgba(0,0,0,0.08);
 }
 
 /* ── Rich attach menu ───────────────────────────────────── */
