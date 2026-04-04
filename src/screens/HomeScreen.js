@@ -328,6 +328,10 @@ export let homeHistory   = [];
 export let _homeSessionId = null;
 let homeIsTyping = false;
 let _homeLastInputTime = 0;
+// Tracks the last time the user NAVIGATED to a history session (distinct from
+// _homeLastInputTime which only fires on message send).  Used by _onSessionsReady
+// to avoid overwriting the session the user just selected.
+let _homeLastNavTime = 0;
 let _thinkStart = 0;  // timestamp (ms) when AI thinking began — for elapsed time display
 let _homeAbortController = null;
 
@@ -1633,11 +1637,16 @@ let _sessionsReadyLastFired = 0;
 window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
   console.log('[HomeScreen] chunks:sessions-ready fired, homeHistory.length=', homeHistory.length);
 
-  // Only block if the user actively TYPED something in the last 2 minutes.
+  // Only block if the user actively TYPED something in the last 2 minutes OR
+  // explicitly navigated to a history session in the last 30 seconds.
   // _homeSessionId being set just means a session was restored — that's fine
   // to override with a newer remote session. Only a live in-progress conversation
-  // (user typed recently) should block the remote session from loading.
-  const userIsLive = _homeSessionId && (Date.now() - (_homeLastInputTime || 0)) < 120_000;
+  // (user typed recently) or a recent history navigation should block the remote
+  // session from overwriting what the user intentionally selected.
+  const userIsLive = _homeSessionId && (
+    (Date.now() - (_homeLastInputTime || 0)) < 120_000 ||
+    (Date.now() - (_homeLastNavTime   || 0)) <  30_000
+  );
   if (userIsLive) return;
 
   // Debounce: TOKEN_REFRESHED triggers a second pullAll shortly after the first,
@@ -1789,6 +1798,9 @@ Object.defineProperty(window, '_homeSessionId', {
   },
   configurable: true,
 });
+
+/** Called by _clickRecent in app.html when the user selects a history session. */
+window._homeMarkNavTime = function() { _homeLastNavTime = Date.now(); };
 
 // ── Guest mode banner ─────────────────────────────────────────────────────────
 // Show a subtle "Sign in to save your chats" notice when running as guest.
