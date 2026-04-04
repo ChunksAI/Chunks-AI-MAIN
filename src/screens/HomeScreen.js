@@ -595,7 +595,7 @@ export function _renderHomeActivities() {
       const meta = (window.wsBookMeta || {})[bookId];
       if (prog.lastPage) {
         const pct = prog.totalPages ? Math.min(100, Math.round((prog.lastPage / prog.totalPages) * 100)) : 0;
-        lastBook = { bookId, title: meta?.name || bookId, lastPage: prog.lastPage, totalPages: prog.totalPages || 0, pct };
+        lastBook = { bookId, title: meta?.name || bookId, lastPage: prog.lastPage, totalPages: prog.totalPages || 0, pct, lastOpened: prog.lastOpened || null };
       }
     }
   } catch (_) {}
@@ -662,52 +662,77 @@ export function _renderHomeActivities() {
   let richCards = '';
 
   if (lastBook) {
-    const coverUrl = `/covers/${lastBook.bookId}.jpg`;
+    const timeAgo = _timeAgo(lastBook.lastOpened);
     const pctColor = _barColor(lastBook.pct);
     richCards += `
-      <div class="ra-card book ra-card-book-v2" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
-        <div class="ra-book-thumb-wrap">
-          <img class="ra-book-thumb-img" src="${_esc(coverUrl)}" alt=""
-               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-          <div class="ra-book-thumb-fallback" style="display:none">
-            <span style="font-size:28px">📚</span>
+      <div class="ra-card book ra-card-pdf-preview" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
+        <div class="ra-pdf-preview-thumb" id="ra-thumb-${_esc(lastBook.bookId)}">
+          <canvas class="ra-pdf-canvas" style="display:none"></canvas>
+          <div class="ra-pdf-thumb-placeholder">
+            <span class="ra-pdf-thumb-initial">${_esc((lastBook.title || '?')[0].toUpperCase())}</span>
           </div>
-          <div class="ra-book-thumb-overlay"></div>
+          <div class="ra-pdf-page-badge">Page ${lastBook.lastPage}</div>
         </div>
-        <div class="ra-book-info">
-          <div class="ra-book-title">${_esc(lastBook.title)}</div>
-          <div class="ra-book-loc">📍 Last opened: Page ${lastBook.lastPage}</div>
-          <div class="ra-book-prog-row">
-            <div class="ra-book-prog-bar">
-              <div class="ra-book-prog-fill" style="width:${lastBook.pct}%;background:${pctColor}"></div>
+        <div class="ra-pdf-footer">
+          <div class="ra-pdf-footer-left">
+            <svg class="ra-pdf-menu-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="15" y2="18"/></svg>
+            <div class="ra-pdf-footer-text">
+              <div class="ra-pdf-filename">${_esc(lastBook.title)}</div>
+              <div class="ra-pdf-time">${_esc(timeAgo)}</div>
             </div>
-            <span class="ra-book-prog-label">📊 ${lastBook.pct}%</span>
           </div>
-          <button class="ra-card-btn ra-book-cta">Continue Studying →</button>
+          <div class="ra-pdf-prog-wrap">
+            <div class="ra-pdf-prog-bar">
+              <div class="ra-pdf-prog-fill" style="width:${lastBook.pct}%;background:${pctColor}"></div>
+            </div>
+            <span class="ra-pdf-prog-pct">${lastBook.pct}%</span>
+          </div>
         </div>
       </div>`;
   }
 
   if (lastPlan) {
+    const planPctColor = _barColor(lastPlan.barPct);
     richCards += `
-      <div class="ra-card plan" data-ra-action="plan" data-ra-id="${_esc(lastPlan.planId)}">
-        <div class="qc-icon violet">📋</div>
-        <div class="qc-title">${_esc(lastPlan.topic)}</div>
-        <div class="qc-desc">Study Plan · ${lastPlan.barPct}% mastered</div>
-        <button class="ra-card-btn">Resume →</button>
+      <div class="ra-card plan ra-card-v2" data-ra-action="plan" data-ra-id="${_esc(lastPlan.planId)}">
+        <div class="ra-v2-hero ra-v2-hero--plan">
+          <div class="ra-v2-hero-icon">📋</div>
+          <div class="ra-v2-hero-badge">Study Plan</div>
+        </div>
+        <div class="ra-book-info">
+          <div class="ra-book-title">${_esc(lastPlan.topic)}</div>
+          <div class="ra-book-loc">📍 Mastery progress</div>
+          <div class="ra-book-prog-row">
+            <div class="ra-book-prog-bar">
+              <div class="ra-book-prog-fill" style="width:${lastPlan.barPct}%;background:${planPctColor}"></div>
+            </div>
+            <span class="ra-book-prog-label">📊 ${lastPlan.barPct}%</span>
+          </div>
+          <button class="ra-card-btn ra-book-cta" style="color:var(--violet)">Resume →</button>
+        </div>
       </div>`;
   }
 
   if (lastDeck) {
-    const deckMeta = lastDeck.cardCount
-      ? `${lastDeck.cardCount} cards · ${lastDeck.pct}% mastered`
-      : `Flashcards · ${lastDeck.pct}% mastered`;
+    const deckPctColor = _barColor(lastDeck.pct);
+    const deckSub = lastDeck.cardCount ? `${lastDeck.cardCount} cards` : 'Flashcards';
     richCards += `
-      <div class="ra-card flash" data-ra-action="flash" data-ra-id="${_esc(lastDeck.deckId)}">
-        <div class="qc-icon teal">🃏</div>
-        <div class="qc-title">${_esc(lastDeck.name)}</div>
-        <div class="qc-desc">${_esc(deckMeta)}</div>
-        <button class="ra-card-btn">Review →</button>
+      <div class="ra-card flash ra-card-v2" data-ra-action="flash" data-ra-id="${_esc(lastDeck.deckId)}">
+        <div class="ra-v2-hero ra-v2-hero--flash">
+          <div class="ra-v2-hero-icon">🃏</div>
+          <div class="ra-v2-hero-badge">${_esc(deckSub)}</div>
+        </div>
+        <div class="ra-book-info">
+          <div class="ra-book-title">${_esc(lastDeck.name)}</div>
+          <div class="ra-book-loc">📍 Cards mastered</div>
+          <div class="ra-book-prog-row">
+            <div class="ra-book-prog-bar">
+              <div class="ra-book-prog-fill" style="width:${lastDeck.pct}%;background:${deckPctColor}"></div>
+            </div>
+            <span class="ra-book-prog-label">📊 ${lastDeck.pct}%</span>
+          </div>
+          <button class="ra-card-btn ra-book-cta" style="color:var(--teal)">Review →</button>
+        </div>
       </div>`;
   }
 
@@ -731,6 +756,107 @@ export function _renderHomeActivities() {
       }
     });
   });
+
+  // Async: generate PDF first-page thumbnail for book card
+  if (lastBook) {
+    _injectPdfThumb(lastBook.bookId).catch(() => {});
+  }
+}
+
+// ── Time-ago helper ───────────────────────────────────────────────────────────
+function _timeAgo(isoString) {
+  if (!isoString) return '';
+  const diff  = Date.now() - new Date(isoString).getTime();
+  const mins  = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days  = Math.floor(diff / 86400000);
+  if (mins  < 2)   return 'Just now';
+  if (mins  < 60)  return `${mins} min ago`;
+  if (hours < 24)  return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  if (days  === 1) return '1 day ago';
+  if (days  < 7)   return `${days} days ago`;
+  if (days  < 30)  return `${Math.floor(days / 7)} week${days >= 14 ? 's' : ''} ago`;
+  return `${Math.floor(days / 30)} mo ago`;
+}
+
+// ── PDF first-page thumbnail generator ───────────────────────────────────────
+async function _injectPdfThumb(bookId) {
+  const wrap = document.getElementById(`ra-thumb-${bookId}`);
+  if (!wrap) return;
+
+  const SESS_KEY  = `ra_pdf_thumb_v1_${bookId}`;
+  const API_BASE  = window.API_BASE || 'https://api.chunks.online';
+  const CACHE_NAME = 'chunks-pdf-v1';
+  const pdfUrl     = `${API_BASE}/pdf/${bookId}`;
+
+  // 1. Fast path: cached data URL in sessionStorage
+  const cached = sessionStorage.getItem(SESS_KEY);
+  if (cached) { _applyThumb(wrap, cached); return; }
+
+  // 2. Try to get PDF bytes from Cache API (already downloaded)
+  let pdfData = null;
+  try {
+    if ('caches' in window) {
+      const cache  = await caches.open(CACHE_NAME);
+      const match  = await cache.match(pdfUrl);
+      if (match) pdfData = await match.arrayBuffer();
+    }
+  } catch (_) {}
+
+  if (!pdfData) return; // PDF not cached yet — leave placeholder
+
+  // 3. Load PDF.js and render page 1 to canvas
+  try {
+    let pdfjsLib = window.pdfjsLib;
+    if (!pdfjsLib) {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload = res; s.onerror = rej;
+        document.head.appendChild(s);
+      });
+      pdfjsLib = window.pdfjsLib;
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
+    const pdf      = await pdfjsLib.getDocument({ data: pdfData }).promise;
+    const page     = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 1 });
+    const thumbW   = 360;
+    const scale    = thumbW / viewport.width;
+    const vp       = page.getViewport({ scale });
+
+    const canvas = wrap.querySelector('.ra-pdf-canvas');
+    canvas.width  = vp.width;
+    canvas.height = vp.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+
+    // 4. Convert to JPEG and cache in sessionStorage
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+    try { sessionStorage.setItem(SESS_KEY, dataUrl); } catch (_) {}
+    _applyThumb(wrap, dataUrl);
+  } catch (_) {}
+}
+
+function _applyThumb(wrap, dataUrl) {
+  const canvas      = wrap.querySelector('.ra-pdf-canvas');
+  const placeholder = wrap.querySelector('.ra-pdf-thumb-placeholder');
+  const badge       = wrap.querySelector('.ra-pdf-page-badge');
+  if (canvas) {
+    if (dataUrl && !canvas.width) {
+      // dataUrl from sessionStorage — inject as img instead
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.className = 'ra-pdf-canvas';
+      img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+      canvas.replaceWith(img);
+    } else {
+      canvas.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+    }
+  }
+  if (placeholder) placeholder.style.display = 'none';
+  if (badge) badge.style.opacity = '1';
 }
 
 export function homeSetMode(mode) {
