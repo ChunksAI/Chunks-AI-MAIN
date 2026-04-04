@@ -7063,6 +7063,7 @@ function examAbort() { clearInterval(_examTimerHandle); if (_examAbortCtrl) { _e
    { [topic_key]: { [concept]: { misses: N, lastSeen: timestamp } } }
 ═══════════════════════════════════════════════════════════════ */
 const EXAM_SRS_KEY = 'exam_srs_v1';
+const EXAM_SRS_TOPIC_KEY_MAX = 40; // max chars for localStorage topic key
 
 function _examSrsLoad() {
   try { return JSON.parse(localStorage.getItem(EXAM_SRS_KEY) || '{}'); }
@@ -7072,7 +7073,7 @@ function _examSrsLoad() {
 /** Update miss counts after finishing an exam */
 function _examSrsUpdateWeights(wrongConcepts, topic) {
   if (!wrongConcepts || !wrongConcepts.length) return;
-  const topicKey = (topic || '').toLowerCase().trim().slice(0, 40);
+  const topicKey = (topic || '').toLowerCase().trim().slice(0, EXAM_SRS_TOPIC_KEY_MAX);
   const store = _examSrsLoad();
   if (!store[topicKey]) store[topicKey] = {};
   const now = Date.now();
@@ -7217,20 +7218,20 @@ function _examRenderScoreGraph(history) {
     `${xScale(scores.length - 1)},${PAD_T + graphH}`
   ].join(' ');
 
-  // Horizontal grid lines at 0, 60, 80, 100
-  const gridLines = [0, 60, 80, 100].map(v => {
+  // Horizontal grid lines at 0, pass threshold, 80, 100
+  const gridLines = [0, _EXAM_PASS_THRESHOLD, 80, 100].map(v => {
     const y = yScale(v);
-    const col = v === 60 ? 'rgba(232,172,46,0.25)' : 'rgba(255,255,255,0.06)';
-    return `<line x1="${PAD_L}" y1="${y}" x2="${W - PAD_R}" y2="${y}" stroke="${col}" stroke-width="1" stroke-dasharray="${v === 60 ? '4 3' : '0'}"/>
+    const col = v === _EXAM_PASS_THRESHOLD ? 'rgba(232,172,46,0.25)' : 'rgba(255,255,255,0.06)';
+    return `<line x1="${PAD_L}" y1="${y}" x2="${W - PAD_R}" y2="${y}" stroke="${col}" stroke-width="1" stroke-dasharray="${v === _EXAM_PASS_THRESHOLD ? '4 3' : '0'}"/>
       <text x="${PAD_L - 4}" y="${y + 4}" text-anchor="end" font-size="9" fill="rgba(255,255,255,0.3)">${v}</text>`;
   }).join('');
 
   // Clickable data points
   const dots = scores.map((s, i) => {
     const cx = xScale(i), cy = yScale(s);
-    const col = s >= 60 ? 'var(--teal)' : '#f87171';
+    const col = s >= _EXAM_PASS_THRESHOLD ? 'var(--teal)' : '#f87171';
     const entry = sorted[i];
-    const label = (entry.topic || '').slice(0, 28);
+    const label = (entry.topic || '').slice(0, _GRAPH_TOOLTIP_MAX_CHARS);
     const snapId = entry.timestamp;
     return `<circle cx="${cx}" cy="${cy}" r="4" fill="${col}" stroke="var(--surface-1)" stroke-width="2"
         style="cursor:pointer" onclick="_examGraphPointClick(${snapId})"
@@ -7288,7 +7289,9 @@ function _examGraphPointClick(snapId) {
 }
 
 /** Shows a compact modal with exam summary when a graph point is clicked */
-const _SUMMARY_MODAL_MAX_QS = 8; // max questions shown in the summary modal
+const _SUMMARY_MODAL_MAX_QUESTIONS = 8; // max questions shown in the summary modal
+const _GRAPH_TOOLTIP_MAX_CHARS = 28;    // max topic label length shown in graph dot tooltips
+const _EXAM_PASS_THRESHOLD = 60;        // minimum score % considered a passing grade (matches app-wide rule)
 
 /** Retakes an exam from a snapshot, closing the summary modal first */
 function _examRetakeFromSnapshot(snapId) {
@@ -7327,11 +7330,11 @@ function _examShowGraphSummaryModal(entry, snap) {
     document.body.appendChild(modal);
   }
   const pct = entry ? entry.score : 0;
-  const scoreCol = pct >= 60 ? 'var(--teal)' : '#f87171';
+  const scoreCol = pct >= _EXAM_PASS_THRESHOLD ? 'var(--teal)' : '#f87171';
   const qs = snap ? snap.questions : [];
   const ans = snap ? snap.answers : [];
 
-  const reviewHtml = qs.slice(0, _SUMMARY_MODAL_MAX_QS).map((q, i) => {
+  const reviewHtml = qs.slice(0, _SUMMARY_MODAL_MAX_QUESTIONS).map((q, i) => {
     const a = ans[i];
     const ok = a && a.correct;
     return `<div style="padding:8px 0;border-bottom:1px solid var(--border-xs);font-size:12px;">
@@ -7355,7 +7358,7 @@ function _examShowGraphSummaryModal(entry, snap) {
       ${ entry.isRetake ? '<span style="color:var(--gold);">↺ Retake</span>' : '' }
     </div>` : ''}
     ${reviewHtml ? `<div style="font-size:10px;font-weight:700;color:var(--text-4);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:8px;">Questions</div>${reviewHtml}` : ''}
-    ${qs.length > _SUMMARY_MODAL_MAX_QS ? `<div style="font-size:11px;color:var(--text-4);margin-top:8px;">…and ${qs.length - _SUMMARY_MODAL_MAX_QS} more</div>` : ''}
+    ${qs.length > _SUMMARY_MODAL_MAX_QUESTIONS ? `<div style="font-size:11px;color:var(--text-4);margin-top:8px;">…and ${qs.length - _SUMMARY_MODAL_MAX_QUESTIONS} more</div>` : ''}
     <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;">
       ${snap ? `<button onclick="_examRetakeFromSnapshot(${snapId})" style="padding:7px 16px;background:var(--gold);color:#1a1a1a;border:none;border-radius:var(--r-sm);font-size:12px;font-weight:600;cursor:pointer;">Retake</button>` : ''}
       <button onclick="document.getElementById('exam-graph-modal').remove()" style="padding:7px 16px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-sm);font-size:12px;color:var(--text-3);cursor:pointer;">Close</button>
