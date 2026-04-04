@@ -4798,6 +4798,7 @@ let _examStreakBest  = 0;
 let _examStreakCur   = 0;
 let _activeExamRecentId = null; // tracks sidebar entry for current exam session — retakes update it
 let _examAbortCtrl   = null;    // AbortController for in-flight exam API calls
+let _examIsRetake    = false;   // true when examRetry() triggered (same questions, reset answers)
 
 // ── Task 5: Adaptive difficulty ramp state ────────────────────────────────
 let _examAdaptiveDiff    = 'medium'; // current live difficulty level
@@ -5975,7 +5976,11 @@ async function examStart() {
     _examAnswers    = new Array(questions.length).fill(null);
     _examStreakBest = 0;
     _examStreakCur  = 0;
+    _examIsRetake   = false;
     _examStartTime  = Date.now();
+    // Auto-save generated exam so it can be retaken later
+    _examSaveGenerated();
+    _examRenderSavedExams();
     _examShow('exam-quiz');
     _examRenderQuestion();
     if (_isGuestMode()) window.guestRecordUsage?.('exam');
@@ -6470,8 +6475,12 @@ function _examFinish() {
     type:      _examType,
     diff:      _examDiff,
     timeTaken: mm+':'+ss,
-    wrongConcepts
+    wrongConcepts,
+    isRetake:  _examIsRetake,
   });
+
+  // ── Update SRS weight store (per-concept miss counts) ──────────────────────
+  _examSrsUpdateWeights(wrongConcepts, _examTopic);
 
   // ── Also persist to Supabase (per-user, cross-device) ─────────────────────
   // _examAnswers[i] = { selected: optionIndex, correct: bool, skipped: bool }
@@ -6722,6 +6731,7 @@ function examClearHistory() {
 function _examRenderHistory(history) {
   if (!history) history = _examHistoryLoad();
   _examRenderSummary(history);
+  _examRenderScoreGraph(history);
   _examRenderTopics(history);
   _examRenderTable(history);
 }
@@ -6988,19 +6998,341 @@ function examGoToChat() {
 }
 
 
+/**
+ * Retake the current exam — reuses the same set of questions (no AI call).
+ * Resets answers, index, streak, and timer; records it as a retake in history.
+ */
 function examRetry() {
-  const topicEl = document.getElementById('exam-topic-input');
-  if (topicEl) topicEl.value = _examTopic;
-  document.querySelectorAll('#exam-type-grid .exam-type-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.type === _examType);
-  });
-  document.querySelectorAll('[data-diff]').forEach(b => {
-    b.classList.toggle('active', b.dataset.diff === _examDiff);
-  });
-  examStart();
+  if (!_examQuestions || !_examQuestions.length) {
+    // No questions in memory — fall back to re-generate
+    const topicEl = document.getElementById('exam-topic-input');
+    if (topicEl) topicEl.value = _examTopic;
+    examStart();
+    return;
+  }
+  clearInterval(_examTimerHandle);
+  _examAnswers    = new Array(_examQuestions.length).fill(null);
+  _examIdx        = 0;
+  _examStreakBest = 0;
+  _examStreakCur  = 0;
+  _examStartTime  = Date.now();
+  _examIsRetake   = true;
+  _examShow('exam-quiz');
+  _examRenderQuestion();
+  if (_examTimerSec > 0) _examStartTimer();
+  else { const td = document.getElementById('exam-timer-display'); if (td) td.style.display = 'none'; }
 }
 function examNewTopic() { _activeExamRecentId = null; document.getElementById('exam-topic-input').value = ''; _examShow('exam-setup'); }
 function examAbort() { clearInterval(_examTimerHandle); if (_examAbortCtrl) { _examAbortCtrl.abort(); _examAbortCtrl = null; } _examShow('exam-setup'); }
+
+/* ═══════════════════════════════════════════════════════════════
+   SRS WEIGHT STORE — per-concept miss counts (spaced repetition)
+   Stored in localStorage under 'exam_srs_v1':
+   { [topic_key]: { [concept]: { misses: N, lastSeen: timestamp } } }
+═══════════════════════════════════════════════════════════════ */
+const EXAM_SRS_KEY = 'exam_srs_v1';
+const EXAM_SRS_TOPIC_KEY_MAX = 40; // max chars for localStorage topic key
+
+function _examSrsLoad() {
+  try { return JSON.parse(localStorage.getItem(EXAM_SRS_KEY) || '{}'); }
+  catch(e) { return {}; }
+}
+
+/** Update miss counts after finishing an exam */
+function _examSrsUpdateWeights(wrongConcepts, topic) {
+  if (!wrongConcepts || !wrongConcepts.length) return;
+  const topicKey = (topic || '').toLowerCase().trim().slice(0, EXAM_SRS_TOPIC_KEY_MAX);
+  const store = _examSrsLoad();
+  if (!store[topicKey]) store[topicKey] = {};
+  const now = Date.now();
+  wrongConcepts.forEach(c => {
+    if (!c) return;
+    const prev = store[topicKey][c] || { misses: 0, lastSeen: 0 };
+    store[topicKey][c] = { misses: prev.misses + 1, lastSeen: now };
+  });
+  try { localStorage.setItem(EXAM_SRS_KEY, JSON.stringify(store)); } catch(e) {}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SAVED EXAMS — auto-save generated exams for later retaking
+   Stored in localStorage under 'exam_saved_v1':
+   Array of { id, topic, type, diff, count, createdAt, questions }
+═══════════════════════════════════════════════════════════════ */
+const EXAM_SAVED_KEY = 'exam_saved_v1';
+const EXAM_SAVED_MAX = 20;
+
+function _examSavedLoad() {
+  try { return JSON.parse(localStorage.getItem(EXAM_SAVED_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+
+/** Auto-save the newly generated exam so it can be retaken anytime */
+function _examSaveGenerated() {
+  if (!_examQuestions || !_examQuestions.length) return;
+  const saved = _examSavedLoad();
+  const id = Date.now();
+  const entry = {
+    id,
+    topic:     _examTopic,
+    type:      _examType,
+    diff:      _examDiff,
+    count:     _examQuestions.length,
+    createdAt: new Date().toLocaleDateString(),
+    questions: _examQuestions,
+  };
+  saved.unshift(entry);
+  // Keep at most EXAM_SAVED_MAX
+  const trimmed = saved.slice(0, EXAM_SAVED_MAX);
+  try { localStorage.setItem(EXAM_SAVED_KEY, JSON.stringify(trimmed)); } catch(e) {}
+}
+
+/** Open a saved exam for retaking (loads questions, resets state, shows quiz) */
+function _examOpenSaved(id) {
+  const saved = _examSavedLoad();
+  const entry = saved.find(e => String(e.id) === String(id));
+  if (!entry || !entry.questions) return;
+  clearInterval(_examTimerHandle);
+  _examQuestions  = entry.questions;
+  _examIdx        = 0;
+  _examAnswers    = new Array(_examQuestions.length).fill(null);
+  _examTopic      = entry.topic;
+  _examType       = entry.type || 'mcq';
+  _examDiff       = entry.diff || 'medium';
+  _examStreakBest = 0;
+  _examStreakCur  = 0;
+  _examIsRetake   = false;
+  _examStartTime  = Date.now();
+  _examShow('exam-quiz');
+  _examRenderQuestion();
+  const td = document.getElementById('exam-timer-display');
+  if (td) td.style.display = 'none';
+}
+
+/** Delete a saved exam by id */
+function _examDeleteSaved(id) {
+  const saved = _examSavedLoad().filter(e => String(e.id) !== String(id));
+  try { localStorage.setItem(EXAM_SAVED_KEY, JSON.stringify(saved)); } catch(e) {}
+  _examRenderSavedExams();
+}
+
+/** Render the saved exams list in the setup view */
+function _examRenderSavedExams() {
+  const container = document.getElementById('exam-saved-list');
+  if (!container) return;
+  const saved = _examSavedLoad();
+  if (!saved.length) {
+    container.innerHTML = '<div style="font-size:11px;color:var(--text-4);padding:8px 0;">No saved exams yet — generate one to save it automatically.</div>';
+    const section = document.getElementById('exam-saved-section');
+    if (section) section.style.display = 'none';
+    return;
+  }
+  const section = document.getElementById('exam-saved-section');
+  if (section) section.style.display = '';
+  const typeLabel = { mcq:'MCQ', truefalse:'T/F', situational:'Situational', cbl:'Case-Based', mixed:'Mixed', openended:'Open-Ended' };
+  container.innerHTML = saved.map(e => {
+    const tl = typeLabel[e.type] || e.type || 'MCQ';
+    const dl = { easy:'Easy', medium:'Medium', hard:'Hard', adaptive:'Adaptive' }[e.diff] || e.diff || 'Medium';
+    return `<div class="exam-saved-item">
+      <div class="exam-saved-info" onclick="_examOpenSaved('${e.id}')">
+        <div class="exam-saved-topic">${e.topic || 'Untitled'}</div>
+        <div class="exam-saved-meta">${e.count} Q · ${tl} · ${dl} · ${e.createdAt}</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;">
+        <button class="exam-saved-btn" onclick="_examOpenSaved('${e.id}')">Retake</button>
+        <button class="exam-saved-btn exam-saved-del" onclick="_examDeleteSaved('${e.id}')" title="Delete">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SCORE LINE GRAPH — rendered in exam-history-view
+   Shows score over time using SVG polyline.
+   Each data point is clickable to open the exam summary modal.
+═══════════════════════════════════════════════════════════════ */
+
+/** Renders an SVG line chart of score over time into #exam-hist-graph */
+function _examRenderScoreGraph(history) {
+  const container = document.getElementById('exam-hist-graph');
+  if (!container) return;
+  if (!history || history.length < 2) {
+    container.style.display = 'none';
+    return;
+  }
+  container.style.display = '';
+
+  // Sort chronologically
+  const sorted = [...history].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+  const W = 600, H = 160, PAD_L = 32, PAD_R = 20, PAD_T = 16, PAD_B = 28;
+  const graphW = W - PAD_L - PAD_R;
+  const graphH = H - PAD_T - PAD_B;
+
+  const scores = sorted.map(e => e.score);
+  const minS = 0, maxS = 100;
+
+  const xScale = i => PAD_L + (scores.length < 2 ? graphW / 2 : (i / (scores.length - 1)) * graphW);
+  const yScale = s => PAD_T + graphH - ((s - minS) / (maxS - minS)) * graphH;
+
+  // Polyline points
+  const points = scores.map((s, i) => `${xScale(i)},${yScale(s)}`).join(' ');
+
+  // Filled area under the line
+  const areaPoints = [
+    `${xScale(0)},${PAD_T + graphH}`,
+    ...scores.map((s, i) => `${xScale(i)},${yScale(s)}`),
+    `${xScale(scores.length - 1)},${PAD_T + graphH}`
+  ].join(' ');
+
+  // Horizontal grid lines at 0, pass threshold, 80, 100
+  const gridLines = [0, _EXAM_PASS_THRESHOLD, 80, 100].map(v => {
+    const y = yScale(v);
+    const col = v === _EXAM_PASS_THRESHOLD ? 'rgba(232,172,46,0.25)' : 'rgba(255,255,255,0.06)';
+    return `<line x1="${PAD_L}" y1="${y}" x2="${W - PAD_R}" y2="${y}" stroke="${col}" stroke-width="1" stroke-dasharray="${v === _EXAM_PASS_THRESHOLD ? '4 3' : '0'}"/>
+      <text x="${PAD_L - 4}" y="${y + 4}" text-anchor="end" font-size="9" fill="rgba(255,255,255,0.3)">${v}</text>`;
+  }).join('');
+
+  // Clickable data points
+  const dots = scores.map((s, i) => {
+    const cx = xScale(i), cy = yScale(s);
+    const col = s >= _EXAM_PASS_THRESHOLD ? 'var(--teal)' : '#f87171';
+    const entry = sorted[i];
+    const label = (entry.topic || '').slice(0, _GRAPH_TOOLTIP_MAX_CHARS);
+    const snapId = entry.timestamp;
+    return `<circle cx="${cx}" cy="${cy}" r="4" fill="${col}" stroke="var(--surface-1)" stroke-width="2"
+        style="cursor:pointer" onclick="_examGraphPointClick(${snapId})"
+        title="${label} — ${s}% — ${entry.date || ''}"/>`;
+  }).join('');
+
+  // X-axis date labels (show first, last, and at most 3 in between)
+  const labelIdxs = new Set([0, scores.length - 1]);
+  if (scores.length > 2) {
+    const step = Math.max(1, Math.floor((scores.length - 1) / 3));
+    for (let i = step; i < scores.length - 1; i += step) labelIdxs.add(i);
+  }
+  const xLabels = [...labelIdxs].map(i => {
+    const x = xScale(i);
+    // Strip year (e.g. "/2024") to save horizontal space on x-axis
+    const d = (sorted[i].date || '').replace(/\/\d{4}$/, '');
+    return `<text x="${x}" y="${H - 4}" text-anchor="middle" font-size="9" fill="rgba(255,255,255,0.3)">${d}</text>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div style="font-size:10px;font-weight:700;color:var(--text-4);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:10px;">Score Over Time</div>
+    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;overflow:visible;">
+      <defs>
+        <linearGradient id="exam-graph-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--teal)" stop-opacity="0.18"/>
+          <stop offset="100%" stop-color="var(--teal)" stop-opacity="0.01"/>
+        </linearGradient>
+      </defs>
+      ${gridLines}
+      <polygon points="${areaPoints}" fill="url(#exam-graph-grad)"/>
+      <polyline points="${points}" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${dots}
+      ${xLabels}
+    </svg>`;
+}
+
+/** Called when user clicks a dot on the score graph */
+function _examGraphPointClick(snapId) {
+  if (!snapId) return;
+  const raw = localStorage.getItem('exam_snap_' + snapId);
+  if (!raw) {
+    // No snap — show summary from history only
+    const history = _examHistoryLoad();
+    const entry = history.find(e => String(e.timestamp) === String(snapId));
+    if (!entry) return;
+    _examShowGraphSummaryModal(entry, null);
+    return;
+  }
+  try {
+    const snap = JSON.parse(raw);
+    const history = _examHistoryLoad();
+    const entry = history.find(e => String(e.timestamp) === String(snapId));
+    _examShowGraphSummaryModal(entry || { topic: snap.topic, score: 0, date: '' }, snap);
+  } catch(e) {}
+}
+
+/** Shows a compact modal with exam summary when a graph point is clicked */
+const _SUMMARY_MODAL_MAX_QUESTIONS = 8; // max questions shown in the summary modal
+const _GRAPH_TOOLTIP_MAX_CHARS = 28;    // max topic label length shown in graph dot tooltips
+const _EXAM_PASS_THRESHOLD = 60;        // minimum score % considered a passing grade (matches app-wide rule)
+
+/** Retakes an exam from a snapshot, closing the summary modal first */
+function _examRetakeFromSnapshot(snapId) {
+  const modal = document.getElementById('exam-graph-modal');
+  if (modal) modal.remove();
+  const raw = localStorage.getItem('exam_snap_' + snapId);
+  if (!raw) return;
+  try {
+    const snap = JSON.parse(raw);
+    if (!snap.questions || !snap.questions.length) return;
+    clearInterval(_examTimerHandle);
+    _examQuestions  = snap.questions;
+    _examAnswers    = new Array(_examQuestions.length).fill(null);
+    _examTopic      = snap.topic || _examTopic;
+    _examType       = snap.type || 'mcq';
+    _examDiff       = snap.diff || 'medium';
+    _examIdx        = 0;
+    _examStreakBest = 0;
+    _examStreakCur  = 0;
+    _examIsRetake   = false;
+    _examStartTime  = Date.now();
+    _examShow('exam-quiz');
+    _examRenderQuestion();
+    const td = document.getElementById('exam-timer-display');
+    if (td) td.style.display = 'none';
+  } catch(e) {}
+}
+
+function _examShowGraphSummaryModal(entry, snap) {
+  let modal = document.getElementById('exam-graph-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'exam-graph-modal';
+    modal.style.cssText = 'position:fixed;inset:0;z-index:9000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);padding:16px;';
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+  }
+  const pct = entry ? entry.score : 0;
+  const scoreCol = pct >= _EXAM_PASS_THRESHOLD ? 'var(--teal)' : '#f87171';
+  const qs = snap ? snap.questions : [];
+  const ans = snap ? snap.answers : [];
+
+  const reviewHtml = qs.slice(0, _SUMMARY_MODAL_MAX_QUESTIONS).map((q, i) => {
+    const a = ans[i];
+    const ok = a && a.correct;
+    return `<div style="padding:8px 0;border-bottom:1px solid var(--border-xs);font-size:12px;">
+      <span style="color:${ok ? 'var(--teal)' : '#f87171'};margin-right:6px;">${ok ? '✓' : '✗'}</span>
+      ${q.q ? q.q.slice(0, 80) + (q.q.length > 80 ? '…' : '') : ''}
+    </div>`;
+  }).join('');
+
+  const snapId = entry ? entry.timestamp || 0 : 0;
+  modal.innerHTML = `<div style="background:var(--surface-1);border:1px solid var(--border-sm);border-radius:var(--r-md);padding:24px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div>
+        <div style="font-size:11px;color:var(--text-4);margin-bottom:2px;">${entry ? entry.date || '' : ''}</div>
+        <div style="font-size:16px;font-weight:700;color:var(--text-1);">${entry ? entry.topic || 'Exam' : 'Exam'}</div>
+      </div>
+      <div style="font-size:28px;font-weight:800;color:${scoreCol};font-family:var(--font-head);">${pct}%</div>
+    </div>
+    ${entry ? `<div style="display:flex;gap:16px;margin-bottom:16px;font-size:12px;color:var(--text-3);">
+      <span>${entry.correct ?? '?'}/${entry.count ?? '?'} correct</span>
+      <span>${entry.timeTaken || '—'}</span>
+      ${ entry.isRetake ? '<span style="color:var(--gold);">↺ Retake</span>' : '' }
+    </div>` : ''}
+    ${reviewHtml ? `<div style="font-size:10px;font-weight:700;color:var(--text-4);letter-spacing:0.07em;text-transform:uppercase;margin-bottom:8px;">Questions</div>${reviewHtml}` : ''}
+    ${qs.length > _SUMMARY_MODAL_MAX_QUESTIONS ? `<div style="font-size:11px;color:var(--text-4);margin-top:8px;">…and ${qs.length - _SUMMARY_MODAL_MAX_QUESTIONS} more</div>` : ''}
+    <div style="display:flex;gap:8px;margin-top:20px;flex-wrap:wrap;">
+      ${snap ? `<button onclick="_examRetakeFromSnapshot(${snapId})" style="padding:7px 16px;background:var(--gold);color:#1a1a1a;border:none;border-radius:var(--r-sm);font-size:12px;font-weight:600;cursor:pointer;">Retake</button>` : ''}
+      <button onclick="document.getElementById('exam-graph-modal').remove()" style="padding:7px 16px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-sm);font-size:12px;color:var(--text-3);cursor:pointer;">Close</button>
+    </div>
+  </div>`;
+}
 
 // Expose for sidebar _clickRecent
 window._examLoadSnap = _examLoadSnap;
@@ -7027,6 +7359,10 @@ window.examShowHistory     = examShowHistory;
 window.examHideHistory     = examHideHistory;
 window.examClearHistory    = examClearHistory;
 window._examGetWeakContext = _examGetWeakContext;
+window._examOpenSaved      = _examOpenSaved;
+window._examDeleteSaved    = _examDeleteSaved;
+window._examGraphPointClick = _examGraphPointClick;
+window._examRetakeFromSnapshot = _examRetakeFromSnapshot;
 
 // Expose template/sections functions for inline handlers in dynamically rendered HTML
 window.examSelectTemplate  = examSelectTemplate;
@@ -7039,7 +7375,14 @@ window._examSectionEdit    = _examSectionEdit;
 Object.defineProperty(window, '_examSourceText',  { get: () => _examSourceText,  set: v => { _examSourceText  = v; }, configurable: true });
 Object.defineProperty(window, '_examSourceLabel', { get: () => _examSourceLabel, set: v => { _examSourceLabel = v; }, configurable: true });
 
-document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); });
+// Expose exam result state for shareExamResults() in share.js
+Object.defineProperty(window, '_examQuestions', { get: () => _examQuestions, configurable: true });
+Object.defineProperty(window, '_examAnswers',   { get: () => _examAnswers,   configurable: true });
+Object.defineProperty(window, '_examTopic',     { get: () => _examTopic,     configurable: true });
+Object.defineProperty(window, '_examType',      { get: () => _examType,      configurable: true });
+Object.defineProperty(window, '_examDiff',      { get: () => _examDiff,      configurable: true });
+
+document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); _examRenderSavedExams(); });
 
 
 </script>

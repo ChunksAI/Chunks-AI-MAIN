@@ -1472,3 +1472,45 @@
   .ewiz-trail-line { width: 40px; }
   .ewiz-attach-row { flex-wrap: wrap; }
 }
+
+/* ── Saved Exams Section ── */
+.exam-saved-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-sm);
+  transition: border-color 0.15s, background 0.15s;
+}
+.exam-saved-item:hover { border-color: var(--border-sm); background: var(--surface-2); }
+.exam-saved-info { flex: 1; min-width: 0; cursor: pointer; }
+.exam-saved-topic {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.exam-saved-meta { font-size: 11px; color: var(--text-4); margin-top: 2px; }
+.exam-saved-btn {
+  padding: 5px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-sm);
+  color: var(--text-2);
+  font-size: 11px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.exam-saved-btn:hover { background: var(--surface-3); }
+.exam-saved-del {
+  padding: 5px 8px;
+  color: #f87171;
+  border-color: rgba(248,113,113,0.25);
+}
+.exam-saved-del:hover { background: rgba(248,113,113,0.07); border-color: rgba(248,113,113,0.4); }

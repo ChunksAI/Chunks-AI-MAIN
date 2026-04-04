@@ -307,6 +307,17 @@ const EXAM_HTML = /* html */`
 
         </div><!-- /ewiz-wrap -->
 
+        <!-- ══ SAVED EXAMS ══════════════════════════════════════════════════ -->
+        <div id="exam-saved-section" style="display:none;margin-top:28px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:0.07em;text-transform:uppercase;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="margin-right:4px;vertical-align:-1px;"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Saved Exams
+            </div>
+          </div>
+          <div id="exam-saved-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+        </div>
+
       </div><!-- /exam-setup -->
 
       <!-- LOADING -->
@@ -519,6 +530,9 @@ const EXAM_HTML = /* html */`
 
         <!-- Summary stats -->
         <div id="exam-hist-summary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;"></div>
+
+        <!-- Score line graph -->
+        <div id="exam-hist-graph" style="background:var(--surface-1);border:1px solid var(--border-xs);border-radius:var(--r-sm);padding:16px 18px;margin-bottom:24px;"></div>
 
         <!-- Topic progress section -->
         <div style="margin-bottom:24px;">
