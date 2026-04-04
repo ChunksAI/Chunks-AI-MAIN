@@ -8,7 +8,7 @@
  *   • All home chat functions: homeSetMode, homeSetInput, homeHandlePdfUpload,
  *     homeAutoResize, homeAppendUser, homeAppendThinking, homeRemoveThinking,
  *     homeAppendAI, homeAppendError, homeScrollBottom, homeHideLanding,
- *     homeSendMessage
+ *     homeSendMessage, homeCopyMsg, homeFeedback, _homeRegenerate
  *   • Hero random-phrase picker (runs post-inject)
  *   • DOMContentLoaded listeners for both input bars
  *
@@ -16,6 +16,7 @@
  *   homeSetMode, homeSetInput, homeHandlePdfUpload, homeAutoResize,
  *   homeAppendUser, homeAppendThinking, homeRemoveThinking, homeAppendAI,
  *   homeAppendError, homeScrollBottom, homeHideLanding, homeSendMessage,
+ *   homeCopyMsg, homeFeedback, _homeRegenerate,
  *   homeHistory, _homeSessionId
  *
  * Cross-module references (resolved via window.*):
@@ -41,6 +42,7 @@ import { ChunksDB } from '../lib/chunksDb.js';
 import { subscribeToHomeMessages, unsubscribeHomeMessages } from '../state/home/homeMessagesRealtime.js';
 import { createThinkingAccordion } from '../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../utils/typewriter.js';
+import { classifyQuestion, mapComplexityToMode } from '../utils/questionClassifier.js';
 import { ws } from '../state/workspace/state.js';
 import { _homeRenderPreview } from '../state/workspace/attachments.js';
 
@@ -113,6 +115,11 @@ const HOME_HTML = /* html */`
                 </div>
                 <div class="attach-menu-divider"></div>
                 <div class="attach-menu-section-label">AI Mode</div>
+                <div class="attach-menu-item attach-menu-toggle" id="home-toggle-auto" onclick="homeToggleThinking('auto')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                  <span>Auto <span class="think-menu-badge">default</span></span>
+                  <div class="attach-menu-check on" id="home-auto-check"></div>
+                </div>
                 <div class="attach-menu-item attach-menu-toggle" id="home-toggle-websearch" onclick="homeToggleWebSearch()">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                   <span>Web Search</span>
@@ -200,6 +207,11 @@ const HOME_HTML = /* html */`
               </div>
               <div class="attach-menu-divider"></div>
               <div class="attach-menu-section-label">AI Mode</div>
+              <div class="attach-menu-item attach-menu-toggle" id="home-toggle-auto-b" onclick="homeToggleThinking('auto')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                <span>Auto <span class="think-menu-badge">default</span></span>
+                <div class="attach-menu-check on" id="home-auto-check-b"></div>
+              </div>
               <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleWebSearch()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 <span>Web Search</span>
@@ -321,7 +333,7 @@ const _HOME_AI_AVATAR = `<div class="hc-ai-avatar"><svg viewBox="0 0 100 100" xm
 
 export let homeMode      = 'general';
 export let _homeWebSearch = false;
-export let _homeThinking  = 'off'; // 'off' | 'think' | 'deep'
+export let _homeThinking  = 'auto'; // 'auto' | 'off' | 'think' | 'deep'
 export let homeHistory   = [];
 export let _homeSessionId = null;
 let homeIsTyping = false;
@@ -931,7 +943,7 @@ export function homeAppendUser(text, images = []) {
 let _homeThinkingHandle = null;
 let _homeThinkingWrap   = null;
 
-export function homeAppendThinking(hasImage = false) {
+export function homeAppendThinking(hasImage = false, effectiveMode = _homeThinking) {
   // Remove any leftover accordion from a prior request
   homeRemoveThinking();
 
@@ -942,7 +954,7 @@ export function homeAppendThinking(hasImage = false) {
   document.getElementById('home-chat-history').appendChild(wrap);
   _homeThinkingWrap = wrap;
 
-  if (_homeThinking === 'off') {
+  if (effectiveMode === 'off' || effectiveMode === 'auto') {
     if (hasImage) {
       // Animated "Analyzing image..." text indicator for image messages
       const span = document.createElement('span');
@@ -1013,11 +1025,154 @@ export function homeAppendAI(text, sources, { typewrite = false } = {}) {
   }
   // Always use .hc-ai-text wrapper for consistency (typewriter or not)
   const bodyContent = typewrite ? '' : homeMarkdown(text);
+  const actsHtml = `
+    <div class="msg-acts" style="margin-top:8px;">
+      <button class="msg-act" onclick="homeCopyMsg(this,this.closest('.hc-ai'))" title="Copy">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
+      </button>
+      <button class="msg-act msg-act--thumb" data-type="positive" onclick="homeFeedback(this,'positive')" title="Helpful">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+      </button>
+      <button class="msg-act msg-act--thumb" data-type="negative" onclick="homeFeedback(this,'negative')" title="Not helpful">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+      </button>
+      <button class="msg-act" onclick="_homeRegenerate(this.closest('.hc-ai'))" title="Retry">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.67"/></svg> Retry
+      </button>
+    </div>`;
   wrap.innerHTML = `
-    <div class="hc-ai-body"><div class="hc-ai-text">${bodyContent}</div>${sourceBadge}</div>`;
+    <div class="hc-ai-body"><div class="hc-ai-text">${bodyContent}</div>${sourceBadge}${actsHtml}</div>`;
   document.getElementById('home-chat-history').appendChild(wrap);
   homeScrollBottom();
   return wrap;
+}
+
+export function homeCopyMsg(btn, wrapEl) {
+  const textEl = wrapEl?.querySelector('.hc-ai-text');
+  if (!textEl) return;
+  navigator.clipboard?.writeText(textEl.innerText).then(() => {
+    btn.classList.add('copied');
+    btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+    }, 2000);
+  }).catch(() => {
+    showToast('⚠', 'Could not copy — check browser permissions', 'var(--red)');
+  });
+}
+
+export function homeFeedback(btn, type) {
+  const wrap = btn.closest('.hc-ai');
+  if (!wrap) return;
+  const histIdx = parseInt(wrap.dataset.histIdx ?? '-1');
+  const entry = (histIdx >= 0 && histIdx < homeHistory.length) ? homeHistory[histIdx] : null;
+  const current = entry?.feedback ?? null;
+  const next = current === type ? null : type;
+  wrap.querySelectorAll('.msg-act--thumb').forEach(b => b.classList.remove('active'));
+  if (next) btn.classList.add('active');
+  if (entry) {
+    entry.feedback = next;
+    if (_homeSessionId) window._saveSession?.(_homeSessionId, homeHistory);
+  }
+}
+
+export async function _homeRegenerate(aiWrapEl) {
+  if (homeIsTyping) return;
+  const histIdx = parseInt(aiWrapEl?.dataset.histIdx ?? '-1');
+  const prevMsg = histIdx > 0 ? homeHistory[histIdx - 1] : null;
+  const question = (prevMsg?.role === 'user' ? prevMsg.content : null) || '';
+  if (!question) return;
+
+  aiWrapEl.remove();
+  if (homeHistory.length && homeHistory[homeHistory.length - 1].role === 'assistant') {
+    homeHistory.pop();
+  }
+
+  homeIsTyping = true;
+  _homeAbortController = new AbortController();
+  const { signal } = _homeAbortController;
+
+  // Resolve 'auto' thinking mode based on question complexity
+  let _regenEffectiveThinking = _homeThinking;
+  if (_homeThinking === 'auto' && question) {
+    _regenEffectiveThinking = mapComplexityToMode(classifyQuestion(question));
+  }
+
+  homeAppendThinking(false, _regenEffectiveThinking);
+  _thinkStart = Date.now();
+  _homeSetGenerating(document.getElementById('home-send-btn'), true);
+  _homeSetGenerating(document.getElementById('home-send-btn-bottom'), true);
+
+  const sessionSbId = _homeSessionId ? (lsGet('chunks_session_' + _homeSessionId)?.supabaseId ?? null) : null;
+
+  try {
+    const res = await fetch(`${API_BASE}/ask`, {
+      method: 'POST',
+      signal,
+      headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
+      body: JSON.stringify({
+        question,
+        bookId: '',
+        mode: 'general',
+        task_type: 'home_general',
+        complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
+        language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
+        safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
+        history: homeHistory.slice(-12),
+        ...(_regenEffectiveThinking === 'think' ? { thinking: 'thinking' } : {}),
+        ...(_regenEffectiveThinking === 'deep'  ? { thinking: 'deep'     } : {}),
+      }),
+    });
+
+    if (!res.ok) {
+      homeRemoveThinking();
+      const err = await res.json().catch(() => ({}));
+      homeAppendError(err.error || `Error ${res.status}`);
+    } else {
+      const data = await res.json();
+      const { answer, thinkingContent: clientThinking } = extractThinkBlock(data.answer || '');
+      const cleanAnswer = answer || 'No response.';
+      const thinkingContent = data.thinking_content || clientThinking || null;
+      const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
+      await homeAppendThinkingAccordion(thinkingContent, elapsed, _regenEffectiveThinking);
+
+      const aiWrap = homeAppendAI(cleanAnswer, null, { typewrite: true });
+      const textEl = aiWrap?.querySelector('.hc-ai-text');
+      if (textEl) {
+        await typewriteResponse(textEl, cleanAnswer, {
+          render: homeMarkdown,
+          onScroll: homeScrollBottom,
+          isCancelled: () => signal.aborted,
+        });
+      }
+
+      homeHistory.push({
+        role: 'assistant',
+        content: cleanAnswer,
+        ...(thinkingContent ? { thinkContent: thinkingContent, thinkDuration: elapsed } : {}),
+      });
+      if (aiWrap) aiWrap.dataset.histIdx = String(homeHistory.length - 1);
+      if (_homeSessionId) {
+        window._saveSession?.(_homeSessionId, homeHistory);
+        if (sessionSbId) {
+          ChunksDB.messages.insertMessage({ role: 'assistant', content: cleanAnswer, sessionId: sessionSbId });
+        }
+      }
+    }
+  } catch (e) {
+    if (e?.name !== 'AbortError') {
+      homeRemoveThinking();
+      homeAppendError('Could not reach the server. Check your connection.');
+    } else {
+      homeRemoveThinking();
+    }
+  } finally {
+    homeIsTyping = false;
+    _homeAbortController = null;
+    _homeSetGenerating(document.getElementById('home-send-btn'), false);
+    _homeSetGenerating(document.getElementById('home-send-btn-bottom'), false);
+  }
 }
 
 /**
@@ -1121,8 +1276,13 @@ export function homeToggleWebSearch() {
 export function homeToggleThinking(mode) {
   // Toggle off if already active, else switch to new mode
   _homeThinking = _homeThinking === mode ? 'off' : mode;
+  const isAuto  = _homeThinking === 'auto';
   const isThink = _homeThinking === 'think';
   const isDeep  = _homeThinking === 'deep';
+  ['home-auto-check','home-auto-check-b'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('on', isAuto);
+  });
   ['home-think-check','home-think-check-b'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('on', isThink);
@@ -1138,6 +1298,10 @@ export function homeToggleThinking(mode) {
   ['home-toggle-deep'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('active', isDeep);
+  });
+  ['home-toggle-auto','home-toggle-auto-b'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', isAuto);
   });
 }
 
@@ -1206,7 +1370,14 @@ export async function homeSendMessage() {
   homeIsTyping = true;
   _homeAbortController = new AbortController();
   const { signal } = _homeAbortController;
-  homeAppendThinking(!!imageAtt);
+
+  // Resolve 'auto' thinking mode based on question complexity
+  let _effectiveHomeThinking = _homeThinking;
+  if (_homeThinking === 'auto' && question && !imageAtt) {
+    _effectiveHomeThinking = mapComplexityToMode(classifyQuestion(question));
+  }
+
+  homeAppendThinking(!!imageAtt, _effectiveHomeThinking);
   _thinkStart = Date.now();
   // Update both buttons — homeHideLanding() may have swapped which one is visible
   _homeSetGenerating(document.getElementById('home-send-btn'), true);
@@ -1246,8 +1417,8 @@ export async function homeSendMessage() {
           safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
           history: homeHistory.slice(-12),
           ...(_homeWebSearch ? { web_search: true } : {}),
-          ...(_homeThinking === 'think' ? { thinking: 'thinking' } : {}),
-          ...(_homeThinking === 'deep'  ? { thinking: 'deep'     } : {}),
+          ...(_effectiveHomeThinking === 'think' ? { thinking: 'thinking' } : {}),
+          ...(_effectiveHomeThinking === 'deep'  ? { thinking: 'deep'     } : {}),
         }),
       });
 
@@ -1268,12 +1439,12 @@ export async function homeSendMessage() {
       const cleanAnswer     = answer || 'No response.';
       const thinkingContent = data.thinking_content || clientThinking || null;
 
+      const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
       if (!imageAtt) {
-        const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
         // Finalize the thinking wrap (shows accordion with steps, or silently
         // removes the placeholder when the model returned no thinking content).
         // Await animation so accordion collapses before the AI response starts.
-        await homeAppendThinkingAccordion(thinkingContent, elapsed, _homeThinking);
+        await homeAppendThinkingAccordion(thinkingContent, elapsed, _effectiveHomeThinking);
       }
 
       // ── Typewriter: render AI response word by word ──
@@ -1287,7 +1458,12 @@ export async function homeSendMessage() {
         });
       }
 
-      homeHistory.push({ role: 'assistant', content: cleanAnswer });
+      homeHistory.push({
+        role: 'assistant',
+        content: cleanAnswer,
+        ...(thinkingContent ? { thinkContent: thinkingContent, thinkDuration: elapsed } : {}),
+      });
+      if (aiWrap) aiWrap.dataset.histIdx = String(homeHistory.length - 1);
       // Overwrite with full exchange (user + AI)
       if (_homeSessionId) {
         window._saveSession?.(_homeSessionId, homeHistory);
@@ -1357,7 +1533,7 @@ mountHomeScreen();
     const chatHist = document.getElementById('home-chat-history');
     if (!chatHist || !history?.length) return;
     chatHist.innerHTML = '';
-    history.forEach(msg => {
+    history.forEach((msg, idx) => {
       if (msg.role === 'user') {
         const hasImage = msg.imageDataUrl && /^data:image\/[a-zA-Z+]+;base64,/.test(msg.imageDataUrl);
         if (hasImage) {
@@ -1381,13 +1557,29 @@ mountHomeScreen();
           chatHist.appendChild(el);
         }
       } else if (msg.role === 'assistant') {
-        const wrap = document.createElement('div');
-        wrap.className = 'hc-ai';
-        const rendered = homeMarkdown
-          ? homeMarkdown(msg.content || '')
-          : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-        wrap.innerHTML = `<div class="hc-ai-body"><div class="hc-ai-text">${rendered}</div></div>`;
-        chatHist.appendChild(wrap);
+        // Restore ThinkingAccordion if this response had thinking content
+        if (msg.thinkContent) {
+          const accordionWrap = document.createElement('div');
+          accordionWrap.className = 'hc-thinking-accordion-wrap';
+          chatHist.appendChild(accordionWrap);
+          const container = document.createElement('div');
+          accordionWrap.appendChild(container);
+          createThinkingAccordion(container, {
+            thinkingText: msg.thinkContent,
+            elapsed: msg.thinkDuration || 0,
+            isStreaming: false,
+            noAnimation: true,
+          });
+        }
+        const wrap = homeAppendAI(msg.content || '', null, { typewrite: false });
+        if (wrap) {
+          wrap.dataset.histIdx = String(idx);
+          // Restore saved feedback active state
+          if (msg.feedback) {
+            const thumbBtn = wrap.querySelector(`.msg-act--thumb[data-type="${msg.feedback}"]`);
+            if (thumbBtn) thumbBtn.classList.add('active');
+          }
+        }
       }
     });
   }

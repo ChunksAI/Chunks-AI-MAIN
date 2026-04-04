@@ -140,7 +140,7 @@ import {
   wsZoomIn, wsZoomOut, wsFitWidth, togglePdfOutline,
   wsShowToast, wsSetInput, wsAutoResize, wsScrollBottom,
   wsClearChat, wsAppendUser, wsAppendThinking, wsRemoveThinking,
-  wsAppendAI, wsAppendError, wsCopyMsg, _wsRegenerate,
+  wsAppendAI, wsAppendError, wsCopyMsg, wsFeedback, _wsRegenerate,
   wsToggleWebSearch, wsToggleThinking, wsToggleThinkMenu,
   wsStopGeneration, wsSendToCanvas,
   filterLibrary, filterLibSection,
@@ -195,6 +195,7 @@ window.wsRemoveThinking    = wsRemoveThinking;
 window.wsAppendAI          = wsAppendAI;
 window.wsAppendError       = wsAppendError;
 window.wsCopyMsg           = wsCopyMsg;
+window.wsFeedback          = wsFeedback;
 window._wsRegenerate       = _wsRegenerate;
 window.wsToggleWebSearch   = wsToggleWebSearch;
 window.wsToggleThinking    = wsToggleThinking;
@@ -499,6 +500,7 @@ import {
   homeAppendAI, homeAppendError,
   homeScrollBottom, homeHideLanding, homeSendMessage, homeStopGeneration,
   homeToggleWebSearch, homeToggleThinking,
+  homeCopyMsg, homeFeedback, _homeRegenerate,
   openIncognitoChat, closeIncognitoChat, incognitoSendMessage,
   _renderHomeActivities,
 } from './screens/HomeScreen.js';
@@ -518,6 +520,9 @@ window.homeSendMessage    = homeSendMessage;
 window.homeStopGeneration = homeStopGeneration;
 window.homeToggleWebSearch= homeToggleWebSearch;
 window.homeToggleThinking = homeToggleThinking;
+window.homeCopyMsg        = homeCopyMsg;
+window.homeFeedback       = homeFeedback;
+window._homeRegenerate    = _homeRegenerate;
 window._renderHomeActivities = _renderHomeActivities;
 
 // Incognito chat

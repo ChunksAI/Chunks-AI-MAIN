@@ -17,6 +17,7 @@ import { $el, hide, setText, setHtml } from '../domHelpers.js';
 import { subscribeToChatRealtime, unsubscribeChatRealtime } from './chatRealtime.js';
 import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
 import { _wsRenderMessageFromBlocks } from './chat.js';
+import { createThinkingAccordion } from '../../components/ThinkingAccordion.js';
 
 let _wsSaveScrollTm;
 let _noteCardsListenerAttached = false;
@@ -403,11 +404,31 @@ export function _wsRenderHistory(msgs, history) {
         msgs.appendChild(el);
       }
     } else if (msg.role === 'assistant') {
+      // Restore ThinkingAccordion if this response had thinking content
+      if (msg.thinkContent) {
+        const accordionWrap = document.createElement('div');
+        accordionWrap.className = 'msg msg-ai';
+        const container = document.createElement('div');
+        container.style.cssText = 'width:100%;';
+        accordionWrap.appendChild(container);
+        createThinkingAccordion(container, {
+          thinkingText: msg.thinkContent,
+          elapsed: msg.thinkDuration || 0,
+          isStreaming: false,
+          noAnimation: true,
+        });
+        msgs.appendChild(accordionWrap);
+      }
       if (msg.blocks?.length) {
         // Re-create the full UI (text + sources + action buttons) from structured blocks
         const msgId = 'ws-msg-hist-' + i + '-' + Date.now();
         const el = _wsRenderMessageFromBlocks(msgId, msg.blocks, bookName);
         el.dataset.histIdx = String(i);
+        // Restore feedback active state if saved
+        if (msg.feedback) {
+          const thumbBtn = el.querySelector(`.msg-act--thumb[data-type="${msg.feedback}"]`);
+          if (thumbBtn) thumbBtn.classList.add('active');
+        }
         msgs.appendChild(el);
       } else {
         // Legacy messages without blocks — render with plain markdown

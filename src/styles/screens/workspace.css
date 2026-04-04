@@ -1604,6 +1604,8 @@
 .msg-act:hover { color: var(--text-1); border-color: var(--border-sm); }
 .msg-act.copied { color: var(--green) !important; border-color: var(--green) !important; }
 .msg-act.loading { opacity: 0.5; pointer-events: none; }
+.msg-act--thumb.active[data-type="positive"] { color: var(--green) !important; border-color: var(--green) !important; }
+.msg-act--thumb.active[data-type="negative"] { color: var(--red) !important; border-color: var(--red) !important; }
 
 /* Page-jump chip (inline in AI text) */
 .ws-page-chip {
@@ -1958,6 +1960,14 @@
 .think-menu-item svg { flex-shrink: 0; color: var(--text-3); }
 .think-menu-item.active { color: var(--gold); }
 .think-menu-item.active svg { stroke: var(--gold); }
+
+/* Auto mode "default" badge in think menu */
+.think-menu-badge {
+  font-size: 9px; font-family: var(--font-mono); color: var(--text-4);
+  background: var(--surface-3); border: 1px solid var(--border-xs);
+  padding: 1px 5px; border-radius: 3px; margin-left: 4px;
+  letter-spacing: .03em; vertical-align: middle;
+}
 
 .attach-menu-item {
   display: flex; align-items: center; gap: 10px;
