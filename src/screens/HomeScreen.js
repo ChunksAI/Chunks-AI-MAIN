@@ -662,77 +662,65 @@ export function _renderHomeActivities() {
   let richCards = '';
 
   if (lastBook) {
-    const timeAgo = _timeAgo(lastBook.lastOpened);
+    const timeAgo  = _timeAgo(lastBook.lastOpened);
     const pctColor = _barColor(lastBook.pct);
     richCards += `
-      <div class="ra-card book ra-card-pdf-preview" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
-        <div class="ra-pdf-preview-thumb" id="ra-thumb-${_esc(lastBook.bookId)}">
-          <canvas class="ra-pdf-canvas" style="display:none"></canvas>
-          <div class="ra-pdf-thumb-placeholder">
-            <span class="ra-pdf-thumb-initial">${_esc((lastBook.title || '?')[0].toUpperCase())}</span>
-          </div>
-          <div class="ra-pdf-page-badge">Page ${lastBook.lastPage}</div>
+      <div class="ra-card book ra-compact-card" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
+        <div class="ra-compact-top">
+          <div class="ra-compact-icon gold">📖</div>
+          <span class="ra-compact-type">Textbook</span>
         </div>
-        <div class="ra-pdf-footer">
-          <div class="ra-pdf-footer-left">
-            <svg class="ra-pdf-menu-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="15" y2="18"/></svg>
-            <div class="ra-pdf-footer-text">
-              <div class="ra-pdf-filename">${_esc(lastBook.title)}</div>
-              <div class="ra-pdf-time">${_esc(timeAgo)}</div>
-            </div>
-          </div>
-          <div class="ra-pdf-prog-wrap">
-            <div class="ra-pdf-prog-bar">
-              <div class="ra-pdf-prog-fill" style="width:${lastBook.pct}%;background:${pctColor}"></div>
-            </div>
-            <span class="ra-pdf-prog-pct">${lastBook.pct}%</span>
-          </div>
+        <div class="ra-compact-title">${_esc(lastBook.title)}</div>
+        <div class="ra-compact-meta">
+          <span>📍 Page ${lastBook.lastPage}${lastBook.totalPages ? ` of ${lastBook.totalPages}` : ''}</span>
+          <span class="ra-compact-time">${_esc(timeAgo)}</span>
         </div>
+        <div class="ra-compact-bar-row">
+          <div class="ra-compact-bar"><div class="ra-compact-bar-fill" style="width:${lastBook.pct}%;background:${pctColor}"></div></div>
+          <span class="ra-compact-pct">${lastBook.pct}%</span>
+        </div>
+        <button class="ra-compact-btn gold-btn">Continue Studying →</button>
       </div>`;
   }
 
   if (lastPlan) {
     const planPctColor = _barColor(lastPlan.barPct);
     richCards += `
-      <div class="ra-card plan ra-card-v2" data-ra-action="plan" data-ra-id="${_esc(lastPlan.planId)}">
-        <div class="ra-v2-hero ra-v2-hero--plan">
-          <div class="ra-v2-hero-icon">📋</div>
-          <div class="ra-v2-hero-badge">Study Plan</div>
+      <div class="ra-card plan ra-compact-card" data-ra-action="plan" data-ra-id="${_esc(lastPlan.planId)}">
+        <div class="ra-compact-top">
+          <div class="ra-compact-icon violet">📋</div>
+          <span class="ra-compact-type">Study Plan</span>
         </div>
-        <div class="ra-book-info">
-          <div class="ra-book-title">${_esc(lastPlan.topic)}</div>
-          <div class="ra-book-loc">📍 Mastery progress</div>
-          <div class="ra-book-prog-row">
-            <div class="ra-book-prog-bar">
-              <div class="ra-book-prog-fill" style="width:${lastPlan.barPct}%;background:${planPctColor}"></div>
-            </div>
-            <span class="ra-book-prog-label">📊 ${lastPlan.barPct}%</span>
-          </div>
-          <button class="ra-card-btn ra-book-cta" style="color:var(--violet)">Resume →</button>
+        <div class="ra-compact-title">${_esc(lastPlan.topic)}</div>
+        <div class="ra-compact-meta">
+          <span>📍 Mastery progress</span>
         </div>
+        <div class="ra-compact-bar-row">
+          <div class="ra-compact-bar"><div class="ra-compact-bar-fill" style="width:${lastPlan.barPct}%;background:${planPctColor}"></div></div>
+          <span class="ra-compact-pct">${lastPlan.barPct}%</span>
+        </div>
+        <button class="ra-compact-btn violet-btn">Resume →</button>
       </div>`;
   }
 
   if (lastDeck) {
     const deckPctColor = _barColor(lastDeck.pct);
-    const deckSub = lastDeck.cardCount ? `${lastDeck.cardCount} cards` : 'Flashcards';
+    const deckSub      = lastDeck.cardCount ? `${lastDeck.cardCount} cards` : 'Flashcards';
     richCards += `
-      <div class="ra-card flash ra-card-v2" data-ra-action="flash" data-ra-id="${_esc(lastDeck.deckId)}">
-        <div class="ra-v2-hero ra-v2-hero--flash">
-          <div class="ra-v2-hero-icon">🃏</div>
-          <div class="ra-v2-hero-badge">${_esc(deckSub)}</div>
+      <div class="ra-card flash ra-compact-card" data-ra-action="flash" data-ra-id="${_esc(lastDeck.deckId)}">
+        <div class="ra-compact-top">
+          <div class="ra-compact-icon teal">🃏</div>
+          <span class="ra-compact-type">${_esc(deckSub)}</span>
         </div>
-        <div class="ra-book-info">
-          <div class="ra-book-title">${_esc(lastDeck.name)}</div>
-          <div class="ra-book-loc">📍 Cards mastered</div>
-          <div class="ra-book-prog-row">
-            <div class="ra-book-prog-bar">
-              <div class="ra-book-prog-fill" style="width:${lastDeck.pct}%;background:${deckPctColor}"></div>
-            </div>
-            <span class="ra-book-prog-label">📊 ${lastDeck.pct}%</span>
-          </div>
-          <button class="ra-card-btn ra-book-cta" style="color:var(--teal)">Review →</button>
+        <div class="ra-compact-title">${_esc(lastDeck.name)}</div>
+        <div class="ra-compact-meta">
+          <span>📍 Cards mastered</span>
         </div>
+        <div class="ra-compact-bar-row">
+          <div class="ra-compact-bar"><div class="ra-compact-bar-fill" style="width:${lastDeck.pct}%;background:${deckPctColor}"></div></div>
+          <span class="ra-compact-pct">${lastDeck.pct}%</span>
+        </div>
+        <button class="ra-compact-btn teal-btn">Review →</button>
       </div>`;
   }
 
