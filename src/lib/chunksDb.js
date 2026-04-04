@@ -431,7 +431,7 @@ const chat = {
     // the restored history reflects the true conversation sequence.
     const seen = new Set();
     const deduped = data.filter(m => {
-      const key = m.role + '\x00' + m.content;
+      const key = JSON.stringify([m.role, m.content]);
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -1517,7 +1517,7 @@ const messages = {
       // Deduplicate in case older code inserted the full history on every save.
       const seen = new Set();
       const deduped = data.filter(m => {
-        const key = m.role + '\x00' + m.content;
+        const key = JSON.stringify([m.role, m.content]);
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
