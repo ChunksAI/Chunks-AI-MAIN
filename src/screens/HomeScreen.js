@@ -1619,9 +1619,9 @@ mountHomeScreen();
       if (homeHistory.length) return; // already restored by another path
       try {
         const s = lsGet('chunks_session_' + savedId);
-        if (s) window._homeMountSession?.(s, savedId);
-      } catch (_) {}
-    }).catch(function() {});
+        if (s) _mountSession(s, savedId);
+      } catch (_) {} // IDB/parse errors are non-fatal — leave the landing visible
+    }).catch(function() {}); // init() failure is already logged by idbStorage.js
   }
 })();
 
