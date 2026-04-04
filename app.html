@@ -843,7 +843,7 @@ function _clickRecent(item) {
         // Show a subtle loading indicator while fetching
         if (chatHistory) chatHistory.innerHTML = '<div class="hc-session-loading">Loading conversation…</div>';
         (async () => {
-          const { data: remoteMessages } = await window.ChunksDB.messages.loadSession(sessionUuid) ?? {};
+          const { data: remoteMessages } = (await window.ChunksDB.messages.loadSession(sessionUuid)) ?? {};
           if (remoteMessages?.length) {
             const remoteSession = { id: item.id, supabaseId: sessionUuid, history: remoteMessages };
             // Cache locally so subsequent clicks are instant
@@ -851,7 +851,11 @@ function _clickRecent(item) {
             if (typeof window._homeMountSession === 'function') {
               window._homeMountSession(remoteSession, item.id);
             } else {
-              setTimeout(() => window._homeMountSession?.(remoteSession, item.id), 200);
+              setTimeout(() => {
+                if (typeof window._homeMountSession === 'function') {
+                  window._homeMountSession(remoteSession, item.id);
+                }
+              }, 200);
             }
             homeHistory = remoteMessages;
             setTimeout(() => {
