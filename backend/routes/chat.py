@@ -54,10 +54,14 @@ DEEP_THINK_MODE_PROMPT = (
 DEEP_THINK_SYSTEM_PROMPT = DEEP_THINK_MODE_PROMPT
 
 # Token limits enforced per mode (passed as max_tokens_override to call_ai).
+# Deep/Think modes include a <think>…</think> chain-of-thought block plus the
+# final answer — both count against the same budget.  The limits below are
+# sized to leave ample room for a detailed final answer after the reasoning
+# block is stripped by extract_thinking_content().
 _MODE_MAX_TOKENS = {
-    'deep':     3000,
-    'thinking':  900,
-    None:        400,  # normal / no thinking toggle
+    'deep':     10000,  # ~3-4k for reasoning + 6-7k for comprehensive answer
+    'thinking':  3000,  # ~1k for reasoning + 2k for balanced answer
+    None:         400,  # normal / no thinking — brief 1-2 paragraph response
 }
 
 
@@ -279,7 +283,11 @@ def ask(request: Request, body: AskRequest):
             return NORMAL_MODE_PROMPT
 
         response_style_instruction = _response_style_instruction(thinking_mode)
-        teaching_prompt_instruction = TEACHING_PROMPT if thinking_mode in ('thinking', 'deep') else ""
+        # TEACHING_PROMPT adds structural guidance (headers, bullets) for Think mode.
+        # It is intentionally NOT applied to Deep Think: DEEP_THINK_MODE_PROMPT already
+        # requires comprehensive structure, and TEACHING_PROMPT's "200-400 word" default
+        # directly contradicts the goal of a long, exhaustive Deep Think answer.
+        teaching_prompt_instruction = TEACHING_PROMPT if thinking_mode == 'thinking' else ""
 
         _identity_variants = [
             "Your name is Chunks AI. You are an intelligent, friendly AI study assistant built to help students learn and excel. "
