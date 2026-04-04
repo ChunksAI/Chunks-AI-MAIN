@@ -33,10 +33,10 @@ _redis = None
 
 ENDPOINT_MAX_TOKENS: dict[str, int] = {
     # /ask  (default study mode)
-    # Ceiling raised to 12 000 to accommodate Deep Think mode (10 000 tokens)
-    # and Think mode (3 000 tokens) which must fit the reasoning chain plus
+    # Ceiling raised to 20 000 to accommodate Deep Think mode (16 000 tokens)
+    # and Think mode (4 000 tokens) which must fit the reasoning chain plus
     # the final answer within the same budget.
-    'chat':            12_000,
+    'chat':            20_000,   # must fit deep think (16k) + prompt overhead
     'chat_exam':       10_000,
     'chat_visual':      4_000,
     'chat_practice':    6_000,
@@ -56,7 +56,7 @@ ENDPOINT_MAX_TOKENS: dict[str, int] = {
 }
 
 # Hard ceiling across all endpoints — no single request may exceed this.
-ABSOLUTE_MAX_TOKENS: int = int(os.environ.get('ABSOLUTE_MAX_TOKENS', '16000'))
+ABSOLUTE_MAX_TOKENS: int = int(os.environ.get('ABSOLUTE_MAX_TOKENS', '20000'))
 
 
 def init(redis=None) -> None:

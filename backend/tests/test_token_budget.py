@@ -10,7 +10,7 @@ class TestMaxTokensForEndpoint:
     """Test max_tokens_for_endpoint resolution."""
 
     def test_known_endpoint_returns_configured_limit(self):
-        assert tb.max_tokens_for_endpoint('chat') == 12_000
+        assert tb.max_tokens_for_endpoint('chat') == 20_000
         assert tb.max_tokens_for_endpoint('quiz') == 12_000
         assert tb.max_tokens_for_endpoint('image') == 2_000
         assert tb.max_tokens_for_endpoint('study_materials') == 8_000
@@ -30,10 +30,10 @@ class TestMaxTokensForEndpoint:
         assert tb.max_tokens_for_endpoint('image', override=10_000) == 2_000
 
     def test_override_none_uses_default(self):
-        assert tb.max_tokens_for_endpoint('chat', override=None) == 12_000
+        assert tb.max_tokens_for_endpoint('chat', override=None) == 20_000
 
     def test_override_zero_uses_default(self):
-        assert tb.max_tokens_for_endpoint('chat', override=0) == 12_000
+        assert tb.max_tokens_for_endpoint('chat', override=0) == 20_000
 
     def test_absolute_max_caps_all(self):
         """Even the highest endpoint limit cannot exceed ABSOLUTE_MAX_TOKENS."""

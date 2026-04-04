@@ -644,7 +644,7 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
   ws.selectedText = '';  // clear so it doesn't bleed into follow-up questions
   try {
     const mode = typeof _getStudyMode === 'function' ? _getStudyMode() : 'study';
-    const complexity = mode === 'concise' ? 3 : mode === 'detailed' ? 8 : 5;
+    const complexity = ws.thinking === 'deep' ? 9 : mode === 'concise' ? 3 : mode === 'detailed' ? 8 : 5;
     let res;
 
     if (imageAtt) {

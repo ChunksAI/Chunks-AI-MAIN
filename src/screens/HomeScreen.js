@@ -1104,12 +1104,7 @@ export async function _homeRegenerate(aiWrapEl) {
         bookId: '',
         mode: 'general',
         task_type: 'home_general',
-        complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
-        language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
-        safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
-        history: homeHistory.slice(-12),
-        ...(_regenEffectiveThinking === 'think' ? { thinking: 'thinking' } : {}),
-        ...(_regenEffectiveThinking === 'deep'  ? { thinking: 'deep'     } : {}),
+        complexity: _regenEffectiveThinking === 'deep' ? 9 : (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
       }),
     });
 
@@ -1389,13 +1384,7 @@ export async function homeSendMessage() {
           bookId: '',
           mode: 'general',
           task_type: 'home_general',
-          complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
-          language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
-          safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
-          history: homeHistory.slice(-12),
-          ...(_homeWebSearch ? { web_search: true } : {}),
-          ...(_homeThinking === 'think' ? { thinking: 'thinking' } : {}),
-          ...(_homeThinking === 'deep'  ? { thinking: 'deep'     } : {}),
+          complexity: _homeThinking === 'deep' ? 9 : (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
         }),
       });
 
