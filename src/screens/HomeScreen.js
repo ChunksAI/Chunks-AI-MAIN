@@ -8,7 +8,7 @@
  *   • All home chat functions: homeSetMode, homeSetInput, homeHandlePdfUpload,
  *     homeAutoResize, homeAppendUser, homeAppendThinking, homeRemoveThinking,
  *     homeAppendAI, homeAppendError, homeScrollBottom, homeHideLanding,
- *     homeSendMessage
+ *     homeSendMessage, homeCopyMsg, homeFeedback, _homeRegenerate
  *   • Hero random-phrase picker (runs post-inject)
  *   • DOMContentLoaded listeners for both input bars
  *
@@ -16,6 +16,7 @@
  *   homeSetMode, homeSetInput, homeHandlePdfUpload, homeAutoResize,
  *   homeAppendUser, homeAppendThinking, homeRemoveThinking, homeAppendAI,
  *   homeAppendError, homeScrollBottom, homeHideLanding, homeSendMessage,
+ *   homeCopyMsg, homeFeedback, _homeRegenerate,
  *   homeHistory, _homeSessionId
  *
  * Cross-module references (resolved via window.*):
@@ -1013,11 +1014,142 @@ export function homeAppendAI(text, sources, { typewrite = false } = {}) {
   }
   // Always use .hc-ai-text wrapper for consistency (typewriter or not)
   const bodyContent = typewrite ? '' : homeMarkdown(text);
+  const actsHtml = `
+    <div class="msg-acts" style="margin-top:8px;">
+      <button class="msg-act" onclick="homeCopyMsg(this,this.closest('.hc-ai'))" title="Copy">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
+      </button>
+      <button class="msg-act msg-act--thumb" data-type="positive" onclick="homeFeedback(this,'positive')" title="Helpful">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+      </button>
+      <button class="msg-act msg-act--thumb" data-type="negative" onclick="homeFeedback(this,'negative')" title="Not helpful">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+      </button>
+      <button class="msg-act" onclick="_homeRegenerate(this.closest('.hc-ai'))" title="Retry">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.67"/></svg> Retry
+      </button>
+    </div>`;
   wrap.innerHTML = `
-    <div class="hc-ai-body"><div class="hc-ai-text">${bodyContent}</div>${sourceBadge}</div>`;
+    <div class="hc-ai-body"><div class="hc-ai-text">${bodyContent}</div>${sourceBadge}${actsHtml}</div>`;
   document.getElementById('home-chat-history').appendChild(wrap);
   homeScrollBottom();
   return wrap;
+}
+
+export function homeCopyMsg(btn, wrapEl) {
+  const textEl = wrapEl?.querySelector('.hc-ai-text');
+  if (!textEl) return;
+  navigator.clipboard?.writeText(textEl.innerText).then(() => {
+    btn.classList.add('copied');
+    btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!`;
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy`;
+    }, 2000);
+  }).catch(() => {
+    showToast('⚠', 'Could not copy — check browser permissions', 'var(--red)');
+  });
+}
+
+export function homeFeedback(btn, type) {
+  const wrap = btn.closest('.hc-ai');
+  if (!wrap) return;
+  const histIdx = parseInt(wrap.dataset.histIdx ?? '-1');
+  const entry = (histIdx >= 0 && histIdx < homeHistory.length) ? homeHistory[histIdx] : null;
+  const current = entry?.feedback ?? null;
+  const next = current === type ? null : type;
+  wrap.querySelectorAll('.msg-act--thumb').forEach(b => b.classList.remove('active'));
+  if (next) btn.classList.add('active');
+  if (entry) {
+    entry.feedback = next;
+    if (_homeSessionId) window._saveSession?.(_homeSessionId, homeHistory);
+  }
+}
+
+export async function _homeRegenerate(aiWrapEl) {
+  if (homeIsTyping) return;
+  const histIdx = parseInt(aiWrapEl?.dataset.histIdx ?? '-1');
+  const question = (histIdx > 0 ? homeHistory[histIdx - 1]?.content : null) || '';
+  if (!question) return;
+
+  aiWrapEl.remove();
+  if (homeHistory.length && homeHistory[homeHistory.length - 1].role === 'assistant') {
+    homeHistory.pop();
+  }
+
+  homeIsTyping = true;
+  _homeAbortController = new AbortController();
+  const { signal } = _homeAbortController;
+  homeAppendThinking(false);
+  _thinkStart = Date.now();
+  _homeSetGenerating(document.getElementById('home-send-btn'), true);
+  _homeSetGenerating(document.getElementById('home-send-btn-bottom'), true);
+
+  const sessionSbId = _homeSessionId ? (lsGet('chunks_session_' + _homeSessionId)?.supabaseId ?? null) : null;
+
+  try {
+    const res = await fetch(`${API_BASE}/ask`, {
+      method: 'POST',
+      signal,
+      headers: { 'Content-Type': 'application/json', ...await _getAuthHeader?.() ?? {} },
+      body: JSON.stringify({
+        question,
+        bookId: '',
+        mode: 'general',
+        task_type: 'home_general',
+        complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
+        language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
+        safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
+        history: homeHistory.slice(-12),
+        ...(_homeThinking === 'think' ? { thinking: 'thinking' } : {}),
+        ...(_homeThinking === 'deep'  ? { thinking: 'deep'     } : {}),
+      }),
+    });
+
+    if (!res.ok) {
+      homeRemoveThinking();
+      const err = await res.json().catch(() => ({}));
+      homeAppendError(err.error || `Error ${res.status}`);
+    } else {
+      const data = await res.json();
+      const { answer, thinkingContent: clientThinking } = extractThinkBlock(data.answer || '');
+      const cleanAnswer = answer || 'No response.';
+      const thinkingContent = data.thinking_content || clientThinking || null;
+      const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
+      await homeAppendThinkingAccordion(thinkingContent, elapsed, _homeThinking);
+
+      const aiWrap = homeAppendAI(cleanAnswer, null, { typewrite: true });
+      const textEl = aiWrap?.querySelector('.hc-ai-text');
+      if (textEl) {
+        await typewriteResponse(textEl, cleanAnswer, {
+          render: homeMarkdown,
+          onScroll: homeScrollBottom,
+          isCancelled: () => signal.aborted,
+        });
+      }
+
+      homeHistory.push({ role: 'assistant', content: cleanAnswer });
+      if (aiWrap) aiWrap.dataset.histIdx = String(homeHistory.length - 1);
+      if (_homeSessionId) {
+        window._saveSession?.(_homeSessionId, homeHistory);
+        if (sessionSbId) {
+          ChunksDB.messages.insertMessage({ role: 'assistant', content: cleanAnswer, sessionId: sessionSbId });
+        }
+      }
+    }
+  } catch (e) {
+    if (e?.name !== 'AbortError') {
+      homeRemoveThinking();
+      homeAppendError('Could not reach the server. Check your connection.');
+    } else {
+      homeRemoveThinking();
+    }
+  } finally {
+    homeIsTyping = false;
+    _homeAbortController = null;
+    _homeSetGenerating(document.getElementById('home-send-btn'), false);
+    _homeSetGenerating(document.getElementById('home-send-btn-bottom'), false);
+  }
 }
 
 /**
@@ -1288,6 +1420,7 @@ export async function homeSendMessage() {
       }
 
       homeHistory.push({ role: 'assistant', content: cleanAnswer });
+      if (aiWrap) aiWrap.dataset.histIdx = String(homeHistory.length - 1);
       // Overwrite with full exchange (user + AI)
       if (_homeSessionId) {
         window._saveSession?.(_homeSessionId, homeHistory);
@@ -1357,7 +1490,7 @@ mountHomeScreen();
     const chatHist = document.getElementById('home-chat-history');
     if (!chatHist || !history?.length) return;
     chatHist.innerHTML = '';
-    history.forEach(msg => {
+    history.forEach((msg, idx) => {
       if (msg.role === 'user') {
         const hasImage = msg.imageDataUrl && /^data:image\/[a-zA-Z+]+;base64,/.test(msg.imageDataUrl);
         if (hasImage) {
@@ -1381,13 +1514,15 @@ mountHomeScreen();
           chatHist.appendChild(el);
         }
       } else if (msg.role === 'assistant') {
-        const wrap = document.createElement('div');
-        wrap.className = 'hc-ai';
-        const rendered = homeMarkdown
-          ? homeMarkdown(msg.content || '')
-          : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-        wrap.innerHTML = `<div class="hc-ai-body"><div class="hc-ai-text">${rendered}</div></div>`;
-        chatHist.appendChild(wrap);
+        const wrap = homeAppendAI(msg.content || '', null, { typewrite: false });
+        if (wrap) {
+          wrap.dataset.histIdx = String(idx);
+          // Restore saved feedback active state
+          if (msg.feedback) {
+            const thumbBtn = wrap.querySelector(`.msg-act--thumb[data-type="${msg.feedback}"]`);
+            if (thumbBtn) thumbBtn.classList.add('active');
+          }
+        }
       }
     });
   }

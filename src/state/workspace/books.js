@@ -408,6 +408,11 @@ export function _wsRenderHistory(msgs, history) {
         const msgId = 'ws-msg-hist-' + i + '-' + Date.now();
         const el = _wsRenderMessageFromBlocks(msgId, msg.blocks, bookName);
         el.dataset.histIdx = String(i);
+        // Restore feedback active state if saved
+        if (msg.feedback) {
+          const thumbBtn = el.querySelector(`.msg-act--thumb[data-type="${msg.feedback}"]`);
+          if (thumbBtn) thumbBtn.classList.add('active');
+        }
         msgs.appendChild(el);
       } else {
         // Legacy messages without blocks — render with plain markdown
