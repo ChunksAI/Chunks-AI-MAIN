@@ -158,8 +158,125 @@ const EXAM_HTML = /* html */`
             </div>
             <!-- /Scan Mode -->
 
+            <!-- ── Exam Templates ─────────────────────────────────── -->
+            <div class="exam-field" id="exam-template-field">
+              <label>Exam Template <span style="color:var(--text-4);font-weight:400;letter-spacing:0;">(optional)</span></label>
+              <div class="exam-tpl-grid" id="exam-tpl-grid">
+
+                <div class="exam-tpl-card" data-tpl="university" onclick="examSelectTemplate('university')">
+                  <div class="exam-tpl-top"><span class="exam-tpl-icon">🎓</span></div>
+                  <div class="exam-tpl-name">University Standard</div>
+                  <div class="exam-tpl-desc">Classic format used in most college courses</div>
+                  <div class="exam-tpl-tags">
+                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">30 MC</span>
+                    <span class="exam-tpl-tag" style="background:rgba(139,124,248,0.15);color:var(--violet);">2 Essay</span>
+                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">10 ID</span>
+                  </div>
+                  <div class="exam-tpl-pts">100 pts total</div>
+                </div>
+
+                <div class="exam-tpl-card" data-tpl="quickquiz" onclick="examSelectTemplate('quickquiz')">
+                  <div class="exam-tpl-top"><span class="exam-tpl-icon">⚡</span></div>
+                  <div class="exam-tpl-name">Quick Quiz</div>
+                  <div class="exam-tpl-desc">Fast 10-question check for a single topic</div>
+                  <div class="exam-tpl-tags">
+                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">10 MC</span>
+                    <span class="exam-tpl-tag" style="background:rgba(45,212,191,0.15);color:var(--teal);">5 T/F</span>
+                  </div>
+                  <div class="exam-tpl-pts">25 pts total</div>
+                </div>
+
+                <div class="exam-tpl-card" data-tpl="sciencemidterm" onclick="examSelectTemplate('sciencemidterm')">
+                  <div class="exam-tpl-top"><span class="exam-tpl-icon">🔬</span></div>
+                  <div class="exam-tpl-name">Science Midterm</div>
+                  <div class="exam-tpl-desc">Problem-solving heavy with short answer</div>
+                  <div class="exam-tpl-tags">
+                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">20 MC</span>
+                    <span class="exam-tpl-tag" style="background:rgba(139,124,248,0.15);color:var(--violet);">3 Essay</span>
+                    <span class="exam-tpl-tag" style="background:rgba(139,124,248,0.15);color:var(--violet);">5 Problem</span>
+                  </div>
+                  <div class="exam-tpl-pts">85 pts total</div>
+                </div>
+
+                <div class="exam-tpl-card" data-tpl="boardexam" onclick="examSelectTemplate('boardexam')">
+                  <div class="exam-tpl-top"><span class="exam-tpl-icon">📋</span></div>
+                  <div class="exam-tpl-name">Board Exam Drill</div>
+                  <div class="exam-tpl-desc">High-volume MC like nursing/medical boards</div>
+                  <div class="exam-tpl-tags">
+                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">100 MC</span>
+                  </div>
+                  <div class="exam-tpl-pts">100 pts total</div>
+                </div>
+
+                <div class="exam-tpl-card" data-tpl="comprehensive" onclick="examSelectTemplate('comprehensive')">
+                  <div class="exam-tpl-top"><span class="exam-tpl-icon">📚</span></div>
+                  <div class="exam-tpl-name">Comprehensive Final</div>
+                  <div class="exam-tpl-desc">Full coverage with all question types</div>
+                  <div class="exam-tpl-tags">
+                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">25 MC</span>
+                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">10 ID</span>
+                    <span class="exam-tpl-tag" style="background:rgba(139,124,248,0.15);color:var(--violet);">3 Essay</span>
+                    <span class="exam-tpl-tag" style="background:rgba(139,124,248,0.15);color:var(--violet);">2 Problem</span>
+                  </div>
+                  <div class="exam-tpl-pts">120 pts total</div>
+                </div>
+
+                <div class="exam-tpl-card exam-tpl-custom" data-tpl="custom" onclick="examSelectTemplate('custom')">
+                  <div class="exam-tpl-top"><span class="exam-tpl-icon" style="font-size:22px;color:var(--text-4);">+</span></div>
+                  <div class="exam-tpl-name">Custom</div>
+                  <div class="exam-tpl-desc">Build your own</div>
+                </div>
+
+              </div>
+              <div id="exam-tpl-hint" style="display:none;text-align:center;font-size:11px;color:var(--text-4);margin-top:6px;">edit sections below</div>
+            </div>
+            <!-- /Exam Templates -->
+
+            <!-- ── Exam Sections ──────────────────────────────────── -->
+            <div id="exam-sections-wrap" style="display:none;">
+              <div class="exam-sections-header">
+                <span id="exam-sections-title">EXAM SECTIONS</span>
+              </div>
+              <div class="exam-sections-table">
+                <div class="exam-sections-thead">
+                  <span>Type</span>
+                  <span>Questions</span>
+                  <span>Pts Each</span>
+                  <span>Subtotal</span>
+                  <span></span>
+                </div>
+                <div id="exam-sections-body"></div>
+                <div id="exam-section-add-picker" style="display:none;" class="exam-section-type-picker">
+                  <span class="estp-label">Choose type:</span>
+                </div>
+                <button class="exam-section-add-btn" onclick="examSectionAdd()">
+                  + Add another section (True/False, Matching, Problem-solving…)
+                </button>
+              </div>
+              <!-- ── Summary Bar ── -->
+              <div class="exam-summary-bar">
+                <div class="exam-summary-stat">
+                  <span class="ess-label">Sections</span>
+                  <span class="ess-value" id="sum-sections">0</span>
+                </div>
+                <div class="exam-summary-stat">
+                  <span class="ess-label">Total questions</span>
+                  <span class="ess-value" id="sum-questions">0</span>
+                </div>
+                <div class="exam-summary-stat">
+                  <span class="ess-label">Total points</span>
+                  <span class="ess-value ess-gold" id="sum-points">0 pts</span>
+                </div>
+                <div class="exam-summary-stat">
+                  <span class="ess-label">Est. duration</span>
+                  <span class="ess-value" id="sum-duration">~0 min</span>
+                </div>
+              </div>
+            </div>
+            <!-- /Exam Sections -->
+
             <div class="exam-row">
-              <div class="exam-field">
+              <div class="exam-field" id="exam-count-field">
                 <label id="exam-count-label">Number of Questions</label>
                 <select class="exam-input" id="exam-count-input">
                   <option value="5">5 questions</option>
@@ -181,7 +298,7 @@ const EXAM_HTML = /* html */`
               </div>
             </div>
 
-            <div class="exam-field">
+            <div class="exam-field" id="exam-type-field">
               <label>Question Type</label>
               <div class="exam-type-grid exam-type-grid-5" id="exam-type-grid">
                 <button class="exam-type-btn active" data-type="mcq" data-action="examSelectType-self">
