@@ -831,6 +831,7 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
       // Keep whatever text has already been rendered — do not pop history here
     } else {
       wsRemoveThinking();
+      console.error('[ws/chat] Request error:', e);
       wsAppendError('Could not reach the server. Check your connection.');
       ws.chatHistory.pop();
     }
