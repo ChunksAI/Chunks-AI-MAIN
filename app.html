@@ -171,8 +171,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Non-blocking font load: preload triggers parallel download, stylesheet loads async -->
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&family=Caveat:wght@400;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-<noscript><link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&family=Caveat:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&family=Caveat:wght@400;600;700&family=Instrument+Serif:ital@0;1&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&family=Caveat:wght@400;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"></noscript>
 <!-- KaTeX CSS loaded async — not needed for initial paint -->
 <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"></noscript>
@@ -4843,15 +4843,112 @@ const EXAM_TEMPLATES = {
   sciencemidterm:{ name: 'Science Midterm',       sections: [ {type:'mcq',count:20,pts:2}, {type:'openended',count:3,pts:5}, {type:'problem',count:5,pts:6} ] },
   boardexam:     { name: 'Board Exam Drill',      sections: [ {type:'mcq',count:100,pts:1} ] },
   comprehensive: { name: 'Comprehensive Final',   sections: [ {type:'mcq',count:25,pts:2}, {type:'identification',count:10,pts:3}, {type:'openended',count:3,pts:10}, {type:'problem',count:2,pts:5} ] },
-  custom:        { name: 'Custom',                sections: [] },
+  custom:        { name: 'Custom',                sections: [ {type:'mcq',count:10,pts:2} ] },
 };
 
 let _examSections       = [];   // active section list (deep-copied from template or user-built)
 let _examActiveTemplate = null; // id of currently selected template card
 
+/* ── EXAM WIZARD — 3-step setup navigation ────────────────────────────── */
+let _ewizStep        = 1;
+let _ewizAttachState = null; // 'pdf' | 'notes' | null
+
+function ewizGoTo(step) {
+  _ewizStep = step;
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('ewiz-step-' + i);
+    if (el) el.style.display = i === step ? '' : 'none';
+  }
+  _ewizUpdateTrail();
+}
+
+function _ewizUpdateTrail() {
+  for (let n = 1; n <= 3; n++) {
+    const dot = document.getElementById('ewiz-dot-' + n);
+    if (!dot) return; // wizard not mounted yet
+    dot.className = 'ewiz-dot';
+    if (n < _ewizStep) dot.classList.add('done');
+    if (n === _ewizStep) dot.classList.add('active');
+    if (n < 3) {
+      const line = document.getElementById('ewiz-line-' + n);
+      if (line) line.classList.toggle('done', n < _ewizStep);
+    }
+  }
+}
+
+function ewizNext() {
+  if (_ewizStep === 1) {
+    ewizGoTo(2);
+  } else if (_ewizStep === 2) {
+    if (!_examActiveTemplate) return;
+    ewizGoTo(3);
+    // Ensure sections wrap is visible and freshly rendered
+    const sectionsWrap = document.getElementById('exam-sections-wrap');
+    if (sectionsWrap) sectionsWrap.style.display = '';
+    _examSectionsRender();
+    _examSummaryUpdate();
+  }
+}
+
+function ewizBack() {
+  if (_ewizStep > 1) ewizGoTo(_ewizStep - 1);
+}
+
+function _ewizOnTplSelect() {
+  const btn = document.getElementById('ewiz-customize-btn');
+  if (btn) { btn.disabled = false; btn.classList.remove('ewiz-disabled'); }
+}
+
+function _ewizTogglePdf() {
+  const pdfZone  = document.getElementById('exam-src-pdf');
+  const notesZone = document.getElementById('exam-src-notes');
+  const pdfBtn   = document.getElementById('ewiz-pdf-btn');
+  const notesBtn = document.getElementById('ewiz-notes-btn');
+  if (_ewizAttachState === 'pdf') {
+    _ewizAttachState = null;
+    pdfBtn.classList.remove('active');
+    if (pdfZone) pdfZone.style.display = 'none';
+    examClearSource(null, true);
+  } else {
+    _ewizAttachState = 'pdf';
+    pdfBtn.classList.add('active');
+    if (pdfZone) pdfZone.style.display = '';
+    notesBtn.classList.remove('active');
+    if (notesZone) notesZone.style.display = 'none';
+    _examSourceTab = 'pdf';
+    examClearNotes();
+  }
+  const scanField = document.getElementById('exam-scan-mode-field');
+  if (scanField) scanField.style.display = _ewizAttachState === 'pdf' ? '' : 'none';
+}
+
+function _ewizToggleNotes() {
+  const pdfZone  = document.getElementById('exam-src-pdf');
+  const notesZone = document.getElementById('exam-src-notes');
+  const pdfBtn   = document.getElementById('ewiz-pdf-btn');
+  const notesBtn = document.getElementById('ewiz-notes-btn');
+  if (_ewizAttachState === 'notes') {
+    _ewizAttachState = null;
+    notesBtn.classList.remove('active');
+    if (notesZone) notesZone.style.display = 'none';
+    examClearNotes();
+  } else {
+    _ewizAttachState = 'notes';
+    notesBtn.classList.add('active');
+    if (notesZone) notesZone.style.display = '';
+    pdfBtn.classList.remove('active');
+    if (pdfZone) pdfZone.style.display = 'none';
+    _examSourceTab = 'notes';
+    examClearSource(null, true);
+  }
+  const scanField = document.getElementById('exam-scan-mode-field');
+  if (scanField) scanField.style.display = 'none'; // scan mode only for PDF
+}
+
 function examSelectTemplate(id) {
   _examActiveTemplate = id;
   document.querySelectorAll('.exam-tpl-card').forEach(c => c.classList.toggle('active', c.dataset.tpl === id));
+  _ewizOnTplSelect(); // enable "Customize →" button in wizard
 
   const tpl = EXAM_TEMPLATES[id];
   if (!tpl) return;
@@ -4901,7 +4998,7 @@ function _examSectionsRender() {
       `<input class="exam-section-count-inp" type="number" min="1" max="300" value="${parseInt(sec.count)}" oninput="_examSectionEdit(${idx},'count',this.value)">` +
       `<input class="exam-section-pts-inp" type="number" min="1" max="100" value="${parseInt(sec.pts)}" oninput="_examSectionEdit(${idx},'pts',this.value)">` +
       `<div class="exam-section-subtotal" id="sec-sub-${idx}">${parseInt(sec.count) * parseInt(sec.pts)} pts</div>` +
-      `<button class="exam-section-del" onclick="examSectionDelete(${idx})" title="Remove">\u00d7</button>`;
+      `<button class="exam-section-del${_examSections.length === 1 ? ' ewiz-hidden' : ''}" onclick="examSectionDelete(${idx})" title="Remove">\u00d7</button>`;
     body.appendChild(row);
   });
 
@@ -4938,6 +5035,26 @@ function _examSummaryUpdate() {
 }
 
 function examSectionDelete(idx) {
+  if (_examSections.length <= 1) return; // minimum 1 section
+  // Animate the row out before removing
+  const rows = document.querySelectorAll('.exam-section-row');
+  const row  = rows[idx];
+  if (row) {
+    row.style.transition = 'opacity 0.18s, max-height 0.22s ease, padding 0.22s ease';
+    row.style.maxHeight  = row.scrollHeight + 'px';
+    row.style.overflow   = 'hidden';
+    requestAnimationFrame(() => {
+      row.style.opacity   = '0';
+      row.style.maxHeight = '0';
+      row.style.paddingTop = '0';
+      row.style.paddingBottom = '0';
+    });
+    setTimeout(() => {
+      _examSections.splice(idx, 1);
+      _examSectionsRender();
+    }, 230);
+    return;
+  }
   _examSections.splice(idx, 1);
   _examSectionsRender();
   // If all sections removed while on custom, restore count/type pickers
@@ -4963,7 +5080,7 @@ function examSectionAdd() {
 }
 
 function examSectionAddType(type) {
-  _examSections.push({ type, count: 10, pts: 1 });
+  _examSections.push({ type, count: 5, pts: 2 });
   _examSectionsRender();
   const picker = document.getElementById('exam-section-add-picker');
   if (picker) picker.style.display = 'none';

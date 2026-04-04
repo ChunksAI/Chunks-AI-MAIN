@@ -976,3 +976,444 @@
   color: var(--text-1);
 }
 .ess-gold { color: var(--gold); }
+
+/* ═══════════════════════════════════════════════════════════════
+   EXAM WIZARD — 3-step setup UI
+═══════════════════════════════════════════════════════════════ */
+
+/* Wrapper: max 520px, centered */
+.ewiz-wrap {
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+/* ── Step trail ── */
+.ewiz-trail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 36px;
+  gap: 0;
+}
+.ewiz-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--surface-4);
+  border: 1.5px solid var(--border-md);
+  flex-shrink: 0;
+  transition: background 0.22s, border-color 0.22s, transform 0.22s var(--ease-spring);
+}
+.ewiz-dot.active {
+  background: #D4A853;
+  border-color: #D4A853;
+  transform: scale(1.35);
+}
+.ewiz-dot.done {
+  background: #7A9E7E;
+  border-color: #7A9E7E;
+}
+.ewiz-trail-line {
+  width: 64px;
+  height: 0.5px;
+  background: #2E2E2E;
+  flex-shrink: 0;
+  transition: background 0.25s;
+}
+.ewiz-trail-line.done { background: #7A9E7E; }
+
+/* ── Step container ── */
+.ewiz-step {
+  animation: ewizFadeUp 0.22s var(--ease-snap) both;
+}
+@keyframes ewizFadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* Step label */
+.ewiz-step-lbl {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-4);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+/* Step heading — Instrument Serif */
+.ewiz-heading {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 28px;
+  font-weight: 400;
+  color: #E8E4DC;
+  margin-bottom: 6px;
+  line-height: 1.2;
+}
+
+/* Step subtitle */
+.ewiz-sub {
+  font-size: 14px;
+  color: var(--text-3);
+  margin-bottom: 28px;
+  line-height: 1.65;
+}
+
+/* ── Topic input ── */
+.ewiz-topic-inp {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface-2);
+  border: 0.5px solid #2E2E2E;
+  border-radius: 14px;
+  padding: 16px 18px;
+  font-size: 18px;
+  font-weight: 300;
+  color: var(--text-1);
+  font-family: var(--font-body);
+  outline: none;
+  transition: border-color 0.18s;
+  -webkit-appearance: none;
+}
+.ewiz-topic-inp::placeholder { color: var(--text-4); }
+.ewiz-topic-inp:focus { border-color: #D4A853; }
+
+/* ── Attach row (pill toggles) ── */
+.ewiz-attach-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+.ewiz-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 0.5px solid #444;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 13px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: border-color 0.18s, color 0.18s, background 0.18s;
+}
+.ewiz-pill-btn:hover {
+  border-color: #D4A853;
+  color: #D4A853;
+}
+.ewiz-pill-btn.active {
+  background: rgba(212, 168, 83, 0.12);
+  border-color: #D4A853;
+  color: #D4A853;
+}
+
+/* Attach zone wrapper */
+.ewiz-attach-zone {
+  margin-top: 14px;
+  animation: ewizFadeUp 0.18s var(--ease-snap) both;
+}
+
+/* ── Step footer ── */
+.ewiz-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 0.5px solid #2E2E2E;
+}
+
+/* Primary button (amber) */
+.ewiz-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 22px;
+  border-radius: 20px;
+  background: #D4A853;
+  border: none;
+  color: #111;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: opacity 0.18s, transform 0.15s;
+}
+.ewiz-btn-primary:hover:not(:disabled):not(.ewiz-disabled) {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+.ewiz-btn-primary:disabled,
+.ewiz-btn-primary.ewiz-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Ghost button */
+.ewiz-btn-ghost {
+  background: none;
+  border: none;
+  color: var(--text-3);
+  font-size: 13px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  padding: 8px 4px;
+  transition: color 0.15s;
+}
+.ewiz-btn-ghost:hover { color: var(--text-1); }
+
+/* ── Template grid (step 2) ── */
+.ewiz-tpl-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.ewiz-tpl-card {
+  position: relative;
+  padding: 18px 16px 16px;
+  background: var(--surface-2);
+  border: 0.5px solid #2E2E2E;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ewiz-tpl-card:hover {
+  border-color: #444;
+  background: var(--surface-3);
+}
+.ewiz-tpl-card.active {
+  border: 1.5px solid #D4A853 !important;
+  background: rgba(212, 168, 83, 0.05);
+}
+
+/* Checkmark badge */
+.ewiz-tpl-check {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #D4A853;
+  color: #111;
+  font-size: 10px;
+  font-weight: 700;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.ewiz-tpl-card.active .ewiz-tpl-check { display: flex; }
+
+/* Override old exam-tpl-card active name color in wizard */
+.ewiz-tpl-grid .exam-tpl-card.active .ewiz-tpl-name { color: var(--text-1); }
+
+.ewiz-tpl-icon {
+  font-size: 22px;
+  display: block;
+  margin-bottom: 6px;
+  line-height: 1;
+}
+.ewiz-tpl-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: 3px;
+}
+.ewiz-tpl-desc {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.5;
+  margin-bottom: 10px;
+  flex: 1;
+}
+.ewiz-tpl-pts {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  align-self: flex-start;
+}
+.ewiz-pts-amber { background: rgba(212,168,83,0.15); color: #D4A853; }
+.ewiz-pts-blue  { background: rgba(96,165,250,0.15);  color: #60a5fa; }
+.ewiz-pts-green { background: rgba(74,222,128,0.15);  color: #4ade80; }
+
+/* Custom card */
+.ewiz-tpl-custom {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  border-style: dashed !important;
+  min-height: 120px;
+}
+.ewiz-tpl-custom-icon {
+  font-size: 28px;
+  color: var(--text-4);
+  display: block;
+  margin-bottom: 6px;
+}
+.ewiz-tpl-custom .ewiz-tpl-name { color: var(--text-3); }
+.ewiz-tpl-card.active.ewiz-tpl-custom .ewiz-tpl-name { color: var(--text-1); }
+
+/* ── Sections card (step 3) ── */
+.ewiz-sections-card {
+  border-radius: 14px;
+  border: 0.5px solid #2E2E2E;
+  overflow: hidden;
+  margin-bottom: 0;
+}
+.ewiz-sec-hdr {
+  padding: 10px 16px;
+  border-bottom: 0.5px solid #2E2E2E;
+  background: var(--surface-3);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.ewiz-sec-table {
+  background: var(--surface-1);
+}
+/* Remove double border on nested table */
+.ewiz-sections-card .exam-sections-table {
+  border: none;
+  border-radius: 0;
+}
+/* Hide × button (single section) */
+.ewiz-hidden { visibility: hidden; pointer-events: none; }
+
+/* Add section button styling override for wizard */
+.ewiz-add-section-btn { text-align: center; }
+
+/* ── Live summary bar (step 3) ── */
+.ewiz-summary-bar {
+  border-top: 0.5px solid #2E2E2E;
+  border-bottom: 0.5px solid #2E2E2E;
+  margin: 16px 0 20px;
+}
+
+/* ── Settings row (step 3) ── */
+.ewiz-settings-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.ewiz-setting-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 8px;
+}
+.ewiz-select {
+  width: 100%;
+  background: var(--surface-2);
+  border: 0.5px solid #2E2E2E;
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: var(--text-1);
+  font-size: 13px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: border-color 0.18s;
+}
+.ewiz-select:focus { border-color: #D4A853; }
+
+/* Difficulty toggle group */
+.ewiz-diff-group {
+  display: flex;
+  gap: 5px;
+}
+.ewiz-diff-btn {
+  flex: 1;
+  padding: 8px 4px;
+  border-radius: 8px;
+  border: 0.5px solid #2E2E2E;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 12px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  text-align: center;
+}
+.ewiz-diff-btn:hover { border-color: #444; color: var(--text-2); }
+.ewiz-diff-btn.active {
+  background: var(--surface-4);
+  border-color: var(--border-lg);
+  color: var(--text-1);
+  font-weight: 500;
+}
+/* AI button active: amber tint */
+.ewiz-diff-btn.ewiz-diff-ai.active,
+.ewiz-diff-btn.exam-type-btn.active[data-diff="adaptive"] {
+  background: rgba(212, 168, 83, 0.14) !important;
+  border-color: #D4A853 !important;
+  color: #D4A853 !important;
+}
+
+/* ── Generate Exam button (step 3) ── */
+.ewiz-gen-btn {
+  width: 100%;
+  padding: 15px;
+  border-radius: 14px;
+  background: #D4A853;
+  border: none;
+  color: #111;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: opacity 0.18s, transform 0.12s;
+}
+.ewiz-gen-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.ewiz-gen-btn:active { transform: translateY(0); }
+.ewiz-star { font-size: 13px; }
+.ewiz-gen-btn.loading .ewiz-star { animation: spin 0.8s linear infinite; }
+
+/* Change template link */
+.ewiz-change-tpl {
+  text-align: center;
+  margin-top: 14px;
+}
+.ewiz-change-tpl button {
+  background: none;
+  border: none;
+  color: var(--text-4);
+  font-size: 12px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.ewiz-change-tpl button:hover { color: var(--text-2); }
+
+/* ── Responsive: 375px ── */
+@media (max-width: 480px) {
+  .ewiz-wrap { max-width: 100%; }
+  .ewiz-heading { font-size: 24px; }
+  .ewiz-topic-inp { font-size: 16px; padding: 13px 15px; }
+  .ewiz-tpl-grid { grid-template-columns: 1fr; }
+  .ewiz-settings-row { grid-template-columns: 1fr; }
+  .ewiz-trail-line { width: 40px; }
+  .ewiz-attach-row { flex-wrap: wrap; }
+}
