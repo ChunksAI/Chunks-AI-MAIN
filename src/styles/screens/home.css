@@ -722,10 +722,3 @@
 
 .chat-plus.has-active { background: var(--gold-muted); border-color: var(--gold-border); color: var(--gold); }
 
-/* Auto mode "default" badge */
-.think-menu-badge {
-  font-size: 9px; font-family: var(--font-mono); color: var(--text-4);
-  background: var(--surface-3); border: 1px solid var(--border-xs);
-  padding: 1px 5px; border-radius: 3px; margin-left: 4px;
-  letter-spacing: .03em; vertical-align: middle;
-}

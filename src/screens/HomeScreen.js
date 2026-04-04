@@ -117,7 +117,7 @@ const HOME_HTML = /* html */`
                 <div class="attach-menu-section-label">AI Mode</div>
                 <div class="attach-menu-item attach-menu-toggle" id="home-toggle-auto" onclick="homeToggleThinking('auto')">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-                  <span>Auto <span class="think-menu-badge">default</span></span>
+                  <span>Auto</span>
                   <div class="attach-menu-check on" id="home-auto-check"></div>
                 </div>
                 <div class="attach-menu-item attach-menu-toggle" id="home-toggle-websearch" onclick="homeToggleWebSearch()">
@@ -209,7 +209,7 @@ const HOME_HTML = /* html */`
               <div class="attach-menu-section-label">AI Mode</div>
               <div class="attach-menu-item attach-menu-toggle" id="home-toggle-auto-b" onclick="homeToggleThinking('auto')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-                <span>Auto <span class="think-menu-badge">default</span></span>
+                <span>Auto</span>
                 <div class="attach-menu-check on" id="home-auto-check-b"></div>
               </div>
               <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleWebSearch()">
