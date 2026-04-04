@@ -1710,9 +1710,22 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
       const { data: sbMsgs, source } = await ChunksDB.messages.loadSession(supabaseId);
       if (source === 'supabase' && sbMsgs?.length) {
         console.log('[HomeScreen] restoreSession — using Supabase messages for session', localSessionId);
-        const sbHistory = sbMsgs.map(m => ({ role: m.role, content: m.content, ts: new Date(m.created_at).getTime() }));
         // Reconstruct a minimal session descriptor so _mountSession can work.
         const sessionDesc = localSessionId ? (lsGet('chunks_session_' + localSessionId) ?? {}) : {};
+        // Supabase does not store thinkContent/thinkDuration — merge them from the local
+        // session history (matched by role+content) so think blocks survive a page refresh.
+        const localHistory = sessionDesc?.history || [];
+        const sbHistory = sbMsgs.map(m => {
+          const base = { role: m.role, content: m.content, ts: new Date(m.created_at).getTime() };
+          if (m.role === 'assistant') {
+            const localMatch = localHistory.find(lm => lm.role === 'assistant' && lm.content === m.content);
+            if (localMatch?.thinkContent) {
+              base.thinkContent  = localMatch.thinkContent;
+              base.thinkDuration = localMatch.thinkDuration ?? 0;
+            }
+          }
+          return base;
+        });
         _mountSession({ ...sessionDesc, history: sbHistory }, localSessionId ?? supabaseId);
         // Start realtime subscription for this session (subscribeToHomeMessages
         // cleans up any previous channel internally before subscribing).

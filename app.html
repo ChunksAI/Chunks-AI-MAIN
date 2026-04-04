@@ -715,8 +715,15 @@ async function _deleteRecent(id, e) {
     localStorage.removeItem('exam_snap_' + item._snapId);
   }
 
-  // If this was the active chat, reset the UI back to landing
-  if (_activeRecentId === id) {
+  // If this was the active chat, reset the UI back to landing.
+  // Match by local id, by resolvedUuid (when the session was restored from
+  // Supabase and _activeRecentId was set to the UUID), or by _homeSessionId
+  // (the app.html local tracking var) as a final fallback.
+  const _isActiveSession = _activeRecentId === id
+    || (resolvedUuid && _activeRecentId === resolvedUuid)
+    || _homeSessionId === id
+    || (resolvedUuid && _homeSessionId === resolvedUuid);
+  if (_isActiveSession) {
     _activeRecentId = null;
     localStorage.removeItem('chunks_active_recent_id');
     localStorage.removeItem('chunks_active_home_session');
@@ -726,6 +733,8 @@ async function _deleteRecent(id, e) {
     // Reset home landing
     homeHistory = [];
     _homeSessionId = null;
+    // Also clear the HomeScreen.js module-level _homeSessionId via the window setter.
+    window._homeSessionId = null;
     const chatHist   = document.getElementById('home-chat-history');
     const homeLanding = document.getElementById('home-landing');
     const homeHero   = document.querySelector('.home-hero');
