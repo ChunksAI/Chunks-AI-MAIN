@@ -1147,6 +1147,7 @@ export async function _homeRegenerate(aiWrapEl) {
   } catch (e) {
     if (e?.name !== 'AbortError') {
       homeRemoveThinking();
+      console.error('[home/chat] Request error:', e);
       homeAppendError('Could not reach the server. Check your connection.');
     } else {
       homeRemoveThinking();
@@ -1386,8 +1387,8 @@ export async function homeSendMessage() {
           safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
           history: homeHistory.slice(-12),
           ...(_homeWebSearch ? { web_search: true } : {}),
-          ...(_effectiveHomeThinking === 'think' ? { thinking: 'thinking' } : {}),
-          ...(_effectiveHomeThinking === 'deep'  ? { thinking: 'deep'     } : {}),
+          ...(_homeThinking === 'think' ? { thinking: 'thinking' } : {}),
+          ...(_homeThinking === 'deep'  ? { thinking: 'deep'     } : {}),
         }),
       });
 
@@ -1413,7 +1414,7 @@ export async function homeSendMessage() {
         // Finalize the thinking wrap (shows accordion with steps, or silently
         // removes the placeholder when the model returned no thinking content).
         // Await animation so accordion collapses before the AI response starts.
-        await homeAppendThinkingAccordion(thinkingContent, elapsed, _effectiveHomeThinking);
+        await homeAppendThinkingAccordion(thinkingContent, elapsed, _homeThinking);
       }
 
       // ── Typewriter: render AI response word by word ──
@@ -1450,6 +1451,7 @@ export async function homeSendMessage() {
       // Keep whatever text has already been rendered — do not pop history here
     } else {
       homeRemoveThinking();
+      console.error('[home/chat] Request error:', e);
       homeAppendError('Could not reach the server. Check your connection.');
       homeHistory.pop();
     }

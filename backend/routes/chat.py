@@ -25,25 +25,40 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# Deep Think mode system instruction used by both home and workspace /ask
-# flows. This must remain a system-level prompt (not user-appended) so deep
-# responses are consistently prioritized over concise defaults.
-DEEP_THINK_SYSTEM_PROMPT = (
-    "You are in Deep Think mode. You MUST produce a VERY long, comprehensive, and highly detailed response. "
-    "Your response MUST be at least 800-1500 words. This is NON-NEGOTIABLE. "
-    "Cover ALL aspects thoroughly with these sections:\n"
-    "1. **Definition & Overview** — Full, precise definition with context\n"
-    "2. **Key Components & Concepts** — Break down every important element\n"
-    "3. **How It Works** — Step-by-step mechanism or process explanation\n"
-    "4. **Examples & Applications** — Multiple real-world examples\n"
-    "5. **Related Concepts** — Connections to other topics\n"
-    "6. **Common Misconceptions** — Address frequent misunderstandings\n"
-    "7. **Summary & Key Takeaways** — Concise recap of main points\n\n"
-    "Use headers (##), bullet points, and organized sections throughout. "
-    "Your response should be 3-5x longer than a normal answer. "
-    "NEVER truncate, summarize early, or give a brief answer. "
-    "If in doubt, write MORE, not less."
+# Per-mode response length/style instructions applied on every /ask request.
+# These control how long and how structured each mode's answer must be.
+
+NORMAL_MODE_PROMPT = (
+    "Give a concise, direct answer in 1-2 short paragraphs only. "
+    "Do not use headers, excessive bullet points, or long explanations. "
+    "Get straight to the point. Never exceed 2 paragraphs."
 )
+
+THINK_MODE_PROMPT = (
+    "Give a balanced answer that is longer than a normal response but not exhaustive. "
+    "Use 3-5 paragraphs or a short structured list. "
+    "Include a brief explanation with a couple of key points. "
+    "Do not write a full essay — be thorough but stay focused."
+)
+
+DEEP_THINK_MODE_PROMPT = (
+    "Give a comprehensive, detailed, and well-structured response. "
+    "Always include: a full definition, all key components, how it works step by step, "
+    "real-world examples, related concepts, and a summary. "
+    "Use headers and sections. "
+    "Your response must be significantly longer and more detailed than Think mode. "
+    "Never truncate or cut short."
+)
+
+# Backward-compatible alias used by tests
+DEEP_THINK_SYSTEM_PROMPT = DEEP_THINK_MODE_PROMPT
+
+# Token limits enforced per mode (passed as max_tokens_override to call_ai).
+_MODE_MAX_TOKENS = {
+    'deep':     3000,
+    'thinking':  900,
+    None:        400,  # normal / no thinking toggle
+}
 
 
 def _strip_code_fences(text: str) -> str:
@@ -258,18 +273,10 @@ def ask(request: Request, body: AskRequest):
 
         def _response_style_instruction(_thinking_mode):
             if _thinking_mode == 'deep':
-                return DEEP_THINK_SYSTEM_PROMPT
+                return DEEP_THINK_MODE_PROMPT
             if _thinking_mode == 'thinking':
-                return (
-                    "Give a moderately concise answer. Cover the main points with brief explanation. "
-                    "Use minimal structure — at most a short list or two short paragraphs. "
-                    "Do not include full breakdowns, multiple sections, or exhaustive detail. "
-                    "Aim for roughly 2-3x the length of a normal response, not a full deep dive."
-                )
-            return (
-                "Give concise, clear answers. Be brief and direct. Avoid over-explaining. "
-                "Use simple formatting only when necessary."
-            )
+                return THINK_MODE_PROMPT
+            return NORMAL_MODE_PROMPT
 
         response_style_instruction = _response_style_instruction(thinking_mode)
         teaching_prompt_instruction = TEACHING_PROMPT if thinking_mode in ('thinking', 'deep') else ""
@@ -788,7 +795,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     fallback_prompt = f"STUDENT QUESTION: {question}\n\nAnswer helpfully and clearly."
                     answer = call_ai(fallback_prompt, system_prompt=base_system, model=selected_model, history=history,
                                      endpoint='chat', user_id=verified_user_id,
-                                     max_tokens_override=16000 if thinking_mode == 'deep' else 4000 if thinking_mode == 'thinking' else 800)
+                                     max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))
                     answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
                     web_citations = []
                 answer, thinking_content = extract_thinking_content(answer)
@@ -845,7 +852,7 @@ Answer helpfully and clearly."""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
                              endpoint='chat', user_id=verified_user_id,
-                             max_tokens_override=16000 if thinking_mode == 'deep' else 4000 if thinking_mode == 'thinking' else 800)
+                             max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))
             answer, thinking_content = extract_thinking_content(answer)
             _resp = {
                 'success':        True,

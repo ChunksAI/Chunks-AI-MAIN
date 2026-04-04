@@ -1025,8 +1025,6 @@ function _showRecentCtxMenu(item, e) {
 function _renderAllRecent() {
   const generalItems   = _recentItems.filter(r => r.source === 'general' || (!r.bookId && r.source !== 'visual' && r.source !== 'exam'));
   const workspaceItems = _recentItems.filter(r => r.source === 'workspace' && r.bookId);
-  const visualItems    = _recentItems.filter(r => r.source === 'visual');
-  const examItems      = _recentItems.filter(r => r.source === 'exam');
 
   // All General AI list IDs across every screen
   const generalIds = [
@@ -1056,36 +1054,6 @@ function _renderAllRecent() {
       ? ''
       : '<div class="recent-empty">No recent chats yet</div>';
     workspaceItems.forEach(item => el.appendChild(_buildRecentItem(item)));
-  });
-
-  // All Visual Tutor Chats list IDs across every screen
-  const visualIds = [
-    'recent-list-vt-home', 'recent-list-vt-ws', 'recent-list-vt-flash',
-    'recent-list-vt-research', 'recent-list-vt-exam', 'recent-list-vt-studyplan',
-    'recent-list-vt-visual', 'recent-list-vt-lib',
-  ];
-  visualIds.forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = visualItems.length
-      ? ''
-      : '<div class="recent-empty">No visual chats yet</div>';
-    visualItems.forEach(item => el.appendChild(_buildRecentItem(item)));
-  });
-
-  // All Exam Chats list IDs across every screen
-  const examIds = [
-    'recent-list-exam-home', 'recent-list-exam-ws', 'recent-list-exam-flash',
-    'recent-list-exam-research', 'recent-list-exam-exam', 'recent-list-exam-studyplan',
-    'recent-list-exam-visual', 'recent-list-exam-lib',
-  ];
-  examIds.forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = examItems.length
-      ? ''
-      : '<div class="recent-empty">No exam chats yet</div>';
-    examItems.forEach(item => el.appendChild(_buildRecentItem(item)));
   });
 
   // Refresh home landing "Recent activity" section
