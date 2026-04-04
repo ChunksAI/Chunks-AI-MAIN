@@ -326,18 +326,31 @@ def ask(request: Request, body: AskRequest):
         # ── Thinking mode: instruct model to emit chain-of-thought ────────────
         if thinking_mode in ('thinking', 'deep'):
             base_system += (
-                "\n\nIMPORTANT: Before writing your answer, show your complete step-by-step "
-                "reasoning process inside <think>...</think> tags. Work through the problem "
-                "carefully — consider what is being asked, recall relevant concepts, apply any "
-                "necessary formulas or logic, and verify your conclusion. "
-                "After the closing </think> tag, write your final answer to the student. "
-                "The final answer after </think> must be fully self-contained, complete, and not a one-line summary. "
-                "Do not depend on <think> content for any key explanation."
+                "\n\nOUTPUT FORMAT — TWO SECTIONS, BOTH REQUIRED:\n"
+                "SECTION 1 — <think>...</think> (private scratchpad, hidden from the student): "
+                "Use this to plan, reason, check your work, and strategise. "
+                "Write whatever internal notes you need here — the student never sees it.\n"
+                "SECTION 2 — Your final answer (written AFTER the closing </think> tag): "
+                "This is the ONLY part the student reads. "
+                "It must be a complete, standalone educational response. "
+                "DO NOT write only a social greeting, a single sentence, or a closing phrase here. "
+                "DO NOT summarise your <think> notes — write the full answer from scratch as if "
+                "<think> does not exist. "
+                "The answer must begin with actual educational content, not with 'Hope that helps' "
+                "or any variant."
             )
             if thinking_mode == 'deep':
                 base_system += (
-                    " For deep mode, provide a thorough final answer with multiple clear sections "
-                    "(or detailed paragraphs), concrete explanation, and a short recap."
+                    "\nFor DEEP mode your final answer (after </think>) MUST include ALL of: "
+                    "(1) a full definition with context, "
+                    "(2) all key components explained in detail, "
+                    "(3) how it works step-by-step, "
+                    "(4) real-world examples, "
+                    "(5) related concepts, "
+                    "(6) a concise summary. "
+                    "Use clear headers and structured sections. "
+                    "This answer must be significantly longer and more detailed than Think mode. "
+                    "Never truncate."
                 )
 
         # ── MODE: VISUAL_TUTOR ────────────────────────────────────────────────

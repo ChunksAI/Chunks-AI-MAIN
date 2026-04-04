@@ -10,7 +10,7 @@
  */
 
 export { PATH_TO_SCREEN, SCREEN_TO_PATH, SCREEN_MAP } from './routes.js';
-export { showScreen, drawerNav, mobileNav, _currentScreen } from './screens.js';
+export { showScreen, drawerNav, mobileNav, _currentScreen, setNavFromHistory } from './screens.js';
 export { openMobileDrawer, closeMobileDrawer, toggleSidebar, handleLogoClick } from './mobile.js';
 export { _navInit } from './init.js';
 
