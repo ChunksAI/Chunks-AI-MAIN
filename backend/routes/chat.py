@@ -29,11 +29,9 @@ router = APIRouter()
 # flows. This must remain a system-level prompt (not user-appended) so deep
 # responses are consistently prioritized over concise defaults.
 DEEP_THINK_SYSTEM_PROMPT = (
-    "You are a thorough and detailed study assistant. Always give comprehensive, "
-    "well-structured answers. Include: a clear definition, key components or concepts, "
-    "how it works step by step, real-life examples, and a summary. Use headers, bullet "
-    "points, and organized sections. Never give short or vague answers when Deep Think "
-    "is enabled."
+    "Give a thorough, detailed, well-structured answer. Include definitions, "
+    "components, how it works, examples, and a summary. Use headers and "
+    "organized sections."
 )
 
 
@@ -252,8 +250,8 @@ def ask(request: Request, body: AskRequest):
                 return DEEP_THINK_SYSTEM_PROMPT
             if _thinking_mode == 'thinking':
                 return (
-                    "Give balanced, well-reasoned answers. Include key concepts and brief "
-                    "explanations. Use structured formatting where helpful."
+                    "Give a balanced, moderately detailed answer. Include key points and "
+                    "some structure, but don't over-elaborate."
                 )
             return (
                 "Give concise, clear answers. Be brief and direct. Avoid over-explaining. "
