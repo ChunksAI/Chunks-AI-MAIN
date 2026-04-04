@@ -42,7 +42,7 @@ import { ChunksDB } from '../lib/chunksDb.js';
 import { subscribeToHomeMessages, unsubscribeHomeMessages } from '../state/home/homeMessagesRealtime.js';
 import { createThinkingAccordion } from '../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../utils/typewriter.js';
-import { classifyQuestion } from '../utils/questionClassifier.js';
+import { classifyQuestion, mapComplexityToMode } from '../utils/questionClassifier.js';
 import { ws } from '../state/workspace/state.js';
 import { _homeRenderPreview } from '../state/workspace/attachments.js';
 
@@ -1096,8 +1096,7 @@ export async function _homeRegenerate(aiWrapEl) {
   // Resolve 'auto' thinking mode based on question complexity
   let _regenEffectiveThinking = _homeThinking;
   if (_homeThinking === 'auto' && question) {
-    const _qc = classifyQuestion(question);
-    _regenEffectiveThinking = _qc === 'complex' ? 'deep' : _qc === 'moderate' ? 'think' : 'off';
+    _regenEffectiveThinking = mapComplexityToMode(classifyQuestion(question));
   }
 
   homeAppendThinking(false, _regenEffectiveThinking);
@@ -1371,8 +1370,7 @@ export async function homeSendMessage() {
   // Resolve 'auto' thinking mode based on question complexity
   let _effectiveHomeThinking = _homeThinking;
   if (_homeThinking === 'auto' && question && !imageAtt) {
-    const _qc = classifyQuestion(question);
-    _effectiveHomeThinking = _qc === 'complex' ? 'deep' : _qc === 'moderate' ? 'think' : 'off';
+    _effectiveHomeThinking = mapComplexityToMode(classifyQuestion(question));
   }
 
   homeAppendThinking(!!imageAtt, _effectiveHomeThinking);

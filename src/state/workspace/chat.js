@@ -14,7 +14,7 @@ import { handleCommand, syncContextFromWorkspace, updateContext } from '../comma
 import { wsShowPanel } from '../../screens/WorkspaceScreen.js';
 import { createThinkingAccordion } from '../../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../../utils/typewriter.js';
-import { classifyQuestion } from '../../utils/questionClassifier.js';
+import { classifyQuestion, mapComplexityToMode, autoModeLabel } from '../../utils/questionClassifier.js';
 
 // ── Send / Stop button icons ──────────────────────────────────────────────
 const _SEND_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
@@ -635,10 +635,9 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
   // Resolve 'auto' thinking mode before showing the indicator
   const _savedThinking = ws.thinking;
   if (ws.thinking === 'auto' && question && !imageAtt) {
-    const _complexity = classifyQuestion(question);
-    ws.thinking = _complexity === 'complex' ? 'deep' : _complexity === 'moderate' ? 'think' : 'off';
+    ws.thinking = mapComplexityToMode(classifyQuestion(question));
     const _lbl = $el('ws-think-label');
-    if (_lbl) _lbl.textContent = ws.thinking === 'deep' ? 'Auto · Deep Think' : ws.thinking === 'think' ? 'Auto · Think' : 'Auto';
+    if (_lbl) _lbl.textContent = autoModeLabel(ws.thinking);
   }
   ws.typing = true;
   _wsUserScrolled = false;

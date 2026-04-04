@@ -41,15 +41,17 @@ const _SIMPLE_EXACT = new Set([
  * @returns {'simple'|'moderate'|'complex'}
  */
 export function classifyQuestion(text) {
-  const q = (text || '').toLowerCase().trim().replace(/[?!.]+$/, '').trim();
+  const q = (text || '').toLowerCase().replace(/[?!.]+$/, '').trim();
   if (!q) return 'simple';
+
+  // Exact match on conversational short phrases (may be multi-word)
+  if (_SIMPLE_EXACT.has(q)) return 'simple';
 
   const words = q.split(/\s+/).filter(Boolean);
   const n = words.length;
 
-  // Very short greetings / one-word / two-word → simple
+  // Very short inputs → simple
   if (n <= 2) return 'simple';
-  if (_SIMPLE_EXACT.has(q)) return 'simple';
 
   // Explicit complex keywords
   if (_COMPLEX_KEYWORDS.some(kw => q.includes(kw))) return 'complex';
@@ -65,4 +67,29 @@ export function classifyQuestion(text) {
 
   // Short but not conversational → simple
   return 'simple';
+}
+
+/**
+ * Maps a classifyQuestion result to the actual thinking mode string
+ * used in the API request body and ws.thinking state.
+ *
+ * @param {'simple'|'moderate'|'complex'} complexity
+ * @returns {'off'|'think'|'deep'}
+ */
+export function mapComplexityToMode(complexity) {
+  if (complexity === 'complex')  return 'deep';
+  if (complexity === 'moderate') return 'think';
+  return 'off';
+}
+
+/**
+ * Returns the display label for an auto-resolved thinking mode.
+ *
+ * @param {'off'|'think'|'deep'} resolvedMode
+ * @returns {string}
+ */
+export function autoModeLabel(resolvedMode) {
+  if (resolvedMode === 'deep')  return 'Auto · Deep Think';
+  if (resolvedMode === 'think') return 'Auto · Think';
+  return 'Auto';
 }
