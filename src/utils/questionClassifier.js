@@ -77,7 +77,7 @@ export function classifyQuestion(text) {
  * @returns {'off'|'think'|'deep'}
  */
 export function mapComplexityToMode(complexity) {
-  if (complexity === 'complex')  return 'deep';
+  if (complexity === 'complex') return 'deep';
   if (complexity === 'moderate') return 'think';
   return 'off';
 }
@@ -89,7 +89,7 @@ export function mapComplexityToMode(complexity) {
  * @returns {string}
  */
 export function autoModeLabel(resolvedMode) {
-  if (resolvedMode === 'deep')  return 'Auto · Deep Think';
+  if (resolvedMode === 'deep') return 'Auto · Deep Think';
   if (resolvedMode === 'think') return 'Auto · Think';
   return 'Auto';
 }

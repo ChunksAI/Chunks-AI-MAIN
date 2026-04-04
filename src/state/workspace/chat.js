@@ -537,13 +537,13 @@ export function wsToggleThinkMenu(e) {
 
 export function wsToggleThinking(mode) {
   ws.thinking = ws.thinking === mode ? 'off' : mode;
-  const isAuto  = ws.thinking === 'auto';
+  const isAuto = ws.thinking === 'auto';
   const isThink = ws.thinking === 'think';
-  const isDeep  = ws.thinking === 'deep';
-  const isAny   = isAuto || isThink || isDeep;
-  toggleClass($el('ws-auto-check'),  'on', isAuto);
+  const isDeep = ws.thinking === 'deep';
+  const isAny = isAuto || isThink || isDeep;
+  toggleClass($el('ws-auto-check'), 'on', isAuto);
   toggleClass($el('ws-think-check'), 'on', isThink);
-  toggleClass($el('ws-deep-check'),  'on', isDeep);
+  toggleClass($el('ws-deep-check'), 'on', isDeep);
   toggleClass($el('ws-toggle-think'), 'active', isAny);
   const label = $el('ws-think-label');
   if (label) label.textContent = isDeep ? 'Deep Think' : isAuto ? 'Auto' : 'Think';
