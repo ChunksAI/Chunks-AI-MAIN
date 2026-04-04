@@ -42,12 +42,10 @@ THINK_MODE_PROMPT = (
 )
 
 DEEP_THINK_MODE_PROMPT = (
-    "Give a comprehensive, detailed, and well-structured response. "
-    "Always include: a full definition, all key components, how it works step by step, "
-    "real-world examples, related concepts, and a summary. "
-    "Use headers and sections. "
-    "Your response must be significantly longer and more detailed than Think mode. "
-    "Never truncate or cut short."
+    "Give a thorough, well-structured response that is clearly more detailed than "
+    "a normal answer, but still focused and readable. "
+    "Include: a clear definition, the key components, how it works, and a real-world "
+    "example. Use headers where helpful. Aim for depth without padding."
 )
 
 # Backward-compatible alias used by tests
@@ -59,7 +57,7 @@ DEEP_THINK_SYSTEM_PROMPT = DEEP_THINK_MODE_PROMPT
 # sized to leave ample room for a detailed final answer after the reasoning
 # block is stripped by extract_thinking_content().
 _MODE_MAX_TOKENS = {
-    'deep':     16000,  # ~4-6k for reasoning + 10k+ for comprehensive final answer
+    'deep':     8000,   # detailed but not exhaustive
     'thinking':  4000,  # ~1k for reasoning + 3k for balanced answer
     None:         400,  # normal / no thinking — brief 1-2 paragraph response
 }
@@ -102,10 +100,6 @@ def ask(request: Request, body: AskRequest):
         mode          = data.get('mode', 'study').lower().strip()
         book_id       = data.get('bookId', 'zumdahl')
         thinking_mode = data.get('thinking', None)
-        # Deep think always requires high-complexity instruction so the
-        # length/detail prompt doesn't actively suppress long answers.
-        if thinking_mode == 'deep':
-            complexity = max(complexity, 8)
         web_search    = data.get('web_search', False)
         history       = data.get('history', [])
         selected_text = data.get('selected_text', '').strip()[:2000]
@@ -334,9 +328,11 @@ def ask(request: Request, body: AskRequest):
                 "SECTION 1 — <think>...</think> (private scratchpad, hidden from the student): "
                 "Use this to plan, reason, check your work, and strategise. "
                 "Write whatever internal notes you need here — the student never sees it.\n"
-                "SECTION 2 — Your final answer (written AFTER the closing </think> tag): "
+                "SECTION 2 — Your final answer (everything you write AFTER </think> closes): "
                 "This is the ONLY part the student reads. "
                 "It must be a complete, standalone educational response. "
+                "Do NOT begin your answer with the word 'tag' or any XML remnant. "
+                "Start directly with educational content. "
                 "DO NOT write only a social greeting, a single sentence, or a closing phrase here. "
                 "DO NOT summarise your <think> notes — write the full answer from scratch as if "
                 "<think> does not exist. "
@@ -345,20 +341,10 @@ def ask(request: Request, body: AskRequest):
             )
             if thinking_mode == 'deep':
                 base_system += (
-                    "\nFor DEEP mode your final answer (after </think>) MUST include ALL of: "
-                    "(1) a full definition with context, "
-                    "(2) all key components explained in detail with examples, "
-                    "(3) step-by-step explanation of how it works, "
-                    "(4) real-world applications and examples, "
-                    "(5) related concepts and connections, "
-                    "(6) common misconceptions or edge cases, "
-                    "(7) a concise but complete summary. "
-                    "Each section must have a clear header. "
-                    "Aim for comprehensive coverage — typically 600+ words, covering all sections above. "
-                    "Use clear headers and structured sections. "
-                    "This answer must be significantly longer and more detailed than Think mode. "
-                    "Never truncate. If you feel you are running out of space, prioritize "
-                    "completing the answer over stopping early."
+                    "\nFor DEEP mode your final answer (after </think>) should include: "
+                    "a full definition, the key components explained clearly, how it works, "
+                    "at least one real-world example, and a brief summary. "
+                    "Use clear headers. Be thorough but do not pad — quality over quantity."
                 )
 
         # ── MODE: VISUAL_TUTOR ────────────────────────────────────────────────
