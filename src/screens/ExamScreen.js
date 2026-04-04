@@ -555,7 +555,7 @@ export function mountExamScreen() {
     const hint = document.getElementById('ewiz-step1-hint');
     if (!btn) return;
     const topic    = (document.getElementById('exam-topic-input')?.value || '').trim();
-    const hasInput = topic.length > 0 || !!(window._examSourceText && window._examSourceText.length > 0);
+    const hasInput = topic.length > 0 || (window._examSourceText && window._examSourceText.length > 0);
     btn.disabled = !hasInput;
     if (hint) hint.style.display = hasInput ? 'none' : '';
   };
