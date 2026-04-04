@@ -875,8 +875,10 @@ def test_ask_no_thinking_mode_system_prompt_no_think_instruction(client, monkeyp
     import services.ai as ai_svc
     import services.books as books_svc
     import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
 
     monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
     monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
 
     captured = {}
@@ -908,8 +910,10 @@ def test_visual_tutor_strips_think_block(client, monkeypatch, mock_guest_gate, m
     import services.ai as ai_svc
     import services.books as books_svc
     import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
 
     monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
     monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
     monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(
         return_value='<think>\nDraw a circle first.\n</think>\n\nHere is the diagram.'
