@@ -662,15 +662,29 @@ export function _renderHomeActivities() {
   let richCards = '';
 
   if (lastBook) {
-    const meta = lastBook.totalPages
-      ? `Page ${lastBook.lastPage} of ${lastBook.totalPages} · ${lastBook.pct}%`
-      : `Page ${lastBook.lastPage}`;
+    const coverUrl = `/covers/${lastBook.bookId}.jpg`;
+    const pctColor = _barColor(lastBook.pct);
     richCards += `
-      <div class="ra-card book" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
-        <div class="qc-icon gold">📚</div>
-        <div class="qc-title">${_esc(lastBook.title)}</div>
-        <div class="qc-desc">${_esc(meta)}</div>
-        <button class="ra-card-btn">Continue →</button>
+      <div class="ra-card book ra-card-book-v2" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
+        <div class="ra-book-thumb-wrap">
+          <img class="ra-book-thumb-img" src="${_esc(coverUrl)}" alt=""
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <div class="ra-book-thumb-fallback" style="display:none">
+            <span style="font-size:28px">📚</span>
+          </div>
+          <div class="ra-book-thumb-overlay"></div>
+        </div>
+        <div class="ra-book-info">
+          <div class="ra-book-title">${_esc(lastBook.title)}</div>
+          <div class="ra-book-loc">📍 Last opened: Page ${lastBook.lastPage}</div>
+          <div class="ra-book-prog-row">
+            <div class="ra-book-prog-bar">
+              <div class="ra-book-prog-fill" style="width:${lastBook.pct}%;background:${pctColor}"></div>
+            </div>
+            <span class="ra-book-prog-label">📊 ${lastBook.pct}%</span>
+          </div>
+          <button class="ra-card-btn ra-book-cta">Continue Studying →</button>
+        </div>
       </div>`;
   }
 
