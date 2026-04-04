@@ -14,7 +14,7 @@ import { handleCommand, syncContextFromWorkspace, updateContext } from '../comma
 import { wsShowPanel } from '../../screens/WorkspaceScreen.js';
 import { createThinkingAccordion } from '../../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../../utils/typewriter.js';
-import { classifyQuestion, mapComplexityToMode, autoModeLabel } from '../../utils/questionClassifier.js';
+
 
 // ── Send / Stop button icons ──────────────────────────────────────────────
 const _SEND_SVG = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
@@ -126,7 +126,7 @@ export function wsAppendThinking(hasImage = false) {
   _wsThinkingWrap.className = 'msg msg-ai';
   _wsThinkingWrap.id = 'ws-thinking-msg';
 
-  if (ws.thinking === 'off' || ws.thinking === 'auto') {
+  if (ws.thinking === 'off') {
     if (hasImage) {
       // Animated "Analyzing image..." text indicator for image messages
       const span = document.createElement('span');
@@ -537,16 +537,14 @@ export function wsToggleThinkMenu(e) {
 
 export function wsToggleThinking(mode) {
   ws.thinking = ws.thinking === mode ? 'off' : mode;
-  const isAuto = ws.thinking === 'auto';
   const isThink = ws.thinking === 'think';
   const isDeep = ws.thinking === 'deep';
-  const isAny = isAuto || isThink || isDeep;
-  toggleClass($el('ws-auto-check'), 'on', isAuto);
+  const isAny = isThink || isDeep;
   toggleClass($el('ws-think-check'), 'on', isThink);
   toggleClass($el('ws-deep-check'), 'on', isDeep);
   toggleClass($el('ws-toggle-think'), 'active', isAny);
   const label = $el('ws-think-label');
-  if (label) label.textContent = isDeep ? 'Deep Think' : isAuto ? 'Auto' : 'Think';
+  if (label) label.textContent = isDeep ? 'Deep Think' : 'Think';
   // Close the think menu after selection
   removeClass($el('ws-think-menu'), 'open');
 }
@@ -632,13 +630,6 @@ export async function wsChatSend() {
  *   structured JSON, and the response is parsed to update the Canvas panel.
  */
 export async function _wsAsk(question, imageAtt = null, isVisual = false) {
-  // Resolve 'auto' thinking mode before showing the indicator
-  const _savedThinking = ws.thinking;
-  if (ws.thinking === 'auto' && question && !imageAtt) {
-    ws.thinking = mapComplexityToMode(classifyQuestion(question));
-    const _lbl = $el('ws-think-label');
-    if (_lbl) _lbl.textContent = autoModeLabel(ws.thinking);
-  }
   ws.typing = true;
   _wsUserScrolled = false;
   _wsAbortController = new AbortController();
@@ -847,12 +838,6 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
     ws.typing = false;
     _wsAbortController = null;
     _wsSetGenerating(false);
-    // Restore 'auto' thinking mode and reset label
-    if (_savedThinking === 'auto') {
-      ws.thinking = 'auto';
-      const _lbl = $el('ws-think-label');
-      if (_lbl) _lbl.textContent = 'Auto';
-    }
   }
 }
 

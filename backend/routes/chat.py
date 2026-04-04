@@ -29,12 +29,20 @@ router = APIRouter()
 # flows. This must remain a system-level prompt (not user-appended) so deep
 # responses are consistently prioritized over concise defaults.
 DEEP_THINK_SYSTEM_PROMPT = (
-    "You are in Deep Think mode. You MUST produce a long, comprehensive, and highly detailed response. "
-    "Cover all aspects thoroughly: full definition, all key components, how it works step by step, "
-    "real-world examples, related concepts, and a summary. "
-    "Use headers and organized sections throughout. "
-    "Your response should be significantly longer than a normal answer. "
-    "Never truncate or summarize early."
+    "You are in Deep Think mode. You MUST produce a VERY long, comprehensive, and highly detailed response. "
+    "Your response MUST be at least 800-1500 words. This is NON-NEGOTIABLE. "
+    "Cover ALL aspects thoroughly with these sections:\n"
+    "1. **Definition & Overview** — Full, precise definition with context\n"
+    "2. **Key Components & Concepts** — Break down every important element\n"
+    "3. **How It Works** — Step-by-step mechanism or process explanation\n"
+    "4. **Examples & Applications** — Multiple real-world examples\n"
+    "5. **Related Concepts** — Connections to other topics\n"
+    "6. **Common Misconceptions** — Address frequent misunderstandings\n"
+    "7. **Summary & Key Takeaways** — Concise recap of main points\n\n"
+    "Use headers (##), bullet points, and organized sections throughout. "
+    "Your response should be 3-5x longer than a normal answer. "
+    "NEVER truncate, summarize early, or give a brief answer. "
+    "If in doubt, write MORE, not less."
 )
 
 
@@ -780,7 +788,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     fallback_prompt = f"STUDENT QUESTION: {question}\n\nAnswer helpfully and clearly."
                     answer = call_ai(fallback_prompt, system_prompt=base_system, model=selected_model, history=history,
                                      endpoint='chat', user_id=verified_user_id,
-                                     max_tokens_override=3000 if thinking_mode == 'deep' else 1500 if thinking_mode == 'thinking' else 800)
+                                     max_tokens_override=16000 if thinking_mode == 'deep' else 4000 if thinking_mode == 'thinking' else 800)
                     answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
                     web_citations = []
                 answer, thinking_content = extract_thinking_content(answer)
@@ -837,7 +845,7 @@ Answer helpfully and clearly."""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
                              endpoint='chat', user_id=verified_user_id,
-                             max_tokens_override=3000 if thinking_mode == 'deep' else 1500 if thinking_mode == 'thinking' else 800)
+                             max_tokens_override=16000 if thinking_mode == 'deep' else 4000 if thinking_mode == 'thinking' else 800)
             answer, thinking_content = extract_thinking_content(answer)
             _resp = {
                 'success':        True,

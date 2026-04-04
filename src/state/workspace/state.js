@@ -93,7 +93,7 @@ export const ws = {
   newChatIsIncognito: false,
   typing:        false,
   webSearch:     false,
-  thinking:      'auto',  // 'auto' | 'off' | 'think' | 'deep'
+  thinking:      'off',   // 'off' | 'think' | 'deep'
   selectedText:  '',      // text highlighted in PDF — sent as context with next question
   userDocId:     null,    // id of user-uploaded doc currently open (null = textbook mode)
   userDocText:   '',      // full extracted text of user doc — sent to /ask as doc_context

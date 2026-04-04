@@ -359,15 +359,10 @@ const WORKSPACE_HTML = /* html */`
             <div class="chat-think-wrap" id="ws-think-wrap">
               <button class="chat-footer-btn chat-think-btn active" id="ws-toggle-think" onclick="wsToggleThinkMenu(event)" title="Thinking mode">
                 <span class="chat-think-dot"></span>
-                <span id="ws-think-label">Auto</span>
+                <span id="ws-think-label">Think</span>
                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
               </button>
               <div class="think-menu" id="ws-think-menu">
-                <div class="think-menu-item" id="ws-think-opt-auto" onclick="wsToggleThinking('auto')">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-                  <span>Auto</span>
-                  <div class="attach-menu-check on" id="ws-auto-check"></div>
-                </div>
                 <div class="think-menu-item" id="ws-think-opt-think" onclick="wsToggleThinking('think')">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
                   <span>Think</span>
