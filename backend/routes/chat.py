@@ -795,7 +795,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     fallback_prompt = f"STUDENT QUESTION: {question}\n\nAnswer helpfully and clearly."
                     answer = call_ai(fallback_prompt, system_prompt=base_system, model=selected_model, history=history,
                                      endpoint='chat', user_id=verified_user_id,
-                                     max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, 400))
+                                     max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))
                     answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
                     web_citations = []
                 answer, thinking_content = extract_thinking_content(answer)
@@ -852,7 +852,7 @@ Answer helpfully and clearly."""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
                              endpoint='chat', user_id=verified_user_id,
-                             max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, 400))
+                             max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))
             answer, thinking_content = extract_thinking_content(answer)
             _resp = {
                 'success':        True,
