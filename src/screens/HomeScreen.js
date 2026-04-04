@@ -42,6 +42,7 @@ import { ChunksDB } from '../lib/chunksDb.js';
 import { subscribeToHomeMessages, unsubscribeHomeMessages } from '../state/home/homeMessagesRealtime.js';
 import { createThinkingAccordion } from '../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../utils/typewriter.js';
+import { classifyQuestion } from '../utils/questionClassifier.js';
 import { ws } from '../state/workspace/state.js';
 import { _homeRenderPreview } from '../state/workspace/attachments.js';
 
@@ -114,6 +115,11 @@ const HOME_HTML = /* html */`
                 </div>
                 <div class="attach-menu-divider"></div>
                 <div class="attach-menu-section-label">AI Mode</div>
+                <div class="attach-menu-item attach-menu-toggle" id="home-toggle-auto" onclick="homeToggleThinking('auto')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                  <span>Auto <span class="think-menu-badge">default</span></span>
+                  <div class="attach-menu-check on" id="home-auto-check"></div>
+                </div>
                 <div class="attach-menu-item attach-menu-toggle" id="home-toggle-websearch" onclick="homeToggleWebSearch()">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                   <span>Web Search</span>
@@ -201,6 +207,11 @@ const HOME_HTML = /* html */`
               </div>
               <div class="attach-menu-divider"></div>
               <div class="attach-menu-section-label">AI Mode</div>
+              <div class="attach-menu-item attach-menu-toggle" id="home-toggle-auto-b" onclick="homeToggleThinking('auto')">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                <span>Auto <span class="think-menu-badge">default</span></span>
+                <div class="attach-menu-check on" id="home-auto-check-b"></div>
+              </div>
               <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleWebSearch()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 <span>Web Search</span>
@@ -322,7 +333,7 @@ const _HOME_AI_AVATAR = `<div class="hc-ai-avatar"><svg viewBox="0 0 100 100" xm
 
 export let homeMode      = 'general';
 export let _homeWebSearch = false;
-export let _homeThinking  = 'off'; // 'off' | 'think' | 'deep'
+export let _homeThinking  = 'auto'; // 'auto' | 'off' | 'think' | 'deep'
 export let homeHistory   = [];
 export let _homeSessionId = null;
 let homeIsTyping = false;
@@ -932,7 +943,7 @@ export function homeAppendUser(text, images = []) {
 let _homeThinkingHandle = null;
 let _homeThinkingWrap   = null;
 
-export function homeAppendThinking(hasImage = false) {
+export function homeAppendThinking(hasImage = false, effectiveMode = _homeThinking) {
   // Remove any leftover accordion from a prior request
   homeRemoveThinking();
 
@@ -943,7 +954,7 @@ export function homeAppendThinking(hasImage = false) {
   document.getElementById('home-chat-history').appendChild(wrap);
   _homeThinkingWrap = wrap;
 
-  if (_homeThinking === 'off') {
+  if (effectiveMode === 'off' || effectiveMode === 'auto') {
     if (hasImage) {
       // Animated "Analyzing image..." text indicator for image messages
       const span = document.createElement('span');
@@ -1081,7 +1092,15 @@ export async function _homeRegenerate(aiWrapEl) {
   homeIsTyping = true;
   _homeAbortController = new AbortController();
   const { signal } = _homeAbortController;
-  homeAppendThinking(false);
+
+  // Resolve 'auto' thinking mode based on question complexity
+  let _regenEffectiveThinking = _homeThinking;
+  if (_homeThinking === 'auto' && question) {
+    const _qc = classifyQuestion(question);
+    _regenEffectiveThinking = _qc === 'complex' ? 'deep' : _qc === 'moderate' ? 'think' : 'off';
+  }
+
+  homeAppendThinking(false, _regenEffectiveThinking);
   _thinkStart = Date.now();
   _homeSetGenerating(document.getElementById('home-send-btn'), true);
   _homeSetGenerating(document.getElementById('home-send-btn-bottom'), true);
@@ -1102,8 +1121,8 @@ export async function _homeRegenerate(aiWrapEl) {
         language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
         safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
         history: homeHistory.slice(-12),
-        ...(_homeThinking === 'think' ? { thinking: 'thinking' } : {}),
-        ...(_homeThinking === 'deep'  ? { thinking: 'deep'     } : {}),
+        ...(_regenEffectiveThinking === 'think' ? { thinking: 'thinking' } : {}),
+        ...(_regenEffectiveThinking === 'deep'  ? { thinking: 'deep'     } : {}),
       }),
     });
 
@@ -1117,7 +1136,7 @@ export async function _homeRegenerate(aiWrapEl) {
       const cleanAnswer = answer || 'No response.';
       const thinkingContent = data.thinking_content || clientThinking || null;
       const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
-      await homeAppendThinkingAccordion(thinkingContent, elapsed, _homeThinking);
+      await homeAppendThinkingAccordion(thinkingContent, elapsed, _regenEffectiveThinking);
 
       const aiWrap = homeAppendAI(cleanAnswer, null, { typewrite: true });
       const textEl = aiWrap?.querySelector('.hc-ai-text');
@@ -1254,8 +1273,13 @@ export function homeToggleWebSearch() {
 export function homeToggleThinking(mode) {
   // Toggle off if already active, else switch to new mode
   _homeThinking = _homeThinking === mode ? 'off' : mode;
+  const isAuto  = _homeThinking === 'auto';
   const isThink = _homeThinking === 'think';
   const isDeep  = _homeThinking === 'deep';
+  ['home-auto-check','home-auto-check-b'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('on', isAuto);
+  });
   ['home-think-check','home-think-check-b'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('on', isThink);
@@ -1271,6 +1295,10 @@ export function homeToggleThinking(mode) {
   ['home-toggle-deep'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('active', isDeep);
+  });
+  ['home-toggle-auto','home-toggle-auto-b'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', isAuto);
   });
 }
 
@@ -1339,7 +1367,15 @@ export async function homeSendMessage() {
   homeIsTyping = true;
   _homeAbortController = new AbortController();
   const { signal } = _homeAbortController;
-  homeAppendThinking(!!imageAtt);
+
+  // Resolve 'auto' thinking mode based on question complexity
+  let _effectiveHomeThinking = _homeThinking;
+  if (_homeThinking === 'auto' && question && !imageAtt) {
+    const _qc = classifyQuestion(question);
+    _effectiveHomeThinking = _qc === 'complex' ? 'deep' : _qc === 'moderate' ? 'think' : 'off';
+  }
+
+  homeAppendThinking(!!imageAtt, _effectiveHomeThinking);
   _thinkStart = Date.now();
   // Update both buttons — homeHideLanding() may have swapped which one is visible
   _homeSetGenerating(document.getElementById('home-send-btn'), true);
@@ -1379,8 +1415,8 @@ export async function homeSendMessage() {
           safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
           history: homeHistory.slice(-12),
           ...(_homeWebSearch ? { web_search: true } : {}),
-          ...(_homeThinking === 'think' ? { thinking: 'thinking' } : {}),
-          ...(_homeThinking === 'deep'  ? { thinking: 'deep'     } : {}),
+          ...(_effectiveHomeThinking === 'think' ? { thinking: 'thinking' } : {}),
+          ...(_effectiveHomeThinking === 'deep'  ? { thinking: 'deep'     } : {}),
         }),
       });
 
@@ -1406,7 +1442,7 @@ export async function homeSendMessage() {
         // Finalize the thinking wrap (shows accordion with steps, or silently
         // removes the placeholder when the model returned no thinking content).
         // Await animation so accordion collapses before the AI response starts.
-        await homeAppendThinkingAccordion(thinkingContent, elapsed, _homeThinking);
+        await homeAppendThinkingAccordion(thinkingContent, elapsed, _effectiveHomeThinking);
       }
 
       // ── Typewriter: render AI response word by word ──
