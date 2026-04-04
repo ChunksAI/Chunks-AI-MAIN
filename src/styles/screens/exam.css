@@ -1142,6 +1142,13 @@
   border-top: 1px solid var(--border-sm);
 }
 
+/* Subtle validation hint shown when topic/material is absent */
+.ewiz-step1-hint {
+  font-size: 12px;
+  color: var(--text-4);
+  font-style: italic;
+}
+
 /* Primary button (amber) */
 .ewiz-btn-primary {
   display: inline-flex;

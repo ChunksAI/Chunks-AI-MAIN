@@ -146,8 +146,8 @@ const EXAM_HTML = /* html */`
 
             <!-- Step footer -->
             <div class="ewiz-footer">
-              <span></span>
-              <button class="ewiz-btn-primary" onclick="ewizNext()">
+              <span id="ewiz-step1-hint" class="ewiz-step1-hint">Enter a topic or attach material to continue</span>
+              <button class="ewiz-btn-primary" id="ewiz-choose-format-btn" onclick="ewizNext()" disabled>
                 Choose format
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
               </button>
@@ -549,6 +549,17 @@ export function mountExamScreen() {
   }
   placeholder.outerHTML = EXAM_HTML;
 
+  // ── Enable/disable "Choose format" based on topic or material
+  window._ewizUpdateNextBtn = function() {
+    const btn  = document.getElementById('ewiz-choose-format-btn');
+    const hint = document.getElementById('ewiz-step1-hint');
+    if (!btn) return;
+    const topic    = (document.getElementById('exam-topic-input')?.value || '').trim();
+    const hasInput = topic.length > 0 || (window._examSourceText && window._examSourceText.length > 0);
+    btn.disabled = !hasInput;
+    if (hint) hint.style.display = hasInput ? 'none' : '';
+  };
+
   // ── Wire notes textarea listener now that the DOM element exists
   const notesEl = document.getElementById('exam-notes-input');
   if (notesEl) {
@@ -559,6 +570,7 @@ export function mountExamScreen() {
       window._examSourceText  = notesEl.value.slice(0, 100000);
       window._examSourceLabel = 'your notes';
       if (typeof window._examToggleScanMode === 'function') window._examToggleScanMode(len > 0);
+      window._ewizUpdateNextBtn();
     });
   }
 
@@ -579,6 +591,14 @@ export function mountExamScreen() {
     // Run once on mount in case topic was pre-filled
     setTimeout(updateBadge, 300);
   }
+
+  // Wire topic input to button state
+  if (topicInput) {
+    topicInput.addEventListener('input', window._ewizUpdateNextBtn);
+  }
+
+  // Run once on mount to set initial state
+  window._ewizUpdateNextBtn();
 }
 
 // ── Auto-mount (synchronous) ──────────────────────────────────────────────────

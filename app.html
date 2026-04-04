@@ -4769,6 +4769,7 @@ async function _examProcessPdf(file) {
     _examSourceText  = fullText.slice(0, 100000); // ~25k tokens — covers 60+ slide PDFs
     _examSourceLabel = file.name.replace(/\.pdf$/i, '');
     _examToggleScanMode(true);
+    if (typeof window._ewizUpdateNextBtn === 'function') window._ewizUpdateNextBtn();
 
     const charCount  = _examSourceText.length.toLocaleString();
     const truncated  = fullText.length > 100000;
@@ -4782,6 +4783,7 @@ async function _examProcessPdf(file) {
     statusEl.innerHTML =
       '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' +
       '<span style="color:var(--red);">' + err.message + '</span>';
+    if (typeof window._ewizUpdateNextBtn === 'function') window._ewizUpdateNextBtn();
   }
 }
 
@@ -4795,6 +4797,7 @@ function examClearSource(e, silent) {
   document.getElementById('exam-upload-zone').classList.remove('has-file');
   document.getElementById('exam-pdf-file').value = '';
   _examToggleScanMode(false);
+  if (typeof window._ewizUpdateNextBtn === 'function') window._ewizUpdateNextBtn();
 }
 
 /* ── Notes handlers ──────────────────────────────────────── */
@@ -4805,6 +4808,7 @@ function examClearNotes() {
   _examSourceText  = '';
   _examSourceLabel = '';
   _examToggleScanMode(false);
+  if (typeof window._ewizUpdateNextBtn === 'function') window._ewizUpdateNextBtn();
 }
 
 
