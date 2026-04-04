@@ -493,7 +493,7 @@ const chat = {
           id:         remote.id,        // UUID — used as Supabase key
           supabaseId: remote.id,        // explicit so uploader never regenerates it
           html:       localRaw?.html || '',
-          history:    [],               // messages now live in messages table
+          history:    localRaw?.history || [],  // preserve existing local history cache
           bookId:     remote.book_id  || null,
           title:      remote.title    || null,
           updatedAt:  remote.updated_at,
@@ -1523,6 +1523,10 @@ const messages = {
         return true;
       });
       console.log(`[ChunksDB] messages.loadSession — ${data.length} rows → ${deduped.length} unique msgs from Supabase for ${sessionId}`);
+      // Cache into local IDB so subsequent clicks are instant
+      const _localKey = 'chunks_session_' + sessionId;
+      const _existing = _lsGet(_localKey) || {};
+      _lsSet(_localKey, { ..._existing, history: deduped, supabaseId: sessionId });
       return { data: deduped, source: 'supabase' };
     }
     console.log(`[ChunksDB] messages.loadSession — fallback to localStorage for ${sessionId}`);
