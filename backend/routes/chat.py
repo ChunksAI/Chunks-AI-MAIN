@@ -29,9 +29,10 @@ router = APIRouter()
 # flows. This must remain a system-level prompt (not user-appended) so deep
 # responses are consistently prioritized over concise defaults.
 DEEP_THINK_SYSTEM_PROMPT = (
-    "Give a thorough, detailed, well-structured answer. Include definitions, "
-    "components, how it works, examples, and a summary. Use headers and "
-    "organized sections."
+    "You are in Deep Think mode. You MUST give a comprehensive, well-structured, and detailed response. "
+    "Always include: a full definition, key components or parts, how it works step by step, "
+    "real-life examples, and a summary. Use headers and organized sections. "
+    "Never give a short or brief answer in this mode — thoroughness is required."
 )
 
 

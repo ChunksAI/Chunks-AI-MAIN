@@ -96,6 +96,33 @@ function _handleInsert(row) {
     el.className = 'hc-user';
     el.textContent = row.content || '';
   } else {
+    // Use homeAppendAI when available so the element includes the full action
+    // button row (Copy, Thumbs Up/Down, Retry).  The function also sets
+    // data-raw-content for future deduplication.  Fall back to a plain render
+    // if the function hasn't been registered yet (edge case during init).
+    if (typeof window.homeAppendAI === 'function') {
+      el = window.homeAppendAI(row.content || '', null, { typewrite: false });
+      // homeAppendAI already appends to chat history and scrolls — tag + sync history then return.
+      if (el) {
+        el.setAttribute('data-rt-home-msg-id', rtId);
+        if (window.homeHistory) {
+          const newIdx = window.homeHistory.length;
+          window.homeHistory = [...window.homeHistory, { role: row.role, content: row.content }];
+          el.dataset.histIdx = String(newIdx);
+        }
+        // Ensure chat layout is visible
+        const bar        = document.getElementById('home-input-bar');
+        const landing    = document.getElementById('home-landing');
+        const hero       = document.querySelector('.home-hero');
+        const scrollArea = document.getElementById('home-scroll-area');
+        if (landing)    landing.style.display = 'none';
+        if (hero)       hero.style.display = 'none';
+        if (bar)        bar.style.display = 'flex';
+        if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
+      }
+      return;
+    }
+    // Fallback (homeAppendAI unavailable)
     el = document.createElement('div');
     el.className = 'hc-ai';
     const rendered = typeof homeMarkdown === 'function'

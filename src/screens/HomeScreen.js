@@ -117,7 +117,7 @@ const HOME_HTML = /* html */`
                 <div class="attach-menu-section-label">AI Mode</div>
                 <div class="attach-menu-item attach-menu-toggle" id="home-toggle-auto" onclick="homeToggleThinking('auto')">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-                  <span>Auto <span class="think-menu-badge">default</span></span>
+                  <span>Auto</span>
                   <div class="attach-menu-check on" id="home-auto-check"></div>
                 </div>
                 <div class="attach-menu-item attach-menu-toggle" id="home-toggle-websearch" onclick="homeToggleWebSearch()">
@@ -209,7 +209,7 @@ const HOME_HTML = /* html */`
               <div class="attach-menu-section-label">AI Mode</div>
               <div class="attach-menu-item attach-menu-toggle" id="home-toggle-auto-b" onclick="homeToggleThinking('auto')">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-                <span>Auto <span class="think-menu-badge">default</span></span>
+                <span>Auto</span>
                 <div class="attach-menu-check on" id="home-auto-check-b"></div>
               </div>
               <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleWebSearch()">
@@ -1710,9 +1710,26 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
       const { data: sbMsgs, source } = await ChunksDB.messages.loadSession(supabaseId);
       if (source === 'supabase' && sbMsgs?.length) {
         console.log('[HomeScreen] restoreSession — using Supabase messages for session', localSessionId);
-        const sbHistory = sbMsgs.map(m => ({ role: m.role, content: m.content, ts: new Date(m.created_at).getTime() }));
         // Reconstruct a minimal session descriptor so _mountSession can work.
         const sessionDesc = localSessionId ? (lsGet('chunks_session_' + localSessionId) ?? {}) : {};
+        // Supabase does not store thinkContent/thinkDuration — merge them from the local
+        // session history (matched by index, with content as fallback) so think blocks survive a page refresh.
+        const localHistory = sessionDesc?.history || [];
+        const sbHistory = sbMsgs.map((m, idx) => {
+          const base = { role: m.role, content: m.content, ts: new Date(m.created_at).getTime() };
+          if (m.role === 'assistant') {
+            // Prefer index-based match (most reliable); fall back to content match.
+            const byIndex = localHistory[idx];
+            const localMatch = (byIndex?.role === 'assistant' && byIndex?.thinkContent)
+              ? byIndex
+              : localHistory.find(lm => lm.role === 'assistant' && lm.content === m.content);
+            if (localMatch?.thinkContent) {
+              base.thinkContent  = localMatch.thinkContent;
+              base.thinkDuration = localMatch.thinkDuration ?? 0;
+            }
+          }
+          return base;
+        });
         _mountSession({ ...sessionDesc, history: sbHistory }, localSessionId ?? supabaseId);
         // Start realtime subscription for this session (subscribeToHomeMessages
         // cleans up any previous channel internally before subscribing).
