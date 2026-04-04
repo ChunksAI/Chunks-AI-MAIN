@@ -87,6 +87,63 @@ _FINAL_ANSWER_MARKER = re.compile(
     re.IGNORECASE,
 )
 
+# Patterns that indicate the "final answer" is just a social closing rather
+# than real educational content (e.g. "Hope that clears things up!").
+_SOCIAL_CLOSE_RE = re.compile(
+    r'(?:hope\s+(?:that|this)\s+(?:helps?|clears?|answers?)'
+    r'|let\s+me\s+know\s+if\s+you\s+(?:have|need)'
+    r'|feel\s+free\s+to\s+ask'
+    r'|don\'t\s+hesitate\s+to'
+    r'|here\s+to\s+help'
+    r'|always\s+here\s+to)',
+    re.IGNORECASE,
+)
+
+
+def _is_thin_answer(answer: str, thinking: str) -> bool:
+    """Return True when *answer* is just a social closing rather than real content.
+
+    Triggered when:
+    - The answer is short (≤ 300 characters) — longer answers are real content.
+    - The answer contains a recognised social-close phrase.
+    - The thinking block has enough content that salvage is worth attempting.
+    """
+    if not answer or not thinking:
+        return False
+    if len(answer) > 300:
+        return False
+    if len(thinking) < 150:
+        return False
+    return bool(_SOCIAL_CLOSE_RE.search(answer))
+
+
+def _salvage_substantive_from_thinking(thinking: str) -> str:
+    """Find the most content-rich paragraph in a thinking block.
+
+    Used as a last resort when the model wrote only a social closing as its
+    final answer and the actual educational content appears to be inside the
+    ``<think>`` block (e.g. in a "Mental Sandbox:" section).
+
+    Returns the paragraph with the highest word count that looks like real
+    prose (multi-line or > 30 words), or ``''`` if nothing substantive is found.
+    """
+    if not thinking:
+        return ''
+
+    paragraphs = [p.strip() for p in thinking.split('\n\n') if p.strip()]
+    if not paragraphs:
+        return ''
+
+    def _score(p: str) -> int:
+        words = len(p.split())
+        # Penalise short single-line planning notes / headers
+        if '\n' not in p and words < 20:
+            return 0
+        return words
+
+    best = max(paragraphs, key=_score)
+    return best if _score(best) >= 30 else ''
+
 
 def _salvage_answer_from_thinking(thinking: str) -> tuple[str, str]:
     """Try to split a ``thinking`` string into *(answer, updated_thinking)*.
@@ -130,13 +187,17 @@ def extract_thinking_content(text: str) -> tuple[str, str | None]:
     the final answer.  This helper peels that block out so the caller can
     surface it separately in the UI without polluting the visible answer text.
 
-    Also handles two edge cases:
+    Also handles three edge cases:
     * **Unclosed ``<think>``** — model truncated mid-thought; everything after
       the opening tag is treated as thinking content.
     * **Answer inside ``<think>``** — the model wrote the final answer inside
       the block with nothing after ``</think>``.  In this case the last
       paragraph of the thinking content is salvaged as the answer so the user
       always sees a meaningful response.
+    * **Thin social-close answer** — the model put all real content in
+      ``<think>`` and wrote only a brief social closing (e.g. "Hope that
+      clears things up!") after ``</think>``.  The most substantive paragraph
+      from the thinking block is surfaced as the answer instead.
 
     Returns:
         (answer, thinking) — *thinking* is ``None`` when no ``<think>`` block
@@ -153,6 +214,12 @@ def extract_thinking_content(text: str) -> tuple[str, str | None]:
         # the thinking block — salvage the final answer from there.
         if not answer and thinking:
             answer, thinking = _salvage_answer_from_thinking(thinking)
+        # If the answer is just a thin social closing, try to surface the most
+        # substantive paragraph from the thinking block instead.
+        elif _is_thin_answer(answer, thinking):
+            salvaged = _salvage_substantive_from_thinking(thinking)
+            if salvaged:
+                answer = salvaged
         return answer, thinking or None
     # Unclosed <think> tag — everything from the tag onward is thinking content
     partial = re.search(r'<think>([\s\S]*)', text, re.IGNORECASE)
@@ -161,6 +228,10 @@ def extract_thinking_content(text: str) -> tuple[str, str | None]:
         answer = text[:partial.start()].strip()
         if not answer and thinking:
             answer, thinking = _salvage_answer_from_thinking(thinking)
+        elif _is_thin_answer(answer, thinking):
+            salvaged = _salvage_substantive_from_thinking(thinking)
+            if salvaged:
+                answer = salvaged
         return answer, thinking or None
     return text, None
 

@@ -734,7 +734,158 @@ def test_extract_thinking_content_multiline():
     assert answer.strip() == 'Final answer.'
 
 
-def test_ask_thinking_mode_returns_thinking_content(client, monkeypatch, mock_guest_gate, mock_extract_user):
+def test_extract_thinking_content_thin_social_close_salvages_substantive():
+    """When the final answer is just a social closing, the most substantive
+    paragraph from the thinking block is surfaced as the answer instead."""
+    from services.ai import extract_thinking_content
+
+    # Simulate Gemini 2.5 Flash writing planning notes in <think> and then
+    # only a social close after </think>.
+    thinking_block = (
+        "The user is asking about ChatGPT.\n\n"
+        "Here's a plan to structure the answer:\n"
+        "1. Definition\n2. Components\n3. How it works\n\n"
+        "Mental Sandbox:\n"
+        "ChatGPT is a large language model chatbot developed by OpenAI, launched in November 2022.\n"
+        "It is built on the GPT-4 architecture and uses reinforcement learning from human feedback (RLHF).\n"
+        "It can answer questions, write code, summarise documents, and hold multi-turn conversations.\n"
+        "Key components include the transformer architecture, attention mechanisms, and fine-tuning.\n\n"
+        "Strategizing complete\n\nDone"
+    )
+    raw = f"<think>\n{thinking_block}\n</think>\n\nHope that clears things up for you! Let me know if you have any more questions."
+    answer, thinking = extract_thinking_content(raw)
+
+    # The thin social close should be replaced by the substantive Mental Sandbox paragraph
+    assert thinking is not None
+    assert len(answer) > 100, f"Expected substantive answer, got: {answer!r}"
+    # Must not be just the social closing
+    assert 'Hope that clears things up' not in answer
+
+
+def test_is_thin_answer_returns_true_for_social_close():
+    """_is_thin_answer correctly identifies a short social closing."""
+    from services.ai import _is_thin_answer
+
+    long_thinking = "This is a detailed reasoning block. " * 15  # > 150 chars
+    assert _is_thin_answer(
+        "Hope that clears things up! Let me know if you have any more questions.",
+        long_thinking,
+    ) is True
+
+
+def test_is_thin_answer_returns_false_for_real_answer():
+    """_is_thin_answer does not flag a real, substantive answer."""
+    from services.ai import _is_thin_answer
+
+    real_answer = (
+        "ChatGPT is a large language model developed by OpenAI. "
+        "It uses the GPT-4 architecture and reinforcement learning from human feedback. "
+        "It can perform many tasks including question answering, code generation, and summarisation."
+    )
+    long_thinking = "This is a detailed reasoning block. " * 15
+    assert _is_thin_answer(real_answer, long_thinking) is False
+
+
+def test_is_thin_answer_returns_false_when_answer_is_long():
+    """_is_thin_answer never fires when the answer is longer than 300 chars."""
+    from services.ai import _is_thin_answer
+
+    # Even if it contains a social close phrase at the end, a long answer is real.
+    # Use 310 x's to ensure the string exceeds the 300-char threshold.
+    long_answer = ("x" * 310) + " Hope that helps!"
+    long_thinking = "This is a detailed reasoning block. " * 15
+    assert _is_thin_answer(long_answer, long_thinking) is False
+
+
+def test_salvage_substantive_finds_longest_paragraph():
+    """_salvage_substantive_from_thinking picks the most word-rich paragraph."""
+    from services.ai import _salvage_substantive_from_thinking
+
+    thinking = (
+        "Plan: explain the topic.\n\n"
+        "ChatGPT is a large language model chatbot developed by OpenAI, launched in November 2022.\n"
+        "It is built on the GPT-4 architecture and uses reinforcement learning from human feedback (RLHF).\n"
+        "It can answer questions, write code, summarise documents, and hold multi-turn conversations.\n\n"
+        "Done"
+    )
+    result = _salvage_substantive_from_thinking(thinking)
+    assert 'ChatGPT' in result
+    assert 'RLHF' in result
+
+
+def test_ask_deep_think_prompt_forbids_social_close(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """Deep think system prompt must forbid social-close-only answers."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+
+    captured = {}
+
+    def _fake_call_ai(prompt, system_prompt='', **kwargs):
+        captured['system_prompt'] = system_prompt
+        return 'Answer.'
+
+    monkeypatch.setattr(ai_svc, 'call_ai', _fake_call_ai)
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'what is chatgpt',
+        'mode': 'study',
+        'thinking': 'deep',
+        'complexity': 5,
+    })
+    assert resp.status_code == 200
+    sp = captured.get('system_prompt', '')
+    # Must explicitly forbid social-close-only answers
+    assert 'Hope that helps' in sp or 'social' in sp.lower() or 'social greeting' in sp.lower() or 'DO NOT write only a social' in sp
+
+
+def test_ask_deep_think_prompt_requires_complete_sections(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """Deep think system prompt must require all answer sections (definition, examples, summary)."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+
+    captured = {}
+
+    def _fake_call_ai(prompt, system_prompt='', **kwargs):
+        captured['system_prompt'] = system_prompt
+        return 'Answer.'
+
+    monkeypatch.setattr(ai_svc, 'call_ai', _fake_call_ai)
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'what is chatgpt',
+        'mode': 'study',
+        'thinking': 'deep',
+        'complexity': 5,
+    })
+    assert resp.status_code == 200
+    sp = captured.get('system_prompt', '')
+    # Must require comprehensive answer sections
+    assert 'definition' in sp.lower() or 'examples' in sp.lower()
+    assert 'summary' in sp.lower() or 'summarise' in sp.lower() or 'summary.' in sp.lower()
+
+
     """POST /ask with thinking='thinking' returns thinking_content extracted from <think> tags."""
     import services.ai as ai_svc
     import services.books as books_svc
