@@ -16,7 +16,7 @@ import { lsGet, lsSet } from '../../utils/storage.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 import { subscribeToChatRealtime, unsubscribeChatRealtime } from './chatRealtime.js';
 import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
-import { _wsRenderMessageFromBlocks } from './chat.js';
+import { _wsRenderMessageFromBlocks, _wsBuildBlocks } from './chat.js';
 import { createThinkingAccordion } from '../../components/ThinkingAccordion.js';
 
 let _wsSaveScrollTm;
@@ -431,13 +431,17 @@ export function _wsRenderHistory(msgs, history) {
         }
         msgs.appendChild(el);
       } else {
-        // Legacy messages without blocks — render with plain markdown
-        const el = document.createElement('div');
-        el.className = 'msg msg-ai';
-        const rendered = typeof window.homeMarkdown === 'function'
-          ? window.homeMarkdown(msg.content || '')
-          : (msg.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        el.innerHTML = `<div class="ai-row"><div class="ai-body"><div class="ai-text">${rendered}</div></div></div>`;
+        // Legacy messages without blocks — build minimal blocks so the same
+        // component path is used and action buttons are always rendered.
+        const prevUserMsg = history.slice(0, i).reverse().find(m => m.role === 'user');
+        const legacyBlocks = _wsBuildBlocks(msg.content || '', [], prevUserMsg?.content || '', null);
+        const msgId = 'ws-msg-hist-' + i + '-' + Date.now();
+        const el = _wsRenderMessageFromBlocks(msgId, legacyBlocks, bookName);
+        el.dataset.histIdx = String(i);
+        if (msg.feedback) {
+          const thumbBtn = el.querySelector(`.msg-act--thumb[data-type="${msg.feedback}"]`);
+          if (thumbBtn) thumbBtn.classList.add('active');
+        }
         msgs.appendChild(el);
       }
     }
