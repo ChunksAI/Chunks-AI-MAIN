@@ -250,8 +250,10 @@ def ask(request: Request, body: AskRequest):
                 return DEEP_THINK_SYSTEM_PROMPT
             if _thinking_mode == 'thinking':
                 return (
-                    "Give a balanced, moderately detailed answer. Include key points and "
-                    "some structure, but don't over-elaborate."
+                    "Give a moderately concise answer. Cover the main points with brief explanation. "
+                    "Use minimal structure — at most a short list or two short paragraphs. "
+                    "Do not include full breakdowns, multiple sections, or exhaustive detail. "
+                    "Aim for roughly 2-3x the length of a normal response, not a full deep dive."
                 )
             return (
                 "Give concise, clear answers. Be brief and direct. Avoid over-explaining. "
