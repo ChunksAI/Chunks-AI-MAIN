@@ -343,6 +343,9 @@ export function mountSidebars() {
     } catch(e) {}
   });
 
+  // Re-render recent chat/workspace lists now that sidebar DOM containers exist
+  window._renderAllRecent?.();
+
   // Populate all recent-plans sections from localStorage
   _renderRecentPlansAllSidebars();
 }

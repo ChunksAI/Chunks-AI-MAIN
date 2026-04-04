@@ -59,8 +59,8 @@ DEEP_THINK_SYSTEM_PROMPT = DEEP_THINK_MODE_PROMPT
 # sized to leave ample room for a detailed final answer after the reasoning
 # block is stripped by extract_thinking_content().
 _MODE_MAX_TOKENS = {
-    'deep':     10000,  # ~3-4k for reasoning + 6-7k for comprehensive answer
-    'thinking':  3000,  # ~1k for reasoning + 2k for balanced answer
+    'deep':     16000,  # ~4-6k for reasoning + 10k+ for comprehensive final answer
+    'thinking':  4000,  # ~1k for reasoning + 3k for balanced answer
     None:         400,  # normal / no thinking — brief 1-2 paragraph response
 }
 
@@ -102,6 +102,10 @@ def ask(request: Request, body: AskRequest):
         mode          = data.get('mode', 'study').lower().strip()
         book_id       = data.get('bookId', 'zumdahl')
         thinking_mode = data.get('thinking', None)
+        # Deep think always requires high-complexity instruction so the
+        # length/detail prompt doesn't actively suppress long answers.
+        if thinking_mode == 'deep':
+            complexity = max(complexity, 8)
         web_search    = data.get('web_search', False)
         history       = data.get('history', [])
         selected_text = data.get('selected_text', '').strip()[:2000]
@@ -343,14 +347,18 @@ def ask(request: Request, body: AskRequest):
                 base_system += (
                     "\nFor DEEP mode your final answer (after </think>) MUST include ALL of: "
                     "(1) a full definition with context, "
-                    "(2) all key components explained in detail, "
-                    "(3) how it works step-by-step, "
-                    "(4) real-world examples, "
-                    "(5) related concepts, "
-                    "(6) a concise summary. "
+                    "(2) all key components explained in detail with examples, "
+                    "(3) step-by-step explanation of how it works, "
+                    "(4) real-world applications and examples, "
+                    "(5) related concepts and connections, "
+                    "(6) common misconceptions or edge cases, "
+                    "(7) a concise but complete summary. "
+                    "Each section must have a clear header. "
+                    "Aim for comprehensive coverage — typically 600+ words, covering all sections above. "
                     "Use clear headers and structured sections. "
                     "This answer must be significantly longer and more detailed than Think mode. "
-                    "Never truncate."
+                    "Never truncate. If you feel you are running out of space, prioritize "
+                    "completing the answer over stopping early."
                 )
 
         # ── MODE: VISUAL_TUTOR ────────────────────────────────────────────────

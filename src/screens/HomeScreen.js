@@ -324,6 +324,7 @@ const _HOME_AI_AVATAR = `<div class="hc-ai-avatar"><svg viewBox="0 0 100 100" xm
 export let homeMode      = 'general';
 export let _homeWebSearch = false;
 export let _homeThinking  = 'off'; // 'off' | 'think' | 'deep'
+let _regenEffectiveThinking = 'off'; // captures the active thinking mode at retry time
 export let homeHistory   = [];
 export let _homeSessionId = null;
 let homeIsTyping = false;
@@ -1073,6 +1074,10 @@ export function homeFeedback(btn, type) {
 
 export async function _homeRegenerate(aiWrapEl) {
   if (homeIsTyping) return;
+  // Capture thinking mode BEFORE any DOM removal so the retry uses the same
+  // mode that was active when the original response was generated.
+  _regenEffectiveThinking = _homeThinking;
+
   const histIdx = parseInt(aiWrapEl?.dataset.histIdx ?? '-1');
   const prevMsg = histIdx > 0 ? homeHistory[histIdx - 1] : null;
   const question = (prevMsg?.role === 'user' ? prevMsg.content : null) || '';
@@ -1104,7 +1109,7 @@ export async function _homeRegenerate(aiWrapEl) {
         bookId: '',
         mode: 'general',
         task_type: 'home_general',
-        complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
+        complexity: _regenEffectiveThinking === 'deep' ? 9 : (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
         language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
         safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
         history: homeHistory.slice(-12),
@@ -1389,7 +1394,7 @@ export async function homeSendMessage() {
           bookId: '',
           mode: 'general',
           task_type: 'home_general',
-          complexity: (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
+          complexity: _homeThinking === 'deep' ? 9 : (() => { const m = _getStudyMode?.() || 'balanced'; return m === 'concise' ? 3 : m === 'detailed' ? 8 : 5; })(),
           language: localStorage.getItem('chunks_setting_language') || 'Auto-detect',
           safe_content: localStorage.getItem('chunks_setting_safe-content') === '1',
           history: homeHistory.slice(-12),
@@ -1623,7 +1628,10 @@ mountHomeScreen();
       if (homeHistory.length) return; // already restored by another path
       try {
         const s = lsGet('chunks_session_' + savedId);
-        if (s) _mountSession(s, savedId);
+        if (s) {
+          _mountSession(s, savedId);
+          window._renderAllRecent?.();
+        }
       } catch (_) {} // IDB/parse errors are non-fatal — leave the landing visible
     }).catch(function() {}); // init() failure is already logged by idbStorage.js
   }
