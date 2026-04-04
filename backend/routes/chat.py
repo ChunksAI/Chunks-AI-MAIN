@@ -254,6 +254,7 @@ def ask(request: Request, body: AskRequest):
             )
 
         response_style_instruction = _response_style_instruction(thinking_mode)
+        teaching_prompt_instruction = TEACHING_PROMPT if thinking_mode in ('thinking', 'deep') else ""
 
         _identity_variants = [
             "Your name is Chunks AI. You are an intelligent, friendly AI study assistant built to help students learn and excel. "
@@ -278,7 +279,7 @@ def ask(request: Request, body: AskRequest):
                 f"Answer based strictly on the provided textbook context and cite page numbers using: 📖 Page N. "
                 f"{latex_instruction}{memory_block}"
                 f"{response_style_instruction}"
-                f"{TEACHING_PROMPT}"
+                f"{teaching_prompt_instruction}"
             )
         else:
             base_system = (
@@ -286,7 +287,7 @@ def ask(request: Request, body: AskRequest):
                 f"You are a knowledgeable tutor. Answer the student's question helpfully and clearly. "
                 f"{latex_instruction}{memory_block}"
                 f"{response_style_instruction}"
-                f"{TEACHING_PROMPT}"
+                f"{teaching_prompt_instruction}"
             )
 
         # ── Thinking mode: instruct model to emit chain-of-thought ────────────
@@ -296,8 +297,15 @@ def ask(request: Request, body: AskRequest):
                 "reasoning process inside <think>...</think> tags. Work through the problem "
                 "carefully — consider what is being asked, recall relevant concepts, apply any "
                 "necessary formulas or logic, and verify your conclusion. "
-                "After the closing </think> tag, write your final answer to the student."
+                "After the closing </think> tag, write your final answer to the student. "
+                "The final answer after </think> must be fully self-contained, complete, and not a one-line summary. "
+                "Do not depend on <think> content for any key explanation."
             )
+            if thinking_mode == 'deep':
+                base_system += (
+                    " For deep mode, provide a thorough final answer with multiple clear sections "
+                    "(or detailed paragraphs), concrete explanation, and a short recap."
+                )
 
         # ── MODE: VISUAL_TUTOR ────────────────────────────────────────────────
         if mode == 'visual_tutor':
