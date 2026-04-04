@@ -236,6 +236,25 @@ def ask(request: Request, body: AskRequest):
             r"Example: $$K_{eq} = \frac{[C]^c[D]^d}{[A]^a[B]^b}$$"
         )
 
+        def _response_style_instruction(_thinking_mode):
+            if _thinking_mode == 'deep':
+                return (
+                    "Give detailed, thorough, and well-structured answers. Include definitions, "
+                    "components, how it works, real-life examples, and a summary. Use headers and "
+                    "organized formatting."
+                )
+            if _thinking_mode == 'thinking':
+                return (
+                    "Give balanced, well-reasoned answers. Include key concepts and brief "
+                    "explanations. Use structured formatting where helpful."
+                )
+            return (
+                "Give concise, clear answers. Be brief and direct. Avoid over-explaining. "
+                "Use simple formatting only when necessary."
+            )
+
+        response_style_instruction = _response_style_instruction(thinking_mode)
+
         _identity_variants = [
             "Your name is Chunks AI. You are an intelligent, friendly AI study assistant built to help students learn and excel. "
             "If asked who you are, what your name is, what AI you are, or what you are called — always respond as Chunks AI. "
@@ -258,6 +277,7 @@ def ask(request: Request, body: AskRequest):
                 f"You are an expert tutor for {book_label}. "
                 f"Answer based strictly on the provided textbook context and cite page numbers using: 📖 Page N. "
                 f"{latex_instruction}{memory_block}"
+                f"{response_style_instruction}"
                 f"{TEACHING_PROMPT}"
             )
         else:
@@ -265,6 +285,7 @@ def ask(request: Request, body: AskRequest):
                 f"{IDENTITY}"
                 f"You are a knowledgeable tutor. Answer the student's question helpfully and clearly. "
                 f"{latex_instruction}{memory_block}"
+                f"{response_style_instruction}"
                 f"{TEACHING_PROMPT}"
             )
 
@@ -729,7 +750,8 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     "You are a helpful research assistant. Answer clearly and accurately "
                     "using current web information. Use markdown formatting with headers, "
                     "bullet points, and bold text where it aids clarity. When you reference "
-                    "a source, include the full URL in the text so users can visit it."
+                    "a source, include the full URL in the text so users can visit it. "
+                    f"{response_style_instruction}"
                 )
                 answer, web_citations = call_ai_web_search(
                     question, system_prompt=web_system, history=history,
