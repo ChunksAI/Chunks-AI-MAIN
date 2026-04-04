@@ -573,6 +573,110 @@
 }
 .ra-card-btn:hover { color: var(--text-1); }
 
+/* ── Book card v2: cover thumbnail ───────────────────────── */
+.ra-card-book-v2 {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+.ra-book-thumb-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2 / 2.8;
+  background: var(--surface-3);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ra-book-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s ease;
+}
+.ra-card-book-v2:hover .ra-book-thumb-img {
+  transform: scale(1.04);
+}
+.ra-book-thumb-fallback {
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, var(--gold-muted), var(--surface-3));
+  display: none;
+}
+.ra-book-thumb-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 50%,
+    rgba(0,0,0,0.45) 100%
+  );
+  pointer-events: none;
+}
+.ra-book-info {
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.ra-book-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+.ra-book-loc {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+.ra-book-prog-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+}
+.ra-book-prog-bar {
+  flex: 1;
+  height: 3px;
+  background: var(--border-xs);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.ra-book-prog-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+.ra-book-prog-label {
+  font-size: 10.5px;
+  color: var(--text-4);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.ra-book-cta {
+  padding-top: 4px;
+  margin-top: 2px;
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+}
+/* light theme adjustments */
+[data-theme="study"] .ra-book-thumb-wrap {
+  background: #e8e9ef;
+}
+[data-theme="study"] .ra-book-thumb-overlay {
+  background: linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.25) 100%);
+}
+
 /* ── Rich attach menu ───────────────────────────────────── */
 .home-rich-menu { min-width: 200px; padding: 6px; }
 
