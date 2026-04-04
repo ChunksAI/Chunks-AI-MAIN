@@ -346,12 +346,13 @@ function _readSessionData(/* ...ids */) {
 
 function _saveSession(id, historyArr) {
   // Always save — history is only deleted when user explicitly clears it
-  const html = document.getElementById('home-chat-history')?.innerHTML || '';
   const updatedAt = new Date().toISOString();
   // Look up the stable UUID for this session (set on the recent item at creation time)
   const recentItem = _recentItems.find(r => r.id === id);
   const supabaseId = recentItem?.uuid || null;
-  const sessionData = { id, supabaseId, html, history: historyArr, updatedAt };
+  // Never store rendered HTML — save only raw message data so restore always
+  // re-renders through the component (guaranteeing action buttons are present).
+  const sessionData = { id, supabaseId, history: historyArr, updatedAt };
   // chunks_session_* keys live in IndexedDB — use the IDB-aware bridge when available
   if (window._lsSet) {
     window._lsSet('chunks_session_' + id, sessionData);
@@ -395,8 +396,9 @@ function _loadSession(id) {
 // ── Workspace session save/restore ───────────────────────
 function _saveWsSession(bookId, historyArr) {
   // Always save — history is only deleted when user explicitly clears it
-  const html = document.getElementById('ws-messages')?.innerHTML || '';
-  localStorage.setItem('chunks_ws_session_' + bookId, JSON.stringify({ html, history: historyArr }));
+  // Never store rendered HTML — save only raw message data so restore always
+  // re-renders through the component (guaranteeing action buttons are present).
+  localStorage.setItem('chunks_ws_session_' + bookId, JSON.stringify({ history: historyArr }));
   // Sync active book to ws_state (page/zoom synced separately via wsGoToPage)
   window.ChunksDB?.ws?.savePosition?.(bookId, {});
   // Track which book + recent item was last active
@@ -799,40 +801,22 @@ function _clickRecent(item) {
 
     const history = session?.history || session?.messages || [];
 
-    if (session && (session.html || history.length)) {
-      // Restore full conversation
+    if (session && history.length) {
+      // Restore full conversation — always re-render from structured data so
+      // action buttons (Copy, Thumbs Up/Down, Retry) are always present and functional.
       if (landing) landing.style.display = 'none';
       if (hero) hero.style.display = 'none';
       if (bar) bar.style.display = 'flex';
       if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
 
+      // _homeMountSession is always available when a recent item is clicked (HomeScreen.js
+      // has already initialised by this point).  Never inject raw HTML — it loses event
+      // handlers when passed through DOMPurify.
       if (typeof window._homeMountSession === 'function') {
-        // Use HomeScreen's _mountSession which renders images from history correctly
         window._homeMountSession(session, item.id);
-      } else if (session.html && chatHistory) {
-        // Same device — use the cached rendered HTML (fast path)
-        chatHistory.innerHTML = sanitize(session.html);
-      } else if (history.length && chatHistory) {
-        // Cross-device restore — HTML was never stored here, rebuild from message array.
-        // Delegates to HomeScreen's _renderFromHistory which handles markdown correctly.
-        if (typeof window._homeMountSession === 'function') {
-          window._homeMountSession(session, item.id);
-        } else {
-          // Fallback: plain-text render if HomeScreen isn't ready yet
-          chatHistory.innerHTML = '';
-          history.forEach(msg => {
-            const el = document.createElement('div');
-            el.className = msg.role === 'user' ? 'hc-user' : 'hc-ai';
-            if (msg.role === 'assistant') {
-              el.innerHTML = '<div class="hc-ai-body">' +
-                (window.homeMarkdown ? window.homeMarkdown(msg.content || '') :
-                  (msg.content || '').replace(/</g, '&lt;')) + '</div>';
-            } else {
-              el.textContent = msg.content || '';
-            }
-            chatHistory.appendChild(el);
-          });
-        }
+      } else {
+        // Rare: HomeScreen.js not yet ready — defer briefly to let module init settle.
+        setTimeout(() => window._homeMountSession?.(session, item.id), 200);
       }
 
       homeHistory = history;
@@ -865,8 +849,27 @@ function _clickRecent(item) {
       if (window.ChunksDB?.isLoggedIn()) {
         const { data: freshHistory } = await window.ChunksDB.chat.getSessionByBook(item.bookId);
         if (freshHistory?.length) {
-          window._wsRenderHistory(document.getElementById('ws-messages'), freshHistory);
-          _wsChatHistory = freshHistory;
+          // Supabase only stores role+content — merge thinkContent/thinkDuration/blocks
+          // from the local session so ThinkingAccordions and source citations survive refresh.
+          const wsLocalSession = _loadWsSession(item.bookId);
+          const wsLocalHistory = wsLocalSession?.history || wsLocalSession?.messages || [];
+          const mergedHistory = wsLocalHistory.length ? freshHistory.map((m, idx) => {
+            if (m.role !== 'assistant') return m;
+            const byIndex = wsLocalHistory[idx];
+            const localMatch = (byIndex?.role === 'assistant')
+              ? byIndex
+              : wsLocalHistory.find(lm => lm.role === 'assistant' && lm.content === m.content);
+            if (!localMatch) return m;
+            const merged = { ...m };
+            if (localMatch.thinkContent) {
+              merged.thinkContent  = localMatch.thinkContent;
+              merged.thinkDuration = localMatch.thinkDuration ?? 0;
+            }
+            if (localMatch.blocks?.length) merged.blocks = localMatch.blocks;
+            return merged;
+          }) : freshHistory;
+          window._wsRenderHistory(document.getElementById('ws-messages'), mergedHistory);
+          _wsChatHistory = mergedHistory;
           localStorage.setItem('chunks_active_ws_book', item.bookId);
           window.ChunksDB?.ws?.savePosition?.(item.bookId, {});
           setTimeout(() => document.getElementById('ws-chat-input')?.focus(), 80);
@@ -877,22 +880,18 @@ function _clickRecent(item) {
       // Fallback for guests or when Supabase returns no data: read localStorage/IDB.
       let wsSession = _loadWsSession(item.bookId);
       // Fallback: look up by UUID in IDB (written by pullAndApply for cross-device / re-login)
-      if (!wsSession || (!wsSession.html && !(wsSession.history || []).length)) {
+      if (!wsSession || !(wsSession.history || []).length) {
         const idbSession = _readSessionData(item.uuid, item.id);
         if (idbSession && (idbSession.history || idbSession.messages || []).length) {
-          wsSession = { html: idbSession.html || '', history: idbSession.history || idbSession.messages || [] };
+          wsSession = { history: idbSession.history || idbSession.messages || [] };
         }
       }
       const wsHistory = wsSession?.history || wsSession?.messages || [];
-      if (wsSession && (wsSession.html || wsHistory.length)) {
-        // Restore saved messages HTML and history array
+      if (wsSession && wsHistory.length) {
+        // Always re-render from structured history — never inject raw HTML, which
+        // loses event handlers when passed through DOMPurify.
         const msgs = document.getElementById('ws-messages');
-        if (wsHistory.length && typeof window._wsRenderHistory === 'function') {
-          // Prefer history-based render so images stored as base64 in imageDataUrl survive refresh
-          window._wsRenderHistory(msgs, wsHistory);
-        } else if (wsSession.html && msgs) {
-          msgs.innerHTML = typeof sanitize === 'function' ? sanitize(wsSession.html) : wsSession.html;
-        }
+        window._wsRenderHistory(msgs, wsHistory);
         _wsChatHistory = wsHistory;
         localStorage.setItem('chunks_active_ws_book', item.bookId);
         // Phase 3: record active book in ws_state

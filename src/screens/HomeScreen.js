@@ -1587,7 +1587,7 @@ mountHomeScreen();
   // ── _mountSession: show the landing-to-chat transition ──────────────────
   function _mountSession(session, sessionId) {
     const history = session?.history || session?.messages || [];
-    if (!history.length && !session?.html) return;
+    if (!history.length) return;
 
     const landing    = document.getElementById('home-landing');
     const hero       = document.querySelector('.home-hero');
@@ -1601,11 +1601,9 @@ mountHomeScreen();
     if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
 
     if (history.length && chatHist) {
-      // Prefer history-based render so images stored as base64 in imageDataUrl survive refresh
+      // Always re-render from structured history — never inject raw HTML, which
+      // loses event handlers when passed through DOMPurify and breaks action buttons.
       _renderFromHistory(history);
-    } else if (session.html && chatHist) {
-      // Fallback: use cached HTML when no history array is available
-      chatHist.innerHTML = sanitize(session.html);
     }
 
     // Always populate homeHistory from the message array so the _onSessionsReady
