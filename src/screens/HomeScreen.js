@@ -37,7 +37,7 @@ import { showToast } from '../components/Toast.js';
 import { _getStudyMode } from '../components/SettingsModal.js';
 import { homeMarkdown, sanitize } from '../utils/render.js';
 import { lsGet } from '../utils/storage.js';
-import { idbKeys } from '../lib/idbStorage.js';
+import { idbKeys, init as initIdb } from '../lib/idbStorage.js';
 import { ChunksDB } from '../lib/chunksDb.js';
 import { subscribeToHomeMessages, unsubscribeHomeMessages } from '../state/home/homeMessagesRealtime.js';
 import { createThinkingAccordion } from '../components/ThinkingAccordion.js';
@@ -1016,7 +1016,7 @@ export function homeAppendAI(text, sources, { typewrite = false } = {}) {
   // Always use .hc-ai-text wrapper for consistency (typewriter or not)
   const bodyContent = typewrite ? '' : homeMarkdown(text);
   const actsHtml = `
-    <div class="msg-acts" style="margin-top:8px;">
+    <div class="msg-acts" style="margin-top:8px;${typewrite ? 'display:none;' : ''}">
       <button class="msg-act" onclick="homeCopyMsg(this,this.closest('.hc-ai'))" title="Copy">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
       </button>
@@ -1130,6 +1130,9 @@ export async function _homeRegenerate(aiWrapEl) {
           isCancelled: () => signal.aborted,
         });
       }
+      // Reveal action buttons now that typing is complete
+      const actsEl = aiWrap?.querySelector('.msg-acts');
+      if (actsEl) actsEl.style.display = '';
 
       homeHistory.push({
         role: 'assistant',
@@ -1427,6 +1430,9 @@ export async function homeSendMessage() {
           isCancelled: () => signal.aborted,
         });
       }
+      // Reveal action buttons now that typing is complete
+      const actsEl = aiWrap?.querySelector('.msg-acts');
+      if (actsEl) actsEl.style.display = '';
 
       homeHistory.push({
         role: 'assistant',
@@ -1601,6 +1607,21 @@ mountHomeScreen();
       const s = lsGet('chunks_session_' + savedId);
       if (s) _mountSession(s, savedId);
     } catch (_) {}
+  }
+
+  // ── Async IDB-ready fallback ──────────────────────────────────────────────
+  // If IDB hasn't finished initialising when the synchronous read above ran,
+  // the cache was empty and lsGet returned null even though the data exists in
+  // IndexedDB (keys are migrated out of localStorage on first run).  Retry
+  // once init() resolves so sessions are always restored on page refresh.
+  if (!homeHistory.length && savedId && !(activeScreen && activeScreen !== 'home')) {
+    initIdb().then(function _asyncSessionRestore() {
+      if (homeHistory.length) return; // already restored by another path
+      try {
+        const s = lsGet('chunks_session_' + savedId);
+        if (s) _mountSession(s, savedId);
+      } catch (_) {} // IDB/parse errors are non-fatal — leave the landing visible
+    }).catch(function() {}); // init() failure is already logged by idbStorage.js
   }
 })();
 

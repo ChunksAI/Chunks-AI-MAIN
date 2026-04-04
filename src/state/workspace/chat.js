@@ -434,6 +434,10 @@ export function wsAppendAI(answer, sources, question, searchMode) {
   const blocks = _wsBuildBlocks(answer, sources, question, searchMode);
   const d      = _wsRenderMessageFromBlocks(msgId, blocks, bookName);
 
+  // Hide action buttons until typewriter animation completes
+  const msgActsEl = d.querySelector('.msg-acts');
+  if (msgActsEl) msgActsEl.style.display = 'none';
+
   // Append transient UI (follow-ups, auto-flash) that is not persisted in blocks
   const followups    = (typeof _isFollowupsEnabled === 'function' && _isFollowupsEnabled()) ? _wsFollowups(answer, question) : [];
   const followupHtml = followups.length ? `
@@ -778,6 +782,9 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
             isCancelled: () => signal.aborted,
           });
         }
+        // Reveal action buttons now that typing is complete
+        const confirmActsEl = aiEl?.querySelector('.msg-acts');
+        if (confirmActsEl) confirmActsEl.style.display = '';
         ws.chatHistory.push({ role: 'assistant', content: confirmMsg, blocks: [] });
         if (aiEl) aiEl.dataset.histIdx = String(ws.chatHistory.length - 1);
         if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
@@ -808,6 +815,9 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
           isCancelled: () => signal.aborted,
         });
       }
+      // Reveal action buttons now that typing is complete
+      const actsEl = aiEl?.querySelector('.msg-acts');
+      if (actsEl) actsEl.style.display = '';
 
       ws.chatHistory.push({
         role:    'assistant',
