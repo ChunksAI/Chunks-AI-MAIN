@@ -230,8 +230,8 @@ ${powerNavHTML}
         <div id="sidebar-recent-workspace-${screen}" class="sidebar-recent-workspace-list sidebar-doc-groups hist-list"></div>
       </div>
 
-      <!-- Legacy lists (hidden, kept for _renderAllRecent compatibility) -->
-      <div style="display:none;" aria-hidden="true">
+      <!-- Recent lists -->
+      <div>
         <div id="sidebar-doc-groups-${screen}" class="sidebar-doc-groups"></div>
         <div id="${ids.general}" class="recent-list hist-list"></div>
         <div id="${ids.workspace}" class="recent-list hist-list"></div>

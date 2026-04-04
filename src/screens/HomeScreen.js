@@ -115,11 +115,6 @@ const HOME_HTML = /* html */`
                 </div>
                 <div class="attach-menu-divider"></div>
                 <div class="attach-menu-section-label">AI Mode</div>
-                <div class="attach-menu-item attach-menu-toggle" id="home-toggle-auto" onclick="homeToggleThinking('auto')">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-                  <span>Auto</span>
-                  <div class="attach-menu-check on" id="home-auto-check"></div>
-                </div>
                 <div class="attach-menu-item attach-menu-toggle" id="home-toggle-websearch" onclick="homeToggleWebSearch()">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                   <span>Web Search</span>
@@ -207,11 +202,6 @@ const HOME_HTML = /* html */`
               </div>
               <div class="attach-menu-divider"></div>
               <div class="attach-menu-section-label">AI Mode</div>
-              <div class="attach-menu-item attach-menu-toggle" id="home-toggle-auto-b" onclick="homeToggleThinking('auto')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-                <span>Auto</span>
-                <div class="attach-menu-check on" id="home-auto-check-b"></div>
-              </div>
               <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleWebSearch()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 <span>Web Search</span>
@@ -333,7 +323,7 @@ const _HOME_AI_AVATAR = `<div class="hc-ai-avatar"><svg viewBox="0 0 100 100" xm
 
 export let homeMode      = 'general';
 export let _homeWebSearch = false;
-export let _homeThinking  = 'auto'; // 'auto' | 'off' | 'think' | 'deep'
+export let _homeThinking  = 'off'; // 'off' | 'think' | 'deep'
 export let homeHistory   = [];
 export let _homeSessionId = null;
 let homeIsTyping = false;
@@ -1093,13 +1083,7 @@ export async function _homeRegenerate(aiWrapEl) {
   _homeAbortController = new AbortController();
   const { signal } = _homeAbortController;
 
-  // Resolve 'auto' thinking mode based on question complexity
-  let _regenEffectiveThinking = _homeThinking;
-  if (_homeThinking === 'auto' && question) {
-    _regenEffectiveThinking = mapComplexityToMode(classifyQuestion(question));
-  }
-
-  homeAppendThinking(false, _regenEffectiveThinking);
+  homeAppendThinking(false, _homeThinking);
   _thinkStart = Date.now();
   _homeSetGenerating(document.getElementById('home-send-btn'), true);
   _homeSetGenerating(document.getElementById('home-send-btn-bottom'), true);
@@ -1276,13 +1260,8 @@ export function homeToggleWebSearch() {
 export function homeToggleThinking(mode) {
   // Toggle off if already active, else switch to new mode
   _homeThinking = _homeThinking === mode ? 'off' : mode;
-  const isAuto  = _homeThinking === 'auto';
   const isThink = _homeThinking === 'think';
   const isDeep  = _homeThinking === 'deep';
-  ['home-auto-check','home-auto-check-b'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('on', isAuto);
-  });
   ['home-think-check','home-think-check-b'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('on', isThink);
@@ -1298,10 +1277,6 @@ export function homeToggleThinking(mode) {
   ['home-toggle-deep'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('active', isDeep);
-  });
-  ['home-toggle-auto','home-toggle-auto-b'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.toggle('active', isAuto);
   });
 }
 
@@ -1371,13 +1346,7 @@ export async function homeSendMessage() {
   _homeAbortController = new AbortController();
   const { signal } = _homeAbortController;
 
-  // Resolve 'auto' thinking mode based on question complexity
-  let _effectiveHomeThinking = _homeThinking;
-  if (_homeThinking === 'auto' && question && !imageAtt) {
-    _effectiveHomeThinking = mapComplexityToMode(classifyQuestion(question));
-  }
-
-  homeAppendThinking(!!imageAtt, _effectiveHomeThinking);
+  homeAppendThinking(!!imageAtt, _homeThinking);
   _thinkStart = Date.now();
   // Update both buttons — homeHideLanding() may have swapped which one is visible
   _homeSetGenerating(document.getElementById('home-send-btn'), true);
