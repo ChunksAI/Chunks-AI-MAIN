@@ -435,7 +435,7 @@ export function _wsRenderHistory(msgs, history) {
         // component path is used and action buttons are always rendered.
         const prevUserMsg = history.slice(0, i).reverse().find(m => m.role === 'user');
         const legacyBlocks = _wsBuildBlocks(msg.content || '', [], prevUserMsg?.content || '', null);
-        const msgId = 'ws-msg-hist-' + i + '-' + Date.now();
+        const msgId = 'ws-msg-hist-legacy-' + i;
         const el = _wsRenderMessageFromBlocks(msgId, legacyBlocks, bookName);
         el.dataset.histIdx = String(i);
         if (msg.feedback) {
