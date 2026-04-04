@@ -824,6 +824,15 @@ function _clickRecent(item) {
       if (bar) bar.style.display = 'flex';
       if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
 
+      // Point the active-session pointers at the clicked item so that
+      // _onSessionsReady (fired by pullAndApply) restores the same session
+      // rather than overwriting it with whichever session was last saved.
+      localStorage.setItem('chunks_active_home_session', item.id);
+      const _clickedUuid = session.supabaseId || item.uuid || null;
+      if (_clickedUuid) localStorage.setItem('chunks_active_home_supabase_id', _clickedUuid);
+      // Mark as "recently navigated" so _onSessionsReady treats this as a live session.
+      if (typeof window._homeMarkNavTime === 'function') window._homeMarkNavTime();
+
       // _homeMountSession is always available when a recent item is clicked (HomeScreen.js
       // has already initialised by this point).  Never inject raw HTML — it loses event
       // handlers when passed through DOMPurify.
@@ -854,32 +863,45 @@ function _clickRecent(item) {
       window._homeSessionId = item.id;
 
       const sessionUuid = session?.supabaseId || item.uuid || null;
+
+      // Point active-session pointers at the clicked item before the async
+      // fetch so that _onSessionsReady (if it fires concurrently) loads the
+      // same session instead of overwriting with a stale/different one.
+      localStorage.setItem('chunks_active_home_session', item.id);
+      if (sessionUuid) localStorage.setItem('chunks_active_home_supabase_id', sessionUuid);
+      if (typeof window._homeMarkNavTime === 'function') window._homeMarkNavTime();
+
       if (sessionUuid && window.ChunksDB?.isLoggedIn?.()) {
         // Show a subtle loading indicator while fetching
         if (chatHistory) chatHistory.innerHTML = '<div class="hc-session-loading">Loading conversation…</div>';
         (async () => {
-          const { data: remoteMessages } = (await window.ChunksDB.messages.loadSession(sessionUuid)) ?? {};
-          if (remoteMessages?.length) {
-            const remoteSession = { id: item.id, supabaseId: sessionUuid, history: remoteMessages };
-            // Cache locally so subsequent clicks are instant
-            window._lsSet?.('chunks_session_' + item.id, remoteSession);
-            if (typeof window._homeMountSession === 'function') {
-              window._homeMountSession(remoteSession, item.id);
-            } else {
+          try {
+            const { data: remoteMessages } = (await window.ChunksDB.messages.loadSession(sessionUuid)) ?? {};
+            if (remoteMessages?.length) {
+              const remoteSession = { id: item.id, supabaseId: sessionUuid, history: remoteMessages };
+              // Cache locally so subsequent clicks are instant
+              window._lsSet?.('chunks_session_' + item.id, remoteSession);
+              if (typeof window._homeMountSession === 'function') {
+                window._homeMountSession(remoteSession, item.id);
+              } else {
+                setTimeout(() => {
+                  if (typeof window._homeMountSession === 'function') {
+                    window._homeMountSession(remoteSession, item.id);
+                  }
+                }, 200);
+              }
+              homeHistory = remoteMessages;
               setTimeout(() => {
-                if (typeof window._homeMountSession === 'function') {
-                  window._homeMountSession(remoteSession, item.id);
-                }
-              }, 200);
+                homeScrollBottom();
+                document.getElementById('home-ask-input-bottom')?.focus();
+              }, 60);
+            } else {
+              // Nothing found in Supabase either — show inline notice
+              if (chatHistory) chatHistory.innerHTML = '<div class="hc-session-unavailable">Session no longer available</div>';
             }
-            homeHistory = remoteMessages;
-            setTimeout(() => {
-              homeScrollBottom();
-              document.getElementById('home-ask-input-bottom')?.focus();
-            }, 60);
-          } else {
-            // Nothing found in Supabase either — show inline notice
-            if (chatHistory) chatHistory.innerHTML = '<div class="hc-session-unavailable">Session no longer available</div>';
+          } catch (_err) {
+            // Network or Supabase error — replace the loading indicator with a notice
+            if (chatHistory) chatHistory.innerHTML = '<div class="hc-session-unavailable">Could not load conversation</div>';
           }
         })();
       } else {
