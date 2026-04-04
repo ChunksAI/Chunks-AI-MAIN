@@ -291,7 +291,7 @@ const EXAM_HTML = /* html */`
             </div>
 
             <!-- Error display -->
-            <div id="exam-error" style="display:none;font-size:12px;color:#f87171;padding:10px 14px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:var(--r-sm);margin-bottom:14px;"></div>
+            <div id="exam-error" class="ewiz-error-msg" style="display:none;"></div>
 
             <!-- Generate Exam button -->
             <button class="ewiz-gen-btn" id="exam-start-btn" data-action="examStart">

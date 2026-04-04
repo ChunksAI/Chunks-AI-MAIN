@@ -24,8 +24,8 @@
   content: '';
   position: absolute; inset: 0;
   background:
-    radial-gradient(ellipse at 20% 15%, rgba(232,172,46,0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 85%, rgba(139,124,248,0.05) 0%, transparent 50%);
+    radial-gradient(ellipse at 20% 15%, rgba(232,172,46,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 85%, rgba(139,124,248,0.07) 0%, transparent 50%);
   pointer-events: none;
 }
 
@@ -460,19 +460,21 @@
 .exam-scan-card {
   padding: 12px 12px 14px;
   border-radius: var(--r-sm);
-  border: 1px solid var(--border-xs);
+  border: 1px solid var(--border-sm);
   background: var(--surface-2);
   cursor: pointer;
-  transition: all var(--t-fast);
+  transition: border-color 0.18s, background 0.18s, transform 0.18s, box-shadow 0.18s;
   text-align: left;
 }
 .exam-scan-card:hover {
   border-color: var(--border-md);
   background: var(--surface-3);
+  transform: translateY(-1px);
 }
 .exam-scan-card.active {
-  border-color: var(--gold-border);
+  border: 1.5px solid var(--gold);
   background: var(--gold-muted);
+  box-shadow: 0 0 0 2px var(--gold-muted);
 }
 
 .exam-scan-top {
@@ -971,7 +973,7 @@
 }
 .ess-value {
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--text-1);
 }
@@ -996,31 +998,44 @@
   gap: 0;
 }
 .ewiz-dot {
-  width: 10px;
-  height: 10px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  background: var(--surface-4);
+  background: var(--surface-3);
   border: 1.5px solid var(--border-md);
   flex-shrink: 0;
-  transition: background 0.22s, border-color 0.22s, transform 0.22s var(--ease-spring);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-4);
+  transition: background 0.22s, border-color 0.22s, color 0.22s, box-shadow 0.22s, transform 0.22s var(--ease-spring);
 }
+#ewiz-dot-1::after { content: "1"; }
+#ewiz-dot-2::after { content: "2"; }
+#ewiz-dot-3::after { content: "3"; }
 .ewiz-dot.active {
-  background: #D4A853;
-  border-color: #D4A853;
-  transform: scale(1.35);
+  background: var(--gold);
+  border-color: var(--gold);
+  color: #111;
+  transform: scale(1.1);
+  box-shadow: 0 0 0 4px var(--gold-muted);
 }
 .ewiz-dot.done {
-  background: #7A9E7E;
-  border-color: #7A9E7E;
+  background: var(--surface-4);
+  border-color: var(--border-md);
+  color: var(--text-3);
 }
 .ewiz-trail-line {
   width: 64px;
-  height: 0.5px;
-  background: #2E2E2E;
+  height: 1px;
+  background: var(--border-sm);
   flex-shrink: 0;
   transition: background 0.25s;
 }
-.ewiz-trail-line.done { background: #7A9E7E; }
+.ewiz-trail-line.done { background: var(--gold); opacity: 0.5; }
 
 /* ── Step container ── */
 .ewiz-step {
@@ -1044,9 +1059,9 @@
 /* Step heading — Instrument Serif */
 .ewiz-heading {
   font-family: 'Instrument Serif', Georgia, serif;
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 400;
-  color: #E8E4DC;
+  color: var(--text-1);
   margin-bottom: 6px;
   line-height: 1.2;
 }
@@ -1064,19 +1079,22 @@
   width: 100%;
   box-sizing: border-box;
   background: var(--surface-2);
-  border: 0.5px solid #2E2E2E;
+  border: 1px solid var(--border-sm);
   border-radius: 14px;
   padding: 16px 18px;
   font-size: 18px;
-  font-weight: 300;
+  font-weight: 400;
   color: var(--text-1);
   font-family: var(--font-body);
   outline: none;
-  transition: border-color 0.18s;
+  transition: border-color 0.2s, box-shadow 0.2s;
   -webkit-appearance: none;
 }
 .ewiz-topic-inp::placeholder { color: var(--text-4); }
-.ewiz-topic-inp:focus { border-color: #D4A853; }
+.ewiz-topic-inp:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-muted);
+}
 
 /* ── Attach row (pill toggles) ── */
 .ewiz-attach-row {
@@ -1090,7 +1108,7 @@
   gap: 7px;
   padding: 8px 16px;
   border-radius: 20px;
-  border: 0.5px solid #444;
+  border: 1px solid var(--border-md);
   background: transparent;
   color: var(--text-3);
   font-size: 13px;
@@ -1099,13 +1117,13 @@
   transition: border-color 0.18s, color 0.18s, background 0.18s;
 }
 .ewiz-pill-btn:hover {
-  border-color: #D4A853;
-  color: #D4A853;
+  border-color: var(--gold);
+  color: var(--gold);
 }
 .ewiz-pill-btn.active {
-  background: rgba(212, 168, 83, 0.12);
-  border-color: #D4A853;
-  color: #D4A853;
+  background: var(--gold-muted);
+  border-color: var(--gold);
+  color: var(--gold);
 }
 
 /* Attach zone wrapper */
@@ -1121,7 +1139,7 @@
   justify-content: space-between;
   margin-top: 32px;
   padding-top: 20px;
-  border-top: 0.5px solid #2E2E2E;
+  border-top: 1px solid var(--border-sm);
 }
 
 /* Primary button (amber) */
@@ -1131,18 +1149,19 @@
   gap: 8px;
   padding: 11px 22px;
   border-radius: 20px;
-  background: #D4A853;
+  background: var(--gold);
   border: none;
   color: #111;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   font-family: var(--font-body);
   cursor: pointer;
-  transition: opacity 0.18s, transform 0.15s;
+  transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
 }
 .ewiz-btn-primary:hover:not(:disabled):not(.ewiz-disabled) {
-  opacity: 0.88;
+  background: var(--gold-bright);
   transform: translateY(-1px);
+  box-shadow: 0 4px 14px var(--gold-glow);
 }
 .ewiz-btn-primary:disabled,
 .ewiz-btn-primary.ewiz-disabled {
@@ -1175,21 +1194,25 @@
   position: relative;
   padding: 18px 16px 16px;
   background: var(--surface-2);
-  border: 0.5px solid #2E2E2E;
+  border: 1px solid var(--border-sm);
   border-radius: 14px;
   cursor: pointer;
-  transition: border-color 0.18s, background 0.18s;
+  transition: border-color 0.18s, background 0.18s, transform 0.2s, box-shadow 0.2s;
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
 .ewiz-tpl-card:hover {
-  border-color: #444;
+  border-color: var(--border-md);
   background: var(--surface-3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
 }
 .ewiz-tpl-card.active {
-  border: 1.5px solid #D4A853 !important;
-  background: rgba(212, 168, 83, 0.05);
+  border: 2px solid var(--gold) !important;
+  background: var(--gold-muted);
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 3px var(--gold-muted), 0 4px 16px var(--gold-glow);
 }
 
 /* Checkmark badge */
@@ -1200,7 +1223,7 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #D4A853;
+  background: var(--gold);
   color: #111;
   font-size: 10px;
   font-weight: 700;
@@ -1252,34 +1275,43 @@
   justify-content: center;
   text-align: center;
   border-style: dashed !important;
+  border-color: var(--border-md) !important;
   min-height: 120px;
+}
+.ewiz-tpl-custom:hover {
+  border-color: var(--gold) !important;
+  border-style: dashed !important;
 }
 .ewiz-tpl-custom-icon {
   font-size: 28px;
-  color: var(--text-4);
+  color: var(--text-3);
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 .ewiz-tpl-custom .ewiz-tpl-name { color: var(--text-3); }
+.ewiz-tpl-custom .ewiz-tpl-desc { color: var(--text-4); }
+.ewiz-tpl-card.active.ewiz-tpl-custom {
+  border-style: solid !important;
+}
 .ewiz-tpl-card.active.ewiz-tpl-custom .ewiz-tpl-name { color: var(--text-1); }
 
 /* ── Sections card (step 3) ── */
 .ewiz-sections-card {
   border-radius: 14px;
-  border: 0.5px solid #2E2E2E;
+  border: 1px solid var(--border-sm);
   overflow: hidden;
   margin-bottom: 0;
 }
 .ewiz-sec-hdr {
   padding: 10px 16px;
-  border-bottom: 0.5px solid #2E2E2E;
+  border-bottom: 1px solid var(--border-sm);
   background: var(--surface-3);
   font-family: var(--font-mono);
   font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--text-4);
+  color: var(--text-3);
 }
 .ewiz-sec-table {
   background: var(--surface-1);
@@ -1297,8 +1329,8 @@
 
 /* ── Live summary bar (step 3) ── */
 .ewiz-summary-bar {
-  border-top: 0.5px solid #2E2E2E;
-  border-bottom: 0.5px solid #2E2E2E;
+  border-top: 1px solid var(--border-sm);
+  border-bottom: 1px solid var(--border-sm);
   margin: 16px 0 20px;
 }
 
@@ -1312,7 +1344,7 @@
 .ewiz-setting-label {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-3);
+  color: var(--text-2);
   text-transform: uppercase;
   letter-spacing: 0.07em;
   margin-bottom: 8px;
@@ -1320,7 +1352,7 @@
 .ewiz-select {
   width: 100%;
   background: var(--surface-2);
-  border: 0.5px solid #2E2E2E;
+  border: 1px solid var(--border-sm);
   border-radius: 8px;
   padding: 9px 12px;
   color: var(--text-1);
@@ -1330,9 +1362,9 @@
   outline: none;
   -webkit-appearance: none;
   appearance: none;
-  transition: border-color 0.18s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-.ewiz-select:focus { border-color: #D4A853; }
+.ewiz-select:focus { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-muted); }
 
 /* Difficulty toggle group */
 .ewiz-diff-group {
@@ -1343,29 +1375,29 @@
   flex: 1;
   padding: 8px 4px;
   border-radius: 8px;
-  border: 0.5px solid #2E2E2E;
+  border: 1px solid var(--border-sm);
   background: transparent;
   color: var(--text-3);
   font-size: 12px;
   font-family: var(--font-body);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.18s;
   white-space: nowrap;
   text-align: center;
 }
-.ewiz-diff-btn:hover { border-color: #444; color: var(--text-2); }
+.ewiz-diff-btn:hover { border-color: var(--border-md); color: var(--text-2); background: var(--surface-2); }
 .ewiz-diff-btn.active {
-  background: var(--surface-4);
+  background: var(--surface-3);
   border-color: var(--border-lg);
   color: var(--text-1);
-  font-weight: 500;
+  font-weight: 600;
 }
 /* AI button active: amber tint */
 .ewiz-diff-btn.ewiz-diff-ai.active,
 .ewiz-diff-btn.exam-type-btn.active[data-diff="adaptive"] {
-  background: rgba(212, 168, 83, 0.14) !important;
-  border-color: #D4A853 !important;
-  color: #D4A853 !important;
+  background: var(--gold-muted) !important;
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
 }
 
 /* ── Generate Exam button (step 3) ── */
@@ -1373,7 +1405,7 @@
   width: 100%;
   padding: 15px;
   border-radius: 14px;
-  background: #D4A853;
+  background: var(--gold);
   border: none;
   color: #111;
   font-size: 15px;
@@ -1384,10 +1416,14 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  transition: opacity 0.18s, transform 0.12s;
+  transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
 }
-.ewiz-gen-btn:hover { opacity: 0.9; transform: translateY(-1px); }
-.ewiz-gen-btn:active { transform: translateY(0); }
+.ewiz-gen-btn:hover {
+  background: var(--gold-bright);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px var(--gold-glow);
+}
+.ewiz-gen-btn:active { transform: translateY(0); box-shadow: none; }
 .ewiz-star { font-size: 13px; }
 .ewiz-gen-btn.loading .ewiz-star { animation: spin 0.8s linear infinite; }
 
@@ -1406,6 +1442,18 @@
   transition: color 0.15s;
 }
 .ewiz-change-tpl button:hover { color: var(--text-2); }
+
+/* ── Softened error message ── */
+.ewiz-error-msg {
+  font-size: 12px;
+  color: var(--text-2);
+  padding: 10px 14px;
+  background: rgba(248,113,113,0.06);
+  border: 1px solid rgba(248,113,113,0.15);
+  border-radius: var(--r-sm);
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
 
 /* ── Responsive: 375px ── */
 @media (max-width: 480px) {
