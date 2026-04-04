@@ -1,3 +1,4 @@
+
 """
 backend/routes/chat.py — Main chat endpoint.
 
@@ -16,7 +17,7 @@ import re
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from routes.shared import ctx
+from routes.shared import ctx, TEACHING_PROMPT
 from routes.schemas import AskRequest
 from guest_limits import GuestLimitExceeded, guest_gate
 
@@ -257,12 +258,14 @@ def ask(request: Request, body: AskRequest):
                 f"You are an expert tutor for {book_label}. "
                 f"Answer based strictly on the provided textbook context and cite page numbers using: 📖 Page N. "
                 f"{latex_instruction}{memory_block}"
+                f"{TEACHING_PROMPT}"
             )
         else:
             base_system = (
                 f"{IDENTITY}"
                 f"You are a knowledgeable tutor. Answer the student's question helpfully and clearly. "
                 f"{latex_instruction}{memory_block}"
+                f"{TEACHING_PROMPT}"
             )
 
         # ── Thinking mode: instruct model to emit chain-of-thought ────────────
