@@ -13,7 +13,7 @@ import logging
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from routes.shared import ctx
+from routes.shared import ctx, TEACHING_PROMPT
 from routes.schemas import AskAsyncRequest
 
 logger = logging.getLogger(__name__)
@@ -183,6 +183,7 @@ def _run_ask_job(data: dict) -> dict:
         "You are Chunks AI, an intelligent AI study assistant. "
         f"{'Answer based on the textbook context. ' if is_relevant else ''}"
         f"{latex_instruction}{memory_block}"
+        f"{TEACHING_PROMPT}"
     )
 
     # ── Thinking mode: instruct model to emit chain-of-thought ────────────
