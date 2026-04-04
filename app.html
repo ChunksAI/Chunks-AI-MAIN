@@ -6017,6 +6017,15 @@ function examOpenEndedInput(el) {
 }
 
 
+function _examMd(text) {
+  if (!text) return '';
+  if (typeof homeMarkdown !== 'function') return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return sanitize(homeMarkdown(String(text)));
+}
+function _examMdInline(text) {
+  return _examMd(text).replace(/^\s*<p>([\s\S]*?)<\/p>\s*$/, '$1').trim();
+}
+
 function _examRenderQuestion() {
   const q = _examQuestions[_examIdx], total = _examQuestions.length;
   _examUpdateDiffBadge();
@@ -6083,7 +6092,7 @@ function _examRenderQuestion() {
     badge.className = 'exam-cbl-q-type';
     badge.textContent = '🩺 ' + (q.case.tag || 'Clinical Question');
     qTextEl.parentNode.insertBefore(badge, qTextEl);
-    qTextEl.textContent = rawQ;
+    qTextEl.innerHTML = _examMd(rawQ);
 
   } else {
     // Hide CBL card
@@ -6100,9 +6109,9 @@ function _examRenderQuestion() {
       scenarioEl.className = 'exam-q-scenario';
       scenarioEl.innerHTML = '<strong>📋 Scenario</strong>' + scenarioMatch[1].trim();
       qHeader.insertBefore(scenarioEl, qTextEl);
-      qTextEl.textContent = scenarioMatch[2].trim();
+      qTextEl.innerHTML = _examMd(scenarioMatch[2].trim());
     } else {
-      qTextEl.textContent = rawQ;
+      qTextEl.innerHTML = _examMd(rawQ);
     }
   }
   document.getElementById('exam-progress-fill').style.width = (_examIdx/total*100)+'%';
@@ -6141,7 +6150,8 @@ function _examRenderQuestion() {
     const letter = q.options.length === 2 ? (i===0?'T':'F') : letters[i];
     const btn = document.createElement('button');
     btn.className = 'exam-option';
-    btn.innerHTML = '<span class="opt-letter">'+letter+'</span><span class="opt-text">'+opt.replace(/^[A-DF]\.\s*/,'')+'</span>';
+    btn.innerHTML = '<span class="opt-letter">'+letter+'</span><span class="opt-text"></span>';
+    btn.querySelector('.opt-text').innerHTML = _examMdInline(opt.replace(/^[A-DF]\.\s*/,''));
     btn.addEventListener('click', () => _examSelect(i, btn));
     const prev = _examAnswers[_examIdx];
     if (prev !== null) {
@@ -6204,7 +6214,7 @@ function _examShowFeedback(ok, explanation, score) {
   const fb = document.getElementById('exam-feedback');
   fb.className = 'exam-feedback show '+(ok?'correct-fb':'wrong-fb');
   const scoreTag = (score !== undefined) ? ` <span style="font-size:11px;opacity:0.75;">(${score}/100)</span>` : '';
-  fb.innerHTML = sanitize('<strong>'+(ok?'✓ Correct!':'✗ Incorrect')+'</strong>'+scoreTag+(explanation?' — '+explanation:''));
+  fb.innerHTML = sanitize('<strong>'+(ok?'✓ Correct!':'✗ Incorrect')+'</strong>'+scoreTag) + (explanation ? ' — ' + _examMdInline(explanation) : '');
 }
 
 function examSkip() {
@@ -6324,22 +6334,22 @@ function _examFinish() {
       const scoreTag    = score !== null ? ' <span style="font-size:11px;opacity:0.8;">(' + score + '/100)</span>' : '';
       return '<div class="exam-review-item" style="'+border+'">'+
         '<div style="font-size:10px;font-weight:700;color:var(--violet);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;">✍️ Open-Ended</div>'+
-        '<div class="exam-review-q">'+(i+1)+'. '+q.q+'</div>'+
+        '<div class="exam-review-q">'+(i+1)+'. '+_examMdInline(q.q)+'</div>'+
         '<div class="exam-review-answer" style="flex-direction:column;gap:4px;">'+
           '<div><span class="exam-review-label">Your answer:</span> <span class="exam-review-val '+(ok?'c':'w')+'">'+scoreTag+' '+sanitize(studentText)+'</span></div>'+
           (!ok ? '<div style="margin-top:6px;"><span class="exam-review-label">Sample answer:</span> <span class="exam-review-val c">'+sanitize(q.sampleAnswer||q.ideal_answer||'—')+'</span></div>' : '')+
         '</div>'+
-        (feedback?'<div class="exam-review-explanation">'+sanitize(feedback)+'</div>':'')+
+        (feedback?'<div class="exam-review-explanation">'+_examMdInline(feedback)+'</div>':'')+
       '</div>';
     }
 
     return '<div class="exam-review-item" style="'+border+'">'+
-      '<div class="exam-review-q">'+(i+1)+'. '+q.q+'</div>'+
+      '<div class="exam-review-q">'+(i+1)+'. '+_examMdInline(q.q)+'</div>'+
       '<div class="exam-review-answer">'+
         '<span class="exam-review-label">Your answer:</span> <span class="exam-review-val '+(ok?'c':'w')+'">'+(skip?'Skipped':chosenDisplay)+'</span>'+
         (!ok?'<span class="exam-review-label" style="margin-left:8px;">Correct:</span> <span class="exam-review-val c">'+correctDisplay+'</span>':'')+
       '</div>'+
-      (q.explanation?'<div class="exam-review-explanation">'+q.explanation+'</div>':'')+
+      (q.explanation?'<div class="exam-review-explanation">'+_examMdInline(q.explanation)+'</div>':'')+
     '</div>';
   }).join('');
 
@@ -6507,21 +6517,21 @@ function _examShowResults() {
       const scoreTag    = score !== null ? ' <span style=\"font-size:11px;opacity:0.8;\">('+score+'/100)</span>' : '';
       return '<div class=\"exam-review-item\" style=\"'+border+'\">'+
         '<div style=\"font-size:10px;font-weight:700;color:var(--violet);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;\">✍️ Open-Ended</div>'+
-        '<div class=\"exam-review-q\">'+(i+1)+'. '+q.q+'</div>'+
+        '<div class=\"exam-review-q\">'+(i+1)+'. '+_examMdInline(q.q)+'</div>'+
         '<div class=\"exam-review-answer\" style=\"flex-direction:column;gap:4px;\">'+
           '<div><span class=\"exam-review-label\">Your answer:</span> <span class=\"exam-review-val '+(ok?'c':'w')+'\">'+scoreTag+' '+sanitize(studentText)+'</span></div>'+
           (!ok ? '<div style=\"margin-top:6px;\"><span class=\"exam-review-label\">Sample answer:</span> <span class=\"exam-review-val c\">'+sanitize(q.sampleAnswer||q.ideal_answer||'—')+'</span></div>' : '')+
         '</div>'+
-        (feedback?'<div class=\"exam-review-explanation\">'+sanitize(feedback)+'</div>':'')+
+        (feedback?'<div class=\"exam-review-explanation\">'+_examMdInline(feedback)+'</div>':'')+
       '</div>';
     }
     return '<div class=\"exam-review-item\" style=\"'+border+'\">'+
-      '<div class=\"exam-review-q\">'+(i+1)+'. '+q.q+'</div>'+
+      '<div class=\"exam-review-q\">'+(i+1)+'. '+_examMdInline(q.q)+'</div>'+
       '<div class=\"exam-review-answer\">'+
         '<span class=\"exam-review-label\">Your answer:</span> <span class=\"exam-review-val '+(ok?'c':'w')+'">'+(skip?'Skipped':chosenDisplay)+'</span>'+
         (!ok?'<span class=\"exam-review-label\" style=\"margin-left:8px;\">Correct:</span> <span class=\"exam-review-val c\">'+correctDisplay+'</span>':'')+
       '</div>'+
-      (q.explanation?'<div class=\"exam-review-explanation\">'+q.explanation+'</div>':'')+
+      (q.explanation?'<div class=\"exam-review-explanation\">'+_examMdInline(q.explanation)+'</div>':'')+
     '</div>';
   }).join('');
 

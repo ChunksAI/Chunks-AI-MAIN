@@ -11,6 +11,7 @@ import { spSrsUpdate } from './srs.js';
 import { isGuest, showLoginWall } from '../../lib/guestLimits.js';
 import { trackExamResult } from '../../lib/progressTracker.js';
 import { saveExamResult } from '../../lib/examDb.js';
+import { homeMarkdown, sanitize } from '../../utils/render.js';
 
 export async function spExamGenerate() {
   sp.examQuestions = []; sp.examIndex = 0; sp.examAnswers = []; sp.examStarted = false;
@@ -80,13 +81,15 @@ export function spExamShowCurrent() {
   if (!q) return;
   $el('sp-exam-progress-bar').style.width = (sp.examIndex / sp.examQuestions.length * 100) + '%';
   setText($el('sp-exam-counter'), (sp.examIndex + 1) + '/' + sp.examQuestions.length);
-  setText($el('sp-exam-q-text'), q.q);
+  setHtml($el('sp-exam-q-text'), sanitize(homeMarkdown(q.q)));
   const opts = $el('sp-exam-options');
   opts.innerHTML = '';
   q.options.forEach((opt, i) => {
     const letter = ['A','B','C','D'][i];
     const btn = document.createElement('button');
-    btn.className = 'sp-exam-opt-btn'; btn.textContent = opt;
+    btn.className = 'sp-exam-opt-btn';
+    btn.dataset.letter = letter;
+    btn.innerHTML = sanitize(homeMarkdown(opt.replace(/^[A-DF]\.\s*/, ''))).replace(/^\s*<p>([\s\S]*?)<\/p>\s*$/, '$1').trim();
     btn.onclick = () => spExamAnswer(letter, btn);
     opts.appendChild(btn);
   });
@@ -102,12 +105,12 @@ export function spExamAnswer(letter, btnEl) {
   btnEl.style.color       = correct ? 'var(--green)' : 'var(--red)';
   if (!correct) {
     $qsa('.sp-exam-opt-btn').forEach(b => {
-      if (b.textContent.charAt(0) === q.answer) { b.style.background = 'rgba(52,211,153,0.1)'; b.style.borderColor = 'var(--green)'; b.style.color = 'var(--green)'; }
+      if (b.dataset.letter === q.answer) { b.style.background = 'rgba(52,211,153,0.1)'; b.style.borderColor = 'var(--green)'; b.style.color = 'var(--green)'; }
     });
   }
   const expEl = document.createElement('div');
   expEl.style.cssText = 'font-size:11px;color:var(--text-3);padding:8px 12px;background:var(--surface-2);border-radius:var(--r-sm);border:1px solid var(--border-xs);margin-top:4px;line-height:1.5;flex-shrink:0;';
-  expEl.textContent = q.explanation || '';
+  expEl.innerHTML = sanitize(homeMarkdown(q.explanation || ''));
   $el('sp-exam-options').appendChild(expEl);
   setTimeout(() => { sp.examIndex++; if (sp.examIndex >= sp.examQuestions.length) spExamFinish(); else spExamShowCurrent(); }, 1800);
 }
