@@ -405,8 +405,9 @@ function _saveWsSession(bookId, historyArr) {
   localStorage.setItem('chunks_active_ws_book', bookId);
 
   // ── Sync workspace chat to Supabase ──────────────────────────────────────
-  // Post-migration: chat_sessions is metadata-only; messages go to the
-  // per-row messages table via saveFull().
+  // Append-only: track how many messages have already been synced so we only
+  // insert NEW messages on each call rather than re-inserting the entire history
+  // (which would create quadratic duplicates in the messages table).
   const recentItem = _recentItems.find(r => r.bookId === bookId && r.source === 'workspace');
   const supabaseId = recentItem?.uuid || null;
   if (supabaseId && historyArr?.length) {
@@ -414,12 +415,23 @@ function _saveWsSession(bookId, historyArr) {
     const bookName = (typeof bookMeta === 'object' ? bookMeta?.name : bookMeta?.split?.('/')?.[0]) || bookId;
     const firstUserMsg = historyArr.find(m => m.role === 'user');
     const title = recentItem?.label || (firstUserMsg?.content?.slice(0, 80)) || bookName;
+
+    // Only insert messages that have not yet been synced to Supabase.
+    const savedCountKey = 'chunks_ws_saved_cnt_' + supabaseId;
+    const savedCount = parseInt(localStorage.getItem(savedCountKey) || '0', 10) || 0;
+    const newMessages = historyArr.slice(savedCount);
+
     window.ChunksDB?.chat?.saveFull?.({
       id:        supabaseId,
       title,
-      messages:  historyArr,
+      messages:  newMessages,
       bookId,
       updatedAt: new Date().toISOString(),
+    })?.then?.(() => {
+      // Advance the saved-count cursor only after a successful write.
+      localStorage.setItem(savedCountKey, String(historyArr.length));
+    }).catch?.(() => {
+      // Leave cursor unchanged so the next save retries the failed messages.
     });
   } else if (supabaseId && !historyArr?.length) {
     // History was explicitly cleared — delete the Supabase row so the cleared
@@ -429,6 +441,8 @@ function _saveWsSession(bookId, historyArr) {
     });
     // Also clear the localStorage entry so _loadWsSession returns nothing
     localStorage.removeItem('chunks_ws_session_' + bookId);
+    // Reset the saved-count cursor so a fresh session starts from zero.
+    localStorage.removeItem('chunks_ws_saved_cnt_' + supabaseId);
   }
 }
 
@@ -770,7 +784,8 @@ function _clickRecent(item) {
   // Always set _navFromHistory = true so showScreen skips the "fresh navigation"
   // reset block — this preserves the active highlight for the clicked item and
   // prevents any stale-state clears from running on history-item navigation.
-  window._navFromHistory = true;
+  // setNavFromHistory updates the module-scoped variable used by showScreen.
+  if (typeof window.setNavFromHistory === 'function') window.setNavFromHistory(true);
   if (item.source === 'exam') {
     // Restore snapshot first, THEN show screen — prevents flash of setup view
     if (item._snapId && typeof window._examLoadSnap === 'function') {
@@ -903,6 +918,8 @@ function _clickRecent(item) {
           }) : freshHistory;
           window._wsRenderHistory(document.getElementById('ws-messages'), mergedHistory);
           _wsChatHistory = mergedHistory;
+          // Sync ws.chatHistory so _wsAsk sends correct context on next question.
+          if (window.ws) window.ws.chatHistory = mergedHistory;
           localStorage.setItem('chunks_active_ws_book', item.bookId);
           window.ChunksDB?.ws?.savePosition?.(item.bookId, {});
           setTimeout(() => document.getElementById('ws-chat-input')?.focus(), 80);
@@ -926,6 +943,8 @@ function _clickRecent(item) {
         const msgs = document.getElementById('ws-messages');
         window._wsRenderHistory(msgs, wsHistory);
         _wsChatHistory = wsHistory;
+        // Sync ws.chatHistory so _wsAsk sends correct context on next question.
+        if (window.ws) window.ws.chatHistory = wsHistory;
         localStorage.setItem('chunks_active_ws_book', item.bookId);
         // Phase 3: record active book in ws_state
         window.ChunksDB?.ws?.savePosition?.(item.bookId, {});
