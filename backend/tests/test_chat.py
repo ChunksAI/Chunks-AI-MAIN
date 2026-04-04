@@ -799,6 +799,76 @@ def test_ask_thinking_mode_system_prompt_includes_think_instruction(client, monk
     assert 'system_prompt' in captured
     assert '<think>' in captured['system_prompt']
 
+def test_ask_deep_thinking_uses_required_system_prompt_for_workspace(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """Workspace chat deep mode includes the required detailed Deep Think system instruction."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+    from routes.chat import DEEP_THINK_SYSTEM_PROMPT
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+
+    captured = {}
+
+    def _fake_call_ai(prompt, system_prompt='', **kwargs):
+        captured['system_prompt'] = system_prompt
+        return 'Answer.'
+
+    monkeypatch.setattr(ai_svc, 'call_ai', _fake_call_ai)
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'what is chemistry',
+        'mode': 'study',
+        'bookId': 'none',
+        'thinking': 'deep',
+        'history': [],
+    })
+    assert resp.status_code == 200
+    assert DEEP_THINK_SYSTEM_PROMPT in captured.get('system_prompt', '')
+    assert 'Give concise, clear answers. Be brief and direct.' not in captured.get('system_prompt', '')
+
+
+def test_ask_deep_thinking_uses_required_system_prompt_for_home_general(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """Home chat deep mode includes the required detailed Deep Think system instruction."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+    from routes.chat import DEEP_THINK_SYSTEM_PROMPT
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+
+    captured = {}
+
+    def _fake_call_ai(prompt, system_prompt='', **kwargs):
+        captured['system_prompt'] = system_prompt
+        return 'Answer.'
+
+    monkeypatch.setattr(ai_svc, 'call_ai', _fake_call_ai)
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'what is chemistry',
+        'bookId': '',
+        'mode': 'general',
+        'task_type': 'home_general',
+        'thinking': 'deep',
+        'history': [],
+    })
+    assert resp.status_code == 200
+    assert DEEP_THINK_SYSTEM_PROMPT in captured.get('system_prompt', '')
+    assert 'Give concise, clear answers. Be brief and direct.' not in captured.get('system_prompt', '')
+
 
 def test_ask_no_thinking_mode_system_prompt_no_think_instruction(client, monkeypatch, mock_guest_gate, mock_extract_user):
     """When thinking mode is off the system prompt does NOT include <think> instructions."""
