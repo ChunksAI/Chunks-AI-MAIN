@@ -1147,7 +1147,11 @@ export async function _homeRegenerate(aiWrapEl) {
         });
       }
 
-      homeHistory.push({ role: 'assistant', content: cleanAnswer });
+      homeHistory.push({
+        role: 'assistant',
+        content: cleanAnswer,
+        ...(thinkingContent ? { thinkContent: thinkingContent, thinkDuration: elapsed } : {}),
+      });
       if (aiWrap) aiWrap.dataset.histIdx = String(homeHistory.length - 1);
       if (_homeSessionId) {
         window._saveSession?.(_homeSessionId, homeHistory);
@@ -1435,8 +1439,8 @@ export async function homeSendMessage() {
       const cleanAnswer     = answer || 'No response.';
       const thinkingContent = data.thinking_content || clientThinking || null;
 
+      const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
       if (!imageAtt) {
-        const elapsed = Math.round((Date.now() - _thinkStart) / 1000);
         // Finalize the thinking wrap (shows accordion with steps, or silently
         // removes the placeholder when the model returned no thinking content).
         // Await animation so accordion collapses before the AI response starts.
@@ -1454,7 +1458,11 @@ export async function homeSendMessage() {
         });
       }
 
-      homeHistory.push({ role: 'assistant', content: cleanAnswer });
+      homeHistory.push({
+        role: 'assistant',
+        content: cleanAnswer,
+        ...(thinkingContent ? { thinkContent: thinkingContent, thinkDuration: elapsed } : {}),
+      });
       if (aiWrap) aiWrap.dataset.histIdx = String(homeHistory.length - 1);
       // Overwrite with full exchange (user + AI)
       if (_homeSessionId) {
@@ -1549,6 +1557,20 @@ mountHomeScreen();
           chatHist.appendChild(el);
         }
       } else if (msg.role === 'assistant') {
+        // Restore ThinkingAccordion if this response had thinking content
+        if (msg.thinkContent) {
+          const accordionWrap = document.createElement('div');
+          accordionWrap.className = 'hc-thinking-accordion-wrap';
+          chatHist.appendChild(accordionWrap);
+          const container = document.createElement('div');
+          accordionWrap.appendChild(container);
+          createThinkingAccordion(container, {
+            thinkingText: msg.thinkContent,
+            elapsed: msg.thinkDuration || 0,
+            isStreaming: false,
+            noAnimation: true,
+          });
+        }
         const wrap = homeAppendAI(msg.content || '', null, { typewrite: false });
         if (wrap) {
           wrap.dataset.histIdx = String(idx);

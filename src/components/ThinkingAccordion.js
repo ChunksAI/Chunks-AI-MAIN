@@ -109,6 +109,7 @@ export function createThinkingAccordion(container, {
   thinkingText = '',
   elapsed      = 0,
   isStreaming   = false,
+  noAnimation   = false,  // Skip step-reveal animation — for history rehydration
 } = {}) {
   const steps = isStreaming ? [] : parseThinkingSteps(thinkingText);
 
@@ -118,7 +119,7 @@ export function createThinkingAccordion(container, {
     isStreaming,
   });
 
-  if (!isStreaming && steps.length > 0) {
+  if (!isStreaming && steps.length > 0 && !noAnimation) {
     // ── Animated step reveal ─────────────────────────────────────────────────
     // 1. Expand the accordion so the user sees steps appearing.
     // 2. Reveal steps one by one at STEP_REVEAL_MS intervals.
@@ -154,8 +155,11 @@ export function createThinkingAccordion(container, {
       handle._revealTimer = startTimer;
     });
   } else {
-    // No steps to animate — accordion stays collapsed immediately
-    handle.update({ open: false });
+    // No animation: instantly populate steps and stay collapsed.
+    // Used when restoring from history (noAnimation=true) or when there are
+    // no steps to show (accordion remains collapsed with no content).
+    if (steps.length > 0) handle.update({ steps, open: false });
+    else handle.update({ open: false });
     handle.animationDone = Promise.resolve();
   }
 

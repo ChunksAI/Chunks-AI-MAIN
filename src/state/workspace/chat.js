@@ -802,6 +802,7 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
       // or when the model spontaneously returned <think> content while in 'off'
       // mode). _wsFinalizeThinking silently removes the wrap when there are no
       // steps, or plays the step-reveal animation and collapses before typewriter.
+      const wsElapsed = _wsThinkStart ? Math.round((Date.now() - _wsThinkStart) / 1000) : 0;
       if (!imageAtt) {
         await _wsFinalizeThinking(thinkingContent);
       }
@@ -821,6 +822,7 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
         role:    'assistant',
         content: cleanAnswer,
         blocks:  _wsBuildBlocks(cleanAnswer, data.sources || [], question, data.search_mode),
+        ...(thinkingContent ? { thinkContent: thinkingContent, thinkDuration: wsElapsed } : {}),
       });
       if (aiEl) aiEl.dataset.histIdx = String(ws.chatHistory.length - 1);
       if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
