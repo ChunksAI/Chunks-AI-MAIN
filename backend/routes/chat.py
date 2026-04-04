@@ -354,7 +354,7 @@ def ask(request: Request, body: AskRequest):
                     "(6) common misconceptions or edge cases, "
                     "(7) a concise but complete summary. "
                     "Each section must have a clear header. "
-                    "Your answer MUST be at least 600 words. "
+                    "Aim for comprehensive coverage — typically 600+ words, covering all sections above. "
                     "Use clear headers and structured sections. "
                     "This answer must be significantly longer and more detailed than Think mode. "
                     "Never truncate. If you feel you are running out of space, prioritize "
