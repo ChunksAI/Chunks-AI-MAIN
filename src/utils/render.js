@@ -191,10 +191,13 @@ export function homeMarkdown(text) {
   t = t.replace(/```[\w]*\n?([\s\S]*?)```/g, (_, c) => `<pre><code>${c.trim()}</code></pre>`);
   t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
 
-  // Headers
-  t = t.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-  t = t.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
-  t = t.replace(/^# (.+)$/gm,   '<h2>$1</h2>');
+  // Headers (h1–h6)
+  t = t.replace(/^###### (.+)$/gm, '<h6>$1</h6>');
+  t = t.replace(/^##### (.+)$/gm,  '<h5>$1</h5>');
+  t = t.replace(/^#### (.+)$/gm,   '<h4>$1</h4>');
+  t = t.replace(/^### (.+)$/gm,    '<h3>$1</h3>');
+  t = t.replace(/^## (.+)$/gm,     '<h2>$1</h2>');
+  t = t.replace(/^# (.+)$/gm,      '<h2>$1</h2>');
 
   // Bold / italic
   t = t.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>');
@@ -243,7 +246,7 @@ export function homeMarkdown(text) {
   t = t.split(/\n{2,}/).map(block => {
     block = block.trim();
     if (!block) return '';
-    if (/^<(h[123]|ul|ol|pre|blockquote|hr|table)/.test(block)) return block;
+    if (/^<(h[1-6]|ul|ol|pre|blockquote|hr|table)/.test(block)) return block;
     return `<p>${block.replace(/\n/g, '<br>')}</p>`;
   }).join('');
 
@@ -303,7 +306,7 @@ export function wsRender(raw) {
     const t = line.trim();
     if (!t) { closeList(); continue; }
 
-    if (/^#{1,3} /.test(t)) {
+    if (/^#{1,6} /.test(t)) {
       closeList();
       const lvl = t.match(/^(#+)/)[1].length;
       const txt = t.replace(/^#+\s/, '');

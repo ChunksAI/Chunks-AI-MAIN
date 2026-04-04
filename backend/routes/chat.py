@@ -29,10 +29,12 @@ router = APIRouter()
 # flows. This must remain a system-level prompt (not user-appended) so deep
 # responses are consistently prioritized over concise defaults.
 DEEP_THINK_SYSTEM_PROMPT = (
-    "You are in Deep Think mode. You MUST give a comprehensive, well-structured, and detailed response. "
-    "Always include: a full definition, key components or parts, how it works step by step, "
-    "real-life examples, and a summary. Use headers and organized sections. "
-    "Never give a short or brief answer in this mode — thoroughness is required."
+    "You are in Deep Think mode. You MUST produce a long, comprehensive, and highly detailed response. "
+    "Cover all aspects thoroughly: full definition, all key components, how it works step by step, "
+    "real-world examples, related concepts, and a summary. "
+    "Use headers and organized sections throughout. "
+    "Your response should be significantly longer than a normal answer. "
+    "Never truncate or summarize early."
 )
 
 
@@ -777,7 +779,8 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     logger.warning(f"Web search failed ({answer[:80]}), falling back to standard model")
                     fallback_prompt = f"STUDENT QUESTION: {question}\n\nAnswer helpfully and clearly."
                     answer = call_ai(fallback_prompt, system_prompt=base_system, model=selected_model, history=history,
-                                     endpoint='chat', user_id=verified_user_id)
+                                     endpoint='chat', user_id=verified_user_id,
+                                     max_tokens_override=3000 if thinking_mode == 'deep' else 1500 if thinking_mode == 'thinking' else 800)
                     answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
                     web_citations = []
                 answer, thinking_content = extract_thinking_content(answer)
@@ -833,7 +836,8 @@ FORMATTING: {latex_instruction}
 Answer helpfully and clearly."""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat', user_id=verified_user_id)
+                             endpoint='chat', user_id=verified_user_id,
+                             max_tokens_override=3000 if thinking_mode == 'deep' else 1500 if thinking_mode == 'thinking' else 800)
             answer, thinking_content = extract_thinking_content(answer)
             _resp = {
                 'success':        True,
