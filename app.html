@@ -807,7 +807,14 @@ function _clickRecent(item) {
   } else if (item.source === 'general' || !item.bookId) {
     // General AI — restore saved session
     showScreen('home');
-    const session = _loadSession(item.id);
+    let session = _loadSession(item.id);
+    // If the local-ID session has no history, also try the UUID key.
+    // pullAndApply() stores sessions under their UUID, so the local-ID key
+    // may have been overwritten with an empty history blob.
+    if ((!session?.history?.length) && item.uuid) {
+      const byUuid = _loadSession(item.uuid);
+      if (byUuid?.history?.length) session = byUuid;
+    }
     const landing = document.getElementById('home-landing');
     const hero = document.querySelector('.home-hero');
     const bar = document.getElementById('home-input-bar');
@@ -862,7 +869,10 @@ function _clickRecent(item) {
       _homeSessionId = item.id;
       window._homeSessionId = item.id;
 
-      const sessionUuid = session?.supabaseId || item.uuid || null;
+      const sessionUuid = session?.supabaseId
+        || item.uuid
+        || _loadSession(item.uuid)?.supabaseId
+        || null;
 
       // Point active-session pointers at the clicked item before the async
       // fetch so that _onSessionsReady (if it fires concurrently) loads the
