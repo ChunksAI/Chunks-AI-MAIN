@@ -171,8 +171,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Non-blocking font load: preload triggers parallel download, stylesheet loads async -->
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&family=Caveat:wght@400;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-<noscript><link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&family=Caveat:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&family=Caveat:wght@400;600;700&family=Instrument+Serif:ital@0;1&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=DM+Mono:wght@400;500&family=Caveat:wght@400;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"></noscript>
 <!-- KaTeX CSS loaded async — not needed for initial paint -->
 <link rel="preload" as="style" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"></noscript>
@@ -4843,15 +4843,112 @@ const EXAM_TEMPLATES = {
   sciencemidterm:{ name: 'Science Midterm',       sections: [ {type:'mcq',count:20,pts:2}, {type:'openended',count:3,pts:5}, {type:'problem',count:5,pts:6} ] },
   boardexam:     { name: 'Board Exam Drill',      sections: [ {type:'mcq',count:100,pts:1} ] },
   comprehensive: { name: 'Comprehensive Final',   sections: [ {type:'mcq',count:25,pts:2}, {type:'identification',count:10,pts:3}, {type:'openended',count:3,pts:10}, {type:'problem',count:2,pts:5} ] },
-  custom:        { name: 'Custom',                sections: [] },
+  custom:        { name: 'Custom',                sections: [ {type:'mcq',count:10,pts:2} ] },
 };
 
 let _examSections       = [];   // active section list (deep-copied from template or user-built)
 let _examActiveTemplate = null; // id of currently selected template card
 
+/* ── EXAM WIZARD — 3-step setup navigation ────────────────────────────── */
+let _ewizStep        = 1;
+let _ewizAttachState = null; // 'pdf' | 'notes' | null
+
+function ewizGoTo(step) {
+  _ewizStep = step;
+  for (let i = 1; i <= 3; i++) {
+    const el = document.getElementById('ewiz-step-' + i);
+    if (el) el.style.display = i === step ? '' : 'none';
+  }
+  _ewizUpdateTrail();
+}
+
+function _ewizUpdateTrail() {
+  for (let n = 1; n <= 3; n++) {
+    const dot = document.getElementById('ewiz-dot-' + n);
+    if (!dot) return; // wizard not mounted yet
+    dot.className = 'ewiz-dot';
+    if (n < _ewizStep) dot.classList.add('done');
+    if (n === _ewizStep) dot.classList.add('active');
+    if (n < 3) {
+      const line = document.getElementById('ewiz-line-' + n);
+      if (line) line.classList.toggle('done', n < _ewizStep);
+    }
+  }
+}
+
+function ewizNext() {
+  if (_ewizStep === 1) {
+    ewizGoTo(2);
+  } else if (_ewizStep === 2) {
+    if (!_examActiveTemplate) return;
+    ewizGoTo(3);
+    // Ensure sections wrap is visible and freshly rendered
+    const sectionsWrap = document.getElementById('exam-sections-wrap');
+    if (sectionsWrap) sectionsWrap.style.display = '';
+    _examSectionsRender();
+    _examSummaryUpdate();
+  }
+}
+
+function ewizBack() {
+  if (_ewizStep > 1) ewizGoTo(_ewizStep - 1);
+}
+
+function _ewizOnTplSelect() {
+  const btn = document.getElementById('ewiz-customize-btn');
+  if (btn) { btn.disabled = false; btn.classList.remove('ewiz-disabled'); }
+}
+
+function _ewizTogglePdf() {
+  const pdfZone  = document.getElementById('exam-src-pdf');
+  const notesZone = document.getElementById('exam-src-notes');
+  const pdfBtn   = document.getElementById('ewiz-pdf-btn');
+  const notesBtn = document.getElementById('ewiz-notes-btn');
+  if (_ewizAttachState === 'pdf') {
+    _ewizAttachState = null;
+    pdfBtn.classList.remove('active');
+    if (pdfZone) pdfZone.style.display = 'none';
+    examClearSource(null, true);
+  } else {
+    _ewizAttachState = 'pdf';
+    pdfBtn.classList.add('active');
+    if (pdfZone) pdfZone.style.display = '';
+    notesBtn.classList.remove('active');
+    if (notesZone) notesZone.style.display = 'none';
+    _examSourceTab = 'pdf';
+    examClearNotes();
+  }
+  const scanField = document.getElementById('exam-scan-mode-field');
+  if (scanField) scanField.style.display = _ewizAttachState === 'pdf' ? '' : 'none';
+}
+
+function _ewizToggleNotes() {
+  const pdfZone  = document.getElementById('exam-src-pdf');
+  const notesZone = document.getElementById('exam-src-notes');
+  const pdfBtn   = document.getElementById('ewiz-pdf-btn');
+  const notesBtn = document.getElementById('ewiz-notes-btn');
+  if (_ewizAttachState === 'notes') {
+    _ewizAttachState = null;
+    notesBtn.classList.remove('active');
+    if (notesZone) notesZone.style.display = 'none';
+    examClearNotes();
+  } else {
+    _ewizAttachState = 'notes';
+    notesBtn.classList.add('active');
+    if (notesZone) notesZone.style.display = '';
+    pdfBtn.classList.remove('active');
+    if (pdfZone) pdfZone.style.display = 'none';
+    _examSourceTab = 'notes';
+    examClearSource(null, true);
+  }
+  const scanField = document.getElementById('exam-scan-mode-field');
+  if (scanField) scanField.style.display = 'none'; // scan mode only for PDF
+}
+
 function examSelectTemplate(id) {
   _examActiveTemplate = id;
   document.querySelectorAll('.exam-tpl-card').forEach(c => c.classList.toggle('active', c.dataset.tpl === id));
+  _ewizOnTplSelect(); // enable "Customize →" button in wizard
 
   const tpl = EXAM_TEMPLATES[id];
   if (!tpl) return;
@@ -4901,7 +4998,7 @@ function _examSectionsRender() {
       `<input class="exam-section-count-inp" type="number" min="1" max="300" value="${parseInt(sec.count)}" oninput="_examSectionEdit(${idx},'count',this.value)">` +
       `<input class="exam-section-pts-inp" type="number" min="1" max="100" value="${parseInt(sec.pts)}" oninput="_examSectionEdit(${idx},'pts',this.value)">` +
       `<div class="exam-section-subtotal" id="sec-sub-${idx}">${parseInt(sec.count) * parseInt(sec.pts)} pts</div>` +
-      `<button class="exam-section-del" onclick="examSectionDelete(${idx})" title="Remove">\u00d7</button>`;
+      `<button class="exam-section-del${_examSections.length === 1 ? ' ewiz-hidden' : ''}" onclick="examSectionDelete(${idx})" title="Remove">\u00d7</button>`;
     body.appendChild(row);
   });
 
@@ -4938,14 +5035,27 @@ function _examSummaryUpdate() {
 }
 
 function examSectionDelete(idx) {
-  _examSections.splice(idx, 1);
-  _examSectionsRender();
-  // If all sections removed while on custom, restore count/type pickers
-  if (_examSections.length === 0 && _examActiveTemplate === 'custom') {
-    const countField = document.getElementById('exam-count-field');
-    const typeField  = document.getElementById('exam-type-field');
-    if (countField) countField.style.display = '';
-    if (typeField)  typeField.style.display  = '';
+  if (_examSections.length <= 1) return; // minimum 1 section
+  const rows = document.querySelectorAll('.exam-section-row');
+  const row  = rows[idx];
+  const doRemove = () => {
+    _examSections.splice(idx, 1);
+    _examSectionsRender();
+  };
+  if (row) {
+    // Animate out then remove
+    row.style.transition = 'opacity 0.18s, max-height 0.22s ease, padding 0.22s ease';
+    row.style.maxHeight  = row.scrollHeight + 'px';
+    row.style.overflow   = 'hidden';
+    requestAnimationFrame(() => {
+      row.style.opacity        = '0';
+      row.style.maxHeight      = '0';
+      row.style.paddingTop     = '0';
+      row.style.paddingBottom  = '0';
+    });
+    setTimeout(doRemove, 230);
+  } else {
+    doRemove();
   }
 }
 
@@ -4963,7 +5073,7 @@ function examSectionAdd() {
 }
 
 function examSectionAddType(type) {
-  _examSections.push({ type, count: 10, pts: 1 });
+  _examSections.push({ type, count: 5, pts: 2 });
   _examSectionsRender();
   const picker = document.getElementById('exam-section-add-picker');
   if (picker) picker.style.display = 'none';
@@ -5780,7 +5890,7 @@ async function examStart() {
   const useSections = _examSections.length > 0;
   const count   = useSections
     ? _examSections.reduce((s, x) => s + (parseInt(x.count) || 0), 0)
-    : (parseInt(document.getElementById('exam-count-input').value) || 10);
+    : (parseInt(document.getElementById('exam-count-input')?.value) || 10);
   const timeSec = parseInt(document.getElementById('exam-time-input').value) || 0;
   _examTopic    = topic || _examSourceLabel || 'Uploaded document';
   _examTimerSec = timeSec;
@@ -6017,6 +6127,15 @@ function examOpenEndedInput(el) {
 }
 
 
+function _examMd(text) {
+  if (!text) return '';
+  if (typeof homeMarkdown !== 'function') return String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  return sanitize(homeMarkdown(String(text)));
+}
+function _examMdInline(text) {
+  return _examMd(text).replace(/^\s*<p>([\s\S]*?)<\/p>\s*$/, '$1').trim();
+}
+
 function _examRenderQuestion() {
   const q = _examQuestions[_examIdx], total = _examQuestions.length;
   _examUpdateDiffBadge();
@@ -6083,7 +6202,7 @@ function _examRenderQuestion() {
     badge.className = 'exam-cbl-q-type';
     badge.textContent = '🩺 ' + (q.case.tag || 'Clinical Question');
     qTextEl.parentNode.insertBefore(badge, qTextEl);
-    qTextEl.textContent = rawQ;
+    qTextEl.innerHTML = _examMd(rawQ);
 
   } else {
     // Hide CBL card
@@ -6100,9 +6219,9 @@ function _examRenderQuestion() {
       scenarioEl.className = 'exam-q-scenario';
       scenarioEl.innerHTML = '<strong>📋 Scenario</strong>' + scenarioMatch[1].trim();
       qHeader.insertBefore(scenarioEl, qTextEl);
-      qTextEl.textContent = scenarioMatch[2].trim();
+      qTextEl.innerHTML = _examMd(scenarioMatch[2].trim());
     } else {
-      qTextEl.textContent = rawQ;
+      qTextEl.innerHTML = _examMd(rawQ);
     }
   }
   document.getElementById('exam-progress-fill').style.width = (_examIdx/total*100)+'%';
@@ -6141,7 +6260,14 @@ function _examRenderQuestion() {
     const letter = q.options.length === 2 ? (i===0?'T':'F') : letters[i];
     const btn = document.createElement('button');
     btn.className = 'exam-option';
-    btn.innerHTML = '<span class="opt-letter">'+letter+'</span><span class="opt-text">'+opt.replace(/^[A-DF]\.\s*/,'')+'</span>';
+    const letterSpan = document.createElement('span');
+    letterSpan.className = 'opt-letter';
+    letterSpan.textContent = letter;
+    const textSpan = document.createElement('span');
+    textSpan.className = 'opt-text';
+    textSpan.innerHTML = _examMdInline(opt.replace(/^[A-DF]\.\s*/,''));
+    btn.appendChild(letterSpan);
+    btn.appendChild(textSpan);
     btn.addEventListener('click', () => _examSelect(i, btn));
     const prev = _examAnswers[_examIdx];
     if (prev !== null) {
@@ -6204,7 +6330,7 @@ function _examShowFeedback(ok, explanation, score) {
   const fb = document.getElementById('exam-feedback');
   fb.className = 'exam-feedback show '+(ok?'correct-fb':'wrong-fb');
   const scoreTag = (score !== undefined) ? ` <span style="font-size:11px;opacity:0.75;">(${score}/100)</span>` : '';
-  fb.innerHTML = sanitize('<strong>'+(ok?'✓ Correct!':'✗ Incorrect')+'</strong>'+scoreTag+(explanation?' — '+explanation:''));
+  fb.innerHTML = sanitize('<strong>'+(ok?'✓ Correct!':'✗ Incorrect')+'</strong>'+scoreTag) + (explanation ? ' — ' + _examMdInline(explanation) : '');
 }
 
 function examSkip() {
@@ -6324,22 +6450,22 @@ function _examFinish() {
       const scoreTag    = score !== null ? ' <span style="font-size:11px;opacity:0.8;">(' + score + '/100)</span>' : '';
       return '<div class="exam-review-item" style="'+border+'">'+
         '<div style="font-size:10px;font-weight:700;color:var(--violet);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;">✍️ Open-Ended</div>'+
-        '<div class="exam-review-q">'+(i+1)+'. '+q.q+'</div>'+
+        '<div class="exam-review-q">'+(i+1)+'. '+_examMdInline(q.q)+'</div>'+
         '<div class="exam-review-answer" style="flex-direction:column;gap:4px;">'+
           '<div><span class="exam-review-label">Your answer:</span> <span class="exam-review-val '+(ok?'c':'w')+'">'+scoreTag+' '+sanitize(studentText)+'</span></div>'+
           (!ok ? '<div style="margin-top:6px;"><span class="exam-review-label">Sample answer:</span> <span class="exam-review-val c">'+sanitize(q.sampleAnswer||q.ideal_answer||'—')+'</span></div>' : '')+
         '</div>'+
-        (feedback?'<div class="exam-review-explanation">'+sanitize(feedback)+'</div>':'')+
+        (feedback?'<div class="exam-review-explanation">'+_examMdInline(feedback)+'</div>':'')+
       '</div>';
     }
 
     return '<div class="exam-review-item" style="'+border+'">'+
-      '<div class="exam-review-q">'+(i+1)+'. '+q.q+'</div>'+
+      '<div class="exam-review-q">'+(i+1)+'. '+_examMdInline(q.q)+'</div>'+
       '<div class="exam-review-answer">'+
         '<span class="exam-review-label">Your answer:</span> <span class="exam-review-val '+(ok?'c':'w')+'">'+(skip?'Skipped':chosenDisplay)+'</span>'+
         (!ok?'<span class="exam-review-label" style="margin-left:8px;">Correct:</span> <span class="exam-review-val c">'+correctDisplay+'</span>':'')+
       '</div>'+
-      (q.explanation?'<div class="exam-review-explanation">'+q.explanation+'</div>':'')+
+      (q.explanation?'<div class="exam-review-explanation">'+_examMdInline(q.explanation)+'</div>':'')+
     '</div>';
   }).join('');
 
@@ -6507,21 +6633,21 @@ function _examShowResults() {
       const scoreTag    = score !== null ? ' <span style=\"font-size:11px;opacity:0.8;\">('+score+'/100)</span>' : '';
       return '<div class=\"exam-review-item\" style=\"'+border+'\">'+
         '<div style=\"font-size:10px;font-weight:700;color:var(--violet);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:6px;\">✍️ Open-Ended</div>'+
-        '<div class=\"exam-review-q\">'+(i+1)+'. '+q.q+'</div>'+
+        '<div class=\"exam-review-q\">'+(i+1)+'. '+_examMdInline(q.q)+'</div>'+
         '<div class=\"exam-review-answer\" style=\"flex-direction:column;gap:4px;\">'+
           '<div><span class=\"exam-review-label\">Your answer:</span> <span class=\"exam-review-val '+(ok?'c':'w')+'\">'+scoreTag+' '+sanitize(studentText)+'</span></div>'+
           (!ok ? '<div style=\"margin-top:6px;\"><span class=\"exam-review-label\">Sample answer:</span> <span class=\"exam-review-val c\">'+sanitize(q.sampleAnswer||q.ideal_answer||'—')+'</span></div>' : '')+
         '</div>'+
-        (feedback?'<div class=\"exam-review-explanation\">'+sanitize(feedback)+'</div>':'')+
+        (feedback?'<div class=\"exam-review-explanation\">'+_examMdInline(feedback)+'</div>':'')+
       '</div>';
     }
     return '<div class=\"exam-review-item\" style=\"'+border+'\">'+
-      '<div class=\"exam-review-q\">'+(i+1)+'. '+q.q+'</div>'+
+      '<div class=\"exam-review-q\">'+(i+1)+'. '+_examMdInline(q.q)+'</div>'+
       '<div class=\"exam-review-answer\">'+
         '<span class=\"exam-review-label\">Your answer:</span> <span class=\"exam-review-val '+(ok?'c':'w')+'">'+(skip?'Skipped':chosenDisplay)+'</span>'+
         (!ok?'<span class=\"exam-review-label\" style=\"margin-left:8px;\">Correct:</span> <span class=\"exam-review-val c\">'+correctDisplay+'</span>':'')+
       '</div>'+
-      (q.explanation?'<div class=\"exam-review-explanation\">'+q.explanation+'</div>':'')+
+      (q.explanation?'<div class=\"exam-review-explanation\">'+_examMdInline(q.explanation)+'</div>':'')+
     '</div>';
   }).join('');
 

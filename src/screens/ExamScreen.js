@@ -25,6 +25,7 @@ const EXAM_HTML = /* html */`
 
       <!-- SETUP VIEW -->
       <div id="exam-setup">
+
         <!-- Back to Workspace button (shown when navigated from workspace chat) -->
         <div id="exam-back-to-ws" style="display:none;margin-bottom:12px;">
           <button onclick="wsBackToWorkspace()" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-pill);color:var(--text-3);font-size:11px;font-family:var(--font-body);cursor:pointer;transition:background 0.15s;" onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='var(--surface-2)'">
@@ -33,344 +34,279 @@ const EXAM_HTML = /* html */`
           </button>
         </div>
 
-        <div style="margin-bottom:24px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+        <!-- Top row: Exam Mode label + history button -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:32px;gap:12px;">
           <div>
-            <div style="font-family:var(--font-mono);font-size:10px;color:var(--gold);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;">Exam Mode</div>
-            <h1 style="font-family:var(--font-head);font-size:24px;font-weight:800;color:var(--text-1);margin-bottom:6px;">Test Your Knowledge</h1>
-            <p style="font-size:13px;color:var(--text-4);line-height:1.6;">Generate a timed exam from any topic or textbook chapter. The AI will create questions, grade your answers, and explain what you got wrong.</p>
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--gold);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;">Exam Mode</div>
+            <h1 style="font-family:var(--font-head);font-size:20px;font-weight:800;color:var(--text-1);">Test Your Knowledge</h1>
           </div>
-          <button onclick="examShowHistory()" style="flex-shrink:0;display:flex;align-items:center;gap:6px;padding:7px 13px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-sm);color:var(--text-3);font-size:11px;font-family:var(--font-body);cursor:pointer;white-space:nowrap;transition:background 0.15s;" onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='var(--surface-2)'">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            History
-          </button>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <div id="exam-adaptive-badge" style="display:none;align-items:center;gap:5px;padding:4px 10px;background:rgba(139,124,248,0.12);border:1px solid rgba(139,124,248,0.3);border-radius:20px;font-size:10px;color:var(--violet);font-weight:600;letter-spacing:0.04em;">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              ADAPTIVE ON
+            </div>
+            <button onclick="examShowHistory()" style="display:flex;align-items:center;gap:6px;padding:7px 13px;background:var(--surface-2);border:1px solid var(--border-sm);border-radius:var(--r-sm);color:var(--text-3);font-size:11px;font-family:var(--font-body);cursor:pointer;white-space:nowrap;transition:background 0.15s;" onmouseenter="this.style.background='var(--surface-3)'" onmouseleave="this.style.background='var(--surface-2)'">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              History
+            </button>
+          </div>
         </div>
 
-        <div class="exam-setup-card">
-          <div class="exam-setup-header">
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
-              <div>
-                <h2>Configure Your Exam</h2>
-                <p>Choose your topic, format, and difficulty — the AI does the rest.</p>
-              </div>
-              <div id="exam-adaptive-badge" style="display:none;flex-shrink:0;display:flex;align-items:center;gap:5px;padding:4px 10px;background:rgba(139,124,248,0.12);border:1px solid rgba(139,124,248,0.3);border-radius:20px;font-size:10px;color:var(--violet);font-weight:600;letter-spacing:0.04em;">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                ADAPTIVE ON
-              </div>
-            </div>
+        <!-- ══ WIZARD ══════════════════════════════════════════════════════ -->
+        <div class="ewiz-wrap">
+
+          <!-- Step trail -->
+          <div class="ewiz-trail">
+            <div class="ewiz-dot active" id="ewiz-dot-1"></div>
+            <div class="ewiz-trail-line" id="ewiz-line-1"></div>
+            <div class="ewiz-dot" id="ewiz-dot-2"></div>
+            <div class="ewiz-trail-line" id="ewiz-line-2"></div>
+            <div class="ewiz-dot" id="ewiz-dot-3"></div>
           </div>
-          <div class="exam-setup-body">
 
-            <div class="exam-field">
-              <label>Topic or Chapter</label>
-              <input class="exam-input" id="exam-topic-input" type="text" placeholder="e.g. Mitosis and Meiosis, World War II, Newton's Laws…" />
+          <!-- ── STEP 1: What are you studying? ────────────────────────── -->
+          <div class="ewiz-step" id="ewiz-step-1">
+            <div class="ewiz-step-lbl">STEP 1 OF 3</div>
+            <h2 class="ewiz-heading">What are you studying?</h2>
+            <p class="ewiz-sub">Enter a topic, chapter, or concept — or attach your study material below.</p>
+
+            <input class="ewiz-topic-inp" id="exam-topic-input" type="text" placeholder="e.g. Thermodynamics, Chapter 7…" autocomplete="off" />
+
+            <!-- Pill toggles for PDF / Notes -->
+            <div class="ewiz-attach-row">
+              <button class="ewiz-pill-btn" id="ewiz-pdf-btn" onclick="_ewizTogglePdf()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                + Attach PDF
+              </button>
+              <button class="ewiz-pill-btn" id="ewiz-notes-btn" onclick="_ewizToggleNotes()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
+                + Paste notes
+              </button>
             </div>
 
-            <!-- ── Source Material ── -->
-            <div class="exam-field">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                <label style="margin-bottom:0;">Source Material <span style="color:var(--text-4);font-weight:400;letter-spacing:0;">(optional)</span></label>
-                <div class="exam-src-tabs" id="exam-src-tabs">
-                  <button class="exam-src-tab active" data-tab="pdf" onclick="examSrcTab(this)">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    PDF
-                  </button>
-                  <button class="exam-src-tab" data-tab="notes" onclick="examSrcTab(this)">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="17" y1="10" x2="3" y2="10"/><line x1="21" y1="6" x2="3" y2="6"/><line x1="21" y1="14" x2="3" y2="14"/><line x1="17" y1="18" x2="3" y2="18"/></svg>
-                    Notes
-                  </button>
+            <!-- PDF zone (hidden until toggled) -->
+            <div class="ewiz-attach-zone" id="exam-src-pdf" style="display:none;">
+              <input type="file" id="exam-pdf-file" accept="application/pdf" style="display:none;" onchange="examHandlePdfFile(this)">
+              <div class="exam-upload-zone" id="exam-upload-zone"
+                   onclick="if(!this.classList.contains('has-file'))document.getElementById('exam-pdf-file').click()"
+                   ondragover="examDragOver(event)" ondragleave="examDragLeave(event)" ondrop="examDrop(event)">
+                <div id="exam-upload-idle">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-4);margin-bottom:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <div style="font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:3px;">Drop a PDF here or click to browse</div>
+                  <div style="font-size:11px;color:var(--text-4);">Questions will be generated from your document's content</div>
                 </div>
-              </div>
-
-              <!-- PDF tab -->
-              <div id="exam-src-pdf">
-                <input type="file" id="exam-pdf-file" accept="application/pdf" style="display:none;" onchange="examHandlePdfFile(this)">
-                <div class="exam-upload-zone" id="exam-upload-zone"
-                     onclick="if(!this.classList.contains('has-file'))document.getElementById('exam-pdf-file').click()"
-                     ondragover="examDragOver(event)" ondragleave="examDragLeave(event)" ondrop="examDrop(event)">
-                  <div id="exam-upload-idle">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-4);margin-bottom:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    <div style="font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:3px;">Drop a PDF here or click to browse</div>
-                    <div style="font-size:11px;color:var(--text-4);">Questions will be generated from your document's content</div>
+                <div id="exam-upload-attached" style="display:none;width:100%;">
+                  <div class="exam-file-badge">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span id="exam-file-name">document.pdf</span>
+                    <span id="exam-file-pages" style="color:var(--text-4);margin-left:auto;flex-shrink:0;"></span>
+                    <button class="exam-file-clear" data-action="examClearSource" title="Remove">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
                   </div>
-                  <div id="exam-upload-attached" style="display:none;width:100%;">
-                    <div class="exam-file-badge">
-                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                      <span id="exam-file-name">document.pdf</span>
-                      <span id="exam-file-pages" style="color:var(--text-4);margin-left:auto;flex-shrink:0;"></span>
-                      <button class="exam-file-clear" data-action="examClearSource" title="Remove">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>
-                    </div>
-                    <div id="exam-extract-status" style="font-size:11px;color:var(--text-4);margin-top:6px;display:flex;align-items:center;gap:5px;"></div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Notes tab -->
-              <div id="exam-src-notes" style="display:none;">
-                <textarea id="exam-notes-input" class="exam-input exam-notes-area"
-                  placeholder="Paste your study notes, lecture slides text, or any content you want the exam based on…"></textarea>
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
-                  <span id="exam-notes-count" style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);">0 chars</span>
-                  <button data-action="examClearNotes" class="hover-clear-btn" style="font-size:10px;color:var(--text-4);background:none;border:none;cursor:pointer;font-family:var(--font-body);">Clear</button>
+                  <div id="exam-extract-status" style="font-size:11px;color:var(--text-4);margin-top:6px;display:flex;align-items:center;gap:5px;"></div>
                 </div>
               </div>
             </div>
-            <!-- /Source Material -->
 
-            <!-- ── Scan Mode (shown when source material is attached) ── -->
-            <div class="exam-field" id="exam-scan-mode-field" style="display:none;">
-              <label>Generation Mode</label>
+            <!-- Notes zone (hidden until toggled) -->
+            <div class="ewiz-attach-zone" id="exam-src-notes" style="display:none;">
+              <textarea id="exam-notes-input" class="exam-input exam-notes-area"
+                placeholder="Paste your study notes, lecture slides text, or any content you want the exam based on…"></textarea>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;">
+                <span id="exam-notes-count" style="font-size:10px;color:var(--text-4);font-family:var(--font-mono);">0 chars</span>
+                <button data-action="examClearNotes" class="hover-clear-btn" style="font-size:10px;color:var(--text-4);background:none;border:none;cursor:pointer;font-family:var(--font-body);">Clear</button>
+              </div>
+            </div>
+
+            <!-- Scan mode (shown only when PDF is attached) -->
+            <div class="exam-field" id="exam-scan-mode-field" style="display:none;margin-top:16px;">
+              <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-3);margin-bottom:8px;">Generation Mode</label>
               <div class="exam-scan-grid">
-
                 <div class="exam-scan-card active" data-mode="quick" data-action="examSelectScanMode-self">
-                  <div class="exam-scan-top">
-                    <span class="exam-scan-icon">⚡</span>
-                    <span class="exam-scan-badge" style="background:rgba(45,212,191,0.12);color:var(--teal);">~4s</span>
-                  </div>
+                  <div class="exam-scan-top"><span class="exam-scan-icon">⚡</span><span class="exam-scan-badge" style="background:rgba(45,212,191,0.12);color:var(--teal);">~4s</span></div>
                   <div class="exam-scan-name">Quick</div>
                   <div class="exam-scan-desc">Fixed question count from your material. Fast, great for a quick quiz.</div>
                 </div>
-
                 <div class="exam-scan-card" data-mode="smart" data-action="examSelectScanMode-self">
-                  <div class="exam-scan-top">
-                    <span class="exam-scan-icon">🧠</span>
-                    <span class="exam-scan-badge" style="background:rgba(139,124,248,0.12);color:var(--violet);">~6s</span>
-                  </div>
+                  <div class="exam-scan-top"><span class="exam-scan-icon">🧠</span><span class="exam-scan-badge" style="background:rgba(139,124,248,0.12);color:var(--violet);">~6s</span></div>
                   <div class="exam-scan-name">Smart</div>
                   <div class="exam-scan-desc">AI reads the full document first, then generates questions covering every section.</div>
                 </div>
-
                 <div class="exam-scan-card" data-mode="deep" data-action="examSelectScanMode-self">
-                  <div class="exam-scan-top">
-                    <span class="exam-scan-icon">🔬</span>
-                    <span class="exam-scan-badge" style="background:rgba(232,172,46,0.12);color:var(--gold);">~20s</span>
-                  </div>
+                  <div class="exam-scan-top"><span class="exam-scan-icon">🔬</span><span class="exam-scan-badge" style="background:rgba(232,172,46,0.12);color:var(--gold);">~20s</span></div>
                   <div class="exam-scan-name">Deep Scan</div>
                   <div class="exam-scan-desc">Chunks your document, extracts every concept, and generates one question per concept.</div>
                 </div>
-
               </div>
-              <!-- Deep scan note -->
               <div id="exam-deep-note" style="display:none;margin-top:8px;font-size:11px;color:var(--text-4);padding:8px 12px;background:var(--gold-muted);border:1px solid var(--gold-border);border-radius:var(--r-sm);line-height:1.5;">
-                🔬 Deep Scan generates <strong style="color:var(--gold);">one question per concept</strong> found across your entire document — ignoring the question count unless you set it above 10 to cap large results.
+                🔬 Deep Scan generates <strong style="color:var(--gold);">one question per concept</strong> found across your entire document.
               </div>
             </div>
-            <!-- /Scan Mode -->
 
-            <!-- ── Exam Templates ─────────────────────────────────── -->
-            <div class="exam-field" id="exam-template-field">
-              <label>Exam Template <span style="color:var(--text-4);font-weight:400;letter-spacing:0;">(optional)</span></label>
-              <div class="exam-tpl-grid" id="exam-tpl-grid">
-
-                <div class="exam-tpl-card" data-tpl="university" onclick="examSelectTemplate('university')">
-                  <div class="exam-tpl-top"><span class="exam-tpl-icon">🎓</span></div>
-                  <div class="exam-tpl-name">University Standard</div>
-                  <div class="exam-tpl-desc">Classic format used in most college courses</div>
-                  <div class="exam-tpl-tags">
-                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">30 MC</span>
-                    <span class="exam-tpl-tag" style="background:rgba(139,124,248,0.15);color:var(--violet);">2 Essay</span>
-                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">10 ID</span>
-                  </div>
-                  <div class="exam-tpl-pts">100 pts total</div>
-                </div>
-
-                <div class="exam-tpl-card" data-tpl="quickquiz" onclick="examSelectTemplate('quickquiz')">
-                  <div class="exam-tpl-top"><span class="exam-tpl-icon">⚡</span></div>
-                  <div class="exam-tpl-name">Quick Quiz</div>
-                  <div class="exam-tpl-desc">Fast 10-question check for a single topic</div>
-                  <div class="exam-tpl-tags">
-                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">10 MC</span>
-                    <span class="exam-tpl-tag" style="background:rgba(45,212,191,0.15);color:var(--teal);">5 T/F</span>
-                  </div>
-                  <div class="exam-tpl-pts">25 pts total</div>
-                </div>
-
-                <div class="exam-tpl-card" data-tpl="sciencemidterm" onclick="examSelectTemplate('sciencemidterm')">
-                  <div class="exam-tpl-top"><span class="exam-tpl-icon">🔬</span></div>
-                  <div class="exam-tpl-name">Science Midterm</div>
-                  <div class="exam-tpl-desc">Problem-solving heavy with short answer</div>
-                  <div class="exam-tpl-tags">
-                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">20 MC</span>
-                    <span class="exam-tpl-tag" style="background:rgba(139,124,248,0.15);color:var(--violet);">3 Essay</span>
-                    <span class="exam-tpl-tag" style="background:rgba(139,124,248,0.15);color:var(--violet);">5 Problem</span>
-                  </div>
-                  <div class="exam-tpl-pts">85 pts total</div>
-                </div>
-
-                <div class="exam-tpl-card" data-tpl="boardexam" onclick="examSelectTemplate('boardexam')">
-                  <div class="exam-tpl-top"><span class="exam-tpl-icon">📋</span></div>
-                  <div class="exam-tpl-name">Board Exam Drill</div>
-                  <div class="exam-tpl-desc">High-volume MC like nursing/medical boards</div>
-                  <div class="exam-tpl-tags">
-                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">100 MC</span>
-                  </div>
-                  <div class="exam-tpl-pts">100 pts total</div>
-                </div>
-
-                <div class="exam-tpl-card" data-tpl="comprehensive" onclick="examSelectTemplate('comprehensive')">
-                  <div class="exam-tpl-top"><span class="exam-tpl-icon">📚</span></div>
-                  <div class="exam-tpl-name">Comprehensive Final</div>
-                  <div class="exam-tpl-desc">Full coverage with all question types</div>
-                  <div class="exam-tpl-tags">
-                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">25 MC</span>
-                    <span class="exam-tpl-tag" style="background:rgba(232,172,46,0.15);color:var(--gold);">10 ID</span>
-                    <span class="exam-tpl-tag" style="background:rgba(139,124,248,0.15);color:var(--violet);">3 Essay</span>
-                    <span class="exam-tpl-tag" style="background:rgba(139,124,248,0.15);color:var(--violet);">2 Problem</span>
-                  </div>
-                  <div class="exam-tpl-pts">120 pts total</div>
-                </div>
-
-                <div class="exam-tpl-card exam-tpl-custom" data-tpl="custom" onclick="examSelectTemplate('custom')">
-                  <div class="exam-tpl-top"><span class="exam-tpl-icon" style="font-size:22px;color:var(--text-4);">+</span></div>
-                  <div class="exam-tpl-name">Custom</div>
-                  <div class="exam-tpl-desc">Build your own</div>
-                </div>
-
-              </div>
-              <div id="exam-tpl-hint" style="display:none;text-align:center;font-size:11px;color:var(--text-4);margin-top:6px;">edit sections below</div>
+            <!-- Step footer -->
+            <div class="ewiz-footer">
+              <span></span>
+              <button class="ewiz-btn-primary" onclick="ewizNext()">
+                Choose format
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
             </div>
-            <!-- /Exam Templates -->
+          </div><!-- /ewiz-step-1 -->
 
-            <!-- ── Exam Sections ──────────────────────────────────── -->
-            <div id="exam-sections-wrap" style="display:none;">
-              <div class="exam-sections-header">
+          <!-- ── STEP 2: Pick a format ──────────────────────────────────── -->
+          <div class="ewiz-step" id="ewiz-step-2" style="display:none;">
+            <div class="ewiz-step-lbl">STEP 2 OF 3</div>
+            <h2 class="ewiz-heading">Pick a format</h2>
+            <p class="ewiz-sub">Choose a template — you can customize sections and settings in the next step.</p>
+
+            <div class="ewiz-tpl-grid">
+
+              <div class="ewiz-tpl-card exam-tpl-card" data-tpl="quickquiz" onclick="examSelectTemplate('quickquiz');_ewizOnTplSelect()">
+                <div class="ewiz-tpl-check" id="ewiz-tpl-check-quickquiz">✓</div>
+                <span class="ewiz-tpl-icon">⚡</span>
+                <div class="ewiz-tpl-name">Quick quiz</div>
+                <div class="ewiz-tpl-desc">10-question check for a single topic</div>
+                <span class="ewiz-tpl-pts ewiz-pts-amber">25 pts</span>
+              </div>
+
+              <div class="ewiz-tpl-card exam-tpl-card" data-tpl="university" onclick="examSelectTemplate('university');_ewizOnTplSelect()">
+                <div class="ewiz-tpl-check" id="ewiz-tpl-check-university">✓</div>
+                <span class="ewiz-tpl-icon">🎓</span>
+                <div class="ewiz-tpl-name">University standard</div>
+                <div class="ewiz-tpl-desc">Classic format for most college courses</div>
+                <span class="ewiz-tpl-pts ewiz-pts-blue">100 pts</span>
+              </div>
+
+              <div class="ewiz-tpl-card exam-tpl-card" data-tpl="sciencemidterm" onclick="examSelectTemplate('sciencemidterm');_ewizOnTplSelect()">
+                <div class="ewiz-tpl-check" id="ewiz-tpl-check-sciencemidterm">✓</div>
+                <span class="ewiz-tpl-icon">🔬</span>
+                <div class="ewiz-tpl-name">Science midterm</div>
+                <div class="ewiz-tpl-desc">Problem-solving heavy with short answer</div>
+                <span class="ewiz-tpl-pts ewiz-pts-green">85 pts</span>
+              </div>
+
+              <div class="ewiz-tpl-card exam-tpl-card" data-tpl="boardexam" onclick="examSelectTemplate('boardexam');_ewizOnTplSelect()">
+                <div class="ewiz-tpl-check" id="ewiz-tpl-check-boardexam">✓</div>
+                <span class="ewiz-tpl-icon">📋</span>
+                <div class="ewiz-tpl-name">Board exam drill</div>
+                <div class="ewiz-tpl-desc">High-volume MC for medical boards</div>
+                <span class="ewiz-tpl-pts ewiz-pts-amber">100 pts</span>
+              </div>
+
+              <div class="ewiz-tpl-card exam-tpl-card" data-tpl="comprehensive" onclick="examSelectTemplate('comprehensive');_ewizOnTplSelect()">
+                <div class="ewiz-tpl-check" id="ewiz-tpl-check-comprehensive">✓</div>
+                <span class="ewiz-tpl-icon">🏆</span>
+                <div class="ewiz-tpl-name">Comprehensive final</div>
+                <div class="ewiz-tpl-desc">Full coverage with all question types</div>
+                <span class="ewiz-tpl-pts ewiz-pts-blue">120 pts</span>
+              </div>
+
+              <div class="ewiz-tpl-card ewiz-tpl-custom exam-tpl-card" data-tpl="custom" onclick="examSelectTemplate('custom');_ewizOnTplSelect()">
+                <div class="ewiz-tpl-check" id="ewiz-tpl-check-custom">✓</div>
+                <span class="ewiz-tpl-icon ewiz-tpl-custom-icon">+</span>
+                <div class="ewiz-tpl-name">Custom</div>
+                <div class="ewiz-tpl-desc">Build your own from scratch</div>
+              </div>
+
+            </div><!-- /ewiz-tpl-grid -->
+
+            <!-- Step footer -->
+            <div class="ewiz-footer">
+              <button class="ewiz-btn-ghost" onclick="ewizBack()">← Back</button>
+              <button class="ewiz-btn-primary ewiz-disabled" id="ewiz-customize-btn" onclick="if(_examActiveTemplate)ewizNext()" disabled>
+                Customize
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+            </div>
+          </div><!-- /ewiz-step-2 -->
+
+          <!-- ── STEP 3: Customize your exam ───────────────────────────── -->
+          <div class="ewiz-step" id="ewiz-step-3" style="display:none;">
+            <div class="ewiz-step-lbl">STEP 3 OF 3</div>
+            <h2 class="ewiz-heading">Customize your exam</h2>
+
+            <!-- Sections card -->
+            <div class="ewiz-sections-card" id="exam-sections-wrap">
+              <div class="ewiz-sec-hdr">
                 <span id="exam-sections-title">EXAM SECTIONS</span>
               </div>
-              <div class="exam-sections-table">
+              <div class="exam-sections-table ewiz-sec-table">
                 <div class="exam-sections-thead">
-                  <span>Type</span>
-                  <span>Questions</span>
-                  <span>Pts Each</span>
+                  <span>Section</span>
+                  <span>Qty</span>
+                  <span>Pts ea.</span>
                   <span>Subtotal</span>
                   <span></span>
                 </div>
                 <div id="exam-sections-body"></div>
-                <div id="exam-section-add-picker" style="display:none;" class="exam-section-type-picker">
-                  <span class="estp-label">Choose type:</span>
-                </div>
-                <button class="exam-section-add-btn" onclick="examSectionAdd()">
-                  + Add another section (True/False, Matching, Problem-solving…)
-                </button>
               </div>
-              <!-- ── Summary Bar ── -->
-              <div class="exam-summary-bar">
-                <div class="exam-summary-stat">
-                  <span class="ess-label">Sections</span>
-                  <span class="ess-value" id="sum-sections">0</span>
-                </div>
-                <div class="exam-summary-stat">
-                  <span class="ess-label">Total questions</span>
-                  <span class="ess-value" id="sum-questions">0</span>
-                </div>
-                <div class="exam-summary-stat">
-                  <span class="ess-label">Total points</span>
-                  <span class="ess-value ess-gold" id="sum-points">0 pts</span>
-                </div>
-                <div class="exam-summary-stat">
-                  <span class="ess-label">Est. duration</span>
-                  <span class="ess-value" id="sum-duration">~0 min</span>
-                </div>
+              <div id="exam-section-add-picker" style="display:none;" class="exam-section-type-picker ewiz-chip-tray"></div>
+              <button class="ewiz-add-section-btn exam-section-add-btn" onclick="examSectionAdd()">+ Add a section</button>
+            </div>
+
+            <!-- Live summary bar -->
+            <div class="ewiz-summary-bar exam-summary-bar">
+              <div class="ewiz-sum-item exam-summary-stat">
+                <span class="ess-label">Sections</span>
+                <span class="ess-value" id="sum-sections">0</span>
+              </div>
+              <div class="ewiz-sum-item exam-summary-stat">
+                <span class="ess-label">Questions</span>
+                <span class="ess-value" id="sum-questions">0</span>
+              </div>
+              <div class="ewiz-sum-item exam-summary-stat">
+                <span class="ess-label">Total pts</span>
+                <span class="ess-value ess-gold ewiz-sum-amber" id="sum-points">0 pts</span>
+              </div>
+              <div class="ewiz-sum-item exam-summary-stat">
+                <span class="ess-label">Est. time</span>
+                <span class="ess-value" id="sum-duration">—</span>
               </div>
             </div>
-            <!-- /Exam Sections -->
 
-            <div class="exam-row">
-              <div class="exam-field" id="exam-count-field">
-                <label id="exam-count-label">Number of Questions</label>
-                <select class="exam-input" id="exam-count-input">
-                  <option value="5">5 questions</option>
-                  <option value="10" selected>10 questions</option>
-                  <option value="15">15 questions</option>
-                  <option value="20">20 questions</option>
-                  <option value="30">30 questions</option>
-                </select>
-              </div>
-              <div class="exam-field">
-                <label>Time Limit</label>
-                <select class="exam-input" id="exam-time-input">
+            <!-- Settings row: Time + Difficulty -->
+            <div class="ewiz-settings-row">
+              <div class="ewiz-setting">
+                <div class="ewiz-setting-label">Time limit</div>
+                <select class="ewiz-select exam-input" id="exam-time-input">
                   <option value="0">No limit</option>
-                  <option value="300">5 minutes</option>
-                  <option value="600" selected>10 minutes</option>
-                  <option value="900">15 minutes</option>
-                  <option value="1800">30 minutes</option>
+                  <option value="600">10 min</option>
+                  <option value="1200">20 min</option>
+                  <option value="1800">30 min</option>
+                  <option value="2700">45 min</option>
+                  <option value="3600">1 hour</option>
+                  <option value="7200">2 hours</option>
                 </select>
               </div>
-            </div>
-
-            <div class="exam-field" id="exam-type-field">
-              <label>Question Type</label>
-              <div class="exam-type-grid exam-type-grid-5" id="exam-type-grid">
-                <button class="exam-type-btn active" data-type="mcq" data-action="examSelectType-self">
-                  <span class="etb-icon">🔘</span>Multiple Choice
-                </button>
-                <button class="exam-type-btn" data-type="truefalse" data-action="examSelectType-self">
-                  <span class="etb-icon">✅</span>True / False
-                </button>
-                <button class="exam-type-btn" data-type="fillinblank" data-action="examSelectType-self">
-                  <span class="etb-icon">📝</span>Fill in Blank
-                </button>
-                <button class="exam-type-btn" data-type="matching" data-action="examSelectType-self">
-                  <span class="etb-icon">🔗</span>Matching
-                </button>
-                <button class="exam-type-btn" data-type="situational" data-action="examSelectType-self">
-                  <span class="etb-icon">⚡</span>Situational
-                </button>
-                <button class="exam-type-btn" data-type="cbl" data-action="examSelectType-self">
-                  <span class="etb-icon">🩺</span>Case-Based
-                </button>
-                <button class="exam-type-btn" data-type="mixed" data-action="examSelectType-self">
-                  <span class="etb-icon">🎲</span>Mixed
-                </button>
-                <button class="exam-type-btn" data-type="openended" data-action="examSelectType-self">
-                  <span class="etb-icon">✍️</span>Open-Ended
-                </button>
-              </div>
-              <!-- CBL hint -->
-              <div id="exam-cbl-hint" style="display:none;margin-top:8px;font-size:12px;color:#e0c4c4;padding:10px 14px;background:rgba(220,38,38,0.13);border:1px solid rgba(220,38,38,0.35);border-radius:var(--r-sm);line-height:1.6;">
-                🩺 Case-Based Learning presents a full clinical vignette — patient age, sex, chief complaint, history, vitals, and labs — then asks for the <strong style="color:#ff8a8a;font-weight:700;">diagnosis, next best step, or treatment</strong>. Designed for medical students.
-              </div>
-              <!-- Situational hint -->
-              <div id="exam-situational-hint" style="display:none;margin-top:8px;font-size:12px;color:#c8c0e0;padding:10px 14px;background:rgba(139,92,246,0.13);border:1px solid rgba(139,92,246,0.35);border-radius:var(--r-sm);line-height:1.6;">
-                📋 Situational questions present a real-world scenario (patient case, workplace event, academic problem) and ask what the <strong style="color:#b899ff;font-weight:700;">best course of action</strong> is. Great for clinical, professional, or applied exams.
-              </div>
-              <!-- Fill-in-the-Blank hint -->
-              <div id="exam-fillinblank-hint" style="display:none;margin-top:8px;font-size:12px;color:#c0d0e8;padding:10px 14px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.25);border-radius:var(--r-sm);line-height:1.6;">
-                📝 Fill-in-the-blank questions present a statement with a missing word or phrase. Pick the <strong style="color:#93bbff;font-weight:700;">correct term</strong> from four options. Great for testing vocabulary and key concepts.
-              </div>
-              <!-- Matching hint -->
-              <div id="exam-matching-hint" style="display:none;margin-top:8px;font-size:12px;color:#c8dcc0;padding:10px 14px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:var(--r-sm);line-height:1.6;">
-                🔗 Matching questions present a term and ask you to <strong style="color:#86efac;font-weight:700;">match it to the correct definition or description</strong> from four options. Tests associations between related concepts.
-              </div>
-              <!-- Open-Ended hint -->
-              <div id="exam-openended-hint" style="display:none;margin-top:8px;font-size:12px;color:#c0d8c0;padding:10px 14px;background:rgba(45,212,191,0.08);border:1px solid rgba(45,212,191,0.25);border-radius:var(--r-sm);line-height:1.6;">
-                ✍️ Open-ended questions require a written response. The AI will read your answer and score it based on accuracy, completeness, and understanding — giving you detailed feedback on what you got right and what to improve.
+              <div class="ewiz-setting">
+                <div class="ewiz-setting-label">Difficulty</div>
+                <div class="ewiz-diff-group">
+                  <button class="ewiz-diff-btn exam-type-btn" data-diff="easy" data-action="examSelectDiff-self">Easy</button>
+                  <button class="ewiz-diff-btn exam-type-btn active" data-diff="medium" data-action="examSelectDiff-self">Medium</button>
+                  <button class="ewiz-diff-btn exam-type-btn" data-diff="hard" data-action="examSelectDiff-self">Hard</button>
+                  <button class="ewiz-diff-btn exam-type-btn ewiz-diff-ai" data-diff="adaptive" data-action="examSelectDiff-self">AI</button>
+                </div>
               </div>
             </div>
 
-            <div class="exam-field">
-              <label>Difficulty</label>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button class="exam-type-btn" data-diff="easy" data-action="examSelectDiff-self" style="flex:1;">Easy</button>
-                <button class="exam-type-btn active" data-diff="medium" data-action="examSelectDiff-self" style="flex:1;">Medium</button>
-                <button class="exam-type-btn" data-diff="hard" data-action="examSelectDiff-self" style="flex:1;">Hard</button>
-                <button class="exam-type-btn" data-diff="adaptive" data-action="examSelectDiff-self" style="flex:1;border-color:rgba(139,124,248,0.4);color:var(--violet);">
-                  ⚡ Adaptive
-                </button>
-              </div>
-              <div id="exam-adaptive-diff-hint" style="display:none;margin-top:8px;font-size:11px;color:var(--violet);padding:8px 12px;background:rgba(139,124,248,0.08);border:1px solid rgba(139,124,248,0.25);border-radius:var(--r-sm);line-height:1.6;">
-                ⚡ <strong>Adaptive mode</strong> generates 3 difficulty pools and dynamically escalates or drops difficulty based on your answers — get 2 right in a row and it gets harder, miss 2 and it eases up.
-              </div>
-            </div>
+            <!-- Error display -->
+            <div id="exam-error" style="display:none;font-size:12px;color:#f87171;padding:10px 14px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:var(--r-sm);margin-bottom:14px;"></div>
 
-            <div id="exam-error" style="display:none;font-size:12px;color:#f87171;padding:10px 14px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:var(--r-sm);"></div>
-
-            <button class="exam-start-btn" id="exam-start-btn" data-action="examStart">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <!-- Generate Exam button -->
+            <button class="ewiz-gen-btn" id="exam-start-btn" data-action="examStart">
+              <span class="ewiz-star">✦</span>
               Generate Exam
             </button>
-          </div>
-        </div>
+
+            <!-- Change template link -->
+            <div class="ewiz-change-tpl">
+              <button onclick="ewizBack()">← Change template</button>
+            </div>
+          </div><!-- /ewiz-step-3 -->
+
+        </div><!-- /ewiz-wrap -->
+
       </div><!-- /exam-setup -->
 
       <!-- LOADING -->
