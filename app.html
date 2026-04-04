@@ -719,11 +719,11 @@ async function _deleteRecent(id, e) {
   // Match by local id, by resolvedUuid (when the session was restored from
   // Supabase and _activeRecentId was set to the UUID), or by _homeSessionId
   // (the app.html local tracking var) as a final fallback.
-  const _isActiveSession = _activeRecentId === id
+  const isActiveSession = _activeRecentId === id
     || (resolvedUuid && _activeRecentId === resolvedUuid)
     || _homeSessionId === id
     || (resolvedUuid && _homeSessionId === resolvedUuid);
-  if (_isActiveSession) {
+  if (isActiveSession) {
     _activeRecentId = null;
     localStorage.removeItem('chunks_active_recent_id');
     localStorage.removeItem('chunks_active_home_session');

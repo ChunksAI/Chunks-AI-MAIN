@@ -1713,12 +1713,16 @@ window.addEventListener('chunks:sessions-ready', function _onSessionsReady() {
         // Reconstruct a minimal session descriptor so _mountSession can work.
         const sessionDesc = localSessionId ? (lsGet('chunks_session_' + localSessionId) ?? {}) : {};
         // Supabase does not store thinkContent/thinkDuration — merge them from the local
-        // session history (matched by role+content) so think blocks survive a page refresh.
+        // session history (matched by index, with content as fallback) so think blocks survive a page refresh.
         const localHistory = sessionDesc?.history || [];
-        const sbHistory = sbMsgs.map(m => {
+        const sbHistory = sbMsgs.map((m, idx) => {
           const base = { role: m.role, content: m.content, ts: new Date(m.created_at).getTime() };
           if (m.role === 'assistant') {
-            const localMatch = localHistory.find(lm => lm.role === 'assistant' && lm.content === m.content);
+            // Prefer index-based match (most reliable); fall back to content match.
+            const byIndex = localHistory[idx];
+            const localMatch = (byIndex?.role === 'assistant' && byIndex?.thinkContent)
+              ? byIndex
+              : localHistory.find(lm => lm.role === 'assistant' && lm.content === m.content);
             if (localMatch?.thinkContent) {
               base.thinkContent  = localMatch.thinkContent;
               base.thinkDuration = localMatch.thinkDuration ?? 0;
