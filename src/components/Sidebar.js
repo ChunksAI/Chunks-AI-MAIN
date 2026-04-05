@@ -296,6 +296,18 @@ export function mountSidebars() {
   _renderRecentPlansAllSidebars();
 }
 
+/** Returns the CSS modifier class for a recent item's colored dot indicator */
+function _getDotClass(entry, item) {
+  if (entry.type === 'plan')      return 'recent-dot--plan';
+  if (entry.type === 'workspace') {
+    const activeBookId = window.ws?.bookId;
+    return (activeBookId && item?.bookId && item.bookId === activeBookId)
+      ? 'recent-dot--active-doc'
+      : 'recent-dot--workspace';
+  }
+  return 'recent-dot--chat';
+}
+
 /** Render the unified "Recents" list in every sidebar (top 8, type icons) */
 export function _renderUnifiedRecentsAllSidebars() {
   const UNIFIED_MAX = 8;
@@ -371,22 +383,13 @@ export function _renderUnifiedRecentsAllSidebars() {
         el.dataset.planTopic = safeTopic;
         el.setAttribute('role', 'button');
         el.setAttribute('tabindex', '0');
-        el.innerHTML = `<span class="recent-dot recent-dot--plan"></span><span class="recent-title">${topic.replace(/</g, '&lt;')}</span><span class="recent-menu-btn sp-plan-menu-btn" data-action="spPlanCtxMenu-self" data-plan-id="${planId}" data-plan-topic="${safeTopic}" title="More options">···</span>`;
+        el.innerHTML = `<span class="recent-dot ${_getDotClass(entry, null)}"></span><span class="recent-title">${topic.replace(/</g, '&lt;')}</span><span class="recent-menu-btn sp-plan-menu-btn" data-action="spPlanCtxMenu-self" data-plan-id="${planId}" data-plan-topic="${safeTopic}" title="More options">···</span>`;
         container.appendChild(el);
 
       } else {
         // Chat or workspace item — use _buildRecentItem if available, else inline
         const item = entry.item;
-        // Determine dot color: active workspace book = green, other workspace = teal, chat = blue
-        const activeBookId = window.ws?.bookId;
-        let dotClass;
-        if (entry.type === 'workspace') {
-          dotClass = (activeBookId && item.bookId && item.bookId === activeBookId)
-            ? 'recent-dot--active-doc'
-            : 'recent-dot--workspace';
-        } else {
-          dotClass = 'recent-dot--chat';
-        }
+        const dotClass = _getDotClass(entry, item);
 
         if (typeof window._buildRecentItem === 'function') {
           const el = window._buildRecentItem(item);

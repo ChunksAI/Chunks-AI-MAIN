@@ -502,7 +502,7 @@ body.guest-mode .sidebar-footer { margin-top: auto; }
   flex-shrink: 0;
   width: 8px;
   height: 8px;
-  border-radius: 9999px;
+  border-radius: var(--r-pill);
   margin-right: 8px;
   display: inline-block;
   vertical-align: middle;
@@ -512,9 +512,9 @@ body.guest-mode .sidebar-footer { margin-top: auto; }
 /* Blue — home/general AI chat */
 .recent-dot--chat        { background: #3b82f6; }
 /* Purple — study plans */
-.recent-dot--plan        { background: #a855f7; }
+.recent-dot--plan        { background: var(--violet); }
 /* Teal — workspace document (not currently open) */
-.recent-dot--workspace   { background: #2dd4bf; }
+.recent-dot--workspace   { background: var(--teal); }
 .sidebar-unified-recents-list .recent-item {
   gap: 0;
   align-items: center;
