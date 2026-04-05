@@ -162,7 +162,8 @@ function handleUpgradeClick(plan) {
     return;
   }
   // Payment integration not yet available — show feedback and keep modal open
-  const label = plan.charAt(0).toUpperCase() + plan.slice(1);
+  const safePlan = (typeof plan === 'string' && plan) ? plan : 'plan';
+  const label = safePlan.charAt(0).toUpperCase() + safePlan.slice(1);
   if (typeof wsShowToast === 'function') {
     wsShowToast('📬', `Thanks for your interest in ${label}! Subscriptions are coming soon.`, 'var(--gold)');
   }
