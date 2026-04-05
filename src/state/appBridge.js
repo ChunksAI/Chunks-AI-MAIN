@@ -2218,6 +2218,7 @@ window.filterFAQs      = filterFAQs;
     '_exportPDF':             ()      => _exportPDF(),
     '_wsRegenerate':          ()      => _wsRegenerate(),
     'wsShowToast':            ()      => wsShowToast(),
+    'wsUploadPdf':            ()      => { openLibraryModal(); },
 
     /* ── Home ───────────────────────────────────────────── */
     'homeSendMessage':        ()      => homeSendMessage(),

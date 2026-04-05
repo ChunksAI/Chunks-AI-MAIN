@@ -3234,6 +3234,87 @@
   padding: 32px 20px;
 }
 
+/* ── "Your Documents" header action buttons ─────────────────────────────── */
+
+.ws-doc-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Upload PDF — outlined secondary button */
+.ws-upload-pdf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--r-pill);
+  background: transparent;
+  border: 1px solid var(--border-sm);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  white-space: nowrap;
+}
+.ws-upload-pdf-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--border);
+  color: var(--text-1);
+}
+
+/* Browse Library — gold filled primary button */
+.ws-browse-lib-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--r-pill);
+  background: var(--gold);
+  border: none;
+  color: #090900;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: opacity var(--t-fast), transform var(--t-fast);
+  white-space: nowrap;
+}
+.ws-browse-lib-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* ── Close book (X) button in PDF title strip ───────────────────────────── */
+
+.ws-close-book-btn {
+  display: none; /* toggled inline by selectBook / closeBook */
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-xs);
+  background: var(--surface-3);
+  color: var(--text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 2px;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.ws-close-book-btn:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+/* Show the X button only when a book is open (pdf canvas or loading visible) */
+.ws-book-loaded .ws-close-book-btn {
+  display: inline-flex;
+}
+
 /* Quick Actions grid in right panel (no-book state) */
 .ws-quick-actions-grid {
   display: grid;
