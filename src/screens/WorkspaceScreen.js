@@ -131,15 +131,19 @@ const WORKSPACE_HTML = /* html */`
       <div class="pdf-view" id="ws-pdf-view">
 
         <!-- Empty state — shown when no book loaded -->
-        <div id="ws-default-content" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:40px;background:var(--surface-2);z-index:2;">
-          <div style="width:56px;height:56px;border-radius:16px;background:var(--gold-muted);border:1px solid var(--gold-border);display:flex;align-items:center;justify-content:center;">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="1.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        <div id="ws-default-content" style="position:absolute;inset:0;overflow-y:auto;background:var(--surface-2);z-index:2;padding:28px 24px 24px;">
+          <!-- Header row -->
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:4px;">Your Documents</div>
+              <div style="font-size:12px;color:var(--text-3);">Continue where you left off</div>
+            </div>
+            <button data-action="openLibraryModal" class="ws-browse-lib-btn" style="padding:7px 16px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);flex-shrink:0;">Browse Library</button>
           </div>
-          <div>
-            <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);margin-bottom:6px;">No book loaded</div>
-            <div style="font-size:13px;max-width:220px;line-height:1.65;color:var(--text-3);">Open the Library to pick a textbook and it'll appear here.</div>
+          <!-- Document cards grid -->
+          <div id="ws-doc-cards-grid" class="ws-doc-cards-grid">
+            <!-- populated by _renderWsDocCards() -->
           </div>
-          <button data-action="openLibraryModal" style="padding:9px 22px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Browse Library</button>
         </div>
 
         <!-- Loading state — skeleton while PDF fetches/renders -->
@@ -261,13 +265,52 @@ const WORKSPACE_HTML = /* html */`
     <div id="ws-chat-content" style="display:flex;">
 
     <div class="messages" id="ws-messages">
-      <div id="ws-welcome-state" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;text-align:center;padding:40px;">
-        <div style="width:56px;height:56px;border-radius:16px;background:var(--violet-muted);border:1px solid var(--violet-border);display:flex;align-items:center;justify-content:center;">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="1.5" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <div id="ws-welcome-state" style="display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:20px 16px;">
+        <!-- Quick Actions header -->
+        <div style="font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text-1);margin-bottom:14px;">Quick Actions</div>
+        <!-- 2×3 action grid -->
+        <div class="ws-quick-actions-grid">
+          <div class="ws-quick-action-card" data-action="goHome" role="button" tabindex="0" aria-label="New Chat">
+            <div class="ws-qa-icon" style="background:rgba(139,124,248,0.12);color:#8b7cf8;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <span class="ws-qa-label">New Chat</span>
+          </div>
+          <div class="ws-quick-action-card" data-action="showScreen" data-screen="flash" role="button" tabindex="0" aria-label="Flashcards">
+            <div class="ws-qa-icon" style="background:rgba(232,172,46,0.12);color:var(--gold);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+            </div>
+            <span class="ws-qa-label">Flashcards</span>
+          </div>
+          <div class="ws-quick-action-card" data-action="showScreen" data-screen="exam" role="button" tabindex="0" aria-label="New Exam">
+            <div class="ws-qa-icon" style="background:rgba(139,92,246,0.12);color:#a78bfa;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+            <span class="ws-qa-label">New Exam</span>
+          </div>
+          <div class="ws-quick-action-card" data-action="showScreen" data-screen="studyplan" role="button" tabindex="0" aria-label="Study Plan">
+            <div class="ws-qa-icon" style="background:rgba(16,185,129,0.12);color:#34d399;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <span class="ws-qa-label">Study Plan</span>
+          </div>
+          <div class="ws-quick-action-card" data-action="showScreen" data-screen="research" role="button" tabindex="0" aria-label="Research">
+            <div class="ws-qa-icon" style="background:rgba(59,130,246,0.12);color:#60a5fa;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
+            </div>
+            <span class="ws-qa-label">Research</span>
+          </div>
+          <div class="ws-quick-action-card" data-action="openLibraryModal" role="button" tabindex="0" aria-label="Browse Library">
+            <div class="ws-qa-icon" style="background:rgba(232,172,46,0.08);color:var(--gold);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+            </div>
+            <span class="ws-qa-label">Browse Library</span>
+          </div>
         </div>
-        <div>
-          <div style="font-family:var(--font-head);font-size:16px;font-weight:700;color:var(--text-1);margin-bottom:6px;">Ask anything</div>
-          <div style="font-size:13px;color:var(--text-3);line-height:1.65;max-width:220px;">Select a book and type a question to start studying with AI.</div>
+        <!-- Session timer stat card -->
+        <div class="ws-stat-card" id="ws-stat-timer-card" style="display:none;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          <span id="ws-stat-timer-text" style="font-size:12px;color:var(--text-2);">Studying today</span>
         </div>
       </div>
     </div>
@@ -410,6 +453,7 @@ export function mountWorkspaceScreen() {
   setTimeout(refreshSmartSuggestions, 300);
   setTimeout(_initSessionTimer, 0);
   setTimeout(_initNotes, 0);
+  setTimeout(_initEmptyStateObserver, 0);
   // Mount Preact islands
   setTimeout(() => {
     mountSmartNotesPanel(document.getElementById('ws-notes-panel'));
@@ -473,13 +517,107 @@ export function wsShowPanel(tab) {
   }
 }
 
+// ── Empty state observer & document cards ─────────────────────────────────────
+
+/**
+ * Watch ws-default-content visibility to toggle:
+ *  - chat input wrap hidden when no book is loaded
+ *  - document cards rendered when the empty state becomes visible
+ */
+function _initEmptyStateObserver() {
+  const defaultContent = document.getElementById('ws-default-content');
+  const chatInputWrap  = document.querySelector('#ws-chat-content .chat-input-wrap');
+  if (!defaultContent) return;
+
+  function _onVisibilityChange() {
+    const visible = defaultContent.style.display !== 'none';
+    if (chatInputWrap) chatInputWrap.style.display = visible ? 'none' : '';
+    if (visible) _renderWsDocCards();
+  }
+
+  // Initial state
+  _onVisibilityChange();
+
+  // Watch for books.js toggling the display property
+  const observer = new MutationObserver(_onVisibilityChange);
+  observer.observe(defaultContent, { attributes: true, attributeFilter: ['style'] });
+}
+
+const _SUBJECT_COLORS = ['#e8ac2e','#8b7cf8','#60a5fa','#34d399','#f87171','#fb923c'];
+
+function _timeAgo(isoStr) {
+  if (!isoStr) return '';
+  const diff = Date.now() - new Date(isoStr).getTime();
+  const mins  = Math.floor(diff / 60000);
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return `${mins}min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+/** Render the document grid in ws-default-content */
+function _renderWsDocCards() {
+  const grid = document.getElementById('ws-doc-cards-grid');
+  if (!grid) return;
+
+  // Get workspace items from recent list
+  const allItems = Array.isArray(window._getRecentItems?.()) ? window._getRecentItems() : [];
+  const wsItems  = allItems.filter(r => r.source === 'workspace' && r.bookId);
+
+  if (wsItems.length === 0) {
+    grid.innerHTML = `
+      <div class="ws-docs-empty">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text-4)" stroke-width="1.2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-top:10px;">No documents yet</div>
+        <div style="font-size:12px;color:var(--text-4);margin-top:4px;max-width:200px;text-align:center;line-height:1.6;">Browse the Library to add your first textbook</div>
+        <button data-action="openLibraryModal" style="margin-top:14px;padding:8px 20px;border-radius:var(--r-pill);background:var(--gold);border:none;color:#090900;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-body);">Browse Library</button>
+      </div>`;
+    return;
+  }
+
+  // Deduplicate by bookId (keep most recent per book)
+  const seen = new Set();
+  const unique = wsItems.filter(item => {
+    if (seen.has(item.bookId)) return false;
+    seen.add(item.bookId);
+    return true;
+  }).slice(0, 8); // max 8 cards
+
+  grid.innerHTML = '';
+  unique.forEach((item, idx) => {
+    const meta       = window.wsBookMeta?.[item.bookId];
+    const title      = (typeof meta === 'object' ? meta?.name : meta?.split?.('/')?.[0]) || item.label || item.bookId;
+    const accent     = _SUBJECT_COLORS[idx % _SUBJECT_COLORS.length];
+    const safeTitle  = _escHtml(title);
+    const timeLabel  = _timeAgo(item.updatedAt);
+
+    const card = document.createElement('div');
+    card.className = 'ws-doc-card';
+    card.style.cssText = `--ws-card-accent:${accent};`;
+    card.innerHTML = `
+      <div class="ws-doc-card-inner">
+        <div class="ws-doc-card-title" title="${safeTitle}">${safeTitle}</div>
+        ${timeLabel ? `<div class="ws-doc-card-meta">Last opened: ${_escHtml(timeLabel)}</div>` : ''}
+        <button class="ws-doc-card-open">Open</button>
+      </div>`;
+
+    card.addEventListener('click', () => {
+      if (typeof selectBook === 'function') selectBook(item.bookId);
+      else window._clickRecent?.(item);
+    });
+    grid.appendChild(card);
+  });
+}
+
 // ── Session timer ─────────────────────────────────────────────────────────────
 
 const _TIMER_KEY = 'chunks-ai-session-start';
 
 function _initSessionTimer() {
-  const timerEl = document.getElementById('ws-session-timer');
-  if (!timerEl) return;
+  const timerEl    = document.getElementById('ws-session-timer');
+  const statCard   = document.getElementById('ws-stat-timer-card');
+  const statText   = document.getElementById('ws-stat-timer-text');
 
   // Persist start time across within-tab navigation (sessionStorage resets per browser session)
   let startTime = parseInt(sessionStorage.getItem(_TIMER_KEY) || '0', 10);
@@ -489,17 +627,25 @@ function _initSessionTimer() {
   }
 
   const _update = () => {
-    // Stop updating if the element is no longer in the DOM
-    if (!document.contains(timerEl)) { clearInterval(_timerId); return; }
+    // Stop updating if timer element left the DOM
+    if (timerEl && !document.contains(timerEl)) { clearInterval(_timerId); return; }
     const mins = Math.floor((Date.now() - startTime) / 60000);
-    if (mins < 1) {
-      timerEl.textContent = '';
-    } else if (mins < 60) {
-      timerEl.textContent = `studying for ${mins}min`;
-    } else {
+    let label = '';
+    if (mins >= 1 && mins < 60) {
+      label = `studying for ${mins}min`;
+    } else if (mins >= 60) {
       const h = Math.floor(mins / 60);
       const m = mins % 60;
-      timerEl.textContent = `studying for ${h}h${m > 0 ? ` ${m}m` : ''}`;
+      label = `studying for ${h}h${m > 0 ? ` ${m}m` : ''}`;
+    }
+    if (timerEl) timerEl.textContent = label;
+
+    // Also update the Quick Actions stat card
+    if (statCard && statText) {
+      if (mins >= 1) {
+        statText.textContent = `Studying for ${mins < 60 ? mins + 'min' : Math.floor(mins/60) + 'h' + (mins%60 > 0 ? ' ' + mins%60 + 'm' : '')} today`;
+        statCard.style.display = 'flex';
+      }
     }
   };
 

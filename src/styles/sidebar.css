@@ -476,6 +476,34 @@ body.guest-mode .sidebar-footer { margin-top: auto; }
 .recent-item.active .recent-title { color: var(--text-1); }
 .recent-item svg:not(.recent-menu-btn svg) { display: none; }
 
+/* ── Unified recents list ────────────────────────────────── */
+.sidebar-unified-recents-list {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-xs) transparent;
+}
+.sidebar-unified-recents-list::-webkit-scrollbar { width: 2px; }
+.sidebar-unified-recents-list::-webkit-scrollbar-thumb { background: var(--border-xs); border-radius: 2px; }
+
+/* Type icon in unified recents */
+.recent-type-icon {
+  flex-shrink: 0;
+  font-size: 11px;
+  margin-right: 6px;
+  opacity: 0.7;
+  line-height: 1;
+}
+.sidebar-unified-recents-list .recent-item {
+  gap: 0;
+  align-items: center;
+}
+
+/* Flat nav — no section headers */
+.sidebar-nav-flat { padding: 4px 0 2px; }
+
 /* ── Chat search popup ───────────────────────────────────── */
 .chat-search-overlay {
   position: fixed;
