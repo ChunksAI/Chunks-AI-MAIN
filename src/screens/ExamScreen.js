@@ -3412,6 +3412,8 @@ Object.defineProperty(window, '_activeExamRecentId', {
 });
 
 // Expose exam PDF upload handlers so ExamScreen.js inline handlers can call them
+window._ewizTogglePdf     = _ewizTogglePdf;
+window._ewizToggleNotes   = _ewizToggleNotes;
 window.examSrcTab         = examSrcTab;
 window.examHandlePdfFile  = examHandlePdfFile;
 window.examDragOver       = examDragOver;
