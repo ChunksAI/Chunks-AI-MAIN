@@ -252,6 +252,27 @@
 <script>
   if (sessionStorage.getItem('chunks_guest_mode') === '1') window._guestPage = true;
 </script>
+<!-- ── Refresh detection — must run before modules so HomeScreen.js IIFE can
+     read the flag.  Sets chunks_is_refresh='1' when this is a page reload
+     (sessionStorage persists across reloads but not across tab close / new
+     navigation).  HomeScreen.js reads this to decide whether to fast-restore
+     the last session from IndexedDB / localStorage without waiting for the
+     Supabase sync. ── -->
+<script>
+  (function() {
+    try {
+      if (sessionStorage.getItem('chunks_was_here') === '1') {
+        sessionStorage.setItem('chunks_is_refresh', '1');
+      } else {
+        // Clear any stale flag from a previous session in case the user
+        // navigated here fresh (e.g. from another site — sessionStorage was
+        // not cleared because it was the same tab).
+        sessionStorage.removeItem('chunks_is_refresh');
+      }
+      sessionStorage.setItem('chunks_was_here', '1');
+    } catch(e) {}
+  })();
+</script>
 <!-- ── Vite module entry point ── -->
 <script type="module" src="/src/main.js"></script>
 <script type="module">
