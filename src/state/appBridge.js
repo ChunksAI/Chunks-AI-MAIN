@@ -1422,6 +1422,9 @@ function _renderAllRecent() {
 
   // Refresh document-grouped recents view
   _renderDocGroupedRecents();
+
+  // Refresh unified sidebar recents (sidebar Change 1)
+  window._renderUnifiedRecents?.();
 }
 // Expose immediately so Sidebar.js can call it as soon as it evaluates
 window._renderAllRecent = _renderAllRecent;
@@ -1808,6 +1811,8 @@ window._loadWsSession     = _loadWsSession;
 window._deleteRecent      = _deleteRecent;
 window._clickRecent       = _clickRecent;
 window._showRecentCtxMenu = _showRecentCtxMenu;
+window._buildRecentItem   = _buildRecentItem;
+window._getRecentItems    = () => _recentItems;
 window.recentAdd          = recentAdd;
 // goHome/newChat need to be on window for inline onkeydown handlers in Sidebar.js
 window.goHome             = goHome;

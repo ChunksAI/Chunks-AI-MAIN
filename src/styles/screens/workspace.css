@@ -3158,3 +3158,135 @@
   color: var(--text-4);
   text-align: center;
 }
+
+/* ════════════════════════════════════════════════════════════
+   WORKSPACE EMPTY STATE — "Your Documents" grid + Quick Actions
+   Shown when no book is loaded (ws-default-content visible).
+   ════════════════════════════════════════════════════════════ */
+
+/* Document cards grid */
+.ws-doc-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.ws-doc-card {
+  position: relative;
+  background: var(--surface-3);
+  border: 1px solid var(--border-xs);
+  border-left: 3px solid var(--ws-card-accent, var(--gold));
+  border-radius: var(--r-md);
+  padding: 12px 12px 10px;
+  cursor: pointer;
+  transition: transform var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
+  min-width: 0;
+}
+.ws-doc-card:hover {
+  background: var(--surface-4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+}
+.ws-doc-card:hover .ws-doc-card-open { opacity: 1; }
+
+.ws-doc-card-inner { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+
+.ws-doc-card-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
+}
+
+.ws-doc-card-meta {
+  font-size: 11px;
+  color: var(--text-4);
+}
+
+.ws-doc-card-open {
+  opacity: 0;
+  margin-top: 2px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--gold);
+  border: none;
+  color: #090900;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: opacity var(--t-fast);
+  pointer-events: none;
+}
+.ws-doc-card:hover .ws-doc-card-open { pointer-events: auto; }
+
+.ws-docs-empty {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 20px;
+}
+
+/* Quick Actions grid in right panel (no-book state) */
+.ws-quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ws-quick-action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background var(--t-fast), transform var(--t-fast);
+  text-align: center;
+  min-width: 0;
+}
+.ws-quick-action-card:hover {
+  background: var(--surface-3);
+  transform: translateY(-1px);
+}
+
+.ws-qa-icon {
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.ws-qa-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.ws-quick-action-card:hover .ws-qa-label { color: var(--text-1); }
+
+/* Session stat card */
+.ws-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--gold-muted);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--r-md);
+  margin-top: 4px;
+}

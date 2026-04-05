@@ -75,6 +75,13 @@ const NAV_ITEMS = [
     svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
   },
   {
+    id:     'research',
+    label:  'Research',
+    action: 'showScreen',
+    screen: 'research',
+    svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>`,
+  },
+  {
     id:     'visual',
     label:  'Visual Tutor',
     action: 'showScreen',
@@ -83,13 +90,6 @@ const NAV_ITEMS = [
     isPower: true,
     badge: 'AI',
     badgeClass: 'power-badge-ai',
-  },
-  {
-    id:     'research',
-    label:  'Research',
-    action: 'showScreen',
-    screen: 'research',
-    svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>`,
   },
   {
     id:     'exam',
@@ -155,23 +155,12 @@ export function buildSidebar(screen) {
       </div>`;
   }
 
-  // Study Tools nav (exclude power-feature items)
-  const studyNavHTML = NAV_ITEMS.filter(i => !i.isPower).map(_itemHtml).join('\n');
+  // All nav items in display order (research before visual/exam per spec)
+  const allNavHTML = NAV_ITEMS.map(_itemHtml).join('\n');
 
-  // Power Features nav
-  const powerNavHTML = NAV_ITEMS.filter(i => i.isPower).map(_itemHtml).join('\n');
-
-  // Recent Plans section — shown on ALL screens, inside the scroll area
+  // Hidden legacy containers — kept for backward compat with _renderAllRecent() in appBridge.js
   const plansSectionId = `sp-recent-plans-section-${screen}`;
   const plansListId    = `sp-recent-plans-list-${screen}`;
-  const recentPlansSection = `
-      <div class="sidebar-section sidebar-history-section sp-recent-plans-outer" id="${plansSectionId}" style="display:none;">
-        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleRecentPlans-self" data-section="${plansSectionId}">
-          Recent Plans
-          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
-        </div>
-        <div id="${plansListId}" class="sp-recent-plans-list hist-list"></div>
-      </div>`;
 
   return `
     <div class="sidebar-header">
@@ -191,46 +180,35 @@ export function buildSidebar(screen) {
       <span>New Chat</span>
     </button>
 
-    <nav aria-label="Main navigation">
-    <div class="sidebar-section">
-      <div class="sidebar-section-label">Study Tools</div>
-${studyNavHTML}
-    </div>
-
-    <div class="sidebar-section sidebar-power-section">
-      <div class="sidebar-section-label">Power Features</div>
-${powerNavHTML}
-    </div>
+    <nav aria-label="Main navigation" class="sidebar-nav-flat">
+${allNavHTML}
     </nav>
 
     <div class="sidebar-divider"></div>
 
-    <div class="sidebar-history-header" style="justify-content:flex-end;">
+    <div class="sidebar-history-header">
+      <span class="sidebar-history-label">Recents</span>
       <button class="sidebar-search-btn" data-action="openChatSearch-self" title="Search chats" aria-label="Search chats">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
       </button>
     </div>
 
     <div class="sidebar-history-scroll" id="sidebar-history-scroll">
-      <!-- Recent Chats section (Home AI chat history) -->
-      <div class="sidebar-history-section" id="sidebar-recent-chats-section-${screen}">
-        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="sidebar-recent-chats-section-${screen}">
-          Recent Chats
-          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
-        </div>
-        <div id="sidebar-recent-chats-${screen}" class="sidebar-recent-chats-list hist-list"></div>
-      </div>
+      <!-- Unified recents: top 8, sorted by last used, with type icons -->
+      <div id="sidebar-unified-recents-${screen}" class="sidebar-unified-recents-list"></div>
 
-      <!-- Recent Workspace section (PDF/textbook session history) -->
-      <div class="sidebar-history-section" id="sidebar-recent-workspace-section-${screen}">
-        <div class="sidebar-section-label sidebar-section-toggle" data-action="toggleHistorySection-self" data-section="sidebar-recent-workspace-section-${screen}">
-          Recent Workspace
-          <svg class="hist-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+      <!-- Hidden legacy containers for appBridge.js _renderAllRecent() backward compat -->
+      <div style="display:none;" aria-hidden="true">
+        <div class="sidebar-history-section" id="sidebar-recent-chats-section-${screen}">
+          <div id="sidebar-recent-chats-${screen}" class="sidebar-recent-chats-list hist-list"></div>
         </div>
-        <div id="sidebar-recent-workspace-${screen}" class="sidebar-recent-workspace-list sidebar-doc-groups hist-list"></div>
+        <div class="sidebar-history-section" id="sidebar-recent-workspace-section-${screen}">
+          <div id="sidebar-recent-workspace-${screen}" class="sidebar-recent-workspace-list sidebar-doc-groups hist-list"></div>
+        </div>
+        <div class="sidebar-section sidebar-history-section sp-recent-plans-outer" id="${plansSectionId}">
+          <div id="${plansListId}" class="sp-recent-plans-list hist-list"></div>
+        </div>
       </div>
-
-      ${recentPlansSection}
     </div>
 
     <div class="sidebar-footer">
@@ -307,48 +285,127 @@ export function mountSidebars() {
     const screen = el.dataset.sidebarScreen || 'home';
     el.innerHTML = buildSidebar(screen);
   });
-  // Default: all history sections expanded. Only collapse if user explicitly toggled.
-  // We use sessionStorage flag 'chunks_hist_initialized' to distinguish
-  // "first mount this session" from "user toggled and reloaded".
-  const _histInitialized = (() => { try { return sessionStorage.getItem('chunks_hist_initialized') === '1'; } catch(e) { return false; } })();
-
-  const _histScreens = ['home', 'workspace', 'library', 'flash', 'research', 'exam', 'studyplan', 'visual'];
-  const _histSectionIds = _histScreens.flatMap(s => [
-    'sidebar-recent-chats-section-' + s,
-    'sidebar-recent-workspace-section-' + s,
-  ]);
-
-  if (!_histInitialized) {
-    // First mount this session — clear any stale collapsed state so everything is expanded
-    _histSectionIds.forEach(id => {
-      try { sessionStorage.removeItem('hist_collapsed_' + id); } catch(e) {}
-    });
-    try { sessionStorage.setItem('chunks_hist_initialized', '1'); } catch(e) {}
-  }
-
-  // Restore persisted collapsed state for each history section
-  _histSectionIds.forEach(id => {
-    try {
-      const collapsed = sessionStorage.getItem('hist_collapsed_' + id) === '1';
-      if (collapsed) {
-        document.querySelectorAll('#' + id).forEach(sec => sec.classList.add('collapsed'));
-      }
-    } catch(e) {}
-  });
-  // Restore collapsed state for recent plans sections
-  document.querySelectorAll('.sp-recent-plans-outer').forEach(sec => {
-    try {
-      const key = 'sp_plans_collapsed_' + sec.id;
-      if (sessionStorage.getItem(key) === '1') sec.classList.add('collapsed');
-    } catch(e) {}
-  });
 
   // Re-render recent chat/workspace lists now that sidebar DOM containers exist
   window._renderAllRecent?.();
 
-  // Populate all recent-plans sections from localStorage
+  // Populate unified recents in the new sidebar
+  _renderUnifiedRecentsAllSidebars();
+
+  // Populate all recent-plans sections from localStorage (keeps hidden compat containers fresh)
   _renderRecentPlansAllSidebars();
 }
+
+/** Render the unified "Recents" list in every sidebar (top 8, type icons) */
+export function _renderUnifiedRecentsAllSidebars() {
+  const UNIFIED_MAX = 8;
+
+  // ── Gather recent chat/workspace items ──────────────────────────────────
+  const recentItems = Array.isArray(window._getRecentItems?.()) ? window._getRecentItems() : [];
+
+  // ── Gather recent plan items ─────────────────────────────────────────────
+  let planTopics = [];
+  try { planTopics = JSON.parse(localStorage.getItem('sp_recent_plans') || '[]'); } catch (_) {}
+
+  let allPlans = {};
+  try {
+    allPlans = window._lsGet
+      ? window._lsGet('sp_all_plans', {})
+      : JSON.parse(localStorage.getItem('sp_all_plans') || '{}');
+  } catch (_) {}
+
+  const _lsActivePlanId = (() => { try { return localStorage.getItem('sp_active_plan_id') || null; } catch (e) { return null; } })();
+
+  // Build combined list: chat/workspace items have updatedAt (ISO string);
+  // plan items use an approximate timestamp (index-based offset from epoch start).
+  const combined = [];
+
+  recentItems.forEach(item => {
+    combined.push({
+      type:      item.source === 'workspace' ? 'workspace' : 'chat',
+      item,
+      sortKey:   item.updatedAt || '1970-01-01',
+    });
+  });
+
+  planTopics.forEach((topic, idx) => {
+    const entry  = Object.entries(allPlans).find(([, e]) => e.topic === topic);
+    const planId = entry ? entry[0] : '';
+    // Plans don't have timestamps in their array entry; use index-based old date
+    // so they are placed after recent chat/workspace items of similar age.
+    const planUpdatedAt = entry?.[1]?.updatedAt || `1970-01-0${String(idx + 1).padStart(2, '0')}`;
+    combined.push({
+      type:      'plan',
+      topic,
+      planId,
+      planUpdatedAt,
+      sortKey:   planUpdatedAt,
+    });
+  });
+
+  // Sort newest first (ISO strings sort lexicographically correctly)
+  combined.sort((a, b) => (b.sortKey > a.sortKey ? 1 : b.sortKey < a.sortKey ? -1 : 0));
+
+  const top = combined.slice(0, UNIFIED_MAX);
+
+  // ── Render into each unified list container ──────────────────────────────
+  document.querySelectorAll('.sidebar-unified-recents-list').forEach(container => {
+    if (top.length === 0) {
+      container.innerHTML = '<div class="recent-empty">No history yet</div>';
+      return;
+    }
+
+    container.innerHTML = '';
+
+    top.forEach(entry => {
+      if (entry.type === 'plan') {
+        const { topic, planId } = entry;
+        const isActive = _lsActivePlanId && planId && planId === _lsActivePlanId;
+        const safeTopic = topic.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/'/g, '&#39;');
+        const el = document.createElement('div');
+        el.className = 'recent-item' + (isActive ? ' active' : '');
+        el.title = topic;
+        // Use data-action for navigation (same as existing plan sidebar items)
+        el.dataset.action    = 'spNavigateToPlan-self';
+        el.dataset.planId    = planId;
+        el.dataset.planTopic = safeTopic;
+        el.setAttribute('role', 'button');
+        el.setAttribute('tabindex', '0');
+        el.innerHTML = `<span class="recent-type-icon">📅</span><span class="recent-title">${topic.replace(/</g, '&lt;')}</span><span class="recent-menu-btn sp-plan-menu-btn" data-action="spPlanCtxMenu-self" data-plan-id="${planId}" data-plan-topic="${safeTopic}" title="More options">···</span>`;
+        container.appendChild(el);
+
+      } else {
+        // Chat or workspace item — use _buildRecentItem if available, else inline
+        const item = entry.item;
+        const icon = entry.type === 'workspace' ? '📄' : '💬';
+
+        if (typeof window._buildRecentItem === 'function') {
+          const el = window._buildRecentItem(item);
+          // Prepend the type icon
+          const iconSpan = document.createElement('span');
+          iconSpan.className = 'recent-type-icon';
+          iconSpan.textContent = icon;
+          el.insertBefore(iconSpan, el.firstChild);
+          container.appendChild(el);
+        } else {
+          // Fallback inline render
+          const el = document.createElement('div');
+          el.className = 'recent-item';
+          el.dataset.id = item.id;
+          el.title = item.question || '';
+          el.innerHTML = `<span class="recent-type-icon">${icon}</span><span class="recent-title">${(item.pinned ? '📌 ' : '') + (item.label || '').replace(/</g, '&lt;')}</span><span class="recent-menu-btn" title="More options">···</span>`;
+          el.addEventListener('click', () => window._clickRecent?.(item));
+          el.querySelector('.recent-menu-btn')?.addEventListener('click', e => {
+            e.stopPropagation();
+            window._showRecentCtxMenu?.(item, e);
+          });
+          container.appendChild(el);
+        }
+      }
+    });
+  });
+}
+window._renderUnifiedRecents = _renderUnifiedRecentsAllSidebars;
 
 /** Render recent plans into every sidebar's recent-plans list */
 export function _renderRecentPlansAllSidebars() {
@@ -413,6 +470,7 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     mountSidebars();
     window._renderAllRecent?.();
+    _renderUnifiedRecentsAllSidebars();
     _renderRecentPlansAllSidebars();
     _renderSidebarStreak();
     _syncThemeToggleBtns();
@@ -420,6 +478,7 @@ if (document.readyState === 'loading') {
 } else {
   mountSidebars();
   window._renderAllRecent?.();
+  _renderUnifiedRecentsAllSidebars();
   _renderRecentPlansAllSidebars();
   _renderSidebarStreak();
   _syncThemeToggleBtns();
@@ -460,6 +519,7 @@ setTimeout(() => {
   if (unmounted.length) {
     mountSidebars();
     window._renderAllRecent?.();
+    _renderUnifiedRecentsAllSidebars();
     _renderRecentPlansAllSidebars();
   }
 }, 0);
