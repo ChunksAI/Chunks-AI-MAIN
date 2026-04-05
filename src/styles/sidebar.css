@@ -273,10 +273,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 10px;
+  padding: 6px 10px;
   margin: 0 6px;
   border-radius: var(--r-md);
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--text-3);
   cursor: pointer;
   overflow: hidden;
@@ -437,11 +437,10 @@ body.guest-mode .sidebar-footer { margin-top: auto; }
   flex-shrink: 0;
 }
 .sidebar-history-label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--text-4);
+  letter-spacing: 0;
+  color: var(--text-3);
 }
 .sidebar-search-btn {
   display: flex;
@@ -462,14 +461,14 @@ body.guest-mode .sidebar-footer { margin-top: auto; }
 /* ── Recent items — no icon, clean text ─────────────────── */
 .recent-item {
   gap: 0;
-  padding: 4px 10px;
+  padding: 6px 10px;
 }
 .recent-item .recent-title {
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12.5px;
+  font-size: 13.5px;
   color: var(--text-3);
 }
 .recent-item:hover .recent-title,
