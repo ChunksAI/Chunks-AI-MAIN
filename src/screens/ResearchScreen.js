@@ -2884,3 +2884,22 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.RS = RS;
+
+// Expose inline onclick/onkeydown handlers used in HTML template strings and dynamically
+// rendered content. These functions are module-scoped and must be on window so that
+// inline handlers like onclick="_toggleSection('id')" can find them.
+window.switchResearchTab     = switchResearchTab;
+window._toggleSection        = _toggleSection;
+window._researchSelectLayer  = _researchSelectLayer;
+window._generateParagraph    = _generateParagraph;
+window._acceptLayer          = _acceptLayer;
+window._undoAccept           = _undoAccept;
+window._clearParagraph       = _clearParagraph;
+window._switchCitTab         = _switchCitTab;
+window._copyCiteKey          = _copyCiteKey;
+window._copyAllRefs          = _copyAllRefs;
+window._showHistory          = _showHistory;
+window._closeHistory         = _closeHistory;
+window._restoreVersion       = _restoreVersion;
+window._runPaperSearch       = _runPaperSearch;
+window._clearAndReset        = _clearAndReset;

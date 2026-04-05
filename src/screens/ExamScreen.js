@@ -3412,6 +3412,8 @@ Object.defineProperty(window, '_activeExamRecentId', {
 });
 
 // Expose exam PDF upload handlers so ExamScreen.js inline handlers can call them
+window._ewizTogglePdf     = _ewizTogglePdf;
+window._ewizToggleNotes   = _ewizToggleNotes;
 window.examSrcTab         = examSrcTab;
 window.examHandlePdfFile  = examHandlePdfFile;
 window.examDragOver       = examDragOver;
@@ -3431,6 +3433,12 @@ window._examOpenSaved      = _examOpenSaved;
 window._examDeleteSaved    = _examDeleteSaved;
 window._examGraphPointClick = _examGraphPointClick;
 window._examRetakeFromSnapshot = _examRetakeFromSnapshot;
+
+// Expose wizard navigation / open-ended input handlers
+window.ewizNext            = ewizNext;
+window.ewizBack            = ewizBack;
+window._ewizOnTplSelect    = _ewizOnTplSelect;
+window.examOpenEndedInput  = examOpenEndedInput;
 
 // Expose template/sections functions for inline handlers in dynamically rendered HTML
 window.examSelectTemplate  = examSelectTemplate;

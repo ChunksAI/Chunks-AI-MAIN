@@ -1487,16 +1487,113 @@ export async function homeSendMessage() {
 // DOM is ready for this replacement even before DOMContentLoaded fires.
 mountHomeScreen();
 
+// ── renderFromHistory: re-builds chat DOM from message array ─────────────────
+// Used by _mountSession (local restore) and the cross-device Supabase restore
+// path (_onSessionsReady).  Placed at module scope so both paths can call it.
+function _renderFromHistory(history) {
+  const chatHist = document.getElementById('home-chat-history');
+  if (!chatHist || !history?.length) return;
+  chatHist.innerHTML = '';
+  history.forEach((msg, idx) => {
+    if (msg.role === 'user') {
+      const hasImage = msg.imageDataUrl && /^data:image\/[a-zA-Z+]+;base64,/.test(msg.imageDataUrl);
+      if (hasImage) {
+        const imgBubble = document.createElement('div');
+        imgBubble.className = 'hc-user';
+        const wrap = document.createElement('div');
+        wrap.className = 'chat-img-wrap';
+        wrap.onclick = () => window.openImgLightbox?.(wrap);
+        const img = document.createElement('img');
+        img.src = msg.imageDataUrl; img.alt = 'attached image';
+        wrap.appendChild(img);
+        imgBubble.appendChild(wrap);
+        chatHist.appendChild(imgBubble);
+      }
+      const text = (msg.content || '').replace(/\n\[Attached:[^\]]*\]/g, '').trim();
+      const skipText = hasImage && text === _IMAGE_ONLY_LABEL;
+      if (text && !skipText) {
+        const el = document.createElement('div');
+        el.className = 'hc-user';
+        el.textContent = text;
+        chatHist.appendChild(el);
+      }
+    } else if (msg.role === 'assistant') {
+      // Restore ThinkingAccordion if this response had thinking content
+      if (msg.thinkContent) {
+        const accordionWrap = document.createElement('div');
+        accordionWrap.className = 'hc-thinking-accordion-wrap';
+        chatHist.appendChild(accordionWrap);
+        const container = document.createElement('div');
+        accordionWrap.appendChild(container);
+        createThinkingAccordion(container, {
+          thinkingText: msg.thinkContent,
+          elapsed: msg.thinkDuration || 0,
+          isStreaming: false,
+          noAnimation: true,
+        });
+      }
+      const wrap = homeAppendAI(msg.content || '', null, { typewrite: false });
+      if (wrap) {
+        wrap.dataset.histIdx = String(idx);
+        // Restore saved feedback active state
+        if (msg.feedback) {
+          const thumbBtn = wrap.querySelector(`.msg-act--thumb[data-type="${msg.feedback}"]`);
+          if (thumbBtn) thumbBtn.classList.add('active');
+        }
+      }
+    }
+  });
+}
+
+// ── _mountSession: transition from landing view to active chat ────────────────
+// Called by both the local fast-path restore (IIFE below) and the async
+// Supabase restore path (_onSessionsReady listener).  Module-scoped so both
+// callers can reach it without going through window._homeMountSession.
+function _mountSession(session, sessionId) {
+  const history = session?.history || session?.messages || [];
+  if (!history.length) return;
+
+  const landing    = document.getElementById('home-landing');
+  const hero       = document.querySelector('.home-hero');
+  const bar        = document.getElementById('home-input-bar');
+  const scrollArea = document.getElementById('home-scroll-area');
+  const chatHist   = document.getElementById('home-chat-history');
+
+  if (landing)    landing.style.display = 'none';
+  if (hero)       hero.style.display = 'none';
+  if (bar)        bar.style.display = 'flex';
+  if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
+
+  if (history.length && chatHist) {
+    // Always re-render from structured history — never inject raw HTML, which
+    // loses event handlers when passed through DOMPurify and breaks action buttons.
+    _renderFromHistory(history);
+  }
+
+  // Always populate homeHistory from the message array so the _onSessionsReady
+  // guard correctly sees this session as active. Previously, sessions restored
+  // via cached HTML could leave homeHistory=[] even though content was showing,
+  // causing cross-device sync to mount a second session on top of this one.
+  homeHistory    = history;
+  _homeSessionId = sessionId;
+  window._setActiveRecent?.(sessionId);
+  setTimeout(() => homeScrollBottom(true), 80);
+}
+
+// Expose _mountSession globally so _clickRecent (sidebar clicks) can call it
+// even before the session-restore IIFE has run.
+window._homeMountSession = _mountSession;
+
 // ── Session restore (runs immediately after mount) ────────────────────────────
 // Previously lived in a non-module <script> in index.html, which fired before
 // type="module" scripts — so #screen-home didn't exist yet. Now it runs right
 // here, after mountHomeScreen() has injected the DOM.
 (function _restoreHomeSession() {
-  // chunks_is_refresh is set by navigation.js._restoreScreen() which runs on
-  // DOMContentLoaded. This IIFE runs at module eval time (before DCL), so we
-  // also check chunks_was_here as the early-available signal.
-  const isRefresh = sessionStorage.getItem('chunks_is_refresh') === '1' ||
-                    sessionStorage.getItem('chunks_was_here') === '1';
+  // chunks_is_refresh is set by the inline <script> in app.html which runs
+  // before any ES module is evaluated.  It is set to '1' only when the user
+  // was already on this page in the same tab (sessionStorage persists across
+  // reloads but not across tab close / fresh navigation).
+  const isRefresh = sessionStorage.getItem('chunks_is_refresh') === '1';
   if (!isRefresh) return;
 
   const activeScreen = sessionStorage.getItem('chunks_active_screen');
@@ -1510,100 +1607,6 @@ mountHomeScreen();
 
   // ── Restore home chat ──
   if (activeScreen && activeScreen !== 'home') return;
-
-  // Helper that actually mounts the session into the DOM
-  // ── renderFromHistory: re-builds chat DOM from message array ────────────
-  // Used when html is empty (cross-device restore — HTML was never stored on
-  // this device). Falls back gracefully if markdown renderer isn't ready.
-  function _renderFromHistory(history) {
-    const chatHist = document.getElementById('home-chat-history');
-    if (!chatHist || !history?.length) return;
-    chatHist.innerHTML = '';
-    history.forEach((msg, idx) => {
-      if (msg.role === 'user') {
-        const hasImage = msg.imageDataUrl && /^data:image\/[a-zA-Z+]+;base64,/.test(msg.imageDataUrl);
-        if (hasImage) {
-          const imgBubble = document.createElement('div');
-          imgBubble.className = 'hc-user';
-          const wrap = document.createElement('div');
-          wrap.className = 'chat-img-wrap';
-          wrap.onclick = () => window.openImgLightbox?.(wrap);
-          const img = document.createElement('img');
-          img.src = msg.imageDataUrl; img.alt = 'attached image';
-          wrap.appendChild(img);
-          imgBubble.appendChild(wrap);
-          chatHist.appendChild(imgBubble);
-        }
-        const text = (msg.content || '').replace(/\n\[Attached:[^\]]*\]/g, '').trim();
-        const skipText = hasImage && text === _IMAGE_ONLY_LABEL;
-        if (text && !skipText) {
-          const el = document.createElement('div');
-          el.className = 'hc-user';
-          el.textContent = text;
-          chatHist.appendChild(el);
-        }
-      } else if (msg.role === 'assistant') {
-        // Restore ThinkingAccordion if this response had thinking content
-        if (msg.thinkContent) {
-          const accordionWrap = document.createElement('div');
-          accordionWrap.className = 'hc-thinking-accordion-wrap';
-          chatHist.appendChild(accordionWrap);
-          const container = document.createElement('div');
-          accordionWrap.appendChild(container);
-          createThinkingAccordion(container, {
-            thinkingText: msg.thinkContent,
-            elapsed: msg.thinkDuration || 0,
-            isStreaming: false,
-            noAnimation: true,
-          });
-        }
-        const wrap = homeAppendAI(msg.content || '', null, { typewrite: false });
-        if (wrap) {
-          wrap.dataset.histIdx = String(idx);
-          // Restore saved feedback active state
-          if (msg.feedback) {
-            const thumbBtn = wrap.querySelector(`.msg-act--thumb[data-type="${msg.feedback}"]`);
-            if (thumbBtn) thumbBtn.classList.add('active');
-          }
-        }
-      }
-    });
-  }
-
-  // ── _mountSession: show the landing-to-chat transition ──────────────────
-  function _mountSession(session, sessionId) {
-    const history = session?.history || session?.messages || [];
-    if (!history.length) return;
-
-    const landing    = document.getElementById('home-landing');
-    const hero       = document.querySelector('.home-hero');
-    const bar        = document.getElementById('home-input-bar');
-    const scrollArea = document.getElementById('home-scroll-area');
-    const chatHist   = document.getElementById('home-chat-history');
-
-    if (landing)    landing.style.display = 'none';
-    if (hero)       hero.style.display = 'none';
-    if (bar)        bar.style.display = 'flex';
-    if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
-
-    if (history.length && chatHist) {
-      // Always re-render from structured history — never inject raw HTML, which
-      // loses event handlers when passed through DOMPurify and breaks action buttons.
-      _renderFromHistory(history);
-    }
-
-    // Always populate homeHistory from the message array so the _onSessionsReady
-    // guard correctly sees this session as active. Previously, sessions restored
-    // via cached HTML could leave homeHistory=[] even though content was showing,
-    // causing cross-device sync to mount a second session on top of this one.
-    homeHistory    = history;
-    _homeSessionId = sessionId;
-    window._setActiveRecent?.(sessionId);
-    setTimeout(() => homeScrollBottom(true), 80);
-  }
-  // Expose so module-level listener can call it after IIFE exits
-  // _mountSession exposed via export below
-  window._homeMountSession = _mountSession;
 
   // ── Restore on page load ─────────────────────────────────────────────────
   // For logged-in users: don't block on sync — just restore what localStorage
