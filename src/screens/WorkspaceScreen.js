@@ -64,7 +64,7 @@ const WORKSPACE_HTML = /* html */`
         <div class="pdf-book-icon"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg></div>
         <span class="pdf-book-name" id="ws-book-name">No book loaded</span>
         <span class="pdf-chapter" id="ws-book-author"></span>
-        <button class="ws-close-book-btn" id="ws-close-book-btn" title="Close document" onclick="closeBook()" aria-label="Close document">
+        <button class="ws-close-book-btn" id="ws-close-book-btn" aria-label="Close currently open document" onclick="closeBook()">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>

@@ -589,13 +589,12 @@ export function closeBook() {
   if (closeBtn) closeBtn.style.display = 'none';
 
   // Hide PDF views, show default content
-  const canvasWrap   = $el('ws-pdf-canvas-wrap');
-  const loadingState = $el('ws-pdf-loading');
+  const canvasWrap     = $el('ws-pdf-canvas-wrap');
+  const loadingState   = $el('ws-pdf-loading');
   const defaultContent = $el('ws-default-content');
-  hide($el('ws-pdf-loading'));
-  if (canvasWrap)    { canvasWrap.style.display = 'none'; canvasWrap.innerHTML = ''; }
-  if (loadingState)  loadingState.style.display = 'none';
-  if (defaultContent) defaultContent.style.display = 'flex';
+  if (canvasWrap)      { canvasWrap.style.display = 'none'; canvasWrap.innerHTML = ''; }
+  if (loadingState)    loadingState.style.display = 'none';
+  if (defaultContent)  defaultContent.style.display = 'flex';
 
   // Clear chat panel
   const msgs = $el('ws-messages');
