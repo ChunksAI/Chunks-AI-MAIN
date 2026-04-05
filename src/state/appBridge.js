@@ -1809,6 +1809,9 @@ window._deleteRecent      = _deleteRecent;
 window._clickRecent       = _clickRecent;
 window._showRecentCtxMenu = _showRecentCtxMenu;
 window.recentAdd          = recentAdd;
+// goHome/newChat need to be on window for inline onkeydown handlers in Sidebar.js
+window.goHome             = goHome;
+window.newChat            = newChat;
 
 
 // ── Home chat session restore → src/screens/HomeScreen.js (Task 25) ──────
