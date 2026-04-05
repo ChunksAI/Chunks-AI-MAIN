@@ -97,6 +97,13 @@ import './components/SettingsModal.js';                 // Task 24 ✓ — sets 
 import './components/StorageErrorBanner.js';            // Storage error UI — sets window.dismissStorageError
 import './components/ThinkingAccordion.js';             // Reusable reasoning accordion for thinking/deep-thinking mode
 
+// ── App bridge (formerly inline scripts in app.html) ─────────────────────────
+// Must be imported AFTER all screens/components have mounted so that
+// modal injection and event delegation find the correct DOM context.
+import './state/appBridge.js';       // recent chats, shortcuts, help, bug, event delegation, health, auth
+import './components/UpgradeModal.js'; // upgrade/pricing modal
+import './components/MobileNav.js';    // mobile drawer + bottom nav
+
 // ── Centralized HTML-binding registry ─────────────────────────────────────
 // globals.js is the ONLY file that sets window.* for HTML onclick handlers.
 // Must be imported after all modules above so every export is available.
