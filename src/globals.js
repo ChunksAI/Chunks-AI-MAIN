@@ -136,7 +136,7 @@ window.closeMobileDrawer = closeMobileDrawer;
 
 // ── State · Workspace ────────────────────────────────────────────────────────
 import {
-  ws, wsBookMeta, selectBook, selectUserDoc,
+  ws, wsBookMeta, selectBook, closeBook, selectUserDoc,
   wsPrevPage, wsNextPage, wsGoToPage, wsJumpToPage,
   wsZoomIn, wsZoomOut, wsFitWidth, togglePdfOutline,
   wsShowToast, wsSetInput, wsAutoResize, wsScrollBottom,
@@ -159,6 +159,7 @@ import {
 window.ws                  = ws;
 window.wsBookMeta          = wsBookMeta;
 window.selectBook          = selectBook;
+window.closeBook           = closeBook;
 window.selectUserDoc       = selectUserDoc;
 window._wsRenderHistory         = _wsRenderHistory;
 window._wsBuildBlocks           = _wsBuildBlocks;

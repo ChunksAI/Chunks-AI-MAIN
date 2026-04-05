@@ -104,6 +104,10 @@ export async function selectBook(bookId) {
   setText($el('ws-chat-title'), meta.name);
   setText($el('ws-chat-subtitle'), meta.author || '');
 
+  // Show close-book button
+  const closeBtn = document.getElementById('ws-close-book-btn');
+  if (closeBtn) closeBtn.style.display = 'inline-flex';
+
   const msgs = $el('ws-messages');
   if (msgs) {
     setHtml(msgs, `
@@ -553,4 +557,46 @@ export function _wsShowWelcome(meta) {
   const msgs = $el('ws-messages');
   if (!msgs) return;
   setHtml(msgs, _wsWelcomeHtml(meta.name, null));
+}
+
+// ── Close / unload current book ───────────────────────────────────────────────
+
+export function closeBook() {
+  // Clear state
+  ws.bookId      = null;
+  ws.pdfDoc      = null;
+  ws.chatHistory = [];
+  ws.userDocId   = null;
+  ws.userDocText = '';
+
+  // Clear persisted active book
+  try { localStorage.removeItem('chunks_active_ws_book'); } catch (_) {}
+  try { localStorage.removeItem('chunks_default_book'); } catch (_) {}
+  try { localStorage.removeItem('chunks_active_ws_user_doc'); } catch (_) {}
+
+  // Reset header labels
+  setText($el('ws-book-name'), 'No book loaded');
+  setText($el('ws-book-author'), '');
+  setText($el('ws-chat-title'), 'Select a document');
+  setText($el('ws-chat-subtitle'), '');
+  setText($el('mwt-book-name'), 'Study Workspace');
+  setText($el('mwt-book-sub'), 'Select a book to begin');
+  const mwtBadge = $el('mwt-badge');
+  if (mwtBadge) mwtBadge.style.display = 'none';
+
+  // Hide close-book button
+  const closeBtn = document.getElementById('ws-close-book-btn');
+  if (closeBtn) closeBtn.style.display = 'none';
+
+  // Hide PDF views, show default content
+  const canvasWrap     = $el('ws-pdf-canvas-wrap');
+  const loadingState   = $el('ws-pdf-loading');
+  const defaultContent = $el('ws-default-content');
+  if (canvasWrap)      { canvasWrap.style.display = 'none'; canvasWrap.innerHTML = ''; }
+  if (loadingState)    loadingState.style.display = 'none';
+  if (defaultContent)  defaultContent.style.display = 'flex';
+
+  // Clear chat panel
+  const msgs = $el('ws-messages');
+  if (msgs) setHtml(msgs, '');
 }

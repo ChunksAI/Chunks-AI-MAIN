@@ -296,6 +296,18 @@ export function mountSidebars() {
   _renderRecentPlansAllSidebars();
 }
 
+/** Returns the CSS modifier class for a recent item's colored dot indicator */
+function _getDotClass(entry, item) {
+  if (entry.type === 'plan')      return 'recent-dot--plan';
+  if (entry.type === 'workspace') {
+    const activeBookId = window.ws?.bookId;
+    return (activeBookId && item?.bookId && item.bookId === activeBookId)
+      ? 'recent-dot--active-doc'
+      : 'recent-dot--workspace';
+  }
+  return 'recent-dot--chat';
+}
+
 /** Render the unified "Recents" list in every sidebar (top 8, type icons) */
 export function _renderUnifiedRecentsAllSidebars() {
   const UNIFIED_MAX = 8;
@@ -371,21 +383,20 @@ export function _renderUnifiedRecentsAllSidebars() {
         el.dataset.planTopic = safeTopic;
         el.setAttribute('role', 'button');
         el.setAttribute('tabindex', '0');
-        el.innerHTML = `<span class="recent-type-icon">📅</span><span class="recent-title">${topic.replace(/</g, '&lt;')}</span><span class="recent-menu-btn sp-plan-menu-btn" data-action="spPlanCtxMenu-self" data-plan-id="${planId}" data-plan-topic="${safeTopic}" title="More options">···</span>`;
+        el.innerHTML = `<span class="recent-dot ${_getDotClass(entry, null)}"></span><span class="recent-title">${topic.replace(/</g, '&lt;')}</span><span class="recent-menu-btn sp-plan-menu-btn" data-action="spPlanCtxMenu-self" data-plan-id="${planId}" data-plan-topic="${safeTopic}" title="More options">···</span>`;
         container.appendChild(el);
 
       } else {
         // Chat or workspace item — use _buildRecentItem if available, else inline
         const item = entry.item;
-        const icon = entry.type === 'workspace' ? '📄' : '💬';
+        const dotClass = _getDotClass(entry, item);
 
         if (typeof window._buildRecentItem === 'function') {
           const el = window._buildRecentItem(item);
-          // Prepend the type icon
-          const iconSpan = document.createElement('span');
-          iconSpan.className = 'recent-type-icon';
-          iconSpan.textContent = icon;
-          el.insertBefore(iconSpan, el.firstChild);
+          // Prepend the colored dot
+          const dotSpan = document.createElement('span');
+          dotSpan.className = `recent-dot ${dotClass}`;
+          el.insertBefore(dotSpan, el.firstChild);
           container.appendChild(el);
         } else {
           // Fallback inline render
@@ -393,7 +404,7 @@ export function _renderUnifiedRecentsAllSidebars() {
           el.className = 'recent-item';
           el.dataset.id = item.id;
           el.title = item.question || '';
-          el.innerHTML = `<span class="recent-type-icon">${icon}</span><span class="recent-title">${(item.pinned ? '📌 ' : '') + (item.label || '').replace(/</g, '&lt;')}</span><span class="recent-menu-btn" title="More options">···</span>`;
+          el.innerHTML = `<span class="recent-dot ${dotClass}"></span><span class="recent-title">${(item.pinned ? '📌 ' : '') + (item.label || '').replace(/</g, '&lt;')}</span><span class="recent-menu-btn" title="More options">···</span>`;
           el.addEventListener('click', () => window._clickRecent?.(item));
           el.querySelector('.recent-menu-btn')?.addEventListener('click', e => {
             e.stopPropagation();
