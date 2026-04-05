@@ -676,10 +676,11 @@ window.libModalDrop        = libModalDrop;
 window.libModalDeleteDoc   = libModalDeleteDoc;
 
 // ── Share ────────────────────────────────────────────────────────────────────
-import { shareDeck, shareExamResults, shareStudyPlan } from './state/share.js';
+import { shareDeck, shareExamResults, shareExamSaved, shareStudyPlan } from './state/share.js';
 
 window.shareDeck        = shareDeck;
 window.shareExamResults = shareExamResults;
+window.shareExamSaved   = shareExamSaved;
 window.shareStudyPlan   = shareStudyPlan;
 
 // ── Progress Tracker ─────────────────────────────────────────────────────────

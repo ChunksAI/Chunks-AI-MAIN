@@ -152,6 +152,60 @@ export async function shareExamResults(btn = null) {
 }
 
 /**
+ * Share a saved exam (questions only, not a completed attempt).
+ * Loads the saved exam from localStorage by ID and creates a shareable link.
+ *
+ * @param {string|number} id   — saved exam ID (from exam_saved_v1)
+ * @param {HTMLElement|null} [btn]
+ */
+export async function shareExamSaved(id, btn = null) {
+  _setLoading(btn, true);
+  try {
+    const EXAM_SAVED_KEY = 'exam_saved_v1';
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem(EXAM_SAVED_KEY) || '[]'); } catch (_) {}
+    const entry = saved.find(e => String(e.id) === String(id));
+    if (!entry || !Array.isArray(entry.questions) || !entry.questions.length) {
+      showToast('⚠️', 'Could not find exam to share.', 'var(--red)');
+      return;
+    }
+
+    const typeLabel = { mcq:'MCQ', truefalse:'T/F', situational:'Situational', cbl:'Case-Based', mixed:'Mixed', openended:'Open-Ended' };
+    const diffLabel = { easy:'Easy', medium:'Medium', hard:'Hard', adaptive:'Adaptive' };
+    const tl = typeLabel[entry.type] || entry.type || 'MCQ';
+    const dl = diffLabel[entry.diff]  || entry.diff  || 'Medium';
+
+    const review = entry.questions.map(q => ({
+      q:           q.q,
+      answer:      q.answer,
+      options:     q.options,
+      correct:     false,
+      selected:    null,
+      skipped:     false,
+      explanation: q.explanation || '',
+    }));
+
+    const payload = {
+      title:    entry.topic || 'Exam',
+      subtitle: [tl, dl].filter(Boolean).join(' · '),
+      review,
+      total:    entry.questions.length,
+      correct:  0,
+      wrong:    0,
+      score:    null,
+      duration: '—',
+      date:     entry.createdAt || new Date().toLocaleDateString(),
+    };
+    const { url } = await _postShare('exam', payload);
+    await _copyAndToast(url);
+  } catch (err) {
+    showToast('⚠️', 'Could not create share link: ' + err.message, 'var(--red)');
+  } finally {
+    _setLoading(btn, false);
+  }
+}
+
+/**
  * Share the current study plan.
  *
  * @param {HTMLElement|null} [btn]
