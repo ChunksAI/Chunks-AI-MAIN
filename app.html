@@ -6383,6 +6383,7 @@ function _examSelect(idx, btn) {
   _examAnswers[_examIdx] = {selected:idx, correct:isCorrect, skipped:false};
   if (isCorrect) { _examStreakCur++; _examStreakBest = Math.max(_examStreakBest,_examStreakCur); }
   else _examStreakCur = 0;
+  _examSaveProgress();
 
   // ── Task 5: swap remaining unanswered questions if adaptive ───────────────
   if (_examAdaptiveEnabled) _examAdaptiveReorder();
@@ -6410,6 +6411,7 @@ function _examShowFeedback(ok, explanation, score) {
 function examSkip() {
   _examAnswers[_examIdx] = {selected:-1, correct:false, skipped:true};
   _examStreakCur = 0;
+  _examSaveProgress();
   examNext();
 }
 
@@ -6443,6 +6445,7 @@ async function examNext() {
     if (result.correct) { _examStreakCur++; _examStreakBest = Math.max(_examStreakBest, _examStreakCur); }
     else _examStreakCur = 0;
 
+    _examSaveProgress();
     _examShowFeedback(result.correct, result.feedback, result.score);
     document.getElementById('exam-score-live').textContent = _examAnswers.filter(a=>a&&a.correct).length+' correct';
     if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = _examIdx === _examQuestions.length-1 ? 'Finish' : 'Next →'; }
@@ -6453,6 +6456,7 @@ async function examNext() {
   if (_examAnswers[_examIdx]===null) return;
   if (_examIdx < _examQuestions.length-1) {
     _examIdx++;
+    _examSaveProgress();
     const card = document.getElementById('exam-q-card');
     card.style.animation='none'; requestAnimationFrame(()=>{card.style.animation='';});
     _examRenderQuestion();
@@ -6474,6 +6478,7 @@ function _examStartTimer() {
 
 function _examFinish() {
   clearInterval(_examTimerHandle);
+  _examClearProgress();
   const elapsed = Math.round((Date.now()-_examStartTime)/1000);
   const correct = _examAnswers.filter(a=>a&&a.correct).length;
   const total   = _examQuestions.length;
@@ -7100,6 +7105,7 @@ function examRetry() {
     return;
   }
   clearInterval(_examTimerHandle);
+  _examClearProgress();
   _examAnswers    = new Array(_examQuestions.length).fill(null);
   _examIdx        = 0;
   _examStreakBest = 0;
@@ -7112,7 +7118,7 @@ function examRetry() {
   else { const td = document.getElementById('exam-timer-display'); if (td) td.style.display = 'none'; }
 }
 function examNewTopic() { _activeExamRecentId = null; document.getElementById('exam-topic-input').value = ''; _examShow('exam-setup'); }
-function examAbort() { clearInterval(_examTimerHandle); if (_examAbortCtrl) { _examAbortCtrl.abort(); _examAbortCtrl = null; } _examShow('exam-setup'); }
+function examAbort() { clearInterval(_examTimerHandle); _examClearProgress(); if (_examAbortCtrl) { _examAbortCtrl.abort(); _examAbortCtrl = null; } _examShow('exam-setup'); }
 
 /* ═══════════════════════════════════════════════════════════════
    SRS WEIGHT STORE — per-concept miss counts (spaced repetition)
@@ -7173,6 +7179,80 @@ function _examSaveGenerated() {
   // Keep at most EXAM_SAVED_MAX
   const trimmed = saved.slice(0, EXAM_SAVED_MAX);
   try { localStorage.setItem(EXAM_SAVED_KEY, JSON.stringify(trimmed)); } catch(e) {}
+}
+
+// ── In-progress exam persistence ─────────────────────────────────────────────
+const EXAM_INPROGRESS_KEY = 'exam_inprogress_v1';
+
+/** Save the current mid-exam state so it can be restored after navigation. */
+function _examSaveProgress() {
+  if (!_examQuestions || !_examQuestions.length) return;
+  const state = {
+    questions:    _examQuestions,
+    answers:      _examAnswers,
+    idx:          _examIdx,
+    topic:        _examTopic,
+    type:         _examType,
+    diff:         _examDiff,
+    startTime:    _examStartTime,
+    streakBest:   _examStreakBest,
+    streakCur:    _examStreakCur,
+    isRetake:     _examIsRetake,
+    timerSec:     _examTimerSec,
+    savedAt:      Date.now(),
+  };
+  try { localStorage.setItem(EXAM_INPROGRESS_KEY, JSON.stringify(state)); } catch(e) {}
+}
+
+/** Remove the in-progress snapshot (exam finished, aborted, or retried). */
+function _examClearProgress() {
+  try { localStorage.removeItem(EXAM_INPROGRESS_KEY); } catch(e) {}
+}
+
+/**
+ * Attempt to restore a mid-exam session from localStorage.
+ * Returns true if a valid in-progress state was found and restored.
+ */
+function _examRestoreProgress() {
+  let state;
+  try { state = JSON.parse(localStorage.getItem(EXAM_INPROGRESS_KEY) || 'null'); } catch(e) { return false; }
+  if (!state || !Array.isArray(state.questions) || !state.questions.length) return false;
+  // Don't restore a fully-answered exam — let it go to setup (user should finish normally)
+  const allAnswered = state.answers && state.answers.length === state.questions.length &&
+                      state.answers.every(a => a !== null);
+  if (allAnswered) { _examClearProgress(); return false; }
+
+  clearInterval(_examTimerHandle);
+  _examQuestions  = state.questions;
+  _examAnswers    = state.answers || new Array(state.questions.length).fill(null);
+  _examIdx        = typeof state.idx === 'number' ? state.idx : 0;
+  _examTopic      = state.topic  || '';
+  _examType       = state.type   || 'mcq';
+  _examDiff       = state.diff   || 'medium';
+  _examStartTime  = state.startTime  || Date.now();
+  _examStreakBest = state.streakBest || 0;
+  _examStreakCur  = state.streakCur  || 0;
+  _examIsRetake   = !!state.isRetake;
+  // Adjust remaining timer to account for time elapsed while away
+  if (typeof state.timerSec === 'number' && state.timerSec > 0) {
+    const elapsedAway = state.savedAt ? Math.round((Date.now() - state.savedAt) / 1000) : 0;
+    _examTimerSec = Math.max(0, state.timerSec - elapsedAway);
+  } else {
+    _examTimerSec = 0;
+  }
+
+  _examShow('exam-quiz');
+  _examRenderQuestion();
+  if (_examTimerSec > 0) {
+    _examStartTimer();
+  } else if (state.timerSec > 0) {
+    // Timer originally existed but expired while away — finish the exam
+    _examFinish();
+  } else {
+    const td = document.getElementById('exam-timer-display');
+    if (td) td.style.display = 'none';
+  }
+  return true;
 }
 
 /** Open a saved exam for retaking (loads questions, resets state, shows quiz) */

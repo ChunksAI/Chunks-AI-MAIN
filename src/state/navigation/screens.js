@@ -56,11 +56,14 @@ export function showScreen(name) {
   if (!_navFromHistory) {
     if (name === 'exam') {
       if (typeof _examShow === 'function') {
-        _examShow('exam-setup');
-        _activeExamRecentId = null;
-        if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
-        // Apply guest exam constraints (MCQ only, max 5 questions)
-        setTimeout(() => window.enforceExamConstraints?.(), 50);
+        const restored = typeof _examRestoreProgress === 'function' && _examRestoreProgress();
+        if (!restored) {
+          _examShow('exam-setup');
+          _activeExamRecentId = null;
+          if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
+          // Apply guest exam constraints (MCQ only, max 5 questions)
+          setTimeout(() => window.enforceExamConstraints?.(), 50);
+        }
       }
       // Refresh nav context banner whenever exam screen is shown
       setTimeout(() => { if (typeof window._fcCheckNavFrom === 'function') window._fcCheckNavFrom(); }, 100);
