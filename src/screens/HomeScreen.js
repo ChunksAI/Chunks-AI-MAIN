@@ -494,7 +494,7 @@ export function _renderHomeActivities() {
 
   if (lastDeck) {
     const deckSub = lastDeck.cardCount
-      ? `${lastDeck.cardCount} cards · ${lastDeck.pct}% mastered`
+      ? `${lastDeck.cardCount} cards, ${lastDeck.pct}% mastered`
       : 'Flashcards';
     richCards += `
       <div class="ra-new-card flash" data-ra-action="flash" data-ra-id="${_esc(lastDeck.deckId)}">
