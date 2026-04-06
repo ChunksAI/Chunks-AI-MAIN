@@ -69,8 +69,8 @@ const HOME_HTML = /* html */`
         <!-- Recent Activity (populated by _renderHomeActivities) -->
         <div id="home-activities-section"></div>
 
-        <!-- Two-column: What\'s New + Feedback -->
-        <div class="hd-two-col">
+        <!-- What's New + Feedback stacked vertically -->
+        <div class="hd-stack">
           <div class="hd-panel" id="hd-whats-new"></div>
           <div class="hd-panel" id="hd-feedback"></div>
         </div>
@@ -114,7 +114,7 @@ function _updateGreeting() {
   const nameEl = document.getElementById('home-greeting-name');
   if (nameEl && user) {
     const firstName = (user.name || user.email || '').split(/\s+|@/)[0];
-    if (firstName) nameEl.textContent = firstName;
+    if (firstName) nameEl.textContent = firstName.charAt(0).toUpperCase() + firstName.slice(1);
   }
 }
 
@@ -170,34 +170,36 @@ function _hdRenderFeedback() {
   const el = document.getElementById('hd-feedback');
   if (!el) return;
 
-  // Hide widget if rated within the last 3 days
+  // Load previous feedback to pre-populate widget
+  let prevRating = 0;
+  const prevTags = new Set();
+  let alreadyRatedToday = false;
   try {
     const prev = JSON.parse(localStorage.getItem('chunks_home_feedback_v1') || '[]');
     if (prev.length > 0) {
       const last = prev[prev.length - 1];
+      prevRating = last.rating || 0;
+      (last.tags || []).forEach(t => prevTags.add(t));
       const daysSince = (Date.now() - new Date(last.date).getTime()) / 86400000;
-      if (daysSince < 3) {
-        el.innerHTML = `
-          <p class="hd-section-label">HOW\'S YOUR STUDY SESSION GOING?</p>
-          <div class="hd-feedback-thanks">Thanks for your feedback! ✨</div>`;
-        return;
-      }
+      alreadyRatedToday = daysSince < 1;
     }
   } catch (_) {}
+
+  const confirmStyle = alreadyRatedToday ? 'display:block;' : 'display:none;';
 
   el.innerHTML = `
     <p class="hd-section-label">HOW\'S YOUR STUDY SESSION GOING?</p>
     <p class="hd-feedback-q">Rate today\'s experience</p>
     <div class="hd-stars" id="hd-stars-row">
-      ${[1,2,3,4,5].map(n => `<button class="hd-star" data-star="${n}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}
+      ${[1,2,3,4,5].map(n => `<button class="hd-star${n <= prevRating ? ' active' : ''}" data-star="${n}" aria-label="${n} star${n > 1 ? 's' : ''}">★</button>`).join('')}
     </div>
     <div class="hd-tag-chips" id="hd-tag-chips">
-      ${_HD_FEEDBACK_TAGS.map(t => `<button class="hd-tag-chip" data-tag="${t}">${t}</button>`).join('')}
+      ${_HD_FEEDBACK_TAGS.map(t => `<button class="hd-tag-chip${prevTags.has(t) ? ' active' : ''}" data-tag="${t}">${t}</button>`).join('')}
     </div>
-    <div class="hd-feedback-confirm" id="hd-feedback-confirm" style="display:none;">Thanks! 🎉</div>`;
+    <div class="hd-feedback-confirm" id="hd-feedback-confirm" style="${confirmStyle}">Thanks! 🎉</div>`;
 
-  let selectedRating = 0;
-  const selectedTags = new Set();
+  let selectedRating = prevRating;
+  const selectedTags = new Set(prevTags);
 
   el.querySelectorAll('.hd-star').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -319,10 +321,16 @@ export function _renderHomeActivities() {
     container.innerHTML = `
       <p class="prompts-label">Recent activity</p>
       <div class="ra-grid">
-        <div class="ra-new-card ra-new-empty" onclick="homeStartNew()">
-          <div class="ra-new-plus">+</div>
-          <div class="ra-new-empty-label">Start something new</div>
-          <div class="ra-new-empty-sub">Upload a book, create a deck,<br>or start a plan</div>
+        <div class="ra-new-card ra-start-new" onclick="homeStartNew()">
+          <div class="ra-card-banner ra-start-new-banner">
+            <div class="ra-start-new-icon">✦</div>
+          </div>
+          <div class="ra-body">
+            <span class="ra-new-type">Get Started</span>
+            <div class="ra-new-title">Start something new</div>
+            <div class="ra-new-sub">Upload a book, create a deck,<br>or start a study plan</div>
+            <button class="ra-new-btn">Explore →</button>
+          </div>
         </div>
       </div>`;
     return;
@@ -340,6 +348,7 @@ export function _renderHomeActivities() {
       <div class="ra-new-card book" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
         <div class="ra-card-banner book">
           <div class="ra-icon book">${_iconBook}</div>
+          <div class="ra-card-banner-label">Textbook</div>
         </div>
         <div class="ra-body">
           <span class="ra-new-type">Textbook</span>
@@ -355,6 +364,7 @@ export function _renderHomeActivities() {
       <div class="ra-new-card plan" data-ra-action="plan" data-ra-id="${_esc(lastPlan.planId)}">
         <div class="ra-card-banner plan">
           <div class="ra-icon plan">${_iconPlan}</div>
+          <div class="ra-card-banner-label">Study Plan</div>
         </div>
         <div class="ra-body">
           <span class="ra-new-type">Study Plan</span>
@@ -373,6 +383,7 @@ export function _renderHomeActivities() {
       <div class="ra-new-card flash" data-ra-action="flash" data-ra-id="${_esc(lastDeck.deckId)}">
         <div class="ra-card-banner flash">
           <div class="ra-icon flash">${_iconFlash}</div>
+          <div class="ra-card-banner-label">Flashcards</div>
         </div>
         <div class="ra-body">
           <span class="ra-new-type">Flashcards</span>
@@ -384,10 +395,16 @@ export function _renderHomeActivities() {
   }
 
   richCards += `
-    <div class="ra-new-card ra-new-empty" onclick="homeStartNew()">
-      <div class="ra-new-plus">+</div>
-      <div class="ra-new-empty-label">Start something new</div>
-      <div class="ra-new-empty-sub">Upload a book, create a deck,<br>or start a plan</div>
+    <div class="ra-new-card ra-start-new" onclick="homeStartNew()">
+      <div class="ra-card-banner ra-start-new-banner">
+        <div class="ra-start-new-icon">✦</div>
+      </div>
+      <div class="ra-body">
+        <span class="ra-new-type">Get Started</span>
+        <div class="ra-new-title">Start something new</div>
+        <div class="ra-new-sub">Upload a book, create a deck,<br>or start a plan</div>
+        <button class="ra-new-btn">Explore →</button>
+      </div>
     </div>`;
 
   container.innerHTML = `

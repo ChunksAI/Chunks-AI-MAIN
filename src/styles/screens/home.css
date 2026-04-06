@@ -790,6 +790,43 @@
 .ra-icon.flash { background: rgba(255,255,255,0.18); color: #fff; }
 .ra-icon.book  { background: rgba(255,255,255,0.18); color: #fff; }
 
+/* Content type label centered at bottom of banner */
+.ra-card-banner-label {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.75);
+  pointer-events: none;
+}
+
+/* "Start something new" card — distinct gradient surface */
+.ra-start-new-banner {
+  background: linear-gradient(135deg, #a855f7 0%, #6d28d9 60%, #4338ca 100%);
+}
+.ra-start-new-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  color: rgba(255,255,255,0.55);
+  pointer-events: none;
+}
+.ra-start-new {
+  border-style: solid;
+  opacity: 1;
+}
+[data-theme="study"] .ra-start-new-banner {
+  background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 60%, #4338ca 100%);
+}
+
 /* Text block below banner */
 .ra-body {
   display: flex;
@@ -1028,7 +1065,17 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.07);
 }
 
-/* ── Two-column layout ───────────────────────────────────── */
+/* ── Vertical stack layout (What's New + Feedback) ──────── */
+.hd-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  margin-top: 4px;
+  position: relative; z-index: 1;
+}
+
+/* ── Two-column layout (kept for potential future use) ───── */
 .hd-two-col {
   display: grid;
   grid-template-columns: 55fr 45fr;
