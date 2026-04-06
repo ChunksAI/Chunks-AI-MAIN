@@ -255,10 +255,6 @@ const WORKSPACE_HTML = /* html */`
         </div>
       </div>
       <div class="chat-bar-actions">
-        <span class="session-timer" id="ws-session-timer" title="Session duration"></span>
-        <button class="icon-btn" aria-label="New chat" title="New chat" data-action="wsClearChat">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
-        </button>
       </div>
     </div>
 
@@ -422,7 +418,6 @@ export function mountWorkspaceScreen() {
 
   // Refresh smart suggestions after mount
   setTimeout(refreshSmartSuggestions, 300);
-  setTimeout(_initSessionTimer, 0);
   setTimeout(_initNotes, 0);
   setTimeout(_initEmptyStateObserver, 0);
   // Mount Preact islands
@@ -576,39 +571,6 @@ function _renderWsDocCards() {
     });
     grid.appendChild(card);
   });
-}
-
-// ── Session timer ─────────────────────────────────────────────────────────────
-
-const _TIMER_KEY = 'chunks-ai-session-start';
-
-function _initSessionTimer() {
-  const timerEl    = document.getElementById('ws-session-timer');
-
-  // Persist start time across within-tab navigation (sessionStorage resets per browser session)
-  let startTime = parseInt(sessionStorage.getItem(_TIMER_KEY) || '0', 10);
-  if (!startTime) {
-    startTime = Date.now();
-    sessionStorage.setItem(_TIMER_KEY, String(startTime));
-  }
-
-  const _update = () => {
-    // Stop updating if timer element left the DOM
-    if (timerEl && !document.contains(timerEl)) { clearInterval(_timerId); return; }
-    const mins = Math.floor((Date.now() - startTime) / 60000);
-    let label = '';
-    if (mins >= 1 && mins < 60) {
-      label = `studying for ${mins}min`;
-    } else if (mins >= 60) {
-      const h = Math.floor(mins / 60);
-      const m = mins % 60;
-      label = `studying for ${h}h${m > 0 ? ` ${m}m` : ''}`;
-    }
-    if (timerEl) timerEl.textContent = label;
-  };
-
-  _update();
-  const _timerId = setInterval(_update, 60000);
 }
 
 // ── Notes persistence ─────────────────────────────────────────────────────────
