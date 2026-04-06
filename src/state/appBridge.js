@@ -42,10 +42,6 @@
         <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>K</kbd></span>
       </div>
       <div class="shortcuts-row">
-        <span class="shortcuts-row-label">Incognito chat</span>
-        <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>I</kbd></span>
-      </div>
-      <div class="shortcuts-row">
         <span class="shortcuts-row-label">Toggle sidebar</span>
         <span class="kbd-combo"><kbd>Ctrl</kbd><span class="kbd-sep">+</span><kbd>.</kbd></span>
       </div>
@@ -736,7 +732,7 @@ function _loadWsSession(bookId) {
   localStorage.removeItem('chunks_save_history');
 })();
 function goHome() {
-  // Always return to the homepage landing — clear any active chat state
+  // Always return to the homepage dashboard — clear any active session state
   _activeRecentId = null;
   homeHistory = [];
   _homeSessionId = null;
@@ -745,25 +741,13 @@ function goHome() {
   localStorage.removeItem('chunks_active_recent_id');
   localStorage.removeItem('chunks_active_vt_session');
 
-  // Reset home to landing
-  const chatHist    = document.getElementById('home-chat-history');
-  const homeLanding = document.getElementById('home-landing');
-  const homeHero    = document.querySelector('.home-hero');
-  const homeBar     = document.getElementById('home-input-bar');
-  const homeScroll  = document.getElementById('home-scroll-area');
-  if (chatHist)    chatHist.innerHTML = '';
-  if (homeLanding) homeLanding.style.display = '';
-  if (homeHero)    homeHero.style.display = '';
-  if (homeBar)     homeBar.style.display = 'none';
-  if (homeScroll)  homeScroll.style.justifyContent = 'center';
-
   // Clear sidebar active state via _setActiveRecent so both DOM and localStorage are cleared
   if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
 
   showScreen('home');
 
-  // Refresh the Recent Activity / Try Asking section with the latest data
-  if (typeof window._renderHomeActivities === 'function') window._renderHomeActivities();
+  // Refresh the dashboard activities and stats with the latest data
+  if (typeof window.homeRestoreLanding === 'function') window.homeRestoreLanding();
 }
 
 function newChat() {
@@ -789,40 +773,6 @@ function newChat() {
   localStorage.removeItem('chunks_active_ws_book');
   localStorage.removeItem('chunks_active_recent_id');
   localStorage.removeItem('chunks_active_vt_session');
-
-  // Reset home screen to landing state
-  const homeChatHistory = document.getElementById('home-chat-history');
-  if (homeChatHistory) homeChatHistory.innerHTML = '';
-  const homeLanding = document.getElementById('home-landing');
-  const homeHero = document.querySelector('.home-hero');
-  const homeBar = document.getElementById('home-input-bar');
-  const homeScrollArea = document.getElementById('home-scroll-area');
-  if (homeLanding) homeLanding.style.display = '';
-  if (homeHero) homeHero.style.display = '';
-  if (homeBar) homeBar.style.display = 'none';
-  if (homeScrollArea) homeScrollArea.style.justifyContent = 'center';
-
-  // Rotate hero heading to a new random phrase
-  (function() {
-    const phrases = [
-      { h: 'Study smarter,<br>not <em>harder</em>', s: 'Ask questions, explore your textbooks, and generate study tools — all in one place.' },
-      { h: 'Learn faster,<br>remember <em>longer</em>', s: 'Your AI-powered study companion that turns difficult concepts into clear understanding.' },
-      { h: 'Knowledge is<br>your <em>superpower</em>', s: 'Ask anything, study everything — Chunks AI has your back every step of the way.' },
-      { h: 'Stop cramming,<br>start <em>understanding</em>', s: 'Deep learning, not surface memorization. Let Chunks AI guide you to real mastery.' },
-      { h: 'Every expert<br>was once a <em>beginner</em>', s: 'Break down complex topics, one question at a time. Your journey starts here.' },
-      { h: 'Your grades,<br>your <em>future</em>', s: 'Study with purpose. Chunks AI helps you focus on what matters most.' },
-      { h: 'Turn confusion<br>into <em>clarity</em>', s: 'No question is too hard. Chunks AI breaks it down until it clicks.' },
-      { h: 'Ace your exams,<br>own your <em>success</em>', s: 'Flashcards, summaries, practice questions — everything you need, all in one place.' },
-    ];
-    const current = document.getElementById('home-hero-heading')?.innerHTML || '';
-    let pick;
-    do { pick = phrases[Math.floor(Math.random() * phrases.length)]; }
-    while (pick.h === current && phrases.length > 1);
-    const h = document.getElementById('home-hero-heading');
-    const s = document.getElementById('home-hero-sub');
-    if (h) h.innerHTML = pick.h;
-    if (s) s.textContent = pick.s;
-  })();
 
   // Clear input
   const inp = document.getElementById('ws-chat-input');
@@ -1021,21 +971,11 @@ async function _deleteRecent(id, e) {
     localStorage.removeItem('chunks_active_ws_book');
     localStorage.removeItem('chunks_active_vt_session');
 
-    // Reset home landing
+    // Reset home state
     homeHistory = [];
     _homeSessionId = null;
     // Also clear the HomeScreen.js module-level _homeSessionId via the window setter.
     window._homeSessionId = null;
-    const chatHist   = document.getElementById('home-chat-history');
-    const homeLanding = document.getElementById('home-landing');
-    const homeHero   = document.querySelector('.home-hero');
-    const homeBar    = document.getElementById('home-input-bar');
-    const homeScroll = document.getElementById('home-scroll-area');
-    if (chatHist)   chatHist.innerHTML = '';
-    if (homeLanding) homeLanding.style.display = '';
-    if (homeHero)   homeHero.style.display = '';
-    if (homeBar)    homeBar.style.display = 'none';
-    if (homeScroll) homeScroll.style.justifyContent = 'center';
 
     // Reset workspace messages
     const msgs = document.getElementById('ws-messages');
@@ -1080,120 +1020,10 @@ function _clickRecent(item) {
       window._vtRestoreSession(item.id, item.question);
     }
   } else if (item.source === 'general' || !item.bookId) {
-    // General AI — restore saved session
+    // Home dashboard — just navigate home (no chat view to restore)
     showScreen('home');
-    let session = _loadSession(item.id);
-    // If the local-ID session has no history, also try the UUID key.
-    // pullAndApply() stores sessions under their UUID, so the local-ID key
-    // may have been overwritten with an empty history blob.
-    if ((!session?.history?.length) && item.uuid) {
-      const byUuid = _loadSession(item.uuid);
-      if (byUuid?.history?.length) session = byUuid;
-    }
-    const landing = document.getElementById('home-landing');
-    const hero = document.querySelector('.home-hero');
-    const bar = document.getElementById('home-input-bar');
-    const scrollArea = document.getElementById('home-scroll-area');
-    const chatHistory = document.getElementById('home-chat-history');
-
-    const history = session?.history || session?.messages || [];
-
-    if (session && history.length) {
-      // Restore full conversation — always re-render from structured data so
-      // action buttons (Copy, Thumbs Up/Down, Retry) are always present and functional.
-      if (landing) landing.style.display = 'none';
-      if (hero) hero.style.display = 'none';
-      if (bar) bar.style.display = 'flex';
-      if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
-
-      // Point the active-session pointers at the clicked item so that
-      // _onSessionsReady (fired by pullAndApply) restores the same session
-      // rather than overwriting it with whichever session was last saved.
-      localStorage.setItem('chunks_active_home_session', item.id);
-      const _clickedUuid = session.supabaseId || item.uuid || null;
-      if (_clickedUuid) localStorage.setItem('chunks_active_home_supabase_id', _clickedUuid);
-      // Mark as "recently navigated" so _onSessionsReady treats this as a live session.
-      if (typeof window._homeMarkNavTime === 'function') window._homeMarkNavTime();
-
-      // _homeMountSession is always available when a recent item is clicked (HomeScreen.js
-      // has already initialised by this point).  Never inject raw HTML — it loses event
-      // handlers when passed through DOMPurify.
-      if (typeof window._homeMountSession === 'function') {
-        window._homeMountSession(session, item.id);
-      } else {
-        // Rare: HomeScreen.js not yet ready — defer briefly to let module init settle.
-        setTimeout(() => window._homeMountSession?.(session, item.id), 200);
-      }
-
-      homeHistory = history;
-      _homeSessionId = item.id;
-      window._homeSessionId = item.id;
-      setTimeout(() => {
-        homeScrollBottom();
-        document.getElementById('home-ask-input-bottom')?.focus();
-      }, 60);
-    } else {
-      // No local history — set up UI then try to load messages from Supabase.
-      // This handles sessions whose history was cleared by pullAndApply() because
-      // messages now live in the Supabase messages table rather than in the session
-      // metadata blob.
-      if (landing) landing.style.display = 'none';
-      if (hero) hero.style.display = 'none';
-      if (bar) bar.style.display = 'flex';
-      if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
-      _homeSessionId = item.id;
-      window._homeSessionId = item.id;
-
-      const sessionUuid = session?.supabaseId
-        || item.uuid
-        || _loadSession(item.uuid)?.supabaseId
-        || null;
-
-      // Point active-session pointers at the clicked item before the async
-      // fetch so that _onSessionsReady (if it fires concurrently) loads the
-      // same session instead of overwriting with a stale/different one.
-      localStorage.setItem('chunks_active_home_session', item.id);
-      if (sessionUuid) localStorage.setItem('chunks_active_home_supabase_id', sessionUuid);
-      if (typeof window._homeMarkNavTime === 'function') window._homeMarkNavTime();
-
-      if (sessionUuid && window.ChunksDB?.isLoggedIn?.()) {
-        // Show a subtle loading indicator while fetching
-        if (chatHistory) chatHistory.innerHTML = '<div class="hc-session-loading">Loading conversation…</div>';
-        (async () => {
-          try {
-            const { data: remoteMessages } = (await window.ChunksDB.messages.loadSession(sessionUuid)) ?? {};
-            if (remoteMessages?.length) {
-              const remoteSession = { id: item.id, supabaseId: sessionUuid, history: remoteMessages };
-              // Cache locally so subsequent clicks are instant
-              window._lsSet?.('chunks_session_' + item.id, remoteSession);
-              if (typeof window._homeMountSession === 'function') {
-                window._homeMountSession(remoteSession, item.id);
-              } else {
-                setTimeout(() => {
-                  if (typeof window._homeMountSession === 'function') {
-                    window._homeMountSession(remoteSession, item.id);
-                  }
-                }, 200);
-              }
-              homeHistory = remoteMessages;
-              setTimeout(() => {
-                homeScrollBottom();
-                document.getElementById('home-ask-input-bottom')?.focus();
-              }, 60);
-            } else {
-              // Nothing found in Supabase either — show inline notice
-              if (chatHistory) chatHistory.innerHTML = '<div class="hc-session-unavailable">Session no longer available</div>';
-            }
-          } catch (_err) {
-            // Network or Supabase error — replace the loading indicator with a notice
-            if (chatHistory) chatHistory.innerHTML = '<div class="hc-session-unavailable">Could not load conversation</div>';
-          }
-        })();
-      } else {
-        // Guest or no UUID — session data is gone
-        if (chatHistory) chatHistory.innerHTML = '<div class="hc-session-unavailable">Session no longer available</div>';
-      }
-    }
+    homeHistory = [];
+    _homeSessionId = null;
   } else {
     // Workspace / book question — restore saved session, never re-send
     showScreen('workspace');
@@ -1874,7 +1704,6 @@ document.addEventListener('keydown', function(e) {
   const confirmOpen   = document.getElementById('confirm-modal')?.classList.contains('active');
   const libraryOpen   = document.getElementById('library-modal')?.classList.contains('active');
   const explainOpen   = document.getElementById('sp-explain-drawer')?.classList.contains('open');
-  const incogOpen     = document.getElementById('incognito-modal')?.classList.contains('active');
 
   // ── Ctrl+/ — toggle shortcuts (always works) ─────────────
   if (e.ctrlKey && !e.shiftKey && e.key === '/') {
@@ -1899,10 +1728,8 @@ document.addEventListener('keydown', function(e) {
         activeScreen.querySelector('textarea:not([style*="display:none"])') ||
         activeScreen.querySelector('input[type="text"]:not([style*="display:none"])')
       )) ||
-      document.getElementById('home-ask-input-bottom') ||
       document.getElementById('ws-chat-input') ||
-      document.getElementById('vt-input') ||
-      document.getElementById('home-ask-input');
+      document.getElementById('vt-input');
     if (input) {
       if (document.activeElement === input) input.blur();
       else input.focus();
@@ -1913,7 +1740,6 @@ document.addEventListener('keydown', function(e) {
   // ── Escape — layered close ────────────────────────────────
   if (e.key === 'Escape' && !e.ctrlKey && !e.shiftKey) {
     if (confirmOpen)   { closeConfirmModal();           return; }
-    if (incogOpen)     { window.closeIncognitoChat?.(); return; }
     if (explainOpen)   { spCloseExplainDrawer();        return; }
     if (shortcutsOpen) { closeShortcuts();              return; }
     if (helpOpen)      { closeHelpCenter();             return; }
@@ -1971,15 +1797,6 @@ document.addEventListener('keydown', function(e) {
     } else {
       wsShowToast('⚠', 'No active chat or plan to delete', '');
     }
-    return;
-  }
-
-  // ── Ctrl+I — toggle incognito chat modal (always works, even while typing) ──
-  if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'i') {
-    e.preventDefault();
-    const modal = document.getElementById('incognito-modal');
-    if (modal?.classList.contains('active')) window.closeIncognitoChat?.();
-    else window.openIncognitoChat?.();
     return;
   }
 
@@ -2221,8 +2038,6 @@ window.filterFAQs      = filterFAQs;
     'wsUploadPdf':            ()      => { openLibraryModal(); },
 
     /* ── Home ───────────────────────────────────────────── */
-    'homeSendMessage':        ()      => homeSendMessage(),
-    'homeSetInput-text':      (el)    => homeSetInput(el.textContent),
 
     /* ── Flashcards ─────────────────────────────────────── */
     '_fcFlip':                ()      => _fcFlip(),
@@ -2460,10 +2275,6 @@ window.filterFAQs      = filterFAQs;
     /* ── Bug report (Task 34) ────────────────────────────── */
     'closeBugReport':         ()      => closeBugReport(),
     'submitBugReport':        ()      => submitBugReport(),
-
-    /* ── Incognito chat ──────────────────────────────────── */
-    'openIncognitoChat':      ()      => window.openIncognitoChat?.(),
-    'closeIncognitoChat':     ()      => window.closeIncognitoChat?.(),
 
     /* ── Help centre (Task 34) ───────────────────────────── */
     'contactSupport':         ()      => { if (typeof wsShowToast === 'function') wsShowToast('📬', 'Support email: help@chunksai.com', ''); },
