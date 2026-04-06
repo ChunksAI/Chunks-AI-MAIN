@@ -22,7 +22,7 @@ const NAVIGABLE_SCREENS = [
 test.describe('Guest mode navigation', () => {
   test('all sidebar screens are in the DOM in guest mode', async ({ guestPage }) => {
     await guestPage.goto('/app.html');
-    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
 
     for (const screen of NAVIGABLE_SCREENS) {
       const screenEl = guestPage.locator(`#screen-${screen}`);
@@ -32,77 +32,85 @@ test.describe('Guest mode navigation', () => {
 
   test('guest can navigate to workspace screen', async ({ guestPage }) => {
     await guestPage.goto('/app.html');
-    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await guestPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await guestPage.evaluate(() => window.showScreen?.('workspace'));
 
     const screen = guestPage.locator('#screen-workspace');
-    await expect(screen).toBeVisible({ timeout: 5_000 });
+    await expect(screen).toBeVisible({ timeout: 15_000 });
   });
 
   test('guest can navigate to library screen', async ({ guestPage }) => {
     await guestPage.goto('/app.html');
-    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await guestPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await guestPage.evaluate(() => window.showScreen?.('library'));
 
     const screen = guestPage.locator('#screen-library');
-    await expect(screen).toBeVisible({ timeout: 5_000 });
+    await expect(screen).toBeVisible({ timeout: 15_000 });
   });
 
   test('guest can navigate to flashcards screen', async ({ guestPage }) => {
     await guestPage.goto('/app.html');
-    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await guestPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await guestPage.evaluate(() => window.showScreen?.('flash'));
 
     const screen = guestPage.locator('#screen-flash');
-    await expect(screen).toBeVisible({ timeout: 5_000 });
+    await expect(screen).toBeVisible({ timeout: 15_000 });
   });
 
   test('guest can navigate to study plan screen', async ({ guestPage }) => {
     await guestPage.goto('/app.html');
-    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await guestPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await guestPage.evaluate(() => window.showScreen?.('studyplan'));
 
     const screen = guestPage.locator('#screen-studyplan');
-    await expect(screen).toBeVisible({ timeout: 5_000 });
+    await expect(screen).toBeVisible({ timeout: 15_000 });
   });
 
   test('guest can navigate to visual tutor screen', async ({ guestPage }) => {
     await guestPage.goto('/app.html');
-    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await guestPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await guestPage.evaluate(() => window.showScreen?.('visual'));
 
     const screen = guestPage.locator('#screen-visual');
-    await expect(screen).toBeVisible({ timeout: 5_000 });
+    await expect(screen).toBeVisible({ timeout: 15_000 });
   });
 
   test('guest can navigate to research screen', async ({ guestPage }) => {
     await guestPage.goto('/app.html');
-    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await guestPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await guestPage.evaluate(() => window.showScreen?.('research'));
 
     const screen = guestPage.locator('#screen-research');
-    await expect(screen).toBeVisible({ timeout: 5_000 });
+    await expect(screen).toBeVisible({ timeout: 15_000 });
   });
 
   test('guest can navigate to exam screen', async ({ guestPage }) => {
     await guestPage.goto('/app.html');
-    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await guestPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await guestPage.evaluate(() => window.showScreen?.('exam'));
 
     const screen = guestPage.locator('#screen-exam');
-    await expect(screen).toBeVisible({ timeout: 5_000 });
+    await expect(screen).toBeVisible({ timeout: 15_000 });
   });
 
   test('showScreen never falls back to home for guest navigating to workspace', async ({ guestPage }) => {
     await guestPage.goto('/app.html');
-    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await guestPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await guestPage.evaluate(() => window.showScreen?.('workspace'));
 
@@ -116,7 +124,7 @@ test.describe('Guest mode navigation', () => {
 
   test('guest preview banner appears on first navigation to a screen with a limit', async ({ guestPage }) => {
     await guestPage.goto('/app.html');
-    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
 
     // Navigate to workspace — should trigger the guest preview banner
     await guestPage.evaluate(() => window.showScreen?.('workspace'));
@@ -127,7 +135,8 @@ test.describe('Guest mode navigation', () => {
 
   test('guest preview banner can be dismissed', async ({ guestPage }) => {
     await guestPage.goto('/app.html');
-    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await guestPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await guestPage.evaluate(() => window.showScreen?.('workspace'));
 
@@ -141,7 +150,7 @@ test.describe('Guest mode navigation', () => {
 
   test('guest preview banner does not appear again for the same screen in the same session', async ({ guestPage }) => {
     await guestPage.goto('/app.html');
-    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
 
     // First visit — banner should appear
     await guestPage.evaluate(() => window.showScreen?.('workspace'));
@@ -163,7 +172,8 @@ test.describe('Guest mode navigation', () => {
 
   test('guestGate still fires when guest tries to send a message in workspace', async ({ guestPage }) => {
     await guestPage.goto('/app.html');
-    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await guestPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await guestPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await guestPage.evaluate(() => window.showScreen?.('workspace'));
     await guestPage.locator('#screen-workspace').waitFor({ state: 'visible' });

@@ -14,7 +14,6 @@
  */
 
 import { lsGet } from '../utils/storage.js';
-import { createChatBar } from '../components/ChatBar/ChatBar.js';
 import { API_BASE, _getAuthHeader } from '../lib/api.js';
 import { typewriteResponse } from '../utils/typewriter.js';
 
@@ -472,23 +471,54 @@ export async function homeSendMessage(question) {
 }
 
 // ── ChatBar mount ────────────────────────────────────────────────────────────
+// Built inline to avoid a circular bundle dependency (screens → components).
+// Mirrors the structure produced by ChatBar.js so CSS classes still apply.
 
 function _mountHomeChatBar() {
   const bar = document.getElementById('home-input-bar');
   if (!bar) return;
 
-  const chatBar = createChatBar(bar, {
-    placeholder:   'Ask anything…',
-    showDeepThink: false,
-    onSend: (text) => {
-      homeSendMessage(text);
-      chatBar.setInput('');
-      chatBar.autoResize();
-    },
+  const card = document.createElement('div');
+  card.className = 'chat-input-card';
+
+  const row = document.createElement('div');
+  row.className = 'chat-textarea-row';
+
+  const textarea = document.createElement('textarea');
+  textarea.id          = 'home-ask-input';
+  textarea.className   = 'chat-input-field';
+  textarea.placeholder = 'Ask anything…';
+  textarea.rows        = 1;
+  textarea.style.cssText = 'max-height:120px;overflow-y:auto;resize:none;';
+
+  function _autoResize() {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+  }
+
+  function _send() {
+    const text = textarea.value.trim();
+    if (!text) return;
+    homeSendMessage(text);
+    textarea.value = '';
+    _autoResize();
+  }
+
+  textarea.addEventListener('input', _autoResize);
+  textarea.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _send(); }
   });
 
-  // Assign well-known ID so attachments.js paste handler can find the textarea
-  if (chatBar.textarea) chatBar.textarea.id = 'home-ask-input';
+  const sendBtn = document.createElement('button');
+  sendBtn.className = 'chat-send';
+  sendBtn.type      = 'button';
+  sendBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
+  sendBtn.addEventListener('click', _send);
+
+  row.appendChild(textarea);
+  row.appendChild(sendBtn);
+  card.appendChild(row);
+  bar.appendChild(card);
 }
 
 // ── Window global exposure ───────────────────────────────────────────────────────
