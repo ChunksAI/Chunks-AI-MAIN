@@ -681,7 +681,7 @@ async function _researchFetchWithRetry(bodyObj, signal, _statusEl) {
 }
 
 async function _researchStart() {
-  if (_isGuestMode() && !window.guestGate?.('research')) return;
+  if (window.isGuestMode?.() && !window.guestGate?.('research')) return;
 
   const title   = document.getElementById('research-title-input')?.value.trim();
   const problem = document.getElementById('research-problem-input')?.value.trim() || '';
@@ -840,7 +840,7 @@ Rules:
 
     RS.started = true;
     _save();
-    if (_isGuestMode()) window.guestRecordUsage?.('research');
+    if (window.isGuestMode?.()) window.guestRecordUsage?.('research');
 
     // Short pause so student can see the outline preview, then transition
     await new Promise(r => setTimeout(r, 1200));
@@ -2884,6 +2884,13 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.RS = RS;
+
+// Expose functions called via ACTION_MAP in appBridge.js
+window._researchBackToSetup  = _researchBackToSetup;
+window._confirmNewPaper      = _confirmNewPaper;
+window._researchStart        = _researchStart;
+window._toggleTip            = _toggleTip;
+window._exportPDF            = _exportPDF;
 
 // Expose inline onclick/onkeydown handlers used in HTML template strings and dynamically
 // rendered content. These functions are module-scoped and must be on window so that

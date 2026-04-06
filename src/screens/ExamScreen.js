@@ -1832,8 +1832,8 @@ function _examAdaptiveReorder() {
 }
 
 async function examStart() {
-  if (_isGuestMode() && !window.guestGate?.('exam')) return;
-  if (_isGuestMode()) window.enforceExamConstraints?.();
+  if (window.isGuestMode?.() && !window.guestGate?.('exam')) return;
+  if (window.isGuestMode?.()) window.enforceExamConstraints?.();
   const startBtn = document.getElementById('exam-start-btn');
   if (startBtn.disabled) return; // prevent double-click race
   const topic = document.getElementById('exam-topic-input').value.trim();
@@ -1968,7 +1968,7 @@ async function examStart() {
     _examRenderSavedExams();
     _examShow('exam-quiz');
     _examRenderQuestion();
-    if (_isGuestMode()) window.guestRecordUsage?.('exam');
+    if (window.isGuestMode?.()) window.guestRecordUsage?.('exam');
     if (_examTimerSec > 0) _examStartTimer();
     else document.getElementById('exam-timer-display').style.display = 'none';
 
