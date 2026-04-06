@@ -117,7 +117,7 @@ function _handleInsert(row) {
         const scrollArea = document.getElementById('home-scroll-area');
         if (landing)    landing.style.display = 'none';
         if (hero)       hero.style.display = 'none';
-        if (bar)        bar.style.display = 'flex';
+        // home-input-bar is always visible
         if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
       }
       return;
@@ -146,7 +146,6 @@ function _handleInsert(row) {
   const scrollArea = document.getElementById('home-scroll-area');
   if (landing)    landing.style.display = 'none';
   if (hero)       hero.style.display = 'none';
-  if (bar)        bar.style.display = 'flex';
   if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
 
   // Scroll to bottom
@@ -200,7 +199,7 @@ function _handleDelete(row) {
     const scrollArea = document.getElementById('home-scroll-area');
     if (landing)    landing.style.display = '';
     if (hero)       hero.style.display = '';
-    if (bar)        bar.style.display = 'none';
+    // home-input-bar is always visible; do not hide it
     if (scrollArea) scrollArea.style.justifyContent = '';
     chatHist.innerHTML = '';
     window.homeHistory    = [];
