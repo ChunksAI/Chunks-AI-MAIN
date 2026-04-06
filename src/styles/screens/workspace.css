@@ -221,6 +221,13 @@
 }
 .pdf-tb-listen:active { transform: scale(0.95); }
 
+/* Close document button — subtle red on hover to signal destructive action */
+.pdf-tb-close:hover {
+  background: rgba(248, 113, 113, 0.12);
+  color: var(--red, #f87171);
+  transform: scale(1.10);
+}
+
 /* Keep legacy title block styles (used if referenced elsewhere) */
 .pdf-title-block {
   flex: 1;
