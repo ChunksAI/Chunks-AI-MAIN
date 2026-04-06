@@ -501,7 +501,7 @@ import {
   homeAppendUser, homeAppendThinking, homeRemoveThinking,
   homeAppendAI, homeAppendError,
   homeScrollBottom, homeHideLanding, homeSendMessage, homeStopGeneration,
-  homeToggleWebSearch, homeToggleThinking,
+  homeToggleWebSearch, homeToggleThinking, homeToggleThinkMenu, homeVoiceStub,
   homeCopyMsg, homeFeedback, _homeRegenerate,
   openIncognitoChat, closeIncognitoChat, incognitoSendMessage,
   _renderHomeActivities,
@@ -522,6 +522,8 @@ window.homeSendMessage    = homeSendMessage;
 window.homeStopGeneration = homeStopGeneration;
 window.homeToggleWebSearch= homeToggleWebSearch;
 window.homeToggleThinking = homeToggleThinking;
+window.homeToggleThinkMenu= homeToggleThinkMenu;
+window.homeVoiceStub      = homeVoiceStub;
 window.homeCopyMsg        = homeCopyMsg;
 window.homeFeedback       = homeFeedback;
 window._homeRegenerate    = _homeRegenerate;
