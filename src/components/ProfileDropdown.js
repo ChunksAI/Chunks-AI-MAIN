@@ -2,7 +2,6 @@
 import { _currentUser }      from '../lib/auth.js';
 import { chunksSignOut }     from '../lib/auth.js';
 import { openSettings }      from './SettingsModal.js';
-import { openIncognitoChat } from '../screens/HomeScreen.js';
 import { showConfirmModal }  from './ConfirmModal.js';
 import { showToast }         from './Toast.js';
 
@@ -317,7 +316,7 @@ export async function pdAction(action) {
     case 'admin':         window.open('/admin', '_blank');         break;
     case 'personalization': openSettings?.('personalization'); break;
     case 'settings':      openSettings?.('general');       break;
-    case 'incognito':     openIncognitoChat?.();            break;
+    case 'incognito':     /* removed — incognito chat no longer exists */; break;
     case 'help-center':   window.openHelpCenter?.();              break;
     case 'terms':         window.open('terms.html', '_blank');    break;
     case 'privacy':       window.open('privacy.html', '_blank');  break;

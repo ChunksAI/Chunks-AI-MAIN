@@ -497,51 +497,18 @@ window.spConfidenceBadge = spConfidenceBadge;
 
 // ── Screens · Home ───────────────────────────────────────────────────────────
 import {
-  homeSetMode, homeSetInput, homeHandlePdfUpload, homeAutoResize,
-  homeAppendUser, homeAppendThinking, homeRemoveThinking,
-  homeAppendAI, homeAppendError,
-  homeScrollBottom, homeHideLanding, homeRestoreLanding, homeSendMessage, homeStopGeneration,
-  homeToggleWebSearch, homeToggleThinking, homeToggleThinkMenu, homeVoiceStub, homeStartNew,
-  homeCopyMsg, homeFeedback, _homeRegenerate,
-  openIncognitoChat, closeIncognitoChat, incognitoSendMessage,
-  _renderHomeActivities,
+  homeStartNew, homeRestoreLanding, homeScrollBottom,
+  _renderHomeActivities, _homeMountLatestSession,
 } from './screens/HomeScreen.js';
 
-window.homeSetMode        = homeSetMode;
-window.homeSetInput       = homeSetInput;
-window.homeHandlePdfUpload= homeHandlePdfUpload;
-window.homeAutoResize     = homeAutoResize;
-window.homeAppendUser     = homeAppendUser;
-window.homeAppendThinking = homeAppendThinking;
-window.homeRemoveThinking = homeRemoveThinking;
-window.homeAppendAI       = homeAppendAI;
-window.homeAppendError    = homeAppendError;
-window.homeScrollBottom   = homeScrollBottom;
-window.homeHideLanding    = homeHideLanding;
-window.homeRestoreLanding = homeRestoreLanding;
-window.homeSendMessage    = homeSendMessage;
-window.homeStopGeneration = homeStopGeneration;
-window.homeToggleWebSearch= homeToggleWebSearch;
-window.homeToggleThinking = homeToggleThinking;
-window.homeToggleThinkMenu= homeToggleThinkMenu;
-window.homeVoiceStub      = homeVoiceStub;
-window.homeStartNew       = homeStartNew;
-window.homeCopyMsg        = homeCopyMsg;
-window.homeFeedback       = homeFeedback;
-window._homeRegenerate    = _homeRegenerate;
+window.homeStartNew          = homeStartNew;
+window.homeRestoreLanding    = homeRestoreLanding;
+window.homeScrollBottom      = homeScrollBottom;
 window._renderHomeActivities = _renderHomeActivities;
+window._homeMountLatestSession = _homeMountLatestSession;
 
-// Incognito chat
-window.openIncognitoChat    = openIncognitoChat;
-window.closeIncognitoChat   = closeIncognitoChat;
-window.incognitoSendMessage = incognitoSendMessage;
-
-// homeHistory / _homeSessionId are live mutable bindings — exposed as
-// getter/setters so cross-module code can read/write them via window.
-// The actual defineProperty calls live in HomeScreen.js because only that
-// module owns the `let homeHistory` / `let _homeSessionId` variables.
-// They are set at HomeScreen.js load time, so by the time globals.js
-// runs they are already on window.  We do NOT duplicate them here.
+// homeHistory / _homeSessionId are live mutable bindings exposed as
+// getter/setters by HomeScreen.js at load time.  We do NOT duplicate them here.
 
 // ── Screens · Workspace ──────────────────────────────────────────────────────
 import { wsMobileView, refreshSmartSuggestions, wsShowPanel } from './screens/WorkspaceScreen.js';
