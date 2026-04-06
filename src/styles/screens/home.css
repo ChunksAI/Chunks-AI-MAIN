@@ -434,6 +434,12 @@
   color: var(--text-1);
 }
 
+/* ── Landing wrapper — needs explicit width so child grid can lay out in columns ── */
+#home-landing {
+  width: 100%;
+  max-width: 780px;
+}
+
 /* ── Recent Activities list ─────────────────────────────── */
 #home-activities-section {
   width: 100%;
