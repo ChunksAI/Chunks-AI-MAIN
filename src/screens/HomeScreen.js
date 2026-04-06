@@ -8,14 +8,11 @@
  *   • Personalized greeting (date + time-of-day phrase)
  *   • Dashboard: stats row, recent activities, quick actions, what's new, feedback
  *
- * Backward-compat stubs (kept so appBridge / other modules don\'t break):
- *   homeHistory, _homeSessionId, homeScrollBottom, homeRestoreLanding,
- *   _homeMountLatestSession, window._homeMountSession
+ * Exports: homeRestoreLanding, _homeMountLatestSession, homeStartNew
+ * No-op stubs: window._homeMountSession, window._homeMarkNavTime
  */
 
 import { lsGet } from '../utils/storage.js';
-import { API_BASE, _getAuthHeader } from '../lib/api.js';
-import { typewriteResponse } from '../utils/typewriter.js';
 
 // ── What\'s New feed ───────────────────────────────────────────────────────────
 // Update this array to change the What\'s New panel. badge: \'new\' | \'tip\' | \'fix\'
@@ -80,13 +77,7 @@ const HOME_HTML = /* html */`
 
       </div><!-- end home-landing -->
 
-      <!-- Chat history — always present, shows messages once user starts chatting -->
-      <div id="home-chat-history" class="home-chat-history"></div>
-
     </div><!-- end home-scroll-area -->
-
-    <!-- Always-visible sticky chat input bar -->
-    <div class="home-input-bar" id="home-input-bar"></div>
 
   </main>
 </div>
@@ -127,17 +118,7 @@ function _updateGreeting() {
   }
 }
 
-// ── Chat state + compat bindings ───────────────────────────────────────
-
-export let homeHistory    = [];
-export let _homeSessionId = null;
-let _homeGenerating = false;
-
-/** Scroll the home scroll area to the bottom. */
-export function homeScrollBottom() {
-  const el = document.getElementById('home-scroll-area');
-  if (el) el.scrollTop = el.scrollHeight;
-}
+// ── Compat stubs ────────────────────────────────────────────────────────────
 
 /** Refresh dashboard when navigating back to home. */
 export function homeRestoreLanding() {
@@ -149,18 +130,6 @@ export function _homeMountLatestSession() {}
 
 // Expose _mountSession as a no-op for sidebar recent-item clicks.
 window._homeMountSession = function() {};
-
-// Keep window property getters/setters so appBridge.js assignments work.
-Object.defineProperty(window, 'homeHistory', {
-  get: () => homeHistory,
-  set: (v) => { homeHistory = v; },
-  configurable: true,
-});
-Object.defineProperty(window, '_homeSessionId', {
-  get: () => _homeSessionId,
-  set: (v) => { _homeSessionId = v; },
-  configurable: true,
-});
 
 window._homeMarkNavTime = function() {};
 
@@ -259,278 +228,6 @@ function _hdRenderFeedback() {
   });
 }
 
-// ── AI avatar SVG (shared across home chat functions) ────────────────────────
-
-const _HC_AVATAR = `<div class="hc-ai-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#c8a84b" stroke-width="7" opacity="0.95"/><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#a855f7" stroke-width="7" transform="rotate(60 50 50)" opacity="0.85"/><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#c8a84b" stroke-width="7" transform="rotate(120 50 50)" opacity="0.75"/><circle cx="50" cy="50" r="6" fill="#e8ac2e"/></svg></div>`;
-
-function _hcEsc(s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-// ── Chat message renderers ─────────────────────────────────────────────────────
-
-/** Append a user bubble to home-chat-history and hide the landing. */
-export function homeAppendUser(text) {
-  const chatHist = document.getElementById('home-chat-history');
-  if (!chatHist) return null;
-  const div = document.createElement('div');
-  div.className = 'hc-user';
-  div.textContent = text;
-  chatHist.appendChild(div);
-  // Hide landing once conversation starts
-  const landing = document.getElementById('home-landing');
-  if (landing) landing.style.display = 'none';
-  homeScrollBottom();
-  return div;
-}
-
-/** Show a typing indicator in home-chat-history. */
-function _homeAppendThinking() {
-  const chatHist = document.getElementById('home-chat-history');
-  if (!chatHist) return;
-  let el = document.getElementById('hc-thinking');
-  if (el) el.remove();
-  el = document.createElement('div');
-  el.id = 'hc-thinking';
-  el.className = 'hc-ai';
-  el.innerHTML = `${_HC_AVATAR}<div class="hc-ai-body"><span class="hc-thinking-dots"><span></span><span></span><span></span></span></div>`;
-  chatHist.appendChild(el);
-  homeScrollBottom();
-}
-
-/** Remove the typing indicator. */
-function _homeRemoveThinking() {
-  document.getElementById('hc-thinking')?.remove();
-}
-
-/**
- * Append an AI response bubble to home-chat-history.
- * @param {string}  text     - markdown text
- * @param {*}       _sources - unused (kept for API compat with homeMessagesRealtime)
- * @param {object}  [opts]
- * @param {boolean} [opts.typewrite=true] - if false render immediately
- * @returns {HTMLElement|null}
- */
-export function homeAppendAI(text, _sources, opts = {}) {
-  const chatHist = document.getElementById('home-chat-history');
-  if (!chatHist) return null;
-  _homeRemoveThinking();
-
-  const msgId  = 'hc-msg-' + Date.now();
-  const div    = document.createElement('div');
-  div.className = 'hc-ai';
-  div.id        = msgId;
-  div.dataset.rawContent = text;
-
-  const safeQ = (text || '').replace(/`/g, "'").replace(/\n/g, ' ').slice(0, 120);
-
-  let bodyHtml = '';
-  if (opts.typewrite === false) {
-    // Immediate render for cross-device realtime messages
-    const rendered = typeof window.homeMarkdown === 'function' ? window.homeMarkdown(text) : _hcEsc(text);
-    const safe     = typeof window.sanitize     === 'function' ? window.sanitize(rendered) : rendered;
-    bodyHtml = `<div class="hc-ai-text">${safe}</div>`;
-  } else {
-    bodyHtml = `<div class="hc-ai-text"></div>`;
-  }
-
-  div.innerHTML = `${_HC_AVATAR}<div class="hc-ai-body">
-    ${bodyHtml}
-    <div class="msg-acts" style="margin-top:8px;${opts.typewrite === false ? '' : 'display:none;'}">
-      <button class="msg-act" onclick="homeCopyMsg(this,'${msgId}')">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
-      </button>
-      <button class="msg-act msg-act--thumb" data-type="positive" onclick="homeFeedback(this,'${msgId}','positive')" title="Helpful">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-      </button>
-      <button class="msg-act msg-act--thumb" data-type="negative" onclick="homeFeedback(this,'${msgId}','negative')" title="Not helpful">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
-      </button>
-      <button class="msg-act" onclick="_homeRegenerate('${msgId}',\`${safeQ}\`)">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.67"/></svg> Retry
-      </button>
-    </div>
-  </div>`;
-
-  chatHist.appendChild(div);
-  homeScrollBottom();
-  return div;
-}
-
-// ── Action button handlers ────────────────────────────────────────────────────────
-
-export function homeCopyMsg(btn, msgId) {
-  const el = document.getElementById(msgId);
-  if (!el) return;
-  const text = el.dataset.rawContent || el.querySelector('.hc-ai-text')?.innerText || '';
-  navigator.clipboard.writeText(text).then(() => {
-    const orig = btn.innerHTML;
-    btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
-    setTimeout(() => { btn.innerHTML = orig; }, 2000);
-  }).catch(() => {});
-}
-
-export function homeFeedback(btn, msgId, type) {
-  const el = document.getElementById(msgId);
-  if (!el) return;
-  const current = btn.classList.contains('active') ? type : null;
-  el.querySelectorAll('.msg-act--thumb').forEach(b => b.classList.remove('active'));
-  if (current !== type) btn.classList.add('active');
-}
-
-export async function _homeRegenerate(msgId, question) {
-  const el = document.getElementById(msgId);
-  if (el) el.remove();
-  if (homeHistory.length && homeHistory[homeHistory.length - 1].role === 'assistant') {
-    homeHistory = homeHistory.slice(0, -1);
-  }
-  if (question) await homeSendMessage(question);
-}
-
-// ── Send message ────────────────────────────────────────────────────────────
-
-export async function homeSendMessage(question) {
-  if (!question?.trim() || _homeGenerating) return;
-  _homeGenerating = true;
-
-  homeHistory = [...homeHistory, { role: 'user', content: question }];
-  homeAppendUser(question);
-  _homeAppendThinking();
-
-  // Disable the ChatBar input while generating
-  const inputBar = document.getElementById('home-input-bar');
-  const chatInput = inputBar?.querySelector('textarea');
-  if (chatInput) chatInput.disabled = true;
-
-  try {
-    const authHeader = await _getAuthHeader();
-    const res = await fetch(`${API_BASE}/ask`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeader },
-      body:    JSON.stringify({
-        question,
-        mode:       'home_general',
-        task_type:  'home_general',
-        complexity: 5,
-        history:    homeHistory.slice(-10),
-        bookId:     'none',
-      }),
-    });
-
-    _homeRemoveThinking();
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const errDiv = document.createElement('div');
-      errDiv.className = 'hc-ai hc-ai--error';
-      errDiv.style.cssText = 'padding:10px 14px;font-size:13px;color:var(--red,#e55);';
-      errDiv.textContent = err.error || `Error ${res.status} — please try again.`;
-      document.getElementById('home-chat-history')?.appendChild(errDiv);
-      homeScrollBottom();
-      homeHistory = homeHistory.slice(0, -1);
-      return;
-    }
-
-    const data        = await res.json();
-    const cleanAnswer = data.answer || 'No response.';
-
-    const aiEl   = homeAppendAI(cleanAnswer, null);
-    const textEl = aiEl?.querySelector('.hc-ai-text');
-
-    if (textEl) {
-      await typewriteResponse(textEl, cleanAnswer, {
-        render:   typeof window.homeMarkdown === 'function' ? window.homeMarkdown : undefined,
-        onScroll: homeScrollBottom,
-      });
-    }
-
-    // Reveal action buttons after text is fully typed
-    const actsEl = aiEl?.querySelector('.msg-acts');
-    if (actsEl) actsEl.style.display = '';
-
-    homeHistory = [...homeHistory, { role: 'assistant', content: cleanAnswer }];
-    if (aiEl) aiEl.dataset.histIdx = String(homeHistory.length - 1);
-
-  } catch (e) {
-    _homeRemoveThinking();
-    if (e?.name !== 'AbortError') {
-      console.error('[HomeScreen] chat error:', e);
-      const errDiv = document.createElement('div');
-      errDiv.className = 'hc-ai';
-      errDiv.style.cssText = 'padding:10px 14px;font-size:13px;color:var(--red,#e55);';
-      errDiv.textContent = 'Could not reach the server. Check your connection.';
-      document.getElementById('home-chat-history')?.appendChild(errDiv);
-      homeScrollBottom();
-      homeHistory = homeHistory.slice(0, -1);
-    }
-  } finally {
-    _homeGenerating = false;
-    if (chatInput) chatInput.disabled = false;
-    chatInput?.focus();
-  }
-}
-
-// ── ChatBar mount ────────────────────────────────────────────────────────────
-// Built inline to avoid a circular bundle dependency (screens → components).
-// Mirrors the structure produced by ChatBar.js so CSS classes still apply.
-
-function _mountHomeChatBar() {
-  const bar = document.getElementById('home-input-bar');
-  if (!bar) return;
-
-  const card = document.createElement('div');
-  card.className = 'chat-input-card';
-
-  const row = document.createElement('div');
-  row.className = 'chat-textarea-row';
-
-  const textarea = document.createElement('textarea');
-  textarea.id          = 'home-ask-input';
-  textarea.className   = 'chat-input-field';
-  textarea.placeholder = 'Ask anything…';
-  textarea.rows        = 1;
-  textarea.style.cssText = 'max-height:120px;overflow-y:auto;resize:none;';
-
-  function _autoResize() {
-    textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
-  }
-
-  function _send() {
-    const text = textarea.value.trim();
-    if (!text) return;
-    homeSendMessage(text);
-    textarea.value = '';
-    _autoResize();
-  }
-
-  textarea.addEventListener('input', _autoResize);
-  textarea.addEventListener('keydown', e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _send(); }
-  });
-
-  const sendBtn = document.createElement('button');
-  sendBtn.className = 'chat-send';
-  sendBtn.type      = 'button';
-  sendBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
-  sendBtn.addEventListener('click', _send);
-
-  row.appendChild(textarea);
-  row.appendChild(sendBtn);
-  card.appendChild(row);
-  bar.appendChild(card);
-}
-
-// ── Window global exposure ───────────────────────────────────────────────────────
-
-window.homeAppendAI    = homeAppendAI;
-window.homeSendMessage = homeSendMessage;
-window.homeCopyMsg     = homeCopyMsg;
-window.homeFeedback    = homeFeedback;
-window._homeRegenerate = _homeRegenerate;
-window.homeScrollBottom = homeScrollBottom;
-
-
 // ── Mount ─────────────────────────────────────────────────────────────────────
 
 export function mountHomeScreen() {
@@ -544,7 +241,6 @@ export function mountHomeScreen() {
   _renderHomeActivities();
   _hdRenderWhatsNew();
   _hdRenderFeedback();
-  _mountHomeChatBar();
 }
 
 // ── Recent Activities ─────────────────────────────────────────────────────────

@@ -148,28 +148,10 @@ interface Window {
   closeIncognitoChat: any;
   incognitoSendMessage: any;
 
-  /* ---- Home / chat ---- */
+  /* ---- Home ---- */
   _homeMountLatestSession: any;
-  _homeSessionId: any;
-  homeAppendAI: any;
-  homeAppendError: any;
-  homeAppendThinking: any;
-  homeAppendUser: any;
-  homeAttachTrigger: any;
-  homeAutoResize: any;
-  homeHandleAttach: any;
-  homeHandlePdfUpload: any;
-  homeHideLanding: any;
-  homeHistory: any;
   homeMarkdown: any;
-  homeRemoveThinking: any;
-  homeScrollBottom: any;
-  homeSendMessage: any;
-  homeSetInput: any;
-  homeSetMode: any;
-  homeToggleAttachMenu: any;
-  homeToggleThinking: any;
-  homeToggleWebSearch: any;
+  homeRestoreLanding: any;
 
   /* ---- AI parameters ---- */
   _aiParams: any;
