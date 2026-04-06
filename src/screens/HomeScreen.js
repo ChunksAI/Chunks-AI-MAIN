@@ -455,8 +455,8 @@ export function _renderHomeActivities() {
       <div class="ra-grid">
         <div class="ra-new-card ra-new-empty" onclick="homeStartNew()">
           <div class="ra-new-plus">+</div>
-          <span class="ra-new-type">New</span>
           <div class="ra-new-empty-label">Start something new</div>
+          <div class="ra-new-empty-sub">Upload a book, create a deck,<br>or start a plan</div>
         </div>
       </div>`;
     return;
@@ -472,7 +472,9 @@ export function _renderHomeActivities() {
   if (lastBook) {
     richCards += `
       <div class="ra-new-card book" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
-        <div class="ra-icon book">${_iconBook}</div>
+        <div class="ra-card-banner book">
+          <div class="ra-icon book">${_iconBook}</div>
+        </div>
         <div class="ra-body">
           <span class="ra-new-type">Textbook</span>
           <div class="ra-new-title">${_esc(lastBook.title)}</div>
@@ -485,7 +487,9 @@ export function _renderHomeActivities() {
   if (lastPlan) {
     richCards += `
       <div class="ra-new-card plan" data-ra-action="plan" data-ra-id="${_esc(lastPlan.planId)}">
-        <div class="ra-icon plan">${_iconPlan}</div>
+        <div class="ra-card-banner plan">
+          <div class="ra-icon plan">${_iconPlan}</div>
+        </div>
         <div class="ra-body">
           <span class="ra-new-type">Study Plan</span>
           <div class="ra-new-title">${_esc(lastPlan.topic)}</div>
@@ -501,7 +505,9 @@ export function _renderHomeActivities() {
       : 'Flashcards';
     richCards += `
       <div class="ra-new-card flash" data-ra-action="flash" data-ra-id="${_esc(lastDeck.deckId)}">
-        <div class="ra-icon flash">${_iconFlash}</div>
+        <div class="ra-card-banner flash">
+          <div class="ra-icon flash">${_iconFlash}</div>
+        </div>
         <div class="ra-body">
           <span class="ra-new-type">Flashcards</span>
           <div class="ra-new-title">${_esc(lastDeck.name)}</div>
@@ -514,8 +520,8 @@ export function _renderHomeActivities() {
   richCards += `
     <div class="ra-new-card ra-new-empty" onclick="homeStartNew()">
       <div class="ra-new-plus">+</div>
-      <span class="ra-new-type">New</span>
       <div class="ra-new-empty-label">Start something new</div>
+      <div class="ra-new-empty-sub">Upload a book, create a deck,<br>or start a plan</div>
     </div>`;
 
   container.innerHTML = `

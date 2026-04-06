@@ -770,51 +770,53 @@
 .ra-new-card {
   background: var(--surface-3);
   border: 1px solid var(--border-sm);
-  border-left: 3px solid var(--border-sm);
   border-radius: var(--r-lg);
-  padding: 14px 16px;
   cursor: pointer;
   display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: 12px;
-  transition: border-color var(--t-fast), background var(--t-fast), box-shadow var(--t-fast), transform var(--t-mid) var(--ease-spring);
-  position: relative;
+  flex-direction: column;
   overflow: hidden;
   text-align: left;
-  min-height: 90px;
+  transition: transform var(--t-mid) var(--ease-spring), box-shadow var(--t-fast);
 }
 .ra-new-card:hover {
-  background: #252630;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.35);
 }
-.ra-new-card.plan  { border-left-color: var(--violet); }
-.ra-new-card.flash { border-left-color: var(--gold); }
-.ra-new-card.book  { border-left-color: var(--teal); }
 
-/* Icon box */
+/* Gradient banner at top of card */
+.ra-card-banner {
+  position: relative;
+  height: 110px;
+  flex-shrink: 0;
+}
+.ra-card-banner.plan  { background: linear-gradient(135deg, #7c63e8 0%, #4c3aad 100%); }
+.ra-card-banner.flash { background: linear-gradient(135deg, #2ab87a 0%, #156b48 100%); }
+.ra-card-banner.book  { background: linear-gradient(135deg, #2abdc8 0%, #136b8a 100%); }
+
+/* Icon sits top-left in the banner */
 .ra-icon {
-  width: 36px;
-  height: 36px;
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 34px;
+  height: 34px;
   border-radius: var(--r-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
 }
 .ra-icon svg { width: 18px; height: 18px; }
-.ra-icon.plan  { background: rgba(139,124,248,0.18); color: var(--violet); }
-.ra-icon.flash { background: rgba(232,172,46,0.18);  color: var(--gold); }
-.ra-icon.book  { background: rgba(45,212,191,0.18);  color: var(--teal); }
+.ra-icon.plan  { background: rgba(255,255,255,0.18); color: #fff; }
+.ra-icon.flash { background: rgba(255,255,255,0.18); color: #fff; }
+.ra-icon.book  { background: rgba(255,255,255,0.18); color: #fff; }
 
-/* Text column */
+/* Text block below banner */
 .ra-body {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
+  padding: 14px 14px 12px;
   flex: 1;
-  min-width: 0;
 }
 
 .ra-new-type {
@@ -825,7 +827,7 @@
   letter-spacing: 0.07em;
 }
 .ra-new-title {
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-1);
   white-space: nowrap;
@@ -837,6 +839,7 @@
   font-size: 12px;
   color: var(--text-3);
   line-height: 1.4;
+  margin-bottom: 2px;
 }
 .ra-new-btn {
   background: none;
@@ -858,28 +861,36 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
   border-style: dashed;
-  border-left-style: dashed;
   border-color: var(--border-sm);
-  opacity: 0.65;
+  min-height: 175px;
+  opacity: 0.7;
+  padding: 20px 16px;
   transition: border-color var(--t-fast), opacity var(--t-fast), transform var(--t-mid) var(--ease-spring);
 }
 .ra-new-empty:hover {
   opacity: 1;
   border-color: var(--border-md);
-  background: var(--surface-3);
 }
 .ra-new-plus {
-  font-size: 22px;
-  color: var(--text-4);
+  font-size: 24px;
+  color: var(--text-3);
   line-height: 1;
+  margin-bottom: 2px;
 }
 .ra-new-empty-label {
-  font-size: 12px;
-  color: var(--text-4);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
   text-align: center;
   line-height: 1.4;
+}
+.ra-new-empty-sub {
+  font-size: 11.5px;
+  color: var(--text-4);
+  text-align: center;
+  line-height: 1.5;
 }
 
 /* Study (light) theme overrides */
@@ -889,13 +900,12 @@
   box-shadow: 0 1px 4px rgba(0,0,0,0.05);
 }
 [data-theme="study"] .ra-new-card:hover {
-  background: #ffffff;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  transform: translateY(-3px);
 }
-[data-theme="study"] .ra-icon.plan  { background: rgba(91,77,212,0.1); }
-[data-theme="study"] .ra-icon.flash { background: rgba(184,122,16,0.1); }
-[data-theme="study"] .ra-icon.book  { background: rgba(14,122,110,0.1); }
+[data-theme="study"] .ra-new-empty {
+  background: #ffffff;
+}
 
 
 /* ════════════════════════════════════════════════════════════
