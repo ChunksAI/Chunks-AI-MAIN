@@ -91,8 +91,12 @@ const HOME_HTML = /* html */`
 
       <!-- ── LANDING (hidden once chat starts) ── -->
       <div id="home-landing">
-        <!-- Ask box centered on landing -->
-        <div class="ask-box" id="home-ask-box" style="margin-bottom:20px;">
+        <input type="file" id="home-pdf-upload" accept="application/pdf" style="display:none;" onchange="homeHandlePdfUpload(this)">
+        <div id="home-activities-section">
+          <!-- Populated dynamically by _renderHomeActivities() -->
+        </div>
+        <!-- Ask box hidden — bottom sticky bar is always used instead -->
+        <div class="ask-box" id="home-ask-box" style="display:none;margin-bottom:20px;">
           <div id="home-attach-preview" class="attach-preview" style="display:none;"></div>
           <input type="file" id="home-attach-image" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image')">
           <input type="file" id="home-attach-pdf-new" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf')">
@@ -155,15 +159,11 @@ const HOME_HTML = /* html */`
           </div>
         </div>
 
-        <input type="file" id="home-pdf-upload" accept="application/pdf" style="display:none;" onchange="homeHandlePdfUpload(this)">
-        <div id="home-activities-section">
-          <!-- Populated dynamically by _renderHomeActivities() -->
-        </div>
       </div> <!-- end home-landing -->
     </div> <!-- end home-scroll-area -->
 
-    <!-- Sticky bottom input bar — shown only after first message -->
-    <div class="home-input-bar" id="home-input-bar" style="display:none;">
+    <!-- Sticky bottom input bar — always shown -->
+    <div class="home-input-bar" id="home-input-bar" style="display:flex;">
       <div class="ask-box" id="home-ask-box-bottom" style="max-width:860px;">
         <div id="home-attach-preview-bottom" class="attach-preview" style="display:none;"></div>
         <input type="file" id="home-attach-image-bottom" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image','bottom')">
