@@ -3226,60 +3226,6 @@
   padding: 32px 20px;
 }
 
-/* ── "Your Documents" header action buttons ─────────────────────────────── */
-
-.ws-doc-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-/* Upload PDF — outlined secondary button */
-.ws-upload-pdf-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: var(--r-pill);
-  background: transparent;
-  border: 1px solid var(--border-sm);
-  color: var(--text-2);
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: var(--font-body);
-  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
-  white-space: nowrap;
-}
-.ws-upload-pdf-btn:hover {
-  background: var(--surface-3);
-  border-color: var(--border);
-  color: var(--text-1);
-}
-
-/* Browse Library — gold filled primary button */
-.ws-browse-lib-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: var(--r-pill);
-  background: var(--gold);
-  border: none;
-  color: #090900;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: var(--font-body);
-  transition: opacity var(--t-fast), transform var(--t-fast);
-  white-space: nowrap;
-}
-.ws-browse-lib-btn:hover {
-  opacity: 0.88;
-  transform: translateY(-1px);
-}
-
 /* ── Close book (X) button in PDF title strip ───────────────────────────── */
 
 .ws-close-book-btn {

@@ -142,23 +142,6 @@ const WORKSPACE_HTML = /* html */`
 
         <!-- Empty state — shown when no book loaded -->
         <div id="ws-default-content" style="position:absolute;inset:0;overflow-y:auto;background:var(--surface-2);z-index:2;padding:28px 24px 24px;">
-          <!-- Header row -->
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;">
-            <div>
-              <div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:4px;">Your Documents</div>
-              <div style="font-size:12px;color:var(--text-3);">Continue where you left off</div>
-            </div>
-            <div class="ws-doc-header-actions">
-              <button data-action="wsUploadPdf" class="ws-upload-pdf-btn" title="Upload a PDF">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                <span>Upload PDF</span>
-              </button>
-              <button data-action="openLibraryModal" class="ws-browse-lib-btn">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-                <span>Browse Library</span>
-              </button>
-            </div>
-          </div>
           <!-- Document cards grid -->
           <div id="ws-doc-cards-grid" class="ws-doc-cards-grid">
             <!-- populated by _renderWsDocCards() -->
