@@ -3441,6 +3441,11 @@ window._ewizOnTplSelect    = _ewizOnTplSelect;
 window.examOpenEndedInput  = examOpenEndedInput;
 
 // Expose exam interaction handlers called via ACTION_MAP in appBridge.js
+window.examStart           = examStart;
+window.examAbort           = examAbort;
+window.examSkip            = examSkip;
+window.examNext            = examNext;
+window.examRetry           = examRetry;
 window.examSelectScanMode  = examSelectScanMode;
 window.examSelectDiff      = examSelectDiff;
 window.examSelectType      = examSelectType;
