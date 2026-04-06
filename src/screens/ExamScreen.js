@@ -1,3 +1,4 @@
+
 // @ts-nocheck
 /**
  * src/screens/ExamScreen.js — Task 29
@@ -3446,6 +3447,7 @@ window.examAbort           = examAbort;
 window.examSkip            = examSkip;
 window.examNext            = examNext;
 window.examRetry           = examRetry;
+window.examNewTopic        = examNewTopic;
 window.examSelectScanMode  = examSelectScanMode;
 window.examSelectDiff      = examSelectDiff;
 window.examSelectType      = examSelectType;
