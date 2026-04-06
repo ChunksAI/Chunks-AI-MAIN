@@ -103,6 +103,8 @@ export async function selectBook(bookId) {
   subscribeToFlashcardRealtime(bookId);
   setText($el('ws-chat-title'), meta.name);
   setText($el('ws-chat-subtitle'), meta.author || '');
+  const _wsChatInp = $el('ws-chat-input');
+  if (_wsChatInp) _wsChatInp.placeholder = 'Ask anything about this document\u2026';
 
   // Show close-book button
   const closeBtn = document.getElementById('ws-close-book-btn');
@@ -577,12 +579,16 @@ export function closeBook() {
   // Reset header labels
   setText($el('ws-book-name'), 'No book loaded');
   setText($el('ws-book-author'), '');
-  setText($el('ws-chat-title'), 'Select a document');
+  setText($el('ws-chat-title'), 'General AI');
   setText($el('ws-chat-subtitle'), '');
   setText($el('mwt-book-name'), 'Study Workspace');
   setText($el('mwt-book-sub'), 'Select a book to begin');
   const mwtBadge = $el('mwt-badge');
   if (mwtBadge) mwtBadge.style.display = 'none';
+
+  // Reset chat input placeholder to general mode
+  const _wsChatInp = $el('ws-chat-input');
+  if (_wsChatInp) _wsChatInp.placeholder = 'Ask me anything\u2026';
 
   // Hide close-book button
   const closeBtn = document.getElementById('ws-close-book-btn');

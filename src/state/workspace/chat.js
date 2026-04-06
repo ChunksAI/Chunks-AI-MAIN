@@ -612,7 +612,9 @@ export async function wsChatSend() {
   }
   // ── End canvas intercept ──────────────────────────────────────────────────
 
-  inp.placeholder = 'Ask a follow-up about Chapter 3…';
+  inp.placeholder = (ws.bookId || ws.userDocId)
+    ? 'Ask a follow-up about this document…'
+    : 'Ask me anything…';
   wsAppendUser(question, ws.selectedText);
   inp.value = ''; wsAutoResize(inp); inp.focus();
   ws.chatHistory.push({ role: 'user', content: question });
@@ -661,7 +663,10 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
       wsRemoveThinking(); // vision endpoint has no streaming thinking mode — remove indicator now
     } else {
       // ── Text path: send to /ask with optional retry on 429 ────────────────
-      const body = { question, bookId: ws.bookId || 'none', mode, complexity, history: ws.chatHistory.slice(-10) };
+      // Detect "no document open" — treat as general AI mode
+      const _noDoc = !ws.bookId && !ws.userDocId;
+      const body = { question, bookId: ws.bookId || 'none', mode: _noDoc ? 'home_general' : mode, complexity, history: ws.chatHistory.slice(-10) };
+      if (_noDoc) body.task_type = 'home_general';
       if (isVisual) body.mode = 'visual_tutor';
       if (ws.webSearch)              body.web_search = true;
       if (ws.thinking === 'think')   body.thinking   = 'thinking';

@@ -48,6 +48,8 @@ export async function selectUserDoc(docId) {
 
   setText($el('ws-chat-title'), meta.name.replace(/\.[^.]+$/, ''));
   setText($el('ws-chat-subtitle'), meta.pageCount ? `${meta.pageCount} pages · Your upload` : 'Your upload');
+  const _wsChatInp = document.getElementById('ws-chat-input');
+  if (_wsChatInp) _wsChatInp.placeholder = 'Ask anything about this document\u2026';
 
   // Show loading state in chat
   const msgs = $el('ws-messages');
