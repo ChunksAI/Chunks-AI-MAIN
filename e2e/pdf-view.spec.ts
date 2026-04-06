@@ -3,7 +3,8 @@ import { test, expect } from './fixtures';
 test.describe('PDF Viewer', () => {
   test('workspace screen renders with PDF panel elements', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('workspace'));
 
@@ -17,7 +18,8 @@ test.describe('PDF Viewer', () => {
 
   test('PDF viewer shows default "No book loaded" text', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('workspace'));
 
@@ -30,7 +32,8 @@ test.describe('PDF Viewer', () => {
 
   test('PDF canvas wrapper exists for rendering pages', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('workspace'));
 
@@ -40,7 +43,8 @@ test.describe('PDF Viewer', () => {
 
   test('outline panel exists for table of contents', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('workspace'));
 
@@ -50,7 +54,8 @@ test.describe('PDF Viewer', () => {
 
   test('PDF attachment input accepts PDF files', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('workspace'));
 

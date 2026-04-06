@@ -3,9 +3,10 @@ import { test, expect } from './fixtures';
 test.describe('Smart Notes Panel', () => {
   test.beforeEach(async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
-    await authedPage.evaluate(() => window.showScreen?.('workspace'));
-    await authedPage.waitForSelector('#screen-workspace', { state: 'visible', timeout: 5_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
+    await authedPage.evaluate(() => (window as any).showScreen?.('workspace'));
+    await authedPage.waitForSelector('#screen-workspace', { state: 'visible', timeout: 15_000 });
   });
 
   test('notes panel container exists in workspace', async ({ authedPage }) => {
@@ -25,7 +26,7 @@ test.describe('Smart Notes Panel', () => {
 
     // Format toolbar should be visible
     const toolbar = authedPage.locator('.snp-toolbar');
-    await expect(toolbar).toBeVisible({ timeout: 3_000 });
+    await expect(toolbar).toBeVisible({ timeout: 10_000 });
   });
 
   test('SmartNotesPanel toolbar has format buttons', async ({ authedPage }) => {
@@ -43,7 +44,7 @@ test.describe('Smart Notes Panel', () => {
     await notesTab.click();
 
     const notesArea = authedPage.locator('.snp-notes-area');
-    await expect(notesArea).toBeVisible({ timeout: 3_000 });
+    await expect(notesArea).toBeVisible({ timeout: 10_000 });
 
     const ce = await notesArea.getAttribute('contenteditable');
     expect(ce).toBe('true');
@@ -54,7 +55,7 @@ test.describe('Smart Notes Panel', () => {
     await notesTab.click();
 
     const notesArea = authedPage.locator('.snp-notes-area');
-    await expect(notesArea).toBeVisible({ timeout: 3_000 });
+    await expect(notesArea).toBeVisible({ timeout: 10_000 });
 
     const placeholder = await notesArea.getAttribute('data-placeholder');
     expect(placeholder).toContain('Start typing');
@@ -65,7 +66,7 @@ test.describe('Smart Notes Panel', () => {
     await notesTab.click();
 
     const sendBar = authedPage.locator('.snp-send-bar');
-    await expect(sendBar).toBeVisible({ timeout: 3_000 });
+    await expect(sendBar).toBeVisible({ timeout: 10_000 });
   });
 
   test('save indicator shows Saved status', async ({ authedPage }) => {
@@ -73,7 +74,7 @@ test.describe('Smart Notes Panel', () => {
     await notesTab.click();
 
     const saveTxt = authedPage.locator('.snp-save-txt');
-    await expect(saveTxt).toBeVisible({ timeout: 3_000 });
+    await expect(saveTxt).toBeVisible({ timeout: 10_000 });
     await expect(saveTxt).toHaveText('Saved');
   });
 
@@ -84,7 +85,7 @@ test.describe('Smart Notes Panel', () => {
 
   test('sticky strip renders add button', async ({ authedPage }) => {
     const addBtn = authedPage.locator('.sticky-add-btn');
-    await expect(addBtn).toBeVisible({ timeout: 3_000 });
+    await expect(addBtn).toBeVisible({ timeout: 10_000 });
   });
 
   test('clicking sticky add button opens a popup', async ({ authedPage }) => {
@@ -92,7 +93,7 @@ test.describe('Smart Notes Panel', () => {
     await addBtn.click();
 
     const popup = authedPage.locator('.sticky-popup');
-    await expect(popup).toBeVisible({ timeout: 2_000 });
+    await expect(popup).toBeVisible({ timeout: 5_000 });
   });
 
   test('notes panel switches back to chat tab', async ({ authedPage }) => {

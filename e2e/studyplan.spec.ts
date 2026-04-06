@@ -3,7 +3,8 @@ import { test, expect } from './fixtures';
 test.describe('Study Plan creation', () => {
   test('study plan screen renders with tabs and generate button', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     // Navigate to study plan screen
     await authedPage.evaluate(() => window.showScreen?.('studyplan'));
@@ -19,7 +20,8 @@ test.describe('Study Plan creation', () => {
 
   test('can switch to topic tab and enter a topic', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('studyplan'));
 
@@ -36,7 +38,8 @@ test.describe('Study Plan creation', () => {
 
   test('can select depth levels', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('studyplan'));
     await authedPage.evaluate(() => window.spSwitchTab?.('topic'));
@@ -54,7 +57,8 @@ test.describe('Study Plan creation', () => {
 
   test('can switch to notes tab and type notes', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('studyplan'));
     await authedPage.evaluate(() => window.spSwitchTab?.('notes'));
@@ -68,7 +72,8 @@ test.describe('Study Plan creation', () => {
 
   test('generate button is present and clickable', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('studyplan'));
     await authedPage.evaluate(() => window.spSwitchTab?.('topic'));

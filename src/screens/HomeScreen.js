@@ -14,6 +14,8 @@
  */
 
 import { lsGet } from '../utils/storage.js';
+import { API_BASE, _getAuthHeader } from '../lib/api.js';
+import { typewriteResponse } from '../utils/typewriter.js';
 
 // ── What\'s New feed ───────────────────────────────────────────────────────────
 // Update this array to change the What\'s New panel. badge: \'new\' | \'tip\' | \'fix\'
@@ -58,27 +60,19 @@ const HOME_HTML = /* html */`
     <!-- Scrollable content -->
     <div class="home-scroll-area" id="home-scroll-area">
 
-      <!-- Personalized greeting -->
-      <div class="home-greeting" id="home-greeting">
-        <p class="home-greeting-date" id="home-greeting-date"></p>
-        <h1 class="home-greeting-h1">Good morning, <span class="home-greeting-name" id="home-greeting-name">there</span> 👋</h1>
-      </div>
-
-      <!-- Dashboard landing -->
+      <!-- Dashboard landing — shown when chat history is empty -->
       <div id="home-landing">
 
-        <!-- 1. Stats row -->
-        <p class="hd-section-label">OVERVIEW</p>
-        <div class="hd-stats-row" id="hd-stats-row"></div>
+        <!-- Personalized greeting -->
+        <div class="home-greeting" id="home-greeting">
+          <p class="home-greeting-date" id="home-greeting-date"></p>
+          <h1 class="home-greeting-h1">Good morning, <span class="home-greeting-name" id="home-greeting-name">there</span> 👋</h1>
+        </div>
 
-        <!-- 2. Recent Activity (populated by _renderHomeActivities) -->
+        <!-- Recent Activity (populated by _renderHomeActivities) -->
         <div id="home-activities-section"></div>
 
-        <!-- 3. Quick Actions -->
-        <p class="hd-section-label">QUICK ACTIONS</p>
-        <div class="hd-quick-actions" id="hd-quick-actions"></div>
-
-        <!-- 4. Two-column: What\'s New + Feedback -->
+        <!-- Two-column: What\'s New + Feedback -->
         <div class="hd-two-col">
           <div class="hd-panel" id="hd-whats-new"></div>
           <div class="hd-panel" id="hd-feedback"></div>
@@ -86,7 +80,13 @@ const HOME_HTML = /* html */`
 
       </div><!-- end home-landing -->
 
+      <!-- Chat history — always present, shows messages once user starts chatting -->
+      <div id="home-chat-history" class="home-chat-history"></div>
+
     </div><!-- end home-scroll-area -->
+
+    <!-- Always-visible sticky chat input bar -->
+    <div class="home-input-bar" id="home-input-bar"></div>
 
   </main>
 </div>
@@ -127,22 +127,24 @@ function _updateGreeting() {
   }
 }
 
-// ── Backward-compat stubs ─────────────────────────────────────────────────────
-// These empty bindings keep appBridge.js and other modules working unchanged.
+// ── Chat state + compat bindings ───────────────────────────────────────
 
 export let homeHistory    = [];
 export let _homeSessionId = null;
+let _homeGenerating = false;
 
-/** No-op — home no longer has a chat scroll area. */
-export function homeScrollBottom() {}
+/** Scroll the home scroll area to the bottom. */
+export function homeScrollBottom() {
+  const el = document.getElementById('home-scroll-area');
+  if (el) el.scrollTop = el.scrollHeight;
+}
 
 /** Refresh dashboard when navigating back to home. */
 export function homeRestoreLanding() {
   _renderHomeActivities();
-  _hdRenderStats();
 }
 
-/** No-op — home sessions are no longer restored into a chat view. */
+/** No-op — home sessions are not restored into a separate chat view. */
 export function _homeMountLatestSession() {}
 
 // Expose _mountSession as a no-op for sidebar recent-item clicks.
@@ -161,110 +163,6 @@ Object.defineProperty(window, '_homeSessionId', {
 });
 
 window._homeMarkNavTime = function() {};
-
-// ── Stats computation ─────────────────────────────────────────────────────────
-
-function _hdComputeStats() {
-  // Study streak (days)
-  let streak = 0;
-  try { streak = parseInt(localStorage.getItem('chunks_streak') || '0', 10) || 0; } catch (_) {}
-
-  // Cards mastered + avg mastery across studied decks
-  let cardsMastered = 0;
-  let totalDecks    = 0;
-  let totalPct      = 0;
-  try {
-    const masteryStore = lsGet('chunks_fc_mastery_v1') || {};
-    const decks        = lsGet('chunks_fc_decks_v1')   || [];
-    for (const [deckId, stats] of Object.entries(masteryStore)) {
-      const pct = stats.pct || 0;
-      if (pct > 0) {
-        const deck      = decks.find(d => d.id === deckId);
-        const cardCount = deck?.card_count || 0;
-        cardsMastered  += Math.round((pct / 100) * cardCount);
-        totalDecks++;
-        totalPct += pct;
-      }
-    }
-  } catch (_) {}
-
-  const avgMastery = totalDecks > 0 ? Math.round(totalPct / totalDecks) : 0;
-
-  // Study time this week (sum of daily ms for last 7 days → hours)
-  let studyTimeHours = 0;
-  try {
-    const timeData = lsGet('chunks_study_time_v1') || {};
-    const now = new Date();
-    let totalMs = 0;
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      totalMs += timeData[d.toISOString().slice(0, 10)] || 0;
-    }
-    studyTimeHours = Math.round((totalMs / 3600000) * 10) / 10;
-  } catch (_) {}
-
-  return { streak, cardsMastered, avgMastery, studyTimeHours };
-}
-
-// ── Dashboard renderers ───────────────────────────────────────────────────────
-
-function _hdRenderStats() {
-  const el = document.getElementById('hd-stats-row');
-  if (!el) return;
-  const { streak, cardsMastered, avgMastery, studyTimeHours } = _hdComputeStats();
-  el.innerHTML = `
-    <div class="hd-stat-card">
-      <div class="hd-stat-icon hd-stat-icon--gold">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-      </div>
-      <div class="hd-stat-value">${streak}</div>
-      <div class="hd-stat-label">Day streak</div>
-    </div>
-    <div class="hd-stat-card">
-      <div class="hd-stat-icon hd-stat-icon--violet">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-      </div>
-      <div class="hd-stat-value">${cardsMastered}</div>
-      <div class="hd-stat-label">Cards mastered</div>
-    </div>
-    <div class="hd-stat-card">
-      <div class="hd-stat-icon hd-stat-icon--teal">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      </div>
-      <div class="hd-stat-value">${avgMastery}%</div>
-      <div class="hd-stat-label">Avg mastery</div>
-    </div>
-    <div class="hd-stat-card">
-      <div class="hd-stat-icon hd-stat-icon--gold">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      </div>
-      <div class="hd-stat-value">${studyTimeHours}h</div>
-      <div class="hd-stat-label">This week</div>
-    </div>`;
-}
-
-function _hdRenderQuickActions() {
-  const el = document.getElementById('hd-quick-actions');
-  if (!el) return;
-  el.innerHTML = `
-    <button class="hd-pill" onclick="showScreen(\'workspace\')">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      Upload PDF
-    </button>
-    <button class="hd-pill" onclick="showScreen(\'studyplan\')">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-      New study plan
-    </button>
-    <button class="hd-pill" onclick="showScreen(\'flash\')">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-      Create flashcards
-    </button>
-    <button class="hd-pill" onclick="showScreen(\'exam\')">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-      Practice exam
-    </button>`;
-}
 
 function _hdRenderWhatsNew() {
   const el = document.getElementById('hd-whats-new');
@@ -361,6 +259,278 @@ function _hdRenderFeedback() {
   });
 }
 
+// ── AI avatar SVG (shared across home chat functions) ────────────────────────
+
+const _HC_AVATAR = `<div class="hc-ai-avatar"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="14" height="14"><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#c8a84b" stroke-width="7" opacity="0.95"/><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#a855f7" stroke-width="7" transform="rotate(60 50 50)" opacity="0.85"/><ellipse cx="50" cy="50" rx="35" ry="12" fill="none" stroke="#c8a84b" stroke-width="7" transform="rotate(120 50 50)" opacity="0.75"/><circle cx="50" cy="50" r="6" fill="#e8ac2e"/></svg></div>`;
+
+function _hcEsc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Chat message renderers ─────────────────────────────────────────────────────
+
+/** Append a user bubble to home-chat-history and hide the landing. */
+export function homeAppendUser(text) {
+  const chatHist = document.getElementById('home-chat-history');
+  if (!chatHist) return null;
+  const div = document.createElement('div');
+  div.className = 'hc-user';
+  div.textContent = text;
+  chatHist.appendChild(div);
+  // Hide landing once conversation starts
+  const landing = document.getElementById('home-landing');
+  if (landing) landing.style.display = 'none';
+  homeScrollBottom();
+  return div;
+}
+
+/** Show a typing indicator in home-chat-history. */
+function _homeAppendThinking() {
+  const chatHist = document.getElementById('home-chat-history');
+  if (!chatHist) return;
+  let el = document.getElementById('hc-thinking');
+  if (el) el.remove();
+  el = document.createElement('div');
+  el.id = 'hc-thinking';
+  el.className = 'hc-ai';
+  el.innerHTML = `${_HC_AVATAR}<div class="hc-ai-body"><span class="hc-thinking-dots"><span></span><span></span><span></span></span></div>`;
+  chatHist.appendChild(el);
+  homeScrollBottom();
+}
+
+/** Remove the typing indicator. */
+function _homeRemoveThinking() {
+  document.getElementById('hc-thinking')?.remove();
+}
+
+/**
+ * Append an AI response bubble to home-chat-history.
+ * @param {string}  text     - markdown text
+ * @param {*}       _sources - unused (kept for API compat with homeMessagesRealtime)
+ * @param {object}  [opts]
+ * @param {boolean} [opts.typewrite=true] - if false render immediately
+ * @returns {HTMLElement|null}
+ */
+export function homeAppendAI(text, _sources, opts = {}) {
+  const chatHist = document.getElementById('home-chat-history');
+  if (!chatHist) return null;
+  _homeRemoveThinking();
+
+  const msgId  = 'hc-msg-' + Date.now();
+  const div    = document.createElement('div');
+  div.className = 'hc-ai';
+  div.id        = msgId;
+  div.dataset.rawContent = text;
+
+  const safeQ = (text || '').replace(/`/g, "'").replace(/\n/g, ' ').slice(0, 120);
+
+  let bodyHtml = '';
+  if (opts.typewrite === false) {
+    // Immediate render for cross-device realtime messages
+    const rendered = typeof window.homeMarkdown === 'function' ? window.homeMarkdown(text) : _hcEsc(text);
+    const safe     = typeof window.sanitize     === 'function' ? window.sanitize(rendered) : rendered;
+    bodyHtml = `<div class="hc-ai-text">${safe}</div>`;
+  } else {
+    bodyHtml = `<div class="hc-ai-text"></div>`;
+  }
+
+  div.innerHTML = `${_HC_AVATAR}<div class="hc-ai-body">
+    ${bodyHtml}
+    <div class="msg-acts" style="margin-top:8px;${opts.typewrite === false ? '' : 'display:none;'}">
+      <button class="msg-act" onclick="homeCopyMsg(this,'${msgId}')">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy
+      </button>
+      <button class="msg-act msg-act--thumb" data-type="positive" onclick="homeFeedback(this,'${msgId}','positive')" title="Helpful">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+      </button>
+      <button class="msg-act msg-act--thumb" data-type="negative" onclick="homeFeedback(this,'${msgId}','negative')" title="Not helpful">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+      </button>
+      <button class="msg-act" onclick="_homeRegenerate('${msgId}',\`${safeQ}\`)">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.67"/></svg> Retry
+      </button>
+    </div>
+  </div>`;
+
+  chatHist.appendChild(div);
+  homeScrollBottom();
+  return div;
+}
+
+// ── Action button handlers ────────────────────────────────────────────────────────
+
+export function homeCopyMsg(btn, msgId) {
+  const el = document.getElementById(msgId);
+  if (!el) return;
+  const text = el.dataset.rawContent || el.querySelector('.hc-ai-text')?.innerText || '';
+  navigator.clipboard.writeText(text).then(() => {
+    const orig = btn.innerHTML;
+    btn.innerHTML = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+    setTimeout(() => { btn.innerHTML = orig; }, 2000);
+  }).catch(() => {});
+}
+
+export function homeFeedback(btn, msgId, type) {
+  const el = document.getElementById(msgId);
+  if (!el) return;
+  const current = btn.classList.contains('active') ? type : null;
+  el.querySelectorAll('.msg-act--thumb').forEach(b => b.classList.remove('active'));
+  if (current !== type) btn.classList.add('active');
+}
+
+export async function _homeRegenerate(msgId, question) {
+  const el = document.getElementById(msgId);
+  if (el) el.remove();
+  if (homeHistory.length && homeHistory[homeHistory.length - 1].role === 'assistant') {
+    homeHistory = homeHistory.slice(0, -1);
+  }
+  if (question) await homeSendMessage(question);
+}
+
+// ── Send message ────────────────────────────────────────────────────────────
+
+export async function homeSendMessage(question) {
+  if (!question?.trim() || _homeGenerating) return;
+  _homeGenerating = true;
+
+  homeHistory = [...homeHistory, { role: 'user', content: question }];
+  homeAppendUser(question);
+  _homeAppendThinking();
+
+  // Disable the ChatBar input while generating
+  const inputBar = document.getElementById('home-input-bar');
+  const chatInput = inputBar?.querySelector('textarea');
+  if (chatInput) chatInput.disabled = true;
+
+  try {
+    const authHeader = await _getAuthHeader();
+    const res = await fetch(`${API_BASE}/ask`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeader },
+      body:    JSON.stringify({
+        question,
+        mode:       'home_general',
+        task_type:  'home_general',
+        complexity: 5,
+        history:    homeHistory.slice(-10),
+        bookId:     'none',
+      }),
+    });
+
+    _homeRemoveThinking();
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const errDiv = document.createElement('div');
+      errDiv.className = 'hc-ai hc-ai--error';
+      errDiv.style.cssText = 'padding:10px 14px;font-size:13px;color:var(--red,#e55);';
+      errDiv.textContent = err.error || `Error ${res.status} — please try again.`;
+      document.getElementById('home-chat-history')?.appendChild(errDiv);
+      homeScrollBottom();
+      homeHistory = homeHistory.slice(0, -1);
+      return;
+    }
+
+    const data        = await res.json();
+    const cleanAnswer = data.answer || 'No response.';
+
+    const aiEl   = homeAppendAI(cleanAnswer, null);
+    const textEl = aiEl?.querySelector('.hc-ai-text');
+
+    if (textEl) {
+      await typewriteResponse(textEl, cleanAnswer, {
+        render:   typeof window.homeMarkdown === 'function' ? window.homeMarkdown : undefined,
+        onScroll: homeScrollBottom,
+      });
+    }
+
+    // Reveal action buttons after text is fully typed
+    const actsEl = aiEl?.querySelector('.msg-acts');
+    if (actsEl) actsEl.style.display = '';
+
+    homeHistory = [...homeHistory, { role: 'assistant', content: cleanAnswer }];
+    if (aiEl) aiEl.dataset.histIdx = String(homeHistory.length - 1);
+
+  } catch (e) {
+    _homeRemoveThinking();
+    if (e?.name !== 'AbortError') {
+      console.error('[HomeScreen] chat error:', e);
+      const errDiv = document.createElement('div');
+      errDiv.className = 'hc-ai';
+      errDiv.style.cssText = 'padding:10px 14px;font-size:13px;color:var(--red,#e55);';
+      errDiv.textContent = 'Could not reach the server. Check your connection.';
+      document.getElementById('home-chat-history')?.appendChild(errDiv);
+      homeScrollBottom();
+      homeHistory = homeHistory.slice(0, -1);
+    }
+  } finally {
+    _homeGenerating = false;
+    if (chatInput) chatInput.disabled = false;
+    chatInput?.focus();
+  }
+}
+
+// ── ChatBar mount ────────────────────────────────────────────────────────────
+// Built inline to avoid a circular bundle dependency (screens → components).
+// Mirrors the structure produced by ChatBar.js so CSS classes still apply.
+
+function _mountHomeChatBar() {
+  const bar = document.getElementById('home-input-bar');
+  if (!bar) return;
+
+  const card = document.createElement('div');
+  card.className = 'chat-input-card';
+
+  const row = document.createElement('div');
+  row.className = 'chat-textarea-row';
+
+  const textarea = document.createElement('textarea');
+  textarea.id          = 'home-ask-input';
+  textarea.className   = 'chat-input-field';
+  textarea.placeholder = 'Ask anything…';
+  textarea.rows        = 1;
+  textarea.style.cssText = 'max-height:120px;overflow-y:auto;resize:none;';
+
+  function _autoResize() {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+  }
+
+  function _send() {
+    const text = textarea.value.trim();
+    if (!text) return;
+    homeSendMessage(text);
+    textarea.value = '';
+    _autoResize();
+  }
+
+  textarea.addEventListener('input', _autoResize);
+  textarea.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); _send(); }
+  });
+
+  const sendBtn = document.createElement('button');
+  sendBtn.className = 'chat-send';
+  sendBtn.type      = 'button';
+  sendBtn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>';
+  sendBtn.addEventListener('click', _send);
+
+  row.appendChild(textarea);
+  row.appendChild(sendBtn);
+  card.appendChild(row);
+  bar.appendChild(card);
+}
+
+// ── Window global exposure ───────────────────────────────────────────────────────
+
+window.homeAppendAI    = homeAppendAI;
+window.homeSendMessage = homeSendMessage;
+window.homeCopyMsg     = homeCopyMsg;
+window.homeFeedback    = homeFeedback;
+window._homeRegenerate = _homeRegenerate;
+window.homeScrollBottom = homeScrollBottom;
+
+
 // ── Mount ─────────────────────────────────────────────────────────────────────
 
 export function mountHomeScreen() {
@@ -372,10 +542,9 @@ export function mountHomeScreen() {
   placeholder.outerHTML = HOME_HTML;
   _updateGreeting();
   _renderHomeActivities();
-  _hdRenderStats();
-  _hdRenderQuickActions();
   _hdRenderWhatsNew();
   _hdRenderFeedback();
+  _mountHomeChatBar();
 }
 
 // ── Recent Activities ─────────────────────────────────────────────────────────
