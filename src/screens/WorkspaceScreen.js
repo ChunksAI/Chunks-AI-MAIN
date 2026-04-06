@@ -491,18 +491,15 @@ export function wsShowPanel(tab) {
 // ── Empty state observer & document cards ─────────────────────────────────────
 
 /**
- * Watch ws-default-content visibility to toggle:
- *  - chat input wrap hidden when no book is loaded
- *  - document cards rendered when the empty state becomes visible
+ * Watch ws-default-content visibility to render document cards when the
+ * empty state becomes visible. The chat input is always visible.
  */
 function _initEmptyStateObserver() {
   const defaultContent = document.getElementById('ws-default-content');
-  const chatInputWrap  = document.querySelector('#ws-chat-content .chat-input-wrap');
   if (!defaultContent) return;
 
   function _onVisibilityChange() {
     const visible = defaultContent.style.display !== 'none';
-    if (chatInputWrap) chatInputWrap.style.display = visible ? 'none' : '';
     if (visible) _renderWsDocCards();
   }
 
