@@ -723,8 +723,6 @@ export function clearAllHistory() {
       window._clearRecentItems?.();
       // Use the proper bridge to deactivate the highlighted sidebar item.
       window._setActiveRecent?.(null);
-      if (window.homeHistory !== undefined)     window.homeHistory    = [];
-      if (window._homeSessionId !== undefined)  window._homeSessionId = null;
       if (window._wsChatHistory !== undefined)  window._wsChatHistory = [];
       if (window._activeExamRecentId !== undefined) window._activeExamRecentId = null;
 

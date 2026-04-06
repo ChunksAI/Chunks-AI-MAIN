@@ -497,26 +497,14 @@ window.spConfidenceBadge = spConfidenceBadge;
 
 // ── Screens · Home ───────────────────────────────────────────────────────────
 import {
-  homeStartNew, homeRestoreLanding, homeScrollBottom,
+  homeStartNew, homeRestoreLanding,
   _renderHomeActivities, _homeMountLatestSession,
-  homeAppendAI, homeAppendUser, homeSendMessage,
-  homeCopyMsg, homeFeedback, _homeRegenerate,
 } from './screens/HomeScreen.js';
 
 window.homeStartNew          = homeStartNew;
 window.homeRestoreLanding    = homeRestoreLanding;
-window.homeScrollBottom      = homeScrollBottom;
 window._renderHomeActivities = _renderHomeActivities;
 window._homeMountLatestSession = _homeMountLatestSession;
-window.homeAppendAI          = homeAppendAI;
-window.homeAppendUser        = homeAppendUser;
-window.homeSendMessage       = homeSendMessage;
-window.homeCopyMsg           = homeCopyMsg;
-window.homeFeedback          = homeFeedback;
-window._homeRegenerate       = _homeRegenerate;
-
-// homeHistory / _homeSessionId are live mutable bindings exposed as
-// getter/setters by HomeScreen.js at load time.  We do NOT duplicate them here.
 
 // ── Screens · Workspace ──────────────────────────────────────────────────────
 import { wsMobileView, refreshSmartSuggestions, wsShowPanel } from './screens/WorkspaceScreen.js';

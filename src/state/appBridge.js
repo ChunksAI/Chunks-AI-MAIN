@@ -734,8 +734,6 @@ function _loadWsSession(bookId) {
 function goHome() {
   // Always return to the homepage dashboard — clear any active session state
   _activeRecentId = null;
-  homeHistory = [];
-  _homeSessionId = null;
   localStorage.removeItem('chunks_active_home_session');
   localStorage.removeItem('chunks_active_ws_book');
   localStorage.removeItem('chunks_active_recent_id');
@@ -766,8 +764,6 @@ function newChat() {
   // Reset chat state — clear highlight properly via _setActiveRecent
   _wsChatHistory = [];
   if (typeof _setActiveRecent === 'function') _setActiveRecent(null); else _activeRecentId = null;
-  homeHistory = [];
-  _homeSessionId = null;
   localStorage.removeItem('chunks_active_home_session');
   localStorage.removeItem('chunks_home_session');
   localStorage.removeItem('chunks_active_ws_book');
@@ -803,11 +799,6 @@ function recentAdd(question, bookId, source) {
   // Don't duplicate if same as most recent of same source
   if (_recentItems.length && _recentItems[0].question === question && _recentItems[0].source === source) {
     _setActiveRecent(_recentItems[0].id);
-    if (source === 'general') {
-      _homeSessionId = _recentItems[0].id;
-      window._homeSessionId = _homeSessionId;
-      localStorage.setItem('chunks_home_session', _homeSessionId);
-    }
     // For visual, the session id is tracked in VisualTutorScreen directly via _recentItems[0]
     return;
   }
@@ -852,11 +843,6 @@ function recentAdd(question, bookId, source) {
   _saveRecent();
   _renderAllRecent();
   _setActiveRecent(item.id);
-  if (source === 'general') {
-    _homeSessionId = item.id;
-    window._homeSessionId = item.id;
-    localStorage.setItem('chunks_home_session', _homeSessionId);
-  }
 }
 
 function _setActiveRecent(id) {
@@ -957,25 +943,15 @@ async function _deleteRecent(id, e) {
   }
 
   // If this was the active chat, reset the UI back to landing.
-  // Match by local id, by resolvedUuid (when the session was restored from
-  // Supabase and _activeRecentId was set to the UUID), or by _homeSessionId
-  // (the app.html local tracking var) as a final fallback.
+  // Match by local id or by resolvedUuid (when the session was restored from Supabase).
   const isActiveSession = _activeRecentId === id
-    || (resolvedUuid && _activeRecentId === resolvedUuid)
-    || _homeSessionId === id
-    || (resolvedUuid && _homeSessionId === resolvedUuid);
+    || (resolvedUuid && _activeRecentId === resolvedUuid);
   if (isActiveSession) {
     _activeRecentId = null;
     localStorage.removeItem('chunks_active_recent_id');
     localStorage.removeItem('chunks_active_home_session');
     localStorage.removeItem('chunks_active_ws_book');
     localStorage.removeItem('chunks_active_vt_session');
-
-    // Reset home state
-    homeHistory = [];
-    _homeSessionId = null;
-    // Also clear the HomeScreen.js module-level _homeSessionId via the window setter.
-    window._homeSessionId = null;
 
     // Reset workspace messages
     const msgs = document.getElementById('ws-messages');
@@ -1020,10 +996,8 @@ function _clickRecent(item) {
       window._vtRestoreSession(item.id, item.question);
     }
   } else if (item.source === 'general' || !item.bookId) {
-    // Home dashboard — just navigate home (no chat view to restore)
+    // Home dashboard — just navigate home
     showScreen('home');
-    homeHistory = [];
-    _homeSessionId = null;
   } else {
     // Workspace / book question — restore saved session, never re-send
     showScreen('workspace');

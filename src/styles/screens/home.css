@@ -37,26 +37,6 @@
   scrollbar-width: thin;
 }
 
-/* ── Sticky bottom bar ──────────────────────────────────── */
-.home-input-bar {
-  width: 100%;
-  background: var(--bg);
-  padding: 10px 24px 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  border-top: 1px solid var(--border-xs);
-  flex-shrink: 0;
-  z-index: 10;
-}
-/* Study mode: lighter elevated bar so it reads clearly above the gradient */
-[data-theme="study"] .home-input-bar {
-  background: rgba(255,255,255,0.80);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border-top-color: rgba(0,0,0,0.06);
-}
-
 .home-disclaimer {
   font-size: 11px;
   color: var(--text-4);
@@ -1215,53 +1195,4 @@
     grid-template-columns: repeat(2, 1fr);
   }
   .hd-stat-value { font-size: 20px; }
-}
-
-/* ════════════════════════════════════════════════════════════
-   HOME CHAT PANEL
-   Classes: home-chat-history, hc-thinking-dots
-   Note: .hc-user / .hc-ai / .hc-ai-body / .hc-ai-avatar are
-         defined in workspace.css and shared across screens.
-════════════════════════════════════════════════════════════ */
-
-/* Chat history container — fills available space, scrolls with the page */
-.home-chat-history {
-  width: 100%;
-  max-width: 780px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding-bottom: 20px;
-  position: relative;
-  z-index: 1;
-}
-.home-chat-history:empty { display: none; }
-
-/* Constrain the input card inside home-input-bar */
-#home-input-bar .chat-input-card {
-  width: 100%;
-  max-width: 780px;
-}
-
-/* Typing indicator dots */
-.hc-thinking-dots {
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
-  height: 20px;
-}
-.hc-thinking-dots span {
-  display: block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-4);
-  animation: hc-dot-pulse 1.2s ease-in-out infinite;
-}
-.hc-thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
-.hc-thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
-
-@keyframes hc-dot-pulse {
-  0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; }
-  40%            { transform: scale(1.0); opacity: 1;   }
 }
