@@ -455,7 +455,8 @@ export function _renderHomeActivities() {
       <div class="ra-grid">
         <div class="ra-new-card ra-new-empty" onclick="homeStartNew()">
           <div class="ra-new-plus">+</div>
-          <div class="ra-new-empty-label">Start something<br>new</div>
+          <span class="ra-new-type">New</span>
+          <div class="ra-new-empty-label">Start something new</div>
         </div>
       </div>`;
     return;
@@ -464,55 +465,57 @@ export function _renderHomeActivities() {
   // ── Build rich activity cards ───────────────────────────────────────────────
   let richCards = '';
 
+  const _iconBook  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`;
+  const _iconPlan  = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>`;
+  const _iconFlash = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
+
   if (lastBook) {
     richCards += `
       <div class="ra-new-card book" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
-        <div class="ra-new-top">
-          <span class="ra-new-dot gold"></span>
+        <div class="ra-icon book">${_iconBook}</div>
+        <div class="ra-body">
           <span class="ra-new-type">Textbook</span>
+          <div class="ra-new-title">${_esc(lastBook.title)}</div>
+          <div class="ra-new-sub">Page ${lastBook.lastPage}${lastBook.totalPages ? ` of ${lastBook.totalPages}` : ''}</div>
+          <button class="ra-new-btn">Continue →</button>
         </div>
-        <div class="ra-new-title">${_esc(lastBook.title)}</div>
-        <div class="ra-new-sub">Page ${lastBook.lastPage}${lastBook.totalPages ? ` of ${lastBook.totalPages}` : ''}</div>
-        <div class="ra-new-divider"></div>
-        <button class="ra-new-btn">Continue →</button>
       </div>`;
   }
 
   if (lastPlan) {
     richCards += `
       <div class="ra-new-card plan" data-ra-action="plan" data-ra-id="${_esc(lastPlan.planId)}">
-        <div class="ra-new-top">
-          <span class="ra-new-dot violet"></span>
+        <div class="ra-icon plan">${_iconPlan}</div>
+        <div class="ra-body">
           <span class="ra-new-type">Study Plan</span>
+          <div class="ra-new-title">${_esc(lastPlan.topic)}</div>
+          <div class="ra-new-sub">Mastery: ${lastPlan.barPct}%</div>
+          <button class="ra-new-btn">Resume →</button>
         </div>
-        <div class="ra-new-title">${_esc(lastPlan.topic)}</div>
-        <div class="ra-new-sub">Mastery: ${lastPlan.barPct}%</div>
-        <div class="ra-new-divider"></div>
-        <button class="ra-new-btn">Resume →</button>
       </div>`;
   }
 
   if (lastDeck) {
     const deckSub = lastDeck.cardCount
-      ? `${lastDeck.cardCount} cards, ${lastDeck.pct}% mastered`
+      ? `${lastDeck.cardCount} cards · ${lastDeck.pct}% mastered`
       : 'Flashcards';
     richCards += `
       <div class="ra-new-card flash" data-ra-action="flash" data-ra-id="${_esc(lastDeck.deckId)}">
-        <div class="ra-new-top">
-          <span class="ra-new-dot gold"></span>
+        <div class="ra-icon flash">${_iconFlash}</div>
+        <div class="ra-body">
           <span class="ra-new-type">Flashcards</span>
+          <div class="ra-new-title">${_esc(lastDeck.name)}</div>
+          <div class="ra-new-sub">${_esc(deckSub)}</div>
+          <button class="ra-new-btn">Review →</button>
         </div>
-        <div class="ra-new-title">${_esc(lastDeck.name)}</div>
-        <div class="ra-new-sub">${_esc(deckSub)}</div>
-        <div class="ra-new-divider"></div>
-        <button class="ra-new-btn">Review →</button>
       </div>`;
   }
 
   richCards += `
     <div class="ra-new-card ra-new-empty" onclick="homeStartNew()">
       <div class="ra-new-plus">+</div>
-      <div class="ra-new-empty-label">Start something<br>new</div>
+      <span class="ra-new-type">New</span>
+      <div class="ra-new-empty-label">Start something new</div>
     </div>`;
 
   container.innerHTML = `

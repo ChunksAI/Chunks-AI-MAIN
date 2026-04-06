@@ -768,51 +768,55 @@
 
 /* ── New activity cards (redesigned) ────────────────────── */
 .ra-new-card {
-  background: var(--surface-1);
-  border: 1px solid var(--border-xs);
+  background: var(--surface-3);
+  border: 1px solid var(--border-sm);
+  border-left: 3px solid var(--border-sm);
   border-radius: var(--r-lg);
-  padding: 16px 16px 14px;
+  padding: 14px 16px;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  transition: border-color var(--t-fast), background var(--t-fast), transform var(--t-mid) var(--ease-spring);
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 12px;
+  transition: border-color var(--t-fast), background var(--t-fast), box-shadow var(--t-fast), transform var(--t-mid) var(--ease-spring);
   position: relative;
   overflow: hidden;
   text-align: left;
-  min-height: 130px;
+  min-height: 90px;
 }
 .ra-new-card:hover {
-  border-color: var(--border-sm);
-  background: var(--surface-2);
+  background: #252630;
   transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
 }
-[data-theme="study"] .ra-new-card {
-  background: #ffffff;
-  border-color: rgba(0,0,0,0.06);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-}
-[data-theme="study"] .ra-new-card:hover {
-  background: #ffffff;
-  border-color: rgba(0,0,0,0.10);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-  transform: translateY(-2px);
-}
-.ra-new-top {
+.ra-new-card.plan  { border-left-color: var(--violet); }
+.ra-new-card.flash { border-left-color: var(--gold); }
+.ra-new-card.book  { border-left-color: var(--teal); }
+
+/* Icon box */
+.ra-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-sm);
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 2px;
-}
-.ra-new-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+  justify-content: center;
   flex-shrink: 0;
 }
-.ra-new-dot.gold   { background: var(--gold); }
-.ra-new-dot.violet { background: var(--violet); }
-.ra-new-dot.teal   { background: var(--teal); }
+.ra-icon svg { width: 18px; height: 18px; }
+.ra-icon.plan  { background: rgba(139,124,248,0.18); color: var(--violet); }
+.ra-icon.flash { background: rgba(232,172,46,0.18);  color: var(--gold); }
+.ra-icon.book  { background: rgba(45,212,191,0.18);  color: var(--teal); }
+
+/* Text column */
+.ra-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
 .ra-new-type {
   font-size: 10px;
   font-weight: 700;
@@ -834,12 +838,6 @@
   color: var(--text-3);
   line-height: 1.4;
 }
-.ra-new-divider {
-  height: 1px;
-  background: var(--border-xs);
-  margin-top: auto;
-  margin-bottom: 2px;
-}
 .ra-new-btn {
   background: none;
   border: none;
@@ -849,6 +847,7 @@
   color: var(--gold);
   font-family: var(--font-body);
   padding: 0;
+  margin-top: auto;
   text-align: left;
   transition: opacity 0.15s;
 }
@@ -856,10 +855,12 @@
 
 /* Empty "Start something new" card */
 .ra-new-empty {
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 4px;
   border-style: dashed;
+  border-left-style: dashed;
   border-color: var(--border-sm);
   opacity: 0.65;
   transition: border-color var(--t-fast), opacity var(--t-fast), transform var(--t-mid) var(--ease-spring);
@@ -867,7 +868,7 @@
 .ra-new-empty:hover {
   opacity: 1;
   border-color: var(--border-md);
-  background: var(--surface-1);
+  background: var(--surface-3);
 }
 .ra-new-plus {
   font-size: 22px;
@@ -880,6 +881,21 @@
   text-align: center;
   line-height: 1.4;
 }
+
+/* Study (light) theme overrides */
+[data-theme="study"] .ra-new-card {
+  background: #ffffff;
+  border-color: rgba(0,0,0,0.08);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+[data-theme="study"] .ra-new-card:hover {
+  background: #ffffff;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+[data-theme="study"] .ra-icon.plan  { background: rgba(91,77,212,0.1); }
+[data-theme="study"] .ra-icon.flash { background: rgba(184,122,16,0.1); }
+[data-theme="study"] .ra-icon.book  { background: rgba(14,122,110,0.1); }
 
 
 /* ════════════════════════════════════════════════════════════
