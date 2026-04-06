@@ -8,8 +8,8 @@
  *   • Personalized greeting (date + time-of-day phrase)
  *   • Dashboard: stats row, recent activities, quick actions, what's new, feedback
  *
- * Backward-compat stubs (kept so appBridge / other modules don\'t break):
- *   homeRestoreLanding, _homeMountLatestSession, window._homeMountSession
+ * Exports: homeRestoreLanding, _homeMountLatestSession, homeStartNew
+ * No-op stubs: window._homeMountSession, window._homeMarkNavTime
  */
 
 import { lsGet } from '../utils/storage.js';
