@@ -77,20 +77,17 @@ export function wsScrollBottom() {
 export function wsClearChat() {
   ws.chatHistory = [];
   const msgs = $el('ws-messages');
-  if (msgs) setHtml(msgs, `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      <div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div>
-    </div>`);
+  if (msgs) setHtml(msgs, '');
+  if (typeof window._wsShowWelcome === 'function') window._wsShowWelcome();
   if (ws.bookId && typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, []);
   wsShowToast('🗑', 'Chat cleared', 'var(--border-md)');
 }
 
 export function wsAppendUser(text, selectedText) {
   const msgs = $el('ws-messages');
-  // Remove the welcome state when the first real message is appended
-  const welcome = document.getElementById('ws-welcome-state');
-  if (welcome) welcome.remove();
+  // Hide the welcome state when the first real message is appended
+  if (typeof window._wsHideWelcome === 'function') window._wsHideWelcome();
+  else { const welcome = document.getElementById('ws-welcome-state'); if (welcome) welcome.remove(); }
   const d = document.createElement('div');
   d.className = 'msg msg-user';
   const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;');
