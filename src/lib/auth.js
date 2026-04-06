@@ -162,6 +162,10 @@ function _applyUI(user) {
   document.querySelectorAll('.md-profile-plan').forEach(el => { el.textContent = planLabel; });
   document.querySelectorAll('.md-avatar').forEach(el => _setAvatar(el, user.avatar, initials));
 
+  // Home greeting name
+  const firstName = (user.name || user.email || '').split(/\s+|@/)[0];
+  document.querySelectorAll('.home-greeting-name').forEach(el => { el.textContent = firstName || 'there'; });
+
   // Show/hide the admin button in ProfileDropdown if applicable.
   // Check both the user.isAdmin/isOwner flags AND the localStorage cache so the button
   // and label appear instantly on every _applyUI call without waiting for the backend.

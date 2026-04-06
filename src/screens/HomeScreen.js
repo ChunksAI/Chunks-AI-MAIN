@@ -48,6 +48,8 @@ import { _homeRenderPreview } from '../state/workspace/attachments.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
+const _HOME_ASK_PLACEHOLDER = 'Ask anything about your studies\u2026';
+
 const HOME_HTML = /* html */`
 <div class="screen active" id="screen-home">
 
@@ -78,18 +80,10 @@ const HOME_HTML = /* html */`
 
     <!-- Scrollable content -->
     <div class="home-scroll-area" id="home-scroll-area">
-      <div class="home-hero">
-        <div class="eyebrow-pill">
-          <svg class="eyebrow-dot" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/>
-            <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/>
-            <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/>
-            <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
-          </svg>
-          AI Study Assistant
-        </div>
-        <h1 class="home-h1" id="home-hero-heading">Study smarter,<br>not <em>harder</em></h1>
-        <p class="home-sub" id="home-hero-sub">Ask questions, explore your textbooks, and generate study tools — all in one place.</p>
+      <!-- Personalized greeting -->
+      <div class="home-greeting" id="home-greeting">
+        <p class="home-greeting-date" id="home-greeting-date"></p>
+        <h1 class="home-greeting-h1">Good morning, <span class="home-greeting-name" id="home-greeting-name">there</span> 👋</h1>
       </div>
 
       <!-- ── CHAT HISTORY (hidden until first message) ── -->
@@ -100,82 +94,67 @@ const HOME_HTML = /* html */`
         <!-- Ask box centered on landing -->
         <div class="ask-box" id="home-ask-box" style="margin-bottom:20px;">
           <div id="home-attach-preview" class="attach-preview" style="display:none;"></div>
-          <div class="ask-input-row">
-            <div class="ask-plus-wrap">
-              <button class="chat-plus" id="home-plus-btn" onclick="homeToggleAttachMenu(event)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-              <div class="attach-menu home-rich-menu" id="home-attach-menu">
-                <div class="attach-menu-section-label">Attach</div>
-                <div class="attach-menu-item" onclick="homeAttachTrigger('image')">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                  <span>Image</span>
+          <input type="file" id="home-attach-image" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image')">
+          <input type="file" id="home-attach-pdf-new" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf')">
+          <div class="ask-input-row ask-input-row--bare">
+            <textarea id="home-ask-input" class="ask-textarea" placeholder="${_HOME_ASK_PLACEHOLDER}" rows="1"></textarea>
+          </div>
+          <div class="ask-footer">
+            <div class="ask-tools">
+              <div class="ask-plus-wrap">
+                <button class="tool-chip" id="home-attach-chip" onclick="homeToggleAttachMenu(event)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                  Attach
+                </button>
+                <div class="attach-menu home-rich-menu" id="home-attach-menu">
+                  <div class="attach-menu-section-label">Attach</div>
+                  <div class="attach-menu-item" onclick="homeAttachTrigger('image')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    <span>Image</span>
+                  </div>
+                  <div class="attach-menu-item" onclick="homeAttachTrigger('pdf')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span>PDF</span>
+                  </div>
+                  <div class="attach-menu-divider"></div>
+                  <div class="attach-menu-section-label">AI Mode</div>
+                  <div class="attach-menu-item attach-menu-toggle" id="home-toggle-websearch" onclick="homeToggleWebSearch()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <span>Web Search</span>
+                    <div class="attach-menu-check" id="home-websearch-check"></div>
+                  </div>
                 </div>
-                <div class="attach-menu-item" onclick="homeAttachTrigger('pdf')">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  <span>PDF</span>
-                </div>
-                <div class="attach-menu-divider"></div>
-                <div class="attach-menu-section-label">AI Mode</div>
-                <div class="attach-menu-item attach-menu-toggle" id="home-toggle-websearch" onclick="homeToggleWebSearch()">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                  <span>Web Search</span>
-                  <div class="attach-menu-check" id="home-websearch-check"></div>
-                </div>
-                <div class="attach-menu-item attach-menu-toggle" id="home-toggle-think" onclick="homeToggleThinking('think')">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
-                  <span>Think</span>
-                  <div class="attach-menu-check" id="home-think-check"></div>
-                </div>
-                <div class="attach-menu-item attach-menu-toggle" id="home-toggle-deep" onclick="homeToggleThinking('deep')">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                  <span>Deep Think</span>
-                  <div class="attach-menu-check" id="home-deep-check"></div>
+              </div>
+              <button class="tool-chip" onclick="homeVoiceStub()">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                Voice
+              </button>
+              <div class="ask-plus-wrap">
+                <button class="tool-chip" id="home-think-chip" onclick="homeToggleThinkMenu(event)">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
+                  <span id="home-think-chip-label">Think</span>
+                  <svg class="tool-chip-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="attach-menu" id="home-think-menu" style="min-width:160px;">
+                  <div class="attach-menu-item attach-menu-toggle" id="home-toggle-think" onclick="homeToggleThinking('think')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
+                    <span>Think</span>
+                    <div class="attach-menu-check" id="home-think-check"></div>
+                  </div>
+                  <div class="attach-menu-item attach-menu-toggle" id="home-toggle-deep" onclick="homeToggleThinking('deep')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    <span>Deep Think</span>
+                    <div class="attach-menu-check" id="home-deep-check"></div>
+                  </div>
                 </div>
               </div>
             </div>
-            <input type="file" id="home-attach-image" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image')">
-            <input type="file" id="home-attach-pdf-new" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf')">
-            <textarea id="home-ask-input" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
             <button class="ask-send" id="home-send-btn" data-action="homeSendMessage">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
           </div>
         </div>
 
-        <div class="quick-grid">
-          <div class="quick-card" data-action="openLibraryModal">
-            <div class="qc-icon gold">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
-                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-              </svg>
-            </div>
-            <div class="qc-title">Open Textbook</div>
-            <div class="qc-desc">Browse your library and study alongside AI</div>
-          </div>
-          <div class="quick-card" data-action="showScreen" data-screen="flash">
-            <div class="qc-icon violet">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--violet)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="4" width="16" height="12" rx="2"/>
-                <rect x="6" y="7" width="16" height="12" rx="2" fill="var(--violet-muted)" stroke="var(--violet)" stroke-width="2"/>
-                <path d="M12.5 11 11 13.5h2.5L12 16" stroke-width="1.8"/>
-              </svg>
-            </div>
-            <div class="qc-title">Flashcards</div>
-            <div class="qc-desc">Generate and review study cards from any chapter</div>
-          </div>
-          <div class="quick-card" onclick="document.getElementById('home-pdf-upload').click()">
-            <div class="qc-icon teal">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="12" y1="18" x2="12" y2="12"/>
-                <polyline points="9 15 12 12 15 15"/>
-              </svg>
-            </div>
-            <div class="qc-title">Upload PDF</div>
-            <div class="qc-desc">Add your own notes or textbooks to chat with</div>
-          </div>
-        </div>
         <input type="file" id="home-pdf-upload" accept="application/pdf" style="display:none;" onchange="homeHandlePdfUpload(this)">
         <div id="home-activities-section">
           <!-- Populated dynamically by _renderHomeActivities() -->
@@ -187,41 +166,61 @@ const HOME_HTML = /* html */`
     <div class="home-input-bar" id="home-input-bar" style="display:none;">
       <div class="ask-box" id="home-ask-box-bottom" style="max-width:860px;">
         <div id="home-attach-preview-bottom" class="attach-preview" style="display:none;"></div>
-        <div class="ask-input-row">
-          <div class="ask-plus-wrap">
-            <button class="chat-plus" id="home-plus-btn-bottom" onclick="homeToggleAttachMenu(event,'bottom')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
-            <div class="attach-menu home-rich-menu" id="home-attach-menu-bottom">
-              <div class="attach-menu-section-label">Attach</div>
-              <div class="attach-menu-item" onclick="homeAttachTrigger('image','bottom')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                <span>Image</span>
+        <input type="file" id="home-attach-image-bottom" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image','bottom')">
+        <input type="file" id="home-attach-pdf-bottom" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf','bottom')">
+        <div class="ask-input-row ask-input-row--bare">
+          <textarea id="home-ask-input-bottom" class="ask-textarea" placeholder="${_HOME_ASK_PLACEHOLDER}" rows="1"></textarea>
+        </div>
+        <div class="ask-footer">
+          <div class="ask-tools">
+            <div class="ask-plus-wrap">
+              <button class="tool-chip" id="home-attach-chip-bottom" onclick="homeToggleAttachMenu(event,'bottom')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                Attach
+              </button>
+              <div class="attach-menu home-rich-menu" id="home-attach-menu-bottom">
+                <div class="attach-menu-section-label">Attach</div>
+                <div class="attach-menu-item" onclick="homeAttachTrigger('image','bottom')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  <span>Image</span>
+                </div>
+                <div class="attach-menu-item" onclick="homeAttachTrigger('pdf','bottom')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <span>PDF</span>
+                </div>
+                <div class="attach-menu-divider"></div>
+                <div class="attach-menu-section-label">AI Mode</div>
+                <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleWebSearch()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  <span>Web Search</span>
+                  <div class="attach-menu-check" id="home-websearch-check-b"></div>
+                </div>
               </div>
-              <div class="attach-menu-item" onclick="homeAttachTrigger('pdf','bottom')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                <span>PDF</span>
-              </div>
-              <div class="attach-menu-divider"></div>
-              <div class="attach-menu-section-label">AI Mode</div>
-              <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleWebSearch()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                <span>Web Search</span>
-                <div class="attach-menu-check" id="home-websearch-check-b"></div>
-              </div>
-              <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleThinking('think')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
-                <span>Think</span>
-                <div class="attach-menu-check" id="home-think-check-b"></div>
-              </div>
-              <div class="attach-menu-item attach-menu-toggle" onclick="homeToggleThinking('deep')">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-                <span>Deep Think</span>
-                <div class="attach-menu-check" id="home-deep-check-b"></div>
+            </div>
+            <button class="tool-chip" onclick="homeVoiceStub()">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+              Voice
+            </button>
+            <div class="ask-plus-wrap">
+              <button class="tool-chip" id="home-think-chip-bottom" onclick="homeToggleThinkMenu(event,'bottom')">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
+                <span id="home-think-chip-label-b">Think</span>
+                <svg class="tool-chip-caret" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="attach-menu" id="home-think-menu-bottom" style="min-width:160px;">
+                <div class="attach-menu-item attach-menu-toggle" id="home-toggle-think-b" onclick="homeToggleThinking('think')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
+                  <span>Think</span>
+                  <div class="attach-menu-check" id="home-think-check-b"></div>
+                </div>
+                <div class="attach-menu-item attach-menu-toggle" id="home-toggle-deep-b" onclick="homeToggleThinking('deep')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  <span>Deep Think</span>
+                  <div class="attach-menu-check" id="home-deep-check-b"></div>
+                </div>
               </div>
             </div>
           </div>
-          <input type="file" id="home-attach-image-bottom" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image','bottom')">
-          <input type="file" id="home-attach-pdf-bottom" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf','bottom')">
-          <textarea id="home-ask-input-bottom" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
           <button class="ask-send" id="home-send-btn-bottom" data-action="homeSendMessage">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
@@ -303,18 +302,44 @@ const HOME_HTML = /* html */`
 </div>
 `;
 
-// ── Random hero phrases ───────────────────────────────────────────────────────
+// ── Greeting helpers ──────────────────────────────────────────────────────────
 
-const HERO_PHRASES = [
-  { h: 'Study smarter,<br>not <em>harder</em>',         s: 'Ask questions, explore your textbooks, and generate study tools — all in one place.' },
-  { h: 'Learn faster,<br>remember <em>longer</em>',     s: 'Your AI-powered study companion that turns difficult concepts into clear understanding.' },
-  { h: 'Knowledge is<br>your <em>superpower</em>',      s: 'Ask anything, study everything — Chunks AI has your back every step of the way.' },
-  { h: 'Stop cramming,<br>start <em>understanding</em>',s: 'Deep learning, not surface memorization. Let Chunks AI guide you to real mastery.' },
-  { h: 'Every expert<br>was once a <em>beginner</em>',  s: 'Break down complex topics, one question at a time. Your journey starts here.' },
-  { h: 'Your grades,<br>your <em>future</em>',          s: 'Study with purpose. Chunks AI helps you focus on what matters most.' },
-  { h: 'Turn confusion<br>into <em>clarity</em>',       s: 'No question is too hard. Chunks AI breaks it down until it clicks.' },
-  { h: 'Ace your exams,<br>own your <em>success</em>',  s: 'Flashcards, summaries, practice questions — everything you need, all in one place.' },
-];
+const _DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const _MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function _greetingPhrase() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function _greetingDate() {
+  const now = new Date();
+  return `${_DAYS[now.getDay()]}, ${_MONTHS[now.getMonth()]} ${now.getDate()}`;
+}
+
+function _updateGreeting() {
+  const dateEl  = document.getElementById('home-greeting-date');
+  const nameEl  = document.getElementById('home-greeting-name');
+  const h1El    = document.querySelector('.home-greeting-h1');
+  if (dateEl) dateEl.textContent = _greetingDate();
+  // Update greeting phrase in h1 (keep the name span intact)
+  if (h1El) {
+    const phrase = _greetingPhrase();
+    // Replace text nodes only, preserve the name <span> and the emoji
+    const firstText = h1El.firstChild;
+    if (firstText && firstText.nodeType === Node.TEXT_NODE) {
+      firstText.textContent = `${phrase}, `;
+    }
+  }
+  // Name is filled separately by _applyUI / auth events
+  const user = window._currentUser;
+  if (nameEl && user) {
+    const firstName = (user.name || user.email || '').split(/\s+|@/)[0];
+    if (firstName) nameEl.textContent = firstName;
+  }
+}
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -562,12 +587,8 @@ export function mountHomeScreen() {
   }
   placeholder.outerHTML = HOME_HTML;
 
-  // Random hero phrase
-  const pick = HERO_PHRASES[Math.floor(Math.random() * HERO_PHRASES.length)];
-  const heading = document.getElementById('home-hero-heading');
-  const sub     = document.getElementById('home-hero-sub');
-  if (heading) heading.innerHTML  = pick.h;
-  if (sub)     sub.textContent    = pick.s;
+  // Set personalized greeting (date + time-of-day phrase)
+  _updateGreeting();
 
   // Render recent activities or fallback chips
   _renderHomeActivities();
@@ -656,11 +677,12 @@ export function _renderHomeActivities() {
   // ── No activity at all → show "Try asking" for new users ───────────────────
   if (!lastBook && !lastPlan && !lastDeck) {
     container.innerHTML = `
-      <p class="prompts-label">Try asking</p>
-      <div class="prompts-chips">
-        ${_SUGGEST_CHIPS.map(t =>
-          `<button class="prompt-chip" data-action="homeSetInput-text">${t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</button>`
-        ).join('')}
+      <p class="prompts-label">Recent activity</p>
+      <div class="ra-grid">
+        <div class="ra-new-card ra-new-empty" onclick="homeStartNew()">
+          <div class="ra-new-plus">+</div>
+          <div class="ra-new-empty-label">Start something<br>new</div>
+        </div>
       </div>`;
     return;
   }
@@ -669,74 +691,61 @@ export function _renderHomeActivities() {
   let richCards = '';
 
   if (lastBook) {
-    const timeAgo  = _timeAgo(lastBook.lastOpened);
-    const pctColor = _barColor(lastBook.pct);
     richCards += `
-      <div class="ra-card book ra-compact-card" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
-        <div class="ra-compact-top">
-          <div class="ra-compact-icon gold">📖</div>
-          <span class="ra-compact-type">Textbook</span>
+      <div class="ra-new-card book" data-ra-action="book" data-ra-id="${_esc(lastBook.bookId)}">
+        <div class="ra-new-top">
+          <span class="ra-new-dot gold"></span>
+          <span class="ra-new-type">Textbook</span>
         </div>
-        <div class="ra-compact-title">${_esc(lastBook.title)}</div>
-        <div class="ra-compact-meta">
-          <span>📍 Page ${lastBook.lastPage}${lastBook.totalPages ? ` of ${lastBook.totalPages}` : ''}</span>
-          <span class="ra-compact-time">${_esc(timeAgo)}</span>
-        </div>
-        <div class="ra-compact-bar-row">
-          <div class="ra-compact-bar"><div class="ra-compact-bar-fill" style="width:${lastBook.pct}%;background:${pctColor}"></div></div>
-          <span class="ra-compact-pct">${lastBook.pct}%</span>
-        </div>
-        <button class="ra-compact-btn gold-btn">Continue Studying →</button>
+        <div class="ra-new-title">${_esc(lastBook.title)}</div>
+        <div class="ra-new-sub">Page ${lastBook.lastPage}${lastBook.totalPages ? ` of ${lastBook.totalPages}` : ''}</div>
+        <div class="ra-new-divider"></div>
+        <button class="ra-new-btn">Continue →</button>
       </div>`;
   }
 
   if (lastPlan) {
-    const planPctColor = _barColor(lastPlan.barPct);
     richCards += `
-      <div class="ra-card plan ra-compact-card" data-ra-action="plan" data-ra-id="${_esc(lastPlan.planId)}">
-        <div class="ra-compact-top">
-          <div class="ra-compact-icon violet">📋</div>
-          <span class="ra-compact-type">Study Plan</span>
+      <div class="ra-new-card plan" data-ra-action="plan" data-ra-id="${_esc(lastPlan.planId)}">
+        <div class="ra-new-top">
+          <span class="ra-new-dot violet"></span>
+          <span class="ra-new-type">Study Plan</span>
         </div>
-        <div class="ra-compact-title">${_esc(lastPlan.topic)}</div>
-        <div class="ra-compact-meta">
-          <span>📍 Mastery progress</span>
-        </div>
-        <div class="ra-compact-bar-row">
-          <div class="ra-compact-bar"><div class="ra-compact-bar-fill" style="width:${lastPlan.barPct}%;background:${planPctColor}"></div></div>
-          <span class="ra-compact-pct">${lastPlan.barPct}%</span>
-        </div>
-        <button class="ra-compact-btn violet-btn">Resume →</button>
+        <div class="ra-new-title">${_esc(lastPlan.topic)}</div>
+        <div class="ra-new-sub">Mastery progress</div>
+        <div class="ra-new-divider"></div>
+        <button class="ra-new-btn">Resume →</button>
       </div>`;
   }
 
   if (lastDeck) {
-    const deckPctColor = _barColor(lastDeck.pct);
-    const deckSub      = lastDeck.cardCount ? `${lastDeck.cardCount} cards` : 'Flashcards';
+    const deckSub = lastDeck.cardCount ? `${lastDeck.cardCount} cards` : 'Flashcards';
     richCards += `
-      <div class="ra-card flash ra-compact-card" data-ra-action="flash" data-ra-id="${_esc(lastDeck.deckId)}">
-        <div class="ra-compact-top">
-          <div class="ra-compact-icon teal">🃏</div>
-          <span class="ra-compact-type">${_esc(deckSub)}</span>
+      <div class="ra-new-card flash" data-ra-action="flash" data-ra-id="${_esc(lastDeck.deckId)}">
+        <div class="ra-new-top">
+          <span class="ra-new-dot gold"></span>
+          <span class="ra-new-type">${_esc(deckSub.toUpperCase())}</span>
         </div>
-        <div class="ra-compact-title">${_esc(lastDeck.name)}</div>
-        <div class="ra-compact-meta">
-          <span>📍 Cards mastered</span>
-        </div>
-        <div class="ra-compact-bar-row">
-          <div class="ra-compact-bar"><div class="ra-compact-bar-fill" style="width:${lastDeck.pct}%;background:${deckPctColor}"></div></div>
-          <span class="ra-compact-pct">${lastDeck.pct}%</span>
-        </div>
-        <button class="ra-compact-btn teal-btn">Review →</button>
+        <div class="ra-new-title">${_esc(lastDeck.name)}</div>
+        <div class="ra-new-sub">Cards mastered</div>
+        <div class="ra-new-divider"></div>
+        <button class="ra-new-btn">Review →</button>
       </div>`;
   }
+
+  // Always add the "Start something new" empty-state card
+  richCards += `
+    <div class="ra-new-card ra-new-empty" onclick="homeStartNew()">
+      <div class="ra-new-plus">+</div>
+      <div class="ra-new-empty-label">Start something<br>new</div>
+    </div>`;
 
   container.innerHTML = `
     <p class="prompts-label">Recent activity</p>
     <div class="ra-grid">${richCards}</div>`;
 
   // Wire click handlers for rich cards
-  container.querySelectorAll('.ra-card').forEach(el => {
+  container.querySelectorAll('.ra-new-card').forEach(el => {
     el.addEventListener('click', () => {
       const action = el.dataset.raAction;
       const id = el.dataset.raId;
@@ -1243,11 +1252,11 @@ export function homeScrollBottom(instant = false) {
 
 export function homeHideLanding() {
   const landing    = document.getElementById('home-landing');
-  const hero       = document.querySelector('.home-hero');
+  const greeting   = document.getElementById('home-greeting');
   const bar        = document.getElementById('home-input-bar');
   const scrollArea = document.getElementById('home-scroll-area');
   if (landing)    landing.style.display = 'none';
-  if (hero)       hero.style.display = 'none';
+  if (greeting)   greeting.style.display = 'none';
   if (bar)        bar.style.display = 'flex';
   if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
   setTimeout(() => {
@@ -1275,6 +1284,7 @@ export function homeToggleThinking(mode) {
   _homeThinking = _homeThinking === mode ? 'off' : mode;
   const isThink = _homeThinking === 'think';
   const isDeep  = _homeThinking === 'deep';
+  const isOn    = isThink || isDeep;
   ['home-think-check','home-think-check-b'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('on', isThink);
@@ -1283,14 +1293,43 @@ export function homeToggleThinking(mode) {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('on', isDeep);
   });
-  ['home-toggle-think'].forEach(id => {
+  ['home-toggle-think','home-toggle-think-b'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('active', isThink);
   });
-  ['home-toggle-deep'].forEach(id => {
+  ['home-toggle-deep','home-toggle-deep-b'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.toggle('active', isDeep);
   });
+  // Update think chip buttons visual state
+  ['home-think-chip','home-think-chip-bottom'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.classList.toggle('active', isOn);
+  });
+  ['home-think-chip-label','home-think-chip-label-b'].forEach(id => {
+    const lbl = document.getElementById(id);
+    if (lbl) lbl.textContent = isDeep ? 'Deep' : 'Think';
+  });
+  // Close think menus after selection
+  document.querySelectorAll('#home-think-menu,#home-think-menu-bottom').forEach(m => m.classList.remove('open'));
+}
+
+export function homeToggleThinkMenu(e, slot) {
+  e.stopPropagation();
+  const id = slot === 'bottom' ? 'home-think-menu-bottom' : 'home-think-menu';
+  const menu = document.getElementById(id);
+  if (!menu) return;
+  const isOpen = menu.classList.contains('open');
+  document.querySelectorAll('.attach-menu.open').forEach(m => m.classList.remove('open'));
+  if (!isOpen) menu.classList.add('open');
+}
+
+export function homeVoiceStub() {
+  showToast('🎤', 'Voice input coming soon', 'var(--text-3)');
+}
+
+export function homeStartNew() {
+  window.openLibraryModal?.();
 }
 
 export async function homeSendMessage() {
@@ -1554,13 +1593,13 @@ function _mountSession(session, sessionId) {
   if (!history.length) return;
 
   const landing    = document.getElementById('home-landing');
-  const hero       = document.querySelector('.home-hero');
+  const greeting   = document.getElementById('home-greeting');
   const bar        = document.getElementById('home-input-bar');
   const scrollArea = document.getElementById('home-scroll-area');
   const chatHist   = document.getElementById('home-chat-history');
 
   if (landing)    landing.style.display = 'none';
-  if (hero)       hero.style.display = 'none';
+  if (greeting)   greeting.style.display = 'none';
   if (bar)        bar.style.display = 'flex';
   if (scrollArea) scrollArea.style.justifyContent = 'flex-start';
 
