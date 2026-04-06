@@ -276,8 +276,9 @@ const WORKSPACE_HTML = /* html */`
     <!-- Chat content (shown by default) -->
     <div id="ws-chat-content" style="display:flex;">
 
-    <div class="messages" id="ws-messages">
-      <div id="ws-welcome-state" style="display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:20px 16px;">
+    <!-- Welcome overlay — persists across chat clears so Quick Actions are always available -->
+    <div id="ws-welcome-state" class="ws-welcome-overlay">
+      <div style="display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:20px 16px;">
         <!-- Quick Actions header -->
         <div style="font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text-1);margin-bottom:14px;">Quick Actions</div>
         <!-- 2×3 action grid -->
@@ -325,6 +326,9 @@ const WORKSPACE_HTML = /* html */`
           <span id="ws-stat-timer-text" style="font-size:12px;color:var(--text-2);">Studying today</span>
         </div>
       </div>
+    </div>
+
+    <div class="messages" id="ws-messages">
     </div>
 
     <div class="chat-input-wrap">
@@ -530,6 +534,19 @@ export function wsShowPanel(tab) {
 }
 
 // ── Empty state observer & document cards ─────────────────────────────────────
+
+// Show/hide the welcome overlay (Quick Actions) that sits above ws-messages.
+// Kept as persistent DOM so the session-timer closure retains valid references.
+function _wsShowWelcome() {
+  const el = document.getElementById('ws-welcome-state');
+  if (el) el.style.display = '';
+}
+function _wsHideWelcome() {
+  const el = document.getElementById('ws-welcome-state');
+  if (el) el.style.display = 'none';
+}
+window._wsShowWelcome = _wsShowWelcome;
+window._wsHideWelcome = _wsHideWelcome;
 
 /**
  * Watch ws-default-content visibility to toggle:

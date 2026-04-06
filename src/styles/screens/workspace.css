@@ -1726,6 +1726,7 @@
   background: transparent;
   flex-shrink: 0;
   position: relative;
+  z-index: 2;
 }
 .chat-input-wrap::before {
   content: '';
@@ -3370,4 +3371,14 @@
   border: 1px solid var(--gold-border);
   border-radius: var(--r-md);
   margin-top: 4px;
+}
+
+/* Welcome overlay — sits above ws-messages, hidden once chat starts */
+.ws-welcome-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: auto;
 }
