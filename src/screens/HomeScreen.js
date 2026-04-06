@@ -48,6 +48,8 @@ import { _homeRenderPreview } from '../state/workspace/attachments.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
+const _HOME_ASK_PLACEHOLDER = 'Ask anything about your studies\u2026';
+
 const HOME_HTML = /* html */`
 <div class="screen active" id="screen-home">
 
@@ -95,7 +97,7 @@ const HOME_HTML = /* html */`
           <input type="file" id="home-attach-image" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image')">
           <input type="file" id="home-attach-pdf-new" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf')">
           <div class="ask-input-row ask-input-row--bare">
-            <textarea id="home-ask-input" class="ask-textarea" placeholder="Ask anything about your studies…" rows="1"></textarea>
+            <textarea id="home-ask-input" class="ask-textarea" placeholder="${_HOME_ASK_PLACEHOLDER}" rows="1"></textarea>
           </div>
           <div class="ask-footer">
             <div class="ask-tools">
@@ -167,7 +169,7 @@ const HOME_HTML = /* html */`
         <input type="file" id="home-attach-image-bottom" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image','bottom')">
         <input type="file" id="home-attach-pdf-bottom" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf','bottom')">
         <div class="ask-input-row ask-input-row--bare">
-          <textarea id="home-ask-input-bottom" class="ask-textarea" placeholder="Ask anything about your studies…" rows="1"></textarea>
+          <textarea id="home-ask-input-bottom" class="ask-textarea" placeholder="${_HOME_ASK_PLACEHOLDER}" rows="1"></textarea>
         </div>
         <div class="ask-footer">
           <div class="ask-tools">
@@ -302,6 +304,9 @@ const HOME_HTML = /* html */`
 
 // ── Greeting helpers ──────────────────────────────────────────────────────────
 
+const _DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const _MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
 function _greetingPhrase() {
   const h = new Date().getHours();
   if (h < 12) return 'Good morning';
@@ -310,10 +315,8 @@ function _greetingPhrase() {
 }
 
 function _greetingDate() {
-  const now  = new Date();
-  const days  = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-  return `${days[now.getDay()]}, ${months[now.getMonth()]} ${now.getDate()}`;
+  const now = new Date();
+  return `${_DAYS[now.getDay()]}, ${_MONTHS[now.getMonth()]} ${now.getDate()}`;
 }
 
 function _updateGreeting() {
@@ -676,7 +679,7 @@ export function _renderHomeActivities() {
     container.innerHTML = `
       <p class="prompts-label">Recent activity</p>
       <div class="ra-grid">
-        <div class="ra-new-card ra-new-empty" onclick="typeof window.openLibraryModal==='function'&&window.openLibraryModal()">
+        <div class="ra-new-card ra-new-empty" onclick="homeStartNew()">
           <div class="ra-new-plus">+</div>
           <div class="ra-new-empty-label">Start something<br>new</div>
         </div>
@@ -732,7 +735,7 @@ export function _renderHomeActivities() {
 
   // Always add the "Start something new" empty-state card
   richCards += `
-    <div class="ra-new-card ra-new-empty" onclick="typeof window.openLibraryModal==='function'&&window.openLibraryModal()">
+    <div class="ra-new-card ra-new-empty" onclick="homeStartNew()">
       <div class="ra-new-plus">+</div>
       <div class="ra-new-empty-label">Start something<br>new</div>
     </div>`;
@@ -1323,6 +1326,10 @@ export function homeToggleThinkMenu(e, slot) {
 
 export function homeVoiceStub() {
   showToast('🎤', 'Voice input coming soon', 'var(--text-3)');
+}
+
+export function homeStartNew() {
+  window.openLibraryModal?.();
 }
 
 export async function homeSendMessage() {
