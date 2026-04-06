@@ -161,8 +161,8 @@ export function showScreen(name) {
   _navFromHistory = false;
 
   // Refresh home landing activities when navigating to home
-  if (name === 'home' && typeof window._renderHomeActivities === 'function') {
-    window._renderHomeActivities();
+  if (name === 'home') {
+    (window.homeRestoreLanding ?? window._renderHomeActivities)?.();
   }
 
   $qsa('.md-item').forEach(el => {

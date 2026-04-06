@@ -500,7 +500,7 @@ import {
   homeSetMode, homeSetInput, homeHandlePdfUpload, homeAutoResize,
   homeAppendUser, homeAppendThinking, homeRemoveThinking,
   homeAppendAI, homeAppendError,
-  homeScrollBottom, homeHideLanding, homeSendMessage, homeStopGeneration,
+  homeScrollBottom, homeHideLanding, homeRestoreLanding, homeSendMessage, homeStopGeneration,
   homeToggleWebSearch, homeToggleThinking, homeToggleThinkMenu, homeVoiceStub, homeStartNew,
   homeCopyMsg, homeFeedback, _homeRegenerate,
   openIncognitoChat, closeIncognitoChat, incognitoSendMessage,
@@ -518,6 +518,7 @@ window.homeAppendAI       = homeAppendAI;
 window.homeAppendError    = homeAppendError;
 window.homeScrollBottom   = homeScrollBottom;
 window.homeHideLanding    = homeHideLanding;
+window.homeRestoreLanding = homeRestoreLanding;
 window.homeSendMessage    = homeSendMessage;
 window.homeStopGeneration = homeStopGeneration;
 window.homeToggleWebSearch= homeToggleWebSearch;

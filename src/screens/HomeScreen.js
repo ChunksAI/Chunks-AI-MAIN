@@ -1264,6 +1264,18 @@ export function homeHideLanding() {
   }, 50);
 }
 
+// ── Restore landing when navigating back to home with no active chat ──────────
+
+export function homeRestoreLanding() {
+  if (homeHistory.length === 0) {
+    const landing  = document.getElementById('home-landing');
+    const greeting = document.getElementById('home-greeting');
+    if (landing)  landing.style.display  = '';
+    if (greeting) greeting.style.display = '';
+  }
+  _renderHomeActivities();
+}
+
 // ── Main send ─────────────────────────────────────────────────────────────────
 
 // ── AI Mode toggles ───────────────────────────────────────────────────────
