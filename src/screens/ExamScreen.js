@@ -214,7 +214,7 @@ const EXAM_HTML = /* html */`
             <!-- Step footer -->
             <div class="ewiz-footer">
               <button class="ewiz-btn-ghost" onclick="ewizBack()">← Back</button>
-              <button class="ewiz-btn-primary ewiz-disabled" id="ewiz-customize-btn" onclick="if(_examActiveTemplate)ewizNext()" disabled>
+              <button class="ewiz-btn-primary ewiz-disabled" id="ewiz-customize-btn" onclick="ewizNext()" disabled>
                 Customize
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
               </button>
