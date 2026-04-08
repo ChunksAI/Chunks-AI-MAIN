@@ -3252,3 +3252,21 @@
 .ws-book-loaded .ws-close-book-btn {
   display: inline-flex;
 }
+
+/* ── General AI mode button in chat bar ──────────────────────────────────── */
+
+.ws-general-ai-btn {
+  font-size: 11px;
+  color: var(--text-3);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 6px;
+  transition: color var(--t-fast), background var(--t-fast);
+  white-space: nowrap;
+}
+.ws-general-ai-btn:hover {
+  color: var(--gold);
+  background: var(--gold-muted);
+}

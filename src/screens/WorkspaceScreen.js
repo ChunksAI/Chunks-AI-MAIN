@@ -238,6 +238,7 @@ const WORKSPACE_HTML = /* html */`
         </div>
       </div>
       <div class="chat-bar-actions">
+        <button class="ws-general-ai-btn" onclick="wsGoGeneralAI()">General AI</button>
       </div>
     </div>
 
@@ -464,6 +465,18 @@ export function wsShowPanel(tab) {
     chatContent.style.display = 'flex';
     tabChat?.classList.add('ws-ptab-active');
   }
+}
+
+// ── General AI mode ───────────────────────────────────────────────────────────
+
+export function wsGoGeneralAI() {
+  const titleEl = document.getElementById('ws-chat-title');
+  const subEl   = document.getElementById('ws-chat-subtitle');
+  if (titleEl) titleEl.textContent = 'General AI';
+  if (subEl)   subEl.textContent   = 'No document context · ask anything';
+  window._wsGeneralMode = true;
+  const inp = document.getElementById('ws-chat-input');
+  if (inp) { inp.placeholder = 'Ask me anything...'; inp.focus(); }
 }
 
 // ── Empty state observer & document cards ─────────────────────────────────────

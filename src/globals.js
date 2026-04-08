@@ -507,11 +507,12 @@ window._renderHomeActivities = _renderHomeActivities;
 window._homeMountLatestSession = _homeMountLatestSession;
 
 // ── Screens · Workspace ──────────────────────────────────────────────────────
-import { wsMobileView, refreshSmartSuggestions, wsShowPanel } from './screens/WorkspaceScreen.js';
+import { wsMobileView, refreshSmartSuggestions, wsShowPanel, wsGoGeneralAI } from './screens/WorkspaceScreen.js';
 
 window.wsMobileView            = wsMobileView;
 window.refreshSmartSuggestions = refreshSmartSuggestions;
 window.wsShowPanel             = wsShowPanel;
+window.wsGoGeneralAI           = wsGoGeneralAI;
 
 // ── Screens · Library ────────────────────────────────────────────────────────
 import {
