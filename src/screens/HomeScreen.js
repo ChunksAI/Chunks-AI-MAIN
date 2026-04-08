@@ -57,22 +57,34 @@ const HOME_HTML = /* html */`
     <!-- Scrollable content -->
     <div class="home-scroll-area" id="home-scroll-area">
 
-      <!-- Dashboard landing — shown when chat history is empty -->
+      <!-- Chat-first landing — shown when chat history is empty -->
       <div id="home-landing">
 
-        <!-- Personalized greeting -->
-        <div class="home-greeting" id="home-greeting">
-          <p class="home-greeting-date" id="home-greeting-date"></p>
-          <h1 class="home-greeting-h1">Good morning, <span class="home-greeting-name" id="home-greeting-name">there</span> 👋</h1>
+        <!-- Hero -->
+        <div class="home-hero">
+          <h2 class="home-hero-title">What do you want to learn?</h2>
+          <p class="home-hero-sub">Ask anything — or load a textbook for deeper study</p>
         </div>
 
-        <!-- Recent Activity (populated by _renderHomeActivities) -->
-        <div id="home-activities-section"></div>
+        <!-- Suggestion chips -->
+        <div class="home-chips">
+          <button class="home-chip" onclick="homeChipSend(this.textContent)">Explain photosynthesis</button>
+          <button class="home-chip" onclick="homeChipSend(this.textContent)">Help me with calculus</button>
+          <button class="home-chip" onclick="homeChipSend(this.textContent)">Write a study plan</button>
+          <button class="home-chip" onclick="homeChipSend(this.textContent)">Quiz me on history</button>
+          <button class="home-chip" onclick="homeChipSend(this.textContent)">Summarize a topic</button>
+        </div>
 
-        <!-- What's New + Feedback stacked vertically -->
-        <div class="hd-stack">
-          <div class="hd-panel" id="hd-whats-new"></div>
-          <div class="hd-panel" id="hd-feedback"></div>
+        <!-- Document context bar -->
+        <div id="home-doc-bar">
+          <span id="home-doc-label" class="home-doc-label">No document loaded</span>
+          <a id="home-add-doc-btn" class="home-add-doc-btn" onclick="openLibraryModal()">+ Add textbook</a>
+        </div>
+
+        <!-- Chat input -->
+        <div class="home-chat-wrap">
+          <textarea id="home-chat-input" class="home-chat-input" placeholder="Ask me anything..." rows="1"></textarea>
+          <button id="home-chat-send" class="home-chat-send" onclick="homeDoSend()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
         </div>
 
       </div><!-- end home-landing -->
@@ -538,5 +550,23 @@ mountHomeScreen();
   banner.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;opacity:.7"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg><span>You\'re in guest mode. <a href="#" onclick="sessionStorage.removeItem(\'chunks_guest_mode\');window.openAuthModal?.();return false;" style="color:var(--gold,#f59e0b);text-decoration:none;font-weight:500;">Sign in</a> to keep your history.</span>`;
   landing.appendChild(banner);
 })();
+
+// ── Home chat-first helpers ───────────────────────────────────────────────────
+
+function homeChipSend(text) {
+  const inp = document.getElementById('home-chat-input');
+  if (inp) { inp.value = text; inp.focus(); }
+  homeDoSend();
+}
+
+function homeDoSend() {
+  const inp = document.getElementById('home-chat-input');
+  if (!inp || !inp.value.trim()) return;
+  // For now just log — Task 3 will wire the real send
+  console.log('[home-chat] sending:', inp.value.trim());
+}
+
+window.homeChipSend = homeChipSend;
+window.homeDoSend   = homeDoSend;
 
 console.log('[HomeScreen] module loaded \u2726');
