@@ -98,6 +98,9 @@ export async function selectBook(bookId) {
   try { localStorage.removeItem('chunks_active_ws_user_doc'); } catch (_) {}
   trackBookOpen(bookId);
 
+  // Switch from chat-only layout to split PDF+chat layout
+  document.getElementById('screen-workspace')?.classList.remove('ws-chat-only');
+
   // Start realtime subscriptions for this document
   subscribeToChatRealtime(bookId);
   subscribeToFlashcardRealtime(bookId);
@@ -459,6 +462,74 @@ export function _wsRenderHistory(msgs, history) {
 
 const _CHEVRON_SVG = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>`;
 
+// ── General AI welcome (no document loaded) ───────────────────────────────
+
+const _GENERAL_CHIPS = [
+  {
+    label: 'Explain a concept',
+    desc: 'Break down any topic clearly',
+    color: '#8b7cf8', bg: 'rgba(139,124,248,0.15)', border: 'rgba(139,124,248,0.25)',
+    q: 'Explain how photosynthesis works in simple terms',
+    svg: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>',
+  },
+  {
+    label: 'Study strategy',
+    desc: 'Best techniques for your subject',
+    color: '#e8ac2e', bg: 'rgba(232,172,46,0.15)', border: 'rgba(232,172,46,0.25)',
+    q: 'What is the most effective way to study for a science exam?',
+    svg: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+  },
+  {
+    label: 'Quiz me',
+    desc: 'Test your knowledge on any topic',
+    color: '#3b82f6', bg: 'rgba(59,130,246,0.15)', border: 'rgba(59,130,246,0.25)',
+    q: 'Quiz me on cell biology fundamentals',
+    svg: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r=".5" fill="currentColor"/></svg>',
+  },
+  {
+    label: 'Compare ideas',
+    desc: 'Side-by-side concept breakdown',
+    color: '#14b8a6', bg: 'rgba(20,184,166,0.15)', border: 'rgba(20,184,166,0.25)',
+    q: 'Compare mitosis and meiosis with a clear breakdown',
+    svg: '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+  },
+];
+
+export function _wsNoBookWelcomeHtml() {
+  const chipsHtml = _GENERAL_CHIPS.map(c => `
+    <button class="ws-general-chip" onclick="wsSetInput(${JSON.stringify(c.q)});wsChatSend()">
+      <div class="ws-general-chip-icon" style="background:${c.bg};color:${c.color};border:1px solid ${c.border};">${c.svg}</div>
+      <div>
+        <div class="ws-general-chip-label">${c.label}</div>
+        <div class="ws-general-chip-desc">${c.desc}</div>
+      </div>
+    </button>`).join('');
+  return `
+    <div class="ws-welcome ws-welcome--general" id="ws-welcome-state">
+      <div class="ws-welcome-logo">
+        <svg width="22" height="22" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="overflow:hidden;">
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/>
+          <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/>
+          <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
+        </svg>
+      </div>
+      <div class="ws-welcome-heading">What can I help you study?</div>
+      <div class="ws-welcome-sub">Ask anything — or add a textbook to get document-aware answers.</div>
+      <div class="ws-general-chips">
+        ${chipsHtml}
+      </div>
+      <div class="ws-add-doc-hint">
+        <span class="ws-add-doc-hint-label">Want deeper answers from a textbook?</span>
+        <button class="ws-add-doc-cta" data-action="openLibraryModal">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+          Add a document
+        </button>
+      </div>
+    </div>`;
+}
+
+
 const _WELCOME_CARDS = [
   {
     label: 'Flashcards', desc: 'Generate from doc',
@@ -558,7 +629,13 @@ export function _wsWelcomeHtml(title, chapterName) {
 export function _wsShowWelcome(meta) {
   const msgs = $el('ws-messages');
   if (!msgs) return;
-  setHtml(msgs, _wsWelcomeHtml(meta.name, null));
+  if (!meta || !ws.bookId) {
+    // No document loaded — show general AI welcome and restore chat-only layout
+    setHtml(msgs, _wsNoBookWelcomeHtml());
+    document.getElementById('screen-workspace')?.classList.add('ws-chat-only');
+  } else {
+    setHtml(msgs, _wsWelcomeHtml(meta.name, null));
+  }
 }
 
 // ── Close / unload current book ───────────────────────────────────────────────
@@ -602,7 +679,14 @@ export function closeBook() {
   if (loadingState)    loadingState.style.display = 'none';
   if (defaultContent)  defaultContent.style.display = 'flex';
 
-  // Clear chat panel
+  // Switch back to chat-only layout and show the general AI welcome
+  document.getElementById('screen-workspace')?.classList.add('ws-chat-only');
   const msgs = $el('ws-messages');
-  if (msgs) setHtml(msgs, '');
+  if (msgs) setHtml(msgs, _wsNoBookWelcomeHtml());
 }
+
+// ── Window bridges ─────────────────────────────────────────────────────────
+// Expose so callers that can't import directly (e.g. chat.js, screens.js)
+// can call these via window without creating circular imports.
+window._wsNoBookWelcomeHtml = _wsNoBookWelcomeHtml;
+window._wsShowWelcome       = _wsShowWelcome;

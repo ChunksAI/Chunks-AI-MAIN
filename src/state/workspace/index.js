@@ -15,7 +15,7 @@ export {
   _wsRescale, _loadPdfJs, _wsRenderPage,
 } from './pdf.js';
 
-export { selectBook, closeBook, _wsShowWelcome, _wsWelcomeHtml, _wsRenderHistory } from './books.js';
+export { selectBook, closeBook, _wsShowWelcome, _wsWelcomeHtml, _wsRenderHistory, _wsNoBookWelcomeHtml } from './books.js';
 
 export { selectUserDoc, WS_USER_DOC_SENTINEL } from './userDocs.js';
 

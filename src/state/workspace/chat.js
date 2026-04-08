@@ -78,7 +78,13 @@ export function wsClearChat() {
   ws.chatHistory = [];
   const msgs = $el('ws-messages');
   if (msgs) setHtml(msgs, '');
-  if (typeof window._wsShowWelcome === 'function') window._wsShowWelcome();
+  if (!ws.bookId && !ws.userDocId) {
+    // No document — show general AI welcome and restore chat-only layout
+    if (msgs) msgs.innerHTML = _wsNoBookWelcomeHtml();
+    document.getElementById('screen-workspace')?.classList.add('ws-chat-only');
+  } else if (typeof window._wsShowWelcome === 'function') {
+    window._wsShowWelcome();
+  }
   if (ws.bookId && typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, []);
   wsShowToast('🗑', 'Chat cleared', 'var(--border-md)');
 }

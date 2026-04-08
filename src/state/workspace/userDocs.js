@@ -42,6 +42,9 @@ export async function selectUserDoc(docId) {
   lsSet('chunks_active_ws_user_doc', docId);
   lsSet('chunks_active_ws_user_doc_name', meta.name);
 
+  // Switch from chat-only layout to split PDF+chat layout
+  document.getElementById('screen-workspace')?.classList.remove('ws-chat-only');
+
   // Start realtime subscriptions for this user document
   subscribeToChatRealtime(docId);
   subscribeToFlashcardRealtime(docId);

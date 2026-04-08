@@ -3252,3 +3252,164 @@
 .ws-book-loaded .ws-close-book-btn {
   display: inline-flex;
 }
+
+/* ── Chat-only mode: no document loaded ──────────────────────────────────── */
+
+/* Hide PDF panel and resizer when no document is open */
+#screen-workspace.ws-chat-only .pdf-panel,
+#screen-workspace.ws-chat-only .ws-resizer {
+  display: none;
+}
+
+/* Center chat panel with comfortable reading width */
+#screen-workspace.ws-chat-only .chat-panel {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+/* Wider AI responses in general AI mode */
+#screen-workspace.ws-chat-only .ai-body {
+  max-width: 760px;
+}
+
+/* Roomier padding when no PDF is beside it */
+#screen-workspace.ws-chat-only .messages {
+  padding: 24px 40px;
+}
+
+/* ── "Add document" button in chat bar (chat-only mode only) ─────────────── */
+.ws-chat-bar-open-doc {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-sm);
+  background: var(--surface-1);
+  color: var(--text-2);
+  font-size: 12px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 200ms ease, border-color 200ms ease, background 200ms ease;
+}
+.ws-chat-bar-open-doc:hover {
+  background: var(--gold-muted);
+  border-color: var(--gold-border);
+  color: var(--gold);
+}
+#screen-workspace.ws-chat-only .ws-chat-bar-open-doc {
+  display: inline-flex;
+}
+
+/* ── General AI welcome state (no document) ──────────────────────────────── */
+.ws-welcome--general {
+  max-width: 580px;
+  padding: 32px 24px 40px;
+  align-items: center;
+}
+
+.ws-welcome--general .ws-welcome-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--gold-muted);
+  border: 1px solid var(--gold-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  flex-shrink: 0;
+}
+
+.ws-welcome--general .ws-welcome-heading {
+  font-size: 19px;
+  margin-bottom: 8px;
+}
+
+.ws-welcome--general .ws-welcome-sub {
+  font-size: 13px;
+  margin-bottom: 28px;
+  max-width: 380px;
+}
+
+.ws-general-chips {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  max-width: 500px;
+  margin-bottom: 24px;
+}
+
+.ws-general-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-xs);
+  background: var(--surface-1);
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-body);
+  transition: border-color 180ms ease, background 180ms ease;
+}
+.ws-general-chip:hover {
+  border-color: var(--border-sm);
+  background: var(--surface-2);
+}
+.ws-general-chip-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.ws-general-chip-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.4;
+}
+.ws-general-chip-desc {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.45;
+  margin-top: 2px;
+}
+
+.ws-add-doc-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.ws-add-doc-hint-label {
+  font-size: 11px;
+  color: var(--text-4);
+}
+.ws-add-doc-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 18px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-sm);
+  background: var(--surface-1);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: color 200ms ease, border-color 200ms ease, background 200ms ease;
+}
+.ws-add-doc-cta:hover {
+  background: var(--gold-muted);
+  border-color: var(--gold-border);
+  color: var(--gold);
+}

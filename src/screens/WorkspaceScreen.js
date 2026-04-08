@@ -21,6 +21,7 @@
 import { mountSmartNotesPanel, mountStickyStrip } from '../components/SmartNotesPanel.jsx';
 import { mountCanvasPanel } from '../components/CanvasPanel.jsx';
 import { wsFitWidth } from '../state/workspace/pdf.js';
+import { ws } from '../state/workspace/state.js';
 
 // ── HTML template ─────────────────────────────────────────────────────────────
 
@@ -233,11 +234,16 @@ const WORKSPACE_HTML = /* html */`
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         </div>
         <div class="chat-bar-doc-text">
-          <span class="chat-bar-title" id="ws-chat-title">Select a document</span>
+          <span class="chat-bar-title" id="ws-chat-title">General AI</span>
           <span class="chat-bar-subtitle" id="ws-chat-subtitle"></span>
         </div>
       </div>
       <div class="chat-bar-actions">
+        <!-- Shown only in chat-only mode (no document loaded) -->
+        <button class="ws-chat-bar-open-doc" id="ws-open-doc-btn" data-action="openLibraryModal" title="Add a textbook or document for richer answers">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+          Add document
+        </button>
       </div>
     </div>
 
@@ -398,6 +404,20 @@ export function mountWorkspaceScreen() {
     return;
   }
   placeholder.outerHTML = WORKSPACE_HTML;
+
+  // Apply chat-first layout immediately when no book is loaded.
+  // Welcome state is deferred (setTimeout 0) so books.js has time to
+  // bind window._wsNoBookWelcomeHtml at module evaluation time.
+  if (!ws.bookId && !ws.userDocId) {
+    const wsEl = document.getElementById('screen-workspace');
+    if (wsEl) wsEl.classList.add('ws-chat-only');
+    setTimeout(() => {
+      const msgs = document.getElementById('ws-messages');
+      if (msgs && typeof window._wsNoBookWelcomeHtml === 'function') {
+        msgs.innerHTML = window._wsNoBookWelcomeHtml();
+      }
+    }, 0);
+  }
 
   // Refresh smart suggestions after mount
   setTimeout(refreshSmartSuggestions, 300);
