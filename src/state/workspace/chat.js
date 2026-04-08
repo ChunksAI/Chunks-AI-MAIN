@@ -80,7 +80,9 @@ export function wsClearChat() {
   if (msgs) setHtml(msgs, '');
   if (!ws.bookId && !ws.userDocId) {
     // No document — show general AI welcome and restore chat-only layout
-    if (msgs) msgs.innerHTML = _wsNoBookWelcomeHtml();
+    if (msgs && typeof window._wsNoBookWelcomeHtml === 'function') {
+      setHtml(msgs, window._wsNoBookWelcomeHtml());
+    }
     document.getElementById('screen-workspace')?.classList.add('ws-chat-only');
   } else if (typeof window._wsShowWelcome === 'function') {
     window._wsShowWelcome();

@@ -629,7 +629,7 @@ export function _wsWelcomeHtml(title, chapterName) {
 export function _wsShowWelcome(meta) {
   const msgs = $el('ws-messages');
   if (!msgs) return;
-  if (!meta || !ws.bookId) {
+  if (!ws.bookId) {
     // No document loaded — show general AI welcome and restore chat-only layout
     setHtml(msgs, _wsNoBookWelcomeHtml());
     document.getElementById('screen-workspace')?.classList.add('ws-chat-only');
