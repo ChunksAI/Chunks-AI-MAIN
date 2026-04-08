@@ -13,6 +13,7 @@
  */
 
 import { lsGet } from '../utils/storage.js';
+import { wsSetInput, wsChatSend } from '../state/workspace/chat.js';
 
 // ── What\'s New feed ───────────────────────────────────────────────────────────
 // Update this array to change the What\'s New panel. badge: \'new\' | \'tip\' | \'fix\'
@@ -84,7 +85,7 @@ const HOME_HTML = /* html */`
         <!-- Chat input -->
         <div class="home-chat-wrap">
           <textarea id="home-chat-input" class="home-chat-input" placeholder="Ask me anything..." rows="1"></textarea>
-          <button id="home-chat-send" class="home-chat-send" onclick="homeDoSend()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+          <button id="home-chat-send" class="home-chat-send"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
         </div>
 
       </div><!-- end home-landing -->
@@ -255,6 +256,20 @@ export function mountHomeScreen() {
   _renderHomeActivities();
   _hdRenderWhatsNew();
   _hdRenderFeedback();
+
+  // ── Wire home chat controls ───────────────────────────────────────────────
+  const _chatSend  = document.getElementById('home-chat-send');
+  const _chatInput = document.getElementById('home-chat-input');
+  if (_chatSend)  _chatSend.addEventListener('click', homeDoSend);
+  if (_chatInput) {
+    _chatInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); homeDoSend(); }
+    });
+    _chatInput.addEventListener('input', function () {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+  }
 }
 
 // ── Recent Activities ─────────────────────────────────────────────────────────
@@ -561,9 +576,16 @@ function homeChipSend(text) {
 
 function homeDoSend() {
   const inp = document.getElementById('home-chat-input');
-  if (!inp || !inp.value.trim()) return;
-  // For now just log — Task 3 will wire the real send
-  console.log('[home-chat] sending:', inp.value.trim());
+  if (!inp) return;
+  const query = inp.value.trim();
+  if (!query) return;
+  inp.value = '';
+  inp.style.height = 'auto';
+  if (typeof window.showScreen === 'function') window.showScreen('workspace');
+  setTimeout(() => {
+    wsSetInput(query);
+    wsChatSend();
+  }, 200);
 }
 
 window.homeChipSend = homeChipSend;
