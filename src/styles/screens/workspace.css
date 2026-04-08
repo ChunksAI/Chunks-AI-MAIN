@@ -3270,3 +3270,32 @@
   color: var(--gold);
   background: var(--gold-muted);
 }
+
+/* ── Text selection popup (Explain / Quiz me / Add note) ─────────────────── */
+
+.ws-selection-popup {
+  position: fixed;
+  z-index: 9000;
+  display: flex;
+  gap: 4px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-md);
+  border-radius: 10px;
+  padding: 5px 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  pointer-events: all;
+  transition: opacity 0.12s;
+}
+.ws-selection-popup.hidden { display: none; }
+.ws-sel-btn {
+  font-size: 12px;
+  font-family: var(--font-body);
+  padding: 4px 10px;
+  border-radius: 7px;
+  border: none;
+  background: var(--surface-4);
+  color: var(--text-1);
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+.ws-sel-btn:hover { background: var(--gold-muted); color: var(--gold); }
