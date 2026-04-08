@@ -133,6 +133,19 @@ export async function selectBook(bookId) {
 
   if (typeof showScreen === 'function') showScreen('workspace');
 
+  // Expand the chat panel if it is collapsed
+  const _chatPanel = document.querySelector('.chat-panel');
+  if (_chatPanel && _chatPanel.classList.contains('ws-panel-collapsed')) {
+    _chatPanel.classList.remove('ws-panel-collapsed');
+  }
+
+  // Update home screen document context bar
+  const _homeDocLabel = document.getElementById('home-doc-label');
+  if (_homeDocLabel) _homeDocLabel.textContent = meta.name;
+
+  // Signal that a document is now active
+  window._wsDocLoaded = true;
+
   setText($el('ws-book-name'), meta.name);
   setText($el('ws-book-author'), meta.author);
 
@@ -605,4 +618,9 @@ export function closeBook() {
   // Clear chat panel
   const msgs = $el('ws-messages');
   if (msgs) setHtml(msgs, '');
+
+  // Clear doc-loaded flag and reset home screen context bar
+  window._wsDocLoaded = false;
+  const _homeDocLabel = document.getElementById('home-doc-label');
+  if (_homeDocLabel) _homeDocLabel.textContent = 'No document loaded';
 }
