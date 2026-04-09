@@ -139,12 +139,11 @@ export function buildSidebar(screen) {
       : item.action === 'openLibraryModal'
         ? `onkeydown="if(event.key==='Enter'||event.key===' ')openLibraryModal()"`
         : `onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('${item.screen}')"`;
-    const idAttr = '';
     const badgeHtml = item.badge
       ? `<span class="power-badge ${item.badgeClass}">${item.badge}</span>`
       : '';
     const powerClass = item.isPower ? ` sidebar-item-power sidebar-item-${item.id}` : '';
-    return `      <div class="sidebar-item${activeAttr}${powerClass}"${idAttr} role="button" tabindex="0" aria-label="${item.label}"${ariaCurrent} ${dataAction} ${onclickExtra} ${onkeydown} style="cursor:pointer;">
+    return `      <div class="sidebar-item${activeAttr}${powerClass}" role="button" tabindex="0" aria-label="${item.label}"${ariaCurrent} ${dataAction} ${onclickExtra} ${onkeydown} style="cursor:pointer;">
         ${item.svg}
         <span>${item.label}</span>
         ${badgeHtml}
