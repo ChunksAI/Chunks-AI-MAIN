@@ -13,6 +13,7 @@ import { isGuest, guestGate, recordUsage } from '../../lib/guestLimits.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
 import { checkStorageQuota } from '../../utils/storageQuota.js';
 import { lsGet, lsSet } from '../../utils/storage.js';
+import { showOnboardingIfFirst } from '../../components/OnboardingTip.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 import { subscribeToChatRealtime, unsubscribeChatRealtime } from './chatRealtime.js';
 import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
@@ -342,6 +343,8 @@ export async function selectBook(bookId) {
     hide($el('ws-pdf-loading'));
     hide($el('ws-default-content'));
     wrap.style.display = 'flex';
+
+    showOnboardingIfFirst();
 
     // Restore saved page position (use requestAnimationFrame so layout is ready)
     const _savedPage = lsGet('chunks_ws_page_' + bookId);

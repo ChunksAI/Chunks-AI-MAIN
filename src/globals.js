@@ -668,3 +668,9 @@ window.CommandEngine = CommandEngine;
 // _syncThemeToggleBtns is a local function in Sidebar.js that registers
 // itself on window.  It cannot be imported — the registration stays in
 // Sidebar.js alongside the DOM code it depends on.
+
+
+// ── Onboarding ───────────────────────────────────────────────────────────────
+import { showOnboardingIfFirst } from './components/OnboardingTip.js';
+
+window.showOnboardingIfFirst = showOnboardingIfFirst;
