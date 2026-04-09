@@ -189,27 +189,6 @@ const HOME_HTML = /* html */`
     <!-- ── Inline chat panel (workspace-style, hidden until first message) ── -->
     <section class="home-chat-panel" id="home-chat-panel">
 
-      <!-- Top bar: AI identity left · New Chat right -->
-      <div class="chat-bar">
-        <div class="chat-bar-doc">
-          <div class="chat-bar-doc-icon" id="home-chat-bar-icon">
-            <svg width="13" height="13" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-              <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="currentColor" stroke-width="8" opacity="0.95"/>
-              <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="currentColor" stroke-width="8" transform="rotate(60 50 50)" opacity="0.88"/>
-              <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="currentColor" stroke-width="8" transform="rotate(120 50 50)" opacity="0.80"/>
-              <circle cx="50" cy="50" r="6" fill="currentColor"/>
-            </svg>
-          </div>
-          <div class="chat-bar-doc-text">
-            <span class="chat-bar-title">General AI</span>
-            <span class="chat-bar-subtitle">Ask me anything</span>
-          </div>
-        </div>
-        <div class="chat-bar-actions">
-          <button class="ws-general-ai-btn" onclick="homeNewChat()">+ New Chat</button>
-        </div>
-      </div>
-
       <!-- Messages -->
       <div class="messages" id="home-messages"></div>
 
