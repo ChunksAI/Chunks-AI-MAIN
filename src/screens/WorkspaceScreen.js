@@ -64,6 +64,9 @@ const WORKSPACE_HTML = /* html */`
         <div class="pdf-book-icon"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg></div>
         <span class="pdf-book-name" id="ws-book-name">No book loaded</span>
         <span class="pdf-chapter" id="ws-book-author"></span>
+        <button class="ws-close-book-btn" id="ws-close-book-btn" aria-label="Close currently open document" onclick="closeBook()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
       </div>
 
       <!-- Floating glass pill toolbar (centered) -->
@@ -110,13 +113,6 @@ const WORKSPACE_HTML = /* html */`
           <span>Listen</span>
         </button>
 
-        <div class="pdf-tb-sep"></div>
-
-        <!-- Close document -->
-        <button class="pdf-tb-btn pdf-tb-close" title="Close document" aria-label="Close document" onclick="closeBook()">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-
       </div>
     </div>
 
@@ -139,6 +135,23 @@ const WORKSPACE_HTML = /* html */`
 
         <!-- Empty state — shown when no book loaded -->
         <div id="ws-default-content" style="position:absolute;inset:0;overflow-y:auto;background:var(--surface-2);z-index:2;padding:28px 24px 24px;">
+          <!-- Header row -->
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap;">
+            <div>
+              <div style="font-family:var(--font-head);font-size:17px;font-weight:700;color:var(--text-1);margin-bottom:4px;">Your Documents</div>
+              <div style="font-size:12px;color:var(--text-3);">Continue where you left off</div>
+            </div>
+            <div class="ws-doc-header-actions">
+              <button data-action="wsUploadPdf" class="ws-upload-pdf-btn" title="Upload a PDF">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Upload PDF</span>
+              </button>
+              <button data-action="openLibraryModal" class="ws-browse-lib-btn">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+                <span>Browse Library</span>
+              </button>
+            </div>
+          </div>
           <!-- Document cards grid -->
           <div id="ws-doc-cards-grid" class="ws-doc-cards-grid">
             <!-- populated by _renderWsDocCards() -->
@@ -222,7 +235,7 @@ const WORKSPACE_HTML = /* html */`
   <div class="ws-resizer" id="ws-resizer"></div>
 
   <!-- Chat Panel -->
-  <section class="chat-panel" id="ws-chat-panel">
+  <section class="chat-panel">
     <!-- Top bar: doc info left · actions right -->
     <div class="chat-bar">
       <div class="chat-bar-doc">
@@ -235,7 +248,10 @@ const WORKSPACE_HTML = /* html */`
         </div>
       </div>
       <div class="chat-bar-actions">
-        <button class="ws-general-ai-btn" onclick="wsGoGeneralAI()">General AI</button>
+        <span class="session-timer" id="ws-session-timer" title="Session duration"></span>
+        <button class="icon-btn" aria-label="New chat" title="New chat" data-action="wsClearChat">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="12" y1="9" x2="12" y2="15"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+        </button>
       </div>
     </div>
 
@@ -255,16 +271,60 @@ const WORKSPACE_HTML = /* html */`
       </button>
       <div class="ws-tabs-spacer"></div>
       <span class="ws-page-label" id="ws-chat-page-label"></span>
-      <button class="ws-panel-collapse-btn" id="ws-panel-collapse-btn"
-              aria-label="Collapse AI panel" onclick="wsTogglePanelCollapse()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
     </div>
 
     <!-- Chat content (shown by default) -->
     <div id="ws-chat-content" style="display:flex;">
 
     <div class="messages" id="ws-messages">
+      <div id="ws-welcome-state" style="display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:20px 16px;">
+        <!-- Quick Actions header -->
+        <div style="font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text-1);margin-bottom:14px;">Quick Actions</div>
+        <!-- 2×3 action grid -->
+        <div class="ws-quick-actions-grid">
+          <div class="ws-quick-action-card" data-action="goHome" role="button" tabindex="0" aria-label="New Chat">
+            <div class="ws-qa-icon" style="background:rgba(139,124,248,0.12);color:#8b7cf8;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <span class="ws-qa-label">New Chat</span>
+          </div>
+          <div class="ws-quick-action-card" data-action="showScreen" data-screen="flash" role="button" tabindex="0" aria-label="Flashcards">
+            <div class="ws-qa-icon" style="background:rgba(232,172,46,0.12);color:var(--gold);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+            </div>
+            <span class="ws-qa-label">Flashcards</span>
+          </div>
+          <div class="ws-quick-action-card" data-action="showScreen" data-screen="exam" role="button" tabindex="0" aria-label="New Exam">
+            <div class="ws-qa-icon" style="background:rgba(139,92,246,0.12);color:#a78bfa;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            </div>
+            <span class="ws-qa-label">New Exam</span>
+          </div>
+          <div class="ws-quick-action-card" data-action="showScreen" data-screen="studyplan" role="button" tabindex="0" aria-label="Study Plan">
+            <div class="ws-qa-icon" style="background:rgba(16,185,129,0.12);color:#34d399;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            </div>
+            <span class="ws-qa-label">Study Plan</span>
+          </div>
+          <div class="ws-quick-action-card" data-action="showScreen" data-screen="research" role="button" tabindex="0" aria-label="Research">
+            <div class="ws-qa-icon" style="background:rgba(59,130,246,0.12);color:#60a5fa;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 12h6m-3-3v6"/><path d="M3 7V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2"/><path d="M21 7H3l1.5 11A2 2 0 0 0 6.48 20h11.04a2 2 0 0 0 1.98-2L21 7z"/></svg>
+            </div>
+            <span class="ws-qa-label">Research</span>
+          </div>
+          <div class="ws-quick-action-card" data-action="openLibraryModal" role="button" tabindex="0" aria-label="Browse Library">
+            <div class="ws-qa-icon" style="background:rgba(232,172,46,0.08);color:var(--gold);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+            </div>
+            <span class="ws-qa-label">Browse Library</span>
+          </div>
+        </div>
+        <!-- Session timer stat card -->
+        <div class="ws-stat-card" id="ws-stat-timer-card" style="display:none;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          <span id="ws-stat-timer-text" style="font-size:12px;color:var(--text-2);">Studying today</span>
+        </div>
+      </div>
     </div>
 
     <div class="chat-input-wrap">
@@ -307,7 +367,7 @@ const WORKSPACE_HTML = /* html */`
 
         <!-- Textarea row -->
         <div class="chat-textarea-row">
-          <textarea id="ws-chat-input" class="chat-input-field" placeholder="Ask me anything…" rows="1" style="resize:none;max-height:120px;overflow-y:auto;font-family:var(--font-body);font-size:13px;color:var(--text-1);background:transparent;border:none;outline:none;flex:1;line-height:1.5;"></textarea>
+          <textarea id="ws-chat-input" class="chat-input-field" placeholder="Ask anything about this chapter…" rows="1" style="resize:none;max-height:120px;overflow-y:auto;font-family:var(--font-body);font-size:13px;color:var(--text-1);background:transparent;border:none;outline:none;flex:1;line-height:1.5;"></textarea>
           <button class="chat-send" id="ws-chat-send" data-action="wsChatSend"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
         </div>
 
@@ -388,11 +448,6 @@ const WORKSPACE_HTML = /* html */`
     </div>
 
   </section>
-
-  <!-- Floating AI tab — visible when chat panel is collapsed -->
-  <button class="ws-ai-float-tab hidden" id="ws-ai-float-tab"
-          aria-label="Expand AI panel" onclick="wsTogglePanelCollapse()">AI</button>
-
 </div>
 `;
 
@@ -408,6 +463,7 @@ export function mountWorkspaceScreen() {
 
   // Refresh smart suggestions after mount
   setTimeout(refreshSmartSuggestions, 300);
+  setTimeout(_initSessionTimer, 0);
   setTimeout(_initNotes, 0);
   setTimeout(_initEmptyStateObserver, 0);
   // Mount Preact islands
@@ -473,54 +529,21 @@ export function wsShowPanel(tab) {
   }
 }
 
-// ── General AI mode ───────────────────────────────────────────────────────────
-
-export function wsGoGeneralAI() {
-  const titleEl = document.getElementById('ws-chat-title');
-  const subEl   = document.getElementById('ws-chat-subtitle');
-  if (titleEl) titleEl.textContent = 'General AI';
-  if (subEl)   subEl.textContent   = 'No document context · ask anything';
-  window._wsGeneralMode = true;
-  const inp = document.getElementById('ws-chat-input');
-  if (inp) { inp.placeholder = 'Ask me anything...'; inp.focus(); }
-}
-
-// ── Panel collapse / expand ───────────────────────────────────────────────────
-
-export function wsTogglePanelCollapse() {
-  const panel    = document.getElementById('ws-chat-panel');
-  const floatTab = document.getElementById('ws-ai-float-tab');
-  const colBtn   = document.getElementById('ws-panel-collapse-btn');
-  const resizer  = document.querySelector('.ws-resizer');
-
-  if (!panel) return;
-  const isCollapsed = panel.classList.contains('ws-panel-collapsed');
-
-  if (isCollapsed) {
-    panel.classList.remove('ws-panel-collapsed');
-    if (floatTab) floatTab.classList.add('hidden');
-    if (resizer)  resizer.style.display = '';
-    if (colBtn)   colBtn.setAttribute('aria-label', 'Collapse AI panel');
-  } else {
-    panel.classList.add('ws-panel-collapsed');
-    if (floatTab) floatTab.classList.remove('hidden');
-    if (resizer)  resizer.style.display = 'none';
-    if (colBtn)   colBtn.setAttribute('aria-label', 'Expand AI panel');
-  }
-}
-
 // ── Empty state observer & document cards ─────────────────────────────────────
 
 /**
- * Watch ws-default-content visibility to render document cards when the
- * empty state becomes visible. The chat input is always visible.
+ * Watch ws-default-content visibility to toggle:
+ *  - chat input wrap hidden when no book is loaded
+ *  - document cards rendered when the empty state becomes visible
  */
 function _initEmptyStateObserver() {
   const defaultContent = document.getElementById('ws-default-content');
+  const chatInputWrap  = document.querySelector('#ws-chat-content .chat-input-wrap');
   if (!defaultContent) return;
 
   function _onVisibilityChange() {
     const visible = defaultContent.style.display !== 'none';
+    if (chatInputWrap) chatInputWrap.style.display = visible ? 'none' : '';
     if (visible) _renderWsDocCards();
   }
 
@@ -585,13 +608,10 @@ function _renderWsDocCards() {
     card.className = 'ws-doc-card';
     card.style.cssText = `--ws-card-accent:${accent};`;
     card.innerHTML = `
-      <div class="ws-doc-folder-tab"></div>
-      <div class="ws-doc-folder-body">
-        <div class="ws-doc-folder-icon">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-        </div>
+      <div class="ws-doc-card-inner">
         <div class="ws-doc-card-title" title="${safeTitle}">${safeTitle}</div>
-        ${timeLabel ? `<div class="ws-doc-card-meta">${_escHtml(timeLabel)}</div>` : ''}
+        ${timeLabel ? `<div class="ws-doc-card-meta">Last opened: ${_escHtml(timeLabel)}</div>` : ''}
+        <button class="ws-doc-card-open">Open</button>
       </div>`;
 
     card.addEventListener('click', () => {
@@ -600,6 +620,49 @@ function _renderWsDocCards() {
     });
     grid.appendChild(card);
   });
+}
+
+// ── Session timer ─────────────────────────────────────────────────────────────
+
+const _TIMER_KEY = 'chunks-ai-session-start';
+
+function _initSessionTimer() {
+  const timerEl    = document.getElementById('ws-session-timer');
+  const statCard   = document.getElementById('ws-stat-timer-card');
+  const statText   = document.getElementById('ws-stat-timer-text');
+
+  // Persist start time across within-tab navigation (sessionStorage resets per browser session)
+  let startTime = parseInt(sessionStorage.getItem(_TIMER_KEY) || '0', 10);
+  if (!startTime) {
+    startTime = Date.now();
+    sessionStorage.setItem(_TIMER_KEY, String(startTime));
+  }
+
+  const _update = () => {
+    // Stop updating if timer element left the DOM
+    if (timerEl && !document.contains(timerEl)) { clearInterval(_timerId); return; }
+    const mins = Math.floor((Date.now() - startTime) / 60000);
+    let label = '';
+    if (mins >= 1 && mins < 60) {
+      label = `studying for ${mins}min`;
+    } else if (mins >= 60) {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      label = `studying for ${h}h${m > 0 ? ` ${m}m` : ''}`;
+    }
+    if (timerEl) timerEl.textContent = label;
+
+    // Also update the Quick Actions stat card
+    if (statCard && statText) {
+      if (mins >= 1) {
+        statText.textContent = `Studying for ${mins < 60 ? mins + 'min' : Math.floor(mins/60) + 'h' + (mins%60 > 0 ? ' ' + mins%60 + 'm' : '')} today`;
+        statCard.style.display = 'flex';
+      }
+    }
+  };
+
+  _update();
+  const _timerId = setInterval(_update, 60000);
 }
 
 // ── Notes persistence ─────────────────────────────────────────────────────────

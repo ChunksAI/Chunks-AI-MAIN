@@ -27,7 +27,7 @@ startxref
 test.describe('Chunk / Document upload', () => {
   test('study plan upload tab has a file input that accepts PDF', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     // Navigate to study plan screen (upload is the default tab)
     await authedPage.evaluate(() => window.showScreen?.('studyplan'));
@@ -43,8 +43,7 @@ test.describe('Chunk / Document upload', () => {
 
   test('can attach a PDF file via the study plan upload zone', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
-    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('studyplan'));
     await authedPage.evaluate(() => window.spSwitchTab?.('upload'));
@@ -65,8 +64,7 @@ test.describe('Chunk / Document upload', () => {
 
   test('workspace screen has a PDF attachment input', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
-    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('workspace'));
 

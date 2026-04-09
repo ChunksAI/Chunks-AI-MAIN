@@ -1,5 +1,4 @@
 
-
 /* ═══════════════════════════════════════════════════════════
    SCREEN 2 — STUDY WORKSPACE
    Extracted from monolith lines 1209–1820 (Task 8).
@@ -220,13 +219,6 @@
   transform: scale(1.04);
 }
 .pdf-tb-listen:active { transform: scale(0.95); }
-
-/* Close document button — subtle red on hover to signal destructive action */
-.pdf-tb-close:hover {
-  background: rgba(248, 113, 113, 0.12);
-  color: var(--red, #f87171);
-  transform: scale(1.10);
-}
 
 /* Keep legacy title block styles (used if referenced elsewhere) */
 .pdf-title-block {
@@ -471,6 +463,22 @@
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+/* Session timer */
+.session-timer {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  background: var(--surface-3);
+  border: 1px solid var(--border-xs);
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
 }
 
 /* Panel tabs (Chat | Notes) + page label right */
@@ -1632,6 +1640,7 @@
   transition: background var(--t-fast), color var(--t-fast);
   position: relative; overflow: hidden;
 }
+.recent-item span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .recent-item:hover { background: var(--surface-2); color: var(--text-1); }
 .recent-item.active { background: var(--gold-muted); color: var(--gold); }
 .recent-item.active::before {
@@ -1644,7 +1653,7 @@
 }
 .recent-item svg { opacity: 0.45; flex-shrink: 0; transition: opacity var(--t-fast); }
 .recent-item:hover svg, .recent-item.active svg { opacity: 1; }
-.recent-item > .recent-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.recent-item > span:first-of-type { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .recent-item .recent-menu-btn {
   opacity: 0; border-radius: 3px;
   color: var(--text-3); flex-shrink: 0;
@@ -1717,7 +1726,6 @@
   background: transparent;
   flex-shrink: 0;
   position: relative;
-  z-index: 2;
 }
 .chat-input-wrap::before {
   content: '';
@@ -2421,7 +2429,8 @@
   color: transparent;
 }
 
-/* ── "Ask AI" floating button (legacy rule kept for compatibility) ── */
+/* ── "Ask AI" floating button (legacy rule kept for compatibility) ──────────
+   Actual contextual bar is #ws-ctx-bar — see below. */
 #ws-ask-ai-btn {
   transition: transform 80ms ease, box-shadow 80ms ease;
 }
@@ -2432,6 +2441,70 @@
 #ws-ask-ai-btn:active {
   transform: scale(0.97);
 }
+
+/* ── Contextual AI bar (appears on PDF text selection) ──────────────────── */
+#ws-ctx-bar {
+  align-items: center;
+  gap: 3px;
+  padding: 4px 6px;
+  /* Glassmorphism — matches main pdf-bar-pill */
+  background: rgba(20, 18, 30, 0.80);
+  backdrop-filter: blur(16px) saturate(1.8);
+  -webkit-backdrop-filter: blur(16px) saturate(1.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9999px;
+  box-shadow:
+    0 6px 28px rgba(0, 0, 0, 0.55),
+    0 1px 0 rgba(255, 255, 255, 0.06) inset;
+  animation: ctx-bar-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Light theme override for contextual bar */
+[data-theme="study"] #ws-ctx-bar {
+  background: rgba(255, 255, 255, 0.90);
+  border-color: rgba(0, 0, 0, 0.10);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.18), 0 1px 0 rgba(255, 255, 255, 0.9) inset;
+}
+[data-theme="study"] .ws-ctx-action { color: var(--text-2); }
+[data-theme="study"] .ws-ctx-action:hover { background: rgba(0, 0, 0, 0.06); color: var(--text-1); }
+
+@keyframes ctx-bar-in {
+  from { opacity: 0; transform: translateY(4px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Action buttons inside the contextual bar */
+.ws-ctx-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 9999px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  font-family: var(--font-body);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
+}
+.ws-ctx-action:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  transform: scale(1.06);
+}
+.ws-ctx-action:active { transform: scale(0.93); }
+
+/* Accent colour each action */
+.ws-ctx-action:nth-child(1) { color: var(--gold); }
+.ws-ctx-action:nth-child(1):hover { background: var(--gold-muted); }
+.ws-ctx-action:nth-child(2) { color: #60c8ff; }
+.ws-ctx-action:nth-child(2):hover { background: rgba(96, 200, 255, 0.10); }
+.ws-ctx-action:nth-child(3) { color: var(--violet); }
+.ws-ctx-action:nth-child(3):hover { background: var(--violet-muted); }
 
 /* ── Study mode: pdf-view warm background ── */
 [data-theme="study"] .pdf-view {
@@ -3098,65 +3171,28 @@
   gap: 10px;
 }
 
-/* ── Mini folder card ─────────────────────────────────────────────────────── */
 .ws-doc-card {
   position: relative;
+  background: var(--surface-3);
+  border: 1px solid var(--border-xs);
+  border-left: 3px solid var(--ws-card-accent, var(--gold));
+  border-radius: var(--r-md);
+  padding: 12px 12px 10px;
   cursor: pointer;
+  transition: transform var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
-  transition: filter var(--t-fast), transform var(--t-fast);
 }
 .ws-doc-card:hover {
-  filter: drop-shadow(0 6px 18px rgba(0,0,0,0.40));
-  transform: translateY(-3px);
-}
-
-/* Folder tab — the small "ear" at top-left */
-.ws-doc-folder-tab {
-  width: 44%;
-  height: 10px;
-  background: var(--ws-card-accent, var(--gold));
-  border-radius: 5px 5px 0 0;
-  flex-shrink: 0;
-  opacity: 0.85;
-}
-
-/* Folder body — main area below the tab */
-.ws-doc-folder-body {
-  flex: 1;
-  background: var(--surface-3);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-top: 2px solid var(--ws-card-accent, var(--gold));
-  border-radius: 0 6px 6px 6px;
-  padding: 10px 11px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 0;
-  transition: background var(--t-fast);
-}
-.ws-doc-card:hover .ws-doc-folder-body {
   background: var(--surface-4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
 }
+.ws-doc-card:hover .ws-doc-card-open { opacity: 1; }
 
-/* Folder icon */
-.ws-doc-folder-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--ws-card-accent, var(--gold)) 15%, transparent);
-  color: var(--ws-card-accent, var(--gold));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-bottom: 2px;
-}
+.ws-doc-card-inner { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 
 .ws-doc-card-title {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--text-1);
   overflow: hidden;
@@ -3168,12 +3204,27 @@
 }
 
 .ws-doc-card-meta {
-  font-size: 10.5px;
+  font-size: 11px;
   color: var(--text-4);
 }
 
-/* (legacy open button — hidden; click whole card opens book) */
-.ws-doc-card-open { display: none; }
+.ws-doc-card-open {
+  opacity: 0;
+  margin-top: 2px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  background: var(--gold);
+  border: none;
+  color: #090900;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: opacity var(--t-fast);
+  pointer-events: none;
+}
+.ws-doc-card:hover .ws-doc-card-open { pointer-events: auto; }
 
 .ws-docs-empty {
   grid-column: 1 / -1;
@@ -3183,185 +3234,140 @@
   padding: 32px 20px;
 }
 
-/* ── Close book (X) button in PDF title strip ───────────────────────────── */
+/* ── "Your Documents" header action buttons ─────────────────────────────── */
 
-/* ── General AI mode button in chat bar ──────────────────────────────────── */
-
-.ws-general-ai-btn {
-  font-size: 11px;
-  color: var(--text-3);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 3px 8px;
-  border-radius: 6px;
-  transition: color var(--t-fast), background var(--t-fast);
-  white-space: nowrap;
-}
-.ws-general-ai-btn:hover {
-  color: var(--gold);
-  background: var(--gold-muted);
-}
-
-/* ── Text selection popup (Explain / Quiz me / Add note) ─────────────────── */
-
-.ws-selection-popup {
-  position: fixed;
-  z-index: 9000;
-  display: flex;
-  gap: 4px;
-  background: var(--surface-3);
-  border: 1px solid var(--border-md);
-  border-radius: 10px;
-  padding: 5px 6px;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
-  pointer-events: all;
-  transition: opacity 0.12s;
-}
-.ws-selection-popup.hidden { display: none; }
-.ws-sel-btn {
-  font-size: 12px;
-  font-family: var(--font-body);
-  padding: 4px 10px;
-  border-radius: 7px;
-  border: none;
-  background: var(--surface-4);
-  color: var(--text-1);
-  cursor: pointer;
-  transition: background var(--t-fast);
-}
-.ws-sel-btn:hover { background: var(--gold-muted); color: var(--gold); }
-
-/* ── Chat panel collapse / expand ────────────────────────────────────────────── */
-
-/* Collapsed state — right panel slides to zero width */
-#ws-chat-panel {
-  transition: flex-basis 0.2s ease, width 0.2s ease;
-}
-#ws-chat-panel.ws-panel-collapsed {
-  flex: 0 0 0 !important;
-  width: 0 !important;
-  min-width: 0 !important;
-  overflow: hidden;
-  padding: 0;
-  border: none;
-}
-
-/* Floating AI tab — appears on right edge when panel collapsed */
-.ws-ai-float-tab {
-  position: fixed;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 500;
-  background: var(--gold);
-  color: #000;
-  border: none;
-  border-radius: 8px 0 0 8px;
-  padding: 14px 5px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  cursor: pointer;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  transition: opacity var(--t-fast);
-}
-.ws-ai-float-tab:hover { opacity: 0.85; }
-.ws-ai-float-tab.hidden { display: none; }
-
-/* Collapse button inside AI panel header */
-.ws-panel-collapse-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--text-3);
-  padding: 4px;
-  border-radius: 5px;
+.ws-doc-header-actions {
   display: flex;
   align-items: center;
-  margin-left: auto;
-  transition: color var(--t-fast), background var(--t-fast);
-}
-.ws-panel-collapse-btn:hover {
-  color: var(--text-1);
-  background: var(--surface-3);
-}
-
-/* Smooth panel open animation when book loads */
-@media (prefers-reduced-motion: no-preference) {
-  #ws-chat-panel {
-    transition: flex-basis 0.22s cubic-bezier(0.4, 0, 0.2, 1),
-                opacity 0.18s ease;
-  }
-  #ws-chat-panel.ws-panel-collapsed {
-    opacity: 0;
-  }
-  #ws-chat-panel:not(.ws-panel-collapsed) {
-    opacity: 1;
-  }
-}
-
-/* Hide collapse button on mobile (panel is already toggled by the mwt-tab) */
-@media (max-width: 768px) {
-  .ws-panel-collapse-btn { display: none; }
-  .ws-ai-float-tab { display: none !important; }
-  .ws-general-ai-btn { display: none; }
-}
-
-/* Inline flashcard flip-card preview in chat */
-.ws-fc-preview { user-select: none; }
-
-.ws-fc-mini-card {
-  position: relative;
-  width: 140px;
-  min-height: 80px;
-  border-radius: 10px;
-  border: 1px solid var(--violet-border);
-  background: var(--surface-3);
-  padding: 10px 12px;
-  cursor: pointer;
-  transition: transform 0.35s cubic-bezier(0.4,0,0.2,1),
-              border-color 0.2s;
-  transform-style: preserve-3d;
+  gap: 8px;
   flex-shrink: 0;
 }
-.ws-fc-mini-card:hover {
-  border-color: var(--violet);
-  transform: translateY(-2px);
+
+/* Upload PDF — outlined secondary button */
+.ws-upload-pdf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--r-pill);
+  background: transparent;
+  border: 1px solid var(--border-sm);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  white-space: nowrap;
 }
-.ws-fc-mini-card.flipped {
-  transform: rotateY(180deg);
+.ws-upload-pdf-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--border);
+  color: var(--text-1);
 }
 
-.ws-fc-mini-front,
-.ws-fc-mini-back {
-  position: absolute;
-  inset: 0;
-  padding: 10px 12px;
+/* Browse Library — gold filled primary button */
+.ws-browse-lib-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--r-pill);
+  background: var(--gold);
+  border: none;
+  color: #090900;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: opacity var(--t-fast), transform var(--t-fast);
+  white-space: nowrap;
+}
+.ws-browse-lib-btn:hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
+}
+
+/* ── Close book (X) button in PDF title strip ───────────────────────────── */
+
+.ws-close-book-btn {
+  display: none; /* toggled inline by selectBook / closeBook */
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  border: 1px solid var(--border-xs);
+  background: var(--surface-3);
+  color: var(--text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 2px;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.ws-close-book-btn:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+}
+/* Show the X button only when a book is open (pdf canvas or loading visible) */
+.ws-book-loaded .ws-close-book-btn {
+  display: inline-flex;
+}
+
+/* Quick Actions grid in right panel (no-book state) */
+.ws-quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ws-quick-action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 12px 8px 10px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background var(--t-fast), transform var(--t-fast);
+  text-align: center;
+  min-width: 0;
+}
+.ws-quick-action-card:hover {
+  background: var(--surface-3);
+  transform: translateY(-1px);
+}
+
+.ws-qa-icon {
+  width: 34px; height: 34px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.ws-qa-label {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+.ws-quick-action-card:hover .ws-qa-label { color: var(--text-1); }
+
+/* Session stat card */
+.ws-stat-card {
   display: flex;
   align-items: center;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  font-size: 11px;
-  line-height: 1.45;
-  color: var(--text-1);
-  border-radius: 10px;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--gold-muted);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--r-md);
+  margin-top: 4px;
 }
-
-.ws-fc-mini-back {
-  transform: rotateY(180deg);
-  background: var(--violet-muted);
-  color: var(--text-1);
-  font-size: 11px;
-}
-
-/* Study mode cards */
-[data-theme="study"] .ws-fc-mini-card {
-  background: rgba(255,255,255,0.7);
-  border-color: rgba(139,124,248,0.2);
-}
-[data-theme="study"] .ws-fc-mini-back {
-  background: rgba(139,124,248,0.08);
-}
-

@@ -1,4 +1,3 @@
-
 // @ts-nocheck
 /**
  * src/screens/ExamScreen.js — Task 29
@@ -215,7 +214,7 @@ const EXAM_HTML = /* html */`
             <!-- Step footer -->
             <div class="ewiz-footer">
               <button class="ewiz-btn-ghost" onclick="ewizBack()">← Back</button>
-              <button class="ewiz-btn-primary ewiz-disabled" id="ewiz-customize-btn" onclick="ewizNext()" disabled>
+              <button class="ewiz-btn-primary ewiz-disabled" id="ewiz-customize-btn" onclick="if(_examActiveTemplate)ewizNext()" disabled>
                 Customize
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
               </button>
@@ -1833,8 +1832,8 @@ function _examAdaptiveReorder() {
 }
 
 async function examStart() {
-  if (window.isGuestMode?.() && !window.guestGate?.('exam')) return;
-  if (window.isGuestMode?.()) window.enforceExamConstraints?.();
+  if (_isGuestMode() && !window.guestGate?.('exam')) return;
+  if (_isGuestMode()) window.enforceExamConstraints?.();
   const startBtn = document.getElementById('exam-start-btn');
   if (startBtn.disabled) return; // prevent double-click race
   const topic = document.getElementById('exam-topic-input').value.trim();
@@ -1969,7 +1968,7 @@ async function examStart() {
     _examRenderSavedExams();
     _examShow('exam-quiz');
     _examRenderQuestion();
-    if (window.isGuestMode?.()) window.guestRecordUsage?.('exam');
+    if (_isGuestMode()) window.guestRecordUsage?.('exam');
     if (_examTimerSec > 0) _examStartTimer();
     else document.getElementById('exam-timer-display').style.display = 'none';
 
@@ -3441,17 +3440,6 @@ window.ewizBack            = ewizBack;
 window._ewizOnTplSelect    = _ewizOnTplSelect;
 window.examOpenEndedInput  = examOpenEndedInput;
 
-// Expose exam interaction handlers called via ACTION_MAP in appBridge.js
-window.examStart           = examStart;
-window.examAbort           = examAbort;
-window.examSkip            = examSkip;
-window.examNext            = examNext;
-window.examRetry           = examRetry;
-window.examNewTopic        = examNewTopic;
-window.examSelectScanMode  = examSelectScanMode;
-window.examSelectDiff      = examSelectDiff;
-window.examSelectType      = examSelectType;
-
 // Expose template/sections functions for inline handlers in dynamically rendered HTML
 window.examSelectTemplate  = examSelectTemplate;
 window.examSectionDelete   = examSectionDelete;
@@ -3471,3 +3459,5 @@ Object.defineProperty(window, '_examType',      { get: () => _examType,      con
 Object.defineProperty(window, '_examDiff',      { get: () => _examDiff,      configurable: true });
 
 document.addEventListener('DOMContentLoaded', () => { _examLoadRecent(); _examRenderSavedExams(); });
+
+

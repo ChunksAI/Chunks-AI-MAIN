@@ -3,7 +3,7 @@ import { test, expect, MOCK_USER } from './fixtures';
 test.describe('Login / Logout flow', () => {
   test('authenticated user sees their profile name in the UI', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     // The profile name element should eventually show the mock user's name
     const profileName = authedPage.locator('.profile-name').first();
@@ -12,7 +12,7 @@ test.describe('Login / Logout flow', () => {
 
   test('authenticated user can access the home screen', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     const homeScreen = authedPage.locator('#screen-home');
     await expect(homeScreen).toBeAttached();
@@ -20,7 +20,7 @@ test.describe('Login / Logout flow', () => {
 
   test('sign-out clears user state and redirects', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     // Trigger sign-out
     const [response] = await Promise.all([

@@ -13,7 +13,6 @@ import { isGuest, guestGate, recordUsage } from '../../lib/guestLimits.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
 import { checkStorageQuota } from '../../utils/storageQuota.js';
 import { lsGet, lsSet } from '../../utils/storage.js';
-import { showOnboardingIfFirst } from '../../components/OnboardingTip.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 import { subscribeToChatRealtime, unsubscribeChatRealtime } from './chatRealtime.js';
 import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
@@ -104,11 +103,10 @@ export async function selectBook(bookId) {
   subscribeToFlashcardRealtime(bookId);
   setText($el('ws-chat-title'), meta.name);
   setText($el('ws-chat-subtitle'), meta.author || '');
-  if (typeof window.updateHomeDocBar === 'function') {
-    window.updateHomeDocBar(meta.title || meta.name || '');
-  }
-  const _wsChatInp = $el('ws-chat-input');
-  if (_wsChatInp) _wsChatInp.placeholder = 'Ask anything about this document\u2026';
+
+  // Show close-book button
+  const closeBtn = document.getElementById('ws-close-book-btn');
+  if (closeBtn) closeBtn.style.display = 'inline-flex';
 
   const msgs = $el('ws-messages');
   if (msgs) {
@@ -132,19 +130,6 @@ export async function selectBook(bookId) {
   }
 
   if (typeof showScreen === 'function') showScreen('workspace');
-
-  // Expand the chat panel if it is collapsed
-  const _chatPanel = document.getElementById('ws-chat-panel');
-  if (_chatPanel && _chatPanel.classList.contains('ws-panel-collapsed')) {
-    _chatPanel.classList.remove('ws-panel-collapsed');
-  }
-
-  // Update home screen document context bar
-  const _homeDocLabel = document.getElementById('home-doc-label');
-  if (_homeDocLabel) _homeDocLabel.textContent = meta.name;
-
-  // Signal that a document is now active
-  window._wsDocLoaded = true;
 
   setText($el('ws-book-name'), meta.name);
   setText($el('ws-book-author'), meta.author);
@@ -290,15 +275,13 @@ export async function selectBook(bookId) {
       await _wsRenderPage(i + 1, ws.pageContainers[i]);
     }
 
-    // Set placeholder dimensions on unrendered pages via CSS only —
-    // do NOT allocate canvas pixel buffers here.  iOS Safari has a hard
-    // canvas memory budget (~250 MB) and crashes when hundreds of 850×1100
-    // placeholder canvases are created upfront.  _wsRenderPage() will size
-    // each canvas correctly from the real PDF viewport when it fires.
     ws.pageContainers.forEach(c => {
       if (!c.dataset.rendered) {
-        c.style.width = '850px';
-        c.style.height = '1100px';
+        const cv = c.querySelector('canvas');
+        cv.width = 850; cv.height = 1100;
+        c.style.width = '850px'; c.style.height = '1100px';
+        cv.getContext('2d').fillStyle = '#1e1e24';
+        cv.getContext('2d').fillRect(0, 0, 850, 1100);
       }
     });
 
@@ -341,8 +324,6 @@ export async function selectBook(bookId) {
     hide($el('ws-pdf-loading'));
     hide($el('ws-default-content'));
     wrap.style.display = 'flex';
-
-    showOnboardingIfFirst();
 
     // Restore saved page position (use requestAnimationFrame so layout is ready)
     const _savedPage = lsGet('chunks_ws_page_' + bookId);
@@ -596,16 +577,16 @@ export function closeBook() {
   // Reset header labels
   setText($el('ws-book-name'), 'No book loaded');
   setText($el('ws-book-author'), '');
-  setText($el('ws-chat-title'), 'General AI');
+  setText($el('ws-chat-title'), 'Select a document');
   setText($el('ws-chat-subtitle'), '');
   setText($el('mwt-book-name'), 'Study Workspace');
   setText($el('mwt-book-sub'), 'Select a book to begin');
   const mwtBadge = $el('mwt-badge');
   if (mwtBadge) mwtBadge.style.display = 'none';
 
-  // Reset chat input placeholder to general mode
-  const _wsChatInp = $el('ws-chat-input');
-  if (_wsChatInp) _wsChatInp.placeholder = 'Ask me anything\u2026';
+  // Hide close-book button
+  const closeBtn = document.getElementById('ws-close-book-btn');
+  if (closeBtn) closeBtn.style.display = 'none';
 
   // Hide PDF views, show default content
   const canvasWrap     = $el('ws-pdf-canvas-wrap');
@@ -615,25 +596,7 @@ export function closeBook() {
   if (loadingState)    loadingState.style.display = 'none';
   if (defaultContent)  defaultContent.style.display = 'flex';
 
-  // Hide outline / TOC panel and reset its contents
-  const outlinePanel  = $el('ws-outline-panel');
-  const outlineItems  = $el('ws-outline-items');
-  const outlineCover  = $el('ws-outline-cover');
-  if (outlinePanel) outlinePanel.style.display = 'none';
-  if (outlineCover) outlineCover.style.display = 'none';
-  if (outlineItems) setHtml(outlineItems, '<div style="padding:20px 16px;font-size:11px;color:var(--text-4);font-style:italic;line-height:1.6;">Open a book to see contents</div>');
-  ws.outlineFlat = [];
-
   // Clear chat panel
   const msgs = $el('ws-messages');
   if (msgs) setHtml(msgs, '');
-
-  // Clear doc-loaded flag and reset home screen context bar
-  window._wsDocLoaded = false;
-  if (typeof window.updateHomeDocBar === 'function') {
-    window.updateHomeDocBar(null);
-  } else {
-    const _homeDocLabel = document.getElementById('home-doc-label');
-    if (_homeDocLabel) _homeDocLabel.textContent = 'No document loaded';
-  }
 }
