@@ -92,16 +92,6 @@
   color: #2e2418;
 }
 
-/* ── Hero section (kept for backward-compat but no longer rendered) ─── */
-.home-hero {
-  text-align: center;
-  margin-bottom: 40px;
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: 780px;
-}
-
 /* Eyebrow pill — refined, subtle */
 .eyebrow-pill {
   display: inline-flex;
@@ -418,6 +408,9 @@
 #home-landing {
   width: 100%;
   max-width: 780px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 /* ── Recent Activities list ─────────────────────────────── */
@@ -1246,21 +1239,43 @@
 
 /* ── Chat-first landing ───────────────────────────────── */
 
-.home-hero-title {
-  font-family: var(--font-head);
-  font-size: clamp(22px, 4vw, 32px);
-  font-weight: 700;
-  color: var(--text-1);
-  margin: 0 0 8px;
+/* Welcome heading */
+.home-welcome-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 36px;
   text-align: center;
 }
 
-.home-hero-sub {
-  font-size: 14px;
-  color: var(--text-3);
-  margin: 0 0 28px;
-  text-align: center;
-  line-height: 1.5;
+.home-welcome-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.9;
+}
+
+.home-welcome-title {
+  font-family: var(--font-head);
+  font-size: clamp(28px, 5vw, 42px);
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.home-welcome-title span {
+  color: var(--gold);
+}
+
+[data-theme="study"] .home-welcome-title {
+  color: #1e1e2e;
+}
+
+[data-theme="study"] .home-welcome-title span {
+  color: var(--gold);
 }
 
 .home-chips {
@@ -1268,11 +1283,14 @@
   flex-wrap: wrap;
   gap: 8px;
   justify-content: center;
-  margin-bottom: 24px;
+  margin-top: 14px;
   max-width: 640px;
 }
 
 .home-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   font-family: var(--font-body);
   padding: 7px 14px;
@@ -1348,7 +1366,7 @@
 
 /* Mobile: tighten the home chat layout */
 @media (max-width: 640px) {
-  .home-hero-title { font-size: 20px; }
+  .home-welcome-title { font-size: 26px; }
   .home-chip { font-size: 11px; padding: 6px 11px; }
   #home-chat-card { border-radius: 12px; }
   #home-doc-bar { border-radius: 8px; }
@@ -1356,6 +1374,4 @@
 }
 
 /* Study mode: ensure input card matches the light beige theme */
-[data-theme="study"] .home-hero-title { color: #1e1e2e; }
-[data-theme="study"] .home-hero-sub   { color: #6a6a7a; }
 [data-theme="study"] .home-add-doc-btn { color: var(--gold); }
