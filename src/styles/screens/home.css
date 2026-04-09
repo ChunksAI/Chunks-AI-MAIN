@@ -1387,6 +1387,11 @@
   background: var(--bg);
 }
 
+/* Push messages to the bottom when there are few of them */
+#home-messages {
+  justify-content: flex-end;
+}
+
 /* Thinking dots indicator */
 .home-thinking-dots {
   display: inline-flex;
