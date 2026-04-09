@@ -14,6 +14,7 @@ import { handleCommand, syncContextFromWorkspace, updateContext } from '../comma
 import { wsShowPanel } from '../../screens/WorkspaceScreen.js';
 import { createThinkingAccordion } from '../../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../../utils/typewriter.js';
+import { _wsNodocWelcomeHtml } from './nodocWelcome.js';
 
 
 // ── Send / Stop button icons ──────────────────────────────────────────────
@@ -77,11 +78,19 @@ export function wsScrollBottom() {
 export function wsClearChat() {
   ws.chatHistory = [];
   const msgs = $el('ws-messages');
-  if (msgs) setHtml(msgs, `
-    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;">
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      <div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div>
-    </div>`);
+  if (msgs) {
+    // When no document is loaded, restore the full no-doc welcome state so the
+    // user always sees the unified study environment landing (not just an empty chat).
+    if (!ws.bookId) {
+      setHtml(msgs, _wsNodocWelcomeHtml());
+    } else {
+      setHtml(msgs, `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div>
+        </div>`);
+    }
+  }
   if (ws.bookId && typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, []);
   wsShowToast('🗑', 'Chat cleared', 'var(--border-md)');
 }

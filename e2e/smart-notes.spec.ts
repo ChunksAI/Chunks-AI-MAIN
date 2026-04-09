@@ -83,11 +83,20 @@ test.describe('Smart Notes Panel', () => {
   });
 
   test('sticky strip renders add button', async ({ authedPage }) => {
+    // Simulate a document being loaded so the PDF panel (which hosts the sticky
+    // strip) is visible. Without ws-doc-loaded the panel is hidden by CSS.
+    await authedPage.evaluate(() =>
+      document.getElementById('screen-workspace')?.classList.add('ws-doc-loaded')
+    );
     const addBtn = authedPage.locator('.sticky-add-btn');
     await expect(addBtn).toBeVisible({ timeout: 3_000 });
   });
 
   test('clicking sticky add button opens a popup', async ({ authedPage }) => {
+    // Simulate a document being loaded so the PDF panel is visible.
+    await authedPage.evaluate(() =>
+      document.getElementById('screen-workspace')?.classList.add('ws-doc-loaded')
+    );
     const addBtn = authedPage.locator('.sticky-add-btn');
     await addBtn.click();
 

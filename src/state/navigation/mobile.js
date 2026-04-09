@@ -52,4 +52,4 @@ export function toggleSidebar() {
 
 // ── Logo ──────────────────────────────────────────────────────────────────────
 
-export function handleLogoClick() { showScreen('home'); }
+export function handleLogoClick() { showScreen('workspace'); }

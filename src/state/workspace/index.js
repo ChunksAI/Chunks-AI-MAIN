@@ -16,6 +16,7 @@ export {
 } from './pdf.js';
 
 export { selectBook, closeBook, _wsShowWelcome, _wsWelcomeHtml, _wsRenderHistory } from './books.js';
+export { _wsNodocWelcomeHtml } from './nodocWelcome.js';
 
 export { selectUserDoc, WS_USER_DOC_SENTINEL } from './userDocs.js';
 

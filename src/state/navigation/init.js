@@ -17,7 +17,7 @@ export function _navInit() {
   if (_hadOAuthHash || _hadOAuthCode) {
     try { sessionStorage.setItem('chunks_oauth_callback', '1'); } catch(e) {}
     $qsa('.screen').forEach(s => { hide(s); removeClass(s, 'active'); });
-    showScreen('home');
+    showScreen('workspace');
     const overlay = $el('mobile-drawer-overlay');
     if (overlay) overlay.addEventListener('click', closeMobileDrawer);
     window.addEventListener('popstate', (e) => {
@@ -30,15 +30,17 @@ export function _navInit() {
     return;
   }
 
-  // Priority: current pathname → sessionStorage → 'home'
+  // Priority: current pathname → sessionStorage → 'workspace'
   const fromPath    = _screenFromPath();
   const fromSession = (() => { try { return sessionStorage.getItem('chunks_last_screen'); } catch(e) { return null; } })();
-  const start       = (fromPath && SCREEN_MAP[fromPath])    ? fromPath
-                    : (fromSession && SCREEN_MAP[fromSession]) ? fromSession
-                    : 'home';
+  // 'home' is no longer a distinct destination — redirect to the unified workspace
+  const _resolvedSession = (fromSession === 'home') ? 'workspace' : fromSession;
+  const start       = (fromPath && SCREEN_MAP[fromPath] && fromPath !== 'home') ? fromPath
+                    : (_resolvedSession && SCREEN_MAP[_resolvedSession]) ? _resolvedSession
+                    : 'workspace';
 
   $qsa('.screen').forEach(s => { hide(s); removeClass(s, 'active'); });
-  if (start !== 'home') setNavFromHistory(true);
+  if (start !== 'workspace') setNavFromHistory(true);
   showScreen(start);
 
   if (start === 'studyplan') {
