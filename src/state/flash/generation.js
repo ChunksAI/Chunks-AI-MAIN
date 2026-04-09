@@ -12,7 +12,6 @@ import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 import { FlashcardDB } from '../../lib/flashcardDb.js';
 import { _getStudyMode } from '../../components/SettingsModal.js';
 import { guestGate, recordUsage } from '../../lib/guestLimits.js';
-import { celebrateFirstFlashcard } from '../../components/StreakCelebration.js';
 
 // ── PDF upload → flashcard deck ─────────────────────────────────────────────
 
@@ -170,7 +169,6 @@ export async function _fcGenerateFromBar() {
     recordUsage('flash');
     _fcSetGenBusy(false);
     showToast?.('✦', `${cards.length} cards created — "${topic}"`, 'var(--gold)');
-    celebrateFirstFlashcard();
 
     await _fcRenderDeckList();
     _fcStartDeck(deck);

@@ -48,8 +48,6 @@ export async function selectUserDoc(docId) {
 
   setText($el('ws-chat-title'), meta.name.replace(/\.[^.]+$/, ''));
   setText($el('ws-chat-subtitle'), meta.pageCount ? `${meta.pageCount} pages · Your upload` : 'Your upload');
-  const _wsChatInp = document.getElementById('ws-chat-input');
-  if (_wsChatInp) _wsChatInp.placeholder = 'Ask anything about this document\u2026';
 
   // Show loading state in chat
   const msgs = $el('ws-messages');
@@ -133,15 +131,13 @@ export async function selectUserDoc(docId) {
         await _wsRenderPage(i + 1, ws.pageContainers[i]);
       }
 
-      // Set placeholder dimensions on unrendered pages via CSS only —
-      // do NOT allocate canvas pixel buffers here.  iOS Safari has a hard
-      // canvas memory budget (~250 MB) and crashes when hundreds of 850×1100
-      // placeholder canvases are created upfront.  _wsRenderPage() will size
-      // each canvas correctly from the real PDF viewport when it fires.
       ws.pageContainers.forEach(c => {
         if (!c.dataset.rendered) {
-          c.style.width = '850px';
-          c.style.height = '1100px';
+          const cv = c.querySelector('canvas');
+          cv.width = 850; cv.height = 1100;
+          c.style.width = '850px'; c.style.height = '1100px';
+          cv.getContext('2d').fillStyle = '#1e1e24';
+          cv.getContext('2d').fillRect(0, 0, 850, 1100);
         }
       });
 

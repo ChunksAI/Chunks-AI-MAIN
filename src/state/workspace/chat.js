@@ -65,10 +65,6 @@ export function wsSetInput(text) {
   if (!inp) return;
   inp.value = text; inp.focus(); wsAutoResize(inp);
 }
-export function wsQuizMe(btn, question) {
-  wsSetInput(`Give me 3 quick-fire quiz questions on: ${question}`);
-  wsChatSend();
-}
 export function wsAutoResize(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
@@ -81,17 +77,20 @@ export function wsScrollBottom() {
 export function wsClearChat() {
   ws.chatHistory = [];
   const msgs = $el('ws-messages');
-  if (msgs) setHtml(msgs, '');
-  if (typeof window._wsShowWelcome === 'function') window._wsShowWelcome();
+  if (msgs) setHtml(msgs, `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div>
+    </div>`);
   if (ws.bookId && typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, []);
   wsShowToast('🗑', 'Chat cleared', 'var(--border-md)');
 }
 
 export function wsAppendUser(text, selectedText) {
   const msgs = $el('ws-messages');
-  // Hide the welcome state when the first real message is appended
-  if (typeof window._wsHideWelcome === 'function') window._wsHideWelcome();
-  else { const welcome = document.getElementById('ws-welcome-state'); if (welcome) welcome.remove(); }
+  // Remove the welcome state when the first real message is appended
+  const welcome = document.getElementById('ws-welcome-state');
+  if (welcome) welcome.remove();
   const d = document.createElement('div');
   d.className = 'msg msg-user';
   const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;');
@@ -233,21 +232,10 @@ async function _wsFinalizeThinking(thinkingContent) {
  * Used by _wsRenderMessageFromBlocks when restoring a session that included
  * a "Make Flashcard" or "Generate Flashcards" action.
  */
-export function _wsFlashcardResultHtml(deckId, topic, count, previewCards = []) {
+export function _wsFlashcardResultHtml(deckId, topic, count) {
   const safeId    = String(deckId).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
   const safeTopic = (topic || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const n = Number(count) || 0;
-
-  const _esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const previewHtml = previewCards.length ? `
-    <div class="ws-fc-preview" style="display:flex;gap:8px;margin-top:10px;overflow:hidden;">
-      ${previewCards.slice(0, 2).map(c => `
-        <div class="ws-fc-mini-card" onclick="this.classList.toggle('flipped')">
-          <div class="ws-fc-mini-front">${_esc(c.front)}</div>
-          <div class="ws-fc-mini-back">${_esc(c.back)}</div>
-        </div>`).join('')}
-    </div>` : '';
-
   return `<div class="ws-gen-result-card" style="margin-top:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--violet-border);border-radius:var(--r-md);">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
       <div style="padding:6px;background:var(--violet-muted);border-radius:var(--r-sm);flex-shrink:0;">
@@ -272,7 +260,6 @@ export function _wsFlashcardResultHtml(deckId, topic, count, previewCards = []) 
         Practice
       </button>
     </div>
-    ${previewHtml}
   </div>`;
 }
 
@@ -628,9 +615,7 @@ export async function wsChatSend() {
   }
   // ── End canvas intercept ──────────────────────────────────────────────────
 
-  inp.placeholder = (ws.bookId || ws.userDocId)
-    ? 'Ask a follow-up about this document…'
-    : 'Ask me anything…';
+  inp.placeholder = 'Ask a follow-up about Chapter 3…';
   wsAppendUser(question, ws.selectedText);
   inp.value = ''; wsAutoResize(inp); inp.focus();
   ws.chatHistory.push({ role: 'user', content: question });
@@ -679,10 +664,7 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
       wsRemoveThinking(); // vision endpoint has no streaming thinking mode — remove indicator now
     } else {
       // ── Text path: send to /ask with optional retry on 429 ────────────────
-      // Detect "no document open" — treat as general AI mode
-      const _noDoc = !ws.bookId && !ws.userDocId;
-      const body = { question, bookId: ws.bookId || 'none', mode: _noDoc ? 'home_general' : mode, complexity, history: ws.chatHistory.slice(-10) };
-      if (_noDoc) body.task_type = 'home_general';
+      const body = { question, bookId: ws.bookId || 'none', mode, complexity, history: ws.chatHistory.slice(-10) };
       if (isVisual) body.mode = 'visual_tutor';
       if (ws.webSearch)              body.web_search = true;
       if (ws.thinking === 'think')   body.thinking   = 'thinking';

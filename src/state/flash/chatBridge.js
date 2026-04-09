@@ -23,7 +23,6 @@ import {
   wsAppendUser, wsAppendThinking, wsRemoveThinking,
   wsAppendError, wsScrollBottom,
 } from '../workspace/chat.js';
-import { celebrateFirstFlashcard } from '../../components/StreakCelebration.js';
 
 // ── Workspace make flashcard ────────────────────────────────────────────────
 
@@ -66,8 +65,6 @@ export async function wsMakeFlashcard(btn, msgId, topic) {
     const deckId = deck.id || deck.name;
     const count  = cards.length;
 
-    celebrateFirstFlashcard();
-
     // Also persist to per-document `flashcards` table for cross-session recall
     const documentId = ws.userDocId || (ws.bookId !== '__user_doc__' ? ws.bookId : null);
     if (documentId) {
@@ -84,16 +81,6 @@ export async function wsMakeFlashcard(btn, msgId, topic) {
     const resultEl = document.createElement('div');
     resultEl.className = 'ws-gen-result-card';
     resultEl.style.cssText = 'margin-top:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--violet-border);border-radius:var(--r-md);';
-    const _esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const previewCards = cards.slice(0, 2);
-    const previewHtml = previewCards.length ? `
-      <div class="ws-fc-preview" style="display:flex;gap:8px;margin-top:10px;overflow:hidden;">
-        ${previewCards.map(c => `
-          <div class="ws-fc-mini-card" onclick="this.classList.toggle('flipped')">
-            <div class="ws-fc-mini-front">${_esc(c.front)}</div>
-            <div class="ws-fc-mini-back">${_esc(c.back)}</div>
-          </div>`).join('')}
-      </div>` : '';
     resultEl.innerHTML = `
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
         <div style="padding:6px;background:var(--violet-muted);border-radius:var(--r-sm);flex-shrink:0;">
@@ -117,8 +104,7 @@ export async function wsMakeFlashcard(btn, msgId, topic) {
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           Practice
         </button>
-      </div>
-      ${previewHtml}`;
+      </div>`;
 
     // Remove Make Flashcard button and insert result card after the actions row
     if (btn) btn.remove();
@@ -183,8 +169,6 @@ export async function wsGenerateFlashcardsInChat(topic) {
     const deck   = await FlashcardDB.fcSaveDeck(effectiveTopic, cards);
     const deckId = deck.id || deck.name;
     const count  = cards.length;
-
-    celebrateFirstFlashcard();
 
     // Also persist to per-document `flashcards` table for cross-session recall
     const documentId = ws.userDocId || (ws.bookId !== '__user_doc__' ? ws.bookId : null);

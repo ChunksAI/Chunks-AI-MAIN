@@ -3,8 +3,7 @@ import { test, expect } from './fixtures';
 test.describe('Flashcards', () => {
   test('flashcard screen renders with topic input and generate button', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
-    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('flash'));
 
@@ -25,8 +24,7 @@ test.describe('Flashcards', () => {
 
   test('can enter a topic and card count for flashcard generation', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
-    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('flash'));
 
@@ -42,8 +40,7 @@ test.describe('Flashcards', () => {
 
   test('streak widget is visible on the flashcard screen', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
-    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('flash'));
 
@@ -53,8 +50,7 @@ test.describe('Flashcards', () => {
 
   test('deck grid area exists for displaying flashcard decks', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
-    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('flash'));
 
@@ -64,8 +60,7 @@ test.describe('Flashcards', () => {
 
   test('upload button exists for PDF-based flashcard generation', async ({ authedPage }) => {
     await authedPage.goto('/app.html');
-    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 30_000 });
-    await authedPage.waitForFunction(() => !!(window as any).showScreen, { timeout: 5_000 });
+    await authedPage.waitForSelector('.chunks-ready', { state: 'attached', timeout: 10_000 });
 
     await authedPage.evaluate(() => window.showScreen?.('flash'));
 

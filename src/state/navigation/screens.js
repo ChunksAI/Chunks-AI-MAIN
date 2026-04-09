@@ -76,8 +76,7 @@ export function showScreen(name) {
       // clearing it would wipe the key on that round-trip, breaking book restore on refresh.
       try {
         const msgs = $el('ws-messages');
-        if (msgs) msgs.innerHTML = '';
-        if (typeof window._wsShowWelcome === 'function') window._wsShowWelcome();
+        if (msgs) msgs.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity="0.25"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><div style="font-size:12px;color:var(--text-4);">Ask a question to start the conversation</div></div>';
         if (typeof window._wsChatHistory !== 'undefined') window._wsChatHistory = [];
         localStorage.removeItem('chunks_active_ws_user_doc');
         const wsNoBook  = $el('ws-no-book-bar');
@@ -162,8 +161,8 @@ export function showScreen(name) {
   _navFromHistory = false;
 
   // Refresh home landing activities when navigating to home
-  if (name === 'home') {
-    (window.homeRestoreLanding ?? window._renderHomeActivities)?.();
+  if (name === 'home' && typeof window._renderHomeActivities === 'function') {
+    window._renderHomeActivities();
   }
 
   $qsa('.md-item').forEach(el => {

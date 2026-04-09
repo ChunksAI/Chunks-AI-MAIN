@@ -143,7 +143,7 @@ import {
   wsClearChat, wsAppendUser, wsAppendThinking, wsRemoveThinking,
   wsAppendAI, wsAppendError, wsCopyMsg, wsFeedback, _wsRegenerate,
   wsToggleWebSearch, wsToggleThinking, wsToggleThinkMenu,
-  wsStopGeneration, wsSendToCanvas, wsQuizMe,
+  wsStopGeneration, wsSendToCanvas,
   filterLibrary, filterLibSection,
   wsToggleAttachMenu, wsAttachTrigger, wsHandleAttach,
   homeToggleAttachMenu, homeAttachTrigger, homeHandleAttach,
@@ -204,7 +204,6 @@ window.wsToggleThinking    = wsToggleThinking;
 window.wsToggleThinkMenu   = wsToggleThinkMenu;
 window.wsStopGeneration    = wsStopGeneration;
 window.wsSendToCanvas      = wsSendToCanvas;
-window.wsQuizMe            = wsQuizMe;
 window.filterLibrary       = filterLibrary;
 window.filterLibSection    = filterLibSection;
 window.wsToggleAttachMenu  = wsToggleAttachMenu;
@@ -498,23 +497,54 @@ window.spConfidenceBadge = spConfidenceBadge;
 
 // ── Screens · Home ───────────────────────────────────────────────────────────
 import {
-  homeStartNew, homeRestoreLanding,
-  _renderHomeActivities, _homeMountLatestSession,
+  homeSetMode, homeSetInput, homeHandlePdfUpload, homeAutoResize,
+  homeAppendUser, homeAppendThinking, homeRemoveThinking,
+  homeAppendAI, homeAppendError,
+  homeScrollBottom, homeHideLanding, homeSendMessage, homeStopGeneration,
+  homeToggleWebSearch, homeToggleThinking,
+  homeCopyMsg, homeFeedback, _homeRegenerate,
+  openIncognitoChat, closeIncognitoChat, incognitoSendMessage,
+  _renderHomeActivities,
 } from './screens/HomeScreen.js';
 
-window.homeStartNew          = homeStartNew;
-window.homeRestoreLanding    = homeRestoreLanding;
+window.homeSetMode        = homeSetMode;
+window.homeSetInput       = homeSetInput;
+window.homeHandlePdfUpload= homeHandlePdfUpload;
+window.homeAutoResize     = homeAutoResize;
+window.homeAppendUser     = homeAppendUser;
+window.homeAppendThinking = homeAppendThinking;
+window.homeRemoveThinking = homeRemoveThinking;
+window.homeAppendAI       = homeAppendAI;
+window.homeAppendError    = homeAppendError;
+window.homeScrollBottom   = homeScrollBottom;
+window.homeHideLanding    = homeHideLanding;
+window.homeSendMessage    = homeSendMessage;
+window.homeStopGeneration = homeStopGeneration;
+window.homeToggleWebSearch= homeToggleWebSearch;
+window.homeToggleThinking = homeToggleThinking;
+window.homeCopyMsg        = homeCopyMsg;
+window.homeFeedback       = homeFeedback;
+window._homeRegenerate    = _homeRegenerate;
 window._renderHomeActivities = _renderHomeActivities;
-window._homeMountLatestSession = _homeMountLatestSession;
+
+// Incognito chat
+window.openIncognitoChat    = openIncognitoChat;
+window.closeIncognitoChat   = closeIncognitoChat;
+window.incognitoSendMessage = incognitoSendMessage;
+
+// homeHistory / _homeSessionId are live mutable bindings — exposed as
+// getter/setters so cross-module code can read/write them via window.
+// The actual defineProperty calls live in HomeScreen.js because only that
+// module owns the `let homeHistory` / `let _homeSessionId` variables.
+// They are set at HomeScreen.js load time, so by the time globals.js
+// runs they are already on window.  We do NOT duplicate them here.
 
 // ── Screens · Workspace ──────────────────────────────────────────────────────
-import { wsMobileView, refreshSmartSuggestions, wsShowPanel, wsGoGeneralAI, wsTogglePanelCollapse } from './screens/WorkspaceScreen.js';
+import { wsMobileView, refreshSmartSuggestions, wsShowPanel } from './screens/WorkspaceScreen.js';
 
 window.wsMobileView            = wsMobileView;
 window.refreshSmartSuggestions = refreshSmartSuggestions;
 window.wsShowPanel             = wsShowPanel;
-window.wsGoGeneralAI           = wsGoGeneralAI;
-window.wsTogglePanelCollapse   = wsTogglePanelCollapse;
 
 // ── Screens · Library ────────────────────────────────────────────────────────
 import {
@@ -668,14 +698,3 @@ window.CommandEngine = CommandEngine;
 // _syncThemeToggleBtns is a local function in Sidebar.js that registers
 // itself on window.  It cannot be imported — the registration stays in
 // Sidebar.js alongside the DOM code it depends on.
-
-
-// ── Onboarding ───────────────────────────────────────────────────────────────
-import { showOnboardingIfFirst } from './components/OnboardingTip.js';
-
-window.showOnboardingIfFirst = showOnboardingIfFirst;
-
-// ── Streak Celebration ───────────────────────────────────────────────────────
-import { celebrateFirstFlashcard } from './components/StreakCelebration.js';
-
-window.celebrateFirstFlashcard = celebrateFirstFlashcard;
