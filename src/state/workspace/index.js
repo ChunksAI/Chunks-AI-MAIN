@@ -34,7 +34,7 @@ export {
   _wsBuildBlocks, _wsRenderMessageFromBlocks,
 } from './chat.js';
 
-export { _wsCreateAskBtn, _wsHideAskBtn, _wsOnSelectionChange } from './selection.js';
+export { _wsOnSelectionChange } from './selection.js';
 
 export {
   _closeAllAttachMenus, _buildThumb, _readFile,
