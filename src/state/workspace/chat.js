@@ -66,7 +66,6 @@ export function wsSetInput(text) {
   inp.value = text; inp.focus(); wsAutoResize(inp);
 }
 export function wsQuizMe(btn, question) {
-  if (btn) { btn.classList.add('ws-next-chip--used'); btn.disabled = true; }
   wsSetInput(`Give me 3 quick-fire quiz questions on: ${question}`);
   wsChatSend();
 }
@@ -406,31 +405,11 @@ export function _wsRenderMessageFromBlocks(msgId, blocks, bookName) {
     ? _wsFlashcardResultHtml(flashcardBlock.deckId, flashcardBlock.topic, flashcardBlock.count)
     : '';
 
-  const chipsHtml = `
-    <div class="ws-next-chips">
-      <button class="ws-next-chip ws-next-chip--flash"
-        onclick="this.classList.add('ws-next-chip--used');this.disabled=true;wsMakeFlashcard(null,'${msgId}',\`${safeQ}\`)">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
-        Save to Flashcards
-      </button>
-      <button class="ws-next-chip ws-next-chip--canvas"
-        onclick="this.classList.add('ws-next-chip--used');this.disabled=true;wsSendToCanvas(this,\`${safeQ}\`)">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-        Visualize
-      </button>
-      <button class="ws-next-chip ws-next-chip--quiz"
-        onclick="wsQuizMe(this,\`${safeQ}\`)">
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        Quiz Me
-      </button>
-    </div>`;
-
   d.innerHTML = `
     <div class="ai-row">
       <div class="ai-body">
         ${textHtml}
         ${sourcesHtml}
-        ${chipsHtml}
         <div class="msg-acts" style="margin-top:10px;">
           <button class="msg-act" onclick="wsCopyMsg(this, '${msgId}')">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy

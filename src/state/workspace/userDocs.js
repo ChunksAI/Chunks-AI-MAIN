@@ -133,13 +133,15 @@ export async function selectUserDoc(docId) {
         await _wsRenderPage(i + 1, ws.pageContainers[i]);
       }
 
+      // Set placeholder dimensions on unrendered pages via CSS only —
+      // do NOT allocate canvas pixel buffers here.  iOS Safari has a hard
+      // canvas memory budget (~250 MB) and crashes when hundreds of 850×1100
+      // placeholder canvases are created upfront.  _wsRenderPage() will size
+      // each canvas correctly from the real PDF viewport when it fires.
       ws.pageContainers.forEach(c => {
         if (!c.dataset.rendered) {
-          const cv = c.querySelector('canvas');
-          cv.width = 850; cv.height = 1100;
-          c.style.width = '850px'; c.style.height = '1100px';
-          cv.getContext('2d').fillStyle = '#1e1e24';
-          cv.getContext('2d').fillRect(0, 0, 850, 1100);
+          c.style.width = '850px';
+          c.style.height = '1100px';
         }
       });
 

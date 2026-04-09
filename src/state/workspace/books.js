@@ -110,10 +110,6 @@ export async function selectBook(bookId) {
   const _wsChatInp = $el('ws-chat-input');
   if (_wsChatInp) _wsChatInp.placeholder = 'Ask anything about this document\u2026';
 
-  // Show close-book button
-  const closeBtn = document.getElementById('ws-close-book-btn');
-  if (closeBtn) closeBtn.style.display = 'inline-flex';
-
   const msgs = $el('ws-messages');
   if (msgs) {
     setHtml(msgs, `
@@ -294,13 +290,15 @@ export async function selectBook(bookId) {
       await _wsRenderPage(i + 1, ws.pageContainers[i]);
     }
 
+    // Set placeholder dimensions on unrendered pages via CSS only —
+    // do NOT allocate canvas pixel buffers here.  iOS Safari has a hard
+    // canvas memory budget (~250 MB) and crashes when hundreds of 850×1100
+    // placeholder canvases are created upfront.  _wsRenderPage() will size
+    // each canvas correctly from the real PDF viewport when it fires.
     ws.pageContainers.forEach(c => {
       if (!c.dataset.rendered) {
-        const cv = c.querySelector('canvas');
-        cv.width = 850; cv.height = 1100;
-        c.style.width = '850px'; c.style.height = '1100px';
-        cv.getContext('2d').fillStyle = '#1e1e24';
-        cv.getContext('2d').fillRect(0, 0, 850, 1100);
+        c.style.width = '850px';
+        c.style.height = '1100px';
       }
     });
 
@@ -608,10 +606,6 @@ export function closeBook() {
   // Reset chat input placeholder to general mode
   const _wsChatInp = $el('ws-chat-input');
   if (_wsChatInp) _wsChatInp.placeholder = 'Ask me anything\u2026';
-
-  // Hide close-book button
-  const closeBtn = document.getElementById('ws-close-book-btn');
-  if (closeBtn) closeBtn.style.display = 'none';
 
   // Hide PDF views, show default content
   const canvasWrap     = $el('ws-pdf-canvas-wrap');
