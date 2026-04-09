@@ -941,7 +941,7 @@ function _homeAppendAI(answer, question) {
       </div>
     </div>`;
   // Wire action buttons via closures — avoids XSS from putting user text in onclick attrs
-  d.querySelector('.home-msg-copy')?.addEventListener('click', btn => homeCopyMsg(btn.currentTarget, msgId));
+  d.querySelector('.home-msg-copy')?.addEventListener('click', e => homeCopyMsg(e.currentTarget, msgId));
   d.querySelector('.home-msg-retry')?.addEventListener('click', () => _homeRegenerate(msgId, question));
   msgs.appendChild(d);
   _homeScrollBottom();
