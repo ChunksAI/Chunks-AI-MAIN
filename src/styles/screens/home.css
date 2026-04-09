@@ -1339,71 +1339,18 @@
   border-color: rgba(0,0,0,0.07);
 }
 
-/* ── Home chat input ──────────────────────────────────── */
+/* ── Home chat input (workspace-style card) ───────────────────────── */
 
-.home-chat-wrap {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
+#home-chat-card {
   max-width: 640px;
   width: 100%;
-  background: var(--surface-2);
-  border: 1px solid var(--border-sm);
-  border-radius: 14px;
-  padding: 10px 12px;
-  transition: border-color var(--t-fast);
 }
-.home-chat-wrap:focus-within {
-  border-color: var(--gold-border);
-}
-
-[data-theme="study"] .home-chat-wrap {
-  background: rgba(255,255,255,0.75);
-  border-color: rgba(0,0,0,0.1);
-}
-[data-theme="study"] .home-chat-wrap:focus-within {
-  border-color: var(--gold);
-}
-
-.home-chat-input {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  font-family: var(--font-body);
-  font-size: 14px;
-  color: var(--text-1);
-  resize: none;
-  max-height: 120px;
-  overflow-y: auto;
-  line-height: 1.5;
-}
-.home-chat-input::placeholder { color: var(--text-3); }
-
-[data-theme="study"] .home-chat-input { color: #1e1e2e; }
-
-.home-chat-send {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--gold);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #000;
-  flex-shrink: 0;
-  transition: opacity var(--t-fast), transform var(--t-fast);
-}
-.home-chat-send:hover { opacity: 0.85; transform: scale(1.05); }
-.home-chat-send:active { transform: scale(0.97); }
 
 /* Mobile: tighten the home chat layout */
 @media (max-width: 640px) {
   .home-hero-title { font-size: 20px; }
   .home-chip { font-size: 11px; padding: 6px 11px; }
-  .home-chat-wrap { border-radius: 12px; }
+  #home-chat-card { border-radius: 12px; }
   #home-doc-bar { border-radius: 8px; }
   .home-chips { gap: 6px; }
 }

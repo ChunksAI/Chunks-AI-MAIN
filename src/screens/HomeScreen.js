@@ -14,6 +14,7 @@
 
 import { lsGet } from '../utils/storage.js';
 import { wsSetInput, wsChatSend } from '../state/workspace/chat.js';
+import { ws } from '../state/workspace/state.js';
 
 // ── What\'s New feed ───────────────────────────────────────────────────────────
 // Update this array to change the What\'s New panel. badge: \'new\' | \'tip\' | \'fix\'
@@ -83,9 +84,76 @@ const HOME_HTML = /* html */`
         </div>
 
         <!-- Chat input -->
-        <div class="home-chat-wrap">
-          <textarea id="home-chat-input" class="home-chat-input" placeholder="Ask me anything..." rows="1"></textarea>
-          <button id="home-chat-send" class="home-chat-send"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+        <div class="chat-input-card" id="home-chat-card">
+
+          <!-- Textarea row -->
+          <div class="chat-textarea-row">
+            <textarea id="home-chat-input" class="chat-input-field" placeholder="Ask me anything…" rows="1" style="resize:none;max-height:120px;overflow-y:auto;font-family:var(--font-body);font-size:13px;color:var(--text-1);background:transparent;border:none;outline:none;flex:1;line-height:1.5;"></textarea>
+            <button class="chat-send" id="home-chat-send"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
+          </div>
+
+          <!-- Footer row -->
+          <div class="chat-input-footer">
+            <div class="chat-footer-left">
+              <!-- Attach button -->
+              <div class="chat-plus-wrap">
+                <button class="chat-footer-btn" id="home-plus-btn" onclick="homeToggleAttachMenu(event)">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                  Attach
+                </button>
+                <div class="attach-menu home-rich-menu" id="home-attach-menu">
+                  <div class="attach-menu-section-label">Attach</div>
+                  <div class="attach-menu-item" onclick="homeAttachTrigger('image')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                    <span>Image</span>
+                  </div>
+                  <div class="attach-menu-item" onclick="homeAttachTrigger('pdf')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    <span>PDF</span>
+                  </div>
+                  <div class="attach-menu-item" onclick="homePromptYouTube()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02"/></svg>
+                    <span>YouTube</span>
+                  </div>
+                  <div class="attach-menu-divider"></div>
+                  <div class="attach-menu-section-label">AI Mode</div>
+                  <div class="attach-menu-item attach-menu-toggle" id="home-toggle-websearch" onclick="homeToggleWebSearch()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <span>Web Search</span>
+                    <div class="attach-menu-check" id="home-websearch-check"></div>
+                  </div>
+                </div>
+              </div>
+              <!-- Voice button -->
+              <button class="chat-footer-btn mic-btn" id="home-mic-btn" title="Voice input" aria-label="Voice input" onclick="homeToggleVoiceInput()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+                Voice
+              </button>
+            </div>
+            <div class="chat-footer-right">
+              <!-- Think dropdown -->
+              <div class="chat-think-wrap" id="home-think-wrap">
+                <button class="chat-footer-btn chat-think-btn" id="home-toggle-think" onclick="homeToggleThinkMenu(event)" title="Thinking mode">
+                  <span class="chat-think-dot"></span>
+                  <span id="home-think-label">Think</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="think-menu" id="home-think-menu">
+                  <div class="think-menu-item" id="home-think-opt-think" onclick="homeToggleThinking('think')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
+                    <span>Think</span>
+                    <div class="attach-menu-check" id="home-think-check"></div>
+                  </div>
+                  <div class="think-menu-item" id="home-think-opt-deep" onclick="homeToggleThinking('deep')">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    <span>Deep Think</span>
+                    <div class="attach-menu-check" id="home-deep-check"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
       </div><!-- end home-landing -->
@@ -270,6 +338,11 @@ export function mountHomeScreen() {
       this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
   }
+
+  // Close home attach/think menus when clicking outside
+  document.addEventListener('click', () => {
+    document.querySelectorAll('#home-attach-menu, #home-think-menu').forEach(m => m.classList.remove('open'));
+  });
 }
 
 // ── Recent Activities ─────────────────────────────────────────────────────────
@@ -574,6 +647,9 @@ function homeChipSend(text) {
   homeDoSend();
 }
 
+// Local home think mode (synced to ws.thinking on send)
+let _homeThinking = 'off';
+
 function homeDoSend() {
   const inp = document.getElementById('home-chat-input');
   if (!inp) return;
@@ -581,6 +657,8 @@ function homeDoSend() {
   if (!query) return;
   inp.value = '';
   inp.style.height = 'auto';
+  // Sync think mode to workspace state before navigating
+  ws.thinking = _homeThinking;
   if (typeof window.showScreen === 'function') window.showScreen('workspace');
   setTimeout(() => {
     wsSetInput(query);
@@ -588,8 +666,69 @@ function homeDoSend() {
   }, 200);
 }
 
-window.homeChipSend = homeChipSend;
-window.homeDoSend   = homeDoSend;
+function homeToggleAttachMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById('home-attach-menu');
+  if (!menu) return;
+  const isOpen = menu.classList.contains('open');
+  document.querySelectorAll('#home-attach-menu, #home-think-menu').forEach(m => m.classList.remove('open'));
+  if (!isOpen) menu.classList.add('open');
+}
+
+function homeAttachTrigger(type) {
+  document.querySelectorAll('#home-attach-menu, #home-think-menu').forEach(m => m.classList.remove('open'));
+  if (typeof window.showScreen === 'function') window.showScreen('workspace');
+  setTimeout(() => { window.wsAttachTrigger?.(type); }, 300);
+}
+
+function homePromptYouTube() {
+  document.querySelectorAll('#home-attach-menu, #home-think-menu').forEach(m => m.classList.remove('open'));
+  if (typeof window.showScreen === 'function') window.showScreen('workspace');
+  setTimeout(() => { window.wsPromptYouTube?.(); }, 300);
+}
+
+function homeToggleWebSearch() {
+  ws.webSearch = !ws.webSearch;
+  document.getElementById('home-websearch-check')?.classList.toggle('on', ws.webSearch);
+  document.getElementById('home-toggle-websearch')?.classList.toggle('active', ws.webSearch);
+}
+
+function homeToggleVoiceInput() {
+  if (typeof window.showScreen === 'function') window.showScreen('workspace');
+  setTimeout(() => { window.wsToggleVoiceInput?.(); }, 300);
+}
+
+function homeToggleThinkMenu(e) {
+  e?.stopPropagation();
+  const menu = document.getElementById('home-think-menu');
+  if (!menu) return;
+  const isOpen = menu.classList.contains('open');
+  document.querySelectorAll('#home-attach-menu, #home-think-menu').forEach(m => m.classList.remove('open'));
+  if (!isOpen) menu.classList.add('open');
+}
+
+function homeToggleThinking(mode) {
+  _homeThinking = _homeThinking === mode ? 'off' : mode;
+  const isThink = _homeThinking === 'think';
+  const isDeep  = _homeThinking === 'deep';
+  const isAny   = isThink || isDeep;
+  document.getElementById('home-think-check')?.classList.toggle('on', isThink);
+  document.getElementById('home-deep-check')?.classList.toggle('on', isDeep);
+  document.getElementById('home-toggle-think')?.classList.toggle('active', isAny);
+  const label = document.getElementById('home-think-label');
+  if (label) label.textContent = isDeep ? 'Deep Think' : 'Think';
+  document.getElementById('home-think-menu')?.classList.remove('open');
+}
+
+window.homeChipSend         = homeChipSend;
+window.homeDoSend           = homeDoSend;
+window.homeToggleAttachMenu = homeToggleAttachMenu;
+window.homeAttachTrigger    = homeAttachTrigger;
+window.homePromptYouTube    = homePromptYouTube;
+window.homeToggleWebSearch  = homeToggleWebSearch;
+window.homeToggleVoiceInput = homeToggleVoiceInput;
+window.homeToggleThinkMenu  = homeToggleThinkMenu;
+window.homeToggleThinking   = homeToggleThinking;
 
 // ── Home doc-bar updater ──────────────────────────────────────────────
 
