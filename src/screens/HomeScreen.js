@@ -338,11 +338,6 @@ export function mountHomeScreen() {
       this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
   }
-
-  // Close home attach/think menus when clicking outside
-  document.addEventListener('click', () => {
-    document.querySelectorAll('#home-attach-menu, #home-think-menu').forEach(m => m.classList.remove('open'));
-  });
 }
 
 // ── Recent Activities ─────────────────────────────────────────────────────────
@@ -650,6 +645,9 @@ function homeChipSend(text) {
 // Local home think mode (synced to ws.thinking on send)
 let _homeThinking = 'off';
 
+// Delay (ms) to allow workspace screen transition before triggering actions
+const _WS_TRANSITION_DELAY = 300;
+
 function homeDoSend() {
   const inp = document.getElementById('home-chat-input');
   if (!inp) return;
@@ -678,13 +676,13 @@ function homeToggleAttachMenu(e) {
 function homeAttachTrigger(type) {
   document.querySelectorAll('#home-attach-menu, #home-think-menu').forEach(m => m.classList.remove('open'));
   if (typeof window.showScreen === 'function') window.showScreen('workspace');
-  setTimeout(() => { window.wsAttachTrigger?.(type); }, 300);
+  setTimeout(() => { window.wsAttachTrigger?.(type); }, _WS_TRANSITION_DELAY);
 }
 
 function homePromptYouTube() {
   document.querySelectorAll('#home-attach-menu, #home-think-menu').forEach(m => m.classList.remove('open'));
   if (typeof window.showScreen === 'function') window.showScreen('workspace');
-  setTimeout(() => { window.wsPromptYouTube?.(); }, 300);
+  setTimeout(() => { window.wsPromptYouTube?.(); }, _WS_TRANSITION_DELAY);
 }
 
 function homeToggleWebSearch() {
@@ -695,7 +693,7 @@ function homeToggleWebSearch() {
 
 function homeToggleVoiceInput() {
   if (typeof window.showScreen === 'function') window.showScreen('workspace');
-  setTimeout(() => { window.wsToggleVoiceInput?.(); }, 300);
+  setTimeout(() => { window.wsToggleVoiceInput?.(); }, _WS_TRANSITION_DELAY);
 }
 
 function homeToggleThinkMenu(e) {
