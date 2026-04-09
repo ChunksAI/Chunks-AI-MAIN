@@ -577,7 +577,7 @@ export function closeBook() {
   // Reset header labels
   setText($el('ws-book-name'), 'No book loaded');
   setText($el('ws-book-author'), '');
-  setText($el('ws-chat-title'), 'Select a document');
+  setText($el('ws-chat-title'), 'Study Assistant');
   setText($el('ws-chat-subtitle'), '');
   setText($el('mwt-book-name'), 'Study Workspace');
   setText($el('mwt-book-sub'), 'Select a book to begin');

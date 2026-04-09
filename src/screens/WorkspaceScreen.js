@@ -243,7 +243,7 @@ const WORKSPACE_HTML = /* html */`
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         </div>
         <div class="chat-bar-doc-text">
-          <span class="chat-bar-title" id="ws-chat-title">Select a document</span>
+          <span class="chat-bar-title" id="ws-chat-title">Study Assistant</span>
           <span class="chat-bar-subtitle" id="ws-chat-subtitle"></span>
         </div>
       </div>
@@ -324,6 +324,16 @@ const WORKSPACE_HTML = /* html */`
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--gold)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
           <span id="ws-stat-timer-text" style="font-size:12px;color:var(--text-2);">Studying today</span>
         </div>
+        <!-- Suggested prompts shown when no document is loaded -->
+        <div id="ws-no-book-prompts" style="margin-top:14px;">
+          <div style="font-family:var(--font-head);font-size:12.5px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.04em;">Try asking</div>
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            <button class="ws-prompt-chip" onclick="wsSetInput('Explain electrochemistry simply')">Explain electrochemistry simply</button>
+            <button class="ws-prompt-chip" onclick="wsSetInput('Create a study plan for thermodynamics')">Create a study plan</button>
+            <button class="ws-prompt-chip" onclick="wsSetInput('Quiz me on Newton\u2019s laws of motion')">Quiz me on Newton\u2019s laws</button>
+            <button class="ws-prompt-chip" onclick="wsSetInput('What are the key concepts in photosynthesis?')">Key concepts in photosynthesis</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -336,27 +346,27 @@ const WORKSPACE_HTML = /* html */`
 
         <!-- Action chips row -->
         <div class="chat-action-chips" id="ws-smart-suggestions">
-          <button class="chat-action-chip" onclick="wsSetInput('Summarize the current page')">
+          <button class="chat-action-chip" onclick="wsSetInput('Explain electrochemistry simply')">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
+            Explain simply
+          </button>
+          <button class="chat-action-chip" onclick="wsSetInput('Create a study plan for thermodynamics')">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            Study plan
+          </button>
+          <button class="chat-action-chip" onclick="wsSetInput('Quiz me on Newton\u2019s laws of motion')">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            Quiz me
+          </button>
+          <button class="chat-action-chip" onclick="wsSetInput('What are the key concepts in photosynthesis?')">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h7"/></svg>
+            Key concepts
+          </button>
+          <button class="chat-action-chip" onclick="wsSetInput('Summarize the French Revolution')">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9"/></svg>
             Summarize
           </button>
-          <button class="chat-action-chip" onclick="wsGenerateFlashcardsInChat()">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l4.5 7.5H7.5z"/><path d="M12 22l-4.5-7.5h9z"/></svg>
-            Flashcards
-          </button>
-          <button class="chat-action-chip" onclick="wsSetInput('Quiz me on this chapter')">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l4.5 7.5H7.5z"/><path d="M12 22l-4.5-7.5h9z"/></svg>
-            Quiz me
-          </button>
-          <button class="chat-action-chip" onclick="wsSetInput('Explain this equation in detail')">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h7"/></svg>
-            Equation
-          </button>
-          <button class="chat-action-chip" onclick="wsSetInput('What are the key points of this chapter?')">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-            Key points
-          </button>
-          <button class="chat-action-chip" onclick="wsSetInput('Create a mind map for this chapter')">
+          <button class="chat-action-chip" onclick="wsSetInput('Create a mind map for cell division')">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/></svg>
             Mind map
           </button>
@@ -367,7 +377,7 @@ const WORKSPACE_HTML = /* html */`
 
         <!-- Textarea row -->
         <div class="chat-textarea-row">
-          <textarea id="ws-chat-input" class="chat-input-field" placeholder="Ask anything about this chapter…" rows="1" style="resize:none;max-height:120px;overflow-y:auto;font-family:var(--font-body);font-size:13px;color:var(--text-1);background:transparent;border:none;outline:none;flex:1;line-height:1.5;"></textarea>
+          <textarea id="ws-chat-input" class="chat-input-field" placeholder="Ask anything…" rows="1" style="resize:none;max-height:120px;overflow-y:auto;font-family:var(--font-body);font-size:13px;color:var(--text-1);background:transparent;border:none;outline:none;flex:1;line-height:1.5;"></textarea>
           <button class="chat-send" id="ws-chat-send" data-action="wsChatSend"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button>
         </div>
 
@@ -531,20 +541,53 @@ export function wsShowPanel(tab) {
 
 // ── Empty state observer & document cards ─────────────────────────────────────
 
+// Chip HTML sets for book vs. no-book state
+const _CHIPS_NO_BOOK = `
+  <button class="chat-action-chip" onclick="wsSetInput('Explain electrochemistry simply')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>Explain simply</button>
+  <button class="chat-action-chip" onclick="wsSetInput('Create a study plan for thermodynamics')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Study plan</button>
+  <button class="chat-action-chip" onclick="wsSetInput('Quiz me on Newton\u2019s laws of motion')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Quiz me</button>
+  <button class="chat-action-chip" onclick="wsSetInput('What are the key concepts in photosynthesis?')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h7"/></svg>Key concepts</button>
+  <button class="chat-action-chip" onclick="wsSetInput('Summarize the French Revolution')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9"/></svg>Summarize</button>
+  <button class="chat-action-chip" onclick="wsSetInput('Create a mind map for cell division')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/></svg>Mind map</button>`;
+
+const _CHIPS_WITH_BOOK = `
+  <button class="chat-action-chip" onclick="wsSetInput('Summarize the current page')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9"/></svg>Summarize</button>
+  <button class="chat-action-chip" onclick="wsGenerateFlashcardsInChat()"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l4.5 7.5H7.5z"/><path d="M12 22l-4.5-7.5h9z"/></svg>Flashcards</button>
+  <button class="chat-action-chip" onclick="wsSetInput('Quiz me on this chapter')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2l4.5 7.5H7.5z"/><path d="M12 22l-4.5-7.5h9z"/></svg>Quiz me</button>
+  <button class="chat-action-chip" onclick="wsSetInput('Explain this equation in detail')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h7"/></svg>Equation</button>
+  <button class="chat-action-chip" onclick="wsSetInput('What are the key points of this chapter?')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>Key points</button>
+  <button class="chat-action-chip" onclick="wsSetInput('Create a mind map for this chapter')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/></svg>Mind map</button>`;
+
+/**
+ * Update the chat panel UI to reflect whether a book is currently loaded.
+ * - No book: general study assistant mode (general prompts, updated title & placeholder)
+ * - Book loaded: book-aware mode (chapter-specific chips & placeholder)
+ */
+function _updateChatPanelForBookState(hasBook) {
+  const inp         = document.getElementById('ws-chat-input');
+  const chips       = document.getElementById('ws-smart-suggestions');
+  const noBookSect  = document.getElementById('ws-no-book-prompts');
+  const titleEl     = document.getElementById('ws-chat-title');
+
+  if (inp) inp.placeholder = hasBook ? 'Ask anything about this chapter\u2026' : 'Ask anything\u2026';
+  if (chips) chips.innerHTML = hasBook ? _CHIPS_WITH_BOOK : _CHIPS_NO_BOOK;
+  if (noBookSect) noBookSect.style.display = hasBook ? 'none' : '';
+  if (titleEl && !hasBook) titleEl.textContent = 'Study Assistant';
+}
+
 /**
  * Watch ws-default-content visibility to toggle:
- *  - chat input wrap hidden when no book is loaded
+ *  - chat panel state (general assistant vs. book-aware) when no book is loaded
  *  - document cards rendered when the empty state becomes visible
  */
 function _initEmptyStateObserver() {
   const defaultContent = document.getElementById('ws-default-content');
-  const chatInputWrap  = document.querySelector('#ws-chat-content .chat-input-wrap');
   if (!defaultContent) return;
 
   function _onVisibilityChange() {
-    const visible = defaultContent.style.display !== 'none';
-    if (chatInputWrap) chatInputWrap.style.display = visible ? 'none' : '';
-    if (visible) _renderWsDocCards();
+    const noBook = defaultContent.style.display !== 'none';
+    _updateChatPanelForBookState(!noBook);
+    if (noBook) _renderWsDocCards();
   }
 
   // Initial state

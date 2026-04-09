@@ -833,7 +833,7 @@ function newChat() {
   if (ctag) ctag.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg> ${wsBookMeta[_wsBookId]?.split('/')[0]?.trim() || 'No book'}`;
 
   const title = document.getElementById('ws-chat-title');
-  if (title) title.textContent = 'Select a book to start studying';
+  if (title) title.textContent = 'Study Assistant';
 
   // Go to workspace
   showScreen('workspace');

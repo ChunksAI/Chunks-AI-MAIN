@@ -3360,6 +3360,31 @@
 }
 .ws-quick-action-card:hover .ws-qa-label { color: var(--text-1); }
 
+/* Suggested prompt chips in no-book welcome state */
+.ws-prompt-chip {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-sm);
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  line-height: 1.4;
+}
+.ws-prompt-chip:hover {
+  background: var(--surface-3);
+  color: var(--text-1);
+}
+[data-theme="study"] .ws-prompt-chip:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
 /* Session stat card */
 .ws-stat-card {
   display: flex;
