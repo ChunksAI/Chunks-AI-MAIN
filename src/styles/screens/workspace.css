@@ -3376,3 +3376,59 @@
   .ws-ai-float-tab { display: none !important; }
   .ws-general-ai-btn { display: none; }
 }
+
+/* Inline flashcard flip-card preview in chat */
+.ws-fc-preview { user-select: none; }
+
+.ws-fc-mini-card {
+  position: relative;
+  width: 140px;
+  min-height: 80px;
+  border-radius: 10px;
+  border: 1px solid var(--violet-border);
+  background: var(--surface-3);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: transform 0.35s cubic-bezier(0.4,0,0.2,1),
+              border-color 0.2s;
+  transform-style: preserve-3d;
+  flex-shrink: 0;
+}
+.ws-fc-mini-card:hover {
+  border-color: var(--violet);
+  transform: translateY(-2px);
+}
+.ws-fc-mini-card.flipped {
+  transform: rotateY(180deg);
+}
+
+.ws-fc-mini-front,
+.ws-fc-mini-back {
+  position: absolute;
+  inset: 0;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-1);
+  border-radius: 10px;
+}
+
+.ws-fc-mini-back {
+  transform: rotateY(180deg);
+  background: var(--violet-muted);
+  color: var(--text-1);
+  font-size: 11px;
+}
+
+/* Study mode cards */
+[data-theme="study"] .ws-fc-mini-card {
+  background: rgba(255,255,255,0.7);
+  border-color: rgba(139,124,248,0.2);
+}
+[data-theme="study"] .ws-fc-mini-back {
+  background: rgba(139,124,248,0.08);
+}

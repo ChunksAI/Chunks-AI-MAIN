@@ -229,10 +229,21 @@ async function _wsFinalizeThinking(thinkingContent) {
  * Used by _wsRenderMessageFromBlocks when restoring a session that included
  * a "Make Flashcard" or "Generate Flashcards" action.
  */
-export function _wsFlashcardResultHtml(deckId, topic, count) {
+export function _wsFlashcardResultHtml(deckId, topic, count, previewCards = []) {
   const safeId    = String(deckId).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
   const safeTopic = (topic || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const n = Number(count) || 0;
+
+  const _esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const previewHtml = previewCards.length ? `
+    <div class="ws-fc-preview" style="display:flex;gap:8px;margin-top:10px;overflow:hidden;">
+      ${previewCards.slice(0, 2).map(c => `
+        <div class="ws-fc-mini-card" onclick="this.classList.toggle('flipped')">
+          <div class="ws-fc-mini-front">${_esc(c.front)}</div>
+          <div class="ws-fc-mini-back">${_esc(c.back)}</div>
+        </div>`).join('')}
+    </div>` : '';
+
   return `<div class="ws-gen-result-card" style="margin-top:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--violet-border);border-radius:var(--r-md);">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
       <div style="padding:6px;background:var(--violet-muted);border-radius:var(--r-sm);flex-shrink:0;">
@@ -257,6 +268,7 @@ export function _wsFlashcardResultHtml(deckId, topic, count) {
         Practice
       </button>
     </div>
+    ${previewHtml}
   </div>`;
 }
 
