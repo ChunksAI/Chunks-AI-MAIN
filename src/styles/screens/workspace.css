@@ -3299,3 +3299,59 @@
   transition: background var(--t-fast);
 }
 .ws-sel-btn:hover { background: var(--gold-muted); color: var(--gold); }
+
+/* ── Chat panel collapse / expand ────────────────────────────────────────────── */
+
+/* Collapsed state — right panel slides to zero width */
+#ws-chat-panel {
+  transition: flex-basis 0.2s ease, width 0.2s ease;
+}
+#ws-chat-panel.ws-panel-collapsed {
+  flex: 0 0 0 !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  overflow: hidden;
+  padding: 0;
+  border: none;
+}
+
+/* Floating AI tab — appears on right edge when panel collapsed */
+.ws-ai-float-tab {
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 500;
+  background: var(--gold);
+  color: #000;
+  border: none;
+  border-radius: 8px 0 0 8px;
+  padding: 14px 5px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  cursor: pointer;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transition: opacity var(--t-fast);
+}
+.ws-ai-float-tab:hover { opacity: 0.85; }
+.ws-ai-float-tab.hidden { display: none; }
+
+/* Collapse button inside AI panel header */
+.ws-panel-collapse-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-3);
+  padding: 4px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+.ws-panel-collapse-btn:hover {
+  color: var(--text-1);
+  background: var(--surface-3);
+}

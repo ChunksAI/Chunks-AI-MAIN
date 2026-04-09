@@ -134,7 +134,7 @@ export async function selectBook(bookId) {
   if (typeof showScreen === 'function') showScreen('workspace');
 
   // Expand the chat panel if it is collapsed
-  const _chatPanel = document.querySelector('.chat-panel');
+  const _chatPanel = document.getElementById('ws-chat-panel');
   if (_chatPanel && _chatPanel.classList.contains('ws-panel-collapsed')) {
     _chatPanel.classList.remove('ws-panel-collapsed');
   }
