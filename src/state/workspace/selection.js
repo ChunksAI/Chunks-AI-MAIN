@@ -121,6 +121,14 @@ function _wsCreateSelectionPopup() {
 }
 
 export function wsSelectionAction(type) {
+  // Auto-expand the panel if it is collapsed
+  const panel = document.getElementById('ws-chat-panel');
+  if (panel && panel.classList.contains('ws-panel-collapsed')) {
+    if (typeof window.wsTogglePanelCollapse === 'function') {
+      window.wsTogglePanelCollapse();
+    }
+  }
+
   const sel  = window.getSelection();
   const text = (sel ? sel.toString() : '').trim();
   if (!text) { _wsHideSelectionPopup(); return; }
