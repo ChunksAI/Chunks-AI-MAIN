@@ -225,7 +225,7 @@ const WORKSPACE_HTML = /* html */`
   <div class="ws-resizer" id="ws-resizer"></div>
 
   <!-- Chat Panel -->
-  <section class="chat-panel">
+  <section class="chat-panel" id="ws-chat-panel">
     <!-- Top bar: doc info left · actions right -->
     <div class="chat-bar">
       <div class="chat-bar-doc">
@@ -238,6 +238,7 @@ const WORKSPACE_HTML = /* html */`
         </div>
       </div>
       <div class="chat-bar-actions">
+        <button class="ws-general-ai-btn" onclick="wsGoGeneralAI()">General AI</button>
       </div>
     </div>
 
@@ -257,6 +258,10 @@ const WORKSPACE_HTML = /* html */`
       </button>
       <div class="ws-tabs-spacer"></div>
       <span class="ws-page-label" id="ws-chat-page-label"></span>
+      <button class="ws-panel-collapse-btn" id="ws-panel-collapse-btn"
+              aria-label="Collapse AI panel" onclick="wsTogglePanelCollapse()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
     </div>
 
     <!-- Chat content (shown by default) -->
@@ -386,6 +391,11 @@ const WORKSPACE_HTML = /* html */`
     </div>
 
   </section>
+
+  <!-- Floating AI tab — visible when chat panel is collapsed -->
+  <button class="ws-ai-float-tab hidden" id="ws-ai-float-tab"
+          aria-label="Expand AI panel" onclick="wsTogglePanelCollapse()">AI</button>
+
 </div>
 `;
 
@@ -463,6 +473,42 @@ export function wsShowPanel(tab) {
   } else {
     chatContent.style.display = 'flex';
     tabChat?.classList.add('ws-ptab-active');
+  }
+}
+
+// ── General AI mode ───────────────────────────────────────────────────────────
+
+export function wsGoGeneralAI() {
+  const titleEl = document.getElementById('ws-chat-title');
+  const subEl   = document.getElementById('ws-chat-subtitle');
+  if (titleEl) titleEl.textContent = 'General AI';
+  if (subEl)   subEl.textContent   = 'No document context · ask anything';
+  window._wsGeneralMode = true;
+  const inp = document.getElementById('ws-chat-input');
+  if (inp) { inp.placeholder = 'Ask me anything...'; inp.focus(); }
+}
+
+// ── Panel collapse / expand ───────────────────────────────────────────────────
+
+export function wsTogglePanelCollapse() {
+  const panel    = document.getElementById('ws-chat-panel');
+  const floatTab = document.getElementById('ws-ai-float-tab');
+  const colBtn   = document.getElementById('ws-panel-collapse-btn');
+  const resizer  = document.querySelector('.ws-resizer');
+
+  if (!panel) return;
+  const isCollapsed = panel.classList.contains('ws-panel-collapsed');
+
+  if (isCollapsed) {
+    panel.classList.remove('ws-panel-collapsed');
+    if (floatTab) floatTab.classList.add('hidden');
+    if (resizer)  resizer.style.display = '';
+    if (colBtn)   colBtn.setAttribute('aria-label', 'Collapse AI panel');
+  } else {
+    panel.classList.add('ws-panel-collapsed');
+    if (floatTab) floatTab.classList.remove('hidden');
+    if (resizer)  resizer.style.display = 'none';
+    if (colBtn)   colBtn.setAttribute('aria-label', 'Expand AI panel');
   }
 }
 

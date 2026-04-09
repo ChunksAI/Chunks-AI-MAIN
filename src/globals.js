@@ -143,7 +143,7 @@ import {
   wsClearChat, wsAppendUser, wsAppendThinking, wsRemoveThinking,
   wsAppendAI, wsAppendError, wsCopyMsg, wsFeedback, _wsRegenerate,
   wsToggleWebSearch, wsToggleThinking, wsToggleThinkMenu,
-  wsStopGeneration, wsSendToCanvas,
+  wsStopGeneration, wsSendToCanvas, wsQuizMe,
   filterLibrary, filterLibSection,
   wsToggleAttachMenu, wsAttachTrigger, wsHandleAttach,
   homeToggleAttachMenu, homeAttachTrigger, homeHandleAttach,
@@ -204,6 +204,7 @@ window.wsToggleThinking    = wsToggleThinking;
 window.wsToggleThinkMenu   = wsToggleThinkMenu;
 window.wsStopGeneration    = wsStopGeneration;
 window.wsSendToCanvas      = wsSendToCanvas;
+window.wsQuizMe            = wsQuizMe;
 window.filterLibrary       = filterLibrary;
 window.filterLibSection    = filterLibSection;
 window.wsToggleAttachMenu  = wsToggleAttachMenu;
@@ -507,11 +508,13 @@ window._renderHomeActivities = _renderHomeActivities;
 window._homeMountLatestSession = _homeMountLatestSession;
 
 // ── Screens · Workspace ──────────────────────────────────────────────────────
-import { wsMobileView, refreshSmartSuggestions, wsShowPanel } from './screens/WorkspaceScreen.js';
+import { wsMobileView, refreshSmartSuggestions, wsShowPanel, wsGoGeneralAI, wsTogglePanelCollapse } from './screens/WorkspaceScreen.js';
 
 window.wsMobileView            = wsMobileView;
 window.refreshSmartSuggestions = refreshSmartSuggestions;
 window.wsShowPanel             = wsShowPanel;
+window.wsGoGeneralAI           = wsGoGeneralAI;
+window.wsTogglePanelCollapse   = wsTogglePanelCollapse;
 
 // ── Screens · Library ────────────────────────────────────────────────────────
 import {
@@ -665,3 +668,14 @@ window.CommandEngine = CommandEngine;
 // _syncThemeToggleBtns is a local function in Sidebar.js that registers
 // itself on window.  It cannot be imported — the registration stays in
 // Sidebar.js alongside the DOM code it depends on.
+
+
+// ── Onboarding ───────────────────────────────────────────────────────────────
+import { showOnboardingIfFirst } from './components/OnboardingTip.js';
+
+window.showOnboardingIfFirst = showOnboardingIfFirst;
+
+// ── Streak Celebration ───────────────────────────────────────────────────────
+import { celebrateFirstFlashcard } from './components/StreakCelebration.js';
+
+window.celebrateFirstFlashcard = celebrateFirstFlashcard;

@@ -65,6 +65,11 @@ export function wsSetInput(text) {
   if (!inp) return;
   inp.value = text; inp.focus(); wsAutoResize(inp);
 }
+export function wsQuizMe(btn, question) {
+  if (btn) { btn.classList.add('ws-next-chip--used'); btn.disabled = true; }
+  wsSetInput(`Give me 3 quick-fire quiz questions on: ${question}`);
+  wsChatSend();
+}
 export function wsAutoResize(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(el.scrollHeight, 120) + 'px';
@@ -229,10 +234,21 @@ async function _wsFinalizeThinking(thinkingContent) {
  * Used by _wsRenderMessageFromBlocks when restoring a session that included
  * a "Make Flashcard" or "Generate Flashcards" action.
  */
-export function _wsFlashcardResultHtml(deckId, topic, count) {
+export function _wsFlashcardResultHtml(deckId, topic, count, previewCards = []) {
   const safeId    = String(deckId).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
   const safeTopic = (topic || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const n = Number(count) || 0;
+
+  const _esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const previewHtml = previewCards.length ? `
+    <div class="ws-fc-preview" style="display:flex;gap:8px;margin-top:10px;overflow:hidden;">
+      ${previewCards.slice(0, 2).map(c => `
+        <div class="ws-fc-mini-card" onclick="this.classList.toggle('flipped')">
+          <div class="ws-fc-mini-front">${_esc(c.front)}</div>
+          <div class="ws-fc-mini-back">${_esc(c.back)}</div>
+        </div>`).join('')}
+    </div>` : '';
+
   return `<div class="ws-gen-result-card" style="margin-top:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--violet-border);border-radius:var(--r-md);">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
       <div style="padding:6px;background:var(--violet-muted);border-radius:var(--r-sm);flex-shrink:0;">
@@ -257,6 +273,7 @@ export function _wsFlashcardResultHtml(deckId, topic, count) {
         Practice
       </button>
     </div>
+    ${previewHtml}
   </div>`;
 }
 
@@ -389,11 +406,31 @@ export function _wsRenderMessageFromBlocks(msgId, blocks, bookName) {
     ? _wsFlashcardResultHtml(flashcardBlock.deckId, flashcardBlock.topic, flashcardBlock.count)
     : '';
 
+  const chipsHtml = `
+    <div class="ws-next-chips">
+      <button class="ws-next-chip ws-next-chip--flash"
+        onclick="this.classList.add('ws-next-chip--used');this.disabled=true;wsMakeFlashcard(null,'${msgId}',\`${safeQ}\`)">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+        Save to Flashcards
+      </button>
+      <button class="ws-next-chip ws-next-chip--canvas"
+        onclick="this.classList.add('ws-next-chip--used');this.disabled=true;wsSendToCanvas(this,\`${safeQ}\`)">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+        Visualize
+      </button>
+      <button class="ws-next-chip ws-next-chip--quiz"
+        onclick="wsQuizMe(this,\`${safeQ}\`)">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Quiz Me
+      </button>
+    </div>`;
+
   d.innerHTML = `
     <div class="ai-row">
       <div class="ai-body">
         ${textHtml}
         ${sourcesHtml}
+        ${chipsHtml}
         <div class="msg-acts" style="margin-top:10px;">
           <button class="msg-act" onclick="wsCopyMsg(this, '${msgId}')">
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy

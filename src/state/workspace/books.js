@@ -13,6 +13,7 @@ import { isGuest, guestGate, recordUsage } from '../../lib/guestLimits.js';
 import { ChunksDB } from '../../lib/chunksDb.js';
 import { checkStorageQuota } from '../../utils/storageQuota.js';
 import { lsGet, lsSet } from '../../utils/storage.js';
+import { showOnboardingIfFirst } from '../../components/OnboardingTip.js';
 import { $el, hide, setText, setHtml } from '../domHelpers.js';
 import { subscribeToChatRealtime, unsubscribeChatRealtime } from './chatRealtime.js';
 import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
@@ -103,6 +104,9 @@ export async function selectBook(bookId) {
   subscribeToFlashcardRealtime(bookId);
   setText($el('ws-chat-title'), meta.name);
   setText($el('ws-chat-subtitle'), meta.author || '');
+  if (typeof window.updateHomeDocBar === 'function') {
+    window.updateHomeDocBar(meta.title || meta.name || '');
+  }
   const _wsChatInp = $el('ws-chat-input');
   if (_wsChatInp) _wsChatInp.placeholder = 'Ask anything about this document\u2026';
 
@@ -132,6 +136,19 @@ export async function selectBook(bookId) {
   }
 
   if (typeof showScreen === 'function') showScreen('workspace');
+
+  // Expand the chat panel if it is collapsed
+  const _chatPanel = document.getElementById('ws-chat-panel');
+  if (_chatPanel && _chatPanel.classList.contains('ws-panel-collapsed')) {
+    _chatPanel.classList.remove('ws-panel-collapsed');
+  }
+
+  // Update home screen document context bar
+  const _homeDocLabel = document.getElementById('home-doc-label');
+  if (_homeDocLabel) _homeDocLabel.textContent = meta.name;
+
+  // Signal that a document is now active
+  window._wsDocLoaded = true;
 
   setText($el('ws-book-name'), meta.name);
   setText($el('ws-book-author'), meta.author);
@@ -326,6 +343,8 @@ export async function selectBook(bookId) {
     hide($el('ws-pdf-loading'));
     hide($el('ws-default-content'));
     wrap.style.display = 'flex';
+
+    showOnboardingIfFirst();
 
     // Restore saved page position (use requestAnimationFrame so layout is ready)
     const _savedPage = lsGet('chunks_ws_page_' + bookId);
@@ -605,4 +624,13 @@ export function closeBook() {
   // Clear chat panel
   const msgs = $el('ws-messages');
   if (msgs) setHtml(msgs, '');
+
+  // Clear doc-loaded flag and reset home screen context bar
+  window._wsDocLoaded = false;
+  if (typeof window.updateHomeDocBar === 'function') {
+    window.updateHomeDocBar(null);
+  } else {
+    const _homeDocLabel = document.getElementById('home-doc-label');
+    if (_homeDocLabel) _homeDocLabel.textContent = 'No document loaded';
+  }
 }

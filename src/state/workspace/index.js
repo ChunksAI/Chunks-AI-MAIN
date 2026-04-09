@@ -30,7 +30,7 @@ export {
   wsAppendUser, _wsAvatarSvg, wsAppendThinking, wsRemoveThinking,
   wsAppendAI, wsAppendError, wsCopyMsg, wsFeedback, _wsFollowups, _wsRegenerate,
   wsToggleWebSearch, wsToggleThinking, wsToggleThinkMenu, wsChatSend, _wsAsk,
-  wsStopGeneration, wsSendToCanvas,
+  wsStopGeneration, wsSendToCanvas, wsQuizMe,
   _wsBuildBlocks, _wsRenderMessageFromBlocks,
 } from './chat.js';
 
