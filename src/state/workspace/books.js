@@ -103,6 +103,9 @@ export async function selectBook(bookId) {
   subscribeToFlashcardRealtime(bookId);
   setText($el('ws-chat-title'), meta.name);
   setText($el('ws-chat-subtitle'), meta.author || '');
+  if (typeof window.updateHomeDocBar === 'function') {
+    window.updateHomeDocBar(meta.title || meta.name || '');
+  }
   const _wsChatInp = $el('ws-chat-input');
   if (_wsChatInp) _wsChatInp.placeholder = 'Ask anything about this document\u2026';
 
@@ -621,6 +624,10 @@ export function closeBook() {
 
   // Clear doc-loaded flag and reset home screen context bar
   window._wsDocLoaded = false;
-  const _homeDocLabel = document.getElementById('home-doc-label');
-  if (_homeDocLabel) _homeDocLabel.textContent = 'No document loaded';
+  if (typeof window.updateHomeDocBar === 'function') {
+    window.updateHomeDocBar(null);
+  } else {
+    const _homeDocLabel = document.getElementById('home-doc-label');
+    if (_homeDocLabel) _homeDocLabel.textContent = 'No document loaded';
+  }
 }

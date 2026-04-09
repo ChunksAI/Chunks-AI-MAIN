@@ -591,4 +591,15 @@ function homeDoSend() {
 window.homeChipSend = homeChipSend;
 window.homeDoSend   = homeDoSend;
 
+// ── Home doc-bar updater ──────────────────────────────────────────────
+
+function updateHomeDocBar(bookTitle) {
+  const label  = document.getElementById('home-doc-label');
+  const addBtn = document.getElementById('home-add-doc-btn');
+  if (label)  label.textContent  = bookTitle ? bookTitle : 'No document loaded';
+  if (addBtn) addBtn.textContent = bookTitle ? 'Change book' : '+ Add textbook';
+}
+
+window.updateHomeDocBar = updateHomeDocBar;
+
 console.log('[HomeScreen] module loaded \u2726');
