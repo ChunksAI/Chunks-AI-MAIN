@@ -615,6 +615,15 @@ export function closeBook() {
   if (loadingState)    loadingState.style.display = 'none';
   if (defaultContent)  defaultContent.style.display = 'flex';
 
+  // Hide outline / TOC panel and reset its contents
+  const outlinePanel  = $el('ws-outline-panel');
+  const outlineItems  = $el('ws-outline-items');
+  const outlineCover  = $el('ws-outline-cover');
+  if (outlinePanel) outlinePanel.style.display = 'none';
+  if (outlineCover) outlineCover.style.display = 'none';
+  if (outlineItems) setHtml(outlineItems, '<div style="padding:20px 16px;font-size:11px;color:var(--text-4);font-style:italic;line-height:1.6;">Open a book to see contents</div>');
+  ws.outlineFlat = [];
+
   // Clear chat panel
   const msgs = $el('ws-messages');
   if (msgs) setHtml(msgs, '');

@@ -3098,28 +3098,65 @@
   gap: 10px;
 }
 
+/* ── Mini folder card ─────────────────────────────────────────────────────── */
 .ws-doc-card {
   position: relative;
-  background: var(--surface-3);
-  border: 1px solid var(--border-xs);
-  border-left: 3px solid var(--ws-card-accent, var(--gold));
-  border-radius: var(--r-md);
-  padding: 12px 12px 10px;
   cursor: pointer;
-  transition: transform var(--t-fast), box-shadow var(--t-fast), background var(--t-fast);
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
+  transition: filter var(--t-fast), transform var(--t-fast);
 }
 .ws-doc-card:hover {
-  background: var(--surface-4);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  filter: drop-shadow(0 6px 18px rgba(0,0,0,0.40));
+  transform: translateY(-3px);
 }
-.ws-doc-card:hover .ws-doc-card-open { opacity: 1; }
 
-.ws-doc-card-inner { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+/* Folder tab — the small "ear" at top-left */
+.ws-doc-folder-tab {
+  width: 44%;
+  height: 10px;
+  background: var(--ws-card-accent, var(--gold));
+  border-radius: 5px 5px 0 0;
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
+/* Folder body — main area below the tab */
+.ws-doc-folder-body {
+  flex: 1;
+  background: var(--surface-3);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-top: 2px solid var(--ws-card-accent, var(--gold));
+  border-radius: 0 6px 6px 6px;
+  padding: 10px 11px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  transition: background var(--t-fast);
+}
+.ws-doc-card:hover .ws-doc-folder-body {
+  background: var(--surface-4);
+}
+
+/* Folder icon */
+.ws-doc-folder-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--ws-card-accent, var(--gold)) 15%, transparent);
+  color: var(--ws-card-accent, var(--gold));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
 
 .ws-doc-card-title {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   color: var(--text-1);
   overflow: hidden;
@@ -3131,27 +3168,12 @@
 }
 
 .ws-doc-card-meta {
-  font-size: 11px;
+  font-size: 10.5px;
   color: var(--text-4);
 }
 
-.ws-doc-card-open {
-  opacity: 0;
-  margin-top: 2px;
-  align-self: flex-start;
-  padding: 4px 10px;
-  border-radius: var(--r-pill);
-  background: var(--gold);
-  border: none;
-  color: #090900;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: var(--font-body);
-  transition: opacity var(--t-fast);
-  pointer-events: none;
-}
-.ws-doc-card:hover .ws-doc-card-open { pointer-events: auto; }
+/* (legacy open button — hidden; click whole card opens book) */
+.ws-doc-card-open { display: none; }
 
 .ws-docs-empty {
   grid-column: 1 / -1;

@@ -585,10 +585,13 @@ function _renderWsDocCards() {
     card.className = 'ws-doc-card';
     card.style.cssText = `--ws-card-accent:${accent};`;
     card.innerHTML = `
-      <div class="ws-doc-card-inner">
+      <div class="ws-doc-folder-tab"></div>
+      <div class="ws-doc-folder-body">
+        <div class="ws-doc-folder-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        </div>
         <div class="ws-doc-card-title" title="${safeTitle}">${safeTitle}</div>
-        ${timeLabel ? `<div class="ws-doc-card-meta">Last opened: ${_escHtml(timeLabel)}</div>` : ''}
-        <button class="ws-doc-card-open">Open</button>
+        ${timeLabel ? `<div class="ws-doc-card-meta">${_escHtml(timeLabel)}</div>` : ''}
       </div>`;
 
     card.addEventListener('click', () => {
