@@ -329,9 +329,9 @@ const WORKSPACE_HTML = /* html */`
           <div style="font-family:var(--font-head);font-size:12.5px;font-weight:600;color:var(--text-3);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.04em;">Try asking</div>
           <div style="display:flex;flex-direction:column;gap:5px;">
             <button class="ws-prompt-chip" onclick="wsSetInput('Explain electrochemistry simply')">Explain electrochemistry simply</button>
-            <button class="ws-prompt-chip" onclick="wsSetInput('Create a study plan for thermodynamics')">Create a study plan</button>
-            <button class="ws-prompt-chip" onclick="wsSetInput('Quiz me on Newton\u2019s laws of motion')">Quiz me on Newton\u2019s laws</button>
-            <button class="ws-prompt-chip" onclick="wsSetInput('What are the key concepts in photosynthesis?')">Key concepts in photosynthesis</button>
+            <button class="ws-prompt-chip" onclick="wsSetInput('Create a study plan')">Create a study plan</button>
+            <button class="ws-prompt-chip" onclick="wsSetInput('Quiz me on this topic')">Quiz me on this topic</button>
+            <button class="ws-prompt-chip" onclick="wsSetInput('What are the key concepts in this topic?')">What are the key concepts in this topic?</button>
           </div>
         </div>
       </div>
@@ -350,15 +350,15 @@ const WORKSPACE_HTML = /* html */`
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
             Explain simply
           </button>
-          <button class="chat-action-chip" onclick="wsSetInput('Create a study plan for thermodynamics')">
+          <button class="chat-action-chip" onclick="wsSetInput('Create a study plan')">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
             Study plan
           </button>
-          <button class="chat-action-chip" onclick="wsSetInput('Quiz me on Newton\u2019s laws of motion')">
+          <button class="chat-action-chip" onclick="wsSetInput('Quiz me on this topic')">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
             Quiz me
           </button>
-          <button class="chat-action-chip" onclick="wsSetInput('What are the key concepts in photosynthesis?')">
+          <button class="chat-action-chip" onclick="wsSetInput('What are the key concepts in this topic?')">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h7"/></svg>
             Key concepts
           </button>
@@ -544,9 +544,9 @@ export function wsShowPanel(tab) {
 // Chip HTML sets for book vs. no-book state
 const _CHIPS_NO_BOOK = `
   <button class="chat-action-chip" onclick="wsSetInput('Explain electrochemistry simply')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>Explain simply</button>
-  <button class="chat-action-chip" onclick="wsSetInput('Create a study plan for thermodynamics')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Study plan</button>
-  <button class="chat-action-chip" onclick="wsSetInput('Quiz me on Newton\u2019s laws of motion')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Quiz me</button>
-  <button class="chat-action-chip" onclick="wsSetInput('What are the key concepts in photosynthesis?')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h7"/></svg>Key concepts</button>
+  <button class="chat-action-chip" onclick="wsSetInput('Create a study plan')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Study plan</button>
+  <button class="chat-action-chip" onclick="wsSetInput('Quiz me on this topic')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Quiz me</button>
+  <button class="chat-action-chip" onclick="wsSetInput('What are the key concepts in this topic?')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h10M4 17h7"/></svg>Key concepts</button>
   <button class="chat-action-chip" onclick="wsSetInput('Summarize the French Revolution')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9"/></svg>Summarize</button>
   <button class="chat-action-chip" onclick="wsSetInput('Create a mind map for cell division')"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/></svg>Mind map</button>`;
 
