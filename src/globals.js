@@ -674,3 +674,8 @@ window.CommandEngine = CommandEngine;
 import { showOnboardingIfFirst } from './components/OnboardingTip.js';
 
 window.showOnboardingIfFirst = showOnboardingIfFirst;
+
+// ── Streak Celebration ───────────────────────────────────────────────────────
+import { celebrateFirstFlashcard } from './components/StreakCelebration.js';
+
+window.celebrateFirstFlashcard = celebrateFirstFlashcard;

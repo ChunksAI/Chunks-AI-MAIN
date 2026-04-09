@@ -23,6 +23,7 @@ import {
   wsAppendUser, wsAppendThinking, wsRemoveThinking,
   wsAppendError, wsScrollBottom,
 } from '../workspace/chat.js';
+import { celebrateFirstFlashcard } from '../../components/StreakCelebration.js';
 
 // ── Workspace make flashcard ────────────────────────────────────────────────
 
@@ -64,6 +65,8 @@ export async function wsMakeFlashcard(btn, msgId, topic) {
     const deck   = await FlashcardDB.fcSaveDeck(cleanTopic, cards);
     const deckId = deck.id || deck.name;
     const count  = cards.length;
+
+    celebrateFirstFlashcard();
 
     // Also persist to per-document `flashcards` table for cross-session recall
     const documentId = ws.userDocId || (ws.bookId !== '__user_doc__' ? ws.bookId : null);
@@ -180,6 +183,8 @@ export async function wsGenerateFlashcardsInChat(topic) {
     const deck   = await FlashcardDB.fcSaveDeck(effectiveTopic, cards);
     const deckId = deck.id || deck.name;
     const count  = cards.length;
+
+    celebrateFirstFlashcard();
 
     // Also persist to per-document `flashcards` table for cross-session recall
     const documentId = ws.userDocId || (ws.bookId !== '__user_doc__' ? ws.bookId : null);
