@@ -110,10 +110,6 @@ export async function selectBook(bookId) {
   const _wsChatInp = $el('ws-chat-input');
   if (_wsChatInp) _wsChatInp.placeholder = 'Ask anything about this document\u2026';
 
-  // Show close-book button
-  const closeBtn = document.getElementById('ws-close-book-btn');
-  if (closeBtn) closeBtn.style.display = 'inline-flex';
-
   const msgs = $el('ws-messages');
   if (msgs) {
     setHtml(msgs, `
@@ -610,10 +606,6 @@ export function closeBook() {
   // Reset chat input placeholder to general mode
   const _wsChatInp = $el('ws-chat-input');
   if (_wsChatInp) _wsChatInp.placeholder = 'Ask me anything\u2026';
-
-  // Hide close-book button
-  const closeBtn = document.getElementById('ws-close-book-btn');
-  if (closeBtn) closeBtn.style.display = 'none';
 
   // Hide PDF views, show default content
   const canvasWrap     = $el('ws-pdf-canvas-wrap');

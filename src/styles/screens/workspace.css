@@ -3163,31 +3163,6 @@
 
 /* ── Close book (X) button in PDF title strip ───────────────────────────── */
 
-.ws-close-book-btn {
-  display: none; /* toggled inline by selectBook / closeBook */
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 9999px;
-  border: 1px solid var(--border-xs);
-  background: var(--surface-3);
-  color: var(--text-3);
-  cursor: pointer;
-  flex-shrink: 0;
-  margin-left: 2px;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
-}
-.ws-close-book-btn:hover {
-  background: rgba(239, 68, 68, 0.12);
-  border-color: rgba(239, 68, 68, 0.3);
-  color: #ef4444;
-}
-/* Show the X button only when a book is open (pdf canvas or loading visible) */
-.ws-book-loaded .ws-close-book-btn {
-  display: inline-flex;
-}
-
 /* ── General AI mode button in chat bar ──────────────────────────────────── */
 
 .ws-general-ai-btn {
@@ -3368,49 +3343,3 @@
   background: rgba(139,124,248,0.08);
 }
 
-/* "What's next" chips row above action buttons */
-.ws-next-chips {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin: 10px 0 6px;
-}
-
-.ws-next-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 6px 12px;
-  border-radius: 20px;
-  border: 1px solid var(--border-sm);
-  background: var(--surface-2);
-  color: var(--text-2);
-  font-size: 12px;
-  font-family: var(--font-body);
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
-}
-.ws-next-chip:hover {
-  background: var(--surface-3);
-  border-color: var(--border-md);
-  color: var(--text-1);
-}
-.ws-next-chip--flash:hover { border-color: var(--violet-border); color: var(--violet); }
-.ws-next-chip--canvas:hover { border-color: var(--gold-border); color: var(--gold); }
-.ws-next-chip--quiz:hover { border-color: rgba(45,212,191,0.3); color: var(--teal); }
-
-.ws-next-chip--used {
-  opacity: 0.4;
-  cursor: default;
-  pointer-events: none;
-}
-
-[data-theme="study"] .ws-next-chip {
-  background: rgba(255,255,255,0.6);
-  border-color: rgba(0,0,0,0.08);
-  color: #5a5a6a;
-}
-[data-theme="study"] .ws-next-chip:hover {
-  background: rgba(255,255,255,0.9);
-  color: #2a2a3a;
-}

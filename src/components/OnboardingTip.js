@@ -20,12 +20,6 @@ const _STEPS = [
     target: () => document.querySelector('.pdf-panel'),
     side:   'right',
   },
-  {
-    text:   'Use these chips after any answer — Flashcards, Visualize, Test me',
-    target: () => document.querySelector('.ws-next-chips') ||
-                  document.getElementById('ws-messages'),
-    side:   'top',
-  },
 ];
 
 function _injectStyles() {
