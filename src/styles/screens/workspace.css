@@ -3355,3 +3355,24 @@
   color: var(--text-1);
   background: var(--surface-3);
 }
+
+/* Smooth panel open animation when book loads */
+@media (prefers-reduced-motion: no-preference) {
+  #ws-chat-panel {
+    transition: flex-basis 0.22s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.18s ease;
+  }
+  #ws-chat-panel.ws-panel-collapsed {
+    opacity: 0;
+  }
+  #ws-chat-panel:not(.ws-panel-collapsed) {
+    opacity: 1;
+  }
+}
+
+/* Hide collapse button on mobile (panel is already toggled by the mwt-tab) */
+@media (max-width: 768px) {
+  .ws-panel-collapse-btn { display: none; }
+  .ws-ai-float-tab { display: none !important; }
+  .ws-general-ai-btn { display: none; }
+}

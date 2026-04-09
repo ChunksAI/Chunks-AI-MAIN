@@ -1398,3 +1398,17 @@
 }
 .home-chat-send:hover { opacity: 0.85; transform: scale(1.05); }
 .home-chat-send:active { transform: scale(0.97); }
+
+/* Mobile: tighten the home chat layout */
+@media (max-width: 640px) {
+  .home-hero-title { font-size: 20px; }
+  .home-chip { font-size: 11px; padding: 6px 11px; }
+  .home-chat-wrap { border-radius: 12px; }
+  #home-doc-bar { border-radius: 8px; }
+  .home-chips { gap: 6px; }
+}
+
+/* Study mode: ensure input card matches the light beige theme */
+[data-theme="study"] .home-hero-title { color: #1e1e2e; }
+[data-theme="study"] .home-hero-sub   { color: #6a6a7a; }
+[data-theme="study"] .home-add-doc-btn { color: var(--gold); }
