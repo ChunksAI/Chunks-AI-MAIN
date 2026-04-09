@@ -1,3 +1,4 @@
+
 /* ═══════════════════════════════════════════════════════════
    SCREEN 1 — HOMEPAGE  (Redesigned — matches sidebar v2)
    Depends on: tokens.css
@@ -1382,6 +1383,8 @@
   display: none;          /* shown via JS when chat starts */
   flex: 1;
   min-height: 0;
+  width: 100%;
+  align-self: stretch;
   flex-direction: column;
   overflow: hidden;
   background: var(--bg);
