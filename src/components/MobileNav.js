@@ -32,11 +32,11 @@
   <!-- Study nav -->
   <div class="md-section">
     <div class="md-section-label">Study</div>
-    <div class="md-item active" id="md-item-home" data-action="drawerNav" data-screen="home">
+    <div class="md-item active" id="md-item-home" data-action="drawerNav" data-screen="workspace">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      Home
+      Study
     </div>
-    <div class="md-item" id="md-item-workspace" data-action="drawerNav" data-screen="workspace">
+    <div class="md-item" id="md-item-workspace" data-action="drawerNav" data-screen="workspace" style="display:none;">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
       Workspace
     </div>
@@ -93,17 +93,17 @@
   document.body.insertAdjacentHTML('beforeend', `
 <nav class="mobile-bottom-nav" id="mobile-bottom-nav" role="navigation" aria-label="Main navigation">
 
-  <button type="button" class="mobile-nav-item active" id="mnav-home" data-action="mobileNav-self" data-screen="home">
+  <button type="button" class="mobile-nav-item active" id="mnav-home" data-action="mobileNav-self" data-screen="workspace">
     <div class="mobile-nav-icon">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
         <polyline points="9 22 9 12 15 12 15 22"/>
       </svg>
     </div>
-    <span class="mobile-nav-label">Home</span>
+    <span class="mobile-nav-label">Study</span>
   </button>
 
-  <button type="button" class="mobile-nav-item" id="mnav-workspace" data-action="mobileNav-self" data-screen="workspace">
+  <button type="button" class="mobile-nav-item" id="mnav-workspace" data-action="mobileNav-self" data-screen="workspace" style="display:none;">
     <div class="mobile-nav-icon">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <rect x="3" y="3" width="18" height="18" rx="2"/>

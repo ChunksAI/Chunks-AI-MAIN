@@ -278,11 +278,25 @@ const WORKSPACE_HTML = /* html */`
 
     <div class="messages" id="ws-messages">
       <div id="ws-welcome-state" style="display:flex;flex-direction:column;height:100%;overflow-y:auto;padding:20px 16px;">
+        <!-- Hero heading — visible only in no-doc (full-width) mode via CSS -->
+        <div class="ws-nodoc-hero">
+          <div class="ws-nodoc-hero-eyebrow">
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="13" height="13">
+              <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" opacity="0.95"/>
+              <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#8b7cf8" stroke-width="6" transform="rotate(60 50 50)" opacity="0.88"/>
+              <ellipse cx="50" cy="50" rx="36" ry="12" fill="none" stroke="#e8ac2e" stroke-width="6" transform="rotate(120 50 50)" opacity="0.80"/>
+              <circle cx="50" cy="50" r="6" fill="#e8ac2e"/>
+            </svg>
+            AI Study Assistant
+          </div>
+          <h1>Study smarter,<br>not <em>harder</em></h1>
+          <p>Ask questions, explore your textbooks, and generate study tools — all in one place.</p>
+        </div>
         <!-- Quick Actions header -->
         <div style="font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text-1);margin-bottom:14px;">Quick Actions</div>
         <!-- 2×3 action grid -->
         <div class="ws-quick-actions-grid">
-          <div class="ws-quick-action-card" data-action="goHome" role="button" tabindex="0" aria-label="New Chat">
+          <div class="ws-quick-action-card" data-action="wsClearChat" role="button" tabindex="0" aria-label="New Chat">
             <div class="ws-qa-icon" style="background:rgba(139,124,248,0.12);color:#8b7cf8;">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             </div>

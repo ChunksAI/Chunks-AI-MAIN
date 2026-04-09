@@ -40,18 +40,12 @@ const DOTS_SVG = `<svg class="profile-dots" width="13" height="13" viewBox="0 0 
 
 const NAV_ITEMS = [
   {
-    id:     'home',
-    label:  'Home',
-    action: 'goHome',
-    svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
-    extra:  '',
-  },
-  {
     id:     'workspace',
-    label:  'Workspace',
+    label:  'Study',
     action: 'showScreen',
     screen: 'workspace',
-    svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>`,
+    svg:    `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+    extra:  '',
   },
   {
     id:     'library',
@@ -129,7 +123,9 @@ export function buildSidebar(screen) {
 
   // Build item HTML helper
   function _itemHtml(item) {
-    const isActive = item.id === screen || (item.id === 'home' && screen === 'home');
+    // 'home' screen is the legacy general-chat view; treat it same as 'workspace' for nav highlighting
+    const _effectiveScreen = screen === 'home' ? 'workspace' : screen;
+    const isActive = item.id === _effectiveScreen;
     const activeAttr   = isActive ? ' active' : '';
     const ariaCurrent  = isActive ? ' aria-current="page"' : '';
     const dataAction   = item.action === 'goHome'
@@ -143,7 +139,7 @@ export function buildSidebar(screen) {
       : item.action === 'openLibraryModal'
         ? `onkeydown="if(event.key==='Enter'||event.key===' ')openLibraryModal()"`
         : `onkeydown="if(event.key==='Enter'||event.key===' ')showScreen('${item.screen}')"`;
-    const idAttr = (item.id === 'home' && screen === 'home') ? ' id="sidebar-home-btn"' : '';
+    const idAttr = '';
     const badgeHtml = item.badge
       ? `<span class="power-badge ${item.badgeClass}">${item.badge}</span>`
       : '';

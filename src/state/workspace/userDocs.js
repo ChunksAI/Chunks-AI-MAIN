@@ -68,8 +68,7 @@ export async function selectUserDoc(docId) {
   }
 
   if (typeof showScreen === 'function') showScreen('workspace');
-
-  setText($el('ws-book-name'), meta.name.replace(/\.[^.]+$/, ''));
+  document.getElementById('screen-workspace')?.classList.add('ws-doc-loaded');
   setText($el('ws-book-author'), `${meta.pageCount} pages · Uploaded by you`);
 
   setText($el('mwt-book-name'), meta.name.replace(/\.[^.]+$/, ''));

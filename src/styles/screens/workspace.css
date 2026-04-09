@@ -52,6 +52,62 @@
   isolation: isolate;
 }
 
+/* ── No-document mode: hide PDF panel and resizer, expand chat to full width ─ */
+#screen-workspace:not(.ws-doc-loaded) .pdf-panel,
+#screen-workspace:not(.ws-doc-loaded) .ws-resizer {
+  display: none;
+}
+/* Center the chat content within a comfortable reading width */
+#screen-workspace:not(.ws-doc-loaded) .messages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+#screen-workspace:not(.ws-doc-loaded) #ws-welcome-state {
+  width: 100%;
+  max-width: 720px;
+  padding: 32px 24px 24px;
+}
+/* Hero heading shown only in no-doc mode */
+.ws-nodoc-hero {
+  text-align: center;
+  margin-bottom: 28px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border-xs);
+}
+.ws-nodoc-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--gold);
+  background: var(--gold-muted);
+  border: 1px solid var(--gold-border);
+  border-radius: var(--r-pill);
+  padding: 4px 12px;
+  margin-bottom: 14px;
+}
+.ws-nodoc-hero h1 {
+  font-family: var(--font-head);
+  font-size: clamp(24px, 4vw, 34px);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--text-1);
+  margin: 0 0 10px;
+  letter-spacing: -0.02em;
+}
+.ws-nodoc-hero h1 em {
+  font-style: italic;
+  color: var(--gold);
+}
+.ws-nodoc-hero p {
+  font-size: 13.5px;
+  color: var(--text-3);
+  line-height: 1.6;
+  max-width: 440px;
+  margin: 0 auto;
+}
 /* Drag resizer */
 .ws-resizer {
   width: 4px;

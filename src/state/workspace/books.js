@@ -18,6 +18,7 @@ import { subscribeToChatRealtime, unsubscribeChatRealtime } from './chatRealtime
 import { subscribeToFlashcardRealtime } from '../flash/flashcardRealtime.js';
 import { _wsRenderMessageFromBlocks, _wsBuildBlocks } from './chat.js';
 import { createThinkingAccordion } from '../../components/ThinkingAccordion.js';
+import { _wsNodocWelcomeHtml } from './nodocWelcome.js';
 
 let _wsSaveScrollTm;
 let _noteCardsListenerAttached = false;
@@ -98,7 +99,8 @@ export async function selectBook(bookId) {
   try { localStorage.removeItem('chunks_active_ws_user_doc'); } catch (_) {}
   trackBookOpen(bookId);
 
-  // Start realtime subscriptions for this document
+  // Mark the workspace screen as having a document loaded (controls PDF panel visibility)
+  document.getElementById('screen-workspace')?.classList.add('ws-doc-loaded');
   subscribeToChatRealtime(bookId);
   subscribeToFlashcardRealtime(bookId);
   setText($el('ws-chat-title'), meta.name);
@@ -559,8 +561,6 @@ export function _wsShowWelcome(meta) {
   setHtml(msgs, _wsWelcomeHtml(meta.name, null));
 }
 
-// ── Close / unload current book ───────────────────────────────────────────────
-
 export function closeBook() {
   // Clear state
   ws.bookId      = null;
@@ -596,7 +596,10 @@ export function closeBook() {
   if (loadingState)    loadingState.style.display = 'none';
   if (defaultContent)  defaultContent.style.display = 'flex';
 
-  // Clear chat panel
+  // Remove the doc-loaded marker so the PDF panel is hidden and chat goes full-width
+  document.getElementById('screen-workspace')?.classList.remove('ws-doc-loaded');
+
+  // Restore the no-doc welcome state in the chat panel
   const msgs = $el('ws-messages');
-  if (msgs) setHtml(msgs, '');
+  if (msgs) setHtml(msgs, _wsNodocWelcomeHtml());
 }

@@ -736,7 +736,7 @@ function _loadWsSession(bookId) {
   localStorage.removeItem('chunks_save_history');
 })();
 function goHome() {
-  // Always return to the homepage landing — clear any active chat state
+  // Clear any active chat/session state
   _activeRecentId = null;
   homeHistory = [];
   _homeSessionId = null;
@@ -745,33 +745,16 @@ function goHome() {
   localStorage.removeItem('chunks_active_recent_id');
   localStorage.removeItem('chunks_active_vt_session');
 
-  // Reset home to landing
-  const chatHist    = document.getElementById('home-chat-history');
-  const homeLanding = document.getElementById('home-landing');
-  const homeHero    = document.querySelector('.home-hero');
-  const homeBar     = document.getElementById('home-input-bar');
-  const homeScroll  = document.getElementById('home-scroll-area');
-  if (chatHist)    chatHist.innerHTML = '';
-  if (homeLanding) homeLanding.style.display = '';
-  if (homeHero)    homeHero.style.display = '';
-  if (homeBar)     homeBar.style.display = 'none';
-  if (homeScroll)  homeScroll.style.justifyContent = 'center';
-
   // Clear sidebar active state via _setActiveRecent so both DOM and localStorage are cleared
   if (typeof _setActiveRecent === 'function') _setActiveRecent(null);
 
-  showScreen('home');
-
-  // Refresh the Recent Activity / Try Asking section with the latest data
-  if (typeof window._renderHomeActivities === 'function') window._renderHomeActivities();
+  // Stay in (or navigate to) the unified workspace environment
+  if (typeof window.wsClearChat === 'function') window.wsClearChat();
+  showScreen('workspace');
 }
 
 function newChat() {
-  // Always navigate to home screen first
-  const _activeNow = document.querySelector('.screen.active');
-  if (!_activeNow || _activeNow.id !== 'screen-home') showScreen('home');
-
-    // Clear workspace messages + restore empty state
+  // Clear workspace messages + restore empty state
   const msgs = document.getElementById('ws-messages');
   if (msgs) msgs.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text-4);text-align:center;padding:24px;">
@@ -1047,7 +1030,7 @@ async function _deleteRecent(id, e) {
       if (typeof window._vtClear === 'function') window._vtClear();
       showScreen('visual');
     } else {
-      showScreen('home');
+      showScreen('workspace');
     }
   }
 
