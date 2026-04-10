@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAutoScroll } from '@/hooks/useAutoScroll';
 import type { ChatMessage } from '@/types';
 
-// ─── Quick-action labels ───────────────────────────────────────────────────────
+import MarkdownRenderer from '@/components/study/chat/MarkdownRenderer';
 
 const QUICK_ACTIONS = [
   '✦ Explain simply',
@@ -61,10 +61,10 @@ function MessageBubble({
       <div className="msg-avatar ai">C</div>
       <div className="msg-body">
         <span className="msg-sender">CHUNKS AI</span>
-        <div className="msg-bubble" dangerouslySetInnerHTML={{ __html: msg.text }} />
+        <div className="msg-bubble"><MarkdownRenderer content={msg.text} /></div>
         {msg.memoryRecall && (
           <div className="memory-recall">
-            🧠 <span dangerouslySetInnerHTML={{ __html: msg.memoryRecall }} />
+            🧠 <MarkdownRenderer content={msg.memoryRecall} />
           </div>
         )}
         {msg.performanceBars && msg.performanceBars.length > 0 && (
