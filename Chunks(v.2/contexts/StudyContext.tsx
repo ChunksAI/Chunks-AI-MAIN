@@ -97,6 +97,7 @@ export type StudyAction =
   | { type: 'SHOW_TOAST'; payload: string }
   | { type: 'CLEAR_TOAST' }
   | { type: 'DISMISS_MEMORY_BAR' }
+  | { type: 'SHOW_MEMORY_BAR' }
   | { type: 'SET_TOPIC'; payload: string }
   | { type: 'SET_SLIDES'; payload: { slides: SlideItem[]; docTitle: string; bookId?: string | null } }
   | { type: 'SET_UPLOAD_LOADING'; payload: boolean }
@@ -261,6 +262,8 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
     case 'DISMISS_MEMORY_BAR':
       return { ...state, showMemoryBar: false };
 
+    case 'SHOW_MEMORY_BAR':
+      return { ...state, showMemoryBar: true };
     case 'SET_TOPIC':
       return { ...state, topic: action.payload };
 

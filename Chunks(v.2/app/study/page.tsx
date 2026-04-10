@@ -59,6 +59,10 @@ function StudyLayout() {
           activeTab={activeTab}
           onTabChange={(tab) => dispatch({ type: 'SET_ACTIVE_TAB', payload: tab })}
           sessionName={docTitle || topic || 'Study Assistant'}
+          onMemoryClick={() => {
+            dispatch({ type: 'SHOW_MEMORY_BAR' });
+            dispatch({ type: 'SET_ACTIVE_TAB', payload: 'chat' });
+          }}
         />
 
         <div className="content-area">
