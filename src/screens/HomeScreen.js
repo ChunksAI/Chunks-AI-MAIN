@@ -135,7 +135,7 @@ const HOME_HTML = /* html */`
             <input type="file" id="home-attach-image" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image')">
             <input type="file" id="home-attach-pdf-new" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf')">
             <textarea id="home-ask-input" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
-            <button class="ask-send" id="home-send-btn" data-action="homeSendMessage">
+            <button type="button" class="ask-send" id="home-send-btn" data-action="homeSendMessage">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
           </div>
@@ -222,7 +222,7 @@ const HOME_HTML = /* html */`
           <input type="file" id="home-attach-image-bottom" accept="image/*" style="display:none;" onchange="homeHandleAttach(this,'image','bottom')">
           <input type="file" id="home-attach-pdf-bottom" accept="application/pdf" style="display:none;" onchange="homeHandleAttach(this,'pdf','bottom')">
           <textarea id="home-ask-input-bottom" class="ask-textarea" placeholder="Ask anything…" rows="1"></textarea>
-          <button class="ask-send" id="home-send-btn-bottom" data-action="homeSendMessage">
+          <button type="button" class="ask-send" id="home-send-btn-bottom" data-action="homeSendMessage">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
           </button>
         </div>
@@ -961,6 +961,9 @@ export function homeAppendThinking(hasImage = false, effectiveMode = _homeThinki
         span.textContent = 'Analyzing image' + '.'.repeat(dots);
       }, 500);
       wrap._labelTimer = timer;
+      const avatarTmp = document.createElement('div');
+      avatarTmp.innerHTML = _HOME_AI_AVATAR;
+      wrap.appendChild(avatarTmp.firstElementChild);
       const body = document.createElement('div');
       body.className = 'hc-ai-body';
       body.style.padding = '4px 0';
@@ -968,9 +971,12 @@ export function homeAppendThinking(hasImage = false, effectiveMode = _homeThinki
       wrap.appendChild(body);
     } else {
       // Simple blinking dot indicator for text-only messages
-      wrap.innerHTML = `<div class="hc-ai-body" style="padding:4px 0;"><span class="ws-typing-dot"></span></div>`;
+      wrap.innerHTML = `${_HOME_AI_AVATAR}<div class="hc-ai-body" style="padding:4px 0;"><span class="ws-typing-dot"></span></div>`;
     }
   } else {
+    const avatarTmp = document.createElement('div');
+    avatarTmp.innerHTML = _HOME_AI_AVATAR;
+    wrap.appendChild(avatarTmp.firstElementChild);
     const bodyWrap = document.createElement('div');
     bodyWrap.className = 'hc-ai-body';
 
@@ -1035,7 +1041,7 @@ export function homeAppendAI(text, sources, { typewrite = false } = {}) {
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.67"/></svg> Retry
       </button>
     </div>`;
-  wrap.innerHTML = `
+  wrap.innerHTML = `${_HOME_AI_AVATAR}
     <div class="hc-ai-body"><div class="hc-ai-text">${bodyContent}</div>${sourceBadge}${actsHtml}</div>`;
   document.getElementById('home-chat-history').appendChild(wrap);
   homeScrollBottom();

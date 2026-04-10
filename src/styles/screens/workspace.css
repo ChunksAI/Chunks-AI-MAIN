@@ -2504,6 +2504,7 @@
 /* ── HOME CHAT ─────────────────────────────────────────────── */
 .home-chat-history {
   width: 100%; max-width: 860px;
+  align-self: stretch;
   display: flex; flex-direction: column; gap: 24px;
   margin-bottom: 16px;
   padding: 0 4px;
@@ -2516,6 +2517,13 @@
   padding: 11px 16px; font-size: var(--chat-font-size); color: var(--text-1);
   max-width: 72%; line-height: 1.55; white-space: pre-wrap;
   display: flex; flex-direction: column;
+}
+/* In the study / light theme --surface-2 is almost identical to --bg, so use
+   --surface-3 (slightly darker beige) to keep the bubble visually distinct —
+   mirrors how .bubble-user is handled in the workspace. */
+[data-theme="study"] .hc-user {
+  background: var(--surface-3);
+  border-color: var(--border-sm);
 }
 .hc-ai { align-self: stretch; display: flex; gap: 14px; max-width: 100%; }
 .hc-ai-avatar {
