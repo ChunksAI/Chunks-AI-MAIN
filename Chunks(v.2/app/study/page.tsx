@@ -22,7 +22,7 @@ const NotesTab     = lazy(() => import('@/components/study/tabs/NotesTab'));
 function StudyLayout() {
   const { state, dispatch, handleSendMessage, showToast } = useStudy();
   const { user } = useAuth();
-  const { activeTab, toast, docTitle, recents } = state;
+  const { activeTab, toast, docTitle, topic, recents } = state;
   const { pct, containerRef, onMouseDown } = useResizable();
 
   // ContentPanel callbacks → drive Chat via context
@@ -58,7 +58,7 @@ function StudyLayout() {
         <Topbar
           activeTab={activeTab}
           onTabChange={(tab) => dispatch({ type: 'SET_ACTIVE_TAB', payload: tab })}
-          sessionName={docTitle || 'Study Assistant'}
+          sessionName={docTitle || topic || 'Study Assistant'}
         />
 
         <div className="content-area">

@@ -405,6 +405,8 @@ function nextMsgId() {
 export function StudyProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(studyReducer, INITIAL_STATE, (init) => ({
     ...init,
+    // TODO: replace with a backend-issued session ID once server-side session
+    // persistence is implemented (POST /sessions → { sessionId }).
     sessionId: `session-${Date.now()}`,
     recents: loadRecentsFromStorage(),
   }));
