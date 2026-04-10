@@ -186,18 +186,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   // Guest mode flag — stored in sessionStorage so it resets when the tab closes
-  const [guestMode, setGuestMode] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem('chunks_guest_mode') === '1';
-  });
+  // Initialized to false to match SSR; real value loaded in useEffect to avoid hydration mismatch
+  const [guestMode, setGuestMode] = useState<boolean>(false);
 
-    const [apiBase] = useState<string>(() => {
+  const [apiBase] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       const injected = (window as unknown as Record<string, unknown>).CHUNKS_BACKEND_URL;
       if (typeof injected === 'string' && injected) return injected;
     }
     return process.env.NEXT_PUBLIC_API_URL ?? 'https://api.chunks.online';
   });
+
+  // Restore guest mode from sessionStorage after mount (avoids SSR/hydration mismatch)
+  useEffect(() => {
+    try {
+      setGuestMode(sessionStorage.getItem('chunks_guest_mode') === '1');
+    } catch { /* sessionStorage may be unavailable in private browsing or restricted environments */ }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
