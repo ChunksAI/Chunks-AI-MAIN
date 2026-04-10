@@ -41,6 +41,19 @@ import { sendMessage, generateFlashcards, generateQuiz, uploadDocument } from '@
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Strip HTML tags from a string using DOMParser (browser) for accuracy. */
+function stripHtml(html: string | null | undefined): string {
+  if (!html) return '';
+  try {
+    return new DOMParser().parseFromString(html, 'text/html').body.textContent ?? '';
+  } catch {
+    // Fallback: remove tag-like sequences
+    return html.replace(/<[^>]*>/g, '');
+  }
+}
+
 // ─── State shape ─────────────────────────────────────────────────────────────
 
 export interface StudyState {
@@ -760,7 +773,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       // Build history from current messages (last 10), stripping HTML tags
       const history: MessageHistoryItem[] = stateRef.current.messages.slice(-10).map((m) => ({
         role: (m.role === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
-        content: m.text.replace(/<[^>]+>/g, ''),
+        content: stripHtml(m.text),
       }));
 
       // Auto-populate doc_context from uploaded slides when not explicitly provided
@@ -789,7 +802,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         const aiMsg: ChatMessage = {
           id: nextMsgId(),
           role: 'ai',
-          text: res.answer,
+          text: res.answer ?? '',
           memoryRecall: res.memory_recall ?? undefined,
           performanceBars: res.performance_bars ?? [],
           actions: [

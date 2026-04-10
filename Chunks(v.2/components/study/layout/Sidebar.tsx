@@ -46,10 +46,14 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
   const { user, signOut } = useAuth();
   const { openSettings } = useSettings();
 
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem(COLLAPSED_KEY) === 'true';
-  });
+  const [collapsed, setCollapsed] = useState<boolean>(false);
+
+  // Load collapsed state from localStorage after mount to avoid SSR/hydration mismatch
+  useEffect(() => {
+    try {
+      setCollapsed(localStorage.getItem(COLLAPSED_KEY) === 'true');
+    } catch { /* localStorage may be unavailable in private browsing or restricted environments */ }
+  }, []);
 
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
