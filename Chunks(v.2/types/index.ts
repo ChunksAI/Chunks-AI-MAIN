@@ -107,11 +107,26 @@ export type PerformanceEntry = {
 
 export type NoteItem = {
   id: string;
+  type: 'note';
   title: string;
-  body: string;
+  content: string;
   createdAt: string;  // ISO date string
   updatedAt: string;  // ISO date string
 };
+
+export type TodoItem = {
+  id: string;
+  type: 'todo';
+  title: string;
+  createdAt: string;  // ISO date string
+  items: Array<{
+    id: string;
+    text: string;
+    checked: boolean;
+  }>;
+};
+
+export type AnyNote = NoteItem | TodoItem;
 
 // ─── Reviewer (legacy display types) ─────────────────────────────────────────
 

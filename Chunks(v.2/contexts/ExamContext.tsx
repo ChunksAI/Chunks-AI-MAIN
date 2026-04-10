@@ -19,7 +19,7 @@ import {
   type Dispatch,
 } from 'react';
 import type { ConceptChunk, ExamQuestion, ExamResult, ExamConfig } from '@/types/exam';
-import { extractConcepts, generateConceptQuestions } from '@/lib/examApi';
+import { extractConceptsFromSlides, generateConceptQuestions } from '@/lib/examApi';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -282,11 +282,11 @@ export function ExamProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_QUESTIONS', payload: [] });
 
     try {
-      // Step 1 — extract concept chunks from the slides
-      const { concepts } = await extractConcepts({
+      // Step 1 — extract concept chunks client-side from slide titles (no API call)
+      const concepts = extractConceptsFromSlides(
         slides,
-        maxConcepts: Math.ceil(config.questionCount / 3),
-      });
+        Math.ceil(config.questionCount / 3),
+      );
 
       dispatch({ type: 'SET_CONCEPTS', payload: concepts });
 

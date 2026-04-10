@@ -33,6 +33,8 @@ import type {
   WeakArea,
   PerformanceEntry,
   NoteItem,
+  TodoItem,
+  AnyNote,
   RecentItem,
 } from '@/types';
 import { sendMessage, generateFlashcards, generateQuiz, uploadDocument } from '@/lib/studyApi';
@@ -72,7 +74,7 @@ export interface StudyState {
   activeTab: TabId;
   toast: string | null;
   showMemoryBar: boolean;
-  notes: NoteItem[];
+  notes: AnyNote[];
   recents: RecentItem[];
 }
 
@@ -106,7 +108,11 @@ export type StudyAction =
   | { type: 'UPLOAD_ERROR'; payload: string }
   | { type: 'CLEAR_UPLOAD_ERROR' }
   | { type: 'ADD_NOTE'; payload: NoteItem }
-  | { type: 'UPDATE_NOTE'; payload: { id: string; title?: string; body?: string } }
+  | { type: 'UPDATE_NOTE'; payload: { id: string; title?: string; content?: string; updatedAt: string } }
+  | { type: 'DELETE_NOTE'; payload: string }
+  | { type: 'ADD_TODO'; payload: TodoItem }
+  | { type: 'TOGGLE_TODO_ITEM'; payload: { noteId: string; itemId: string } }
+  | { type: 'DELETE_TODO'; payload: string }
   | { type: 'ADD_RECENT'; payload: RecentItem }
   | { type: 'SET_BOOK_ID'; payload: string | null }
   | { type: 'SET_SESSION_ID'; payload: string }
@@ -297,19 +303,41 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
       return { ...state, notes: [...state.notes, action.payload] };
 
     case 'UPDATE_NOTE': {
-      const now = new Date().toISOString();
       return {
         ...state,
-        notes: state.notes.map((n) =>
-          n.id !== action.payload.id
-            ? n
-            : {
-                ...n,
-                ...(action.payload.title !== undefined ? { title: action.payload.title } : {}),
-                ...(action.payload.body !== undefined ? { body: action.payload.body } : {}),
-                updatedAt: now,
-              },
-        ),
+        notes: state.notes.map((n): AnyNote => {
+          if (n.id !== action.payload.id || n.type !== 'note') return n;
+          return {
+            ...n,
+            ...(action.payload.title !== undefined ? { title: action.payload.title } : {}),
+            ...(action.payload.content !== undefined ? { content: action.payload.content } : {}),
+            updatedAt: action.payload.updatedAt,
+          };
+        }),
+      };
+    }
+
+    case 'DELETE_NOTE':
+    case 'DELETE_TODO':
+      return { ...state, notes: state.notes.filter((n) => n.id !== action.payload) };
+
+    case 'ADD_TODO':
+      return { ...state, notes: [...state.notes, action.payload] };
+
+    case 'TOGGLE_TODO_ITEM': {
+      return {
+        ...state,
+        notes: state.notes.map((n): AnyNote => {
+          if (n.id !== action.payload.noteId || n.type !== 'todo') return n;
+          return {
+            ...n,
+            items: n.items.map((item) =>
+              item.id !== action.payload.itemId
+                ? item
+                : { ...item, checked: !item.checked },
+            ),
+          };
+        }),
       };
     }
 
@@ -381,11 +409,95 @@ interface StudyContextValue {
   handleCompleteQuiz: () => void;
   handleStartReview: (weakAreaTopic?: string) => void;
   handleUploadDocument: (file: File) => Promise<void>;
-  handleAddNote: () => void;
+  handleCreateNote: () => void;
+  handleCreateTodo: (title: string, items: string[]) => void;
   showToast: (message: string) => void;
 }
 
 const StudyContext = createContext<StudyContextValue | null>(null);
+
+// ─── Session-storage helpers (slides persistence) ─────────────────────────────
+
+const SLIDES_STORAGE_KEY = 'chunks_v2_slides';
+
+interface PersistedSlides {
+  slides: SlideItem[];
+  docTitle: string;
+  bookId: string | null;
+}
+
+function persistSlidesToStorage(data: PersistedSlides): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(SLIDES_STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // ignore — storage may be unavailable or quota exceeded
+  }
+}
+
+function loadSlidesFromStorage(): PersistedSlides | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(SLIDES_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      parsed !== null &&
+      typeof parsed === 'object' &&
+      Array.isArray((parsed as PersistedSlides).slides) &&
+      typeof (parsed as PersistedSlides).docTitle === 'string'
+    ) {
+      return parsed as PersistedSlides;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function clearSlidesFromStorage(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(SLIDES_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// ─── My Documents helpers (Library "My Documents" section) ───────────────────
+
+export const MY_DOCS_STORAGE_KEY = 'chunks_v2_my_docs';
+
+export interface MyDocMeta {
+  docTitle: string;
+  filename: string;
+  uploadedAt: string;
+}
+
+function loadMyDocsFromStorage(): MyDocMeta[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = sessionStorage.getItem(MY_DOCS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed)) return parsed as MyDocMeta[];
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function appendMyDocToStorage(meta: MyDocMeta): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = loadMyDocsFromStorage();
+    // Deduplicate by filename — move the latest upload to the front
+    const deduped = existing.filter((d) => d.filename !== meta.filename);
+    sessionStorage.setItem(MY_DOCS_STORAGE_KEY, JSON.stringify([meta, ...deduped]));
+  } catch {
+    // ignore — storage may be unavailable or quota exceeded
+  }
+}
 
 // ─── Recents helpers ─────────────────────────────────────────────────────────
 
@@ -432,6 +544,22 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     dispatch({ type: 'SET_SESSION_ID', payload: `session-${Date.now()}` });
     dispatch({ type: 'SET_RECENTS', payload: loadRecentsFromStorage() });
+
+    // Rehydrate slides from sessionStorage so the AI context survives a page
+    // refresh.  The PDF blob URL cannot be restored (it is memory-only), so the
+    // visual iframe is replaced by the text-fallback view — but the AI still
+    // has the full document context.
+    const persisted = loadSlidesFromStorage();
+    if (persisted && persisted.slides.length > 0) {
+      dispatch({
+        type: 'SET_SLIDES',
+        payload: { slides: persisted.slides, docTitle: persisted.docTitle, bookId: persisted.bookId },
+      });
+      dispatch({
+        type: 'SHOW_TOAST',
+        payload: `📄 "${persisted.docTitle}" restored — AI context ready (re-upload to view PDF)`,
+      });
+    }
   }, []);
 
   const { saveSession } = useStudySession();
@@ -494,6 +622,42 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SHOW_TOAST', payload: message });
   }, []);
 
+  // ── createNote ────────────────────────────────────────────────────────────
+  const handleCreateNote = useCallback(() => {
+    const now = new Date().toISOString();
+    const note: NoteItem = {
+      id: `note-${Date.now()}`,
+      type: 'note',
+      title: 'New Note',
+      content: '',
+      createdAt: now,
+      updatedAt: now,
+    };
+    dispatch({ type: 'ADD_NOTE', payload: note });
+    dispatch({ type: 'SET_ACTIVE_TAB', payload: 'notes' });
+    dispatch({ type: 'SHOW_TOAST', payload: '📝 New note created!' });
+  }, []);
+
+  // ── createTodo ────────────────────────────────────────────────────────────
+  const handleCreateTodo = useCallback((title: string, items: string[]) => {
+    const now = new Date().toISOString();
+    const ts = Date.now();
+    const todo: TodoItem = {
+      id: `todo-${ts}`,
+      type: 'todo',
+      title,
+      createdAt: now,
+      items: items.map((text, i) => ({
+        id: `item-${i}-${ts}`,
+        text,
+        checked: false,
+      })),
+    };
+    dispatch({ type: 'ADD_TODO', payload: todo });
+    dispatch({ type: 'SET_ACTIVE_TAB', payload: 'notes' });
+    dispatch({ type: 'SHOW_TOAST', payload: '📋 To-do list added to Notes!' });
+  }, []);
+
   // ── sendMessage ───────────────────────────────────────────────────────────
   const handleSendMessage = useCallback(
     async (text: string, opts: { selectedText?: string; docContext?: string } = {}) => {
@@ -541,6 +705,30 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           ],
         };
         dispatch({ type: 'RECEIVE_MESSAGE', payload: aiMsg });
+
+        // Auto-create a todo list when the user's message looks like a checklist request
+        const lowerText = text.toLowerCase();
+        if (
+          lowerText.includes('todo') ||
+          lowerText.includes('study plan') ||
+          lowerText.includes('checklist')
+        ) {
+          const listItems = res.answer
+            .split('\n')
+            .map((l) => l.trim())
+            .filter((l) => /^[-•*]|^\d+\.|^\[[ x]\]/.test(l))
+            .map((l) =>
+              l
+                .replace(/^[-•*]\s*/, '')
+                .replace(/^\d+\.\s*/, '')
+                .replace(/^\[[ x]\]\s*/, '')
+                .trim(),
+            )
+            .filter((l) => l.length > 0);
+          if (listItems.length >= 3) {
+            handleCreateTodo(stateRef.current.topic || 'Study Plan', listItems);
+          }
+        }
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') return;
         const message =
@@ -667,6 +855,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       const res = await uploadDocument(file);
       const docTitle = res.filename.replace(/\.[^.]+$/, ''); // strip extension
       dispatch({ type: 'SET_SLIDES', payload: { slides: res.slides, docTitle, bookId: res.bookId } });
+      persistSlidesToStorage({ slides: res.slides, docTitle, bookId: res.bookId ?? null });
+      appendMyDocToStorage({ docTitle, filename: res.filename, uploadedAt: new Date().toISOString() });
       dispatch({ type: 'SET_TOPIC', payload: docTitle });
       dispatch({
         type: 'ADD_RECENT',
@@ -678,6 +868,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+      clearSlidesFromStorage();
       dispatch({ type: 'UPLOAD_ERROR', payload: message });
       dispatch({ type: 'SHOW_TOAST', payload: `❌ ${message}` });
     }
@@ -761,19 +952,6 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // ── addNote ───────────────────────────────────────────────────────────────
-  const handleAddNote = useCallback(() => {
-    const now = new Date().toISOString();
-    const note: NoteItem = {
-      id: `note-${Date.now()}`,
-      title: 'New Note',
-      body: '',
-      createdAt: now,
-      updatedAt: now,
-    };
-    dispatch({ type: 'ADD_NOTE', payload: note });
-  }, []);
-
   const value: StudyContextValue = {
     state,
     dispatch,
@@ -784,7 +962,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     handleCompleteQuiz,
     handleStartReview,
     handleUploadDocument,
-    handleAddNote,
+    handleCreateNote,
+    handleCreateTodo,
     showToast,
   };
 

@@ -1,10 +1,13 @@
 /**
  * lib/examApi.ts — Exam-mode API functions
  *
- * Step 1: extractConcepts  → POST /extract-concepts
+ * Step 1: extractConceptsFromSlides — client-side concept extraction (no API call).
+ *         Groups slides by their title field so each unique title becomes one concept.
+ *         Capped at maxConcepts by even downsampling.
+ *
  * Step 2: generateConceptQuestions → POST /generate-quiz (per concept)
  *
- * Both go through the same apiPost() helper used by studyApi.ts.
+ * generateConceptQuestions goes through the same apiPost() helper used by studyApi.ts.
  */
 
 import type { SlideItem } from '@/types/api';
@@ -45,19 +48,56 @@ async function apiPost<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-// ─── Extract concept chunks from slides ───────────────────────────────────────
+// ─── Client-side concept extraction — no API needed ───────────────────────────
+//
+// Groups slides by their title field so each unique heading becomes one concept.
+// Capped at maxConcepts (default 10) via even downsampling so we don't spam the
+// quiz endpoint with 50+ separate calls on large documents.
 
-export async function extractConcepts(params: {
-  slides: SlideItem[];
-  maxConcepts?: number;
-}): Promise<{ concepts: ConceptChunk[] }> {
-  return apiPost<{ concepts: ConceptChunk[] }>('/extract-concepts', {
-    slides: params.slides,
-    max_concepts: params.maxConcepts ?? 10,
+export function extractConceptsFromSlides(
+  slides: SlideItem[],
+  maxConcepts = 10,
+): ConceptChunk[] {
+  if (slides.length === 0) return [];
+
+  // Group slide numbers by title (deduplicate same-title slides)
+  const titleMap = new Map<string, number[]>();
+  slides.forEach((slide, i) => {
+    const key = (slide.title?.trim()) || `Slide ${i + 1}`;
+    if (!titleMap.has(key)) titleMap.set(key, []);
+    titleMap.get(key)!.push(slide.slide_number ?? i + 1);
   });
+
+  // Build ConceptChunk for each unique title
+  const allConcepts: ConceptChunk[] = [];
+  let idx = 0;
+  for (const [title, refs] of titleMap) {
+    const relatedContent = slides
+      .filter((s, i) => refs.includes(s.slide_number ?? i + 1))
+      .flatMap((s) => s.content);
+    const summary = relatedContent.slice(0, 2).join(' ');
+
+    allConcepts.push({
+      id: `concept-${idx}`,
+      concept: title,
+      summary,
+      questionCount: 2,
+      slideRefs: refs,
+    });
+    idx++;
+  }
+
+  // Evenly downsample to maxConcepts so large docs don't create too many API calls
+  if (allConcepts.length <= maxConcepts) return allConcepts;
+  const step = allConcepts.length / maxConcepts;
+  return Array.from({ length: maxConcepts }, (_, i) =>
+    allConcepts[Math.min(Math.round(i * step), allConcepts.length - 1)],
+  );
 }
 
 // ─── Generate questions scoped to one concept ─────────────────────────────────
+
+const MIN_CONTEXT_SLIDES = 3;
 
 export async function generateConceptQuestions(params: {
   concept: string;
@@ -71,8 +111,16 @@ export async function generateConceptQuestions(params: {
   const filteredSlides: SlideItem[] = params.slides.filter((s) =>
     params.slideRefs.includes(s.slide_number ?? 0),
   );
+
   // Fall back to all slides if the refs didn't match (e.g. numbering mismatch)
-  const slidesToUse = filteredSlides.length > 0 ? filteredSlides : params.slides;
+  let slidesToUse = filteredSlides.length > 0 ? filteredSlides : params.slides;
+
+  // Pad to MIN_CONTEXT_SLIDES so /generate-quiz has enough context for good questions
+  if (slidesToUse !== params.slides && slidesToUse.length < MIN_CONTEXT_SLIDES) {
+    const existing = new Set(slidesToUse.map((s) => s.slide_number ?? -1));
+    const extras = params.slides.filter((s) => !existing.has(s.slide_number ?? -1));
+    slidesToUse = [...slidesToUse, ...extras].slice(0, MIN_CONTEXT_SLIDES);
+  }
 
   // Prepend concept context as a synthetic first slide so the model stays focused
   const conceptSlide: SlideItem = {

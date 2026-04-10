@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/study/layout/Sidebar';
 import BookGrid from '@/components/library/BookGrid';
 
+import MyDocuments from '@/components/library/MyDocuments';
+
 const SUBJECTS = ['All', 'Chemistry', 'Biology', 'Medicine'];
 const DIFFICULTIES = ['Beginner', 'Intermediate', 'Advanced'];
 
@@ -80,8 +82,9 @@ export default function LibraryPage() {
           ))}
         </div>
 
-        {/* ── Book grid ── */}
+        {/* ── My Documents + Book grid ── */}
         <div className="library-content">
+          <MyDocuments />
           <BookGrid searchQuery={searchQuery} activeFilter={activeFilter} />
         </div>
       </main>

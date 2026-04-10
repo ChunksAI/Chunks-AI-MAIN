@@ -2,19 +2,19 @@
   "app/study/page.tsx -> @/components/study/tabs/NotesTab": {
     "id": 8727,
     "files": [
-      "static/chunks/727.0a7c4a041101f50b.js"
+      "static/chunks/727.be4d1fd8cadd3e04.js"
     ]
   },
   "app/study/page.tsx -> @/components/study/tabs/ReviewerTab": {
     "id": 6927,
     "files": [
-      "static/chunks/308.b7c67af85713ca9d.js"
+      "static/chunks/308.cb22feedf816ccd6.js"
     ]
   },
   "app/study/page.tsx -> @/components/study/tabs/WorkspaceTab": {
     "id": 3305,
     "files": [
-      "static/chunks/305.504c586fe6fe8f50.js"
+      "static/chunks/305.a7a5f12fa214a080.js"
     ]
   }
 }

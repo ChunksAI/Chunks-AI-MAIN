@@ -15,7 +15,6 @@ const QUICK_ACTIONS = [
   '❓ Quiz me',
   '🔑 Key concepts',
   '↓ Summarize',
-  '🗺️ Mind map',
 ];
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -177,11 +176,10 @@ export default function ChatPanel() {
   const handleQuickAction = (label: string) => {
     const map: Record<string, string> = {
       '✦ Explain simply': 'Explain the current topic in simple terms.',
-      '📋 Study plan': 'Create a study plan for this topic.',
+      '📋 Study plan': `Create a structured study plan with a checklist for "${state.topic || 'this topic'}". Format it as a numbered list of actionable tasks.`,
       '❓ Quiz me': 'Give me a quick quiz on what I just read.',
       '🔑 Key concepts': 'What are the key concepts I need to remember?',
       '↓ Summarize': 'Summarize the main points of this topic.',
-      '🗺️ Mind map': 'Create a mind map outline of this topic.',
     };
     const text = map[label];
     if (text) void handleSendMessage(text);

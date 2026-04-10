@@ -34,6 +34,7 @@ export default function WorkspaceTab() {
   const resolvedTopic = resolveStudyTopic(topic, docTitle, messages);
 
   const [activeFlashcardCard, setActiveFlashcardCard] = useState<WorkspaceCard | null>(null);
+  const [showAddMenu, setShowAddMenu] = useState(false);
 
   // Show quiz runner when a quiz is active
   if (activeQuiz) {
@@ -71,23 +72,77 @@ export default function WorkspaceTab() {
             {workspaceLoading ? 'Generating…' : 'Updated just now'}
           </div>
         </div>
-        <button
-          className="ws-add-btn"
-          onClick={() => void handleGenerateFlashcards(resolvedTopic)}
-          disabled={workspaceLoading}
-        >
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.5"
+        <div style={{ position: 'relative' }}>
+          <button
+            className="ws-add-btn"
+            onClick={() => setShowAddMenu((v) => !v)}
+            disabled={workspaceLoading}
           >
-            <path d="M12 5v14M5 12h14" />
-          </svg>
-          {workspaceLoading ? 'Generating…' : 'Add item'}
-        </button>
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            {workspaceLoading ? 'Generating…' : 'Add item'}
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              style={{ marginLeft: 2 }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </button>
+          {showAddMenu && (
+            <div
+              style={{
+                position: 'absolute',
+                right: 0,
+                top: 'calc(100% + 4px)',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                minWidth: 180,
+                zIndex: 100,
+                overflow: 'hidden',
+              }}
+            >
+              {[
+                { label: '🃏 Generate flashcards', action: () => void handleGenerateFlashcards(resolvedTopic) },
+                { label: '🎯 Generate quiz', action: () => void handleGenerateQuiz(resolvedTopic) },
+              ].map(({ label, action }) => (
+                <button
+                  key={label}
+                  onClick={() => { setShowAddMenu(false); action(); }}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: '10px 14px',
+                    background: 'none',
+                    border: 'none',
+                    textAlign: 'left',
+                    fontSize: 13.5,
+                    cursor: 'pointer',
+                    color: 'var(--text)',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface2, #f3f4f6)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Loading skeleton ── */}
