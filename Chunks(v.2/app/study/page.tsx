@@ -99,7 +99,7 @@ function StudyLayout() {
           {activeTab === 'notes' && (
             <Suspense fallback={<div className="tab-loading">Loading notes…</div>}>
               <ErrorBoundary>
-                <NotesTab onNewNote={() => dispatch({ type: 'SHOW_TOAST', payload: '📝 New note created!' })} />
+                <NotesTab />
               </ErrorBoundary>
             </Suspense>
           )}

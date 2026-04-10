@@ -32,6 +32,7 @@ import type {
   QuizResult,
   WeakArea,
   PerformanceEntry,
+  NoteItem,
 } from '@/types';
 import { sendMessage, generateFlashcards, generateQuiz, topicToSlides, uploadDocument } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
@@ -68,6 +69,7 @@ export interface StudyState {
   activeTab: TabId;
   toast: string | null;
   showMemoryBar: boolean;
+  notes: NoteItem[];
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -96,7 +98,9 @@ export type StudyAction =
   | { type: 'SET_SLIDES'; payload: { slides: SlideItem[]; docTitle: string } }
   | { type: 'SET_UPLOAD_LOADING'; payload: boolean }
   | { type: 'UPLOAD_ERROR'; payload: string }
-  | { type: 'CLEAR_UPLOAD_ERROR' };
+  | { type: 'CLEAR_UPLOAD_ERROR' }
+  | { type: 'ADD_NOTE'; payload: NoteItem }
+  | { type: 'UPDATE_NOTE'; payload: { id: string; title?: string; body?: string } };
 
 // ─── Weak-area calculation ───────────────────────────────────────────────────
 
@@ -273,6 +277,26 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
     case 'CLEAR_UPLOAD_ERROR':
       return { ...state, uploadError: null };
 
+    case 'ADD_NOTE':
+      return { ...state, notes: [...state.notes, action.payload] };
+
+    case 'UPDATE_NOTE': {
+      const now = new Date().toISOString();
+      return {
+        ...state,
+        notes: state.notes.map((n) =>
+          n.id !== action.payload.id
+            ? n
+            : {
+                ...n,
+                ...(action.payload.title !== undefined ? { title: action.payload.title } : {}),
+                ...(action.payload.body !== undefined ? { body: action.payload.body } : {}),
+                updatedAt: now,
+              },
+        ),
+      };
+    }
+
     default:
       return state;
   }
@@ -302,6 +326,7 @@ const INITIAL_STATE: StudyState = {
   activeTab: 'chat',
   toast: null,
   showMemoryBar: true,
+  notes: [],
 };
 
 // ─── Context value ────────────────────────────────────────────────────────────
@@ -323,6 +348,7 @@ interface StudyContextValue {
   handleCompleteQuiz: () => void;
   handleStartReview: (weakAreaTopic?: string) => void;
   handleUploadDocument: (file: File) => Promise<void>;
+  handleAddNote: () => void;
   showToast: (message: string) => void;
 }
 
@@ -607,6 +633,19 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ── addNote ───────────────────────────────────────────────────────────────
+  const handleAddNote = useCallback(() => {
+    const now = new Date().toISOString();
+    const note: NoteItem = {
+      id: `note-${Date.now()}`,
+      title: 'New Note',
+      body: '',
+      createdAt: now,
+      updatedAt: now,
+    };
+    dispatch({ type: 'ADD_NOTE', payload: note });
+  }, []);
+
   const value: StudyContextValue = {
     state,
     dispatch,
@@ -617,6 +656,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     handleCompleteQuiz,
     handleStartReview,
     handleUploadDocument,
+    handleAddNote,
     showToast,
   };
 
