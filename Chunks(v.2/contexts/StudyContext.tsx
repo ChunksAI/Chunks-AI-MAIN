@@ -115,6 +115,7 @@ export type StudyAction =
   | { type: 'DELETE_TODO'; payload: string }
   | { type: 'ADD_RECENT'; payload: RecentItem }
   | { type: 'SET_BOOK_ID'; payload: string | null }
+  | { type: 'SET_BOOK'; payload: { bookId: string; docTitle: string; pdfUrl: string } }
   | { type: 'SET_SESSION_ID'; payload: string }
   | { type: 'SET_RECENTS'; payload: RecentItem[] };
 
@@ -349,6 +350,17 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
     case 'SET_BOOK_ID':
       return { ...state, bookId: action.payload };
 
+    case 'SET_BOOK':
+      return {
+        ...state,
+        bookId: action.payload.bookId,
+        docTitle: action.payload.docTitle,
+        pdfBlobUrl: action.payload.pdfUrl,
+        slides: [],
+        uploadLoading: false,
+        uploadError: null,
+      };
+
     case 'SET_SESSION_ID':
       return { ...state, sessionId: action.payload };
 
@@ -464,6 +476,71 @@ function clearSlidesFromStorage(): void {
   }
 }
 
+// ─── IndexedDB helpers (PDF file persistence across refreshes) ───────────────
+
+const IDB_DB_NAME = 'chunks_v2';
+const IDB_STORE_NAME = 'files';
+const IDB_PDF_KEY = 'chunks_v2_pdf_file';
+
+function openPdfDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(IDB_STORE_NAME);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function savePdfToIdb(file: File): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    const db = await openPdfDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE_NAME, 'readwrite');
+      const req = tx.objectStore(IDB_STORE_NAME).put(file, IDB_PDF_KEY);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    // ignore — IndexedDB may be unavailable (private browsing, storage quota)
+  }
+}
+
+async function loadPdfFromIdb(): Promise<File | null> {
+  if (typeof window === 'undefined') return null;
+  try {
+    const db = await openPdfDb();
+    return await new Promise<File | null>((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE_NAME, 'readonly');
+      const req = tx.objectStore(IDB_STORE_NAME).get(IDB_PDF_KEY);
+      req.onsuccess = () => {
+        const result = req.result as unknown;
+        resolve(result instanceof File ? result : null);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function clearPdfFromIdb(): Promise<void> {
+  if (typeof window === 'undefined') return;
+  try {
+    const db = await openPdfDb();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE_NAME, 'readwrite');
+      const req = tx.objectStore(IDB_STORE_NAME).delete(IDB_PDF_KEY);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch {
+    // ignore
+  }
+}
+
 // ─── My Documents helpers (Library "My Documents" section) ───────────────────
 
 export const MY_DOCS_STORAGE_KEY = 'chunks_v2_my_docs';
@@ -546,18 +623,31 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_RECENTS', payload: loadRecentsFromStorage() });
 
     // Rehydrate slides from sessionStorage so the AI context survives a page
-    // refresh.  The PDF blob URL cannot be restored (it is memory-only), so the
-    // visual iframe is replaced by the text-fallback view — but the AI still
-    // has the full document context.
+    // refresh.  Then attempt to restore the raw PDF file from IndexedDB so the
+    // iframe can show the real PDF without requiring a re-upload.
     const persisted = loadSlidesFromStorage();
     if (persisted && persisted.slides.length > 0) {
       dispatch({
         type: 'SET_SLIDES',
         payload: { slides: persisted.slides, docTitle: persisted.docTitle, bookId: persisted.bookId },
       });
-      dispatch({
-        type: 'SHOW_TOAST',
-        payload: `📄 "${persisted.docTitle}" restored — AI context ready (re-upload to view PDF)`,
+
+      // Try to restore the PDF blob URL from IndexedDB (survives page refresh)
+      void loadPdfFromIdb().then((file) => {
+        if (file) {
+          const url = URL.createObjectURL(file);
+          blobUrlRef.current = url;
+          dispatch({ type: 'SET_PDF_BLOB_URL', payload: url });
+          dispatch({
+            type: 'SHOW_TOAST',
+            payload: `📄 "${persisted.docTitle}" restored`,
+          });
+        } else {
+          dispatch({
+            type: 'SHOW_TOAST',
+            payload: `📄 "${persisted.docTitle}" restored — AI context ready (re-upload to view PDF)`,
+          });
+        }
       });
     }
   }, []);
@@ -683,9 +773,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
               .slice(0, 4000)
           : '';
 
+      // Append markdown format requirement so the model returns well-structured responses
+      const formattedQuestion = `${text}\n\n[Format requirement: Use markdown with ## headers for main sections, ### for subsections. Use $$ for display equations and $ for inline math. Use \\ce{} for chemical formulas. Give thorough explanations with worked examples. End conceptual answers with a > 💡 Key takeaway: blockquote.]`;
+
       try {
         const res = await sendMessage({
-          question: text,
+          question: formattedQuestion,
           history,
           selected_text: opts.selectedText ?? '',
           doc_context: opts.docContext ?? autoDocContext,
@@ -848,6 +941,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     blobUrlRef.current = blobUrl;
     dispatch({ type: 'SET_PDF_BLOB_URL', payload: blobUrl });
 
+    // Persist the raw File to IndexedDB so it survives a page refresh
+    void savePdfToIdb(file);
+
     dispatch({ type: 'SET_UPLOAD_LOADING', payload: true });
     dispatch({ type: 'SHOW_TOAST', payload: '📄 Uploading document…' });
 
@@ -869,6 +965,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
       clearSlidesFromStorage();
+      void clearPdfFromIdb();
       dispatch({ type: 'UPLOAD_ERROR', payload: message });
       dispatch({ type: 'SHOW_TOAST', payload: `❌ ${message}` });
     }

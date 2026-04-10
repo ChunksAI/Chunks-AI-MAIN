@@ -28,11 +28,14 @@ function BookParamsReader() {
   useEffect(() => {
     const bookId = searchParams.get('bookId');
     const paramDocTitle = searchParams.get('docTitle');
-    if (bookId) {
+    const paramPdfUrl = searchParams.get('pdfUrl');
+    if (bookId && paramDocTitle) {
+      dispatch({
+        type: 'SET_BOOK',
+        payload: { bookId, docTitle: paramDocTitle, pdfUrl: paramPdfUrl ?? '' },
+      });
+    } else if (bookId) {
       dispatch({ type: 'SET_BOOK_ID', payload: bookId });
-      if (paramDocTitle) {
-        dispatch({ type: 'SET_SLIDES', payload: { slides: [], docTitle: paramDocTitle, bookId } });
-      }
     }
     // Only run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -81,7 +84,6 @@ function StudyLayout() {
         onNewSession={() =>
           dispatch({ type: 'SHOW_TOAST', payload: '✨ New study session started' })
         }
-        user={user}
         recents={recents}
       />
 

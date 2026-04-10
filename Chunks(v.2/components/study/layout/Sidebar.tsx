@@ -1,16 +1,18 @@
 'use client';
 
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import type { NavItem, RecentItem } from '@/types';
-import type { AuthUser } from '@/contexts/AuthContext';
-import ProfileDropdown from '@/components/shared/ProfileDropdown';
+import { useAuth } from '@/contexts/AuthContext';
+import { useSettings } from '@/contexts/SettingsContext';
+import Toast from '@/components/shared/Toast';
+
+const COLLAPSED_KEY = 'chunks_v2_sidebar_collapsed';
 
 interface SidebarProps {
   activeNav: string;
   onNavChange: (id: string) => void;
   onNewSession: () => void;
-  /** Optional — when provided, replaces the hardcoded user footer. */
-  user?: AuthUser | null;
   /** Recent sessions derived from StudyContext state. */
   recents?: RecentItem[];
 }
@@ -39,8 +41,43 @@ function NavIcon({ id }: { id: string }) {
   }
 }
 
-export default function Sidebar({ activeNav, onNavChange, onNewSession, user, recents = [] }: SidebarProps) {
+export default function Sidebar({ activeNav, onNavChange, onNewSession, recents = [] }: SidebarProps) {
   const router = useRouter();
+  const { user, signOut } = useAuth();
+  const { openSettings } = useSettings();
+
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(COLLAPSED_KEY) === 'true';
+  });
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(COLLAPSED_KEY, String(next));
+      return next;
+    });
+  };
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 2800);
+  };
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [menuOpen]);
 
   const handleNavClick = (id: string) => {
     if (id === 'exam') {
@@ -49,8 +86,41 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, user, re
     }
     onNavChange(id);
   };
+
+  // Derive display values from auth user
+  const initials = user && !user.isGuest
+    ? user.name
+        .split(' ')
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : user?.isGuest
+    ? 'G'
+    : '?';
+
+  const planLabel = !user
+    ? 'Not signed in'
+    : user.isOwner
+    ? 'Owner'
+    : user.isAdmin
+    ? 'Admin'
+    : user.tier === 'ultra'
+    ? 'Ultra Plan'
+    : user.tier === 'pro'
+    ? 'Pro Plan'
+    : user.tier === 'team'
+    ? 'Team Plan'
+    : user.isGuest
+    ? 'Guest'
+    : 'Free Plan';
+
+  const displayName = user
+    ? (user.isGuest ? 'Guest' : user.name || user.email)
+    : 'Guest';
+
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${collapsed ? ' collapsed' : ''}${menuOpen ? ' menu-open' : ''}`}>
       {/* ── Header ── */}
       <div className="sidebar-header">
         <div className="logo">
@@ -64,7 +134,7 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, user, re
           </div>
           <span className="logo-name">Chunks</span>
         </div>
-        <button className="sidebar-toggle" aria-label="Toggle sidebar">
+        <button className="sidebar-toggle" aria-label="Toggle sidebar" onClick={toggleCollapsed}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>
           </svg>
@@ -114,15 +184,165 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, user, re
         )}
       </div>
 
-      {/* ── Footer / profile dropdown ── */}
-      {user ? (
-        <ProfileDropdown user={user} />
-      ) : (
-        <div className="sidebar-footer">
-          <div className="avatar">G</div>
+      {/* ── Footer ── */}
+      <div className="pd-wrap" ref={menuRef}>
+        {/* Popup menu — above footer */}
+        {menuOpen && (
+          <div className="pd-menu" role="menu">
+            {/* User header */}
+            <div className="pd-header">
+              <div
+                className="pd-avatar"
+                style={user?.avatar ? { backgroundImage: `url(${user.avatar})`, backgroundSize: 'cover', backgroundPosition: 'center', fontSize: 0 } : {}}
+              >
+                {!user?.avatar && initials}
+              </div>
+              <div className="pd-info">
+                <div className="pd-name">{displayName}</div>
+                <div className="pd-email">{user?.isGuest ? 'Guest / Free' : `${user?.email ?? ''} / ${planLabel}`}</div>
+              </div>
+            </div>
+
+            <div className="pd-divider" />
+
+            {/* Add another account */}
+            <button
+              className="pd-item"
+              role="menuitem"
+              onClick={() => { setMenuOpen(false); showToast('Coming soon'); }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                <line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>
+              </svg>
+              Add another account
+            </button>
+
+            <div className="pd-divider" />
+
+            {/* Upgrade plan */}
+            <button
+              className="pd-item pd-item--upgrade"
+              role="menuitem"
+              onClick={() => { setMenuOpen(false); showToast('Coming soon'); }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+              Upgrade plan
+            </button>
+
+            {/* Personalization */}
+            <button
+              className="pd-item"
+              role="menuitem"
+              onClick={() => { setMenuOpen(false); showToast('Coming soon'); }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/>
+              </svg>
+              Personalization
+            </button>
+
+            {/* Profile */}
+            <button
+              className="pd-item"
+              role="menuitem"
+              onClick={() => { setMenuOpen(false); showToast('Coming soon'); }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+              </svg>
+              Profile
+            </button>
+
+            {/* Settings */}
+            <button
+              className="pd-item"
+              role="menuitem"
+              onClick={() => { setMenuOpen(false); openSettings(); }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              Settings
+            </button>
+
+            <div className="pd-divider" />
+
+            {/* Help */}
+            <button
+              className="pd-item"
+              role="menuitem"
+              onClick={() => { setMenuOpen(false); showToast('Coming soon'); }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+              Help
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginLeft: 'auto' }}>
+                <path d="m9 18 6-6-6-6"/>
+              </svg>
+            </button>
+
+            {/* Log out */}
+            {user && !user.isGuest && (
+              <>
+                <div className="pd-divider" />
+                <button
+                  className="pd-item pd-item--danger"
+                  role="menuitem"
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    await signOut();
+                    router.push('/login');
+                  }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                  </svg>
+                  Log out
+                </button>
+              </>
+            )}
+            {user?.isGuest && (
+              <>
+                <div className="pd-divider" />
+                <button
+                  className="pd-item pd-item--highlight"
+                  role="menuitem"
+                  onClick={() => { setMenuOpen(false); router.push('/login'); }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+                  </svg>
+                  Sign in
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Footer trigger */}
+        <div
+          className="sidebar-footer"
+          onClick={() => setMenuOpen((v) => !v)}
+          role="button"
+          tabIndex={0}
+          aria-haspopup="true"
+          aria-expanded={menuOpen}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setMenuOpen((v) => !v); }}
+        >
+          <div
+            className="avatar"
+            style={user?.avatar ? { backgroundImage: `url(${user.avatar})`, backgroundSize: 'cover', backgroundPosition: 'center', fontSize: 0 } : {}}
+          >
+            {!user?.avatar && initials}
+          </div>
           <div className="user-info">
-            <div className="user-name">Guest</div>
-            <div className="user-role">Not signed in</div>
+            <div className="user-name">{displayName}</div>
+            <div className="user-role">{planLabel}</div>
           </div>
           <div className="more-btn">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -130,7 +350,9 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, user, re
             </svg>
           </div>
         </div>
-      )}
+      </div>
+
+      <Toast message={toastMsg} />
     </aside>
   );
 }

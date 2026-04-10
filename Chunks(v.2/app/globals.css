@@ -135,6 +135,44 @@ body {
 }
 .sidebar-toggle:hover { background: var(--bg3); color: var(--text2); }
 
+/* ── Collapsed (icon-only) sidebar ───────────────────────────────────────── */
+.sidebar.collapsed {
+  width: 56px;
+  min-width: 56px;
+}
+.sidebar.collapsed .logo-name { display: none; }
+.sidebar.collapsed .new-chat-btn {
+  width: calc(100% - 16px);
+  margin: 14px 8px 8px;
+  padding: 9px;
+  justify-content: center;
+}
+.sidebar.collapsed .new-chat-btn span,
+.sidebar.collapsed .new-chat-btn > :not(svg) { display: none; }
+.sidebar.collapsed .new-chat-btn svg { opacity: 1; }
+.sidebar.collapsed .sidebar-label { display: none; }
+.sidebar.collapsed .nav-item {
+  padding: 8px;
+  justify-content: center;
+}
+.sidebar.collapsed .nav-item svg { opacity: 0.65; }
+.sidebar.collapsed .nav-item.active svg { opacity: 1; }
+.sidebar.collapsed .nav-item > :not(svg) { display: none; }
+.sidebar.collapsed .recents-section { display: none; }
+.sidebar.collapsed .sidebar-footer { padding: 12px 8px; justify-content: center; }
+.sidebar.collapsed .user-info,
+.sidebar.collapsed .more-btn { display: none; }
+/* In collapsed mode, anchor the popup to the right of the sidebar */
+.sidebar.collapsed .pd-menu {
+  left: 100%;
+  right: auto;
+  bottom: 0;
+  margin-left: 8px;
+  width: 220px;
+}
+/* Allow popup to overflow the sidebar bounds when it is open */
+.sidebar.menu-open { overflow: visible; }
+
 .new-chat-btn {
   margin: 14px 12px 8px;
   padding: 9px 14px;
@@ -569,6 +607,8 @@ body {
   border: 1px solid var(--border);
   border-top-left-radius: 4px;
   box-shadow: var(--shadow);
+  max-width: 100%;
+  padding: 14px 16px;
 }
 .msg.user .msg-bubble {
   background: var(--text);
@@ -1538,6 +1578,21 @@ body {
   text-align: center;
   margin: 14px 0;
   overflow-x: auto;
+}
+
+/* Display-math wrapper — styled card box */
+.md-root .md-math-display {
+  display: flex;
+  justify-content: center;
+  margin: 14px 0;
+  padding: 12px 16px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-x: auto;
+}
+.md-root .md-math-display .katex-display {
+  margin: 0;
 }
 
 /* Horizontal rule */
