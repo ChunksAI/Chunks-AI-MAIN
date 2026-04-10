@@ -740,6 +740,205 @@
   line-height: 1.6;
 }
 
+/* ── Panel Transitions (Workspace → Chat) ────────────────────────────────── */
+
+@keyframes ws-fade-slide-out {
+  from { opacity: 1; transform: translateX(0);    }
+  to   { opacity: 0; transform: translateX(-12px); }
+}
+@keyframes ws-fade-slide-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+
+.ws-panel-fade-out {
+  animation: ws-fade-slide-out 140ms var(--ease-snap) both;
+  pointer-events: none;
+}
+.ws-panel-fade-in {
+  animation: ws-fade-slide-in 200ms var(--ease-snap) both;
+}
+/* Remove the class after animation completes (JS adds, CSS removes via onanimationend handled in JS) */
+
+/* ── Inline Deck widget (rendered inside chat message list) ──────────────── */
+
+.ws-inline-deck {
+  /* card has no avatar — full width */
+  display: block;
+}
+.ws-inline-deck .ai-row {
+  justify-content: flex-start;
+}
+
+/* Banner "X loaded" */
+.ws-ild-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  background: var(--violet-muted);
+  border: 1px solid var(--violet-border);
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+.ws-ild-banner-icon {
+  display: flex;
+  align-items: center;
+  color: var(--violet);
+}
+
+/* Body container */
+.ws-ild-body {
+  width: 100%;
+  max-width: 520px;
+}
+
+/* Progress bar */
+.ws-ild-progress {
+  height: 3px;
+  background: var(--surface-3);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.ws-ild-progress-bar {
+  height: 100%;
+  background: var(--violet);
+  border-radius: 9999px;
+  transition: width 200ms var(--ease-snap);
+}
+.ws-ild-counter {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-4);
+  text-align: right;
+  margin-bottom: 8px;
+}
+
+/* Card face */
+.ws-ild-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-md);
+  padding: 18px 16px 14px;
+  min-height: 100px;
+  position: relative;
+  cursor: pointer;
+  transition: border-color 120ms;
+  animation: cvp-panel-in 220ms var(--ease-snap) both;
+}
+.ws-ild-card:hover { border-color: var(--violet-border); }
+.ws-ild-card--flipped {
+  border-color: var(--gold);
+  background: rgba(232,172,46,0.04);
+}
+
+.ws-ild-face { display: flex; flex-direction: column; gap: 8px; }
+.ws-ild-back { display: none; }
+.ws-ild-card--flipped .ws-ild-front { display: none; }
+.ws-ild-card--flipped .ws-ild-back  { display: flex; }
+
+.ws-ild-face-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.ws-ild-face-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-1);
+  line-height: 1.5;
+}
+.ws-ild-reveal-btn {
+  margin-top: 8px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  background: var(--violet-muted);
+  border: 1px solid var(--violet-border);
+  border-radius: var(--r-pill);
+  color: var(--violet);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: opacity var(--t-fast);
+}
+.ws-ild-reveal-btn:hover { opacity: 0.8; }
+
+/* Nav row */
+.ws-ild-nav {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  align-items: center;
+}
+.ws-ild-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 11px;
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.ws-ild-nav-btn:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-1); }
+.ws-ild-nav-btn:disabled { opacity: 0.35; cursor: default; }
+.ws-ild-flip-btn {
+  flex: 1;
+  justify-content: center;
+  border-color: var(--violet-border);
+  background: var(--violet-muted);
+  color: var(--violet);
+  font-weight: 600;
+}
+.ws-ild-flip-btn:hover { background: var(--violet-muted); opacity: 0.85; }
+.ws-ild-nav-btn--primary {
+  background: var(--violet);
+  border-color: var(--violet);
+  color: #fff;
+  font-weight: 600;
+}
+.ws-ild-nav-btn--primary:hover:not(:disabled) { opacity: 0.88; background: var(--violet); color: #fff; }
+
+/* Action bar */
+.ws-ild-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-xs);
+}
+.ws-ild-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  background: transparent;
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-pill);
+  color: var(--text-3);
+  font-size: 11px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.ws-ild-action-btn:hover {
+  background: var(--surface-2);
+  color: var(--text-1);
+  border-color: var(--border-sm);
+}
+
 
 /* Canvas panel occupies the same space as chat/notes */
 #ws-canvas-panel {

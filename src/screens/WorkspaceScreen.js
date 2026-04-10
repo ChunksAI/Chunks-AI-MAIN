@@ -585,6 +585,12 @@ export function wsShowPanel(tab) {
   } else {
     chatContent.style.display = 'flex';
     tabChat?.classList.add('ws-ptab-active');
+    // Remove animation class once it completes so it doesn't replay on re-show
+    const onEnd = () => {
+      chatContent.classList.remove('ws-panel-fade-in');
+      chatContent.removeEventListener('animationend', onEnd);
+    };
+    chatContent.addEventListener('animationend', onEnd);
   }
 }
 
@@ -665,10 +671,26 @@ function _wsItemDateLabel(isoStr) {
 }
 
 function _wsReopenItemInChat(item) {
-  wsShowPanel('chat');
+  // Smooth fade-out of workspace panel, then fade-in of chat
+  const wsp = document.getElementById('ws-workspace-panel');
+  if (wsp) {
+    wsp.classList.add('ws-panel-fade-out');
+    setTimeout(() => {
+      wsShowPanel('chat');
+      const chatContent = document.getElementById('ws-chat-content');
+      if (chatContent) chatContent.classList.add('ws-panel-fade-in');
+      _dispatchReopenItem(item);
+    }, 150);
+  } else {
+    wsShowPanel('chat');
+    _dispatchReopenItem(item);
+  }
+}
+
+function _dispatchReopenItem(item) {
   if (item.type === 'flashcards' && item.data.deckId) {
-    if (typeof window.wsOpenFlashcardDeck === 'function') {
-      window.wsOpenFlashcardDeck(item.data.deckId, item.data.topic || item.data.title);
+    if (typeof window.wsLoadDeckInChat === 'function') {
+      window.wsLoadDeckInChat(item.data.deckId, item.data.topic || item.data.title);
     }
   } else if (item.data.content && typeof window.wsSetInput === 'function') {
     window.wsSetInput(item.data.content.slice(0, 200));

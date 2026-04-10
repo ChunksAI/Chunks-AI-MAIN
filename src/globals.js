@@ -249,6 +249,15 @@ window.wsOpenFlashcardDeck = async function(deckId, topic) {
 window.wsStartFlashcardPractice = async function(deckId, topic) {
   console.warn('[ws] wsStartFlashcardPractice called before flashState loaded');
 };
+window.wsLoadDeckInChat = async function(deckId, topic) {
+  console.warn('[ws] wsLoadDeckInChat called before flashState loaded');
+};
+window.wsOpenFlashcardDeckFullscreen = async function(deckId, topic) {
+  // Fallback: navigate to the flash screen
+  if (typeof window.wsStartFlashcardPractice === 'function') {
+    window.wsStartFlashcardPractice(deckId, topic);
+  }
+};
 window.wsBackToWorkspace = function() {
   console.warn('[ws] wsBackToWorkspace called before flashState loaded');
 };
@@ -281,6 +290,7 @@ import {
   wsOpenFlashcardDeck as _wsOpenFlashcardDeckReal,
   wsStartFlashcardPractice as _wsStartFlashcardPracticeReal,
   wsLoadDocumentFlashcards as _wsLoadDocumentFlashcardsReal,
+  wsLoadDeckInChat as _wsLoadDeckInChatReal,
   wsBackToWorkspace as _wsBackToWorkspaceReal,
   _fcCheckNavFrom,
   _fcStudyInChat, _fcReviewHardInChat,
@@ -344,6 +354,9 @@ window.wsGenerateFlashcardsInChat   = _wsGenerateFlashcardsInChatReal;
 window.wsOpenFlashcardDeck          = _wsOpenFlashcardDeckReal;
 window.wsStartFlashcardPractice     = _wsStartFlashcardPracticeReal;
 window.wsLoadDocumentFlashcards     = _wsLoadDocumentFlashcardsReal;
+window.wsLoadDeckInChat             = _wsLoadDeckInChatReal;
+// Full-screen fallback uses the real practice function once loaded
+window.wsOpenFlashcardDeckFullscreen = _wsStartFlashcardPracticeReal;
 window.wsBackToWorkspace        = _wsBackToWorkspaceReal;
 window._fcCheckNavFrom          = _fcCheckNavFrom;
 window._fcStudyInChat      = _fcStudyInChat;
