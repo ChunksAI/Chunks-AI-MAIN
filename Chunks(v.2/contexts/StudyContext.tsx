@@ -33,6 +33,7 @@ import type {
   WeakArea,
   PerformanceEntry,
   NoteItem,
+  RecentItem,
 } from '@/types';
 import { sendMessage, generateFlashcards, generateQuiz, topicToSlides, uploadDocument } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
@@ -70,6 +71,7 @@ export interface StudyState {
   toast: string | null;
   showMemoryBar: boolean;
   notes: NoteItem[];
+  recents: RecentItem[];
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -100,7 +102,8 @@ export type StudyAction =
   | { type: 'UPLOAD_ERROR'; payload: string }
   | { type: 'CLEAR_UPLOAD_ERROR' }
   | { type: 'ADD_NOTE'; payload: NoteItem }
-  | { type: 'UPDATE_NOTE'; payload: { id: string; title?: string; body?: string } };
+  | { type: 'UPDATE_NOTE'; payload: { id: string; title?: string; body?: string } }
+  | { type: 'ADD_RECENT'; payload: RecentItem };
 
 // ─── Weak-area calculation ───────────────────────────────────────────────────
 
@@ -297,6 +300,11 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
       };
     }
 
+    case 'ADD_RECENT': {
+      const filtered = state.recents.filter((r) => r.title !== action.payload.title);
+      return { ...state, recents: [action.payload, ...filtered].slice(0, 5) };
+    }
+
     default:
       return state;
   }
@@ -327,6 +335,7 @@ const INITIAL_STATE: StudyState = {
   toast: null,
   showMemoryBar: true,
   notes: [],
+  recents: [],
 };
 
 // ─── Context value ────────────────────────────────────────────────────────────
@@ -354,6 +363,29 @@ interface StudyContextValue {
 
 const StudyContext = createContext<StudyContextValue | null>(null);
 
+// ─── Recents helpers ─────────────────────────────────────────────────────────
+
+const RECENTS_KEY = 'chunks_v2_recents';
+const RECENT_COLORS = ['#4CAF50', '#2196F3', '#9C27B0', '#FF9800', '#E91E63'];
+
+function pickColor(title: string): string {
+  let hash = 0;
+  for (let i = 0; i < title.length; i++) {
+    hash = ((hash * 31) + title.charCodeAt(i)) >>> 0;
+  }
+  return RECENT_COLORS[hash % RECENT_COLORS.length];
+}
+
+function loadRecentsFromStorage(): RecentItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(RECENTS_KEY);
+    return raw ? (JSON.parse(raw) as RecentItem[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 // ─── Message ID counter ───────────────────────────────────────────────────────
 
 let _msgCounter = 100;
@@ -367,6 +399,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(studyReducer, INITIAL_STATE, (init) => ({
     ...init,
     sessionId: `session-${Date.now()}`,
+    recents: loadRecentsFromStorage(),
   }));
 
   // Keep a ref so stable callbacks can always read current state
@@ -407,6 +440,16 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     state.quizResults.length,
     saveSession,
   ]);
+
+  // ── Persist recents to localStorage ──────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(RECENTS_KEY, JSON.stringify(state.recents));
+    } catch {
+      // ignore — storage may be unavailable
+    }
+  }, [state.recents]);
 
   // ── showToast ─────────────────────────────────────────────────────────────
   const showToast = useCallback((message: string) => {
@@ -491,6 +534,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'ADD_WORKSPACE_CARD', payload: { sectionTitle: 'Flashcard Decks', card } });
       dispatch({ type: 'SET_TOPIC', payload: topic });
       dispatch({
+        type: 'ADD_RECENT',
+        payload: { id: cardId, title: topic, color: pickColor(topic) },
+      });
+      dispatch({
         type: 'SHOW_TOAST',
         payload: `🃏 ${res.flashcards.length} flashcards added to Workspace!`,
       });
@@ -522,6 +569,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'ADD_WORKSPACE_CARD', payload: { sectionTitle: 'Quizzes', card } });
         dispatch({ type: 'SET_TOPIC', payload: topic });
         dispatch({
+          type: 'ADD_RECENT',
+          payload: { id: cardId, title: topic, color: pickColor(topic) },
+        });
+        dispatch({
           type: 'SHOW_TOAST',
           payload: `🎯 ${res.questions.length}-question quiz added to Workspace!`,
         });
@@ -544,6 +595,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       const docTitle = res.filename.replace(/\.[^.]+$/, ''); // strip extension
       dispatch({ type: 'SET_SLIDES', payload: { slides: res.slides, docTitle } });
       dispatch({ type: 'SET_TOPIC', payload: docTitle });
+      dispatch({
+        type: 'ADD_RECENT',
+        payload: { id: `doc-${Date.now()}`, title: docTitle, color: pickColor(docTitle) },
+      });
       dispatch({
         type: 'SHOW_TOAST',
         payload: `✅ "${docTitle}" loaded — ${res.total_slides} pages ready`,

@@ -9,6 +9,8 @@ interface SidebarProps {
   onNewSession: () => void;
   /** Optional — when provided, replaces the hardcoded user footer. */
   user?: AuthUser | null;
+  /** Recent sessions derived from StudyContext state. */
+  recents?: RecentItem[];
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -19,14 +21,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'research',    label: 'Research',     icon: 'search' },
   { id: 'visual',      label: 'Visual Tutor', icon: 'video',    badge: { text: 'AI',  variant: 'ai' } },
   { id: 'exam',        label: 'Exam Mode',    icon: 'check',    badge: { text: 'Pro', variant: 'pro' } },
-];
-
-const RECENTS: RecentItem[] = [
-  { id: '1', title: 'Chapter 3 — Cell Biology',   color: '#4CAF50' },
-  { id: '2', title: 'Thermodynamics overview',     color: '#2196F3' },
-  { id: '3', title: 'World War II timeline',       color: '#9C27B0' },
-  { id: '4', title: 'Calculus — Derivatives',      color: '#FF9800' },
-  { id: '5', title: 'Organic Chemistry ch.5',      color: '#E91E63' },
 ];
 
 // ── icon registry ──────────────────────────────────────────────────────────────
@@ -43,7 +37,7 @@ function NavIcon({ id }: { id: string }) {
   }
 }
 
-export default function Sidebar({ activeNav, onNavChange, onNewSession, user }: SidebarProps) {
+export default function Sidebar({ activeNav, onNavChange, onNewSession, user, recents = [] }: SidebarProps) {
   return (
     <aside className="sidebar">
       {/* ── Header ── */}
@@ -95,12 +89,18 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, user }: 
       {/* ── Recents ── */}
       <div className="recents-section">
         <div className="sidebar-label" style={{ padding: '10px 8px 6px' }}>Recents</div>
-        {RECENTS.map((r) => (
-          <div key={r.id} className="recent-item">
-            <div className="recent-dot" style={{ background: r.color }} />
-            <span className="recent-title">{r.title}</span>
+        {recents.length === 0 ? (
+          <div style={{ padding: '6px 8px', fontSize: 12, color: 'var(--text3)' }}>
+            No recent sessions yet
           </div>
-        ))}
+        ) : (
+          recents.map((r) => (
+            <div key={r.id} className="recent-item">
+              <div className="recent-dot" style={{ background: r.color }} />
+              <span className="recent-title">{r.title}</span>
+            </div>
+          ))
+        )}
       </div>
 
       {/* ── Footer / user ── */}
