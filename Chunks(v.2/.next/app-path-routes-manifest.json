@@ -4,5 +4,7 @@
   "/library/page": "/library",
   "/login/page": "/login",
   "/page": "/",
-  "/study/page": "/study"
+  "/study/page": "/study",
+  "/privacy/page": "/privacy",
+  "/terms/page": "/terms"
 }

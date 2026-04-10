@@ -1,0 +1,14 @@
+{
+  "name": "Chunks AI",
+  "short_name": "Chunks",
+  "description": "Your personal AI-powered study platform",
+  "icons": [
+    { "src": "/favicon-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/favicon-512x512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "theme_color": "#C4923A",
+  "background_color": "#F5F3EF",
+  "display": "standalone",
+  "start_url": "/study",
+  "scope": "/"
+}

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import TabBar from './TabBar';
 import { usePomodoro } from '@/hooks/usePomodoro';
+import { useSettings } from '@/contexts/SettingsContext';
 import type { TabId } from '@/types';
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -21,20 +22,19 @@ export default function Topbar({
   onPhaseChange,
 }: TopbarProps) {
   const { timeLeft, phase, isRunning, toggle } = usePomodoro({ onPhaseChange });
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const settingsRef = useRef<HTMLDivElement>(null);
+  const { openSettings } = useSettings();
 
-  // Close settings panel when clicking outside
+  // Keyboard shortcut: Cmd/Ctrl + , → open settings
   useEffect(() => {
-    if (!settingsOpen) return;
-    function handleClick(e: MouseEvent) {
-      if (settingsRef.current && !settingsRef.current.contains(e.target as Node)) {
-        setSettingsOpen(false);
+    function handle(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault();
+        openSettings();
       }
     }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [settingsOpen]);
+    document.addEventListener('keydown', handle);
+    return () => document.removeEventListener('keydown', handle);
+  }, [openSettings]);
 
   return (
     <header className="topbar">
@@ -63,53 +63,28 @@ export default function Topbar({
           aria-label={isRunning ? 'Pause Pomodoro timer' : 'Start Pomodoro timer'}
         >
           {isRunning ? (
-            /* Pause icon */
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <rect x="6" y="4" width="4" height="16" rx="1"/>
               <rect x="14" y="4" width="4" height="16" rx="1"/>
             </svg>
           ) : (
-            /* Play icon */
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
               <polygon points="5,3 19,12 5,21"/>
             </svg>
           )}
         </button>
 
-        <div className="icon-btn-wrap" ref={settingsRef}>
-          <button
-            className={`icon-btn${settingsOpen ? ' active' : ''}`}
-            title="Settings"
-            onClick={() => setSettingsOpen((v) => !v)}
-            aria-expanded={settingsOpen}
-            aria-haspopup="true"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </button>
-
-          {settingsOpen && (
-            <div className="topbar-dropdown" role="menu">
-              <div className="topbar-dropdown-header">
-                <span>Settings</span>
-                <button
-                  className="topbar-dropdown-close"
-                  onClick={() => setSettingsOpen(false)}
-                  aria-label="Close settings"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="topbar-dropdown-body">
-                <p className="topbar-dropdown-hint">
-                  More settings coming soon.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
+        <button
+          className="icon-btn"
+          title="Settings (⌘,)"
+          onClick={openSettings}
+          aria-label="Open settings"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
       </div>
     </header>
   );
