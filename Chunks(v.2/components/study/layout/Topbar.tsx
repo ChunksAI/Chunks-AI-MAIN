@@ -2,18 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import TabBar from './TabBar';
+import { usePomodoro } from '@/hooks/usePomodoro';
 import type { TabId } from '@/types';
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatElapsed(seconds: number): string {
-  if (seconds < 60) return `studying for ${seconds}s`;
-  const mins = Math.floor(seconds / 60);
-  if (mins < 60) return `studying for ${mins}m`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return m === 0 ? `studying for ${h}h` : `studying for ${h}h ${m}m`;
-}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -21,23 +11,18 @@ interface TopbarProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
   sessionName?: string;
-  onMemoryClick?: () => void;
+  onPhaseChange?: (phase: 'study' | 'break') => void;
 }
 
 export default function Topbar({
   activeTab,
   onTabChange,
   sessionName = 'Study Assistant',
-  onMemoryClick,
+  onPhaseChange,
 }: TopbarProps) {
-  const [elapsed, setElapsed] = useState(0);
+  const { timeLeft, phase, isRunning, toggle } = usePomodoro({ onPhaseChange });
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const id = setInterval(() => setElapsed((s) => s + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
 
   // Close settings panel when clicking outside
   useEffect(() => {
@@ -67,21 +52,28 @@ export default function Topbar({
       {/* ── Right: timer + icon buttons ── */}
       <div className="topbar-right">
         <div className="study-timer">
-          <div className="timer-dot" />
-          {formatElapsed(elapsed)}
+          <div className={`timer-dot${phase === 'break' ? ' timer-dot--break' : ''}`} />
+          {phase === 'study' ? '🍅' : '☕'} {timeLeft}
         </div>
 
         <button
           className="icon-btn"
-          title="Memory"
-          onClick={onMemoryClick}
-          disabled={!onMemoryClick}
+          title={isRunning ? 'Pause timer' : 'Start timer'}
+          onClick={toggle}
+          aria-label={isRunning ? 'Pause Pomodoro timer' : 'Start Pomodoro timer'}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <ellipse cx="12" cy="5" rx="9" ry="3"/>
-            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-          </svg>
+          {isRunning ? (
+            /* Pause icon */
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" rx="1"/>
+              <rect x="14" y="4" width="4" height="16" rx="1"/>
+            </svg>
+          ) : (
+            /* Play icon */
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <polygon points="5,3 19,12 5,21"/>
+            </svg>
+          )}
         </button>
 
         <div className="icon-btn-wrap" ref={settingsRef}>

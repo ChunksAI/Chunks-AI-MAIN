@@ -5,6 +5,7 @@ import { useStudy } from '@/contexts/StudyContext';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import QuizRunner from '@/components/study/quiz/QuizRunner';
 import FlashcardDeck from '@/components/study/flashcards/FlashcardDeck';
+import { resolveStudyTopic } from '@/lib/topicFallback';
 import type { WorkspaceCard } from '@/types';
 
 const TYPE_COLOR: Record<string, string> = {
@@ -28,7 +29,9 @@ const TYPE_LABEL: Record<string, string> = {
  */
 export default function WorkspaceTab() {
   const { state, dispatch, handleGenerateFlashcards, handleGenerateQuiz } = useStudy();
-  const { workspaceSections, workspaceLoading, activeQuiz, activeQuizAnswers, topic } = state;
+  const { workspaceSections, workspaceLoading, activeQuiz, activeQuizAnswers, topic, docTitle, messages } = state;
+
+  const resolvedTopic = resolveStudyTopic(topic, docTitle, messages);
 
   const [activeFlashcardCard, setActiveFlashcardCard] = useState<WorkspaceCard | null>(null);
 
@@ -55,7 +58,7 @@ export default function WorkspaceTab() {
   }
 
   const totalItems = workspaceSections.reduce((sum, s) => sum + s.cards.length, 0);
-  const studyTopic = topic || 'No topic set';
+  const studyTopic = topic || resolvedTopic;
 
   return (
     <div className="workspace-tab">
@@ -70,9 +73,8 @@ export default function WorkspaceTab() {
         </div>
         <button
           className="ws-add-btn"
-          onClick={() => topic && void handleGenerateFlashcards(topic)}
-          disabled={workspaceLoading || !topic}
-          title={!topic ? 'Start a conversation in Chat to set a topic first' : undefined}
+          onClick={() => void handleGenerateFlashcards(resolvedTopic)}
+          disabled={workspaceLoading}
         >
           <svg
             width="13"
@@ -106,24 +108,22 @@ export default function WorkspaceTab() {
           <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 20 }}>
             {topic
               ? 'Ask the AI in the Chat tab to generate flashcards or a quiz, or start below.'
-              : 'Start a conversation in the Chat tab to set a topic, then generate study materials here.'}
+              : 'Generate study materials now, or chat first to set a more specific topic.'}
           </div>
-          {topic && (
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                className="ws-add-btn"
-                onClick={() => void handleGenerateFlashcards(topic)}
-              >
-                🃏 Generate flashcards
-              </button>
-              <button
-                className="panel-btn"
-                onClick={() => void handleGenerateQuiz(topic)}
-              >
-                🎯 Generate quiz
-              </button>
-            </div>
-          )}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="ws-add-btn"
+              onClick={() => void handleGenerateFlashcards(resolvedTopic)}
+            >
+              🃏 Generate flashcards
+            </button>
+            <button
+              className="panel-btn"
+              onClick={() => void handleGenerateQuiz(resolvedTopic)}
+            >
+              🎯 Generate quiz
+            </button>
+          </div>
         </div>
       )}
 
