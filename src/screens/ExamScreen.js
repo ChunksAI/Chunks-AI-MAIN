@@ -2549,6 +2549,29 @@ function _examFinish() {
   // Clean up old snapshots beyond 5
   trimmed.forEach((r,i) => { if (i >= 5 && r.id) localStorage.removeItem('exam_snap_' + r.id); });
   _examLoadRecent();
+
+  // ── Study Loop: auto-return to workspace chat with result summary ──────
+  try {
+    const navFrom = sessionStorage.getItem('chunks_nav_from');
+    if (navFrom === 'workspace') {
+      const _retTopic = _examTopic;
+      const _retCorrect = correct;
+      const _retTotal = total;
+      // Clear the nav flag so repeat visits don't trigger this
+      sessionStorage.removeItem('chunks_nav_from');
+      // Show results briefly, then navigate back to workspace with a summary card
+      setTimeout(() => {
+        if (typeof window.showScreen === 'function') window.showScreen('workspace');
+        // Allow workspace to render before appending the card
+        setTimeout(() => {
+          if (typeof window.wsShowExamReturnCard === 'function') {
+            window.wsShowExamReturnCard(_retTopic, _retCorrect, _retTotal);
+          }
+        }, 300);
+      }, 2000);
+    }
+  } catch (_) {}
+
   _examShow('exam-results');
 }
 

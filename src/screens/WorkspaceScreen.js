@@ -255,11 +255,16 @@ const WORKSPACE_HTML = /* html */`
       </div>
     </div>
 
-    <!-- Panel tabs: Chat | Notes  +  page counter right -->
+    <!-- Panel tabs: Chat | Workspace | Notes | Canvas  +  page counter right -->
     <div class="ws-panel-tabs">
       <button class="ws-ptab ws-ptab-active" id="ws-tab-chat" onclick="wsShowPanel('chat')">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         Chat
+      </button>
+      <button class="ws-ptab" id="ws-tab-workspace" onclick="wsShowPanel('workspace')">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Workspace
+        <span class="ws-ptab-badge" id="ws-workspace-badge" style="display:none;"></span>
       </button>
       <button class="ws-ptab" id="ws-tab-notes" onclick="wsShowPanel('notes')">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
@@ -352,6 +357,9 @@ const WORKSPACE_HTML = /* html */`
     </div>
 
     <div class="chat-input-wrap">
+      <!-- Study loop action chips (context-aware, replaces itself each time) -->
+      <div id="ws-chip-bar" class="ws-chip-bar" style="display:none;"></div>
+
       <input type="file" id="ws-attach-image" accept="image/*" style="display:none;" onchange="wsHandleAttach(this,'image')">
       <input type="file" id="ws-attach-pdf" accept="application/pdf" style="display:none;" onchange="wsHandleAttach(this,'pdf')">
 
@@ -462,6 +470,19 @@ const WORKSPACE_HTML = /* html */`
 
     </div><!-- /ws-chat-content -->
 
+    <!-- Workspace panel (hidden by default) — stores AI-generated outputs -->
+    <div id="ws-workspace-panel" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+      <div class="wsp-header">
+        <div class="wsp-header-text">
+          <div class="wsp-title">Saved Items</div>
+          <div class="wsp-subtitle">AI-generated content from your chats</div>
+        </div>
+      </div>
+      <div class="wsp-list" id="ws-workspace-list">
+        <!-- Items rendered by _wsRenderWorkspacePanel() -->
+      </div>
+    </div>
+
     <!-- Notes panel (hidden by default) — Smart Notes Panel (Preact island) -->
     <div id="ws-notes-panel" style="display:none;flex-direction:column;">
       <!-- SmartNotesPanel Preact island is mounted here by WorkspaceScreen._initNotes() -->
@@ -485,11 +506,18 @@ export function mountWorkspaceScreen() {
   }
   placeholder.outerHTML = WORKSPACE_HTML;
 
+  // Wire up Workspace save/delete/save-handler to window so onclick handlers can call them
+  window.wsSaveToWorkspace        = wsSaveToWorkspace;
+  window.wsDeleteWorkspaceItem    = _wsDeleteWorkspaceItem;
+  window._wsHandleSaveToWorkspace = _wsHandleSaveToWorkspace;
+
   // Refresh smart suggestions after mount
   setTimeout(refreshSmartSuggestions, 300);
   setTimeout(_initSessionTimer, 0);
   setTimeout(_initNotes, 0);
   setTimeout(_initEmptyStateObserver, 0);
+  // Initialize workspace badge count
+  setTimeout(() => _wsUpdateWorkspaceBadge(wsLoadWorkspaceItems().length), 0);
   // Mount Preact islands
   setTimeout(() => {
     mountSmartNotesPanel(document.getElementById('ws-notes-panel'));
@@ -520,23 +548,33 @@ function _escHtml(str) {
  * Called from the tab buttons' onclick handlers.
  */
 export function wsShowPanel(tab) {
-  const chatContent  = document.getElementById('ws-chat-content');
-  const notesPanel   = document.getElementById('ws-notes-panel');
-  const canvasPanel  = document.getElementById('ws-canvas-panel');
-  const tabChat      = document.getElementById('ws-tab-chat');
-  const tabNotes     = document.getElementById('ws-tab-notes');
-  const tabCanvas    = document.getElementById('ws-tab-canvas');
+  const chatContent      = document.getElementById('ws-chat-content');
+  const workspacePanel   = document.getElementById('ws-workspace-panel');
+  const notesPanel       = document.getElementById('ws-notes-panel');
+  const canvasPanel      = document.getElementById('ws-canvas-panel');
+  const tabChat          = document.getElementById('ws-tab-chat');
+  const tabWorkspace     = document.getElementById('ws-tab-workspace');
+  const tabNotes         = document.getElementById('ws-tab-notes');
+  const tabCanvas        = document.getElementById('ws-tab-canvas');
   if (!chatContent || !notesPanel || !canvasPanel) return;
 
   // Hide all panels and deactivate all tabs
-  chatContent.style.display  = 'none';
-  notesPanel.style.display   = 'none';
-  canvasPanel.style.display  = 'none';
+  chatContent.style.display      = 'none';
+  if (workspacePanel) workspacePanel.style.display = 'none';
+  notesPanel.style.display       = 'none';
+  canvasPanel.style.display      = 'none';
   tabChat?.classList.remove('ws-ptab-active');
+  tabWorkspace?.classList.remove('ws-ptab-active');
   tabNotes?.classList.remove('ws-ptab-active');
   tabCanvas?.classList.remove('ws-ptab-active');
 
-  if (tab === 'notes') {
+  if (tab === 'workspace') {
+    if (workspacePanel) {
+      workspacePanel.style.display = 'flex';
+      _wsRenderWorkspacePanel();
+    }
+    tabWorkspace?.classList.add('ws-ptab-active');
+  } else if (tab === 'notes') {
     notesPanel.style.display = 'flex';
     tabNotes?.classList.add('ws-ptab-active');
     // Focus the contenteditable notes area (SmartNotesPanel)
@@ -550,7 +588,183 @@ export function wsShowPanel(tab) {
   } else {
     chatContent.style.display = 'flex';
     tabChat?.classList.add('ws-ptab-active');
+    // Remove animation class once it completes so it doesn't replay on re-show
+    const onEnd = () => {
+      chatContent.classList.remove('ws-panel-fade-in');
+      chatContent.removeEventListener('animationend', onEnd);
+    };
+    chatContent.addEventListener('animationend', onEnd);
   }
+}
+
+// ── Workspace panel — Save / Load / Render ────────────────────────────────────
+
+const _WS_SAVED_KEY = 'chunks-workspace-saved-items';
+
+const _WS_TYPE_META = {
+  flashcards: { label: 'Flashcards', color: 'var(--violet)', bg: 'var(--violet-muted)', icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>` },
+  summary:    { label: 'Summary',    color: '#34d399',       bg: 'rgba(52,211,153,0.12)', icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="9"/></svg>` },
+  notes:      { label: 'Notes',      color: '#60a5fa',       bg: 'rgba(96,165,250,0.12)', icon: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>` },
+};
+
+/**
+ * Persist a new item to the Workspace saved-items list.
+ * @param {'flashcards'|'summary'|'notes'} type
+ * @param {{ title: string, deckId?: string, topic?: string, count?: number, content?: string }} data
+ */
+export function wsSaveToWorkspace(type, data) {
+  let items = [];
+  try { items = JSON.parse(localStorage.getItem(_WS_SAVED_KEY) || '[]'); } catch (e) {
+    console.warn('[Workspace] Failed to parse saved items:', e);
+  }
+  const id = `wsitem-${Date.now()}`;
+  items.unshift({ id, type, data, savedAt: new Date().toISOString() });
+  // Cap at 50 items
+  if (items.length > 50) items = items.slice(0, 50);
+  try { localStorage.setItem(_WS_SAVED_KEY, JSON.stringify(items)); } catch (e) {
+    console.warn('[Workspace] Failed to save item (storage may be full):', e);
+  }
+  _wsUpdateWorkspaceBadge(items.length);
+  return id;
+}
+
+export function wsLoadWorkspaceItems() {
+  try { return JSON.parse(localStorage.getItem(_WS_SAVED_KEY) || '[]'); } catch (e) {
+    console.warn('[Workspace] Failed to load saved items:', e);
+    return [];
+  }
+}
+
+/**
+ * Named handler for the "Save to Workspace" button on flashcard result cards.
+ * Reads the deck data from the button's data-* attributes to avoid embedding
+ * user content inside onclick attribute strings.
+ */
+export function _wsHandleSaveToWorkspace(btn) {
+  const deckId = btn.dataset.deckId || '';
+  const topic  = btn.dataset.topic  || '';
+  const count  = Number(btn.dataset.count) || 0;
+  wsSaveToWorkspace('flashcards', { title: topic, deckId, topic, count });
+  btn.textContent = '✓ Saved';
+  btn.disabled = true;
+}
+
+function _wsUpdateWorkspaceBadge(count) {
+  const badge = document.getElementById('ws-workspace-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : String(count);
+    badge.style.display = 'inline-flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function _wsItemDateLabel(isoStr) {
+  if (!isoStr) return '';
+  const parsed = new Date(isoStr);
+  if (isNaN(parsed.getTime())) return '';
+  const diff = Date.now() - parsed.getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1)  return 'just now';
+  if (mins < 60) return `${mins}min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24)  return `${hrs}h ago`;
+  return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+function _wsReopenItemInChat(item) {
+  // Smooth fade-out of workspace panel, then fade-in of chat
+  const wsp = document.getElementById('ws-workspace-panel');
+  if (wsp) {
+    wsp.classList.add('ws-panel-fade-out');
+    setTimeout(() => {
+      wsShowPanel('chat');
+      const chatContent = document.getElementById('ws-chat-content');
+      if (chatContent) chatContent.classList.add('ws-panel-fade-in');
+      _dispatchReopenItem(item);
+    }, 150);
+  } else {
+    wsShowPanel('chat');
+    _dispatchReopenItem(item);
+  }
+}
+
+function _dispatchReopenItem(item) {
+  if (item.type === 'flashcards' && item.data.deckId) {
+    if (typeof window.wsLoadDeckInChat === 'function') {
+      window.wsLoadDeckInChat(item.data.deckId, item.data.topic || item.data.title);
+    }
+  } else if (item.data.content && typeof window.wsSetInput === 'function') {
+    window.wsSetInput(item.data.content.slice(0, 200));
+  }
+}
+
+function _wsDeleteWorkspaceItem(id) {
+  let items = wsLoadWorkspaceItems().filter(i => i.id !== id);
+  try { localStorage.setItem(_WS_SAVED_KEY, JSON.stringify(items)); } catch (e) {
+    console.warn('[Workspace] Failed to delete item:', e);
+  }
+  _wsUpdateWorkspaceBadge(items.length);
+  _wsRenderWorkspacePanel();
+}
+
+function _wsRenderWorkspacePanel() {
+  const list = document.getElementById('ws-workspace-list');
+  if (!list) return;
+  const items = wsLoadWorkspaceItems();
+
+  if (items.length === 0) {
+    list.innerHTML = `
+      <div class="wsp-empty">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--text-4)" stroke-width="1.2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <div class="wsp-empty-title">Nothing saved yet</div>
+        <div class="wsp-empty-sub">Use the <strong>Save to Workspace</strong> button on any AI response to store it here.</div>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = '';
+  items.forEach(item => {
+    const meta           = _WS_TYPE_META[item.type] || _WS_TYPE_META.notes;
+    const title          = _escHtml(item.data.title || item.data.topic || 'Untitled');
+    const dateLabel      = _wsItemDateLabel(item.savedAt);
+    const flashcardCount = item.type === 'flashcards' && item.data.count
+      ? `<span class="wsp-item-extra">${item.data.count} cards</span>` : '';
+
+    const card = document.createElement('div');
+    card.className = 'wsp-item';
+    card.innerHTML = `
+      <div class="wsp-item-icon" style="background:${meta.bg};color:${meta.color};">${meta.icon}</div>
+      <div class="wsp-item-body">
+        <div class="wsp-item-title" title="${title}">${title}</div>
+        <div class="wsp-item-meta">
+          <span class="wsp-item-type" style="color:${meta.color};">${meta.label}</span>
+          ${flashcardCount}
+          ${dateLabel ? `<span class="wsp-item-date">${_escHtml(dateLabel)}</span>` : ''}
+        </div>
+      </div>
+      <div class="wsp-item-actions">
+        <button class="wsp-item-open" title="Open in Chat">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m5 12 14 0"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+        <button class="wsp-item-delete" title="Remove">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>`;
+    card.querySelector('.wsp-item-open').addEventListener('click', (e) => {
+      e.stopPropagation();
+      _wsReopenItemInChat(item);
+    });
+    card.querySelector('.wsp-item-delete').addEventListener('click', (e) => {
+      e.stopPropagation();
+      _wsDeleteWorkspaceItem(item.id);
+    });
+    card.addEventListener('click', () => _wsReopenItemInChat(item));
+    list.appendChild(card);
+  });
+
+  _wsUpdateWorkspaceBadge(items.length);
 }
 
 // ── Empty state observer & document cards ─────────────────────────────────────

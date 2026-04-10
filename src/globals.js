@@ -154,6 +154,8 @@ import {
   _wsRenderHistory, _wsBuildBlocks, _wsRenderMessageFromBlocks,
   subscribeToChatRealtime, unsubscribeChatRealtime,
   addMessageToUI, removeMessageFromUI, updateMessageInUI,
+  getSession, updateSession, resetSession,
+  showActionChips, clearActionChips,
 } from './state/workspace/index.js';
 
 window.ws                  = ws;
@@ -232,6 +234,13 @@ window.addMessageToUI            = addMessageToUI;
 window.removeMessageFromUI       = removeMessageFromUI;
 window.updateMessageInUI         = updateMessageInUI;
 
+// ── State · Workspace · Study Session ────────────────────────────────────────
+window.getStudySession   = getSession;
+window.updateStudySession = updateSession;
+window.resetStudySession  = resetSession;
+window.showActionChips    = showActionChips;
+window.clearActionChips   = clearActionChips;
+
 // Forward-reference stub — flash/index.js overwrites this with the real impl
 window.wsMakeFlashcard = async function(btn, msgId, question) {
   console.warn('[ws] wsMakeFlashcard called before flashState loaded');
@@ -249,8 +258,40 @@ window.wsOpenFlashcardDeck = async function(deckId, topic) {
 window.wsStartFlashcardPractice = async function(deckId, topic) {
   console.warn('[ws] wsStartFlashcardPractice called before flashState loaded');
 };
+window.wsLoadDeckInChat = async function(deckId, topic) {
+  console.warn('[ws] wsLoadDeckInChat called before flashState loaded');
+};
+window.wsOpenFlashcardDeckFullscreen = async function(deckId, topic) {
+  // Fallback: navigate to the flash screen
+  if (typeof window.wsStartFlashcardPractice === 'function') {
+    window.wsStartFlashcardPractice(deckId, topic);
+  }
+};
 window.wsBackToWorkspace = function() {
   console.warn('[ws] wsBackToWorkspace called before flashState loaded');
+};
+window.wsShowExamCard = function(topic, userMessage) {
+  console.warn('[ws] wsShowExamCard called before flashState loaded');
+};
+window.wsStartInlineQuiz = async function(topic, cardMsg) {
+  console.warn('[ws] wsStartInlineQuiz called before flashState loaded');
+};
+window.wsNavigateToFullExam = function(topic) {
+  console.warn('[ws] wsNavigateToFullExam called before flashState loaded');
+};
+window.wsShowExamReturnCard = function(topic, score, total) {
+  console.warn('[ws] wsShowExamReturnCard called before flashState loaded');
+};
+
+// Forward-reference stub for wsSaveToWorkspace — WorkspaceScreen.mountWorkspaceScreen() overwrites with real impl
+window.wsSaveToWorkspace = function(type, data) {
+  console.warn('[ws] wsSaveToWorkspace called before WorkspaceScreen mounted');
+};
+window.wsDeleteWorkspaceItem = function(id) {
+  console.warn('[ws] wsDeleteWorkspaceItem called before WorkspaceScreen mounted');
+};
+window._wsHandleSaveToWorkspace = function(btn) {
+  console.warn('[ws] _wsHandleSaveToWorkspace called before WorkspaceScreen mounted');
 };
 
 // ── State · Flashcards ───────────────────────────────────────────────────────
@@ -270,6 +311,7 @@ import {
   wsOpenFlashcardDeck as _wsOpenFlashcardDeckReal,
   wsStartFlashcardPractice as _wsStartFlashcardPracticeReal,
   wsLoadDocumentFlashcards as _wsLoadDocumentFlashcardsReal,
+  wsLoadDeckInChat as _wsLoadDeckInChatReal,
   wsBackToWorkspace as _wsBackToWorkspaceReal,
   _fcCheckNavFrom,
   _fcStudyInChat, _fcReviewHardInChat,
@@ -277,6 +319,10 @@ import {
   unsubscribeFlashcardRealtime,
   getFlashcardsCache,
   isFlashcardRealtimeActive,
+  wsShowExamCard as _wsShowExamCardReal,
+  wsStartInlineQuiz as _wsStartInlineQuizReal,
+  wsNavigateToFullExam as _wsNavigateToFullExamReal,
+  wsShowExamReturnCard as _wsShowExamReturnCardReal,
 } from './state/flash/index.js';
 
 // Accent
@@ -333,10 +379,19 @@ window.wsGenerateFlashcardsInChat   = _wsGenerateFlashcardsInChatReal;
 window.wsOpenFlashcardDeck          = _wsOpenFlashcardDeckReal;
 window.wsStartFlashcardPractice     = _wsStartFlashcardPracticeReal;
 window.wsLoadDocumentFlashcards     = _wsLoadDocumentFlashcardsReal;
+window.wsLoadDeckInChat             = _wsLoadDeckInChatReal;
+// Full-screen fallback uses the real practice function once loaded
+window.wsOpenFlashcardDeckFullscreen = _wsStartFlashcardPracticeReal;
 window.wsBackToWorkspace        = _wsBackToWorkspaceReal;
 window._fcCheckNavFrom          = _fcCheckNavFrom;
 window._fcStudyInChat      = _fcStudyInChat;
 window._fcReviewHardInChat = _fcReviewHardInChat;
+
+// Inline quiz (chat-native exam mode)
+window.wsShowExamCard       = _wsShowExamCardReal;
+window.wsStartInlineQuiz    = _wsStartInlineQuizReal;
+window.wsNavigateToFullExam = _wsNavigateToFullExamReal;
+window.wsShowExamReturnCard = _wsShowExamReturnCardReal;
 
 // Flashcard Realtime
 window.subscribeToFlashcardRealtime   = subscribeToFlashcardRealtime;

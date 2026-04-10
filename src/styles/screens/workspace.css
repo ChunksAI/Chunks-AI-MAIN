@@ -587,6 +587,359 @@
 /* Notes scratchpad panel */
 #ws-notes-panel { background: var(--bg); }
 
+/* Workspace panel */
+#ws-workspace-panel {
+  background: var(--bg);
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Workspace panel tab badge (item count) */
+.ws-ptab-badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: var(--gold);
+  color: #090900;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* Workspace panel header */
+.wsp-header {
+  padding: 14px 16px 10px;
+  border-bottom: 1px solid var(--border-xs);
+  flex-shrink: 0;
+}
+.wsp-title {
+  font-family: var(--font-head);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.wsp-subtitle {
+  font-size: 11px;
+  color: var(--text-4);
+  margin-top: 2px;
+}
+
+/* Workspace item list */
+.wsp-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-sm) transparent;
+}
+.wsp-list::-webkit-scrollbar { width: 3px; }
+.wsp-list::-webkit-scrollbar-track { background: transparent; }
+.wsp-list::-webkit-scrollbar-thumb { background: var(--border-sm); border-radius: 99px; }
+
+/* Workspace item card */
+.wsp-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: background var(--t-fast);
+  border-bottom: 1px solid var(--border-xs);
+}
+.wsp-item:hover { background: var(--surface-2); }
+.wsp-item:last-child { border-bottom: none; }
+
+.wsp-item-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.wsp-item-body {
+  flex: 1;
+  min-width: 0;
+}
+.wsp-item-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wsp-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+.wsp-item-type {
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.wsp-item-extra,
+.wsp-item-date {
+  font-size: 10.5px;
+  color: var(--text-4);
+}
+.wsp-item-date::before { content: '·'; margin-right: 4px; }
+
+.wsp-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.wsp-item-open,
+.wsp-item-delete {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.wsp-item-open:hover { background: var(--surface-3); color: var(--text-1); }
+.wsp-item-delete:hover { background: rgba(248,113,113,0.12); color: #f87171; }
+
+/* Empty state */
+.wsp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+  gap: 10px;
+}
+.wsp-empty-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.wsp-empty-sub {
+  font-size: 11.5px;
+  color: var(--text-4);
+  max-width: 220px;
+  line-height: 1.6;
+}
+
+/* ── Panel Transitions (Workspace → Chat) ────────────────────────────────── */
+
+@keyframes ws-fade-slide-out {
+  from { opacity: 1; transform: translateX(0);    }
+  to   { opacity: 0; transform: translateX(-12px); }
+}
+@keyframes ws-fade-slide-in {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+
+.ws-panel-fade-out {
+  animation: ws-fade-slide-out 140ms var(--ease-snap) both;
+  pointer-events: none;
+}
+.ws-panel-fade-in {
+  animation: ws-fade-slide-in 200ms var(--ease-snap) both;
+}
+/* Remove the class after animation completes (JS adds, CSS removes via onanimationend handled in JS) */
+
+/* ── Inline Deck widget (rendered inside chat message list) ──────────────── */
+
+.ws-inline-deck {
+  /* card has no avatar — full width */
+  display: block;
+}
+.ws-inline-deck .ai-row {
+  justify-content: flex-start;
+}
+
+/* Banner "X loaded" */
+.ws-ild-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  background: var(--violet-muted);
+  border: 1px solid var(--violet-border);
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  color: var(--text-2);
+  font-weight: 500;
+}
+.ws-ild-banner-icon {
+  display: flex;
+  align-items: center;
+  color: var(--violet);
+}
+
+/* Body container */
+.ws-ild-body {
+  width: 100%;
+  max-width: 520px;
+}
+
+/* Progress bar */
+.ws-ild-progress {
+  height: 3px;
+  background: var(--surface-3);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.ws-ild-progress-bar {
+  height: 100%;
+  background: var(--violet);
+  border-radius: 9999px;
+  transition: width 200ms var(--ease-snap);
+}
+.ws-ild-counter {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-4);
+  text-align: right;
+  margin-bottom: 8px;
+}
+
+/* Card face */
+.ws-ild-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-md);
+  padding: 18px 16px 14px;
+  min-height: 100px;
+  position: relative;
+  cursor: pointer;
+  transition: border-color 120ms;
+  animation: cvp-panel-in 220ms var(--ease-snap) both;
+}
+.ws-ild-card:hover { border-color: var(--violet-border); }
+.ws-ild-card--flipped {
+  border-color: var(--gold);
+  background: rgba(232,172,46,0.04);
+}
+
+.ws-ild-face { display: flex; flex-direction: column; gap: 8px; }
+.ws-ild-back { display: none; }
+.ws-ild-card--flipped .ws-ild-front { display: none; }
+.ws-ild-card--flipped .ws-ild-back  { display: flex; }
+
+.ws-ild-face-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.ws-ild-face-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-1);
+  line-height: 1.5;
+}
+.ws-ild-reveal-btn {
+  margin-top: 8px;
+  align-self: flex-start;
+  padding: 4px 10px;
+  background: var(--violet-muted);
+  border: 1px solid var(--violet-border);
+  border-radius: var(--r-pill);
+  color: var(--violet);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: opacity var(--t-fast);
+}
+.ws-ild-reveal-btn:hover { opacity: 0.8; }
+
+/* Nav row */
+.ws-ild-nav {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  align-items: center;
+}
+.ws-ild-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 11px;
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-pill);
+  background: var(--surface-3);
+  color: var(--text-2);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.ws-ild-nav-btn:hover:not(:disabled) { background: var(--surface-hover); color: var(--text-1); }
+.ws-ild-nav-btn:disabled { opacity: 0.35; cursor: default; }
+.ws-ild-flip-btn {
+  flex: 1;
+  justify-content: center;
+  border-color: var(--violet-border);
+  background: var(--violet-muted);
+  color: var(--violet);
+  font-weight: 600;
+}
+.ws-ild-flip-btn:hover { background: var(--violet-muted); opacity: 0.85; }
+.ws-ild-nav-btn--primary {
+  background: var(--violet);
+  border-color: var(--violet);
+  color: #fff;
+  font-weight: 600;
+}
+.ws-ild-nav-btn--primary:hover:not(:disabled) { opacity: 0.88; background: var(--violet); color: #fff; }
+
+/* Action bar */
+.ws-ild-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-xs);
+}
+.ws-ild-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  background: transparent;
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-pill);
+  color: var(--text-3);
+  font-size: 11px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+.ws-ild-action-btn:hover {
+  background: var(--surface-2);
+  color: var(--text-1);
+  border-color: var(--border-sm);
+}
+
+
 /* Canvas panel occupies the same space as chat/notes */
 #ws-canvas-panel {
   position: absolute;
@@ -1553,7 +1906,8 @@
   flex: 1; min-height: 0; overflow-y: auto;
   overscroll-behavior: contain;
   contain: content;
-  padding: 20px 24px;
+  /* Center message column at max 720px; min 16px gutters on small panels */
+  padding: 20px max(16px, calc((100% - 720px) / 2));
   display: flex; flex-direction: column; gap: 18px;
 }
 
@@ -1565,6 +1919,11 @@
   background: var(--surface-2); border: 1px solid var(--border-xs);
   border-radius: 15px 15px 3px 15px;
   padding: 9px 13px; font-size: var(--chat-font-size); color: var(--text-1); line-height: 1.55;
+}
+/* Warm beige bubble in study theme */
+[data-theme="study"] .bubble-user {
+  background: var(--surface-3);
+  border-color: var(--border-sm);
 }
 
 .msg-ai { align-items: flex-start; }
@@ -1795,6 +2154,11 @@
 /* ── Card-style input container ── */
 .chat-input-card {
   position: relative; z-index: 1;
+  /* Center the input card to match the 720px message column.
+     .chat-input-wrap has 14px horizontal padding, so inner max is 720-28=692px. */
+  max-width: calc(720px - 28px);
+  margin-left: auto;
+  margin-right: auto;
   background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(14px) saturate(1.5);
   -webkit-backdrop-filter: blur(14px) saturate(1.5);
@@ -3451,4 +3815,374 @@
   border: 1px solid var(--gold-border);
   border-radius: var(--r-md);
   margin-top: 4px;
+}
+
+/* ── Inline Exam Card ─────────────────────────────────────────────────────── */
+.ws-exam-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-md);
+  padding: 16px;
+  max-width: 420px;
+}
+[data-theme="study"] .ws-exam-card {
+  background: var(--surface-1);
+  border-color: var(--border-md);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.ws-exam-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.ws-exam-card-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.ws-exam-card-title {
+  font-family: var(--font-head);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.ws-exam-card-topic {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+.ws-exam-card-divider {
+  border: none;
+  border-top: 1px solid var(--border-xs);
+  margin: 0 0 12px;
+}
+.ws-exam-card-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ws-exam-card-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--t-fast), border-color var(--t-fast);
+  width: 100%;
+}
+.ws-exam-card-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--border-sm);
+}
+[data-theme="study"] .ws-exam-card-btn {
+  background: var(--surface-2);
+}
+[data-theme="study"] .ws-exam-card-btn:hover {
+  background: var(--surface-3);
+}
+.ws-exam-card-btn--primary {
+  background: var(--gold-muted);
+  border-color: var(--gold-border);
+}
+.ws-exam-card-btn--primary:hover {
+  background: rgba(184,122,16,0.18);
+  border-color: var(--gold-border);
+}
+.ws-exam-card-btn-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.ws-exam-card-btn-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  font-family: var(--font-head);
+}
+.ws-exam-card-btn-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+
+/* ── Inline Quick Quiz Widget ─────────────────────────────────────────────── */
+.ws-iq-body {
+  max-width: 540px;
+}
+.ws-iq-loading {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  gap: 3px;
+}
+.ws-iq-progress-bar-wrap {
+  height: 4px;
+  background: var(--surface-3);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.ws-iq-progress-bar {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 9999px;
+  transition: width 300ms ease;
+}
+.ws-iq-counter {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-4);
+  text-align: right;
+  margin-bottom: 10px;
+}
+.ws-iq-question {
+  font-size: var(--chat-font-size);
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.ws-iq-options {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+.ws-iq-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-sm);
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--text-1);
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast);
+  line-height: 1.4;
+  font-family: var(--font-body);
+}
+.ws-iq-option:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--border-sm);
+}
+.ws-iq-option--selected {
+  background: var(--gold-muted);
+  border-color: var(--gold-border);
+  color: var(--text-1);
+}
+.ws-iq-option--correct {
+  background: rgba(16,185,129,0.12);
+  border-color: rgba(16,185,129,0.35);
+  color: var(--text-1);
+}
+.ws-iq-option--wrong {
+  background: rgba(248,113,113,0.10);
+  border-color: rgba(248,113,113,0.30);
+  color: var(--text-1);
+}
+.ws-iq-option:disabled { cursor: default; }
+.ws-iq-explanation {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+  padding: 9px 12px;
+  background: var(--surface-2);
+  border-left: 2px solid var(--gold);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  margin-bottom: 12px;
+}
+.ws-iq-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+.ws-iq-submit {
+  padding: 8px 18px;
+  background: var(--gold);
+  border: none;
+  border-radius: var(--r-pill);
+  color: #090900;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: opacity var(--t-fast);
+}
+.ws-iq-submit:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ws-iq-submit:not(:disabled):hover {
+  opacity: 0.88;
+}
+
+/* ── Inline Quiz Result Card ──────────────────────────────────────────────── */
+.ws-iq-result-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-md);
+  padding: 18px;
+  max-width: 380px;
+}
+[data-theme="study"] .ws-iq-result-card {
+  background: var(--surface-1);
+  border-color: var(--border-md);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.ws-iq-result-score {
+  font-family: var(--font-head);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin-bottom: 4px;
+}
+.ws-iq-result-sub {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-bottom: 12px;
+}
+.ws-iq-result-bar-wrap {
+  height: 6px;
+  background: var(--surface-3);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.ws-iq-result-bar {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 9999px;
+  transition: width 600ms ease;
+}
+.ws-iq-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.ws-iq-result-btn {
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  padding: 7px 13px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-sm);
+  background: var(--surface-1);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  white-space: nowrap;
+}
+.ws-iq-result-btn:hover {
+  background: var(--surface-3);
+  color: var(--text-1);
+}
+.ws-iq-result-btn--primary {
+  background: var(--gold-muted);
+  border-color: var(--gold-border);
+  color: var(--text-1);
+}
+.ws-iq-result-btn--primary:hover {
+  background: rgba(184,122,16,0.18);
+}
+
+/* ── Study Loop: Action Chip Bar ─────────────────────────────────────────── */
+
+.ws-chip-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.ws-chip-bar::-webkit-scrollbar { display: none; }
+
+.ws-study-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-pill, 999px);
+  color: var(--text-2);
+  font-size: 12px;
+  font-family: var(--font-body, sans-serif);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.ws-study-chip:hover {
+  background: var(--surface-3);
+  border-color: var(--violet-border, rgba(139,124,248,0.3));
+  color: var(--text-1);
+}
+.ws-study-chip:active {
+  background: rgba(139,124,248,0.12);
+}
+.ws-study-chip-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+[data-theme="study"] .ws-study-chip {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.08);
+}
+[data-theme="study"] .ws-study-chip:hover {
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(139,124,248,0.3);
+}
+
+/* ── Study Loop: Exam Return Card ────────────────────────────────────────── */
+
+.ws-exam-return-card {
+  padding: 16px 18px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-md, 10px);
+}
+[data-theme="study"] .ws-exam-return-card {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.06);
+}
+.ws-exam-return-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ws-exam-return-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+.ws-exam-return-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.ws-exam-return-score {
+  font-size: 13px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.ws-exam-return-bar-wrap {
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 10px 0 12px;
+}
+.ws-exam-return-bar {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--gold);
+  transition: width 0.6s ease;
 }

@@ -16,14 +16,17 @@
  */
 
 import { getWeakAreas, getAllProgress } from '../lib/progressTracker.js';
+import { getSession } from './workspace/studySession.js';
 
 // ── Global context ────────────────────────────────────────────────────────────
 
 const _ctx = {
-  topic:   null,   // last known study topic
-  page:    null,   // current PDF page number
-  docId:   null,   // current book/doc id
-  screen:  null,   // current screen name
+  topic:      null,   // last known study topic
+  page:       null,   // current PDF page number
+  docId:      null,   // current book/doc id
+  screen:     null,   // current screen name
+  lastAction: null,   // last study loop action
+  quizScore:  null,   // last quiz/exam score { correct, total, pct }
 };
 
 export function getGlobalContext() { return { ..._ctx }; }
@@ -53,9 +56,15 @@ const _INTENTS = [
     re: /(?:create|make|generate|build)\s+(?:me\s+)?flashcards?(?:\s+(?:now|please))?$/i,
     extract: () => ({}),
   },
+  // Exam intent: "make me an exam on Mitosis" / "create an exam on X" / "give me a quiz on X"
+  {
+    type: 'INLINE_EXAM',
+    re: /(?:make|create|generate|give)\s+(?:me\s+)?(?:an?\s+)?(?:exam|quiz|test)\s+(?:on|about|for)\s+(.+)/i,
+    extract: m => ({ topic: m[1].trim().slice(0, 120) }),
+  },
   // Quiz: "quiz me on entropy" / "quiz me" / "test me on X"
   {
-    type: 'QUIZ',
+    type: 'INLINE_EXAM',
     re: /(?:quiz|test)\s+me\s+(?:on|about)\s+(.+)/i,
     extract: m => ({ topic: m[1].trim().slice(0, 120) }),
   },
@@ -190,6 +199,21 @@ export function handleCommand(input, ctxOverride) {
       return true;
     }
 
+    case 'INLINE_EXAM': {
+      const topic = intent.topic || ctx.topic || '';
+      if (typeof window.wsShowExamCard === 'function') {
+        window.wsShowExamCard(topic, input.trim());
+      } else {
+        // Fallback: navigate to exam screen
+        _showSystemFeedback('📝 Opening exam…');
+        if (topic) {
+          try { sessionStorage.setItem('chunks_nav_topic', topic); } catch (_) {}
+        }
+        if (typeof window.showScreen === 'function') window.showScreen('exam');
+      }
+      return true;
+    }
+
     case 'QUIZ': {
       const topic = intent.topic || ctx.topic;
       _showSystemFeedback('📝 Opening quiz…');
@@ -246,6 +270,35 @@ export function getSmartSuggestions(ctxOverride) {
   const ctx    = { ..._ctx, ...(ctxOverride || {}) };
   const weak   = getWeakAreas();
   const suggestions = [];
+
+  // 0. Study-loop context: use quizScore to drive suggestions
+  if (ctx.quizScore && ctx.topic) {
+    const score = ctx.quizScore;
+    const t = _capitalize(ctx.topic);
+    if (score.pct < 50) {
+      suggestions.push({ text: `Review flashcards on ${t}`, action: `wsGenerateFlashcardsInChat('${_esc(ctx.topic)}')`, icon: '📚' });
+      suggestions.push({ text: `Simpler explanation of ${t}`, action: `wsSetInput('Explain ${_esc(ctx.topic)} in simpler terms')`, icon: '💡' });
+    } else if (score.pct < 80) {
+      suggestions.push({ text: `Retry quiz on ${t}`, action: `wsSetInput('Quiz me on ${_esc(ctx.topic)}')`, icon: '🔁' });
+      suggestions.push({ text: `Review flashcards on ${t}`, action: `wsGenerateFlashcardsInChat('${_esc(ctx.topic)}')`, icon: '📚' });
+    } else {
+      suggestions.push({ text: `Full exam on ${t}`, action: `wsNavigateToFullExam('${_esc(ctx.topic)}')`, icon: '🧪' });
+      suggestions.push({ text: 'Try a new topic', action: `wsSetInput('')`, icon: '✨' });
+    }
+    return suggestions.slice(0, 4);
+  }
+
+  // 0b. Post-action suggestions (no score available)
+  if (ctx.lastAction === 'explain' && ctx.topic) {
+    suggestions.push({ text: 'Make flashcards', action: `wsGenerateFlashcardsInChat('${_esc(ctx.topic)}')`, icon: '🧠' });
+    suggestions.push({ text: `Quiz me on ${_capitalize(ctx.topic)}`, action: `wsSetInput('Quiz me on ${_esc(ctx.topic)}')`, icon: '📝' });
+    return suggestions.slice(0, 4);
+  }
+  if (ctx.lastAction === 'flashcards' && ctx.topic) {
+    suggestions.push({ text: `Quiz me on ${_capitalize(ctx.topic)}`, action: `wsSetInput('Quiz me on ${_esc(ctx.topic)}')`, icon: '📝' });
+    suggestions.push({ text: `Full exam on ${_capitalize(ctx.topic)}`, action: `wsNavigateToFullExam('${_esc(ctx.topic)}')`, icon: '🧪' });
+    return suggestions.slice(0, 4);
+  }
 
   // 1. Weak area reminders (highest priority)
   if (weak.length > 0) {
@@ -339,9 +392,13 @@ export function syncContextFromWorkspace() {
   try {
     const page  = window.ws?.currentPage ?? null;
     const docId = window.ws?.bookId      ?? null;
-    const topic = sessionStorage.getItem('chunks_nav_topic') || null;
     const screen = sessionStorage.getItem('chunks_last_screen') || null;
-    Object.assign(_ctx, { page, docId, topic, screen });
+    // Pull topic + study loop context from studySession (preferred) or sessionStorage
+    const session    = getSession();
+    const topic      = session.topic || sessionStorage.getItem('chunks_nav_topic') || null;
+    const lastAction = session.lastAction || null;
+    const quizScore  = session.quizScore  || null;
+    Object.assign(_ctx, { page, docId, topic, screen, lastAction, quizScore });
   } catch (_) {}
 }
 

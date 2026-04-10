@@ -107,12 +107,20 @@ export {
   wsOpenFlashcardDeck,
   wsStartFlashcardPractice,
   wsLoadDocumentFlashcards,
+  wsLoadDeckInChat,
   wsBackToWorkspace,
   _fcCheckNavFrom,
   _fcStudyInChat,
   _fcReviewHardInChat,
   _fcInit,
 } from './chatBridge.js';
+
+export {
+  wsShowExamCard,
+  wsStartInlineQuiz,
+  wsNavigateToFullExam,
+  wsShowExamReturnCard,
+} from '../workspace/inlineQuiz.js';
 
 export {
   subscribeToFlashcardRealtime,

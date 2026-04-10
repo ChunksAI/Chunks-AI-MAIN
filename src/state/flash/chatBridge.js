@@ -23,6 +23,8 @@ import {
   wsAppendUser, wsAppendThinking, wsRemoveThinking,
   wsAppendError, wsScrollBottom,
 } from '../workspace/chat.js';
+import { updateSession } from '../workspace/studySession.js';
+import { showActionChips, getPostFlashcardChips } from '../workspace/actionChips.js';
 
 // ── Workspace make flashcard ────────────────────────────────────────────────
 
@@ -180,6 +182,8 @@ export async function wsGenerateFlashcardsInChat(topic) {
 
     const safeId    = String(deckId).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const safeTopic = effectiveTopic.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const safeTopicAttr = effectiveTopic.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const safeIdAttr    = String(deckId).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
     const msgs = $el('ws-messages');
     const d = document.createElement('div');
@@ -210,11 +214,33 @@ export async function wsGenerateFlashcardsInChat(topic) {
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 Practice
               </button>
+              <button class="ws-save-to-workspace-btn"
+                data-deck-id="${safeIdAttr}" data-topic="${safeTopicAttr}" data-count="${count}"
+                style="display:flex;align-items:center;gap:5px;padding:7px 12px;background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);transition:background 0.15s;white-space:nowrap;"
+                onmouseenter="this.style.background='var(--surface-hover)'" onmouseleave="this.style.background='var(--surface-3)'">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                Save to Workspace
+              </button>
             </div>
           </div>
         </div>
       </div>`;
     if (msgs) { msgs.appendChild(d); wsScrollBottom(); }
+
+    // Wire up Save to Workspace button via addEventListener (avoids inline onclick XSS risk)
+    const saveBtn = d.querySelector('.ws-save-to-workspace-btn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        const btnDeckId = saveBtn.dataset.deckId;
+        const btnTopic  = saveBtn.dataset.topic;
+        const btnCount  = Number(saveBtn.dataset.count) || 0;
+        if (typeof window.wsSaveToWorkspace === 'function') {
+          window.wsSaveToWorkspace('flashcards', { title: btnTopic, deckId: btnDeckId, topic: btnTopic, count: btnCount });
+        }
+        saveBtn.textContent = '✓ Saved';
+        saveBtn.disabled = true;
+      });
+    }
 
     // Persist the flashcard exchange to history so it survives session reload.
     ws.chatHistory.push({ role: 'user', content: displayMsg });
@@ -227,6 +253,10 @@ export async function wsGenerateFlashcardsInChat(topic) {
     if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
 
     showToast?.('✦', `${count} cards created — "${effectiveTopic}"`, 'var(--gold)');
+
+    // ── Study Loop: update session + show guidance chips ──────────────────
+    updateSession({ topic: effectiveTopic, lastAction: 'flashcards', sourceFeature: 'chat', chatMode: 'normal' });
+    showActionChips(getPostFlashcardChips(effectiveTopic), effectiveTopic);
   } catch (err) {
     wsRemoveThinking();
     wsAppendError(err.message || 'Failed to generate flashcards');
@@ -241,6 +271,13 @@ export async function wsGenerateFlashcardsInChat(topic) {
 // ── Open a specific flashcard deck from chat ─────────────────────────────────
 
 export async function wsOpenFlashcardDeck(deckId, topic) {
+  // When called from workspace panel reopen, render inline in chat
+  if (typeof window.wsLoadDeckInChat === 'function') {
+    window.wsLoadDeckInChat(deckId, topic);
+    return;
+  }
+
+  // Legacy path: navigate to the flash screen
   try {
     sessionStorage.setItem('chunks_nav_from', 'workspace');
     if (topic) sessionStorage.setItem('chunks_nav_topic', topic);
@@ -265,6 +302,180 @@ export async function wsOpenFlashcardDeck(deckId, topic) {
       await _fcRenderDeckList();
     }
   }, 200);
+}
+
+// ── Load a flashcard deck inline into chat ────────────────────────────────────
+
+/**
+ * Loads a saved deck and renders an interactive inline flashcard widget
+ * inside the chat panel.  Called when a user reopens a saved workspace item.
+ */
+export async function wsLoadDeckInChat(deckId, topic) {
+  const $msgs = $el('ws-messages');
+  if (!$msgs) return;
+
+  // 1 — Notify the user with a banner message
+  const bannerEl = document.createElement('div');
+  bannerEl.className = 'msg msg-ai ws-inline-deck-banner';
+  const safeTopic = (topic || 'Flashcards').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  bannerEl.innerHTML = `
+    <div class="ai-row">
+      <div class="ai-body">
+        <div class="ws-ild-banner">
+          <div class="ws-ild-banner-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+          </div>
+          <span><strong>${safeTopic}</strong> loaded</span>
+        </div>
+      </div>
+    </div>`;
+  $msgs.appendChild(bannerEl);
+  wsScrollBottom();
+
+  // 2 — Load deck cards from DB
+  let cards = [];
+  try {
+    const decks = await FlashcardDB.fcLoadDecks();
+    const deck  = decks.find(d => String(d.id) === String(deckId) || d.name === deckId);
+    if (deck) {
+      cards = await FlashcardDB.fcLoadCards(deck);
+    }
+  } catch (_) {}
+
+  if (!cards.length) {
+    const errEl = document.createElement('div');
+    errEl.className = 'msg msg-ai';
+    errEl.innerHTML = `<div class="ai-row"><div class="ai-body"><p class="ai-text" style="color:#f87171;">⚠ Couldn't load flashcards for this deck.</p></div></div>`;
+    $msgs.appendChild(errEl);
+    wsScrollBottom();
+    return;
+  }
+
+  // 3 — Render the inline deck widget
+  _wsInlineDeckWidget($msgs, cards, topic || 'Flashcards', deckId);
+}
+
+/**
+ * Creates and appends a self-contained interactive flashcard widget to the
+ * chat message list.
+ * @param {HTMLElement} container
+ * @param {Array}       cards      Array of {front, back, question, answer} objects
+ * @param {string}      deckTitle
+ * @param {string}      deckId
+ */
+function _wsInlineDeckWidget(container, cards, deckTitle, deckId) {
+  // ── Widget state ────────────────────────────────────────────────────────────
+  let deck    = [...cards];
+  let idx     = 0;
+  let flipped = false;
+
+  const root = document.createElement('div');
+  root.className = 'msg msg-ai ws-inline-deck';
+
+  function _render() {
+    const card  = deck[idx];
+    const front = (card.front || card.question || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const back  = (card.back  || card.answer  || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const total = deck.length;
+    const pct   = ((idx + 1) / total) * 100;
+
+    root.innerHTML = `
+      <div class="ai-row">
+        <div class="ai-body ws-ild-body">
+          <!-- Progress bar -->
+          <div class="ws-ild-progress">
+            <div class="ws-ild-progress-bar" style="width:${pct.toFixed(1)}%"></div>
+          </div>
+          <div class="ws-ild-counter">${idx + 1} / ${total}</div>
+
+          <!-- Card face -->
+          <div class="ws-ild-card ${flipped ? 'ws-ild-card--flipped' : ''}">
+            <div class="ws-ild-face ws-ild-front">
+              <div class="ws-ild-face-label">Question</div>
+              <div class="ws-ild-face-text">${front}</div>
+              ${!flipped ? `<button class="ws-ild-reveal-btn">Reveal Answer ↓</button>` : ''}
+            </div>
+            <div class="ws-ild-face ws-ild-back">
+              <div class="ws-ild-face-label" style="color:var(--gold);">Answer</div>
+              <div class="ws-ild-face-text">${back}</div>
+            </div>
+          </div>
+
+          <!-- Nav buttons -->
+          <div class="ws-ild-nav">
+            <button class="ws-ild-nav-btn" data-action="prev" ${idx === 0 ? 'disabled' : ''}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg>
+              Prev
+            </button>
+            <button class="ws-ild-nav-btn ws-ild-flip-btn" data-action="flip">
+              ${flipped ? 'Show Question' : 'Flip Card'}
+            </button>
+            <button class="ws-ild-nav-btn ws-ild-nav-btn--primary" data-action="next" ${idx === total - 1 ? 'disabled' : ''}>
+              Next
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </div>
+
+          <!-- Action bar -->
+          <div class="ws-ild-actions">
+            <button class="ws-ild-action-btn" data-action="shuffle" title="Shuffle deck">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/></svg>
+              Shuffle
+            </button>
+            <button class="ws-ild-action-btn" data-action="quiz" title="Ask AI to quiz you">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/><circle cx="12" cy="12" r="10"/></svg>
+              Quiz me
+            </button>
+            <button class="ws-ild-action-btn" data-action="fullscreen" title="Open full flashcard mode">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+              Full mode
+            </button>
+          </div>
+        </div>
+      </div>`;
+
+    _bindActions();
+  }
+
+  function _shuffle() {
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    idx = 0;
+    flipped = false;
+    _render();
+    wsScrollBottom();
+    showToast?.('🔁', 'Deck shuffled', 'var(--text-3)');
+  }
+
+  function _bindActions() {
+    root.querySelectorAll('[data-action]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const action = btn.dataset.action;
+        if (action === 'prev') {
+          if (idx > 0) { idx--; flipped = false; _render(); wsScrollBottom(); }
+        } else if (action === 'next') {
+          if (idx < deck.length - 1) { idx++; flipped = false; _render(); wsScrollBottom(); }
+        } else if (action === 'flip') {
+          flipped = !flipped; _render();
+        } else if (action === 'shuffle') {
+          _shuffle();
+        } else if (action === 'quiz') {
+          const quizTitle = deckTitle.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+          if (typeof window.wsSetInput === 'function') window.wsSetInput(`Quiz me on "${quizTitle}"`);
+          if (typeof window.wsChatSend === 'function') setTimeout(() => window.wsChatSend(), 50);
+        } else if (action === 'fullscreen') {
+          // Open the full flash screen for this deck
+          window.wsOpenFlashcardDeckFullscreen?.(deckId, deckTitle);
+        }
+      });
+    });
+  }
+
+  _render();
+  container.appendChild(root);
+  wsScrollBottom();
 }
 
 // ── Start flashcard practice session from chat ───────────────────────────────
