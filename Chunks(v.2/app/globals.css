@@ -250,7 +250,7 @@ body {
   z-index: 5;
 }
 
-.topbar-left { display: flex; align-items: center; gap: 12px; flex: 1; }
+.topbar-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
 
 .session-title { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 
@@ -267,9 +267,13 @@ body {
   font-size: 15px; font-weight: 500;
   color: var(--text);
   letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
-.topbar-right { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.topbar-right { display: flex; align-items: center; gap: 10px; flex: 1; justify-content: flex-end; }
 
 .study-timer {
   display: flex; align-items: center; gap: 6px;
