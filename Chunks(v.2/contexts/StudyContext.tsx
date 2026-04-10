@@ -435,6 +435,41 @@ function clearSlidesFromStorage(): void {
   }
 }
 
+// ─── My Documents helpers (Library "My Documents" section) ───────────────────
+
+export const MY_DOCS_STORAGE_KEY = 'chunks_v2_my_docs';
+
+export interface MyDocMeta {
+  docTitle: string;
+  filename: string;
+  uploadedAt: string;
+}
+
+function loadMyDocsFromStorage(): MyDocMeta[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = sessionStorage.getItem(MY_DOCS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed)) return parsed as MyDocMeta[];
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+function appendMyDocToStorage(meta: MyDocMeta): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = loadMyDocsFromStorage();
+    // Deduplicate by filename — move the latest upload to the front
+    const deduped = existing.filter((d) => d.filename !== meta.filename);
+    sessionStorage.setItem(MY_DOCS_STORAGE_KEY, JSON.stringify([meta, ...deduped]));
+  } catch {
+    // ignore — storage may be unavailable or quota exceeded
+  }
+}
+
 // ─── Recents helpers ─────────────────────────────────────────────────────────
 
 const RECENTS_KEY = 'chunks_v2_recents';
@@ -732,6 +767,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       const docTitle = res.filename.replace(/\.[^.]+$/, ''); // strip extension
       dispatch({ type: 'SET_SLIDES', payload: { slides: res.slides, docTitle, bookId: res.bookId } });
       persistSlidesToStorage({ slides: res.slides, docTitle, bookId: res.bookId ?? null });
+      appendMyDocToStorage({ docTitle, filename: res.filename, uploadedAt: new Date().toISOString() });
       dispatch({ type: 'SET_TOPIC', payload: docTitle });
       dispatch({
         type: 'ADD_RECENT',
