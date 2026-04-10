@@ -10,7 +10,6 @@
 
 import { API_BASE, _getAuthHeader } from '../../lib/api.js';
 import { $el } from '../domHelpers.js';
-import { ws } from './state.js';
 import { wsScrollBottom, wsAppendUser } from './chat.js';
 import { saveExamResult } from '../../lib/examDb.js';
 import { showScreen } from '../navigation/index.js';
@@ -23,6 +22,19 @@ function _esc(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+/**
+ * Produce a value safe for use inside an onclick="...'VALUE'..." attribute:
+ * first JS-escapes the string (backslash, single-quote, newlines), then
+ * HTML-entity-escapes the result for the surrounding HTML attribute context.
+ */
+function _escJsAttr(s) {
+  const jsEscaped = String(s ?? '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/\r?\n/g, ' ');
+  return _esc(jsEscaped);
 }
 
 // ── Question generation ───────────────────────────────────────────────────────
@@ -110,8 +122,8 @@ export function wsShowExamCard(topic, userMessage) {
     wsAppendUser(userMessage, '');
   }
 
-  const safeTopic = _esc(topic || 'this topic');
-  const jsTopicLiteral = (topic || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  const safeTopic     = _esc(topic || 'this topic');
+  const safeTopicAttr = _escJsAttr(topic || '');  // safe inside onclick="...('...')"
 
   const wrapper = document.createElement('div');
   wrapper.className = 'msg msg-ai ws-exam-card-msg';
@@ -130,7 +142,7 @@ export function wsShowExamCard(topic, userMessage) {
           <div class="ws-exam-card-divider"></div>
           <div class="ws-exam-card-options">
             <button class="ws-exam-card-btn ws-exam-card-btn--primary"
-              onclick="wsStartInlineQuiz('${_esc(jsTopicLiteral)}', this.closest('.ws-exam-card-msg'))">
+              onclick="wsStartInlineQuiz('${safeTopicAttr}', this.closest('.ws-exam-card-msg'))">
               <span class="ws-exam-card-btn-icon">⚡</span>
               <div>
                 <div class="ws-exam-card-btn-label">Quick Quiz</div>
@@ -138,7 +150,7 @@ export function wsShowExamCard(topic, userMessage) {
               </div>
             </button>
             <button class="ws-exam-card-btn"
-              onclick="wsNavigateToFullExam('${_esc(jsTopicLiteral)}')">
+              onclick="wsNavigateToFullExam('${safeTopicAttr}')">
               <span class="ws-exam-card-btn-icon">🧪</span>
               <div>
                 <div class="ws-exam-card-btn-label">Full Exam</div>
@@ -146,7 +158,7 @@ export function wsShowExamCard(topic, userMessage) {
               </div>
             </button>
             <button class="ws-exam-card-btn"
-              onclick="wsNavigateToFullExam('${_esc(jsTopicLiteral)}')">
+              onclick="wsNavigateToFullExam('${safeTopicAttr}')">
               <span class="ws-exam-card-btn-icon">⚙️</span>
               <div>
                 <div class="ws-exam-card-btn-label">Customize</div>
@@ -222,6 +234,29 @@ function _mountQuizWidget(containerMsg, topic, questions) {
     answers:  [],         // { selected, correct, isRight } per question
   };
 
+  function _onNext() {
+    if (!state.selected) return;
+    if (!state.revealed) {
+      // Reveal answer for this question
+      const q = questions[state.idx];
+      const correct = (q.answer || '').toUpperCase().trim();
+      const isRight = state.selected === correct;
+      state.answers.push({ selected: state.selected, correct, isRight });
+      state.revealed = true;
+      _render();
+      return;
+    }
+    // Advance to next question or show results
+    state.idx++;
+    state.selected = null;
+    state.revealed = false;
+    if (state.idx >= questions.length) {
+      _showResults(containerMsg, topic, questions, state.answers);
+    } else {
+      _render();
+    }
+  }
+
   function _render() {
     const q     = questions[state.idx];
     const total = questions.length;
@@ -231,7 +266,7 @@ function _mountQuizWidget(containerMsg, topic, questions) {
       const letter = String.fromCharCode(65 + i);   // A, B, C, D
       let cls = 'ws-iq-option';
       if (state.revealed) {
-        const isCorrect = letter === (q.answer || '').toUpperCase().trim();
+        const isCorrect  = letter === (q.answer || '').toUpperCase().trim();
         const isSelected = letter === state.selected;
         if (isCorrect)       cls += ' ws-iq-option--correct';
         else if (isSelected) cls += ' ws-iq-option--wrong';
@@ -239,8 +274,8 @@ function _mountQuizWidget(containerMsg, topic, questions) {
         cls += ' ws-iq-option--selected';
       }
       const disabled = state.revealed ? 'disabled' : '';
-      return `<button class="${cls}" ${disabled}
-        onclick="window._wsIqSelect('${letter}')">${_esc(opt)}</button>`;
+      // Use data-letter instead of inline onclick to avoid injecting letter into HTML
+      return `<button class="${cls}" ${disabled} data-letter="${_esc(letter)}">${_esc(opt)}</button>`;
     }).join('');
 
     const explanationHtml = state.revealed && q.explanation
@@ -263,46 +298,26 @@ function _mountQuizWidget(containerMsg, topic, questions) {
           <div class="ws-iq-options">${optionsHtml}</div>
           ${explanationHtml}
           <div class="ws-iq-footer">
-            <button class="ws-iq-submit" ${!state.selected ? 'disabled' : ''}
-              onclick="window._wsIqNext()">
+            <button class="ws-iq-submit" ${!state.selected ? 'disabled' : ''}>
               ${btnLabel}
             </button>
           </div>
         </div>
       </div>`;
 
+    // Attach event listeners after innerHTML update (avoids inline onclick)
+    containerMsg.querySelectorAll('.ws-iq-option').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (state.revealed) return;
+        state.selected = btn.dataset.letter;
+        _render();
+      });
+    });
+    const submitBtn = containerMsg.querySelector('.ws-iq-submit');
+    if (submitBtn) submitBtn.addEventListener('click', _onNext);
+
     wsScrollBottom();
   }
-
-  // Global handlers for onclick (widget is in innerHTML so needs window functions)
-  window._wsIqSelect = function(letter) {
-    if (state.revealed) return;
-    state.selected = letter;
-    _render();
-  };
-
-  window._wsIqNext = function() {
-    if (!state.selected) return;
-    if (!state.revealed) {
-      // Reveal answer
-      const q = questions[state.idx];
-      const correct = (q.answer || '').toUpperCase().trim();
-      const isRight = state.selected === correct;
-      state.answers.push({ selected: state.selected, correct, isRight });
-      state.revealed = true;
-      _render();
-      return;
-    }
-    // Advance to next question or show results
-    state.idx++;
-    state.selected = null;
-    state.revealed = false;
-    if (state.idx >= questions.length) {
-      _showResults(containerMsg, topic, questions, state.answers);
-    } else {
-      _render();
-    }
-  };
 
   _render();
 }
@@ -322,9 +337,8 @@ function _showResults(containerMsg, topic, questions, answers) {
     meta:  { mode: 'inline_quick_quiz', correct, total },
   }).catch(() => {});
 
-  const emoji = pct >= 80 ? '🎉' : pct >= 60 ? '👍' : '💪';
+  const emoji     = pct >= 80 ? '🎉' : pct >= 60 ? '👍' : '💪';
   const safeTopic = _esc(topic || 'this topic');
-  const jsTopicLiteral = (topic || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
   containerMsg.className = 'msg msg-ai';
   containerMsg.innerHTML = `
@@ -337,28 +351,28 @@ function _showResults(containerMsg, topic, questions, answers) {
             <div class="ws-iq-result-bar" style="width:${pct}%"></div>
           </div>
           <div class="ws-iq-result-actions">
-            <button class="ws-iq-result-btn"
-              onclick="wsStartInlineQuiz('${_esc(jsTopicLiteral)}', this.closest('.msg'))">
-              🔁 Retry Quiz
-            </button>
-            <button class="ws-iq-result-btn"
-              onclick="wsGenerateFlashcardsInChat('${_esc(jsTopicLiteral)}')">
-              📚 Review Flashcards
-            </button>
-            <button class="ws-iq-result-btn ws-iq-result-btn--primary"
-              onclick="wsNavigateToFullExam('${_esc(jsTopicLiteral)}')">
-              🧪 Take Full Exam
-            </button>
+            <button class="ws-iq-result-btn" data-action="retry">🔁 Retry Quiz</button>
+            <button class="ws-iq-result-btn" data-action="flashcards">📚 Review Flashcards</button>
+            <button class="ws-iq-result-btn ws-iq-result-btn--primary" data-action="fullexam">🧪 Take Full Exam</button>
           </div>
         </div>
       </div>
     </div>`;
 
-  wsScrollBottom();
+  // Wire up result action buttons without inline onclick
+  containerMsg.querySelector('[data-action="retry"]')?.addEventListener('click', () => {
+    wsStartInlineQuiz(topic, containerMsg);
+  });
+  containerMsg.querySelector('[data-action="flashcards"]')?.addEventListener('click', () => {
+    if (typeof window.wsGenerateFlashcardsInChat === 'function') {
+      window.wsGenerateFlashcardsInChat(topic);
+    }
+  });
+  containerMsg.querySelector('[data-action="fullexam"]')?.addEventListener('click', () => {
+    wsNavigateToFullExam(topic);
+  });
 
-  // Cleanup global handlers to avoid leaks
-  delete window._wsIqSelect;
-  delete window._wsIqNext;
+  wsScrollBottom();
 }
 
 // ── Full Exam navigation ──────────────────────────────────────────────────────
