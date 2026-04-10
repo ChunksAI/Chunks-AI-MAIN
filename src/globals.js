@@ -260,6 +260,9 @@ window.wsSaveToWorkspace = function(type, data) {
 window.wsDeleteWorkspaceItem = function(id) {
   console.warn('[ws] wsDeleteWorkspaceItem called before WorkspaceScreen mounted');
 };
+window._wsHandleSaveToWorkspace = function(btn) {
+  console.warn('[ws] _wsHandleSaveToWorkspace called before WorkspaceScreen mounted');
+};
 
 // ── State · Flashcards ───────────────────────────────────────────────────────
 import {

@@ -244,6 +244,8 @@ async function _wsFinalizeThinking(thinkingContent) {
 export function _wsFlashcardResultHtml(deckId, topic, count) {
   const safeId    = String(deckId).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;');
   const safeTopic = (topic || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const safeTopicAttr = (topic || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const safeIdAttr    = String(deckId).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
   const n = Number(count) || 0;
   return `<div class="ws-gen-result-card" style="margin-top:10px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--violet-border);border-radius:var(--r-md);">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
@@ -268,7 +270,8 @@ export function _wsFlashcardResultHtml(deckId, topic, count) {
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         Practice
       </button>
-      <button onclick="wsSaveToWorkspace('flashcards',{title:'${safeTopic}',deckId:'${safeId}',topic:'${safeTopic}',count:${n}});this.textContent='✓ Saved';this.disabled=true;"
+      <button class="ws-save-to-workspace-btn" onclick="_wsHandleSaveToWorkspace(this)"
+        data-deck-id="${safeIdAttr}" data-topic="${safeTopicAttr}" data-count="${n}"
         style="display:flex;align-items:center;gap:5px;padding:7px 12px;background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);transition:background 0.15s;white-space:nowrap;"
         onmouseenter="this.style.background='var(--surface-hover)'" onmouseleave="this.style.background='var(--surface-3)'">
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>

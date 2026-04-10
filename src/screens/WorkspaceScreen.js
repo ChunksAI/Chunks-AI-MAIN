@@ -503,9 +503,10 @@ export function mountWorkspaceScreen() {
   }
   placeholder.outerHTML = WORKSPACE_HTML;
 
-  // Wire up Workspace save/delete to window so inline onclick handlers can call them
-  window.wsSaveToWorkspace     = wsSaveToWorkspace;
-  window.wsDeleteWorkspaceItem = _wsDeleteWorkspaceItem;
+  // Wire up Workspace save/delete/save-handler to window so onclick handlers can call them
+  window.wsSaveToWorkspace        = wsSaveToWorkspace;
+  window.wsDeleteWorkspaceItem    = _wsDeleteWorkspaceItem;
+  window._wsHandleSaveToWorkspace = _wsHandleSaveToWorkspace;
 
   // Refresh smart suggestions after mount
   setTimeout(refreshSmartSuggestions, 300);
@@ -604,18 +605,39 @@ const _WS_TYPE_META = {
  */
 export function wsSaveToWorkspace(type, data) {
   let items = [];
-  try { items = JSON.parse(localStorage.getItem(_WS_SAVED_KEY) || '[]'); } catch (_) {}
+  try { items = JSON.parse(localStorage.getItem(_WS_SAVED_KEY) || '[]'); } catch (e) {
+    console.warn('[Workspace] Failed to parse saved items:', e);
+  }
   const id = `wsitem-${Date.now()}`;
   items.unshift({ id, type, data, savedAt: new Date().toISOString() });
   // Cap at 50 items
   if (items.length > 50) items = items.slice(0, 50);
-  try { localStorage.setItem(_WS_SAVED_KEY, JSON.stringify(items)); } catch (_) {}
+  try { localStorage.setItem(_WS_SAVED_KEY, JSON.stringify(items)); } catch (e) {
+    console.warn('[Workspace] Failed to save item (storage may be full):', e);
+  }
   _wsUpdateWorkspaceBadge(items.length);
   return id;
 }
 
 export function wsLoadWorkspaceItems() {
-  try { return JSON.parse(localStorage.getItem(_WS_SAVED_KEY) || '[]'); } catch (_) { return []; }
+  try { return JSON.parse(localStorage.getItem(_WS_SAVED_KEY) || '[]'); } catch (e) {
+    console.warn('[Workspace] Failed to load saved items:', e);
+    return [];
+  }
+}
+
+/**
+ * Named handler for the "Save to Workspace" button on flashcard result cards.
+ * Reads the deck data from the button's data-* attributes to avoid embedding
+ * user content inside onclick attribute strings.
+ */
+export function _wsHandleSaveToWorkspace(btn) {
+  const deckId = btn.dataset.deckId || '';
+  const topic  = btn.dataset.topic  || '';
+  const count  = Number(btn.dataset.count) || 0;
+  wsSaveToWorkspace('flashcards', { title: topic, deckId, topic, count });
+  btn.textContent = '✓ Saved';
+  btn.disabled = true;
 }
 
 function _wsUpdateWorkspaceBadge(count) {

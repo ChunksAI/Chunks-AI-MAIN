@@ -180,6 +180,8 @@ export async function wsGenerateFlashcardsInChat(topic) {
 
     const safeId    = String(deckId).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const safeTopic = effectiveTopic.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const safeTopicAttr = effectiveTopic.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const safeIdAttr    = String(deckId).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 
     const msgs = $el('ws-messages');
     const d = document.createElement('div');
@@ -210,7 +212,8 @@ export async function wsGenerateFlashcardsInChat(topic) {
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                 Practice
               </button>
-              <button onclick="wsSaveToWorkspace('flashcards',{title:'${safeTopic}',deckId:'${safeId}',topic:'${safeTopic}',count:${count}});this.textContent='✓ Saved';this.disabled=true;"
+              <button class="ws-save-to-workspace-btn"
+                data-deck-id="${safeIdAttr}" data-topic="${safeTopicAttr}" data-count="${count}"
                 style="display:flex;align-items:center;gap:5px;padding:7px 12px;background:var(--surface-3);border:1px solid var(--border-sm);border-radius:var(--r-sm);color:var(--text-2);font-size:11px;cursor:pointer;font-family:var(--font-body);transition:background 0.15s;white-space:nowrap;"
                 onmouseenter="this.style.background='var(--surface-hover)'" onmouseleave="this.style.background='var(--surface-3)'">
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
@@ -221,6 +224,21 @@ export async function wsGenerateFlashcardsInChat(topic) {
         </div>
       </div>`;
     if (msgs) { msgs.appendChild(d); wsScrollBottom(); }
+
+    // Wire up Save to Workspace button via addEventListener (avoids inline onclick XSS risk)
+    const saveBtn = d.querySelector('.ws-save-to-workspace-btn');
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        const btnDeckId = saveBtn.dataset.deckId;
+        const btnTopic  = saveBtn.dataset.topic;
+        const btnCount  = Number(saveBtn.dataset.count) || 0;
+        if (typeof window.wsSaveToWorkspace === 'function') {
+          window.wsSaveToWorkspace('flashcards', { title: btnTopic, deckId: btnDeckId, topic: btnTopic, count: btnCount });
+        }
+        saveBtn.textContent = '✓ Saved';
+        saveBtn.disabled = true;
+      });
+    }
 
     // Persist the flashcard exchange to history so it survives session reload.
     ws.chatHistory.push({ role: 'user', content: displayMsg });
