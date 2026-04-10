@@ -12,7 +12,7 @@ interface ContentPanelProps {
 
 export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: ContentPanelProps) {
   const { state, handleUploadDocument } = useStudy();
-  const { slides, docTitle, pdfBlobUrl, uploadLoading, uploadError } = state;
+  const { slides, docTitle, pdfUrl, uploadLoading, uploadError } = state;
 
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,7 +30,7 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
   };
 
   // ── Empty / upload state ──────────────────────────────────────────────────
-  if (!pdfBlobUrl && slides.length === 0) {
+  if (!pdfUrl && slides.length === 0) {
     return (
       <div className="content-panel" style={style}>
         <div className="panel-header">
@@ -113,9 +113,9 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
           <div style={{ fontSize: 32 }}>⏳</div>
           <div style={{ fontWeight: 500 }}>Uploading &amp; parsing document…</div>
         </div>
-      ) : pdfBlobUrl ? (
+      ) : pdfUrl ? (
         <iframe
-          src={pdfBlobUrl}
+          src={pdfUrl}
           className="pdf-iframe"
           title={docTitle || 'PDF document'}
         />

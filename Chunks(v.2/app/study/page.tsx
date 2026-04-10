@@ -28,11 +28,12 @@ function BookParamsReader() {
   useEffect(() => {
     const bookId = searchParams.get('bookId');
     const paramDocTitle = searchParams.get('docTitle');
-    if (bookId) {
-      dispatch({ type: 'SET_BOOK_ID', payload: bookId });
-      if (paramDocTitle) {
-        dispatch({ type: 'SET_SLIDES', payload: { slides: [], docTitle: paramDocTitle, bookId } });
-      }
+    const paramPdfUrl = searchParams.get('pdfUrl');
+    if (bookId && paramDocTitle && paramPdfUrl) {
+      dispatch({ type: 'SET_BOOK', payload: { bookId, docTitle: paramDocTitle, pdfUrl: paramPdfUrl } });
+    } else if (bookId && paramDocTitle) {
+      // Legacy: no pdfUrl in params — set slides/bookId only (AI context without PDF viewer)
+      dispatch({ type: 'SET_SLIDES', payload: { slides: [], docTitle: paramDocTitle, bookId } });
     }
     // Only run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps

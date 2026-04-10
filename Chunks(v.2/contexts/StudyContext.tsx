@@ -52,7 +52,7 @@ export interface StudyState {
   slides: SlideItem[];
   docTitle: string;
   bookId: string | null;
-  pdfBlobUrl: string | null;
+  pdfUrl: string | null;
   uploadLoading: boolean;
   uploadError: string | null;
 
@@ -105,6 +105,7 @@ export type StudyAction =
   | { type: 'SET_TOPIC'; payload: string }
   | { type: 'SET_SLIDES'; payload: { slides: SlideItem[]; docTitle: string; bookId?: string | null } }
   | { type: 'SET_PDF_BLOB_URL'; payload: string | null }
+  | { type: 'SET_BOOK'; payload: { bookId: string; docTitle: string; pdfUrl: string } }
   | { type: 'SET_UPLOAD_LOADING'; payload: boolean }
   | { type: 'UPLOAD_ERROR'; payload: string }
   | { type: 'CLEAR_UPLOAD_ERROR' }
@@ -115,7 +116,6 @@ export type StudyAction =
   | { type: 'TOGGLE_TODO_ITEM'; payload: { noteId: string; itemId: string } }
   | { type: 'DELETE_TODO'; payload: string }
   | { type: 'ADD_RECENT'; payload: RecentItem }
-  | { type: 'SET_BOOK_ID'; payload: string | null }
   | { type: 'SET_SESSION_ID'; payload: string }
   | { type: 'SET_RECENTS'; payload: RecentItem[] };
 
@@ -289,7 +289,19 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
       };
 
     case 'SET_PDF_BLOB_URL':
-      return { ...state, pdfBlobUrl: action.payload };
+      return { ...state, pdfUrl: action.payload };
+
+    case 'SET_BOOK':
+      return {
+        ...state,
+        bookId: action.payload.bookId,
+        docTitle: action.payload.docTitle,
+        pdfUrl: action.payload.pdfUrl,
+        topic: action.payload.docTitle,
+        slides: [],
+        uploadLoading: false,
+        uploadError: null,
+      };
 
     case 'SET_UPLOAD_LOADING':
       return { ...state, uploadLoading: action.payload, uploadError: null };
@@ -347,9 +359,6 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
       return { ...state, recents: [action.payload, ...filtered].slice(0, 5) };
     }
 
-    case 'SET_BOOK_ID':
-      return { ...state, bookId: action.payload };
-
     case 'SET_SESSION_ID':
       return { ...state, sessionId: action.payload };
 
@@ -369,7 +378,7 @@ const INITIAL_STATE: StudyState = {
   slides: [],
   docTitle: '',
   bookId: null,
-  pdfBlobUrl: null,
+  pdfUrl: null,
   uploadLoading: false,
   uploadError: null,
   messages: [],
