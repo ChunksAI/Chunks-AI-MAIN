@@ -48,13 +48,13 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
               >
                 Every cell is bounded by a plasma membrane that separates the intracellular
                 environment from the extracellular environment.
-                <div className={`selection-tooltip${activeTooltip === 'h1' ? ' visible' : ''}`}>
+                <span className={`selection-tooltip${activeTooltip === 'h1' ? ' visible' : ''}`}>
                   <button className="tooltip-btn" onClick={(e) => { e.stopPropagation(); onExplain?.('plasma membrane'); }}>✦ Explain</button>
-                  <div className="divider-v" />
+                  <span className="divider-v" />
                   <button className="tooltip-btn" onClick={(e) => { e.stopPropagation(); onQuiz?.('plasma membrane'); }}>❓ Quiz me</button>
-                  <div className="divider-v" />
+                  <span className="divider-v" />
                   <button className="tooltip-btn" onClick={(e) => { e.stopPropagation(); onSummarize?.(); }}>↓ Summarize</button>
-                </div>
+                </span>
               </span>
             </p>
             <p>
@@ -67,13 +67,13 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
               >
                 The mitochondria, often referred to as the &ldquo;powerhouse of the cell,&rdquo;
                 generate adenosine triphosphate (ATP) through cellular respiration.
-                <div className={`selection-tooltip${activeTooltip === 'h2' ? ' visible' : ''}`}>
+                <span className={`selection-tooltip${activeTooltip === 'h2' ? ' visible' : ''}`}>
                   <button className="tooltip-btn" onClick={(e) => { e.stopPropagation(); onExplain?.('mitochondria'); }}>✦ Explain</button>
-                  <div className="divider-v" />
+                  <span className="divider-v" />
                   <button className="tooltip-btn" onClick={(e) => { e.stopPropagation(); onQuiz?.('mitochondria'); }}>❓ Quiz me</button>
-                  <div className="divider-v" />
+                  <span className="divider-v" />
                   <button className="tooltip-btn" onClick={(e) => { e.stopPropagation(); onSummarize?.(); }}>↓ Summarize</button>
-                </div>
+                </span>
               </span>
             </p>
             <p>

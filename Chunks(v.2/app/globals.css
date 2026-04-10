@@ -443,7 +443,7 @@ body {
 }
 .tooltip-btn:hover { background: rgba(255,255,255,0.15); }
 
-.divider-v { width: 1px; background: rgba(255,255,255,0.2); margin: 4px 2px; }
+.divider-v { display: inline-block; width: 1px; background: rgba(255,255,255,0.2); margin: 4px 2px; align-self: stretch; }
 
 .page-num {
   position: absolute;
