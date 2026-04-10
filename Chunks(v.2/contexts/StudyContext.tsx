@@ -871,8 +871,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
     // Persist the raw file in IndexedDB so the blob URL can be recreated after
     // a page refresh (blob URLs are memory-only and do not survive refresh)
-    storePdfFile(file).catch(() => {
-      // Non-fatal: PDF will still work for this session, just won't persist
+    storePdfFile(file).catch((err) => {
+      console.error('Failed to persist PDF to IndexedDB:', err);
     });
 
     dispatch({ type: 'SET_UPLOAD_LOADING', payload: true });
@@ -896,7 +896,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
       clearSlidesFromStorage();
-      clearPdfFile().catch(() => {});
+      clearPdfFile().catch((err) => { console.error('Failed to clear PDF from IndexedDB:', err); });
       dispatch({ type: 'UPLOAD_ERROR', payload: message });
       dispatch({ type: 'SHOW_TOAST', payload: `❌ ${message}` });
     }
