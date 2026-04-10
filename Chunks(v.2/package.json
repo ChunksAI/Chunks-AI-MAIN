@@ -1,9 +1,23 @@
 {
   "name": "chunks-v2",
   "version": "1.0.0",
-  "description": "Chunks AI Study OS — v2 mockup",
+  "private": true,
+  "description": "Chunks AI Study OS — Next.js App Router",
   "scripts": {
-    "dev": "npx serve . --listen 3000",
-    "start": "npx serve . --listen 3000"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.4.0"
   }
 }
