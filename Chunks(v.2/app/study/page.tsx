@@ -59,8 +59,8 @@ function StudyLayout() {
           onTabChange={(tab) => dispatch({ type: 'SET_ACTIVE_TAB', payload: tab })}
         />
 
-        <div className="tab-content-area">
-          {/* Chat tab */}
+        <div className="content-area">
+          {/* Chat tab — split layout */}
           {activeTab === 'chat' && (
             <div className="workspace" ref={containerRef}>
               <ContentPanel
