@@ -33,15 +33,21 @@ import type {
   WeakArea,
   PerformanceEntry,
 } from '@/types';
-import { sendMessage, generateFlashcards, generateQuiz, topicToSlides } from '@/lib/studyApi';
+import { sendMessage, generateFlashcards, generateQuiz, topicToSlides, uploadDocument } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
-import type { MessageHistoryItem } from '@/types/api';
+import type { MessageHistoryItem, SlideItem } from '@/types/api';
 
 // ─── State shape ─────────────────────────────────────────────────────────────
 
 export interface StudyState {
   sessionId: string;
   topic: string;
+
+  // Uploaded document
+  slides: SlideItem[];
+  docTitle: string;
+  uploadLoading: boolean;
+  uploadError: string | null;
 
   messages: ChatMessage[];
   chatLoading: boolean;
@@ -86,7 +92,11 @@ export type StudyAction =
   | { type: 'SHOW_TOAST'; payload: string }
   | { type: 'CLEAR_TOAST' }
   | { type: 'DISMISS_MEMORY_BAR' }
-  | { type: 'SET_TOPIC'; payload: string };
+  | { type: 'SET_TOPIC'; payload: string }
+  | { type: 'SET_SLIDES'; payload: { slides: SlideItem[]; docTitle: string } }
+  | { type: 'SET_UPLOAD_LOADING'; payload: boolean }
+  | { type: 'UPLOAD_ERROR'; payload: string }
+  | { type: 'CLEAR_UPLOAD_ERROR' };
 
 // ─── Weak-area calculation ───────────────────────────────────────────────────
 
@@ -245,6 +255,24 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
     case 'SET_TOPIC':
       return { ...state, topic: action.payload };
 
+    case 'SET_SLIDES':
+      return {
+        ...state,
+        slides: action.payload.slides,
+        docTitle: action.payload.docTitle,
+        uploadLoading: false,
+        uploadError: null,
+      };
+
+    case 'SET_UPLOAD_LOADING':
+      return { ...state, uploadLoading: action.payload, uploadError: null };
+
+    case 'UPLOAD_ERROR':
+      return { ...state, uploadLoading: false, uploadError: action.payload };
+
+    case 'CLEAR_UPLOAD_ERROR':
+      return { ...state, uploadError: null };
+
     default:
       return state;
   }
@@ -255,6 +283,10 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
 const INITIAL_STATE: StudyState = {
   sessionId: '',
   topic: '',
+  slides: [],
+  docTitle: '',
+  uploadLoading: false,
+  uploadError: null,
   messages: [],
   chatLoading: false,
   chatError: null,
@@ -290,6 +322,7 @@ interface StudyContextValue {
   handleStartQuiz: (quizId: string) => void;
   handleCompleteQuiz: () => void;
   handleStartReview: (weakAreaTopic?: string) => void;
+  handleUploadDocument: (file: File) => Promise<void>;
   showToast: (message: string) => void;
 }
 
@@ -369,12 +402,22 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         content: m.text.replace(/<[^>]+>/g, ''),
       }));
 
+      // Auto-populate doc_context from uploaded slides when not explicitly provided
+      const { slides } = stateRef.current;
+      const autoDocContext =
+        slides.length > 0
+          ? slides
+              .map((s) => [s.title, ...s.content].join('\n'))
+              .join('\n\n')
+              .slice(0, 4000)
+          : '';
+
       try {
         const res = await sendMessage({
           question: text,
           history,
           selected_text: opts.selectedText ?? '',
-          doc_context: opts.docContext ?? '',
+          doc_context: opts.docContext ?? autoDocContext,
           mode: 'study',
         });
 
@@ -465,6 +508,27 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  // ── uploadDocument ────────────────────────────────────────────────────────
+  const handleUploadDocument = useCallback(async (file: File) => {
+    dispatch({ type: 'SET_UPLOAD_LOADING', payload: true });
+    dispatch({ type: 'SHOW_TOAST', payload: '📄 Uploading document…' });
+
+    try {
+      const res = await uploadDocument(file);
+      const docTitle = res.filename.replace(/\.[^.]+$/, ''); // strip extension
+      dispatch({ type: 'SET_SLIDES', payload: { slides: res.slides, docTitle } });
+      dispatch({ type: 'SET_TOPIC', payload: docTitle });
+      dispatch({
+        type: 'SHOW_TOAST',
+        payload: `✅ "${docTitle}" loaded — ${res.total_slides} pages ready`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+      dispatch({ type: 'UPLOAD_ERROR', payload: message });
+      dispatch({ type: 'SHOW_TOAST', payload: `❌ ${message}` });
+    }
+  }, []);
+
   // ── startQuiz ─────────────────────────────────────────────────────────────
   const handleStartQuiz = useCallback((quizId: string) => {
     const { workspaceSections } = stateRef.current;
@@ -552,6 +616,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     handleStartQuiz,
     handleCompleteQuiz,
     handleStartReview,
+    handleUploadDocument,
     showToast,
   };
 
