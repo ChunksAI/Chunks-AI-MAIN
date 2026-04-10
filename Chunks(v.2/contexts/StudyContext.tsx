@@ -525,6 +525,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           id: nextMsgId(),
           role: 'ai',
           text: res.answer,
+          memoryRecall: res.memory_recall ?? undefined,
+          performanceBars: res.performance_bars ?? [],
           actions: [
             { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
             { label: '🎯 Quiz me on this', actionKey: 'quiz' },

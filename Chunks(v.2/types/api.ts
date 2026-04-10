@@ -53,6 +53,8 @@ export interface SendMessageResponse {
   answer: string;
   mode: string;
   cached?: boolean;
+  memory_recall?: string;
+  performance_bars?: Array<{ label: string; pct: number; color: string }>;
 }
 
 export interface Flashcard {
