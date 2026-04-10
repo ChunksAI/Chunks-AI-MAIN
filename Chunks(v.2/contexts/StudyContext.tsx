@@ -410,7 +410,17 @@ function loadSlidesFromStorage(): PersistedSlides | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = sessionStorage.getItem(SLIDES_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as PersistedSlides) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as unknown;
+    if (
+      parsed !== null &&
+      typeof parsed === 'object' &&
+      Array.isArray((parsed as PersistedSlides).slides) &&
+      typeof (parsed as PersistedSlides).docTitle === 'string'
+    ) {
+      return parsed as PersistedSlides;
+    }
+    return null;
   } catch {
     return null;
   }

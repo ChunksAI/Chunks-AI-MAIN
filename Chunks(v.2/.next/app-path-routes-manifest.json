@@ -2,7 +2,7 @@
   "/_not-found/page": "/_not-found",
   "/library/page": "/library",
   "/login/page": "/login",
+  "/exam/page": "/exam",
   "/page": "/",
-  "/study/page": "/study",
-  "/exam/page": "/exam"
+  "/study/page": "/study"
 }
