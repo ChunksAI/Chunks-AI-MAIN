@@ -55,7 +55,7 @@ export default function WorkspaceTab() {
   }
 
   const totalItems = workspaceSections.reduce((sum, s) => sum + s.cards.length, 0);
-  const studyTopic = topic || 'Chapter 3 — Cell Biology';
+  const studyTopic = topic || 'No topic set';
 
   return (
     <div className="workspace-tab">
@@ -70,8 +70,9 @@ export default function WorkspaceTab() {
         </div>
         <button
           className="ws-add-btn"
-          onClick={() => void handleGenerateFlashcards(topic || 'cell biology')}
-          disabled={workspaceLoading}
+          onClick={() => topic && void handleGenerateFlashcards(topic)}
+          disabled={workspaceLoading || !topic}
+          title={!topic ? 'Start a conversation in Chat to set a topic first' : undefined}
         >
           <svg
             width="13"
@@ -103,22 +104,26 @@ export default function WorkspaceTab() {
             Your workspace is empty
           </div>
           <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 20 }}>
-            Ask the AI in the Chat tab to generate flashcards or a quiz, or start below.
+            {topic
+              ? 'Ask the AI in the Chat tab to generate flashcards or a quiz, or start below.'
+              : 'Start a conversation in the Chat tab to set a topic, then generate study materials here.'}
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              className="ws-add-btn"
-              onClick={() => void handleGenerateFlashcards(topic || 'cell biology')}
-            >
-              🃏 Generate flashcards
-            </button>
-            <button
-              className="panel-btn"
-              onClick={() => void handleGenerateQuiz(topic || 'cell biology')}
-            >
-              🎯 Generate quiz
-            </button>
-          </div>
+          {topic && (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                className="ws-add-btn"
+                onClick={() => void handleGenerateFlashcards(topic)}
+              >
+                🃏 Generate flashcards
+              </button>
+              <button
+                className="panel-btn"
+                onClick={() => void handleGenerateQuiz(topic)}
+              >
+                🎯 Generate quiz
+              </button>
+            </div>
+          )}
         </div>
       )}
 
