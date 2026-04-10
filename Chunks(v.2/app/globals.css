@@ -135,6 +135,34 @@ body {
 }
 .sidebar-toggle:hover { background: var(--bg3); color: var(--text2); }
 
+/* ── Collapsed (icon-only) sidebar ───────────────────────────────────────── */
+.sidebar.collapsed {
+  width: 56px;
+  min-width: 56px;
+}
+.sidebar.collapsed .logo-name { display: none; }
+.sidebar.collapsed .new-chat-btn {
+  width: calc(100% - 16px);
+  margin: 14px 8px 8px;
+  padding: 9px;
+  justify-content: center;
+}
+.sidebar.collapsed .new-chat-btn span,
+.sidebar.collapsed .new-chat-btn > :not(svg) { display: none; }
+.sidebar.collapsed .new-chat-btn svg { opacity: 1; }
+.sidebar.collapsed .sidebar-label { display: none; }
+.sidebar.collapsed .nav-item {
+  padding: 8px;
+  justify-content: center;
+}
+.sidebar.collapsed .nav-item svg { opacity: 0.65; }
+.sidebar.collapsed .nav-item.active svg { opacity: 1; }
+.sidebar.collapsed .nav-item > :not(svg) { display: none; }
+.sidebar.collapsed .recents-section { display: none; }
+.sidebar.collapsed .sidebar-footer { padding: 12px 8px; justify-content: center; }
+.sidebar.collapsed .user-info,
+.sidebar.collapsed .more-btn { display: none; }
+
 .new-chat-btn {
   margin: 14px 12px 8px;
   padding: 9px 14px;

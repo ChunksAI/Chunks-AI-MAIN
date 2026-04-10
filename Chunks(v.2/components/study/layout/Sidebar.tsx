@@ -1,9 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { NavItem, RecentItem } from '@/types';
 import type { AuthUser } from '@/contexts/AuthContext';
 import ProfileDropdown from '@/components/shared/ProfileDropdown';
+
+const COLLAPSED_KEY = 'chunks_v2_sidebar_collapsed';
 
 interface SidebarProps {
   activeNav: string;
@@ -42,6 +45,19 @@ function NavIcon({ id }: { id: string }) {
 export default function Sidebar({ activeNav, onNavChange, onNewSession, user, recents = [] }: SidebarProps) {
   const router = useRouter();
 
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(COLLAPSED_KEY) === 'true';
+  });
+
+  const toggleCollapsed = () => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem(COLLAPSED_KEY, String(next));
+      return next;
+    });
+  };
+
   const handleNavClick = (id: string) => {
     if (id === 'exam') {
       router.push('/exam');
@@ -50,7 +66,7 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, user, re
     onNavChange(id);
   };
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
       {/* ── Header ── */}
       <div className="sidebar-header">
         <div className="logo">
@@ -64,7 +80,7 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, user, re
           </div>
           <span className="logo-name">Chunks</span>
         </div>
-        <button className="sidebar-toggle" aria-label="Toggle sidebar">
+        <button className="sidebar-toggle" aria-label="Toggle sidebar" onClick={toggleCollapsed}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18"/>
           </svg>
