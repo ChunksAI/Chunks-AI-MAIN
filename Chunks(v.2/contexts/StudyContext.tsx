@@ -622,6 +622,13 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // ── uploadDocument ────────────────────────────────────────────────────────
   const handleUploadDocument = useCallback(async (file: File) => {
+    // Reject non-PDF files before touching blob URLs or the network
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      dispatch({ type: 'UPLOAD_ERROR', payload: 'Only PDF files are supported.' });
+      dispatch({ type: 'SHOW_TOAST', payload: '❌ Only PDF files are supported.' });
+      return;
+    }
+
     // Revoke the previous blob URL to free browser memory
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
