@@ -432,7 +432,6 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     dispatch({ type: 'SET_SESSION_ID', payload: `session-${Date.now()}` });
     dispatch({ type: 'SET_RECENTS', payload: loadRecentsFromStorage() });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const { saveSession } = useStudySession();
