@@ -11,6 +11,8 @@ export interface LibraryBook {
   emoji: string;
   chapters: number;
   difficulty: 'Beginner' | 'Intermediate' | 'Advanced';
+  /** Direct URL to the hosted PDF (backend or CDN). Empty string = no PDF available. */
+  bookPdfUrl: string;
 }
 
 // Book IDs MUST match the keys in backend/services/books.py BOOK_LIBRARY so
@@ -25,6 +27,7 @@ const BOOKS: LibraryBook[] = [
     emoji: '⚗️',
     chapters: 22,
     difficulty: 'Intermediate',
+    bookPdfUrl: 'https://api.chunks.online/books/zumdahl/pdf',
   },
   {
     id: 'atkins',
@@ -35,6 +38,7 @@ const BOOKS: LibraryBook[] = [
     emoji: '🔬',
     chapters: 20,
     difficulty: 'Advanced',
+    bookPdfUrl: 'https://api.chunks.online/books/atkins/pdf',
   },
   {
     id: 'klein',
@@ -45,6 +49,7 @@ const BOOKS: LibraryBook[] = [
     emoji: '🧪',
     chapters: 26,
     difficulty: 'Intermediate',
+    bookPdfUrl: 'https://api.chunks.online/books/klein/pdf',
   },
   {
     id: 'harris',
@@ -55,6 +60,7 @@ const BOOKS: LibraryBook[] = [
     emoji: '📊',
     chapters: 28,
     difficulty: 'Intermediate',
+    bookPdfUrl: 'https://api.chunks.online/books/harris/pdf',
   },
   {
     id: 'berg',
@@ -65,6 +71,7 @@ const BOOKS: LibraryBook[] = [
     emoji: '🧬',
     chapters: 34,
     difficulty: 'Advanced',
+    bookPdfUrl: 'https://api.chunks.online/books/berg/pdf',
   },
   {
     id: 'netter',
@@ -75,6 +82,7 @@ const BOOKS: LibraryBook[] = [
     emoji: '🫀',
     chapters: 8,
     difficulty: 'Intermediate',
+    bookPdfUrl: 'https://api.chunks.online/books/netter/pdf',
   },
   {
     id: 'anaphy2e',
@@ -85,6 +93,7 @@ const BOOKS: LibraryBook[] = [
     emoji: '🦷',
     chapters: 30,
     difficulty: 'Beginner',
+    bookPdfUrl: 'https://api.chunks.online/books/anaphy2e/pdf',
   },
 ];
 
@@ -121,6 +130,7 @@ export default function BookGrid({ searchQuery, activeFilter }: BookGridProps) {
 
   const handleBookClick = (book: LibraryBook) => {
     const params = new URLSearchParams({ bookId: book.id, docTitle: book.title });
+    if (book.bookPdfUrl) params.set('pdfUrl', book.bookPdfUrl);
     router.push(`/study?${params.toString()}`);
   };
 

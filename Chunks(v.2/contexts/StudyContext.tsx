@@ -115,6 +115,7 @@ export type StudyAction =
   | { type: 'DELETE_TODO'; payload: string }
   | { type: 'ADD_RECENT'; payload: RecentItem }
   | { type: 'SET_BOOK_ID'; payload: string | null }
+  | { type: 'SET_BOOK'; payload: { bookId: string; docTitle: string; pdfUrl: string } }
   | { type: 'SET_SESSION_ID'; payload: string }
   | { type: 'SET_RECENTS'; payload: RecentItem[] };
 
@@ -348,6 +349,17 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
 
     case 'SET_BOOK_ID':
       return { ...state, bookId: action.payload };
+
+    case 'SET_BOOK':
+      return {
+        ...state,
+        bookId: action.payload.bookId,
+        docTitle: action.payload.docTitle,
+        pdfBlobUrl: action.payload.pdfUrl,
+        slides: [],
+        uploadLoading: false,
+        uploadError: null,
+      };
 
     case 'SET_SESSION_ID':
       return { ...state, sessionId: action.payload };
