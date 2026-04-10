@@ -39,6 +39,7 @@ import type {
 } from '@/types';
 import { sendMessage, generateFlashcards, generateQuiz, uploadDocument } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
+import { storePdfFile, loadPdfFile, clearPdfFile } from '@/lib/pdfIndexedDB';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
 
 // ─── State shape ─────────────────────────────────────────────────────────────
@@ -546,19 +547,39 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_RECENTS', payload: loadRecentsFromStorage() });
 
     // Rehydrate slides from sessionStorage so the AI context survives a page
-    // refresh.  The PDF blob URL cannot be restored (it is memory-only), so the
-    // visual iframe is replaced by the text-fallback view — but the AI still
-    // has the full document context.
+    // refresh.  Also attempt to restore the PDF blob URL from IndexedDB —
+    // IndexedDB persists across refreshes and supports binary File objects.
     const persisted = loadSlidesFromStorage();
     if (persisted && persisted.slides.length > 0) {
       dispatch({
         type: 'SET_SLIDES',
         payload: { slides: persisted.slides, docTitle: persisted.docTitle, bookId: persisted.bookId },
       });
-      dispatch({
-        type: 'SHOW_TOAST',
-        payload: `📄 "${persisted.docTitle}" restored — AI context ready (re-upload to view PDF)`,
-      });
+
+      // Try to restore the raw PDF file from IndexedDB and recreate the blob URL
+      loadPdfFile()
+        .then((file) => {
+          if (file) {
+            const blobUrl = URL.createObjectURL(file);
+            blobUrlRef.current = blobUrl;
+            dispatch({ type: 'SET_PDF_BLOB_URL', payload: blobUrl });
+            dispatch({
+              type: 'SHOW_TOAST',
+              payload: `📄 "${persisted.docTitle}" restored`,
+            });
+          } else {
+            dispatch({
+              type: 'SHOW_TOAST',
+              payload: `📄 "${persisted.docTitle}" restored — AI context ready (re-upload to view PDF)`,
+            });
+          }
+        })
+        .catch(() => {
+          dispatch({
+            type: 'SHOW_TOAST',
+            payload: `📄 "${persisted.docTitle}" restored — AI context ready (re-upload to view PDF)`,
+          });
+        });
     }
   }, []);
 
@@ -848,6 +869,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     blobUrlRef.current = blobUrl;
     dispatch({ type: 'SET_PDF_BLOB_URL', payload: blobUrl });
 
+    // Persist the raw file in IndexedDB so the blob URL can be recreated after
+    // a page refresh (blob URLs are memory-only and do not survive refresh)
+    storePdfFile(file).catch(() => {
+      // Non-fatal: PDF will still work for this session, just won't persist
+    });
+
     dispatch({ type: 'SET_UPLOAD_LOADING', payload: true });
     dispatch({ type: 'SHOW_TOAST', payload: '📄 Uploading document…' });
 
@@ -869,6 +896,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
       clearSlidesFromStorage();
+      clearPdfFile().catch(() => {});
       dispatch({ type: 'UPLOAD_ERROR', payload: message });
       dispatch({ type: 'SHOW_TOAST', payload: `❌ ${message}` });
     }
