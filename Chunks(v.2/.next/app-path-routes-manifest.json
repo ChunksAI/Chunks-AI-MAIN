@@ -1,7 +1,7 @@
 {
   "/_not-found/page": "/_not-found",
-  "/exam/page": "/exam",
   "/library/page": "/library",
+  "/exam/page": "/exam",
   "/login/page": "/login",
   "/page": "/",
   "/study/page": "/study",
