@@ -1,0 +1,9 @@
+{
+  "name": "chunks-v2",
+  "version": "1.0.0",
+  "description": "Chunks AI Study OS — v2 mockup",
+  "scripts": {
+    "dev": "npx serve . --listen 3000",
+    "start": "npx serve . --listen 3000"
+  }
+}
