@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useStudy } from '@/contexts/StudyContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useAutoScroll } from '@/hooks/useAutoScroll';
 import type { ChatMessage } from '@/types';
 
@@ -37,15 +38,17 @@ function TypingIndicator() {
 
 function MessageBubble({
   msg,
+  userInitial,
   onActionClick,
 }: {
   msg: ChatMessage;
+  userInitial: string;
   onActionClick: (key: string) => void;
 }) {
   if (msg.role === 'user') {
     return (
       <div className="msg user">
-        <div className="msg-avatar user-av">D</div>
+        <div className="msg-avatar user-av">{userInitial}</div>
         <div className="msg-body">
           <div className="msg-bubble">{msg.text}</div>
         </div>
@@ -110,7 +113,10 @@ function MessageBubble({
 export default function ChatPanel() {
   const { state, dispatch, handleSendMessage, handleGenerateFlashcards, handleGenerateQuiz } =
     useStudy();
+  const { user } = useAuth();
   const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic } = state;
+
+  const userInitial = (user?.name?.[0] ?? user?.email?.[0] ?? 'U').toUpperCase();
 
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -216,7 +222,7 @@ export default function ChatPanel() {
           </div>
         )}
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} msg={msg} onActionClick={handleActionClick} />
+          <MessageBubble key={msg.id} msg={msg} userInitial={userInitial} onActionClick={handleActionClick} />
         ))}
         {chatLoading && <TypingIndicator />}
         <div ref={sentinelRef} />
