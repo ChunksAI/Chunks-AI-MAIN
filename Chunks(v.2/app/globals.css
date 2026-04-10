@@ -403,6 +403,8 @@ body {
 .pdf-viewer::-webkit-scrollbar { width: 4px; }
 .pdf-viewer::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
 
+.pdf-iframe { flex: 1; width: 100%; border: none; display: block; }
+
 .pdf-page {
   background: white;
   border-radius: 8px;
@@ -1354,3 +1356,204 @@ body {
   justify-content: center;
   color: var(--text3);
 }
+
+/* ─── Markdown Renderer ──────────────────────────────────────────────────────── */
+
+/* Root container */
+.md-root {
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--text);
+  word-break: break-word;
+}
+
+/* Paragraphs */
+.md-root .md-p {
+  margin: 0 0 10px;
+}
+.md-root .md-p:last-child { margin-bottom: 0; }
+
+/* Headings */
+.md-root .md-h1,
+.md-root .md-h2,
+.md-root .md-h3 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -0.2px;
+  margin: 18px 0 8px;
+  line-height: 1.3;
+}
+.md-root .md-h1:first-child,
+.md-root .md-h2:first-child,
+.md-root .md-h3:first-child { margin-top: 0; }
+.md-root .md-h1 { font-size: 18px; }
+.md-root .md-h2 { font-size: 15.5px; }
+.md-root .md-h3 { font-size: 13.5px; }
+
+/* Lists */
+.md-root .md-ul,
+.md-root .md-ol {
+  margin: 6px 0 10px 20px;
+  padding: 0;
+}
+.md-root .md-ul { list-style: disc; }
+.md-root .md-ol { list-style: decimal; }
+.md-root .md-li { margin-bottom: 4px; }
+
+/* Nested lists */
+.md-root .md-li .md-ul,
+.md-root .md-li .md-ol { margin-top: 4px; margin-bottom: 0; }
+
+/* Blockquote */
+.md-root .md-blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 10px 0;
+  padding: 8px 14px;
+  background: var(--accent-light);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--text2);
+  font-style: italic;
+}
+.md-root .md-blockquote .md-p { margin-bottom: 0; }
+
+/* Inline code */
+.md-root .md-code-inline {
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.88em;
+  color: var(--blue);
+  white-space: nowrap;
+}
+
+/* Code block */
+.md-root .md-code-block {
+  background: #1a1a1a;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin: 10px 0;
+  box-shadow: var(--shadow);
+}
+
+.md-root .md-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  background: #111;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  min-height: 32px;
+}
+
+.md-root .md-code-lang {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: var(--font-body);
+}
+
+.md-root .md-copy-btn {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255,255,255,0.45);
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all var(--transition);
+  margin-left: auto;
+}
+.md-root .md-copy-btn:hover { color: rgba(255,255,255,0.8); background: rgba(255,255,255,0.12); }
+
+.md-root .md-pre {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
+}
+.md-root .md-pre::-webkit-scrollbar { height: 4px; }
+.md-root .md-pre::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 2px; }
+
+.md-root .md-pre code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: #e4e4e4;
+  background: none;
+  border: none;
+  padding: 0;
+  white-space: pre;
+}
+
+/* Tables */
+.md-root .md-table-wrap {
+  overflow-x: auto;
+  margin: 12px 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.md-root .md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.md-root .md-thead { background: var(--surface2); }
+.md-root .md-th {
+  padding: 8px 12px;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text2);
+  font-size: 11.5px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.md-root .md-td {
+  padding: 8px 12px;
+  color: var(--text2);
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.md-root .md-tbody .md-tr:last-child .md-td { border-bottom: none; }
+.md-root .md-tbody .md-tr:nth-child(even) { background: var(--surface2); }
+
+/* KaTeX — inline math flows with text */
+.md-root .katex { font-size: 1em; }
+
+/* KaTeX — block math centered with margin */
+.md-root .katex-display {
+  display: block;
+  text-align: center;
+  margin: 14px 0;
+  overflow-x: auto;
+}
+
+/* Horizontal rule */
+.md-root hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+
+/* Strong / em */
+.md-root strong { font-weight: 600; color: var(--text); }
+.md-root em     { font-style: italic; color: var(--text2); }
+
+/* Links */
+.md-root a {
+  color: var(--blue);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+.md-root a:hover { color: var(--accent); }
+
