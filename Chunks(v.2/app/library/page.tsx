@@ -32,7 +32,6 @@ export default function LibraryPage() {
         activeNav="library"
         onNavChange={handleNavChange}
         onNewSession={() => router.push('/study')}
-        user={user}
       />
 
       <main className="main">

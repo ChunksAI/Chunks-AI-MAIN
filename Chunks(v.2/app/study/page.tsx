@@ -84,7 +84,6 @@ function StudyLayout() {
         onNewSession={() =>
           dispatch({ type: 'SHOW_TOAST', payload: '✨ New study session started' })
         }
-        user={user}
         recents={recents}
       />
 

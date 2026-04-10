@@ -44,7 +44,6 @@ function ExamLayout() {
           else if (id === 'library') router.push('/library');
         }}
         onNewSession={() => router.push('/study')}
-        user={user}
       />
 
       <main className="main" style={{ overflowY: 'auto' }}>

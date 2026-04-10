@@ -162,6 +162,16 @@ body {
 .sidebar.collapsed .sidebar-footer { padding: 12px 8px; justify-content: center; }
 .sidebar.collapsed .user-info,
 .sidebar.collapsed .more-btn { display: none; }
+/* In collapsed mode, anchor the popup to the right of the sidebar */
+.sidebar.collapsed .pd-menu {
+  left: 100%;
+  right: auto;
+  bottom: 0;
+  margin-left: 8px;
+  width: 220px;
+}
+/* Allow popup to overflow the sidebar bounds when it is open */
+.sidebar.menu-open { overflow: visible; }
 
 .new-chat-btn {
   margin: 14px 12px 8px;
