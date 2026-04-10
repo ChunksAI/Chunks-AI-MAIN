@@ -35,7 +35,7 @@ import type {
   NoteItem,
   RecentItem,
 } from '@/types';
-import { sendMessage, generateFlashcards, generateQuiz, topicToSlides, uploadDocument } from '@/lib/studyApi';
+import { sendMessage, generateFlashcards, generateQuiz, uploadDocument } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
 
@@ -596,11 +596,21 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // ── generateQuiz ──────────────────────────────────────────────────────────
   const handleGenerateQuiz = useCallback(
     async (topic: string, count = 10, difficulty: 'easy' | 'medium' | 'hard' = 'medium') => {
+      // When no document is uploaded there are no slides to send to /generate-quiz.
+      // Fall back to /ask so the AI generates the quiz as a chat response instead.
+      if (stateRef.current.slides.length === 0) {
+        dispatch({ type: 'SET_ACTIVE_TAB', payload: 'chat' });
+        void sendMessageRef.current(
+          `Generate a ${count}-question ${difficulty} multiple choice quiz on "${topic}".`,
+        );
+        return;
+      }
+
       dispatch({ type: 'SET_WORKSPACE_LOADING', payload: true });
       dispatch({ type: 'SHOW_TOAST', payload: '🎯 Generating quiz…' });
 
       try {
-        const slides = topicToSlides(topic);
+        const slides = stateRef.current.slides;
         const res = await generateQuiz({ slides, count, difficulty });
         const cardId = `quiz-${Date.now()}`;
         const card: WorkspaceCard = {
