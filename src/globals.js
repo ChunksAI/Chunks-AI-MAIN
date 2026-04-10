@@ -261,6 +261,15 @@ window.wsOpenFlashcardDeckFullscreen = async function(deckId, topic) {
 window.wsBackToWorkspace = function() {
   console.warn('[ws] wsBackToWorkspace called before flashState loaded');
 };
+window.wsShowExamCard = function(topic, userMessage) {
+  console.warn('[ws] wsShowExamCard called before flashState loaded');
+};
+window.wsStartInlineQuiz = async function(topic, cardMsg) {
+  console.warn('[ws] wsStartInlineQuiz called before flashState loaded');
+};
+window.wsNavigateToFullExam = function(topic) {
+  console.warn('[ws] wsNavigateToFullExam called before flashState loaded');
+};
 
 // Forward-reference stub for wsSaveToWorkspace — WorkspaceScreen.mountWorkspaceScreen() overwrites with real impl
 window.wsSaveToWorkspace = function(type, data) {
@@ -298,6 +307,9 @@ import {
   unsubscribeFlashcardRealtime,
   getFlashcardsCache,
   isFlashcardRealtimeActive,
+  wsShowExamCard as _wsShowExamCardReal,
+  wsStartInlineQuiz as _wsStartInlineQuizReal,
+  wsNavigateToFullExam as _wsNavigateToFullExamReal,
 } from './state/flash/index.js';
 
 // Accent
@@ -361,6 +373,11 @@ window.wsBackToWorkspace        = _wsBackToWorkspaceReal;
 window._fcCheckNavFrom          = _fcCheckNavFrom;
 window._fcStudyInChat      = _fcStudyInChat;
 window._fcReviewHardInChat = _fcReviewHardInChat;
+
+// Inline quiz (chat-native exam mode)
+window.wsShowExamCard       = _wsShowExamCardReal;
+window.wsStartInlineQuiz    = _wsStartInlineQuizReal;
+window.wsNavigateToFullExam = _wsNavigateToFullExamReal;
 
 // Flashcard Realtime
 window.subscribeToFlashcardRealtime   = subscribeToFlashcardRealtime;

@@ -116,6 +116,12 @@ export {
 } from './chatBridge.js';
 
 export {
+  wsShowExamCard,
+  wsStartInlineQuiz,
+  wsNavigateToFullExam,
+} from '../workspace/inlineQuiz.js';
+
+export {
   subscribeToFlashcardRealtime,
   unsubscribeFlashcardRealtime,
   getFlashcardsCache,

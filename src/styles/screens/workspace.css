@@ -3816,3 +3816,275 @@
   border-radius: var(--r-md);
   margin-top: 4px;
 }
+
+/* ── Inline Exam Card ─────────────────────────────────────────────────────── */
+.ws-exam-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-md);
+  padding: 16px;
+  max-width: 420px;
+}
+[data-theme="study"] .ws-exam-card {
+  background: var(--surface-1);
+  border-color: var(--border-md);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.ws-exam-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.ws-exam-card-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.ws-exam-card-title {
+  font-family: var(--font-head);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.ws-exam-card-topic {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+.ws-exam-card-divider {
+  border: none;
+  border-top: 1px solid var(--border-xs);
+  margin: 0 0 12px;
+}
+.ws-exam-card-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ws-exam-card-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface-1);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--t-fast), border-color var(--t-fast);
+  width: 100%;
+}
+.ws-exam-card-btn:hover {
+  background: var(--surface-3);
+  border-color: var(--border-sm);
+}
+[data-theme="study"] .ws-exam-card-btn {
+  background: var(--surface-2);
+}
+[data-theme="study"] .ws-exam-card-btn:hover {
+  background: var(--surface-3);
+}
+.ws-exam-card-btn--primary {
+  background: var(--gold-muted);
+  border-color: var(--gold-border);
+}
+.ws-exam-card-btn--primary:hover {
+  background: rgba(184,122,16,0.18);
+  border-color: var(--gold-border);
+}
+.ws-exam-card-btn-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.ws-exam-card-btn-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  font-family: var(--font-head);
+}
+.ws-exam-card-btn-sub {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 1px;
+}
+
+/* ── Inline Quick Quiz Widget ─────────────────────────────────────────────── */
+.ws-iq-body {
+  max-width: 540px;
+}
+.ws-iq-loading {
+  display: flex;
+  align-items: center;
+  padding: 8px 0;
+  gap: 3px;
+}
+.ws-iq-progress-bar-wrap {
+  height: 4px;
+  background: var(--surface-3);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.ws-iq-progress-bar {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 9999px;
+  transition: width 300ms ease;
+}
+.ws-iq-counter {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-4);
+  text-align: right;
+  margin-bottom: 10px;
+}
+.ws-iq-question {
+  font-size: var(--chat-font-size);
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.5;
+  margin-bottom: 14px;
+}
+.ws-iq-options {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 14px;
+}
+.ws-iq-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface-2);
+  border: 1px solid var(--border-xs);
+  border-radius: var(--r-sm);
+  padding: 9px 12px;
+  font-size: 13px;
+  color: var(--text-1);
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast);
+  line-height: 1.4;
+  font-family: var(--font-body);
+}
+.ws-iq-option:hover:not(:disabled) {
+  background: var(--surface-3);
+  border-color: var(--border-sm);
+}
+.ws-iq-option--selected {
+  background: var(--gold-muted);
+  border-color: var(--gold-border);
+  color: var(--text-1);
+}
+.ws-iq-option--correct {
+  background: rgba(16,185,129,0.12);
+  border-color: rgba(16,185,129,0.35);
+  color: var(--text-1);
+}
+.ws-iq-option--wrong {
+  background: rgba(248,113,113,0.10);
+  border-color: rgba(248,113,113,0.30);
+  color: var(--text-1);
+}
+.ws-iq-option:disabled { cursor: default; }
+.ws-iq-explanation {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+  padding: 9px 12px;
+  background: var(--surface-2);
+  border-left: 2px solid var(--gold);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  margin-bottom: 12px;
+}
+.ws-iq-footer {
+  display: flex;
+  justify-content: flex-end;
+}
+.ws-iq-submit {
+  padding: 8px 18px;
+  background: var(--gold);
+  border: none;
+  border-radius: var(--r-pill);
+  color: #090900;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  cursor: pointer;
+  transition: opacity var(--t-fast);
+}
+.ws-iq-submit:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.ws-iq-submit:not(:disabled):hover {
+  opacity: 0.88;
+}
+
+/* ── Inline Quiz Result Card ──────────────────────────────────────────────── */
+.ws-iq-result-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-md);
+  padding: 18px;
+  max-width: 380px;
+}
+[data-theme="study"] .ws-iq-result-card {
+  background: var(--surface-1);
+  border-color: var(--border-md);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.ws-iq-result-score {
+  font-family: var(--font-head);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin-bottom: 4px;
+}
+.ws-iq-result-sub {
+  font-size: 12px;
+  color: var(--text-3);
+  margin-bottom: 12px;
+}
+.ws-iq-result-bar-wrap {
+  height: 6px;
+  background: var(--surface-3);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.ws-iq-result-bar {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 9999px;
+  transition: width 600ms ease;
+}
+.ws-iq-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.ws-iq-result-btn {
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  padding: 7px 13px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--border-sm);
+  background: var(--surface-1);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+  white-space: nowrap;
+}
+.ws-iq-result-btn:hover {
+  background: var(--surface-3);
+  color: var(--text-1);
+}
+.ws-iq-result-btn--primary {
+  background: var(--gold-muted);
+  border-color: var(--gold-border);
+  color: var(--text-1);
+}
+.ws-iq-result-btn--primary:hover {
+  background: rgba(184,122,16,0.18);
+}

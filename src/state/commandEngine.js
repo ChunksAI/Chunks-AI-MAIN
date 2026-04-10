@@ -53,9 +53,15 @@ const _INTENTS = [
     re: /(?:create|make|generate|build)\s+(?:me\s+)?flashcards?(?:\s+(?:now|please))?$/i,
     extract: () => ({}),
   },
+  // Exam intent: "make me an exam on Mitosis" / "create an exam on X" / "give me a quiz on X"
+  {
+    type: 'INLINE_EXAM',
+    re: /(?:make|create|generate|give)\s+(?:me\s+)?(?:an?\s+)?(?:exam|quiz|test)\s+(?:on|about|for)\s+(.+)/i,
+    extract: m => ({ topic: m[1].trim().slice(0, 120) }),
+  },
   // Quiz: "quiz me on entropy" / "quiz me" / "test me on X"
   {
-    type: 'QUIZ',
+    type: 'INLINE_EXAM',
     re: /(?:quiz|test)\s+me\s+(?:on|about)\s+(.+)/i,
     extract: m => ({ topic: m[1].trim().slice(0, 120) }),
   },
@@ -186,6 +192,21 @@ export function handleCommand(input, ctxOverride) {
       _showSystemFeedback(`🧠 Creating flashcards…`);
       if (typeof window.wsGenerateFlashcardsInChat === 'function') {
         window.wsGenerateFlashcardsInChat(topic);
+      }
+      return true;
+    }
+
+    case 'INLINE_EXAM': {
+      const topic = intent.topic || ctx.topic || '';
+      if (typeof window.wsShowExamCard === 'function') {
+        window.wsShowExamCard(topic, input.trim());
+      } else {
+        // Fallback: navigate to exam screen
+        _showSystemFeedback('📝 Opening exam…');
+        if (topic) {
+          try { sessionStorage.setItem('chunks_nav_topic', topic); } catch (_) {}
+        }
+        if (typeof window.showScreen === 'function') window.showScreen('exam');
       }
       return true;
     }
