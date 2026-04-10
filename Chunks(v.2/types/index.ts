@@ -102,6 +102,16 @@ export type PerformanceEntry = {
   type: 'quiz' | 'flashcard' | 'chat';
 };
 
+// ─── Notes ───────────────────────────────────────────────────────────────────
+
+export type NoteItem = {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;  // ISO date string
+  updatedAt: string;  // ISO date string
+};
+
 // ─── Reviewer (legacy display types) ─────────────────────────────────────────
 
 export type TopicChip = {

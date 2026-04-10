@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useStudy } from '@/contexts/StudyContext';
 
 interface ContentPanelProps {
   style?: React.CSSProperties;
@@ -10,13 +11,74 @@ interface ContentPanelProps {
 }
 
 export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: ContentPanelProps) {
+  const { state, handleUploadDocument } = useStudy();
+  const { slides, docTitle, uploadLoading, uploadError } = state;
+
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showTooltip = (id: string) => {
     setActiveTooltip(id);
     setTimeout(() => setActiveTooltip(null), 4000);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) void handleUploadDocument(file);
+    // reset so the same file can be re-uploaded if needed
+    e.target.value = '';
+  };
+
+  // ── Empty / upload state ──────────────────────────────────────────────────
+  if (slides.length === 0) {
+    return (
+      <div className="content-panel" style={style}>
+        <div className="panel-header">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text3)' }}>
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+          </svg>
+          <span className="panel-title">No document loaded</span>
+        </div>
+
+        <div className="pdf-viewer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 16, padding: '2rem' }}>
+          {uploadLoading ? (
+            <>
+              <div style={{ fontSize: 32 }}>⏳</div>
+              <div style={{ fontWeight: 500 }}>Uploading &amp; parsing document…</div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 40 }}>📄</div>
+              <div style={{ fontWeight: 600, fontSize: 15 }}>Upload a PDF to get started</div>
+              <div style={{ color: 'var(--text3)', fontSize: 13, textAlign: 'center', maxWidth: 260 }}>
+                Your document will be chunked into pages you can read, highlight, and quiz yourself on.
+              </div>
+              {uploadError && (
+                <div style={{ color: 'var(--danger, #e53)', fontSize: 13 }}>⚠️ {uploadError}</div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf"
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
+              />
+              <button
+                className="panel-btn"
+                style={{ padding: '8px 20px', fontSize: 13, cursor: 'pointer' }}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Choose PDF…
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Document loaded — render real slides ──────────────────────────────────
   return (
     <div className="content-panel" style={style}>
       {/* ── Panel header ── */}
@@ -25,95 +87,83 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
           <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
           <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
         </svg>
-        <span className="panel-title">Biology Textbook — Chapter 3</span>
+        <span className="panel-title">{docTitle}</span>
         <div className="panel-actions">
-          <button className="panel-btn">p. 47</button>
-          <button className="panel-btn">☰</button>
+          <button
+            className="panel-btn"
+            title="Upload a different document"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadLoading}
+          >
+            {uploadLoading ? '…' : '↑ Replace'}
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf"
+            style={{ display: 'none' }}
+            onChange={handleFileChange}
+          />
         </div>
       </div>
 
-      {/* ── PDF viewer ── */}
+      {/* ── PDF viewer — one .pdf-page per slide ── */}
       <div className="pdf-viewer">
+        {slides.map((slide, idx) => {
+          const pageNum = slide.slide_number ?? idx + 1;
+          const tooltipId = `slide-${pageNum}`;
 
-        {/* Page 1 */}
-        <div className="pdf-page">
-          <div className="pdf-chapter">Chapter 3</div>
-          <div className="pdf-subtitle">Cell Structure and Function · Pages 47–68</div>
-          <div className="pdf-body">
-            <p>
-              The cell is the basic structural and functional unit of all living organisms.{' '}
-              <span
-                className="highlight"
-                onClick={() => showTooltip('h1')}
-              >
-                Every cell is bounded by a plasma membrane that separates the intracellular
-                environment from the extracellular environment.
-                <span className={`selection-tooltip${activeTooltip === 'h1' ? ' visible' : ''}`}>
-                  <button className="tooltip-btn" onClick={(e) => { e.stopPropagation(); onExplain?.('plasma membrane'); }}>✦ Explain</button>
-                  <span className="divider-v" />
-                  <button className="tooltip-btn" onClick={(e) => { e.stopPropagation(); onQuiz?.('plasma membrane'); }}>❓ Quiz me</button>
-                  <span className="divider-v" />
-                  <button className="tooltip-btn" onClick={(e) => { e.stopPropagation(); onSummarize?.(); }}>↓ Summarize</button>
-                </span>
-              </span>
-            </p>
-            <p>
-              Cells contain a variety of internal structures called organelles. The nucleus,
-              often called the control center of the cell, houses the cell&apos;s genetic material
-              in the form of DNA.{' '}
-              <span
-                className="highlight"
-                onClick={() => showTooltip('h2')}
-              >
-                The mitochondria, often referred to as the &ldquo;powerhouse of the cell,&rdquo;
-                generate adenosine triphosphate (ATP) through cellular respiration.
-                <span className={`selection-tooltip${activeTooltip === 'h2' ? ' visible' : ''}`}>
-                  <button className="tooltip-btn" onClick={(e) => { e.stopPropagation(); onExplain?.('mitochondria'); }}>✦ Explain</button>
-                  <span className="divider-v" />
-                  <button className="tooltip-btn" onClick={(e) => { e.stopPropagation(); onQuiz?.('mitochondria'); }}>❓ Quiz me</button>
-                  <span className="divider-v" />
-                  <button className="tooltip-btn" onClick={(e) => { e.stopPropagation(); onSummarize?.(); }}>↓ Summarize</button>
-                </span>
-              </span>
-            </p>
-            <p>
-              The endoplasmic reticulum (ER) exists in two forms: rough ER, which is studded
-              with ribosomes and involved in protein synthesis, and smooth ER, which is involved
-              in lipid synthesis and detoxification. The Golgi apparatus processes and packages
-              proteins for secretion or internal use.
-            </p>
-            <p>
-              Lysosomes contain digestive enzymes and are responsible for breaking down waste
-              materials and cellular debris. Vacuoles store materials such as water, food, or
-              waste products. In plant cells, a large central vacuole maintains cell turgor pressure.
-            </p>
-          </div>
-          <div className="page-num">47</div>
-        </div>
-
-        {/* Page 2 */}
-        <div className="pdf-page">
-          <div className="pdf-body">
-            <p>
-              The cytoskeleton is a network of protein filaments that provides structural support
-              to the cell and plays roles in cell movement and division. It consists of three main
-              components: microtubules, microfilaments (actin filaments), and intermediate filaments.
-            </p>
-            <p>
-              <strong>Cell Communication:</strong> Cells communicate with each other through various
-              mechanisms including direct contact via gap junctions, and through chemical signals such
-              as hormones and neurotransmitters. Signal transduction pathways allow cells to respond
-              to external stimuli.
-            </p>
-            <p>
-              The plasma membrane is composed of a phospholipid bilayer embedded with various proteins.
-              This fluid mosaic model, proposed by Singer and Nicolson in 1972, describes the dynamic
-              nature of the membrane where lipids and proteins can move laterally.
-            </p>
-          </div>
-          <div className="page-num">48</div>
-        </div>
-
+          return (
+            <div key={pageNum} className="pdf-page">
+              {slide.title && <div className="pdf-chapter">{slide.title}</div>}
+              <div className="pdf-body">
+                {slide.content.map((paragraph, pIdx) => {
+                  const isFirst = pIdx === 0;
+                  return isFirst ? (
+                    <p key={pIdx}>
+                      <span
+                        className="highlight"
+                        onClick={() => showTooltip(tooltipId)}
+                      >
+                        {paragraph}
+                        <span className={`selection-tooltip${activeTooltip === tooltipId ? ' visible' : ''}`}>
+                          <button
+                            className="tooltip-btn"
+                            onClick={(e) => { e.stopPropagation(); onExplain?.(slide.title || paragraph.slice(0, 60)); }}
+                          >
+                            ✦ Explain
+                          </button>
+                          <span className="divider-v" />
+                          <button
+                            className="tooltip-btn"
+                            onClick={(e) => { e.stopPropagation(); onQuiz?.(slide.title || paragraph.slice(0, 60)); }}
+                          >
+                            ❓ Quiz me
+                          </button>
+                          <span className="divider-v" />
+                          <button
+                            className="tooltip-btn"
+                            onClick={(e) => { e.stopPropagation(); onSummarize?.(); }}
+                          >
+                            ↓ Summarize
+                          </button>
+                        </span>
+                      </span>
+                    </p>
+                  ) : (
+                    <p key={pIdx}>{paragraph}</p>
+                  );
+                })}
+                {slide.notes && (
+                  <p style={{ color: 'var(--text3)', fontSize: '0.85em', fontStyle: 'italic' }}>
+                    {slide.notes}
+                  </p>
+                )}
+              </div>
+              <div className="page-num">{pageNum}</div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

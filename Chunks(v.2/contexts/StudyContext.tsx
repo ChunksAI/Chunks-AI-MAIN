@@ -32,16 +32,25 @@ import type {
   QuizResult,
   WeakArea,
   PerformanceEntry,
+  NoteItem,
+  RecentItem,
 } from '@/types';
-import { sendMessage, generateFlashcards, generateQuiz, topicToSlides } from '@/lib/studyApi';
+import { sendMessage, generateFlashcards, generateQuiz, topicToSlides, uploadDocument } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
-import type { MessageHistoryItem } from '@/types/api';
+import type { MessageHistoryItem, SlideItem } from '@/types/api';
 
 // ─── State shape ─────────────────────────────────────────────────────────────
 
 export interface StudyState {
   sessionId: string;
   topic: string;
+
+  // Uploaded document / selected library book
+  slides: SlideItem[];
+  docTitle: string;
+  bookId: string | null;
+  uploadLoading: boolean;
+  uploadError: string | null;
 
   messages: ChatMessage[];
   chatLoading: boolean;
@@ -62,6 +71,8 @@ export interface StudyState {
   activeTab: TabId;
   toast: string | null;
   showMemoryBar: boolean;
+  notes: NoteItem[];
+  recents: RecentItem[];
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -86,7 +97,16 @@ export type StudyAction =
   | { type: 'SHOW_TOAST'; payload: string }
   | { type: 'CLEAR_TOAST' }
   | { type: 'DISMISS_MEMORY_BAR' }
-  | { type: 'SET_TOPIC'; payload: string };
+  | { type: 'SHOW_MEMORY_BAR' }
+  | { type: 'SET_TOPIC'; payload: string }
+  | { type: 'SET_SLIDES'; payload: { slides: SlideItem[]; docTitle: string; bookId?: string | null } }
+  | { type: 'SET_UPLOAD_LOADING'; payload: boolean }
+  | { type: 'UPLOAD_ERROR'; payload: string }
+  | { type: 'CLEAR_UPLOAD_ERROR' }
+  | { type: 'ADD_NOTE'; payload: NoteItem }
+  | { type: 'UPDATE_NOTE'; payload: { id: string; title?: string; body?: string } }
+  | { type: 'ADD_RECENT'; payload: RecentItem }
+  | { type: 'SET_BOOK_ID'; payload: string | null };
 
 // ─── Weak-area calculation ───────────────────────────────────────────────────
 
@@ -242,8 +262,57 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
     case 'DISMISS_MEMORY_BAR':
       return { ...state, showMemoryBar: false };
 
+    case 'SHOW_MEMORY_BAR':
+      return { ...state, showMemoryBar: true };
     case 'SET_TOPIC':
       return { ...state, topic: action.payload };
+
+    case 'SET_SLIDES':
+      return {
+        ...state,
+        slides: action.payload.slides,
+        docTitle: action.payload.docTitle,
+        bookId: action.payload.bookId ?? null,
+        uploadLoading: false,
+        uploadError: null,
+      };
+
+    case 'SET_UPLOAD_LOADING':
+      return { ...state, uploadLoading: action.payload, uploadError: null };
+
+    case 'UPLOAD_ERROR':
+      return { ...state, uploadLoading: false, uploadError: action.payload };
+
+    case 'CLEAR_UPLOAD_ERROR':
+      return { ...state, uploadError: null };
+
+    case 'ADD_NOTE':
+      return { ...state, notes: [...state.notes, action.payload] };
+
+    case 'UPDATE_NOTE': {
+      const now = new Date().toISOString();
+      return {
+        ...state,
+        notes: state.notes.map((n) =>
+          n.id !== action.payload.id
+            ? n
+            : {
+                ...n,
+                ...(action.payload.title !== undefined ? { title: action.payload.title } : {}),
+                ...(action.payload.body !== undefined ? { body: action.payload.body } : {}),
+                updatedAt: now,
+              },
+        ),
+      };
+    }
+
+    case 'ADD_RECENT': {
+      const filtered = state.recents.filter((r) => r.title !== action.payload.title);
+      return { ...state, recents: [action.payload, ...filtered].slice(0, 5) };
+    }
+
+    case 'SET_BOOK_ID':
+      return { ...state, bookId: action.payload };
 
     default:
       return state;
@@ -255,6 +324,11 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
 const INITIAL_STATE: StudyState = {
   sessionId: '',
   topic: '',
+  slides: [],
+  docTitle: '',
+  bookId: null,
+  uploadLoading: false,
+  uploadError: null,
   messages: [],
   chatLoading: false,
   chatError: null,
@@ -270,6 +344,8 @@ const INITIAL_STATE: StudyState = {
   activeTab: 'chat',
   toast: null,
   showMemoryBar: true,
+  notes: [],
+  recents: [],
 };
 
 // ─── Context value ────────────────────────────────────────────────────────────
@@ -290,10 +366,35 @@ interface StudyContextValue {
   handleStartQuiz: (quizId: string) => void;
   handleCompleteQuiz: () => void;
   handleStartReview: (weakAreaTopic?: string) => void;
+  handleUploadDocument: (file: File) => Promise<void>;
+  handleAddNote: () => void;
   showToast: (message: string) => void;
 }
 
 const StudyContext = createContext<StudyContextValue | null>(null);
+
+// ─── Recents helpers ─────────────────────────────────────────────────────────
+
+const RECENTS_KEY = 'chunks_v2_recents';
+const RECENT_COLORS = ['#4CAF50', '#2196F3', '#9C27B0', '#FF9800', '#E91E63'];
+
+function pickColor(title: string): string {
+  let hash = 0;
+  for (let i = 0; i < title.length; i++) {
+    hash = ((hash * 31) + title.charCodeAt(i)) >>> 0;
+  }
+  return RECENT_COLORS[hash % RECENT_COLORS.length];
+}
+
+function loadRecentsFromStorage(): RecentItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(RECENTS_KEY);
+    return raw ? (JSON.parse(raw) as RecentItem[]) : [];
+  } catch {
+    return [];
+  }
+}
 
 // ─── Message ID counter ───────────────────────────────────────────────────────
 
@@ -307,7 +408,10 @@ function nextMsgId() {
 export function StudyProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(studyReducer, INITIAL_STATE, (init) => ({
     ...init,
+    // TODO: replace with a backend-issued session ID once server-side session
+    // persistence is implemented (POST /sessions → { sessionId }).
     sessionId: `session-${Date.now()}`,
+    recents: loadRecentsFromStorage(),
   }));
 
   // Keep a ref so stable callbacks can always read current state
@@ -349,6 +453,16 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     saveSession,
   ]);
 
+  // ── Persist recents to localStorage ──────────────────────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(RECENTS_KEY, JSON.stringify(state.recents));
+    } catch {
+      // ignore — storage may be unavailable
+    }
+  }, [state.recents]);
+
   // ── showToast ─────────────────────────────────────────────────────────────
   const showToast = useCallback((message: string) => {
     dispatch({ type: 'SHOW_TOAST', payload: message });
@@ -369,13 +483,24 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         content: m.text.replace(/<[^>]+>/g, ''),
       }));
 
+      // Auto-populate doc_context from uploaded slides when not explicitly provided
+      const { slides } = stateRef.current;
+      const autoDocContext =
+        slides.length > 0
+          ? slides
+              .map((s) => [s.title, ...s.content].join('\n'))
+              .join('\n\n')
+              .slice(0, 4000)
+          : '';
+
       try {
         const res = await sendMessage({
           question: text,
           history,
           selected_text: opts.selectedText ?? '',
-          doc_context: opts.docContext ?? '',
+          doc_context: opts.docContext ?? autoDocContext,
           mode: 'study',
+          bookId: stateRef.current.bookId ?? undefined,
         });
 
         const aiMsg: ChatMessage = {
@@ -409,7 +534,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SHOW_TOAST', payload: '🃏 Generating flashcards…' });
 
     try {
-      const res = await generateFlashcards({ topic, count });
+      const res = await generateFlashcards({
+        topic,
+        count,
+        bookId: stateRef.current.bookId ?? undefined,
+      });
       const cardId = `fc-${Date.now()}`;
       const card: WorkspaceCard = {
         id: cardId,
@@ -421,6 +550,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       };
       dispatch({ type: 'ADD_WORKSPACE_CARD', payload: { sectionTitle: 'Flashcard Decks', card } });
       dispatch({ type: 'SET_TOPIC', payload: topic });
+      dispatch({
+        type: 'ADD_RECENT',
+        payload: { id: cardId, title: topic, color: pickColor(topic) },
+      });
       dispatch({
         type: 'SHOW_TOAST',
         payload: `🃏 ${res.flashcards.length} flashcards added to Workspace!`,
@@ -453,6 +586,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         dispatch({ type: 'ADD_WORKSPACE_CARD', payload: { sectionTitle: 'Quizzes', card } });
         dispatch({ type: 'SET_TOPIC', payload: topic });
         dispatch({
+          type: 'ADD_RECENT',
+          payload: { id: cardId, title: topic, color: pickColor(topic) },
+        });
+        dispatch({
           type: 'SHOW_TOAST',
           payload: `🎯 ${res.questions.length}-question quiz added to Workspace!`,
         });
@@ -464,6 +601,31 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     },
     [],
   );
+
+  // ── uploadDocument ────────────────────────────────────────────────────────
+  const handleUploadDocument = useCallback(async (file: File) => {
+    dispatch({ type: 'SET_UPLOAD_LOADING', payload: true });
+    dispatch({ type: 'SHOW_TOAST', payload: '📄 Uploading document…' });
+
+    try {
+      const res = await uploadDocument(file);
+      const docTitle = res.filename.replace(/\.[^.]+$/, ''); // strip extension
+      dispatch({ type: 'SET_SLIDES', payload: { slides: res.slides, docTitle } });
+      dispatch({ type: 'SET_TOPIC', payload: docTitle });
+      dispatch({
+        type: 'ADD_RECENT',
+        payload: { id: `doc-${Date.now()}`, title: docTitle, color: pickColor(docTitle) },
+      });
+      dispatch({
+        type: 'SHOW_TOAST',
+        payload: `✅ "${docTitle}" loaded — ${res.total_slides} pages ready`,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+      dispatch({ type: 'UPLOAD_ERROR', payload: message });
+      dispatch({ type: 'SHOW_TOAST', payload: `❌ ${message}` });
+    }
+  }, []);
 
   // ── startQuiz ─────────────────────────────────────────────────────────────
   const handleStartQuiz = useCallback((quizId: string) => {
@@ -543,6 +705,19 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ── addNote ───────────────────────────────────────────────────────────────
+  const handleAddNote = useCallback(() => {
+    const now = new Date().toISOString();
+    const note: NoteItem = {
+      id: `note-${Date.now()}`,
+      title: 'New Note',
+      body: '',
+      createdAt: now,
+      updatedAt: now,
+    };
+    dispatch({ type: 'ADD_NOTE', payload: note });
+  }, []);
+
   const value: StudyContextValue = {
     state,
     dispatch,
@@ -552,6 +727,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     handleStartQuiz,
     handleCompleteQuiz,
     handleStartReview,
+    handleUploadDocument,
+    handleAddNote,
     showToast,
   };
 

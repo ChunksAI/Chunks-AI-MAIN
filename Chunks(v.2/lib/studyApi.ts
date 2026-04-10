@@ -70,7 +70,7 @@ export async function sendMessage(params: SendMessageRequest): Promise<SendMessa
     selected_text: params.selected_text ?? '',
     doc_context: params.doc_context ?? '',
     user_memory: params.user_memory ?? '',
-    bookId: params.bookId ?? 'zumdahl',
+    ...(params.bookId ? { bookId: params.bookId } : {}),
   });
 }
 
@@ -82,7 +82,7 @@ export async function generateFlashcards(
   return apiPost<GenerateFlashcardsResponse>('/generate-flashcards', {
     topic: params.topic,
     count: params.count ?? 10,
-    bookId: params.bookId ?? 'zumdahl',
+    ...(params.bookId ? { bookId: params.bookId } : {}),
   });
 }
 

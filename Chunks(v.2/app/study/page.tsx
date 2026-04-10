@@ -22,7 +22,7 @@ const NotesTab     = lazy(() => import('@/components/study/tabs/NotesTab'));
 function StudyLayout() {
   const { state, dispatch, handleSendMessage, showToast } = useStudy();
   const { user } = useAuth();
-  const { activeTab, toast } = state;
+  const { activeTab, toast, docTitle, topic, recents } = state;
   const { pct, containerRef, onMouseDown } = useResizable();
 
   // ContentPanel callbacks → drive Chat via context
@@ -50,6 +50,7 @@ function StudyLayout() {
           dispatch({ type: 'SHOW_TOAST', payload: '✨ New study session started' })
         }
         user={user}
+        recents={recents}
       />
 
       {/* ── Main ── */}
@@ -57,6 +58,11 @@ function StudyLayout() {
         <Topbar
           activeTab={activeTab}
           onTabChange={(tab) => dispatch({ type: 'SET_ACTIVE_TAB', payload: tab })}
+          sessionName={docTitle || topic || 'Study Assistant'}
+          onMemoryClick={() => {
+            dispatch({ type: 'SHOW_MEMORY_BAR' });
+            dispatch({ type: 'SET_ACTIVE_TAB', payload: 'chat' });
+          }}
         />
 
         <div className="content-area">
@@ -98,7 +104,7 @@ function StudyLayout() {
           {activeTab === 'notes' && (
             <Suspense fallback={<div className="tab-loading">Loading notes…</div>}>
               <ErrorBoundary>
-                <NotesTab onNewNote={() => dispatch({ type: 'SHOW_TOAST', payload: '📝 New note created!' })} />
+                <NotesTab />
               </ErrorBoundary>
             </Suspense>
           )}
