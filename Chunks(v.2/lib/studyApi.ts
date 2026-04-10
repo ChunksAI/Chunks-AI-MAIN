@@ -1,0 +1,147 @@
+/**
+ * lib/studyApi.ts — Chunks(v.2) API client
+ *
+ * Single source of truth for every fetch() call to the Chunks backend.
+ * All API calls go through apiPost() / uploadDocument() which attach auth
+ * headers, handle rate-limit (429) and other errors uniformly, and parse JSON.
+ *
+ * Backend base URL is read from NEXT_PUBLIC_API_URL (defaults to production).
+ */
+
+import {
+  ApiError,
+  type SendMessageRequest,
+  type SendMessageResponse,
+  type GenerateFlashcardsRequest,
+  type GenerateFlashcardsResponse,
+  type GenerateQuizRequest,
+  type GenerateQuizResponse,
+  type GenerateStudyMaterialsRequest,
+  type GenerateStudyMaterialsResponse,
+  type SlideItem,
+  type UploadDocumentResponse,
+} from '@/types/api';
+import { getAccessToken } from './supabaseClient';
+
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.chunks.online').replace(/\/$/, '');
+
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const token = await getAccessToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function apiPost<T>(path: string, body: unknown): Promise<T> {
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    body: JSON.stringify(body),
+  });
+
+  if (res.status === 429) {
+    throw new ApiError('Rate limit reached. Please wait a moment before trying again.', 429);
+  }
+
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const err = (await res.json()) as { detail?: string; message?: string };
+      message = err.detail ?? err.message ?? message;
+    } catch {
+      // ignore JSON parse errors
+    }
+    throw new ApiError(message, res.status);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+
+export async function sendMessage(params: SendMessageRequest): Promise<SendMessageResponse> {
+  return apiPost<SendMessageResponse>('/ask', {
+    question: params.question,
+    complexity: params.complexity ?? 3,
+    mode: params.mode ?? 'study',
+    thinking: params.thinking ?? null,
+    history: params.history ?? [],
+    selected_text: params.selected_text ?? '',
+    doc_context: params.doc_context ?? '',
+    user_memory: params.user_memory ?? '',
+    bookId: params.bookId ?? 'zumdahl',
+  });
+}
+
+// ─── Flashcards ───────────────────────────────────────────────────────────────
+
+export async function generateFlashcards(
+  params: GenerateFlashcardsRequest,
+): Promise<GenerateFlashcardsResponse> {
+  return apiPost<GenerateFlashcardsResponse>('/generate-flashcards', {
+    topic: params.topic,
+    count: params.count ?? 10,
+    bookId: params.bookId ?? 'zumdahl',
+  });
+}
+
+// ─── Quiz ─────────────────────────────────────────────────────────────────────
+
+export async function generateQuiz(params: GenerateQuizRequest): Promise<GenerateQuizResponse> {
+  return apiPost<GenerateQuizResponse>('/generate-quiz', {
+    slides: params.slides,
+    count: params.count ?? 10,
+    difficulty: params.difficulty ?? 'medium',
+    mode: params.mode ?? 'standard',
+    question_type: params.question_type ?? 'mcq',
+    existingQuestions: params.existingQuestions ?? [],
+  });
+}
+
+/**
+ * Converts a plain topic string into the slides array format the /generate-quiz
+ * endpoint expects. Use when you don't have a real uploaded document.
+ */
+export function topicToSlides(topic: string): SlideItem[] {
+  return [{ title: topic, slide_number: 1, content: [topic], notes: '' }];
+}
+
+// ─── Study materials ──────────────────────────────────────────────────────────
+
+export async function generateStudyMaterials(
+  params: GenerateStudyMaterialsRequest,
+): Promise<GenerateStudyMaterialsResponse> {
+  return apiPost<GenerateStudyMaterialsResponse>('/generate-study-materials', params);
+}
+
+// ─── Document upload ──────────────────────────────────────────────────────────
+
+export async function uploadDocument(file: File): Promise<UploadDocumentResponse> {
+  const authHeaders = await getAuthHeaders();
+  const form = new FormData();
+  form.append('file', file);
+
+  const res = await fetch(`${API_BASE}/upload-document`, {
+    method: 'POST',
+    headers: authHeaders, // no Content-Type — browser sets multipart boundary
+    body: form,
+  });
+
+  if (res.status === 429) {
+    throw new ApiError('Rate limit reached. Please wait a moment before trying again.', 429);
+  }
+
+  if (!res.ok) {
+    let message = `Upload failed (${res.status})`;
+    try {
+      const err = (await res.json()) as { detail?: string; message?: string };
+      message = err.detail ?? err.message ?? message;
+    } catch {
+      // ignore
+    }
+    throw new ApiError(message, res.status);
+  }
+
+  return res.json() as Promise<UploadDocumentResponse>;
+}

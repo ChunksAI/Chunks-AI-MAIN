@@ -1,11 +1,14 @@
 'use client';
 
 import type { NavItem, RecentItem } from '@/types';
+import type { AuthUser } from '@/contexts/AuthContext';
 
 interface SidebarProps {
   activeNav: string;
   onNavChange: (id: string) => void;
   onNewSession: () => void;
+  /** Optional — when provided, replaces the hardcoded user footer. */
+  user?: AuthUser | null;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -40,7 +43,7 @@ function NavIcon({ id }: { id: string }) {
   }
 }
 
-export default function Sidebar({ activeNav, onNavChange, onNewSession }: SidebarProps) {
+export default function Sidebar({ activeNav, onNavChange, onNewSession, user }: SidebarProps) {
   return (
     <aside className="sidebar">
       {/* ── Header ── */}
@@ -102,10 +105,10 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession }: Sideba
 
       {/* ── Footer / user ── */}
       <div className="sidebar-footer">
-        <div className="avatar">D</div>
+        <div className="avatar">{(user?.name?.[0] ?? 'U').toUpperCase()}</div>
         <div className="user-info">
-          <div className="user-name">Deff Michael Dawang</div>
-          <div className="user-role">Admin</div>
+          <div className="user-name">{user?.name ?? 'Guest'}</div>
+          <div className="user-role">{user?.tier ?? 'free'}</div>
         </div>
         <div className="more-btn">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
