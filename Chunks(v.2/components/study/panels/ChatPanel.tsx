@@ -7,6 +7,7 @@ import { useAutoScroll } from '@/hooks/useAutoScroll';
 import type { ChatMessage } from '@/types';
 
 import MarkdownRenderer from '@/components/study/chat/MarkdownRenderer';
+import { resolveStudyTopic } from '@/lib/topicFallback';
 
 const QUICK_ACTIONS = [
   '✦ Explain simply',
@@ -114,7 +115,7 @@ export default function ChatPanel() {
   const { state, dispatch, handleSendMessage, handleGenerateFlashcards, handleGenerateQuiz } =
     useStudy();
   const { user } = useAuth();
-  const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic } = state;
+  const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle } = state;
 
   const userInitial = (user?.name?.[0] ?? user?.email?.[0] ?? 'U').toUpperCase();
 
@@ -152,7 +153,7 @@ export default function ChatPanel() {
 
   // Action chip handler — generates real content via context
   const handleActionClick = (key: string) => {
-    const currentTopic = topic || 'the current topic';
+    const currentTopic = resolveStudyTopic(topic, docTitle, messages);
     switch (key) {
       case 'flashcards':
       case 'flashcards2':
