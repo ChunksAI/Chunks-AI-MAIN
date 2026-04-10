@@ -1,4 +1,5 @@
 import type { Flashcard, QuizQuestion } from './api';
+export type { ConceptChunk, ExamQuestion, ExamResult, ExamConfig } from './exam';
 
 // ─── Navigation ──────────────────────────────────────────────────────────────
 

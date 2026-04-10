@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import type { NavItem, RecentItem } from '@/types';
 import type { AuthUser } from '@/contexts/AuthContext';
 
@@ -38,6 +39,15 @@ function NavIcon({ id }: { id: string }) {
 }
 
 export default function Sidebar({ activeNav, onNavChange, onNewSession, user, recents = [] }: SidebarProps) {
+  const router = useRouter();
+
+  const handleNavClick = (id: string) => {
+    if (id === 'exam') {
+      router.push('/exam');
+      return;
+    }
+    onNavChange(id);
+  };
   return (
     <aside className="sidebar">
       {/* ── Header ── */}
@@ -75,7 +85,7 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, user, re
           <div
             key={item.id}
             className={`nav-item${activeNav === item.id ? ' active' : ''}`}
-            onClick={() => onNavChange(item.id)}
+            onClick={() => handleNavClick(item.id)}
           >
             <NavIcon id={item.icon} />
             {item.label}
