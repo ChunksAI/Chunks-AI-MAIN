@@ -57,6 +57,7 @@ def test_upload_success(client, monkeypatch, mock_extract_user):
     assert body['success'] is True
     assert body['total_slides'] == 1
     assert body['filename'] == 'test.pdf'
+    assert body['bookId'].startswith('upload_')
 
 
 def test_upload_extraction_error(client, monkeypatch, mock_extract_user):

@@ -2,6 +2,6 @@
   "/_not-found/page": "/_not-found",
   "/library/page": "/library",
   "/login/page": "/login",
-  "/page": "/",
-  "/study/page": "/study"
+  "/study/page": "/study",
+  "/page": "/"
 }
