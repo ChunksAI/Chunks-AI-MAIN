@@ -95,6 +95,7 @@ export interface UploadDocumentResponse {
   slides: SlideItem[];
   total_slides: number;
   filename: string;
+  bookId?: string;
 }
 
 /** Typed API error — carries the HTTP status code. */

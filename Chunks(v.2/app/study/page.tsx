@@ -1,6 +1,7 @@
 'use client';
 
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { StudyProvider, useStudy } from '@/contexts/StudyContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,6 +18,29 @@ const WorkspaceTab = lazy(() => import('@/components/study/tabs/WorkspaceTab'));
 const ReviewerTab  = lazy(() => import('@/components/study/tabs/ReviewerTab'));
 const NotesTab     = lazy(() => import('@/components/study/tabs/NotesTab'));
 
+// ─── Reads bookId/docTitle from URL and dispatches to context ─────────────────
+// Must be wrapped in <Suspense> because it uses useSearchParams.
+
+function BookParamsReader() {
+  const { dispatch } = useStudy();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const bookId = searchParams.get('bookId');
+    const paramDocTitle = searchParams.get('docTitle');
+    if (bookId) {
+      dispatch({ type: 'SET_BOOK_ID', payload: bookId });
+      if (paramDocTitle) {
+        dispatch({ type: 'SET_SLIDES', payload: { slides: [], docTitle: paramDocTitle, bookId } });
+      }
+    }
+    // Only run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return null;
+}
+
 // ─── Inner layout — has access to StudyContext ────────────────────────────────
 
 function StudyLayout() {
@@ -24,6 +48,7 @@ function StudyLayout() {
   const { user } = useAuth();
   const { activeTab, toast, docTitle, topic, recents } = state;
   const { pct, containerRef, onMouseDown } = useResizable();
+  const router = useRouter();
 
   // ContentPanel callbacks → drive Chat via context
   const handleExplain = (topic: string) => {
@@ -42,10 +67,17 @@ function StudyLayout() {
 
   return (
     <div className="app-shell">
+      {/* Read bookId from URL params — wrapped in Suspense as required by Next.js */}
+      <Suspense fallback={null}>
+        <BookParamsReader />
+      </Suspense>
+
       {/* ── Sidebar ── */}
       <Sidebar
         activeNav="study"
-        onNavChange={() => {}}
+        onNavChange={(id) => {
+          if (id === 'library') router.push('/library');
+        }}
         onNewSession={() =>
           dispatch({ type: 'SHOW_TOAST', payload: '✨ New study session started' })
         }

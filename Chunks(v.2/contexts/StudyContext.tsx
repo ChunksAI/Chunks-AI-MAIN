@@ -666,7 +666,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     try {
       const res = await uploadDocument(file);
       const docTitle = res.filename.replace(/\.[^.]+$/, ''); // strip extension
-      dispatch({ type: 'SET_SLIDES', payload: { slides: res.slides, docTitle } });
+      dispatch({ type: 'SET_SLIDES', payload: { slides: res.slides, docTitle, bookId: res.bookId } });
       dispatch({ type: 'SET_TOPIC', payload: docTitle });
       dispatch({
         type: 'ADD_RECENT',

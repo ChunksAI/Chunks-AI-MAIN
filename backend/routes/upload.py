@@ -53,11 +53,13 @@ def upload_document(request: Request, file: UploadFile = File(default=None)):
         try:
             extracted_slides = extract_slides_from_file(temp_path, safe_name)
             os.remove(temp_path)
+            book_id = f'upload_{uuid.uuid4().hex[:16]}'
             return {
                 'success':      True,
                 'slides':       extracted_slides,
                 'total_slides': len(extracted_slides),
-                'filename':     safe_name
+                'filename':     safe_name,
+                'bookId':       book_id,
             }
         except (ValueError, RuntimeError) as doc_err:
             if os.path.exists(temp_path):
