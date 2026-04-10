@@ -403,6 +403,8 @@ body {
 .pdf-viewer::-webkit-scrollbar { width: 4px; }
 .pdf-viewer::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
 
+.pdf-iframe { flex: 1; width: 100%; border: none; display: block; }
+
 .pdf-page {
   background: white;
   border-radius: 8px;

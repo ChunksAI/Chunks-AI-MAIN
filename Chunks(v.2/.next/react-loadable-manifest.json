@@ -2,7 +2,7 @@
   "app/study/page.tsx -> @/components/study/tabs/NotesTab": {
     "id": 8727,
     "files": [
-      "static/chunks/727.c64d8a382fb69ef9.js"
+      "static/chunks/727.40ad6344c14a0a34.js"
     ]
   },
   "app/study/page.tsx -> @/components/study/tabs/ReviewerTab": {
@@ -14,7 +14,7 @@
   "app/study/page.tsx -> @/components/study/tabs/WorkspaceTab": {
     "id": 3305,
     "files": [
-      "static/chunks/305.b5f7c63ded9d18fb.js"
+      "static/chunks/305.92695d6f7e8fa58a.js"
     ]
   }
 }

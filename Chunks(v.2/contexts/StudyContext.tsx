@@ -49,6 +49,7 @@ export interface StudyState {
   slides: SlideItem[];
   docTitle: string;
   bookId: string | null;
+  pdfBlobUrl: string | null;
   uploadLoading: boolean;
   uploadError: string | null;
 
@@ -100,6 +101,7 @@ export type StudyAction =
   | { type: 'SHOW_MEMORY_BAR' }
   | { type: 'SET_TOPIC'; payload: string }
   | { type: 'SET_SLIDES'; payload: { slides: SlideItem[]; docTitle: string; bookId?: string | null } }
+  | { type: 'SET_PDF_BLOB_URL'; payload: string | null }
   | { type: 'SET_UPLOAD_LOADING'; payload: boolean }
   | { type: 'UPLOAD_ERROR'; payload: string }
   | { type: 'CLEAR_UPLOAD_ERROR' }
@@ -277,6 +279,9 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
         uploadError: null,
       };
 
+    case 'SET_PDF_BLOB_URL':
+      return { ...state, pdfBlobUrl: action.payload };
+
     case 'SET_UPLOAD_LOADING':
       return { ...state, uploadLoading: action.payload, uploadError: null };
 
@@ -327,6 +332,7 @@ const INITIAL_STATE: StudyState = {
   slides: [],
   docTitle: '',
   bookId: null,
+  pdfBlobUrl: null,
   uploadLoading: false,
   uploadError: null,
   messages: [],
@@ -425,6 +431,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // Track in-flight chat request so it can be cancelled on re-send
   const abortRef = useRef<AbortController | null>(null);
 
+  // Track current blob URL so we can revoke it before creating a new one
+  const blobUrlRef = useRef<string | null>(null);
+
   // ── Ref for handleSendMessage so handleStartReview can call it stably ──────
   const sendMessageRef = useRef<
     (text: string, opts?: { selectedText?: string; docContext?: string }) => Promise<void>
@@ -462,6 +471,15 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       // ignore — storage may be unavailable
     }
   }, [state.recents]);
+
+  // ── Revoke blob URL on unmount ────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (blobUrlRef.current) {
+        URL.revokeObjectURL(blobUrlRef.current);
+      }
+    };
+  }, []);
 
   // ── showToast ─────────────────────────────────────────────────────────────
   const showToast = useCallback((message: string) => {
@@ -604,6 +622,17 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // ── uploadDocument ────────────────────────────────────────────────────────
   const handleUploadDocument = useCallback(async (file: File) => {
+    // Revoke the previous blob URL to free browser memory
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+
+    // Create a blob URL immediately so ContentPanel can show the real PDF
+    const blobUrl = URL.createObjectURL(file);
+    blobUrlRef.current = blobUrl;
+    dispatch({ type: 'SET_PDF_BLOB_URL', payload: blobUrl });
+
     dispatch({ type: 'SET_UPLOAD_LOADING', payload: true });
     dispatch({ type: 'SHOW_TOAST', payload: '📄 Uploading document…' });
 
