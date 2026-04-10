@@ -773,9 +773,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
               .slice(0, 4000)
           : '';
 
+      // Append markdown format requirement so the model returns well-structured responses
+      const formattedQuestion = `${text}\n\n[Format requirement: Use markdown with ## headers for main sections, ### for subsections. Use $$ for display equations and $ for inline math. Use \\ce{} for chemical formulas. Give thorough explanations with worked examples. End conceptual answers with a > 💡 Key takeaway: blockquote.]`;
+
       try {
         const res = await sendMessage({
-          question: text,
+          question: formattedQuestion,
           history,
           selected_text: opts.selectedText ?? '',
           doc_context: opts.docContext ?? autoDocContext,

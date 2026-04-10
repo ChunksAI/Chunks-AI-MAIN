@@ -33,8 +33,11 @@ const sanitizeSchema = {
     span: [...(defaultSchema.attributes?.span ?? []), 'className', 'style'],
     div: [...(defaultSchema.attributes?.div ?? []), 'className', 'style'],
     math: ['className', 'xmlns'],
+    svg: ['className', 'xmlns', 'viewBox', 'width', 'height', 'preserveAspectRatio'],
+    path: ['d', 'fill', 'stroke', 'strokeWidth', 'className'],
+    line: ['x1', 'x2', 'y1', 'y2', 'className'],
     // Allow KaTeX's aria attributes for accessibility
-    '*': [...((defaultSchema.attributes?.['*'] as string[] | undefined) ?? []), 'aria-hidden', 'aria-label'],
+    '*': [...((defaultSchema.attributes?.['*'] as string[] | undefined) ?? []), 'aria-hidden', 'aria-label', 'style'],
   },
   tagNames: [
     ...(defaultSchema.tagNames ?? []),
@@ -43,6 +46,8 @@ const sanitizeSchema = {
     'mrow', 'mi', 'mn', 'mo', 'msup', 'msub', 'mfrac', 'msubsup',
     'munder', 'mover', 'munderover', 'msqrt', 'mroot', 'mtext',
     'mspace', 'mtable', 'mtr', 'mtd', 'mfenced', 'mpadded',
+    // KaTeX renders inline SVG for some symbols
+    'svg', 'path', 'line', 'g', 'rect', 'circle',
     // highlight.js wraps tokens in <span>
     'span',
   ],
@@ -138,6 +143,34 @@ const components: Components = {
     return <>{children}</>;
   },
 
+  // Display-math blocks produced by rehype-katex / remark-math
+  div({ className, children, ...props }) {
+    if (className?.includes('math-display') || className?.includes('katex-display')) {
+      return (
+        <div className="md-math-display">
+          <div className={className} {...props}>{children}</div>
+        </div>
+      );
+    }
+    return <div className={className} {...props}>{children}</div>;
+  },
+
+  // Inline-math spans produced by rehype-katex
+  span({ className, children, ...props }) {
+    if (className?.includes('katex') && !className?.includes('katex-display')) {
+      return (
+        <span
+          className={className}
+          style={{ background: 'var(--surface2)', borderRadius: 4, padding: '1px 3px', fontSize: 13.5 }}
+          {...props}
+        >
+          {children}
+        </span>
+      );
+    }
+    return <span className={className} {...props}>{children}</span>;
+  },
+
   // Tables
   table({ children }) {
     return (
@@ -179,8 +212,8 @@ function MarkdownRenderer({ content }: MarkdownRendererProps) {
       <Markdown
         remarkPlugins={[remarkMath]}
         rehypePlugins={[
+          [rehypeKatex, { trust: true, strict: false }],
           [rehypeSanitize, sanitizeSchema],
-          rehypeKatex,
           rehypeHighlight,
         ]}
         components={components}
