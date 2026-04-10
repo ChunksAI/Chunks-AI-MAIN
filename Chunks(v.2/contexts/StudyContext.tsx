@@ -108,7 +108,9 @@ export type StudyAction =
   | { type: 'ADD_NOTE'; payload: NoteItem }
   | { type: 'UPDATE_NOTE'; payload: { id: string; title?: string; body?: string } }
   | { type: 'ADD_RECENT'; payload: RecentItem }
-  | { type: 'SET_BOOK_ID'; payload: string | null };
+  | { type: 'SET_BOOK_ID'; payload: string | null }
+  | { type: 'SET_SESSION_ID'; payload: string }
+  | { type: 'SET_RECENTS'; payload: RecentItem[] };
 
 // ─── Weak-area calculation ───────────────────────────────────────────────────
 
@@ -319,6 +321,12 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
     case 'SET_BOOK_ID':
       return { ...state, bookId: action.payload };
 
+    case 'SET_SESSION_ID':
+      return { ...state, sessionId: action.payload };
+
+    case 'SET_RECENTS':
+      return { ...state, recents: action.payload };
+
     default:
       return state;
   }
@@ -412,19 +420,20 @@ function nextMsgId() {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function StudyProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(studyReducer, INITIAL_STATE, (init) => ({
-    ...init,
-    // TODO: replace with a backend-issued session ID once server-side session
-    // persistence is implemented (POST /sessions → { sessionId }).
-    sessionId: `session-${Date.now()}`,
-    recents: loadRecentsFromStorage(),
-  }));
+  const [state, dispatch] = useReducer(studyReducer, INITIAL_STATE);
 
   // Keep a ref so stable callbacks can always read current state
   const stateRef = useRef(state);
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  // ── Initialise browser-only state after mount (avoids SSR/client mismatch) ─
+  useEffect(() => {
+    dispatch({ type: 'SET_SESSION_ID', payload: `session-${Date.now()}` });
+    dispatch({ type: 'SET_RECENTS', payload: loadRecentsFromStorage() });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { saveSession } = useStudySession();
 
