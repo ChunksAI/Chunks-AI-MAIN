@@ -387,6 +387,44 @@ interface StudyContextValue {
 
 const StudyContext = createContext<StudyContextValue | null>(null);
 
+// ─── Session-storage helpers (slides persistence) ─────────────────────────────
+
+const SLIDES_STORAGE_KEY = 'chunks_v2_slides';
+
+interface PersistedSlides {
+  slides: SlideItem[];
+  docTitle: string;
+  bookId: string | null;
+}
+
+function persistSlidesToStorage(data: PersistedSlides): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(SLIDES_STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // ignore — storage may be unavailable or quota exceeded
+  }
+}
+
+function loadSlidesFromStorage(): PersistedSlides | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(SLIDES_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as PersistedSlides) : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearSlidesFromStorage(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.removeItem(SLIDES_STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 // ─── Recents helpers ─────────────────────────────────────────────────────────
 
 const RECENTS_KEY = 'chunks_v2_recents';
@@ -432,6 +470,22 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     dispatch({ type: 'SET_SESSION_ID', payload: `session-${Date.now()}` });
     dispatch({ type: 'SET_RECENTS', payload: loadRecentsFromStorage() });
+
+    // Rehydrate slides from sessionStorage so the AI context survives a page
+    // refresh.  The PDF blob URL cannot be restored (it is memory-only), so the
+    // visual iframe is replaced by the text-fallback view — but the AI still
+    // has the full document context.
+    const persisted = loadSlidesFromStorage();
+    if (persisted && persisted.slides.length > 0) {
+      dispatch({
+        type: 'SET_SLIDES',
+        payload: { slides: persisted.slides, docTitle: persisted.docTitle, bookId: persisted.bookId },
+      });
+      dispatch({
+        type: 'SHOW_TOAST',
+        payload: `📄 "${persisted.docTitle}" restored — AI context ready (re-upload to view PDF)`,
+      });
+    }
   }, []);
 
   const { saveSession } = useStudySession();
@@ -667,6 +721,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       const res = await uploadDocument(file);
       const docTitle = res.filename.replace(/\.[^.]+$/, ''); // strip extension
       dispatch({ type: 'SET_SLIDES', payload: { slides: res.slides, docTitle, bookId: res.bookId } });
+      persistSlidesToStorage({ slides: res.slides, docTitle, bookId: res.bookId ?? null });
       dispatch({ type: 'SET_TOPIC', payload: docTitle });
       dispatch({
         type: 'ADD_RECENT',
@@ -678,6 +733,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
+      clearSlidesFromStorage();
       dispatch({ type: 'UPLOAD_ERROR', payload: message });
       dispatch({ type: 'SHOW_TOAST', payload: `❌ ${message}` });
     }

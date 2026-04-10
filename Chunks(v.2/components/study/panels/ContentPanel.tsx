@@ -120,7 +120,7 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
           title={docTitle || 'PDF document'}
         />
       ) : (
-        /* Fallback: blob URL not yet available but slides exist (shouldn't normally happen) */
+        /* Fallback: no blob URL (e.g. after a page refresh — slides restored from sessionStorage) */
         <div className="pdf-viewer">
           {slides.map((slide, idx) => {
             const pageNum = slide.slide_number ?? idx + 1;
