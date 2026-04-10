@@ -4,5 +4,7 @@
   "/library/page": "app/library/page.js",
   "/login/page": "app/login/page.js",
   "/page": "app/page.js",
-  "/study/page": "app/study/page.js"
+  "/study/page": "app/study/page.js",
+  "/privacy/page": "app/privacy/page.js",
+  "/terms/page": "app/terms/page.js"
 }

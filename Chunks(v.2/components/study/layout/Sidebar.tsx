@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import type { NavItem, RecentItem } from '@/types';
 import type { AuthUser } from '@/contexts/AuthContext';
+import ProfileDropdown from '@/components/shared/ProfileDropdown';
 
 interface SidebarProps {
   activeNav: string;
@@ -113,19 +114,23 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, user, re
         )}
       </div>
 
-      {/* ── Footer / user ── */}
-      <div className="sidebar-footer">
-        <div className="avatar">{(user?.name?.[0] ?? 'U').toUpperCase()}</div>
-        <div className="user-info">
-          <div className="user-name">{user?.name ?? 'Guest'}</div>
-          <div className="user-role">{user?.tier ?? 'free'}</div>
+      {/* ── Footer / profile dropdown ── */}
+      {user ? (
+        <ProfileDropdown user={user} />
+      ) : (
+        <div className="sidebar-footer">
+          <div className="avatar">G</div>
+          <div className="user-info">
+            <div className="user-name">Guest</div>
+            <div className="user-role">Not signed in</div>
+          </div>
+          <div className="more-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
+            </svg>
+          </div>
         </div>
-        <div className="more-btn">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>
-          </svg>
-        </div>
-      </div>
+      )}
     </aside>
   );
 }
