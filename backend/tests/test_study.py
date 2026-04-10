@@ -412,3 +412,56 @@ def test_parse_mcq_extended_options():
     assert 'E' in questions[0]['options']
     assert 'F' in questions[0]['options']
     assert questions[0]['answer'] == 'E'
+
+
+def test_parse_mcq_markdown_bold():
+    """_parse_mcq handles markdown bold formatting (**Q1.**, **A)**) that some AI models emit."""
+    from server import _parse_mcq
+    raw = (
+        "**Q1.** What is the primary function of the cell membrane?\n"
+        "**A)** Energy production\n"
+        "**B)** Regulating what enters and exits the cell\n"
+        "**C)** DNA storage\n"
+        "**D)** Protein synthesis\n"
+        "**Answer:** B\n"
+        "**Explanation:** The cell membrane controls transport into and out of the cell.\n"
+        "\n"
+        "**Q2.** Which organelle produces ATP?\n"
+        "**A)** Nucleus\n"
+        "**B)** Ribosome\n"
+        "**C)** Mitochondria\n"
+        "**D)** Golgi apparatus\n"
+        "**Answer:** C\n"
+        "**Explanation:** Mitochondria are the powerhouse of the cell."
+    )
+    questions = _parse_mcq(raw)
+    assert len(questions) == 2
+    assert questions[0]['answer'] == 'B'
+    assert questions[0]['options']['A'] == 'Energy production'
+    assert questions[1]['answer'] == 'C'
+
+
+def test_parse_mcq_parenthesis_numbering():
+    """_parse_mcq handles Q1) parenthesis-style question numbers."""
+    from server import _parse_mcq
+    raw = (
+        "Q1) What is the role of ribosomes?\n"
+        "A) Producing energy\n"
+        "B) Synthesising proteins\n"
+        "C) Storing DNA\n"
+        "D) Transporting molecules\n"
+        "Answer: B\n"
+        "Explanation: Ribosomes are the site of protein synthesis in the cell.\n"
+        "\n"
+        "Q2) Where is DNA stored in a eukaryotic cell?\n"
+        "A) Mitochondria\n"
+        "B) Cell membrane\n"
+        "C) Nucleus\n"
+        "D) Ribosome\n"
+        "Answer: C\n"
+        "Explanation: DNA is housed in the nucleus of eukaryotic cells."
+    )
+    questions = _parse_mcq(raw)
+    assert len(questions) == 2
+    assert questions[0]['answer'] == 'B'
+    assert questions[1]['answer'] == 'C'
