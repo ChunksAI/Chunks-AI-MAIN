@@ -1,75 +1,11 @@
-import type { WorkspaceSection } from '@/types';
+'use client';
 
-interface WorkspaceTabProps {
-  onAddItem: () => void;
-}
-
-const SECTIONS: WorkspaceSection[] = [
-  {
-    title: 'Flashcard Decks',
-    cards: [
-      {
-        id: 'fc1',
-        type: 'flashcards',
-        title: 'Cell Organelles — Complete Set',
-        meta: '24 cards · Generated from Ch. 3',
-        stats: [{ label: '✓ 18 mastered' }, { label: '⚠ 6 weak' }],
-      },
-      {
-        id: 'fc2',
-        type: 'flashcards',
-        title: 'ATP Synthesis Pathway',
-        meta: '12 cards · Auto-generated · Weak area',
-        stats: [{ label: '⚠ Needs review', danger: true }],
-      },
-    ],
-  },
-  {
-    title: 'Quizzes',
-    cards: [
-      {
-        id: 'q1',
-        type: 'quiz',
-        title: 'Cell Structure Quiz — Chapter 3',
-        meta: '20 questions · Multiple choice',
-        stats: [{ label: 'Last score: 82%' }, { label: '2 days ago' }],
-      },
-      {
-        id: 'q2',
-        type: 'quiz',
-        title: 'Mitochondria Deep Dive',
-        meta: '15 questions · AI-adaptive',
-        stats: [{ label: 'Last score: 45%' }, { label: 'Weak area', danger: true }],
-      },
-      {
-        id: 'q3',
-        type: 'quiz',
-        title: 'Membrane Transport',
-        meta: '10 questions · Not started',
-        stats: [{ label: '—' }],
-      },
-    ],
-  },
-  {
-    title: 'Notes & Summaries',
-    cards: [
-      {
-        id: 's1',
-        type: 'summary',
-        title: 'Chapter 3 — AI Summary',
-        meta: '320 words · Auto-generated',
-        stats: [{ label: '📄 View full summary' }],
-      },
-      {
-        id: 'm1',
-        type: 'mindmap',
-        title: 'Cell Biology Connections',
-        meta: '14 nodes · Visual overview',
-        stats: [{ label: '🗺️ Open mind map' }],
-      },
-    ],
-  },
-];
+import { useState } from 'react';
+import { useStudy } from '@/contexts/StudyContext';
+import ErrorBoundary from '@/components/shared/ErrorBoundary';
+import QuizRunner from '@/components/study/quiz/QuizRunner';
+import FlashcardDeck from '@/components/study/flashcards/FlashcardDeck';
+import type { WorkspaceCard } from '@/types';
 
 const TYPE_COLOR: Record<string, string> = {
   flashcards: 'var(--blue)',
@@ -85,30 +21,133 @@ const TYPE_LABEL: Record<string, string> = {
   mindmap:    'Mind Map',
 };
 
-export default function WorkspaceTab({ onAddItem }: WorkspaceTabProps) {
+/**
+ * WorkspaceTab — displays generated flashcard decks, quizzes, and notes.
+ * Reads workspaceSections from StudyContext and shows QuizRunner / FlashcardDeck
+ * when a card is clicked. Empty state encourages first generation.
+ */
+export default function WorkspaceTab() {
+  const { state, dispatch, handleGenerateFlashcards, handleGenerateQuiz } = useStudy();
+  const { workspaceSections, workspaceLoading, activeQuiz, activeQuizAnswers, topic } = state;
+
+  const [activeFlashcardCard, setActiveFlashcardCard] = useState<WorkspaceCard | null>(null);
+
+  // Show quiz runner when a quiz is active
+  if (activeQuiz) {
+    return (
+      <ErrorBoundary>
+        <QuizRunner quiz={activeQuiz} answers={activeQuizAnswers} />
+      </ErrorBoundary>
+    );
+  }
+
+  // Show flashcard deck when one is selected
+  if (activeFlashcardCard?.flashcards) {
+    return (
+      <ErrorBoundary>
+        <FlashcardDeck
+          title={activeFlashcardCard.title}
+          cards={activeFlashcardCard.flashcards}
+          onClose={() => setActiveFlashcardCard(null)}
+        />
+      </ErrorBoundary>
+    );
+  }
+
+  const totalItems = workspaceSections.reduce((sum, s) => sum + s.cards.length, 0);
+  const studyTopic = topic || 'Chapter 3 — Cell Biology';
+
   return (
     <div className="workspace-tab">
       {/* ── Header ── */}
       <div className="ws-header">
         <div>
           <div className="ws-title">Workspace</div>
-          <div className="ws-meta">12 items · Chapter 3 — Cell Biology · Updated just now</div>
+          <div className="ws-meta">
+            {totalItems} item{totalItems !== 1 ? 's' : ''} · {studyTopic} ·{' '}
+            {workspaceLoading ? 'Generating…' : 'Updated just now'}
+          </div>
         </div>
-        <button className="ws-add-btn" onClick={onAddItem}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M12 5v14M5 12h14"/>
+        <button
+          className="ws-add-btn"
+          onClick={() => void handleGenerateFlashcards(topic || 'cell biology')}
+          disabled={workspaceLoading}
+        >
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+          >
+            <path d="M12 5v14M5 12h14" />
           </svg>
-          Add item
+          {workspaceLoading ? 'Generating…' : 'Add item'}
         </button>
       </div>
 
+      {/* ── Loading skeleton ── */}
+      {workspaceLoading && workspaceSections.length === 0 && (
+        <div className="ws-loading">
+          <div className="ws-loading-spinner" />
+          <span>Generating your study materials…</span>
+        </div>
+      )}
+
+      {/* ── Empty state ── */}
+      {!workspaceLoading && workspaceSections.length === 0 && (
+        <div className="ws-empty">
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📚</div>
+          <div style={{ fontWeight: 500, marginBottom: 6, fontSize: 15 }}>
+            Your workspace is empty
+          </div>
+          <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 20 }}>
+            Ask the AI in the Chat tab to generate flashcards or a quiz, or start below.
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="ws-add-btn"
+              onClick={() => void handleGenerateFlashcards(topic || 'cell biology')}
+            >
+              🃏 Generate flashcards
+            </button>
+            <button
+              className="panel-btn"
+              onClick={() => void handleGenerateQuiz(topic || 'cell biology')}
+            >
+              🎯 Generate quiz
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Sections ── */}
-      {SECTIONS.map((section) => (
+      {workspaceSections.map((section) => (
         <section key={section.title}>
           <div className="ws-section-title">{section.title}</div>
           <div className="ws-grid">
             {section.cards.map((card) => (
-              <div key={card.id} className="ws-card">
+              <div
+                key={card.id}
+                className="ws-card"
+                style={{ cursor: card.flashcards || card.questions ? 'pointer' : 'default' }}
+                onClick={() => {
+                  if (card.type === 'flashcards' && card.flashcards) {
+                    setActiveFlashcardCard(card);
+                  } else if (card.type === 'quiz' && card.questions) {
+                    dispatch({
+                      type: 'START_QUIZ',
+                      payload: {
+                        id: card.id,
+                        title: card.title,
+                        questions: card.questions,
+                        difficulty: card.meta.split('·')[1]?.trim() ?? 'medium',
+                      },
+                    });
+                  }
+                }}
+              >
                 <div className="ws-card-type">
                   <div className="type-dot" style={{ background: TYPE_COLOR[card.type] }} />
                   <span style={{ color: TYPE_COLOR[card.type] }}>{TYPE_LABEL[card.type]}</span>

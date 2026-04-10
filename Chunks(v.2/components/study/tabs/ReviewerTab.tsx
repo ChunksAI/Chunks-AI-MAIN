@@ -1,36 +1,77 @@
-import type { TopicChip, WeakTopic } from '@/types';
+'use client';
+
+import { useStudy } from '@/contexts/StudyContext';
 import Badge from '@/components/shared/Badge';
 import Card from '@/components/shared/Card';
+import type { TopicChip } from '@/types';
 
-interface ReviewerTabProps {
-  onStartReview: () => void;
-}
+/**
+ * ReviewerTab — displays real performance data from StudyContext.
+ * Shows weak areas, performance history, and AI insights derived from
+ * actual quiz results. Empty state is shown before the user takes any quiz.
+ */
+export default function ReviewerTab() {
+  const { state, handleStartReview } = useStudy();
+  const { weakAreas, performanceHistory, quizResults } = state;
 
-const TOPIC_CHIPS: TopicChip[] = [
-  { label: 'Cell Structure ✓', variant: 'success' },
-  { label: 'ATP Synthesis ⚠',  variant: 'danger' },
-  { label: 'Membrane Transport', variant: 'warning' },
-  { label: 'Cytoskeleton',      variant: 'info' },
-];
+  // Build topic chips from real data
+  const topicChips: TopicChip[] = [
+    ...weakAreas.slice(0, 3).map((w) => ({
+      label: `${w.topic} ⚠`,
+      variant: (w.score < 50 ? 'danger' : 'warning') as TopicChip['variant'],
+    })),
+    ...performanceHistory
+      .filter((p) => p.score >= 80)
+      .slice(0, 3)
+      .map((p) => ({ label: `${p.topic} ✓`, variant: 'success' as TopicChip['variant'] })),
+  ];
 
-const WEAK_TOPICS: WeakTopic[] = [
-  { icon: '⚡', name: 'ATP Synthesis',          score: 'Quiz score: 45% · 3 attempts', pct: 45, iconBg: 'var(--danger-light)' },
-  { icon: '🔬', name: 'Electron Transport Chain', score: 'Quiz score: 52% · 1 attempt',  pct: 52, iconBg: 'var(--accent-light)' },
-];
+  const sessionCount = quizResults.length;
+  const topicCount = new Set([
+    ...quizResults.map((r) => r.topic),
+    ...weakAreas.map((w) => w.topic),
+  ]).size;
+  const lastUpdated =
+    quizResults.length > 0
+      ? new Date(quizResults[quizResults.length - 1].completedAt).toLocaleTimeString()
+      : 'No sessions yet';
 
-export default function ReviewerTab({ onStartReview }: ReviewerTabProps) {
+  // ── Empty state ────────────────────────────────────────────────────────────
+  if (quizResults.length === 0 && weakAreas.length === 0) {
+    return (
+      <div className="reviewer-tab">
+        <div className="ws-header">
+          <div>
+            <div className="ws-title">AI Reviewer</div>
+            <div className="ws-meta">Complete a quiz to see your performance insights</div>
+          </div>
+        </div>
+        <div className="ws-empty" style={{ marginTop: 48 }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
+          <div style={{ fontWeight: 500, marginBottom: 6, fontSize: 15 }}>No review data yet</div>
+          <div style={{ color: 'var(--text3)', fontSize: 13 }}>
+            Take a quiz in the Workspace tab to see your weak areas and insights here.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="reviewer-tab">
       {/* ── Header ── */}
       <div className="ws-header">
         <div>
           <div className="ws-title">AI Reviewer</div>
-          <div className="ws-meta">Based on 3 sessions · 4 topics studied · Updated 2h ago</div>
+          <div className="ws-meta">
+            Based on {sessionCount} session{sessionCount !== 1 ? 's' : ''} · {topicCount} topic
+            {topicCount !== 1 ? 's' : ''} · Updated {lastUpdated}
+          </div>
         </div>
         <button
           className="review-session-btn"
           style={{ width: 'auto', padding: '8px 18px', fontSize: 14 }}
-          onClick={onStartReview}
+          onClick={() => handleStartReview()}
         >
           Start Review Session →
         </button>
@@ -39,72 +80,114 @@ export default function ReviewerTab({ onStartReview }: ReviewerTabProps) {
       {/* ── 2-col grid ── */}
       <div className="review-grid">
         {/* Topics studied */}
-        <Card>
-          <div className="review-card-header">
-            <div className="review-card-title">📚 Topics Studied</div>
-            <span className="review-card-badge" style={{ background: 'var(--accent2-light)', color: 'var(--accent2)' }}>
-              4 topics
-            </span>
-          </div>
-          <div className="topic-chips">
-            {TOPIC_CHIPS.map((c) => (
-              <Badge key={c.label} variant={c.variant}>{c.label}</Badge>
-            ))}
-          </div>
-        </Card>
+        {topicChips.length > 0 && (
+          <Card>
+            <div className="review-card-header">
+              <div className="review-card-title">📚 Topics Studied</div>
+              <span
+                className="review-card-badge"
+                style={{ background: 'var(--accent2-light)', color: 'var(--accent2)' }}
+              >
+                {topicChips.length} topics
+              </span>
+            </div>
+            <div className="topic-chips">
+              {topicChips.map((c) => (
+                <Badge key={c.label} variant={c.variant}>
+                  {c.label}
+                </Badge>
+              ))}
+            </div>
+          </Card>
+        )}
 
         {/* Weak areas */}
-        <Card>
+        {weakAreas.length > 0 && (
+          <Card>
+            <div className="review-card-header">
+              <div className="review-card-title">⚠️ Weak Areas</div>
+              <span
+                className="review-card-badge"
+                style={{ background: 'var(--danger-light)', color: 'var(--danger)' }}
+              >
+                Needs review
+              </span>
+            </div>
+            <div className="perf-bars">
+              {weakAreas.map((t) => (
+                <div key={t.topic} className="weak-topic">
+                  <div
+                    className="weak-topic-icon"
+                    style={{
+                      background: t.score < 50 ? 'var(--danger-light)' : 'var(--accent-light)',
+                    }}
+                  >
+                    {t.score < 50 ? '⚡' : '🔬'}
+                  </div>
+                  <div className="weak-topic-info">
+                    <div className="weak-topic-name">{t.topic}</div>
+                    <div className="weak-topic-score">
+                      Quiz score: {t.score}% · {t.attempts} attempt{t.attempts !== 1 ? 's' : ''}
+                    </div>
+                  </div>
+                  <div className="weak-topic-bar">
+                    <div className="weak-topic-fill" style={{ width: `${t.score}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+      </div>
+
+      {/* ── Performance history ── */}
+      {performanceHistory.length > 0 && (
+        <Card style={{ marginBottom: 16 }}>
           <div className="review-card-header">
-            <div className="review-card-title">⚠️ Weak Areas</div>
-            <span className="review-card-badge" style={{ background: 'var(--danger-light)', color: 'var(--danger)' }}>
-              Needs review
-            </span>
+            <div className="review-card-title">📈 Recent Performance</div>
           </div>
           <div className="perf-bars">
-            {WEAK_TOPICS.map((t) => (
-              <div key={t.name} className="weak-topic">
-                <div className="weak-topic-icon" style={{ background: t.iconBg }}>{t.icon}</div>
-                <div className="weak-topic-info">
-                  <div className="weak-topic-name">{t.name}</div>
-                  <div className="weak-topic-score">{t.score}</div>
+            {performanceHistory.slice(-5).map((entry, i) => (
+              <div key={i} className="perf-row">
+                <span className="perf-label">{entry.topic}</span>
+                <div className="perf-bar-track">
+                  <div
+                    className="perf-bar-fill"
+                    style={{
+                      width: `${entry.score}%`,
+                      background:
+                        entry.score >= 80
+                          ? 'var(--accent2)'
+                          : entry.score >= 50
+                            ? 'var(--accent)'
+                            : 'var(--danger)',
+                    }}
+                  />
                 </div>
-                <div className="weak-topic-bar">
-                  <div className="weak-topic-fill" style={{ width: `${t.pct}%` }} />
-                </div>
+                <span className="perf-pct">{entry.score}%</span>
               </div>
             ))}
           </div>
         </Card>
-      </div>
+      )}
 
-      {/* ── AI Insights ── */}
-      <Card style={{ marginBottom: 16 }}>
-        <div className="review-card-header">
-          <div className="review-card-title">🤖 AI Study Insights</div>
+      {/* ── Targeted review CTAs ── */}
+      {weakAreas.length > 0 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+          {weakAreas.slice(0, 3).map((w) => (
+            <button
+              key={w.topic}
+              className="ws-add-btn"
+              onClick={() => handleStartReview(w.topic)}
+            >
+              📖 Review {w.topic}
+            </button>
+          ))}
         </div>
-        <div style={{ fontSize: 13.5, color: 'var(--text2)', lineHeight: 1.75 }}>
-          <p style={{ marginBottom: 10 }}>
-            Based on your study patterns, you learn best in the <strong>morning (9–11 AM)</strong> and
-            tend to retain concepts better when you generate flashcards immediately after reading.
-          </p>
-          <p style={{ marginBottom: 10 }}>
-            You&apos;ve studied <strong>Cell Biology</strong> for 3 sessions (4.5 hrs total). Your
-            understanding of cell structure is strong (82%), but{' '}
-            <span style={{ color: 'var(--danger)', fontWeight: 500 }}>
-              ATP synthesis remains your biggest gap
-            </span>
-            . I recommend dedicating your next 2 sessions to this topic.
-          </p>
-          <p>
-            <strong>Suggested next steps:</strong> Review the ATP synthesis flashcards → Take the
-            Mitochondria quiz again → Ask me to explain the ETC step by step.
-          </p>
-        </div>
-      </Card>
+      )}
 
-      {/* ── CTA ── */}
-      <button className="review-session-btn" onClick={onStartReview}>
+      {/* ── Full review CTA ── */}
+      <button className="review-session-btn" onClick={() => handleStartReview()}>
         🎓 Start Personalized Review Session
       </button>
     </div>

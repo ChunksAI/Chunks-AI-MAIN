@@ -1,3 +1,5 @@
+import type { Flashcard, QuizQuestion } from './api';
+
 // ─── Navigation ──────────────────────────────────────────────────────────────
 
 export type NavItem = {
@@ -46,6 +48,11 @@ export type WorkspaceCard = {
   title: string;
   meta: string;
   stats?: { label: string; danger?: boolean }[];
+  // Real API data (present when generated from backend)
+  flashcards?: Flashcard[];
+  questions?: QuizQuestion[];
+  score?: number;     // last quiz score 0-100
+  attempts?: number;  // number of times quiz was taken
 };
 
 export type WorkspaceSection = {
@@ -53,13 +60,56 @@ export type WorkspaceSection = {
   cards: WorkspaceCard[];
 };
 
-// ─── Reviewer ─────────────────────────────────────────────────────────────────
+// ─── Quiz ─────────────────────────────────────────────────────────────────────
+
+export type Quiz = {
+  id: string;
+  title: string;
+  questions: QuizQuestion[];
+  difficulty: string;
+};
+
+export type QuizAnswer = {
+  questionIndex: number;
+  selectedAnswer: string;
+  isCorrect: boolean;
+};
+
+export type QuizResult = {
+  quizId: string;
+  quizTitle: string;
+  score: number;           // 0-100
+  totalQuestions: number;
+  correctAnswers: number;
+  answers: QuizAnswer[];
+  completedAt: string;     // ISO date string
+  topic: string;
+};
+
+// ─── Memory / Performance ─────────────────────────────────────────────────────
+
+export type WeakArea = {
+  topic: string;
+  score: number;           // average score 0-100
+  attempts: number;
+  lastAttemptAt: string;   // ISO date string
+};
+
+export type PerformanceEntry = {
+  date: string;            // ISO date string
+  topic: string;
+  score: number;           // 0-100
+  type: 'quiz' | 'flashcard' | 'chat';
+};
+
+// ─── Reviewer (legacy display types) ─────────────────────────────────────────
 
 export type TopicChip = {
   label: string;
   variant: 'success' | 'danger' | 'warning' | 'info';
 };
 
+/** @deprecated Use WeakArea from context instead */
 export type WeakTopic = {
   icon: string;
   name: string;
