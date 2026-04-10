@@ -154,6 +154,8 @@ import {
   _wsRenderHistory, _wsBuildBlocks, _wsRenderMessageFromBlocks,
   subscribeToChatRealtime, unsubscribeChatRealtime,
   addMessageToUI, removeMessageFromUI, updateMessageInUI,
+  getSession, updateSession, resetSession,
+  showActionChips, clearActionChips,
 } from './state/workspace/index.js';
 
 window.ws                  = ws;
@@ -232,6 +234,13 @@ window.addMessageToUI            = addMessageToUI;
 window.removeMessageFromUI       = removeMessageFromUI;
 window.updateMessageInUI         = updateMessageInUI;
 
+// ── State · Workspace · Study Session ────────────────────────────────────────
+window.getStudySession   = getSession;
+window.updateStudySession = updateSession;
+window.resetStudySession  = resetSession;
+window.showActionChips    = showActionChips;
+window.clearActionChips   = clearActionChips;
+
 // Forward-reference stub — flash/index.js overwrites this with the real impl
 window.wsMakeFlashcard = async function(btn, msgId, question) {
   console.warn('[ws] wsMakeFlashcard called before flashState loaded');
@@ -269,6 +278,9 @@ window.wsStartInlineQuiz = async function(topic, cardMsg) {
 };
 window.wsNavigateToFullExam = function(topic) {
   console.warn('[ws] wsNavigateToFullExam called before flashState loaded');
+};
+window.wsShowExamReturnCard = function(topic, score, total) {
+  console.warn('[ws] wsShowExamReturnCard called before flashState loaded');
 };
 
 // Forward-reference stub for wsSaveToWorkspace — WorkspaceScreen.mountWorkspaceScreen() overwrites with real impl
@@ -310,6 +322,7 @@ import {
   wsShowExamCard as _wsShowExamCardReal,
   wsStartInlineQuiz as _wsStartInlineQuizReal,
   wsNavigateToFullExam as _wsNavigateToFullExamReal,
+  wsShowExamReturnCard as _wsShowExamReturnCardReal,
 } from './state/flash/index.js';
 
 // Accent
@@ -378,6 +391,7 @@ window._fcReviewHardInChat = _fcReviewHardInChat;
 window.wsShowExamCard       = _wsShowExamCardReal;
 window.wsStartInlineQuiz    = _wsStartInlineQuizReal;
 window.wsNavigateToFullExam = _wsNavigateToFullExamReal;
+window.wsShowExamReturnCard = _wsShowExamReturnCardReal;
 
 // Flashcard Realtime
 window.subscribeToFlashcardRealtime   = subscribeToFlashcardRealtime;

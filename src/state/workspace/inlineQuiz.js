@@ -13,6 +13,8 @@ import { $el } from '../domHelpers.js';
 import { wsScrollBottom, wsAppendUser } from './chat.js';
 import { saveExamResult } from '../../lib/examDb.js';
 import { showScreen } from '../navigation/index.js';
+import { updateSession } from './studySession.js';
+import { showActionChips, getRecoveryChips } from './actionChips.js';
 
 // ── Helper: HTML-escape a string ─────────────────────────────────────────────
 
@@ -373,6 +375,17 @@ function _showResults(containerMsg, topic, questions, answers) {
   });
 
   wsScrollBottom();
+
+  // ── Study Loop: update session with quiz score and show recovery chips ──
+  const quizScore = { correct, total, pct };
+  updateSession({
+    topic: topic || null,
+    lastAction: 'quiz',
+    quizScore,
+    sourceFeature: 'quiz',
+    chatMode: 'normal',
+  });
+  showActionChips(getRecoveryChips(quizScore, topic), topic);
 }
 
 // ── Full Exam navigation ──────────────────────────────────────────────────────
@@ -405,4 +418,57 @@ export function wsNavigateToFullExam(topic) {
       if (label) label.textContent = `← Back · ${topic || 'Workspace'}`;
     }
   });
+}
+
+// ── Exam Return Card ──────────────────────────────────────────────────────────
+
+/**
+ * Show a result summary card in chat after returning from a full exam.
+ * Includes score, topic, and context-aware action chips.
+ *
+ * @param {string} topic
+ * @param {number} score  — number of correct answers
+ * @param {number} total  — total questions
+ */
+export function wsShowExamReturnCard(topic, score, total) {
+  const msgs = $el('ws-messages');
+  if (!msgs) return;
+
+  const pct   = total > 0 ? Math.round((score / total) * 100) : 0;
+  const emoji = pct >= 80 ? '🎉' : pct >= 60 ? '👍' : '💪';
+  const safeTopic = _esc(topic || 'your exam');
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'msg msg-ai';
+  wrapper.innerHTML = `
+    <div class="ai-row">
+      <div class="ai-body">
+        <div class="ws-exam-return-card">
+          <div class="ws-exam-return-header">
+            <span class="ws-exam-return-icon">${emoji}</span>
+            <div>
+              <div class="ws-exam-return-title">Exam Complete</div>
+              <div class="ws-exam-return-score">You scored <strong>${score}/${total}</strong> (${pct}%) on ${safeTopic}</div>
+            </div>
+          </div>
+          <div class="ws-exam-return-bar-wrap">
+            <div class="ws-exam-return-bar" style="width:${pct}%"></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  msgs.appendChild(wrapper);
+  wsScrollBottom();
+
+  // Update session with exam result and show recovery chips
+  const quizScore = { correct: score, total, pct };
+  updateSession({
+    topic: topic || null,
+    lastAction: 'exam',
+    quizScore,
+    sourceFeature: 'exam',
+    chatMode: 'normal',
+  });
+  showActionChips(getRecoveryChips(quizScore, topic), topic);
 }

@@ -23,6 +23,8 @@ import {
   wsAppendUser, wsAppendThinking, wsRemoveThinking,
   wsAppendError, wsScrollBottom,
 } from '../workspace/chat.js';
+import { updateSession } from '../workspace/studySession.js';
+import { showActionChips, getPostFlashcardChips } from '../workspace/actionChips.js';
 
 // ── Workspace make flashcard ────────────────────────────────────────────────
 
@@ -251,6 +253,10 @@ export async function wsGenerateFlashcardsInChat(topic) {
     if (typeof _saveWsSession === 'function') _saveWsSession(ws.bookId, ws.chatHistory);
 
     showToast?.('✦', `${count} cards created — "${effectiveTopic}"`, 'var(--gold)');
+
+    // ── Study Loop: update session + show guidance chips ──────────────────
+    updateSession({ topic: effectiveTopic, lastAction: 'flashcards', sourceFeature: 'chat', chatMode: 'normal' });
+    showActionChips(getPostFlashcardChips(effectiveTopic), effectiveTopic);
   } catch (err) {
     wsRemoveThinking();
     wsAppendError(err.message || 'Failed to generate flashcards');

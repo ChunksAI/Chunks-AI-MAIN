@@ -15,6 +15,8 @@ import { wsShowPanel } from '../../screens/WorkspaceScreen.js';
 import { createThinkingAccordion } from '../../components/ThinkingAccordion.js';
 import { typewriteResponse, extractThinkBlock } from '../../utils/typewriter.js';
 import { _wsNodocWelcomeHtml } from './nodocWelcome.js';
+import { updateSession } from './studySession.js';
+import { showActionChips, clearActionChips, getPostExplainChips } from './actionChips.js';
 
 
 // ── Send / Stop button icons ──────────────────────────────────────────────
@@ -617,6 +619,9 @@ export async function wsChatSend() {
   if (!question) return;
   if (!guestGate('workspace')) return; // guest limit check
 
+  // ── Clear previous action chips when user sends a new message ───────────
+  clearActionChips();
+
   // ── Command Engine: intercept navigation/action commands ─────────────────
   syncContextFromWorkspace();
   if (handleCommand(question, { screen: 'workspace' })) {
@@ -852,6 +857,11 @@ export async function _wsAsk(question, imageAtt = null, isVisual = false) {
       // Update context with the current topic and page for command engine
       updateContext({ topic: question.slice(0, 120), screen: 'workspace' });
       syncContextFromWorkspace();
+
+      // ── Study Loop: update session + show guidance chips ──────────────────
+      const _topic = question.slice(0, 120);
+      updateSession({ topic: _topic, lastAction: 'explain', sourceFeature: 'chat', chatMode: 'normal' });
+      showActionChips(getPostExplainChips(_topic), _topic);
     }
   } catch (e) {
     if (e?.name === 'AbortError') {

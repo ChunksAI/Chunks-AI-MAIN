@@ -4088,3 +4088,101 @@
 .ws-iq-result-btn--primary:hover {
   background: rgba(184,122,16,0.18);
 }
+
+/* ── Study Loop: Action Chip Bar ─────────────────────────────────────────── */
+
+.ws-chip-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.ws-chip-bar::-webkit-scrollbar { display: none; }
+
+.ws-study-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-pill, 999px);
+  color: var(--text-2);
+  font-size: 12px;
+  font-family: var(--font-body, sans-serif);
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+.ws-study-chip:hover {
+  background: var(--surface-3);
+  border-color: var(--violet-border, rgba(139,124,248,0.3));
+  color: var(--text-1);
+}
+.ws-study-chip:active {
+  background: rgba(139,124,248,0.12);
+}
+.ws-study-chip-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+[data-theme="study"] .ws-study-chip {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.08);
+}
+[data-theme="study"] .ws-study-chip:hover {
+  background: rgba(255,255,255,0.10);
+  border-color: rgba(139,124,248,0.3);
+}
+
+/* ── Study Loop: Exam Return Card ────────────────────────────────────────── */
+
+.ws-exam-return-card {
+  padding: 16px 18px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-sm);
+  border-radius: var(--r-md, 10px);
+}
+[data-theme="study"] .ws-exam-return-card {
+  background: rgba(255,255,255,0.04);
+  border-color: rgba(255,255,255,0.06);
+}
+.ws-exam-return-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ws-exam-return-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+.ws-exam-return-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.ws-exam-return-score {
+  font-size: 13px;
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.ws-exam-return-bar-wrap {
+  height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 10px 0 12px;
+}
+.ws-exam-return-bar {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--gold);
+  transition: width 0.6s ease;
+}

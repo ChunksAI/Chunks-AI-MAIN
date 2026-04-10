@@ -357,6 +357,9 @@ const WORKSPACE_HTML = /* html */`
     </div>
 
     <div class="chat-input-wrap">
+      <!-- Study loop action chips (context-aware, replaces itself each time) -->
+      <div id="ws-chip-bar" class="ws-chip-bar" style="display:none;"></div>
+
       <input type="file" id="ws-attach-image" accept="image/*" style="display:none;" onchange="wsHandleAttach(this,'image')">
       <input type="file" id="ws-attach-pdf" accept="application/pdf" style="display:none;" onchange="wsHandleAttach(this,'pdf')">
 

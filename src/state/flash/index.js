@@ -119,6 +119,7 @@ export {
   wsShowExamCard,
   wsStartInlineQuiz,
   wsNavigateToFullExam,
+  wsShowExamReturnCard,
 } from '../workspace/inlineQuiz.js';
 
 export {

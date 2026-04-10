@@ -54,3 +54,10 @@ export {
   subscribeToChatRealtime, unsubscribeChatRealtime,
   addMessageToUI, removeMessageFromUI, updateMessageInUI,
 } from './chatRealtime.js';
+
+export { getSession, updateSession, resetSession } from './studySession.js';
+
+export {
+  showActionChips, clearActionChips,
+  getRecoveryChips, getPostExplainChips, getPostFlashcardChips, getPostExamChips,
+} from './actionChips.js';
