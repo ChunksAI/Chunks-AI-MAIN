@@ -653,14 +653,15 @@ function _wsUpdateWorkspaceBadge(count) {
 
 function _wsItemDateLabel(isoStr) {
   if (!isoStr) return '';
-  const diff = Date.now() - new Date(isoStr).getTime();
+  const parsed = new Date(isoStr);
+  if (isNaN(parsed.getTime())) return '';
+  const diff = Date.now() - parsed.getTime();
   const mins = Math.floor(diff / 60000);
   if (mins < 1)  return 'just now';
   if (mins < 60) return `${mins}min ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24)  return `${hrs}h ago`;
-  const d = new Date(isoStr);
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return parsed.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 function _wsReopenItemInChat(item) {
@@ -676,7 +677,9 @@ function _wsReopenItemInChat(item) {
 
 function _wsDeleteWorkspaceItem(id) {
   let items = wsLoadWorkspaceItems().filter(i => i.id !== id);
-  try { localStorage.setItem(_WS_SAVED_KEY, JSON.stringify(items)); } catch (_) {}
+  try { localStorage.setItem(_WS_SAVED_KEY, JSON.stringify(items)); } catch (e) {
+    console.warn('[Workspace] Failed to delete item:', e);
+  }
   _wsUpdateWorkspaceBadge(items.length);
   _wsRenderWorkspacePanel();
 }
@@ -698,10 +701,10 @@ function _wsRenderWorkspacePanel() {
 
   list.innerHTML = '';
   items.forEach(item => {
-    const meta      = _WS_TYPE_META[item.type] || _WS_TYPE_META.notes;
-    const title     = _escHtml(item.data.title || item.data.topic || 'Untitled');
-    const dateLabel = _wsItemDateLabel(item.savedAt);
-    const extra     = item.type === 'flashcards' && item.data.count
+    const meta           = _WS_TYPE_META[item.type] || _WS_TYPE_META.notes;
+    const title          = _escHtml(item.data.title || item.data.topic || 'Untitled');
+    const dateLabel      = _wsItemDateLabel(item.savedAt);
+    const flashcardCount = item.type === 'flashcards' && item.data.count
       ? `<span class="wsp-item-extra">${item.data.count} cards</span>` : '';
 
     const card = document.createElement('div');
@@ -712,7 +715,7 @@ function _wsRenderWorkspacePanel() {
         <div class="wsp-item-title" title="${title}">${title}</div>
         <div class="wsp-item-meta">
           <span class="wsp-item-type" style="color:${meta.color};">${meta.label}</span>
-          ${extra}
+          ${flashcardCount}
           ${dateLabel ? `<span class="wsp-item-date">${_escHtml(dateLabel)}</span>` : ''}
         </div>
       </div>
@@ -720,11 +723,18 @@ function _wsRenderWorkspacePanel() {
         <button class="wsp-item-open" title="Open in Chat">
           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="m5 12 14 0"/><path d="m12 5 7 7-7 7"/></svg>
         </button>
-        <button class="wsp-item-delete" title="Remove" onclick="event.stopPropagation();wsDeleteWorkspaceItem('${item.id}')">
+        <button class="wsp-item-delete" title="Remove">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>`;
-    card.querySelector('.wsp-item-open').addEventListener('click', () => _wsReopenItemInChat(item));
+    card.querySelector('.wsp-item-open').addEventListener('click', (e) => {
+      e.stopPropagation();
+      _wsReopenItemInChat(item);
+    });
+    card.querySelector('.wsp-item-delete').addEventListener('click', (e) => {
+      e.stopPropagation();
+      _wsDeleteWorkspaceItem(item.id);
+    });
     card.addEventListener('click', () => _wsReopenItemInChat(item));
     list.appendChild(card);
   });
