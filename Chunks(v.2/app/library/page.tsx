@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/study/layout/Sidebar';
 import BookGrid from '@/components/library/BookGrid';
 
-const SUBJECTS = ['All', 'Biology', 'Mathematics', 'History', 'Chemistry', 'Physics', 'Literature', 'Economics', 'Computer Science'];
+const SUBJECTS = ['All', 'Chemistry', 'Biology', 'Medicine'];
 const DIFFICULTIES = ['Beginner', 'Intermediate', 'Advanced'];
 
 export default function LibraryPage() {
