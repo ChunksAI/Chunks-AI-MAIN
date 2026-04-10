@@ -45,9 +45,10 @@ export interface StudyState {
   sessionId: string;
   topic: string;
 
-  // Uploaded document
+  // Uploaded document / selected library book
   slides: SlideItem[];
   docTitle: string;
+  bookId: string | null;
   uploadLoading: boolean;
   uploadError: string | null;
 
@@ -97,13 +98,14 @@ export type StudyAction =
   | { type: 'CLEAR_TOAST' }
   | { type: 'DISMISS_MEMORY_BAR' }
   | { type: 'SET_TOPIC'; payload: string }
-  | { type: 'SET_SLIDES'; payload: { slides: SlideItem[]; docTitle: string } }
+  | { type: 'SET_SLIDES'; payload: { slides: SlideItem[]; docTitle: string; bookId?: string | null } }
   | { type: 'SET_UPLOAD_LOADING'; payload: boolean }
   | { type: 'UPLOAD_ERROR'; payload: string }
   | { type: 'CLEAR_UPLOAD_ERROR' }
   | { type: 'ADD_NOTE'; payload: NoteItem }
   | { type: 'UPDATE_NOTE'; payload: { id: string; title?: string; body?: string } }
-  | { type: 'ADD_RECENT'; payload: RecentItem };
+  | { type: 'ADD_RECENT'; payload: RecentItem }
+  | { type: 'SET_BOOK_ID'; payload: string | null };
 
 // ─── Weak-area calculation ───────────────────────────────────────────────────
 
@@ -267,6 +269,7 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
         ...state,
         slides: action.payload.slides,
         docTitle: action.payload.docTitle,
+        bookId: action.payload.bookId ?? null,
         uploadLoading: false,
         uploadError: null,
       };
@@ -305,6 +308,9 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
       return { ...state, recents: [action.payload, ...filtered].slice(0, 5) };
     }
 
+    case 'SET_BOOK_ID':
+      return { ...state, bookId: action.payload };
+
     default:
       return state;
   }
@@ -317,6 +323,7 @@ const INITIAL_STATE: StudyState = {
   topic: '',
   slides: [],
   docTitle: '',
+  bookId: null,
   uploadLoading: false,
   uploadError: null,
   messages: [],
@@ -488,6 +495,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           selected_text: opts.selectedText ?? '',
           doc_context: opts.docContext ?? autoDocContext,
           mode: 'study',
+          bookId: stateRef.current.bookId ?? undefined,
         });
 
         const aiMsg: ChatMessage = {
@@ -521,7 +529,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SHOW_TOAST', payload: '🃏 Generating flashcards…' });
 
     try {
-      const res = await generateFlashcards({ topic, count });
+      const res = await generateFlashcards({
+        topic,
+        count,
+        bookId: stateRef.current.bookId ?? undefined,
+      });
       const cardId = `fc-${Date.now()}`;
       const card: WorkspaceCard = {
         id: cardId,
