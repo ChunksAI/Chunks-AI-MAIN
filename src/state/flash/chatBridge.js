@@ -311,7 +311,7 @@ export async function wsLoadDeckInChat(deckId, topic) {
   // 1 — Notify the user with a banner message
   const bannerEl = document.createElement('div');
   bannerEl.className = 'msg msg-ai ws-inline-deck-banner';
-  const safeTopic = (topic || 'Flashcards').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const safeTopic = (topic || 'Flashcards').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   bannerEl.innerHTML = `
     <div class="ai-row">
       <div class="ai-body">
@@ -368,8 +368,8 @@ function _wsInlineDeckWidget(container, cards, deckTitle, deckId) {
 
   function _render() {
     const card  = deck[idx];
-    const front = (card.front || card.question || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const back  = (card.back  || card.answer  || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const front = (card.front || card.question || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const back  = (card.back  || card.answer  || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     const total = deck.length;
     const pct   = ((idx + 1) / total) * 100;
 
@@ -456,8 +456,8 @@ function _wsInlineDeckWidget(container, cards, deckTitle, deckId) {
         } else if (action === 'shuffle') {
           _shuffle();
         } else if (action === 'quiz') {
-          const safeTitle = deckTitle.replace(/`/g, "'");
-          if (typeof window.wsSetInput === 'function') window.wsSetInput(`Quiz me on "${safeTitle}"`);
+          const quizTitle = deckTitle.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+          if (typeof window.wsSetInput === 'function') window.wsSetInput(`Quiz me on "${quizTitle}"`);
           if (typeof window.wsChatSend === 'function') setTimeout(() => window.wsChatSend(), 50);
         } else if (action === 'fullscreen') {
           // Open the full flash screen for this deck
