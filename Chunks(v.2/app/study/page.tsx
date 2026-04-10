@@ -59,9 +59,12 @@ function StudyLayout() {
           activeTab={activeTab}
           onTabChange={(tab) => dispatch({ type: 'SET_ACTIVE_TAB', payload: tab })}
           sessionName={docTitle || topic || 'Study Assistant'}
-          onMemoryClick={() => {
-            dispatch({ type: 'SHOW_MEMORY_BAR' });
-            dispatch({ type: 'SET_ACTIVE_TAB', payload: 'chat' });
+          onPhaseChange={(phase) => {
+            showToast(
+              phase === 'break'
+                ? '☕ Break time! Rest for 5 minutes.'
+                : '📚 Back to study!',
+            );
           }}
         />
 
