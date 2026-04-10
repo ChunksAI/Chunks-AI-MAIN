@@ -253,6 +253,14 @@ window.wsBackToWorkspace = function() {
   console.warn('[ws] wsBackToWorkspace called before flashState loaded');
 };
 
+// Forward-reference stub for wsSaveToWorkspace — WorkspaceScreen.mountWorkspaceScreen() overwrites with real impl
+window.wsSaveToWorkspace = function(type, data) {
+  console.warn('[ws] wsSaveToWorkspace called before WorkspaceScreen mounted');
+};
+window.wsDeleteWorkspaceItem = function(id) {
+  console.warn('[ws] wsDeleteWorkspaceItem called before WorkspaceScreen mounted');
+};
+
 // ── State · Flashcards ───────────────────────────────────────────────────────
 import {
   FC_ACCENTS,
