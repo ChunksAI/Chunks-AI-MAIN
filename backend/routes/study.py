@@ -423,7 +423,8 @@ def generate_quiz(request: Request, body: QuizRequest):
             "- Options must all be the same grammatical form and similar length\n"
             "- Never start questions with \"According to the slides\" — write naturally\n"
             f"- Do NOT add headers, numbering schemes, or commentary — just Q1 through Q{count} in sequence\n"
-            "- Start immediately with Q1 — no preamble\n\n"
+            "- Start immediately with Q1 — no preamble\n"
+            "- Do NOT use any markdown formatting (no **, *, _, ` or other symbols) — plain text only\n\n"
             "SLIDE CONTENT:\n"
             + content_for_ai + "\n\nGenerate the quiz:"
         )

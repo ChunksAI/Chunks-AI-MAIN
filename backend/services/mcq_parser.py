@@ -9,14 +9,31 @@ from __future__ import annotations
 import re
 
 
+# Matches the start of a question block in any of the formats an AI might use:
+#   Q1.   Q1)   **Q1.**   **Q1)**   *Q1.*
+_Q_BLOCK_SPLIT = re.compile(r'\n(?=\*{0,2}Q\d+[.)]\*{0,2}\s)')
+
+# Strips markdown bold/italic asterisks from a string so patterns match cleanly.
+_STRIP_MD = re.compile(r'\*+')
+
+
+def _clean(s: str) -> str:
+    """Remove markdown bold/italic markers (asterisks) from a line."""
+    return _STRIP_MD.sub('', s)
+
+
 def _parse_mcq(raw_text: str) -> list[dict]:
     """Parse AI-generated MCQ text into a list of question dicts.
 
-    Supports standard A-D multiple choice as well as A-B True/False
-    format (options regex accepts A-F to be lenient).
+    Handles the canonical ``Q1. / A) / Answer: / Explanation:`` format as
+    well as common AI variations:
+
+    * Markdown bold wrappers: ``**Q1.**``, ``**A)**``, ``**Answer: B**``
+    * Parenthesis-style question numbers: ``Q1)`` instead of ``Q1.``
+    * True/False (A–B options) as well as A–F options
     """
     questions = []
-    blocks = re.split(r'\n(?=Q\d+\.)', raw_text.strip())
+    blocks = _Q_BLOCK_SPLIT.split(raw_text.strip())
 
     for block in blocks:
         block = block.strip()
@@ -35,26 +52,29 @@ def _parse_mcq(raw_text: str) -> list[dict]:
                     explanation_lines.append('')
                 continue
 
-            m = re.match(r'^Q(\d+)\.\s*(.*)', stripped)
+            # Remove markdown bold/italic so patterns match regardless of formatting
+            clean = _clean(stripped)
+
+            m = re.match(r'^Q(\d+)[.)]\s*(.*)', clean)
             if m:
                 q_obj['number'] = int(m.group(1))
-                q_obj['question'] = m.group(2)
+                q_obj['question'] = m.group(2).strip()
                 active_field = 'question'
                 continue
 
-            m = re.match(r'^([A-F])[).]\s*(.*)', stripped)
+            m = re.match(r'^([A-F])[).]\s*(.*)', clean)
             if m:
-                q_obj['options'][m.group(1)] = m.group(2)
+                q_obj['options'][m.group(1)] = m.group(2).strip()
                 active_field = 'option'
                 continue
 
-            m = re.match(r'^Answer:\s*(.*)', stripped, re.IGNORECASE)
+            m = re.match(r'^Answer:\s*(.*)', clean, re.IGNORECASE)
             if m:
                 q_obj['answer'] = m.group(1).strip()
                 active_field = 'answer'
                 continue
 
-            m = re.match(r'^Explanation:\s*(.*)', stripped, re.IGNORECASE)
+            m = re.match(r'^Explanation:\s*(.*)', clean, re.IGNORECASE)
             if m:
                 first_line = m.group(1).strip()
                 if first_line:
@@ -63,9 +83,9 @@ def _parse_mcq(raw_text: str) -> list[dict]:
                 continue
 
             if active_field == 'explanation':
-                explanation_lines.append(stripped)
+                explanation_lines.append(clean)
             elif active_field == 'question':
-                q_obj['question'] = q_obj['question'] + ' ' + stripped
+                q_obj['question'] = q_obj['question'] + ' ' + clean
 
         if explanation_lines:
             q_obj['explanation'] = '\n'.join(explanation_lines).strip()
