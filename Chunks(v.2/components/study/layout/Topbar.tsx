@@ -1,19 +1,40 @@
+'use client';
+
+import { useState, useEffect } from 'react';
 import TabBar from './TabBar';
 import type { TabId } from '@/types';
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `studying for ${seconds}s`;
+  const mins = Math.floor(seconds / 60);
+  if (mins < 60) return `studying for ${mins}m`;
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return m === 0 ? `studying for ${h}h` : `studying for ${h}h ${m}m`;
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 interface TopbarProps {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
   sessionName?: string;
-  timerLabel?: string;
 }
 
 export default function Topbar({
   activeTab,
   onTabChange,
   sessionName = 'Study Assistant',
-  timerLabel = 'studying for 1h 53m',
 }: TopbarProps) {
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     <header className="topbar">
       {/* ── Left: session title ── */}
@@ -31,7 +52,7 @@ export default function Topbar({
       <div className="topbar-right">
         <div className="study-timer">
           <div className="timer-dot" />
-          {timerLabel}
+          {formatElapsed(elapsed)}
         </div>
 
         <button className="icon-btn" title="Memory">
