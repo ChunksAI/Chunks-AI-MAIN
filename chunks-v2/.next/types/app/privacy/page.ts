@@ -1,4 +1,4 @@
-// File: /home/runner/work/Chunks-AI-MAIN/Chunks-AI-MAIN/Chunks(v.2/app/privacy/page.tsx
+// File: /home/runner/work/Chunks-AI-MAIN/Chunks-AI-MAIN/chunks-v2/app/privacy/page.tsx
 import * as entry from '../../../../app/privacy/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
