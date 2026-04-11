@@ -228,16 +228,13 @@ export async function sendMessageStream(
   }
 
   // ── Fallback: full JSON response ──────────────────────────────────────────
-  const data = (await res.json()) as SendMessageResponse & { text?: string; error?: string };
+  const data = (await res.json()) as SendMessageResponse & { text?: string };
   const answerText = data.answer ?? data.text ?? '';
   if (!answerText.trim()) {
     // The backend returned a 2xx but with no usable answer — surface this as an
     // error so the catch block in handleSendMessage can remove the empty bubble
     // and show a proper error bar instead of the silent "No response received."
-    throw new ApiError(
-      data.error ?? 'No response received from AI. Please retry.',
-      502,
-    );
+    throw new ApiError('No response received from AI. Please retry.', 502);
   }
   onChunk(answerText);
   return data;

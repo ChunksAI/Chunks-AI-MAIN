@@ -305,7 +305,7 @@ def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=No
             if choices:
                 _record_usage_from_response(resp_json, use_model, endpoint, user_id=user_id)
                 content = choices[0]['message']['content']
-                if not content:
+                if not content or not content.strip():
                     raise RuntimeError("AI returned empty content. Please retry.")
                 return content
             err = resp_json.get('error', {})
