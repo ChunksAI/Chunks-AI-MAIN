@@ -258,6 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
             // Clear guest mode on successful sign-in
             try { sessionStorage.removeItem('chunks_guest_mode'); } catch { /* ignore */ }
+            try { document.cookie = 'chunks_guest=; path=/; max-age=0'; } catch { /* ignore */ }
             setGuestMode(false);
           } else {
             setState({ user: null, session: null, isLoading: false });
@@ -286,11 +287,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const enterGuestMode = useCallback(() => {
     try { sessionStorage.setItem('chunks_guest_mode', '1'); } catch { /* ignore */ }
+    try { document.cookie = 'chunks_guest=1; path=/; max-age=86400; SameSite=Lax'; } catch { /* ignore */ }
     setGuestMode(true);
   }, []);
 
   const exitGuestMode = useCallback(() => {
     try { sessionStorage.removeItem('chunks_guest_mode'); } catch { /* ignore */ }
+    try { document.cookie = 'chunks_guest=; path=/; max-age=0'; } catch { /* ignore */ }
     setGuestMode(false);
   }, []);
 
