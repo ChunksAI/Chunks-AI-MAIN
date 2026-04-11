@@ -32,12 +32,39 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function apiPost<T>(path: string, body: unknown): Promise<T> {
+async function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   const authHeaders = await getAuthHeaders();
   const res = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders },
     body: JSON.stringify(body),
+    signal,
+  });
+
+  if (res.status === 429) {
+    throw new ApiError('Rate limit reached. Please wait a moment before trying again.', 429);
+  }
+
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const err = (await res.json()) as { detail?: string; message?: string };
+      message = err.detail ?? err.message ?? message;
+    } catch {
+      // ignore JSON parse errors
+    }
+    throw new ApiError(message, res.status);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}${path}`, {
+    method: 'GET',
+    headers: { ...authHeaders },
+    signal,
   });
 
   if (res.status === 429) {
@@ -113,6 +140,47 @@ export async function generateStudyMaterials(
   params: GenerateStudyMaterialsRequest,
 ): Promise<GenerateStudyMaterialsResponse> {
   return apiPost<GenerateStudyMaterialsResponse>('/generate-study-materials', params);
+}
+
+// ─── Library ──────────────────────────────────────────────────────────────────
+
+export interface LibraryBookRaw {
+  id: string;
+  name: string;
+  author?: string;
+  available?: boolean;
+}
+
+export interface LibraryResponse {
+  books: LibraryBookRaw[];
+}
+
+export async function fetchLibrary(): Promise<LibraryResponse> {
+  return apiGet<LibraryResponse>('/get-library');
+}
+
+export async function loadBook(bookId: string): Promise<void> {
+  await apiPost<unknown>('/load-book', { bookId });
+}
+
+/**
+ * Fetches the PDF for a given book and returns a blob URL that can be used
+ * in an <iframe> or <embed> without cross-origin issues.
+ * The caller is responsible for revoking the URL via URL.revokeObjectURL().
+ */
+export async function fetchBookPdf(bookId: string): Promise<string> {
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(`${API_BASE}/books/${bookId}/pdf`, {
+    method: 'GET',
+    headers: authHeaders,
+  });
+
+  if (!res.ok) {
+    throw new ApiError(`Could not load PDF for book "${bookId}" (${res.status})`, res.status);
+  }
+
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
 }
 
 // ─── Document upload ──────────────────────────────────────────────────────────

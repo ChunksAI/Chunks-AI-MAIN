@@ -40,6 +40,16 @@ import type {
 import { sendMessage, generateFlashcards, generateQuiz, uploadDocument } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
+import {
+  MAX_HISTORY_ITEMS,
+  MAX_DOC_CONTEXT_CHARS,
+  TOAST_DURATION_MS,
+  DEFAULT_FLASHCARD_COUNT,
+  DEFAULT_QUIZ_COUNT,
+  SESSION_TTL_DAYS,
+  MAX_RECENTS,
+  SESSION_STORAGE_KEY,
+} from '@/lib/constants';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -71,6 +81,10 @@ export interface StudyState {
   messages: ChatMessage[];
   chatLoading: boolean;
   chatError: string | null;
+  /** The text of the most recent user message — used for per-message retry. */
+  lastUserMessage: string;
+  /** Active thinking mode sent to the backend on each /ask request. */
+  thinkingMode: null | 'auto' | 'think' | 'deep';
 
   workspaceSections: WorkspaceSection[];
   workspaceLoading: boolean;
@@ -97,6 +111,7 @@ export type StudyAction =
   | { type: 'SEND_MESSAGE'; payload: ChatMessage }
   | { type: 'SET_CHAT_LOADING'; payload: boolean }
   | { type: 'RECEIVE_MESSAGE'; payload: ChatMessage }
+  | { type: 'APPEND_MESSAGE_CHUNK'; payload: string }
   | { type: 'MESSAGE_ERROR'; payload: string }
   | { type: 'CLEAR_CHAT_ERROR' }
   | { type: 'SET_WORKSPACE_LOADING'; payload: boolean }
@@ -130,7 +145,9 @@ export type StudyAction =
   | { type: 'SET_BOOK_ID'; payload: string | null }
   | { type: 'SET_BOOK'; payload: { bookId: string; docTitle: string; pdfUrl: string } }
   | { type: 'SET_SESSION_ID'; payload: string }
-  | { type: 'SET_RECENTS'; payload: RecentItem[] };
+  | { type: 'SET_RECENTS'; payload: RecentItem[] }
+  | { type: 'SET_THINKING_MODE'; payload: null | 'auto' | 'think' | 'deep' }
+  | { type: 'RESET_SESSION' };
 
 // ─── Weak-area calculation ───────────────────────────────────────────────────
 
@@ -171,6 +188,7 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
         messages: [...state.messages, action.payload],
         chatLoading: true,
         chatError: null,
+        lastUserMessage: action.payload.text,
       };
 
     case 'SET_CHAT_LOADING':
@@ -183,6 +201,17 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
         chatLoading: false,
         chatError: null,
       };
+
+    case 'APPEND_MESSAGE_CHUNK': {
+      if (state.messages.length === 0) return state;
+      const lastMsg = state.messages[state.messages.length - 1];
+      if (lastMsg.role !== 'ai') return state;
+      const updated: ChatMessage = { ...lastMsg, text: lastMsg.text + action.payload };
+      return {
+        ...state,
+        messages: [...state.messages.slice(0, -1), updated],
+      };
+    }
 
     case 'MESSAGE_ERROR':
       return { ...state, chatLoading: false, chatError: action.payload };
@@ -380,6 +409,19 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
     case 'SET_RECENTS':
       return { ...state, recents: action.payload };
 
+    case 'SET_THINKING_MODE':
+      return { ...state, thinkingMode: action.payload };
+
+    case 'RESET_SESSION':
+      return {
+        ...INITIAL_STATE,
+        sessionId: `session-${Date.now()}`,
+        // Preserve recents so the sidebar history doesn't disappear
+        recents: state.recents,
+        // Preserve user's thinking mode preference
+        thinkingMode: state.thinkingMode,
+      };
+
     default:
       return state;
   }
@@ -399,6 +441,8 @@ const INITIAL_STATE: StudyState = {
   messages: [],
   chatLoading: false,
   chatError: null,
+  lastUserMessage: '',
+  thinkingMode: null,
   workspaceSections: [],
   workspaceLoading: false,
   workspaceError: null,
@@ -436,6 +480,7 @@ interface StudyContextValue {
   handleUploadDocument: (file: File) => Promise<void>;
   handleCreateNote: () => void;
   handleCreateTodo: (title: string, items: string[]) => void;
+  handleResetSession: () => void;
   showToast: (message: string) => void;
 }
 
@@ -612,6 +657,135 @@ function loadRecentsFromStorage(): RecentItem[] {
   }
 }
 
+// ─── Session snapshot persistence (localStorage, 7-day TTL) ──────────────────
+
+interface SessionSnapshot {
+  messages: ChatMessage[];
+  workspaceSections: WorkspaceSection[];
+  quizResults: QuizResult[];
+  notes: AnyNote[];
+  topic: string;
+  recents: RecentItem[];
+  expiresAt: number;
+}
+
+function saveSessionSnapshot(sessionId: string, state: StudyState): void {
+  if (typeof window === 'undefined' || !sessionId) return;
+  try {
+    const snapshot: SessionSnapshot = {
+      messages: state.messages.slice(-20),
+      workspaceSections: state.workspaceSections,
+      quizResults: state.quizResults,
+      notes: state.notes,
+      topic: state.topic,
+      recents: state.recents,
+      expiresAt: Date.now() + SESSION_TTL_DAYS * 86_400_000,
+    };
+    localStorage.setItem(`${SESSION_STORAGE_KEY}_${sessionId}`, JSON.stringify(snapshot));
+  } catch {
+    // Ignore quota errors — persistence is best-effort
+  }
+}
+
+function loadLatestSessionSnapshot(): SessionSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const prefix = `${SESSION_STORAGE_KEY}_`;
+    let latest: SessionSnapshot | null = null;
+    const keysToDelete: string[] = [];
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(prefix)) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const snap = JSON.parse(raw) as SessionSnapshot;
+      if (snap.expiresAt < Date.now()) {
+        keysToDelete.push(key);
+        continue;
+      }
+      if (!latest || snap.expiresAt > latest.expiresAt) {
+        latest = snap;
+      }
+    }
+
+    // Prune expired entries
+    keysToDelete.forEach((k) => localStorage.removeItem(k));
+    return latest;
+  } catch {
+    return null;
+  }
+}
+
+function clearSessionSnapshot(sessionId: string): void {
+  if (typeof window === 'undefined' || !sessionId) return;
+  try {
+    localStorage.removeItem(`${SESSION_STORAGE_KEY}_${sessionId}`);
+  } catch {
+    // ignore
+  }
+}
+
+// ─── Smart doc_context extractor ─────────────────────────────────────────────
+
+/**
+ * Extracts the most relevant slide content for a given question.
+ * Tokenises the question into keywords, scores each slide by keyword-overlap,
+ * and packs the top-scoring slides into MAX_DOC_CONTEXT_CHARS.
+ */
+function buildSmartDocContext(question: string, slides: SlideItem[]): string {
+  if (slides.length === 0) return '';
+
+  // Tokenise: lower-case words, remove stop words, min 3 chars
+  const STOP = new Set([
+    'the','a','an','and','or','but','in','on','at','to','for','of','with',
+    'is','are','was','were','be','been','have','has','had','do','does','did',
+    'will','would','could','should','may','might','can','shall','this','that',
+    'these','those','it','its','what','which','who','how','when','where','why',
+  ]);
+  const keywords = question
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length >= 3 && !STOP.has(w));
+
+  if (keywords.length === 0) {
+    // No useful keywords — fall back to first N chars of all slides
+    return slides
+      .map((s) => [s.title, ...s.content].join('\n'))
+      .join('\n\n')
+      .slice(0, MAX_DOC_CONTEXT_CHARS);
+  }
+
+  // Score each slide by keyword overlap
+  const scored = slides.map((slide) => {
+    const text = [slide.title, ...slide.content, slide.notes ?? '']
+      .join(' ')
+      .toLowerCase();
+    const score = keywords.reduce((sum, kw) => {
+      // Count occurrences for stronger relevance signal
+      let count = 0;
+      let pos = text.indexOf(kw);
+      while (pos !== -1) { count++; pos = text.indexOf(kw, pos + 1); }
+      return sum + count;
+    }, 0);
+    return { slide, score };
+  });
+
+  // Sort descending and pack until budget is exhausted
+  scored.sort((a, b) => b.score - a.score);
+  const parts: string[] = [];
+  let used = 0;
+  for (const { slide } of scored) {
+    const text = [slide.title, ...slide.content].join('\n');
+    if (used + text.length > MAX_DOC_CONTEXT_CHARS) break;
+    parts.push(text);
+    used += text.length + 2; // +2 for the \n\n separator
+  }
+
+  return parts.join('\n\n');
+}
+
 // ─── Message ID counter ───────────────────────────────────────────────────────
 
 let _msgCounter = 100;
@@ -632,8 +806,44 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // ── Initialise browser-only state after mount (avoids SSR/client mismatch) ─
   useEffect(() => {
-    dispatch({ type: 'SET_SESSION_ID', payload: `session-${Date.now()}` });
+    const newSessionId = `session-${Date.now()}`;
+    dispatch({ type: 'SET_SESSION_ID', payload: newSessionId });
     dispatch({ type: 'SET_RECENTS', payload: loadRecentsFromStorage() });
+
+    // Attempt to restore the last persisted session snapshot (messages,
+    // workspace cards, quiz results, notes) so state survives a page refresh.
+    const snapshot = loadLatestSessionSnapshot();
+    if (snapshot) {
+      if (snapshot.messages.length > 0) {
+        // Replay messages individually to populate state
+        for (const msg of snapshot.messages) {
+          dispatch(
+            msg.role === 'user'
+              ? { type: 'SEND_MESSAGE', payload: msg }
+              : { type: 'RECEIVE_MESSAGE', payload: msg },
+          );
+        }
+        dispatch({ type: 'SET_CHAT_LOADING', payload: false });
+      }
+      if (snapshot.workspaceSections.length > 0) {
+        for (const section of snapshot.workspaceSections) {
+          for (const card of section.cards) {
+            dispatch({ type: 'ADD_WORKSPACE_CARD', payload: { sectionTitle: section.title, card } });
+          }
+        }
+      }
+      for (const result of snapshot.quizResults) {
+        dispatch({ type: 'QUIZ_COMPLETED', payload: result });
+      }
+      for (const note of snapshot.notes) {
+        if (note.type === 'note') {
+          dispatch({ type: 'ADD_NOTE', payload: note });
+        } else {
+          dispatch({ type: 'ADD_TODO', payload: note });
+        }
+      }
+      if (snapshot.topic) dispatch({ type: 'SET_TOPIC', payload: snapshot.topic });
+    }
 
     // Rehydrate slides from sessionStorage so the AI context survives a page
     // refresh.  Then attempt to restore the raw PDF file from IndexedDB so the
@@ -670,6 +880,14 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // Track in-flight chat request so it can be cancelled on re-send
   const abortRef = useRef<AbortController | null>(null);
 
+  // Track in-flight generation requests to prevent double-triggering
+  const flashcardsInFlightRef = useRef(false);
+  const quizInFlightRef = useRef(false);
+
+  // Track in-flight generation abort controllers
+  const flashcardsAbortRef = useRef<AbortController | null>(null);
+  const quizAbortRef = useRef<AbortController | null>(null);
+
   // Track current blob URL so we can revoke it before creating a new one
   const blobUrlRef = useRef<string | null>(null);
 
@@ -681,9 +899,24 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // ── Auto-clear toast ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!state.toast) return;
-    const t = setTimeout(() => dispatch({ type: 'CLEAR_TOAST' }), 2800);
+    const t = setTimeout(() => dispatch({ type: 'CLEAR_TOAST' }), TOAST_DURATION_MS);
     return () => clearTimeout(t);
   }, [state.toast]);
+
+  // ── Persist session snapshot to localStorage (debounced 500ms) ───────────
+  useEffect(() => {
+    if (state.messages.length === 0 && state.workspaceSections.length === 0) return;
+    const t = setTimeout(() => {
+      saveSessionSnapshot(stateRef.current.sessionId, stateRef.current);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [
+    state.messages.length,
+    state.workspaceSections.length,
+    state.quizResults.length,
+    state.notes.length,
+    state.topic,
+  ]);
 
   // ── Persist session when meaningful state changes ─────────────────────────
   useEffect(() => {
@@ -770,21 +1003,19 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       const userMsg: ChatMessage = { id: nextMsgId(), role: 'user', text };
       dispatch({ type: 'SEND_MESSAGE', payload: userMsg });
 
-      // Build history from current messages (last 10), stripping HTML tags
-      const history: MessageHistoryItem[] = stateRef.current.messages.slice(-10).map((m) => ({
+      // Build history from current messages (last MAX_HISTORY_ITEMS), stripping HTML tags
+      const history: MessageHistoryItem[] = stateRef.current.messages.slice(-MAX_HISTORY_ITEMS).map((m) => ({
         role: (m.role === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
         content: stripHtml(m.text),
       }));
 
-      // Auto-populate doc_context from uploaded slides when not explicitly provided
+      // Auto-populate doc_context from uploaded slides when not explicitly provided.
+      // Uses smart keyword-based relevance extraction instead of naive truncation.
       const { slides } = stateRef.current;
       const autoDocContext =
-        slides.length > 0
-          ? slides
-              .map((s) => [s.title, ...s.content].join('\n'))
-              .join('\n\n')
-              .slice(0, 4000)
-          : '';
+        opts.docContext !== undefined
+          ? opts.docContext
+          : buildSmartDocContext(text, slides);
 
       // Append markdown format requirement so the model returns well-structured responses
       // Skip for quiz/flashcard generation requests to avoid confusing the backend
@@ -798,8 +1029,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           question: formattedQuestion,
           history,
           selected_text: opts.selectedText ?? '',
-          doc_context: opts.docContext ?? autoDocContext,
+          doc_context: autoDocContext,
           mode: 'study',
+          thinking: stateRef.current.thinkingMode,
           bookId: stateRef.current.bookId ?? undefined,
         });
 
@@ -855,7 +1087,13 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   }, [handleSendMessage]);
 
   // ── generateFlashcards ────────────────────────────────────────────────────
-  const handleGenerateFlashcards = useCallback(async (topic: string, count = 10) => {
+  const handleGenerateFlashcards = useCallback(async (topic: string, count = DEFAULT_FLASHCARD_COUNT) => {
+    if (flashcardsInFlightRef.current) return;
+    flashcardsInFlightRef.current = true;
+
+    flashcardsAbortRef.current?.abort();
+    flashcardsAbortRef.current = new AbortController();
+
     dispatch({ type: 'SET_WORKSPACE_LOADING', payload: true });
     dispatch({ type: 'SHOW_TOAST', payload: '🃏 Generating flashcards…' });
 
@@ -885,15 +1123,18 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         payload: `🃏 ${res.flashcards.length} flashcards added to Workspace!`,
       });
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       const message = err instanceof Error ? err.message : 'Failed to generate flashcards.';
       dispatch({ type: 'WORKSPACE_ERROR', payload: message });
       dispatch({ type: 'SHOW_TOAST', payload: `❌ ${message}` });
+    } finally {
+      flashcardsInFlightRef.current = false;
     }
   }, []);
 
   // ── generateQuiz ──────────────────────────────────────────────────────────
   const handleGenerateQuiz = useCallback(
-    async (topic: string, count = 10, difficulty: 'easy' | 'medium' | 'hard' = 'medium') => {
+    async (topic: string, count = DEFAULT_QUIZ_COUNT, difficulty: 'easy' | 'medium' | 'hard' = 'medium') => {
       // When no document is uploaded there are no slides to send to /generate-quiz.
       if (stateRef.current.slides.length === 0) {
         dispatch({
@@ -902,6 +1143,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
+
+      if (quizInFlightRef.current) return;
+      quizInFlightRef.current = true;
+
+      quizAbortRef.current?.abort();
+      quizAbortRef.current = new AbortController();
 
       dispatch({ type: 'SET_WORKSPACE_LOADING', payload: true });
       dispatch({ type: 'SHOW_TOAST', payload: '🎯 Generating quiz…' });
@@ -929,9 +1176,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           payload: `🎯 ${res.questions.length}-question quiz added to Workspace!`,
         });
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         const message = err instanceof Error ? err.message : 'Failed to generate quiz.';
         dispatch({ type: 'WORKSPACE_ERROR', payload: message });
         dispatch({ type: 'SHOW_TOAST', payload: `❌ ${message}` });
+      } finally {
+        quizInFlightRef.current = false;
       }
     },
     [],
@@ -1065,6 +1315,27 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ── resetSession ──────────────────────────────────────────────────────────
+  const handleResetSession = useCallback(() => {
+    // Cancel any in-flight requests
+    abortRef.current?.abort();
+    flashcardsAbortRef.current?.abort();
+    quizAbortRef.current?.abort();
+
+    // Clear persisted data so the old session doesn't come back on next refresh
+    clearSlidesFromStorage();
+    clearSessionSnapshot(stateRef.current.sessionId);
+    void clearPdfFromIdb();
+
+    // Revoke any active blob URL
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+
+    dispatch({ type: 'RESET_SESSION' });
+  }, []);
+
   const value: StudyContextValue = {
     state,
     dispatch,
@@ -1077,6 +1348,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     handleUploadDocument,
     handleCreateNote,
     handleCreateTodo,
+    handleResetSession,
     showToast,
   };
 
