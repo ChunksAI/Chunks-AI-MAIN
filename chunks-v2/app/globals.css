@@ -1400,8 +1400,8 @@ body {
 
 /* Root container */
 .md-root {
-  font-size: 13.5px;
-  line-height: 1.7;
+  font-size: 14px;
+  line-height: 1.8;
   color: var(--text);
   word-break: break-word;
 }
@@ -1428,7 +1428,7 @@ body {
 .md-root .md-h3:first-child { margin-top: 0; }
 .md-root .md-h1 { font-size: 18px; }
 .md-root .md-h2 { font-size: 15.5px; }
-.md-root .md-h3 { font-size: 13.5px; }
+.md-root .md-h3 { font-size: 14px; }
 
 /* Lists */
 .md-root .md-ul,
@@ -1565,8 +1565,8 @@ body {
 .md-root .md-tbody .md-tr:last-child .md-td { border-bottom: none; }
 .md-root .md-tbody .md-tr:nth-child(even) { background: var(--surface2); }
 
-/* KaTeX — inline math flows with text */
-.md-root .katex { font-size: 1em; }
+/* KaTeX — inline math flows with text (1.15em so rendered glyphs match surrounding 14px prose) */
+.md-root .katex { font-size: 1.15em; }
 
 /* KaTeX — block math centered with margin */
 .md-root .katex-display {
@@ -1591,11 +1591,12 @@ body {
   margin: 0;
 }
 
-/* Horizontal rule */
+/* Horizontal rule — section divider */
 .md-root hr {
   border: none;
-  border-top: 1px solid var(--border);
-  margin: 16px 0;
+  border-top: 1.5px solid var(--border2);
+  margin: 24px 0;
+  opacity: 0.6;
 }
 
 /* Strong / em */
