@@ -573,48 +573,42 @@ body {
   padding: 20px 20px 10px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
 .chat-messages::-webkit-scrollbar { width: 4px; }
 .chat-messages::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
 
-.msg { display: flex; gap: 10px; max-width: 100%; animation: fadeUp 0.3s ease; }
-.msg.user { flex-direction: row-reverse; }
+.msg { display: flex; max-width: 100%; animation: fadeUp 0.3s ease; margin-bottom: 20px; }
+.msg.user { justify-content: flex-end; }
+.msg.ai  { justify-content: flex-start; }
 
-.msg-avatar {
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 600;
-  margin-top: 2px;
-}
-.msg-avatar.ai      { background: var(--text); color: var(--bg); }
-.msg-avatar.user-av { background: var(--accent); color: white; }
+/* User msg before AI response gets extra breathing room */
+.msg.user:has(+ .msg.ai) { margin-bottom: 24px; }
+/* AI msg before a user message needs less space */
+.msg.ai:has(+ .msg.user) { margin-bottom: 16px; }
 
-.msg-body { display: flex; flex-direction: column; gap: 4px; max-width: 85%; }
-
-.msg-sender { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: 0.3px; }
+.msg-body { display: flex; flex-direction: column; gap: 4px; }
+.msg.user .msg-body { max-width: 70%; }
+.msg.ai  .msg-body { width: 100%; }
 
 .msg-bubble {
-  padding: 12px 14px;
-  border-radius: 14px;
-  font-size: 13.5px;
-  line-height: 1.65;
+  font-size: 14px;
+  line-height: 1.8;
   color: var(--text);
 }
 .msg.ai .msg-bubble {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-top-left-radius: 4px;
-  box-shadow: var(--shadow);
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
   max-width: 100%;
-  padding: 14px 16px;
 }
 .msg.user .msg-bubble {
   background: var(--text);
   color: var(--bg);
-  border-top-right-radius: 4px;
+  border-radius: 18px;
+  padding: 10px 16px;
+  font-size: 14px;
+  margin-left: auto;
 }
 .msg-bubble strong { font-weight: 600; }
 .msg-bubble .hl { color: var(--accent); font-weight: 500; }
@@ -768,17 +762,13 @@ body {
 
 /* ─── AI typing indicator ────────────────────────────────────────────────────── */
 .ai-typing {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px; border-top-left-radius: 4px;
+  display: flex; align-items: center;
+  padding: 4px 0;
   width: fit-content;
-  box-shadow: var(--shadow);
 }
-.typing-dots { display: flex; gap: 3px; }
+.typing-dots { display: flex; gap: 4px; }
 .typing-dot {
-  width: 5px; height: 5px;
+  width: 6px; height: 6px;
   background: var(--text3);
   border-radius: 50%;
   animation: bounce 1.2s infinite;
@@ -3289,15 +3279,21 @@ body {
   justify-content: flex-end;
 }
 
-/* ─── Streaming cursor (chat) ───────────────────────────────────────────────── */
-.streaming-cursor {
+/* ─── Streaming dot (chat) ──────────────────────────────────────────────────── */
+.streaming-dot {
   display: inline-block;
-  width: 2px;
-  height: 14px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
   background: var(--accent);
-  margin-left: 2px;
+  margin-left: 4px;
   vertical-align: middle;
-  animation: blink 0.8s step-end infinite;
+  animation: streamPulse 0.9s ease-in-out infinite;
+}
+
+@keyframes streamPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
 }
 
 @keyframes blink {
