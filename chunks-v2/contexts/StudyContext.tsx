@@ -1108,14 +1108,21 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   }, [state.toast]);
 
   // ── Persist session snapshot to localStorage (debounced 500ms) ───────────
+  // NOTE: chatLoading is intentionally included so the snapshot is saved once
+  // streaming ends (chatLoading: true → false). Without it, APPEND_MESSAGE_CHUNK
+  // fills in the AI text without changing messages.length, so the snapshot saved
+  // on START_AI_MESSAGE still has text:'' and refreshing shows "No response received".
   useEffect(() => {
     if (state.messages.length === 0 && state.workspaceSections.length === 0) return;
+    // Only save on chatLoading→false (not →true), to avoid saving mid-stream
+    if (state.chatLoading) return;
     const t = setTimeout(() => {
       saveSessionSnapshot(stateRef.current.sessionId, stateRef.current);
     }, 500);
     return () => clearTimeout(t);
   }, [
     state.messages.length,
+    state.chatLoading,
     state.workspaceSections.length,
     state.quizResults.length,
     state.weakAreas.length,
