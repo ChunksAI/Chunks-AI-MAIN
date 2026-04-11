@@ -205,7 +205,7 @@ export default function ExamResults() {
           marginBottom: 36,
         }}
       >
-        {conceptBreakdown.map((c, idx) => (
+        {[...conceptBreakdown].sort((a, b) => a.score - b.score).map((c, idx) => (
           <div
             key={c.concept}
             style={{

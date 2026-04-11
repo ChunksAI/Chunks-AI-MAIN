@@ -20,6 +20,7 @@ import {
 } from 'react';
 import type { ConceptChunk, ExamQuestion, ExamResult, ExamConfig } from '@/types/exam';
 import { extractConceptsFromSlides, generateConceptQuestions } from '@/lib/examApi';
+import { PASS_THRESHOLD } from '@/lib/constants';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -181,8 +182,6 @@ interface ExamContextValue {
 const ExamContext = createContext<ExamContextValue | null>(null);
 
 // ─── Result calculation ───────────────────────────────────────────────────────
-
-const PASS_THRESHOLD = 75;
 
 function calcResult(
   questions: ExamQuestion[],

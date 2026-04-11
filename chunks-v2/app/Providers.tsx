@@ -3,6 +3,7 @@
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
 import { StudyProvider } from '@/contexts/StudyContext';
+import { FlashcardsProvider } from '@/contexts/FlashcardsContext';
 import SettingsModal from '@/components/shared/SettingsModal';
 import type { ReactNode } from 'react';
 
@@ -16,6 +17,8 @@ import type { ReactNode } from 'react';
  * StudyProvider is global so state (book selection, messages, workspace) persists
  * as users navigate between Library, Research, Study, and Flashcards pages.
  *
+ * FlashcardsProvider is global so SRS decks and study-mode persist across pages.
+ *
  * SettingsModal is rendered here so it is always in the DOM tree regardless
  * of which page/route is active.
  */
@@ -24,7 +27,9 @@ export default function Providers({ children }: { children: ReactNode }) {
     <AuthProvider>
       <SettingsProvider>
         <StudyProvider>
-          {children}
+          <FlashcardsProvider>
+            {children}
+          </FlashcardsProvider>
           {/* Global modals — always available regardless of current route */}
           <SettingsModal />
         </StudyProvider>
