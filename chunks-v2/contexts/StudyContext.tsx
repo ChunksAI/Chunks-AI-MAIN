@@ -787,7 +787,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           : '';
 
       // Append markdown format requirement so the model returns well-structured responses
-      const formattedQuestion = `${text}\n\n[Format requirement: Use markdown with ## headers for main sections, ### for subsections. Use $$ for display equations and $ for inline math. Use \\ce{} for chemical formulas. Give thorough explanations with worked examples. End conceptual answers with a > 💡 Key takeaway: blockquote.]`;
+      // Skip for quiz/flashcard generation requests to avoid confusing the backend
+      const isGenerationRequest = /generate.*quiz|generate.*flashcard/i.test(text);
+      const formattedQuestion = isGenerationRequest
+        ? text
+        : `${text}\n\n[Format requirement: Use markdown with ## headers for main sections, ### for subsections. Use $$ for display equations and $ for inline math. Use \\ce{} for chemical formulas. Give thorough explanations with worked examples. End conceptual answers with a > 💡 Key takeaway: blockquote.]`;
 
       try {
         const res = await sendMessage({
