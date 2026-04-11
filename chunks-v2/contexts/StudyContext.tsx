@@ -895,12 +895,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   const handleGenerateQuiz = useCallback(
     async (topic: string, count = 10, difficulty: 'easy' | 'medium' | 'hard' = 'medium') => {
       // When no document is uploaded there are no slides to send to /generate-quiz.
-      // Fall back to /ask so the AI generates the quiz as a chat response instead.
       if (stateRef.current.slides.length === 0) {
-        dispatch({ type: 'SET_ACTIVE_TAB', payload: 'chat' });
-        void sendMessageRef.current(
-          `Generate a ${count}-question ${difficulty} multiple choice quiz on "${topic}".`,
-        );
+        dispatch({
+          type: 'SHOW_TOAST',
+          payload: '📄 Upload a document first to generate a quiz from it.',
+        });
         return;
       }
 

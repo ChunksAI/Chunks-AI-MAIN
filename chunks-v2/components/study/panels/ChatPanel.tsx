@@ -174,10 +174,15 @@ export default function ChatPanel() {
 
   // Quick-action toolbar handler
   const handleQuickAction = (label: string) => {
+    if (label === '❓ Quiz me') {
+      const currentTopic = resolveStudyTopic(topic, docTitle, messages);
+      void handleGenerateQuiz(currentTopic);
+      dispatch({ type: 'SET_ACTIVE_TAB', payload: 'workspace' });
+      return;
+    }
     const map: Record<string, string> = {
       '✦ Explain simply': 'Explain the current topic in simple terms.',
       '📋 Study plan': `Create a structured study plan with a checklist for "${state.topic || 'this topic'}". Format it as a numbered list of actionable tasks.`,
-      '❓ Quiz me': 'Give me a quick quiz on what I just read.',
       '🔑 Key concepts': 'What are the key concepts I need to remember?',
       '↓ Summarize': 'Summarize the main points of this topic.',
     };
