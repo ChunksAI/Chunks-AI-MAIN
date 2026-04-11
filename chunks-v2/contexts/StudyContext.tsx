@@ -37,7 +37,7 @@ import type {
   AnyNote,
   RecentItem,
 } from '@/types';
-import { sendMessage, generateFlashcards, generateQuiz, uploadDocument } from '@/lib/studyApi';
+import { sendMessage, generateFlashcards, generateQuiz, uploadDocument, topicToSlides } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
 import {
@@ -103,6 +103,31 @@ export interface StudyState {
   showMemoryBar: boolean;
   notes: AnyNote[];
   recents: RecentItem[];
+
+  /** Active personalised review session, null when none is running. */
+  reviewSession: ReviewSessionState | null;
+}
+
+// ─── Review session types ─────────────────────────────────────────────────────
+
+export type ReviewStep = 'explain' | 'flashcards' | 'quiz' | 'result';
+
+export interface ReviewSessionState {
+  active: boolean;
+  topic: string;
+  step: ReviewStep;
+  /** Overall progress 0–100 for the progress bar. */
+  progress: number;
+  /** Final quiz score 0–100. */
+  score: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  /** Unix timestamp when the session started (Date.now()). */
+  startedAt: number;
+  /** AI-generated explanation markdown text, empty while loading. */
+  explanationText: string;
+  flashcardsReady: boolean;
+  quizReady: boolean;
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -147,7 +172,16 @@ export type StudyAction =
   | { type: 'SET_SESSION_ID'; payload: string }
   | { type: 'SET_RECENTS'; payload: RecentItem[] }
   | { type: 'SET_THINKING_MODE'; payload: null | 'auto' | 'think' | 'deep' }
-  | { type: 'RESET_SESSION' };
+  | { type: 'RESET_SESSION' }
+  | { type: 'START_REVIEW_SESSION'; payload: { topic: string } }
+  | { type: 'SET_REVIEW_STEP'; payload: ReviewStep }
+  | { type: 'UPDATE_REVIEW_PROGRESS'; payload: number }
+  | { type: 'SET_REVIEW_EXPLANATION'; payload: string }
+  | { type: 'SET_REVIEW_FLASHCARDS_READY' }
+  | { type: 'SET_REVIEW_QUIZ_READY' }
+  | { type: 'RESET_REVIEW_QUIZ_READY' }
+  | { type: 'COMPLETE_REVIEW_QUIZ'; payload: { score: number; correct: number; total: number } }
+  | { type: 'END_REVIEW_SESSION' };
 
 // ─── Weak-area calculation ───────────────────────────────────────────────────
 
@@ -422,6 +456,92 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
         thinkingMode: state.thinkingMode,
       };
 
+    case 'START_REVIEW_SESSION':
+      return {
+        ...state,
+        reviewSession: {
+          active: true,
+          topic: action.payload.topic,
+          step: 'explain',
+          progress: 0,
+          score: 0,
+          totalQuestions: 0,
+          correctAnswers: 0,
+          startedAt: Date.now(),
+          explanationText: '',
+          flashcardsReady: false,
+          quizReady: false,
+        },
+      };
+
+    case 'SET_REVIEW_STEP': {
+      if (!state.reviewSession) return state;
+      const stepProgress: Record<ReviewStep, number> = {
+        explain: 10,
+        flashcards: 40,
+        quiz: 70,
+        result: 100,
+      };
+      return {
+        ...state,
+        reviewSession: {
+          ...state.reviewSession,
+          step: action.payload,
+          progress: stepProgress[action.payload],
+        },
+      };
+    }
+
+    case 'UPDATE_REVIEW_PROGRESS':
+      if (!state.reviewSession) return state;
+      return {
+        ...state,
+        reviewSession: { ...state.reviewSession, progress: action.payload },
+      };
+
+    case 'SET_REVIEW_EXPLANATION':
+      if (!state.reviewSession) return state;
+      return {
+        ...state,
+        reviewSession: { ...state.reviewSession, explanationText: action.payload },
+      };
+
+    case 'SET_REVIEW_FLASHCARDS_READY':
+      if (!state.reviewSession) return state;
+      return {
+        ...state,
+        reviewSession: { ...state.reviewSession, flashcardsReady: true },
+      };
+
+    case 'SET_REVIEW_QUIZ_READY':
+      if (!state.reviewSession) return state;
+      return {
+        ...state,
+        reviewSession: { ...state.reviewSession, quizReady: true },
+      };
+
+    case 'RESET_REVIEW_QUIZ_READY':
+      if (!state.reviewSession) return state;
+      return {
+        ...state,
+        reviewSession: { ...state.reviewSession, quizReady: false },
+      };
+
+    case 'COMPLETE_REVIEW_QUIZ':
+      if (!state.reviewSession) return state;
+      return {
+        ...state,
+        reviewSession: {
+          ...state.reviewSession,
+          score: action.payload.score,
+          correctAnswers: action.payload.correct,
+          totalQuestions: action.payload.total,
+        },
+      };
+
+    case 'END_REVIEW_SESSION':
+      return { ...state, reviewSession: null };
+
     default:
       return state;
   }
@@ -457,6 +577,7 @@ const INITIAL_STATE: StudyState = {
   showMemoryBar: true,
   notes: [],
   recents: [],
+  reviewSession: null,
 };
 
 // ─── Context value ────────────────────────────────────────────────────────────
@@ -482,6 +603,10 @@ interface StudyContextValue {
   handleCreateTodo: (title: string, items: string[]) => void;
   handleResetSession: () => void;
   showToast: (message: string) => void;
+  handleStartReviewSession: (topic?: string) => Promise<void>;
+  handleAdvanceReviewStep: () => void;
+  handleEndReviewSession: () => void;
+  handleCompleteReviewQuiz: (score: number, correct: number, total: number) => void;
 }
 
 const StudyContext = createContext<StudyContextValue | null>(null);
@@ -1135,15 +1260,6 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // ── generateQuiz ──────────────────────────────────────────────────────────
   const handleGenerateQuiz = useCallback(
     async (topic: string, count = DEFAULT_QUIZ_COUNT, difficulty: 'easy' | 'medium' | 'hard' = 'medium') => {
-      // When no document is uploaded there are no slides to send to /generate-quiz.
-      if (stateRef.current.slides.length === 0) {
-        dispatch({
-          type: 'SHOW_TOAST',
-          payload: '📄 Upload a document first to generate a quiz from it.',
-        });
-        return;
-      }
-
       if (quizInFlightRef.current) return;
       quizInFlightRef.current = true;
 
@@ -1154,7 +1270,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SHOW_TOAST', payload: '🎯 Generating quiz…' });
 
       try {
-        const slides = stateRef.current.slides;
+        // Use real slides when available; fall back to a topic-seed when not
+        // (e.g. during a personalised review session without an uploaded doc).
+        const slides =
+          stateRef.current.slides.length > 0
+            ? stateRef.current.slides
+            : topicToSlides(topic);
         const res = await generateQuiz({ slides, count, difficulty });
         const cardId = `quiz-${Date.now()}`;
         const card: WorkspaceCard = {
@@ -1315,9 +1436,83 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ── startReviewSession ────────────────────────────────────────────────────
+  const handleStartReviewSession = useCallback(async (topic?: string) => {
+    // Resolve the target topic: explicit arg → weakest quiz topic → current topic → fallback
+    const { weakAreas, topic: currentTopic } = stateRef.current;
+    const weakestTopic =
+      weakAreas.length > 0
+        ? [...weakAreas].sort((a, b) => a.score - b.score)[0]?.topic ?? null
+        : null;
+
+    const resolvedTopic = topic ?? weakestTopic ?? (currentTopic || 'General Study');
+
+    dispatch({ type: 'START_REVIEW_SESSION', payload: { topic: resolvedTopic } });
+    dispatch({ type: 'SET_CHAT_LOADING', payload: true });
+
+    try {
+      const docContext = stateRef.current.slides
+        .slice(0, 3)
+        .map((s: { content: string[] }) => s.content.join(' '))
+        .join('\n')
+        .slice(0, MAX_DOC_CONTEXT_CHARS);
+
+      const res = await sendMessage({
+        question: `Give me a focused explanation of "${resolvedTopic}" covering the key concepts I need to understand. Use ## headers for sections, worked examples with $$ equations where relevant, and end with a > 💡 Key takeaway blockquote.`,
+        history: [],
+        selected_text: '',
+        doc_context: docContext,
+        mode: 'study',
+        thinking: stateRef.current.thinkingMode,
+        bookId: stateRef.current.bookId ?? undefined,
+      });
+
+      dispatch({ type: 'SET_REVIEW_EXPLANATION', payload: res.answer });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load explanation.';
+      dispatch({ type: 'SHOW_TOAST', payload: `❌ ${msg}` });
+      dispatch({ type: 'END_REVIEW_SESSION' });
+    } finally {
+      dispatch({ type: 'SET_CHAT_LOADING', payload: false });
+    }
+  }, []);
+
+  // ── advanceReviewStep ─────────────────────────────────────────────────────
+  const handleAdvanceReviewStep = useCallback(() => {
+    const { reviewSession } = stateRef.current;
+    if (!reviewSession) return;
+
+    const next: Record<ReviewStep, ReviewStep | 'done'> = {
+      explain: 'flashcards',
+      flashcards: 'quiz',
+      quiz: 'result',
+      result: 'done',
+    };
+
+    const nextStep = next[reviewSession.step as ReviewStep];
+    if (nextStep === 'done') {
+      dispatch({ type: 'END_REVIEW_SESSION' });
+      return;
+    }
+    dispatch({ type: 'SET_REVIEW_STEP', payload: nextStep });
+  }, []);
+
+  // ── endReviewSession ──────────────────────────────────────────────────────
+  const handleEndReviewSession = useCallback(() => {
+    dispatch({ type: 'END_REVIEW_SESSION' });
+  }, []);
+
+  // ── completeReviewQuiz ────────────────────────────────────────────────────
+  const handleCompleteReviewQuiz = useCallback(
+    (score: number, correct: number, total: number) => {
+      dispatch({ type: 'COMPLETE_REVIEW_QUIZ', payload: { score, correct, total } });
+      dispatch({ type: 'SET_REVIEW_STEP', payload: 'result' });
+    },
+    [],
+  );
+
   // ── resetSession ──────────────────────────────────────────────────────────
-  const handleResetSession = useCallback(() => {
-    // Cancel any in-flight requests
+  const handleResetSession = useCallback(() => {    // Cancel any in-flight requests
     abortRef.current?.abort();
     flashcardsAbortRef.current?.abort();
     quizAbortRef.current?.abort();
@@ -1350,6 +1545,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     handleCreateTodo,
     handleResetSession,
     showToast,
+    handleStartReviewSession,
+    handleAdvanceReviewStep,
+    handleEndReviewSession,
+    handleCompleteReviewQuiz,
   };
 
   return <StudyContext.Provider value={value}>{children}</StudyContext.Provider>;
