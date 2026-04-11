@@ -73,15 +73,12 @@ export default function MyDocuments() {
         payload: { slides: persisted.slides, docTitle: persisted.docTitle, bookId: persisted.bookId },
       });
     } else {
-      // No slides cached — at least set the title so context knows what doc is active
-      dispatch({
-        type: 'SET_SLIDES',
-        payload: { slides: [], docTitle: doc.docTitle, bookId: null },
-      });
+      // No cached slides — navigate anyway; AI can still answer from topic context
       dispatch({
         type: 'SHOW_TOAST',
-        payload: `📄 "${doc.docTitle}" loaded — re-upload to restore full AI context`,
+        payload: `📄 "${doc.docTitle}" selected — re-upload to restore full AI context`,
       });
+      dispatch({ type: 'SET_TOPIC', payload: doc.docTitle });
     }
     router.push('/study');
   };
