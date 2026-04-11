@@ -7,7 +7,7 @@ import { MY_DOCS_STORAGE_KEY, type MyDocMeta } from '@/contexts/StudyContext';
 function loadMyDocs(): MyDocMeta[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = sessionStorage.getItem(MY_DOCS_STORAGE_KEY);
+    const raw = localStorage.getItem(MY_DOCS_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     return Array.isArray(parsed) ? (parsed as MyDocMeta[]) : [];
@@ -32,7 +32,7 @@ export default function MyDocuments() {
   const router = useRouter();
   const [docs, setDocs] = useState<MyDocMeta[]>([]);
 
-  // Load from sessionStorage after mount (avoids SSR/hydration mismatch)
+  // Load from localStorage after mount (avoids SSR/hydration mismatch)
   useEffect(() => {
     setDocs(loadMyDocs());
   }, []);

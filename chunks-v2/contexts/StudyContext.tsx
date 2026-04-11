@@ -767,7 +767,7 @@ export interface MyDocMeta {
 function loadMyDocsFromStorage(): MyDocMeta[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = sessionStorage.getItem(MY_DOCS_STORAGE_KEY);
+    const raw = localStorage.getItem(MY_DOCS_STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (Array.isArray(parsed)) return parsed as MyDocMeta[];
@@ -783,7 +783,7 @@ function appendMyDocToStorage(meta: MyDocMeta): void {
     const existing = loadMyDocsFromStorage();
     // Deduplicate by filename — move the latest upload to the front
     const deduped = existing.filter((d) => d.filename !== meta.filename);
-    sessionStorage.setItem(MY_DOCS_STORAGE_KEY, JSON.stringify([meta, ...deduped]));
+    localStorage.setItem(MY_DOCS_STORAGE_KEY, JSON.stringify([meta, ...deduped]));
   } catch {
     // ignore — storage may be unavailable or quota exceeded
   }

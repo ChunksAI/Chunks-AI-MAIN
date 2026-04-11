@@ -2564,6 +2564,12 @@ body {
 .legal-footer-links a:hover { color: var(--text); }
 .legal-copyright { font-size: 12px; color: var(--text3); }
 
+/* ─── Flashcards page shell ─────────────────────────────────────────────────── */
+.flashcards-page {
+  flex: 1;
+  overflow-y: auto;
+}
+
 /* ─── Spin animation ────────────────────────────────────────────────────────── */
 @keyframes spin { to { transform: rotate(360deg); } }
 .spin { animation: spin 0.8s linear infinite; }
