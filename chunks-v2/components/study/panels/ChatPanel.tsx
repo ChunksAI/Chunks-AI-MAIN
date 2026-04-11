@@ -82,6 +82,11 @@ function MessageBubble({
         <div className="msg-bubble">
           <MarkdownRenderer content={msg.text} />
           {isStreaming && <span className="streaming-cursor" aria-hidden="true" />}
+          {!isStreaming && !msg.text.trim() && (
+            <span className="msg-empty-response">
+              No response received — please retry.
+            </span>
+          )}
         </div>
         {msg.memoryRecall && (
           <div className="memory-recall">

@@ -618,6 +618,11 @@ body {
 }
 .msg-bubble strong { font-weight: 600; }
 .msg-bubble .hl { color: var(--accent); font-weight: 500; }
+.msg-empty-response {
+  color: var(--text3);
+  font-size: 13px;
+  font-style: italic;
+}
 
 .ai-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 

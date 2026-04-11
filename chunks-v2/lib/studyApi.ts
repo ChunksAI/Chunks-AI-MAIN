@@ -101,6 +101,35 @@ export async function sendMessage(params: SendMessageRequest): Promise<SendMessa
   });
 }
 
+// ─── SSE text extraction helper ───────────────────────────────────────────────
+
+type SseChunk = {
+  text?: string;
+  delta?: string | { content?: string; text?: string };
+  content?: string;
+  answer?: string;
+  choices?: Array<{ delta?: { content?: string } }>;
+};
+
+/**
+ * Extract the text fragment from a parsed SSE JSON chunk.
+ * Handles multiple streaming formats:
+ *   - Simple `{ text }` or `{ answer }` / `{ content }` (custom backends)
+ *   - OpenAI chat.completion.chunk: `{ choices[0].delta.content }`
+ *   - Anthropic text_delta: `{ delta: { type, text } }`
+ *   - String `delta` field
+ * Falls back to the raw `data` string when no known field is found.
+ */
+function extractStreamText(parsed: SseChunk, fallback: string): string {
+  if (typeof parsed.text === 'string') return parsed.text;
+  if (parsed.choices?.[0]?.delta?.content != null) return parsed.choices[0].delta.content;
+  if (parsed.delta != null) {
+    if (typeof parsed.delta === 'string') return parsed.delta;
+    return parsed.delta.content ?? parsed.delta.text ?? fallback;
+  }
+  return parsed.content ?? parsed.answer ?? fallback;
+}
+
 /**
  * Stream a chat response from the backend.
  * Calls `onChunk` for each text fragment as it arrives.
@@ -172,8 +201,8 @@ export async function sendMessageStream(
             const data = line.slice(6).trim();
             if (data === '[DONE]') break outer; // exit both loops
             try {
-              const parsed = JSON.parse(data) as { text?: string; delta?: string };
-              const text = parsed.text ?? parsed.delta ?? data;
+              const parsed = JSON.parse(data) as SseChunk;
+              const text = extractStreamText(parsed, data);
               fullText += text;
               onChunk(text);
             } catch {
@@ -196,8 +225,8 @@ export async function sendMessageStream(
   }
 
   // ── Fallback: full JSON response ──────────────────────────────────────────
-  const data = (await res.json()) as SendMessageResponse;
-  onChunk(data.answer ?? '');
+  const data = (await res.json()) as SendMessageResponse & { text?: string };
+  onChunk(data.answer ?? data.text ?? '');
   return data;
 }
 
