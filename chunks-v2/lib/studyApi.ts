@@ -221,12 +221,22 @@ export async function sendMessageStream(
       reader.releaseLock();
     }
 
+    if (!fullText.trim()) {
+      throw new ApiError('No response received from AI. Please retry.', 502);
+    }
     return { success: true, answer: fullText, mode: params.mode ?? 'study' };
   }
 
   // ── Fallback: full JSON response ──────────────────────────────────────────
   const data = (await res.json()) as SendMessageResponse & { text?: string };
-  onChunk(data.answer ?? data.text ?? '');
+  const answerText = data.answer ?? data.text ?? '';
+  if (!answerText.trim()) {
+    // The backend returned a 2xx but with no usable answer — surface this as an
+    // error so the catch block in handleSendMessage can remove the empty bubble
+    // and show a proper error bar instead of the silent "No response received."
+    throw new ApiError('No response received from AI. Please retry.', 502);
+  }
+  onChunk(answerText);
   return data;
 }
 
