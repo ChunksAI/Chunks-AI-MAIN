@@ -101,6 +101,106 @@ export async function sendMessage(params: SendMessageRequest): Promise<SendMessa
   });
 }
 
+/**
+ * Stream a chat response from the backend.
+ * Calls `onChunk` for each text fragment as it arrives.
+ * Falls back to a single full-response call when the backend does not support streaming.
+ */
+export async function sendMessageStream(
+  params: SendMessageRequest,
+  onChunk: (text: string) => void,
+  signal?: AbortSignal,
+): Promise<SendMessageResponse> {
+  const authHeaders = await getAuthHeaders();
+
+  const res = await fetch(`${API_BASE}/ask`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify({
+      question: params.question,
+      complexity: params.complexity ?? 3,
+      mode: params.mode ?? 'study',
+      thinking: params.thinking ?? null,
+      history: params.history ?? [],
+      selected_text: params.selected_text ?? '',
+      doc_context: params.doc_context ?? '',
+      user_memory: params.user_memory ?? '',
+      bookId: params.bookId ?? '',
+      stream: true,
+    }),
+    signal,
+  });
+
+  if (res.status === 429) {
+    throw new ApiError('Rate limit reached. Please wait a moment before trying again.', 429);
+  }
+  if (!res.ok) {
+    let message = `Request failed (${res.status})`;
+    try {
+      const err = (await res.json()) as { detail?: string; message?: string };
+      message = err.detail ?? err.message ?? message;
+    } catch {
+      // ignore JSON parse errors
+    }
+    throw new ApiError(message, res.status);
+  }
+
+  const contentType = res.headers.get('content-type') ?? '';
+
+  // ── Streaming path (SSE or plain chunked text) ────────────────────────────
+  if (contentType.includes('text/event-stream') || contentType.includes('text/plain')) {
+    const reader = res.body?.getReader();
+    if (!reader) throw new ApiError('No response body', 500);
+
+    const decoder = new TextDecoder();
+    let fullText = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+
+        // Handle SSE format: lines starting with "data: "
+        const lines = chunk.split('\n');
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            if (data === '[DONE]') break;
+            try {
+              const parsed = JSON.parse(data) as { text?: string; delta?: string };
+              const text = parsed.text ?? parsed.delta ?? data;
+              fullText += text;
+              onChunk(text);
+            } catch {
+              // Plain text chunk, not JSON
+              fullText += data;
+              onChunk(data);
+            }
+          } else if (line.trim() && !line.startsWith(':')) {
+            // Plain streaming (not SSE format)
+            fullText += line;
+            onChunk(line);
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    return { success: true, answer: fullText, mode: params.mode ?? 'study' };
+  }
+
+  // ── Fallback: full JSON response ──────────────────────────────────────────
+  const data = (await res.json()) as SendMessageResponse;
+  onChunk(data.answer ?? '');
+  return data;
+}
+
 // ─── Flashcards ───────────────────────────────────────────────────────────────
 
 export async function generateFlashcards(

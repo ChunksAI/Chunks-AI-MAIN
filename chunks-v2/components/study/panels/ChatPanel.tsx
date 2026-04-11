@@ -56,10 +56,12 @@ function MessageBubble({
   msg,
   userInitial,
   onActionClick,
+  isStreaming,
 }: {
   msg: ChatMessage;
   userInitial: string;
   onActionClick: (key: string) => void;
+  isStreaming?: boolean;
 }) {
   if (msg.role === 'user') {
     return (
@@ -77,7 +79,10 @@ function MessageBubble({
       <div className="msg-avatar ai">C</div>
       <div className="msg-body">
         <span className="msg-sender">CHUNKS AI</span>
-        <div className="msg-bubble"><MarkdownRenderer content={msg.text} /></div>
+        <div className="msg-bubble">
+          <MarkdownRenderer content={msg.text} />
+          {isStreaming && <span className="streaming-cursor" aria-hidden="true" />}
+        </div>
         {msg.memoryRecall && (
           <div className="memory-recall">
             🧠 <MarkdownRenderer content={msg.memoryRecall} />
@@ -137,6 +142,7 @@ export default function ChatPanel() {
     handleGenerateFlashcards,
     handleGenerateQuiz,
     handleUploadDocument,
+    handleStop,
   } = useStudy();
   const { user } = useAuth();
   const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, thinkingMode } = state;
@@ -162,9 +168,8 @@ export default function ChatPanel() {
     await handleSendMessage(val);
   };
 
-  const handleStop = () => {
-    dispatch({ type: 'SET_CHAT_LOADING', payload: false });
-    dispatch({ type: 'SHOW_TOAST', payload: '⏹ Generation stopped.' });
+  const handleStopClick = () => {
+    handleStop();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -282,10 +287,23 @@ export default function ChatPanel() {
             </div>
           </div>
         )}
-        {messages.map((msg) => (
-          <MessageBubble key={msg.id} msg={msg} userInitial={userInitial} onActionClick={handleActionClick} />
-        ))}
-        {chatLoading && messages[messages.length - 1]?.role !== 'ai' && <TypingIndicator />}
+        {messages.map((msg, idx) => {
+          const isLastMessage = idx === messages.length - 1;
+          const isStreaming = chatLoading && isLastMessage && msg.role === 'ai';
+          return (
+            <MessageBubble
+              key={msg.id}
+              msg={msg}
+              userInitial={userInitial}
+              onActionClick={handleActionClick}
+              isStreaming={isStreaming}
+            />
+          );
+        })}
+        {/* Typing indicator: show only while waiting for the first chunk (before AI bubble appears) */}
+        {chatLoading && (messages.length === 0 || messages[messages.length - 1]?.role === 'user') && (
+          <TypingIndicator />
+        )}
         <div ref={sentinelRef} />
       </div>
 
@@ -313,7 +331,7 @@ export default function ChatPanel() {
             {chatLoading ? (
               <button
                 className="send-btn send-btn--stop"
-                onClick={handleStop}
+                onClick={handleStopClick}
                 aria-label="Stop generation"
                 title="Stop"
               >

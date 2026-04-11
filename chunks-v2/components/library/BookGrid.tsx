@@ -136,6 +136,10 @@ export default function BookGrid({ searchQuery, activeFilter }: BookGridProps) {
 
   const handleBookClick = useCallback(async (book: EnrichedBook) => {
     if (loadingBookId) return;
+    if (!book.available) {
+      dispatch({ type: 'SHOW_TOAST', payload: `📚 "${book.name}" is not available yet.` });
+      return;
+    }
     setLoadingBookId(book.id);
     try {
       await loadBook(book.id);
@@ -201,18 +205,23 @@ export default function BookGrid({ searchQuery, activeFilter }: BookGridProps) {
     <div className="book-grid">
       {filtered.map((book) => {
         const isLoading = loadingBookId === book.id;
+        const isUnavailable = !book.available;
         return (
           <button
             key={book.id}
             className="book-card"
             onClick={() => void handleBookClick(book)}
-            aria-label={`Open ${book.name}`}
+            aria-label={isUnavailable ? `${book.name} — not available yet` : `Open ${book.name}`}
             disabled={isLoading || !!loadingBookId}
-            style={{ opacity: loadingBookId && !isLoading ? 0.6 : 1 }}
+            style={{
+              opacity: (loadingBookId && !isLoading) || isUnavailable ? 0.6 : 1,
+              pointerEvents: isUnavailable ? 'none' : undefined,
+              cursor: isUnavailable ? 'not-allowed' : undefined,
+            }}
           >
             {/* Cover */}
             <div className="book-cover" style={{ background: book.coverColor, position: 'relative' }}>
-              <span className="book-cover-emoji">{isLoading ? '⏳' : book.emoji}</span>
+              <span className="book-cover-emoji">{isLoading ? '⏳' : isUnavailable ? '🔒' : book.emoji}</span>
               <div className="book-cover-lines">
                 <div /><div /><div />
               </div>
@@ -233,7 +242,11 @@ export default function BookGrid({ searchQuery, activeFilter }: BookGridProps) {
                 >
                   {book.difficulty}
                 </span>
-                <span className="book-chapters">{book.chapters} chapters</span>
+                {isUnavailable ? (
+                  <span className="book-chapters" style={{ color: 'var(--text3)' }}>Coming soon</span>
+                ) : (
+                  <span className="book-chapters">{book.chapters} chapters</span>
+                )}
               </div>
             </div>
           </button>
