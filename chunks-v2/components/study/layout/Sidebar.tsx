@@ -214,7 +214,7 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M12 5v14M5 12h14"/>
         </svg>
-        New Session
+        <span>New Session</span>
       </button>
 
       {/* ── Navigation ── */}
@@ -228,7 +228,7 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
             data-label={item.id}
           >
             <NavIcon id={item.icon} />
-            {item.label}
+            <span>{item.label}</span>
             {item.badge && (
               <span className={`nav-badge badge-${item.badge.variant}`}>{item.badge.text}</span>
             )}
