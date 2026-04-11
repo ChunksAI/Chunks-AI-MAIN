@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react';
 import { useStudy } from '@/contexts/StudyContext';
-import { useAuth } from '@/contexts/AuthContext';
 import { useAutoScroll } from '@/hooks/useAutoScroll';
 import type { ChatMessage } from '@/types';
 
@@ -38,14 +37,11 @@ const THINKING_COLORS: Record<string, string> = {
 function TypingIndicator() {
   return (
     <div className="msg ai">
-      <div className="msg-avatar ai">C</div>
-      <div className="msg-body">
-        <div className="ai-typing">
-          <div className="typing-dots">
-            <div className="typing-dot" />
-            <div className="typing-dot" />
-            <div className="typing-dot" />
-          </div>
+      <div className="ai-typing">
+        <div className="typing-dots">
+          <div className="typing-dot" />
+          <div className="typing-dot" />
+          <div className="typing-dot" />
         </div>
       </div>
     </div>
@@ -54,19 +50,16 @@ function TypingIndicator() {
 
 function MessageBubble({
   msg,
-  userInitial,
   onActionClick,
   isStreaming,
 }: {
   msg: ChatMessage;
-  userInitial: string;
   onActionClick: (key: string) => void;
   isStreaming?: boolean;
 }) {
   if (msg.role === 'user') {
     return (
       <div className="msg user">
-        <div className="msg-avatar user-av">{userInitial}</div>
         <div className="msg-body">
           <div className="msg-bubble">{msg.text}</div>
         </div>
@@ -76,12 +69,10 @@ function MessageBubble({
 
   return (
     <div className="msg ai">
-      <div className="msg-avatar ai">C</div>
       <div className="msg-body">
-        <span className="msg-sender">CHUNKS AI</span>
         <div className="msg-bubble">
           <MarkdownRenderer content={msg.text} />
-          {isStreaming && <span className="streaming-cursor" aria-hidden="true" />}
+          {isStreaming && msg.text.trim() && <span className="streaming-dot" aria-hidden="true" />}
           {!isStreaming && !msg.text.trim() && (
             <span className="msg-empty-response">
               No response received — please retry.
@@ -149,10 +140,7 @@ export default function ChatPanel() {
     handleUploadDocument,
     handleStop,
   } = useStudy();
-  const { user } = useAuth();
   const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, thinkingMode } = state;
-
-  const userInitial = (user?.name?.[0] ?? user?.email?.[0] ?? 'U').toUpperCase();
 
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -162,7 +150,7 @@ export default function ChatPanel() {
   // Build memory bar text from real weak areas
   const memoryText =
     weakAreas.length > 0
-      ? `AI remembers: You struggled with ${weakAreas[0].topic} (${weakAreas[0].score}%). Let's revisit it.`
+      ? `AI remembers: You struggled with ${cleanTopic(weakAreas[0].topic)} (${weakAreas[0].score}%). Let's revisit it.`
       : 'AI remembers: Keep asking questions — I track your weak areas over time.';
 
   const handleSend = async () => {
@@ -299,16 +287,19 @@ export default function ChatPanel() {
             <MessageBubble
               key={msg.id}
               msg={msg}
-              userInitial={userInitial}
               onActionClick={handleActionClick}
               isStreaming={isStreaming}
             />
           );
         })}
-        {/* Typing indicator: show only while waiting for the first chunk (before AI bubble appears) */}
-        {chatLoading && (messages.length === 0 || messages[messages.length - 1]?.role === 'user') && (
+        {/* Typing indicator: show when loading but no AI text yet */}
+        {chatLoading && (
+          messages.length === 0 ||
+          messages[messages.length - 1]?.role === 'user' ||
+          (messages[messages.length - 1]?.role === 'ai' && !messages[messages.length - 1]?.text.trim())
+        ) ? (
           <TypingIndicator />
-        )}
+        ) : null}
         <div ref={sentinelRef} />
       </div>
 

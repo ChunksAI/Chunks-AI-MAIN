@@ -281,11 +281,11 @@ def ask(request: Request, body: AskRequest):
             return NORMAL_MODE_PROMPT
 
         response_style_instruction = _response_style_instruction(thinking_mode)
-        # TEACHING_PROMPT adds structural guidance (headers, bullets) for Think mode.
+        # TEACHING_PROMPT adds structural and formatting guidance for all non-deep modes.
         # It is intentionally NOT applied to Deep Think: DEEP_THINK_MODE_PROMPT already
-        # requires comprehensive structure, and TEACHING_PROMPT's "200-400 word" default
-        # directly contradicts the goal of a long, exhaustive Deep Think answer.
-        teaching_prompt_instruction = TEACHING_PROMPT if thinking_mode == 'thinking' else ""
+        # requires comprehensive structure, and Deep Think is designed to be thorough
+        # and exhaustive rather than concise/breathable.
+        teaching_prompt_instruction = TEACHING_PROMPT if thinking_mode != 'deep' else ""
 
         _identity_variants = [
             "Your name is Chunks AI. You are an intelligent, friendly AI study assistant built to help students learn and excel. "

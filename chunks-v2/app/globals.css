@@ -112,11 +112,10 @@ body {
 
 .logo-mark {
   width: 28px; height: 28px;
-  background: var(--text);
-  border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
+  color: var(--text);
 }
-.logo-mark svg { width: 14px; height: 14px; }
+.logo-mark svg { width: 22px; height: 22px; }
 
 .logo-name {
   font-family: var(--font-display);
@@ -573,48 +572,42 @@ body {
   padding: 20px 20px 10px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
 }
 .chat-messages::-webkit-scrollbar { width: 4px; }
 .chat-messages::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
 
-.msg { display: flex; gap: 10px; max-width: 100%; animation: fadeUp 0.3s ease; }
-.msg.user { flex-direction: row-reverse; }
+.msg { display: flex; max-width: 100%; animation: fadeUp 0.3s ease; margin-bottom: 20px; }
+.msg.user { justify-content: flex-end; }
+.msg.ai  { justify-content: flex-start; }
 
-.msg-avatar {
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 600;
-  margin-top: 2px;
-}
-.msg-avatar.ai      { background: var(--text); color: var(--bg); }
-.msg-avatar.user-av { background: var(--accent); color: white; }
+/* User msg before AI response gets extra breathing room */
+.msg.user:has(+ .msg.ai) { margin-bottom: 24px; }
+/* AI msg before a user message needs less space */
+.msg.ai:has(+ .msg.user) { margin-bottom: 16px; }
 
-.msg-body { display: flex; flex-direction: column; gap: 4px; max-width: 85%; }
-
-.msg-sender { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: 0.3px; }
+.msg-body { display: flex; flex-direction: column; gap: 4px; }
+.msg.user .msg-body { max-width: 70%; }
+.msg.ai  .msg-body { width: 100%; }
 
 .msg-bubble {
-  padding: 12px 14px;
-  border-radius: 14px;
-  font-size: 13.5px;
-  line-height: 1.65;
+  font-size: 14px;
+  line-height: 1.8;
   color: var(--text);
 }
 .msg.ai .msg-bubble {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-top-left-radius: 4px;
-  box-shadow: var(--shadow);
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
   max-width: 100%;
-  padding: 14px 16px;
 }
 .msg.user .msg-bubble {
   background: var(--text);
   color: var(--bg);
-  border-top-right-radius: 4px;
+  border-radius: 18px;
+  padding: 10px 16px;
+  font-size: 14px;
+  margin-left: auto;
 }
 .msg-bubble strong { font-weight: 600; }
 .msg-bubble .hl { color: var(--accent); font-weight: 500; }
@@ -768,17 +761,13 @@ body {
 
 /* ─── AI typing indicator ────────────────────────────────────────────────────── */
 .ai-typing {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px; border-top-left-radius: 4px;
+  display: flex; align-items: center;
+  padding: 4px 0;
   width: fit-content;
-  box-shadow: var(--shadow);
 }
-.typing-dots { display: flex; gap: 3px; }
+.typing-dots { display: flex; gap: 4px; }
 .typing-dot {
-  width: 5px; height: 5px;
+  width: 6px; height: 6px;
   background: var(--text3);
   border-radius: 50%;
   animation: bounce 1.2s infinite;
@@ -1410,8 +1399,8 @@ body {
 
 /* Root container */
 .md-root {
-  font-size: 13.5px;
-  line-height: 1.7;
+  font-size: 14px;
+  line-height: 1.8;
   color: var(--text);
   word-break: break-word;
 }
@@ -1438,7 +1427,7 @@ body {
 .md-root .md-h3:first-child { margin-top: 0; }
 .md-root .md-h1 { font-size: 18px; }
 .md-root .md-h2 { font-size: 15.5px; }
-.md-root .md-h3 { font-size: 13.5px; }
+.md-root .md-h3 { font-size: 14px; }
 
 /* Lists */
 .md-root .md-ul,
@@ -1575,8 +1564,8 @@ body {
 .md-root .md-tbody .md-tr:last-child .md-td { border-bottom: none; }
 .md-root .md-tbody .md-tr:nth-child(even) { background: var(--surface2); }
 
-/* KaTeX — inline math flows with text */
-.md-root .katex { font-size: 1em; }
+/* KaTeX — inline math flows with text (1.15em so rendered glyphs match surrounding 14px prose) */
+.md-root .katex { font-size: 1.15em; }
 
 /* KaTeX — block math centered with margin */
 .md-root .katex-display {
@@ -1601,11 +1590,12 @@ body {
   margin: 0;
 }
 
-/* Horizontal rule */
+/* Horizontal rule — section divider */
 .md-root hr {
   border: none;
-  border-top: 1px solid var(--border);
-  margin: 16px 0;
+  border-top: 1.5px solid var(--border2);
+  margin: 24px 0;
+  opacity: 0.6;
 }
 
 /* Strong / em */
@@ -1902,6 +1892,17 @@ body {
   font-size: 24px;
   flex-shrink: 0;
   line-height: 1;
+}
+
+.recent-session-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
 }
 
 .my-doc-info {
@@ -3289,15 +3290,21 @@ body {
   justify-content: flex-end;
 }
 
-/* ─── Streaming cursor (chat) ───────────────────────────────────────────────── */
-.streaming-cursor {
+/* ─── Streaming dot (chat) ──────────────────────────────────────────────────── */
+.streaming-dot {
   display: inline-block;
-  width: 2px;
-  height: 14px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
   background: var(--accent);
-  margin-left: 2px;
+  margin-left: 4px;
   vertical-align: middle;
-  animation: blink 0.8s step-end infinite;
+  animation: streamPulse 0.9s ease-in-out infinite;
+}
+
+@keyframes streamPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
 }
 
 @keyframes blink {

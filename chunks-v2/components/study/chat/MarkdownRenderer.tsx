@@ -202,6 +202,15 @@ interface MarkdownRendererProps {
   content: string;
 }
 
+/** Converts bracket-style LaTeX notation to dollar notation so rehype-katex renders it. */
+function preprocessLatex(text: string): string {
+  return text
+    .replace(/\\\[/g, '$$')
+    .replace(/\\\]/g, '$$')
+    .replace(/\\\(/g, '$')
+    .replace(/\\\)/g, '$');
+}
+
 function MarkdownRenderer({ content }: MarkdownRendererProps) {
   if (!content || typeof content !== 'string' || content.trim() === '') {
     return null;
@@ -218,7 +227,7 @@ function MarkdownRenderer({ content }: MarkdownRendererProps) {
         ]}
         components={components}
       >
-        {content}
+        {preprocessLatex(content)}
       </Markdown>
     </div>
   );

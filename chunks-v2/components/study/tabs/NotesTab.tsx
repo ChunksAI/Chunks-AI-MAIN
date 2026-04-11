@@ -6,6 +6,18 @@ import type { NoteItem, TodoItem, AnyNote } from '@/types';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+/** Strip common markdown inline formatting so todo items display as plain text. */
+function stripMarkdownInline(s: string): string {
+  return s
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/_(.*?)_/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/~~(.*?)~~/g, '$1')
+    .trim();
+}
+
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
   const diffSec = Math.floor(diffMs / 1000);
@@ -245,7 +257,7 @@ function TodoCard({ todo }: { todo: TodoItem }) {
                 transition: 'color 0.15s',
               }}
             >
-              {item.text}
+              {stripMarkdownInline(item.text)}
             </span>
           </div>
         ))}

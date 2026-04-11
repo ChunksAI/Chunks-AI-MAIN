@@ -14,6 +14,8 @@ interface SidebarProps {
   onNewSession: () => void;
   /** Recent sessions derived from StudyContext state. */
   recents?: RecentItem[];
+  /** Called when the user clicks a recent session item. */
+  onRecentClick?: (item: RecentItem) => void;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -39,7 +41,7 @@ function NavIcon({ id }: { id: string }) {
   }
 }
 
-export default function Sidebar({ activeNav, onNavChange, onNewSession, recents = [] }: SidebarProps) {
+export default function Sidebar({ activeNav, onNavChange, onNewSession, recents = [], onRecentClick }: SidebarProps) {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { openSettings } = useSettings();
@@ -191,11 +193,11 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
       <div className="sidebar-header">
         <div className="logo">
           <div className="logo-mark">
-            <svg viewBox="0 0 14 14" fill="none">
-              <rect x="1" y="1" width="5" height="5" rx="1.5" fill="white"/>
-              <rect x="8" y="1" width="5" height="5" rx="1.5" fill="white" opacity="0.6"/>
-              <rect x="1" y="8" width="5" height="5" rx="1.5" fill="white" opacity="0.6"/>
-              <rect x="8" y="8" width="5" height="5" rx="1.5" fill="white" opacity="0.3"/>
+            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="50" cy="50" rx="36" ry="12" stroke="currentColor" strokeWidth="6" opacity="0.95"/>
+              <ellipse cx="50" cy="50" rx="36" ry="12" stroke="currentColor" strokeWidth="6" transform="rotate(60 50 50)" opacity="0.88"/>
+              <ellipse cx="50" cy="50" rx="36" ry="12" stroke="currentColor" strokeWidth="6" transform="rotate(120 50 50)" opacity="0.80"/>
+              <circle cx="50" cy="50" r="6" fill="currentColor"/>
             </svg>
           </div>
           <span className="logo-name">Chunks</span>
@@ -212,7 +214,7 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <path d="M12 5v14M5 12h14"/>
         </svg>
-        New Session
+        <span>New Session</span>
       </button>
 
       {/* ── Navigation ── */}
@@ -226,7 +228,7 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
             data-label={item.id}
           >
             <NavIcon id={item.icon} />
-            {item.label}
+            <span>{item.label}</span>
             {item.badge && (
               <span className={`nav-badge badge-${item.badge.variant}`}>{item.badge.text}</span>
             )}
@@ -243,7 +245,14 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
           </div>
         ) : (
           recents.map((r) => (
-            <div key={r.id} className="recent-item">
+            <div
+              key={r.id}
+              className="recent-item"
+              onClick={() => onRecentClick?.(r)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onRecentClick?.(r); }}
+            >
               <div className="recent-dot" style={{ background: r.color }} />
               <span className="recent-title">{r.title}</span>
             </div>

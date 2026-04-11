@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStudy, loadSnapshotByTitle } from '@/contexts/StudyContext';
+import type { RecentItem } from '@/types';
 import Sidebar from '@/components/study/layout/Sidebar';
 import BookGrid from '@/components/library/BookGrid';
 
@@ -13,7 +15,9 @@ const DIFFICULTIES = ['Beginner', 'Intermediate', 'Advanced'];
 
 export default function LibraryPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user: _user } = useAuth();
+  const { state, dispatch, handleRestoreDocument } = useStudy();
+  const { recents } = state;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('All');
@@ -26,12 +30,40 @@ export default function LibraryPage() {
     }
   };
 
+  // Restore a session and navigate to /study when a sidebar recent is clicked
+  const handleRecentClick = (item: RecentItem) => {
+    const snap = loadSnapshotByTitle(item.title);
+    if (snap) {
+      dispatch({
+        type: 'RESTORE_SESSION',
+        payload: {
+          messages: snap.messages,
+          workspaceSections: snap.workspaceSections,
+          quizResults: snap.quizResults,
+          weakAreas: snap.weakAreas,
+          performanceHistory: snap.performanceHistory,
+          notes: snap.notes,
+          topic: snap.topic,
+          docTitle: snap.docTitle,
+          bookId: snap.bookId,
+        },
+      });
+      // Also restore the correct slides + PDF so the ContentPanel shows the right document
+      if (snap.docTitle) void handleRestoreDocument(snap.docTitle);
+    } else {
+      dispatch({ type: 'SET_TOPIC', payload: item.title });
+    }
+    router.push('/study');
+  };
+
   return (
     <div className="app-shell">
       <Sidebar
         activeNav="library"
         onNavChange={handleNavChange}
         onNewSession={() => router.push('/study')}
+        recents={recents}
+        onRecentClick={handleRecentClick}
       />
 
       <main className="main">
