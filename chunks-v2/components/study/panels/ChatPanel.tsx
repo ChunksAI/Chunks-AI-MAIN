@@ -297,9 +297,9 @@ export default function ChatPanel() {
           messages.length === 0 ||
           messages[messages.length - 1]?.role === 'user' ||
           (messages[messages.length - 1]?.role === 'ai' && !messages[messages.length - 1]?.text.trim())
-        ) && (
+        ) ? (
           <TypingIndicator />
-        )}
+        ) : null}
         <div ref={sentinelRef} />
       </div>
 
