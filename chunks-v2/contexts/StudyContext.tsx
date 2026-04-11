@@ -677,6 +677,8 @@ interface StudyContextValue {
   handleAdvanceReviewStep: () => void;
   handleEndReviewSession: () => void;
   handleCompleteReviewQuiz: (score: number, correct: number, total: number) => void;
+  /** Restore the slides and PDF blob URL for a previously-uploaded document. */
+  handleRestoreDocument: (docTitle: string) => Promise<void>;
 }
 
 const StudyContext = createContext<StudyContextValue | null>(null);
@@ -691,18 +693,43 @@ interface PersistedSlides {
   bookId: string | null;
 }
 
+/** Safe per-document localStorage key for slides. Uses encodeURIComponent to avoid collisions. */
+function slidesStorageKey(docTitle: string): string {
+  return `chunks_v2_slides_doc_${encodeURIComponent(docTitle)}`;
+}
+
 function persistSlidesToStorage(data: PersistedSlides): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(SLIDES_STORAGE_KEY, JSON.stringify(data));
+    const payload = JSON.stringify(data);
+    // Write to per-doc key so each document's slides survive independently
+    localStorage.setItem(slidesStorageKey(data.docTitle), payload);
+    // Also keep the legacy single-slot key in sync for backward compat
+    localStorage.setItem(SLIDES_STORAGE_KEY, payload);
   } catch {
     // ignore — storage may be unavailable or quota exceeded
   }
 }
 
-function loadSlidesFromStorage(): PersistedSlides | null {
+function loadSlidesFromStorage(docTitle?: string): PersistedSlides | null {
   if (typeof window === 'undefined') return null;
   try {
+    // Try per-doc key first (most accurate when multiple docs are uploaded)
+    if (docTitle) {
+      const perDocRaw = localStorage.getItem(slidesStorageKey(docTitle));
+      if (perDocRaw) {
+        const perDocParsed = JSON.parse(perDocRaw) as unknown;
+        if (
+          perDocParsed !== null &&
+          typeof perDocParsed === 'object' &&
+          Array.isArray((perDocParsed as PersistedSlides).slides) &&
+          typeof (perDocParsed as PersistedSlides).docTitle === 'string'
+        ) {
+          return perDocParsed as PersistedSlides;
+        }
+      }
+    }
+    // Fall back to legacy single-slot key
     const raw = localStorage.getItem(SLIDES_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
@@ -712,6 +739,8 @@ function loadSlidesFromStorage(): PersistedSlides | null {
       Array.isArray((parsed as PersistedSlides).slides) &&
       typeof (parsed as PersistedSlides).docTitle === 'string'
     ) {
+      // If a specific docTitle was requested, only return if it matches
+      if (docTitle && (parsed as PersistedSlides).docTitle !== docTitle) return null;
       return parsed as PersistedSlides;
     }
     return null;
@@ -720,10 +749,11 @@ function loadSlidesFromStorage(): PersistedSlides | null {
   }
 }
 
-function clearSlidesFromStorage(): void {
+function clearSlidesFromStorage(docTitle?: string): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.removeItem(SLIDES_STORAGE_KEY);
+    if (docTitle) localStorage.removeItem(slidesStorageKey(docTitle));
   } catch {
     // ignore
   }
@@ -734,6 +764,11 @@ function clearSlidesFromStorage(): void {
 const IDB_DB_NAME = 'chunks_v2';
 const IDB_STORE_NAME = 'files';
 const IDB_PDF_KEY = 'chunks_v2_pdf_file';
+
+/** Safe per-document IDB key for PDF files. Uses encodeURIComponent to avoid collisions. */
+function pdfIdbKey(docTitle: string): string {
+  return `chunks_v2_pdf_doc_${encodeURIComponent(docTitle)}`;
+}
 
 function openPdfDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -746,34 +781,48 @@ function openPdfDb(): Promise<IDBDatabase> {
   });
 }
 
-async function savePdfToIdb(file: File): Promise<void> {
+async function savePdfToIdb(file: File, docTitle?: string): Promise<void> {
   if (typeof window === 'undefined') return;
   try {
     const db = await openPdfDb();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE_NAME, 'readwrite');
-      const req = tx.objectStore(IDB_STORE_NAME).put(file, IDB_PDF_KEY);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
+    const keys: string[] = [IDB_PDF_KEY];
+    // Also store under a per-doc key so multiple documents can be retrieved
+    if (docTitle) keys.push(pdfIdbKey(docTitle));
+    await Promise.all(
+      keys.map(
+        (key) =>
+          new Promise<void>((resolve, reject) => {
+            const tx = db.transaction(IDB_STORE_NAME, 'readwrite');
+            const req = tx.objectStore(IDB_STORE_NAME).put(file, key);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+          }),
+      ),
+    );
   } catch {
     // ignore — IndexedDB may be unavailable (private browsing, storage quota)
   }
 }
 
-async function loadPdfFromIdb(): Promise<File | null> {
+async function loadPdfFromIdb(docTitle?: string): Promise<File | null> {
   if (typeof window === 'undefined') return null;
   try {
     const db = await openPdfDb();
-    return await new Promise<File | null>((resolve, reject) => {
-      const tx = db.transaction(IDB_STORE_NAME, 'readonly');
-      const req = tx.objectStore(IDB_STORE_NAME).get(IDB_PDF_KEY);
-      req.onsuccess = () => {
-        const result = req.result as unknown;
-        resolve(result instanceof File ? result : null);
-      };
-      req.onerror = () => reject(req.error);
-    });
+    // Try per-doc key first when a docTitle is provided
+    const keys = docTitle ? [pdfIdbKey(docTitle), IDB_PDF_KEY] : [IDB_PDF_KEY];
+    for (const key of keys) {
+      const file = await new Promise<File | null>((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE_NAME, 'readonly');
+        const req = tx.objectStore(IDB_STORE_NAME).get(key);
+        req.onsuccess = () => {
+          const result = req.result as unknown;
+          resolve(result instanceof File ? result : null);
+        };
+        req.onerror = () => reject(req.error);
+      });
+      if (file) return file;
+    }
+    return null;
   } catch {
     return null;
   }
@@ -1079,7 +1128,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     // a page refresh and a browser close.  Then attempt to restore the raw
     // PDF file from IndexedDB so the iframe shows the real PDF without a
     // re-upload.
-    const persisted = loadSlidesFromStorage();
+    const restoredDocTitle = snapshot?.docTitle;
+    const persisted = loadSlidesFromStorage(restoredDocTitle);
     if (persisted && persisted.slides.length > 0) {
       dispatch({
         type: 'SET_SLIDES',
@@ -1087,7 +1137,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       });
 
       // Try to restore the PDF blob URL from IndexedDB (survives page refresh)
-      void loadPdfFromIdb().then((file) => {
+      void loadPdfFromIdb(persisted.docTitle).then((file) => {
         if (file) {
           const url = URL.createObjectURL(file);
           blobUrlRef.current = url;
@@ -1479,6 +1529,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SET_SLIDES', payload: { slides: res.slides, docTitle, bookId: res.bookId } });
       persistSlidesToStorage({ slides: res.slides, docTitle, bookId: res.bookId ?? null });
       appendMyDocToStorage({ docTitle, filename: res.filename, uploadedAt: new Date().toISOString() });
+      // Re-save the PDF with the now-known docTitle so it can be looked up per-document
+      void savePdfToIdb(file, docTitle);
       dispatch({ type: 'SET_TOPIC', payload: docTitle });
       dispatch({
         type: 'ADD_RECENT',
@@ -1676,6 +1728,38 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'RESET_SESSION' });
   }, []);
 
+  // ── handleRestoreDocument ────────────────────────────────────────────────────
+  // Called when the user clicks a sidebar recent to switch to a different
+  // document.  Reloads the per-doc slides from localStorage and the PDF blob
+  // from IndexedDB so the ContentPanel shows the correct document.
+  const handleRestoreDocument = useCallback(async (docTitle: string): Promise<void> => {
+    if (!docTitle) return;
+
+    // Load slides for this specific document
+    const persisted = loadSlidesFromStorage(docTitle);
+    if (persisted && persisted.slides.length > 0) {
+      dispatch({
+        type: 'SET_SLIDES',
+        payload: { slides: persisted.slides, docTitle: persisted.docTitle, bookId: persisted.bookId },
+      });
+    }
+
+    // Load PDF blob URL for this specific document
+    const file = await loadPdfFromIdb(docTitle);
+    // Revoke old blob URL to avoid memory leaks
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+    if (file) {
+      const url = URL.createObjectURL(file);
+      blobUrlRef.current = url;
+      dispatch({ type: 'SET_PDF_BLOB_URL', payload: url });
+    } else {
+      dispatch({ type: 'SET_PDF_BLOB_URL', payload: null });
+    }
+  }, []);
+
   const value: StudyContextValue = {
     state,
     dispatch,
@@ -1689,6 +1773,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     handleCreateNote,
     handleCreateTodo,
     handleResetSession,
+    handleRestoreDocument,
     handleStop,
     showToast,
     handleStartReviewSession,

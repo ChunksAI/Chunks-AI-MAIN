@@ -48,7 +48,7 @@ function BookParamsReader() {
 // ─── Inner layout — has access to StudyContext ────────────────────────────────
 
 function StudyLayout() {
-  const { state, dispatch, handleSendMessage, showToast, handleResetSession } = useStudy();
+  const { state, dispatch, handleSendMessage, showToast, handleResetSession, handleRestoreDocument } = useStudy();
   const { user } = useAuth();
   const { activeTab, toast, docTitle, topic, recents } = state;
   const { pct, containerRef, onMouseDown } = useResizable();
@@ -87,6 +87,8 @@ function StudyLayout() {
           bookId: snap.bookId,
         },
       });
+      // Also restore the correct slides + PDF for this document
+      if (snap.docTitle) void handleRestoreDocument(snap.docTitle);
     } else {
       dispatch({ type: 'SET_TOPIC', payload: item.title });
     }

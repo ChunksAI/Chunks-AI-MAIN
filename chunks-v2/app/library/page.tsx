@@ -16,7 +16,7 @@ const DIFFICULTIES = ['Beginner', 'Intermediate', 'Advanced'];
 export default function LibraryPage() {
   const router = useRouter();
   const { user: _user } = useAuth();
-  const { state, dispatch } = useStudy();
+  const { state, dispatch, handleRestoreDocument } = useStudy();
   const { recents } = state;
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -48,6 +48,8 @@ export default function LibraryPage() {
           bookId: snap.bookId,
         },
       });
+      // Also restore the correct slides + PDF so the ContentPanel shows the right document
+      if (snap.docTitle) void handleRestoreDocument(snap.docTitle);
     } else {
       dispatch({ type: 'SET_TOPIC', payload: item.title });
     }
