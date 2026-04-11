@@ -983,11 +983,24 @@ function buildSmartDocContext(question: string, slides: SlideItem[]): string {
   return parts.join('\n\n');
 }
 
-// ─── Message ID counter ───────────────────────────────────────────────────────
+// ─── Message ID generator ─────────────────────────────────────────────────────
 
-let _msgCounter = 100;
-function nextMsgId() {
-  return `msg-${++_msgCounter}`;
+/**
+ * Generates a unique message ID using the current timestamp plus a
+ * per-millisecond sequence counter.  This guarantees uniqueness even
+ * when multiple messages are created in the same millisecond AND
+ * after a session restore (restored messages carry old numeric IDs that
+ * can no longer clash with timestamp-based ones).
+ */
+let _msgSeq = 0;
+let _msgLastTs = 0;
+function nextMsgId(): string {
+  const now = Date.now();
+  if (now !== _msgLastTs) {
+    _msgLastTs = now;
+    _msgSeq = 0;
+  }
+  return `msg-${now}-${_msgSeq++}`;
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
