@@ -112,7 +112,7 @@ function MessageBubble({
             </div>
           </div>
         )}
-        {msg.actions && msg.actions.length > 0 && (
+        {!isStreaming && msg.text.trim() && msg.actions && msg.actions.length > 0 && (
           <div className="ai-actions">
             {msg.actions.map((a) => (
               <button
@@ -126,8 +126,8 @@ function MessageBubble({
             ))}
           </div>
         )}
-        {/* Per-message actions: Copy, Retry, Feedback */}
-        <MessageActions msg={msg} />
+        {/* Per-message actions: Copy, Retry, Feedback — only shown once AI has content */}
+        {!isStreaming && msg.text.trim() && <MessageActions msg={msg} />}
       </div>
     </div>
   );
