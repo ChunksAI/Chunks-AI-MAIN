@@ -14,6 +14,8 @@ interface SidebarProps {
   onNewSession: () => void;
   /** Recent sessions derived from StudyContext state. */
   recents?: RecentItem[];
+  /** Called when the user clicks a recent session item. */
+  onRecentClick?: (item: RecentItem) => void;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -39,7 +41,7 @@ function NavIcon({ id }: { id: string }) {
   }
 }
 
-export default function Sidebar({ activeNav, onNavChange, onNewSession, recents = [] }: SidebarProps) {
+export default function Sidebar({ activeNav, onNavChange, onNewSession, recents = [], onRecentClick }: SidebarProps) {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { openSettings } = useSettings();
@@ -243,7 +245,14 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
           </div>
         ) : (
           recents.map((r) => (
-            <div key={r.id} className="recent-item">
+            <div
+              key={r.id}
+              className="recent-item"
+              onClick={() => onRecentClick?.(r)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onRecentClick?.(r); }}
+            >
               <div className="recent-dot" style={{ background: r.color }} />
               <span className="recent-title">{r.title}</span>
             </div>

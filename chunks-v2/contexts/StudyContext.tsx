@@ -923,6 +923,33 @@ function clearSessionSnapshot(sessionId: string): void {
   }
 }
 
+/**
+ * Find the most-recently-used session snapshot whose `topic` or `docTitle`
+ * matches the given title string. Used by sidebar / library to restore a
+ * specific past session when the user clicks a recent item.
+ * Returns null when no matching, non-expired snapshot exists.
+ */
+export function loadSnapshotByTitle(title: string): VersionedSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const prefix = `${SESSION_STORAGE_KEY}_`;
+    let best: VersionedSnapshot | null = null;
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(prefix)) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const snap = migrateSnapshotIfNeeded(JSON.parse(raw) as unknown);
+      if (!snap || snap.expiresAt < Date.now()) continue;
+      if (snap.topic !== title && snap.docTitle !== title) continue;
+      if (!best || snap.expiresAt > best.expiresAt) best = snap;
+    }
+    return best;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Smart doc_context extractor ─────────────────────────────────────────────
 
 /**

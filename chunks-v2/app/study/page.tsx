@@ -3,8 +3,9 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { useStudy } from '@/contexts/StudyContext';
+import { useStudy, loadSnapshotByTitle } from '@/contexts/StudyContext';
 import { useAuth } from '@/contexts/AuthContext';
+import type { RecentItem } from '@/types';
 import Sidebar from '@/components/study/layout/Sidebar';
 import Topbar from '@/components/study/layout/Topbar';
 import ContentPanel from '@/components/study/panels/ContentPanel';
@@ -68,6 +69,29 @@ function StudyLayout() {
     showToast('📋 Summary added to Workspace!');
   };
 
+  // Restore a previous session when the user clicks a recent item in the sidebar
+  const handleRecentClick = (item: RecentItem) => {
+    const snap = loadSnapshotByTitle(item.title);
+    if (snap) {
+      dispatch({
+        type: 'RESTORE_SESSION',
+        payload: {
+          messages: snap.messages,
+          workspaceSections: snap.workspaceSections,
+          quizResults: snap.quizResults,
+          weakAreas: snap.weakAreas,
+          performanceHistory: snap.performanceHistory,
+          notes: snap.notes,
+          topic: snap.topic,
+          docTitle: snap.docTitle,
+          bookId: snap.bookId,
+        },
+      });
+    } else {
+      dispatch({ type: 'SET_TOPIC', payload: item.title });
+    }
+  };
+
   return (
     <div className="app-shell">
       {/* Read bookId from URL params — wrapped in Suspense as required by Next.js */}
@@ -83,6 +107,7 @@ function StudyLayout() {
         }}
         onNewSession={handleResetSession}
         recents={recents}
+        onRecentClick={handleRecentClick}
       />
 
       {/* ── Main ── */}
