@@ -32,12 +32,13 @@ import type {
   QuizResult,
   WeakArea,
   PerformanceEntry,
+  PerformanceBar,
   NoteItem,
   TodoItem,
   AnyNote,
   RecentItem,
 } from '@/types';
-import { sendMessage, generateFlashcards, generateQuiz, uploadDocument, topicToSlides } from '@/lib/studyApi';
+import { sendMessage, sendMessageStream, generateFlashcards, generateQuiz, uploadDocument, topicToSlides } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
 import {
@@ -149,9 +150,13 @@ export interface RestoreSessionPayload {
 
 export type StudyAction =
   | { type: 'SEND_MESSAGE'; payload: ChatMessage }
+  | { type: 'SET_LAST_USER_MESSAGE'; payload: string }
   | { type: 'SET_CHAT_LOADING'; payload: boolean }
   | { type: 'RECEIVE_MESSAGE'; payload: ChatMessage }
-  | { type: 'APPEND_MESSAGE_CHUNK'; payload: string }
+  | { type: 'START_AI_MESSAGE'; payload: ChatMessage }
+  | { type: 'APPEND_MESSAGE_CHUNK'; payload: { id: string; chunk: string } }
+  | { type: 'UPDATE_MESSAGE_META'; payload: { id: string; memoryRecall?: string; performanceBars?: PerformanceBar[] } }
+  | { type: 'REMOVE_MESSAGE'; payload: string }
   | { type: 'MESSAGE_ERROR'; payload: string }
   | { type: 'CLEAR_CHAT_ERROR' }
   | { type: 'SET_WORKSPACE_LOADING'; payload: boolean }
@@ -241,6 +246,9 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
         lastUserMessage: action.payload.text,
       };
 
+    case 'SET_LAST_USER_MESSAGE':
+      return { ...state, lastUserMessage: action.payload };
+
     case 'SET_CHAT_LOADING':
       return { ...state, chatLoading: action.payload };
 
@@ -252,16 +260,47 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
         chatError: null,
       };
 
-    case 'APPEND_MESSAGE_CHUNK': {
-      if (state.messages.length === 0) return state;
-      const lastMsg = state.messages[state.messages.length - 1];
-      if (lastMsg.role !== 'ai') return state;
-      const updated: ChatMessage = { ...lastMsg, text: lastMsg.text + action.payload };
+    case 'START_AI_MESSAGE':
+      // Adds an AI bubble without changing chatLoading — used during streaming
+      // so the loading/stop state remains active while chunks are arriving.
       return {
         ...state,
-        messages: [...state.messages.slice(0, -1), updated],
+        messages: [...state.messages, action.payload],
+        chatError: null,
       };
+
+    case 'APPEND_MESSAGE_CHUNK': {
+      const messages = state.messages.map((m) =>
+        m.id === action.payload.id
+          ? { ...m, text: m.text + action.payload.chunk }
+          : m,
+      );
+      return { ...state, messages };
     }
+
+    case 'UPDATE_MESSAGE_META': {
+      const messages = state.messages.map((m) =>
+        m.id === action.payload.id
+          ? {
+              ...m,
+              ...(action.payload.memoryRecall !== undefined
+                ? { memoryRecall: action.payload.memoryRecall }
+                : {}),
+              ...(action.payload.performanceBars !== undefined
+                ? { performanceBars: action.payload.performanceBars }
+                : {}),
+            }
+          : m,
+      );
+      return { ...state, messages };
+    }
+
+    case 'REMOVE_MESSAGE':
+      return {
+        ...state,
+        messages: state.messages.filter((m) => m.id !== action.payload),
+        chatLoading: false,
+      };
 
     case 'MESSAGE_ERROR':
       return { ...state, chatLoading: false, chatError: action.payload };
@@ -632,6 +671,7 @@ interface StudyContextValue {
   handleCreateNote: () => void;
   handleCreateTodo: (title: string, items: string[]) => void;
   handleResetSession: () => void;
+  handleStop: () => void;
   showToast: (message: string) => void;
   handleStartReviewSession: (topic?: string) => Promise<void>;
   handleAdvanceReviewStep: () => void;
@@ -943,11 +983,24 @@ function buildSmartDocContext(question: string, slides: SlideItem[]): string {
   return parts.join('\n\n');
 }
 
-// ─── Message ID counter ───────────────────────────────────────────────────────
+// ─── Message ID generator ─────────────────────────────────────────────────────
 
-let _msgCounter = 100;
-function nextMsgId() {
-  return `msg-${++_msgCounter}`;
+/**
+ * Generates a unique message ID using the current timestamp plus a
+ * per-millisecond sequence counter.  This guarantees uniqueness even
+ * when multiple messages are created in the same millisecond AND
+ * after a session restore (restored messages carry old numeric IDs that
+ * can no longer clash with timestamp-based ones).
+ */
+let _msgSeq = 0;
+let _msgLastTs = 0;
+function nextMsgId(): string {
+  const now = Date.now();
+  if (now !== _msgLastTs) {
+    _msgLastTs = now;
+    _msgSeq = 0;
+  }
+  return `msg-${now}-${_msgSeq++}`;
 }
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
@@ -1165,43 +1218,60 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       }));
 
       // Auto-populate doc_context from uploaded slides when not explicitly provided.
-      // Uses smart keyword-based relevance extraction instead of naive truncation.
       const { slides } = stateRef.current;
       const autoDocContext =
         opts.docContext !== undefined
           ? opts.docContext
           : buildSmartDocContext(text, slides);
 
-      // Append markdown format requirement so the model returns well-structured responses
-      // Skip for quiz/flashcard generation requests to avoid confusing the backend
       const isGenerationRequest = /generate.*quiz|generate.*flashcard/i.test(text);
       const formattedQuestion = isGenerationRequest
         ? text
         : `${text}\n\n[Format requirement: Use markdown with ## headers for main sections, ### for subsections. Use $$ for display equations and $ for inline math. Use \\ce{} for chemical formulas. Give thorough explanations with worked examples. End conceptual answers with a > 💡 Key takeaway: blockquote.]`;
 
-      try {
-        const res = await sendMessage({
-          question: formattedQuestion,
-          history,
-          selected_text: opts.selectedText ?? '',
-          doc_context: autoDocContext,
-          mode: 'study',
-          thinking: stateRef.current.thinkingMode,
-          bookId: stateRef.current.bookId ?? undefined,
-        });
+      // Create an empty AI bubble immediately so streaming fills it in word by word
+      const aiMsgId = nextMsgId();
+      const aiMsg: ChatMessage = {
+        id: aiMsgId,
+        role: 'ai',
+        text: '',
+        actions: [
+          { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
+          { label: '🎯 Quiz me on this', actionKey: 'quiz' },
+        ],
+      };
+      dispatch({ type: 'START_AI_MESSAGE', payload: aiMsg });
 
-        const aiMsg: ChatMessage = {
-          id: nextMsgId(),
-          role: 'ai',
-          text: res.answer ?? '',
-          memoryRecall: res.memory_recall ?? undefined,
-          performanceBars: res.performance_bars ?? [],
-          actions: [
-            { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
-            { label: '🎯 Quiz me on this', actionKey: 'quiz' },
-          ],
-        };
-        dispatch({ type: 'RECEIVE_MESSAGE', payload: aiMsg });
+      try {
+        const res = await sendMessageStream(
+          {
+            question: formattedQuestion,
+            history,
+            selected_text: opts.selectedText ?? '',
+            doc_context: autoDocContext,
+            mode: 'study',
+            thinking: stateRef.current.thinkingMode,
+            bookId: stateRef.current.bookId ?? undefined,
+          },
+          (chunk: string) => {
+            dispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
+          },
+          abortRef.current.signal,
+        );
+
+        dispatch({ type: 'SET_CHAT_LOADING', payload: false });
+
+        // Update message with memory/performance metadata if present
+        if (res.memory_recall || (res.performance_bars && res.performance_bars.length > 0)) {
+          dispatch({
+            type: 'UPDATE_MESSAGE_META',
+            payload: {
+              id: aiMsgId,
+              memoryRecall: res.memory_recall,
+              performanceBars: res.performance_bars ?? [],
+            },
+          });
+        }
 
         // Auto-create a todo list when the user's message looks like a checklist request
         const lowerText = text.toLowerCase();
@@ -1227,10 +1297,15 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           }
         }
       } catch (err) {
-        if (err instanceof Error && err.name === 'AbortError') return;
+        if (err instanceof Error && err.name === 'AbortError') {
+          // User clicked Stop — remove the empty/partial AI bubble
+          dispatch({ type: 'REMOVE_MESSAGE', payload: aiMsgId });
+          return;
+        }
         const message =
           err instanceof Error ? err.message : 'Something went wrong. Please try again.';
         dispatch({ type: 'MESSAGE_ERROR', payload: message });
+        dispatch({ type: 'REMOVE_MESSAGE', payload: aiMsgId });
       }
     },
     [], // stable — reads state through stateRef
@@ -1541,6 +1616,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  // ── stop ──────────────────────────────────────────────────────────────────
+  const handleStop = useCallback(() => {
+    abortRef.current?.abort();
+    dispatch({ type: 'SHOW_TOAST', payload: '⏹ Generation stopped.' });
+  }, []);
+
   // ── resetSession ──────────────────────────────────────────────────────────
   const handleResetSession = useCallback(() => {    // Cancel any in-flight requests
     abortRef.current?.abort();
@@ -1574,6 +1655,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     handleCreateNote,
     handleCreateTodo,
     handleResetSession,
+    handleStop,
     showToast,
     handleStartReviewSession,
     handleAdvanceReviewStep,

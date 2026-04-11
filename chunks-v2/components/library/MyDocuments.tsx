@@ -3,6 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { MY_DOCS_STORAGE_KEY, type MyDocMeta } from '@/contexts/StudyContext';
+import { useStudy } from '@/contexts/StudyContext';
+
+const SLIDES_STORAGE_KEY = 'chunks_v2_slides';
+
+interface PersistedSlides {
+  slides: Array<{ title: string; slide_number?: number; content: string[]; notes?: string }>;
+  docTitle: string;
+  bookId: string | null;
+}
 
 function loadMyDocs(): MyDocMeta[] {
   if (typeof window === 'undefined') return [];
@@ -13,6 +22,21 @@ function loadMyDocs(): MyDocMeta[] {
     return Array.isArray(parsed) ? (parsed as MyDocMeta[]) : [];
   } catch {
     return [];
+  }
+}
+
+function loadSlidesForDoc(docTitle: string): PersistedSlides | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(SLIDES_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedSlides;
+    if (parsed && parsed.docTitle === docTitle && Array.isArray(parsed.slides)) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
 
@@ -30,6 +54,7 @@ function formatDate(iso: string): string {
 
 export default function MyDocuments() {
   const router = useRouter();
+  const { dispatch } = useStudy();
   const [docs, setDocs] = useState<MyDocMeta[]>([]);
 
   // Load from localStorage after mount (avoids SSR/hydration mismatch)
@@ -38,6 +63,25 @@ export default function MyDocuments() {
   }, []);
 
   if (docs.length === 0) return null;
+
+  const handleStudyClick = (doc: MyDocMeta) => {
+    // Restore slides from localStorage so AI context is available on /study
+    const persisted = loadSlidesForDoc(doc.docTitle);
+    if (persisted && persisted.slides.length > 0) {
+      dispatch({
+        type: 'SET_SLIDES',
+        payload: { slides: persisted.slides, docTitle: persisted.docTitle, bookId: persisted.bookId },
+      });
+    } else {
+      // No cached slides — navigate anyway; AI can still answer from topic context
+      dispatch({
+        type: 'SHOW_TOAST',
+        payload: `📄 "${doc.docTitle}" selected — re-upload to restore full AI context`,
+      });
+      dispatch({ type: 'SET_TOPIC', payload: doc.docTitle });
+    }
+    router.push('/study');
+  };
 
   return (
     <section className="my-docs-section">
@@ -53,7 +97,7 @@ export default function MyDocuments() {
             </div>
             <button
               className="my-doc-study-btn"
-              onClick={() => router.push('/study')}
+              onClick={() => handleStudyClick(doc)}
               aria-label={`Study ${doc.docTitle}`}
             >
               Study
