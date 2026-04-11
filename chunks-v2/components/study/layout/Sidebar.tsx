@@ -223,6 +223,7 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
             key={item.id}
             className={`nav-item${activeNav === item.id ? ' active' : ''}`}
             onClick={() => handleNavClick(item.id)}
+            data-label={item.id}
           >
             <NavIcon id={item.icon} />
             {item.label}

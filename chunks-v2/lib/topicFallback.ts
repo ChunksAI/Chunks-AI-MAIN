@@ -1,6 +1,17 @@
 import type { ChatMessage } from '@/types';
 
 /**
+ * Cleans a raw topic string for display — replaces underscores/hyphens with
+ * spaces and applies title case.  Safe to call on an already-clean string.
+ */
+export function cleanTopic(raw: string): string {
+  return raw
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+/**
  * Derives the best available study topic from context, in priority order:
  *
  *  1. `topic`    — set by the context after any generation or quiz (most specific)

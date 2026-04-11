@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Flashcard } from '@/types/api';
 
 interface FlashcardDeckProps {
@@ -14,7 +14,7 @@ type Rating = 'easy' | 'ok' | 'hard';
 /**
  * FlashcardDeck — interactive flashcard study experience.
  * User flips each card and rates it (Easy / OK / Hard) to track mastery.
- * Mirrors the rating flow from src/state/flash/index.js in the old system.
+ * Supports keyboard shortcuts: Space/Enter to flip, 1=Hard, 2=OK, 3=Easy.
  */
 export default function FlashcardDeck({ title, cards, onClose }: FlashcardDeckProps) {
   const [index, setIndex] = useState(0);
@@ -37,6 +37,25 @@ export default function FlashcardDeck({ title, cards, onClose }: FlashcardDeckPr
     setFlipped(false);
     setIndex((i) => i + 1);
   };
+
+  // Keyboard shortcuts: Space/Enter = flip, 1 = Hard, 2 = OK, 3 = Easy
+  useEffect(() => {
+    if (done) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        setFlipped((f) => !f);
+      }
+      if (flipped) {
+        if (e.key === '1') handleRating('hard');
+        if (e.key === '2') handleRating('ok');
+        if (e.key === '3') handleRating('easy');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flipped, done, index, isLast, ratings]);
 
   if (done) {
     const total = cards.length;

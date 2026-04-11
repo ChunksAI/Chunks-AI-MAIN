@@ -8,7 +8,7 @@ import type { ChatMessage } from '@/types';
 
 import MarkdownRenderer from '@/components/study/chat/MarkdownRenderer';
 import MessageActions from '@/components/study/chat/MessageActions';
-import { resolveStudyTopic } from '@/lib/topicFallback';
+import { resolveStudyTopic, cleanTopic } from '@/lib/topicFallback';
 
 const QUICK_ACTIONS = [
   '✦ Explain simply',
@@ -230,7 +230,7 @@ export default function ChatPanel() {
     }
     const map: Record<string, string> = {
       '✦ Explain simply': 'Explain the current topic in simple terms.',
-      '📋 Study plan': `Create a structured study plan with a checklist for "${state.topic || 'this topic'}". Format it as a numbered list of actionable tasks.`,
+      '📋 Study plan': `Create a structured study plan with a checklist for "${cleanTopic(resolveStudyTopic(topic, docTitle, messages))}". Format it as a numbered list of actionable tasks.`,
       '🔑 Key concepts': 'What are the key concepts I need to remember?',
       '↓ Summarize': 'Summarize the main points of this topic.',
     };
