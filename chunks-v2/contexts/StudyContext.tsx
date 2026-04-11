@@ -1364,10 +1364,23 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           lowerText.includes('study plan') ||
           lowerText.includes('checklist')
         ) {
+          /** Strip markdown formatting characters from a line of text. */
+          const stripMarkdown = (s: string): string =>
+            s
+              .replace(/\*\*(.*?)\*\*/g, '$1')   // **bold**
+              .replace(/__(.*?)__/g, '$1')        // __bold__
+              .replace(/\*(.*?)\*/g, '$1')        // *italic*
+              .replace(/_(.*?)_/g, '$1')          // _italic_
+              .replace(/`([^`]+)`/g, '$1')        // `code`
+              .replace(/~~(.*?)~~/g, '$1')        // ~~strikethrough~~
+              .trim();
+
           const listItems = res.answer
             .split('\n')
             .map((l) => l.trim())
+            // Keep only lines that look like bullet/numbered/checkbox list items
             .filter((l) => /^[-•*]|^\d+\.|^\[[ x]\]/.test(l))
+            // Strip list prefixes
             .map((l) =>
               l
                 .replace(/^[-•*]\s*/, '')
@@ -1375,9 +1388,37 @@ export function StudyProvider({ children }: { children: ReactNode }) {
                 .replace(/^\[[ x]\]\s*/, '')
                 .trim(),
             )
-            .filter((l) => l.length > 0);
+            // Remove markdown formatting so items display cleanly
+            .map(stripMarkdown)
+            // Drop separator lines (---, --, **, lines made of only dashes/asterisks/spaces)
+            .filter((l) => !/^[-*\s]{1,}$/.test(l))
+            // Drop page-citation lines (e.g. "📖 Page 6", "📖 Page 10–11")
+            .filter((l) => !/^📖/.test(l) && !/^[\u{1F4D6}]/u.test(l))
+            // Drop parenthetical metadata lines like "(Designed for a middle-school...)"
+            .filter((l) => !/^\(/.test(l))
+            // Drop flashcard detail lines — sub-content starting with "Front:" / "Back:"
+            .filter((l) => !/^(Front|Back):/i.test(l))
+            // Drop lines that are purely a page reference: "Page 6", "Pages 10-11"
+            .filter((l) => !/^Pages?\s+\d/i.test(l))
+            // Require at least 3 alphabetic characters of real content
+            .filter((l) => l.replace(/[^a-zA-Z]/g, '').length >= 3)
+            // Cap at 12 items so the list stays usable
+            .slice(0, 12);
+
+          /** Clean a raw document/topic title into a human-readable string. */
+          const cleanTitle = (raw: string): string => {
+            const cleaned = raw
+              .replace(/\.[^.]+$/, '')   // strip file extension
+              .replace(/[_-]+/g, ' ')    // underscores/hyphens → spaces
+              .replace(/\s+/g, ' ')
+              .trim();
+            // Title-case each word
+            return cleaned.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+          };
+
           if (listItems.length >= 3) {
-            handleCreateTodo(stateRef.current.topic || 'Study Plan', listItems);
+            const rawTitle = stateRef.current.topic || stateRef.current.docTitle || 'Study Plan';
+            handleCreateTodo(cleanTitle(rawTitle), listItems);
           }
         }
       } catch (err) {
