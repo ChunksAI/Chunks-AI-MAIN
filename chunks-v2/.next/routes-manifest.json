@@ -150,6 +150,12 @@
       "namedRegex": "^/study(?:/)?$"
     },
     {
+      "page": "/study/review",
+      "regex": "^/study/review(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/study/review(?:/)?$"
+    },
+    {
       "page": "/terms",
       "regex": "^/terms(?:/)?$",
       "routeKeys": {},

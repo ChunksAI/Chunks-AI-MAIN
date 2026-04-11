@@ -50,6 +50,7 @@ import {
   MAX_RECENTS,
   SESSION_STORAGE_KEY,
 } from '@/lib/constants';
+import { CURRENT_STORAGE_VERSION, migrateSnapshotIfNeeded, type VersionedSnapshot } from '@/lib/storageVersion';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -130,6 +131,20 @@ export interface ReviewSessionState {
   quizReady: boolean;
 }
 
+// ─── Restore session payload ──────────────────────────────────────────────────
+
+export interface RestoreSessionPayload {
+  messages: ChatMessage[];
+  workspaceSections: WorkspaceSection[];
+  quizResults: QuizResult[];
+  weakAreas: WeakArea[];
+  performanceHistory: PerformanceEntry[];
+  notes: AnyNote[];
+  topic: string;
+  docTitle: string;
+  bookId: string | null;
+}
+
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 export type StudyAction =
@@ -181,7 +196,8 @@ export type StudyAction =
   | { type: 'SET_REVIEW_QUIZ_READY' }
   | { type: 'RESET_REVIEW_QUIZ_READY' }
   | { type: 'COMPLETE_REVIEW_QUIZ'; payload: { score: number; correct: number; total: number } }
-  | { type: 'END_REVIEW_SESSION' };
+  | { type: 'END_REVIEW_SESSION' }
+  | { type: 'RESTORE_SESSION'; payload: RestoreSessionPayload };
 
 // ─── Weak-area calculation ───────────────────────────────────────────────────
 
@@ -542,6 +558,20 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
     case 'END_REVIEW_SESSION':
       return { ...state, reviewSession: null };
 
+    case 'RESTORE_SESSION':
+      return {
+        ...state,
+        messages: action.payload.messages,
+        workspaceSections: action.payload.workspaceSections,
+        quizResults: action.payload.quizResults,
+        weakAreas: action.payload.weakAreas,
+        performanceHistory: action.payload.performanceHistory,
+        notes: action.payload.notes,
+        topic: action.payload.topic,
+        docTitle: action.payload.docTitle,
+        bookId: action.payload.bookId,
+      };
+
     default:
       return state;
   }
@@ -624,7 +654,7 @@ interface PersistedSlides {
 function persistSlidesToStorage(data: PersistedSlides): void {
   if (typeof window === 'undefined') return;
   try {
-    sessionStorage.setItem(SLIDES_STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(SLIDES_STORAGE_KEY, JSON.stringify(data));
   } catch {
     // ignore — storage may be unavailable or quota exceeded
   }
@@ -633,7 +663,7 @@ function persistSlidesToStorage(data: PersistedSlides): void {
 function loadSlidesFromStorage(): PersistedSlides | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = sessionStorage.getItem(SLIDES_STORAGE_KEY);
+    const raw = localStorage.getItem(SLIDES_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     if (
@@ -653,7 +683,7 @@ function loadSlidesFromStorage(): PersistedSlides | null {
 function clearSlidesFromStorage(): void {
   if (typeof window === 'undefined') return;
   try {
-    sessionStorage.removeItem(SLIDES_STORAGE_KEY);
+    localStorage.removeItem(SLIDES_STORAGE_KEY);
   } catch {
     // ignore
   }
@@ -784,25 +814,20 @@ function loadRecentsFromStorage(): RecentItem[] {
 
 // ─── Session snapshot persistence (localStorage, 7-day TTL) ──────────────────
 
-interface SessionSnapshot {
-  messages: ChatMessage[];
-  workspaceSections: WorkspaceSection[];
-  quizResults: QuizResult[];
-  notes: AnyNote[];
-  topic: string;
-  recents: RecentItem[];
-  expiresAt: number;
-}
-
 function saveSessionSnapshot(sessionId: string, state: StudyState): void {
   if (typeof window === 'undefined' || !sessionId) return;
   try {
-    const snapshot: SessionSnapshot = {
+    const snapshot: VersionedSnapshot = {
+      version: CURRENT_STORAGE_VERSION,
       messages: state.messages.slice(-20),
       workspaceSections: state.workspaceSections,
       quizResults: state.quizResults,
+      weakAreas: state.weakAreas,
+      performanceHistory: state.performanceHistory,
       notes: state.notes,
       topic: state.topic,
+      docTitle: state.docTitle,
+      bookId: state.bookId,
       recents: state.recents,
       expiresAt: Date.now() + SESSION_TTL_DAYS * 86_400_000,
     };
@@ -812,11 +837,11 @@ function saveSessionSnapshot(sessionId: string, state: StudyState): void {
   }
 }
 
-function loadLatestSessionSnapshot(): SessionSnapshot | null {
+function loadLatestSessionSnapshot(): VersionedSnapshot | null {
   if (typeof window === 'undefined') return null;
   try {
     const prefix = `${SESSION_STORAGE_KEY}_`;
-    let latest: SessionSnapshot | null = null;
+    let latest: VersionedSnapshot | null = null;
     const keysToDelete: string[] = [];
 
     for (let i = 0; i < localStorage.length; i++) {
@@ -824,7 +849,14 @@ function loadLatestSessionSnapshot(): SessionSnapshot | null {
       if (!key?.startsWith(prefix)) continue;
       const raw = localStorage.getItem(key);
       if (!raw) continue;
-      const snap = JSON.parse(raw) as SessionSnapshot;
+
+      const parsed = JSON.parse(raw) as unknown;
+      const snap = migrateSnapshotIfNeeded(parsed);
+      if (!snap) {
+        // Corrupt or from a future version — remove it
+        keysToDelete.push(key);
+        continue;
+      }
       if (snap.expiresAt < Date.now()) {
         keysToDelete.push(key);
         continue;
@@ -834,7 +866,7 @@ function loadLatestSessionSnapshot(): SessionSnapshot | null {
       }
     }
 
-    // Prune expired entries
+    // Prune expired / corrupt entries
     keysToDelete.forEach((k) => localStorage.removeItem(k));
     return latest;
   } catch {
@@ -936,43 +968,37 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     dispatch({ type: 'SET_RECENTS', payload: loadRecentsFromStorage() });
 
     // Attempt to restore the last persisted session snapshot (messages,
-    // workspace cards, quiz results, notes) so state survives a page refresh.
+    // workspace cards, quiz results, notes, etc.) so state survives a
+    // page refresh and even a browser close/reopen.
     const snapshot = loadLatestSessionSnapshot();
     if (snapshot) {
-      if (snapshot.messages.length > 0) {
-        // Replay messages individually to populate state
-        for (const msg of snapshot.messages) {
-          dispatch(
-            msg.role === 'user'
-              ? { type: 'SEND_MESSAGE', payload: msg }
-              : { type: 'RECEIVE_MESSAGE', payload: msg },
-          );
-        }
-        dispatch({ type: 'SET_CHAT_LOADING', payload: false });
-      }
-      if (snapshot.workspaceSections.length > 0) {
-        for (const section of snapshot.workspaceSections) {
-          for (const card of section.cards) {
-            dispatch({ type: 'ADD_WORKSPACE_CARD', payload: { sectionTitle: section.title, card } });
-          }
-        }
-      }
-      for (const result of snapshot.quizResults) {
-        dispatch({ type: 'QUIZ_COMPLETED', payload: result });
-      }
-      for (const note of snapshot.notes) {
-        if (note.type === 'note') {
-          dispatch({ type: 'ADD_NOTE', payload: note });
-        } else {
-          dispatch({ type: 'ADD_TODO', payload: note });
-        }
-      }
-      if (snapshot.topic) dispatch({ type: 'SET_TOPIC', payload: snapshot.topic });
+      // Derive weakAreas from quizResults if the snapshot didn't store them
+      // (legacy snapshots from before versioning may have empty arrays).
+      const restoredWeakAreas =
+        snapshot.weakAreas.length > 0
+          ? snapshot.weakAreas
+          : calcWeakAreas(snapshot.quizResults);
+
+      dispatch({
+        type: 'RESTORE_SESSION',
+        payload: {
+          messages: snapshot.messages,
+          workspaceSections: snapshot.workspaceSections,
+          quizResults: snapshot.quizResults,
+          weakAreas: restoredWeakAreas,
+          performanceHistory: snapshot.performanceHistory,
+          notes: snapshot.notes,
+          topic: snapshot.topic,
+          docTitle: snapshot.docTitle,
+          bookId: snapshot.bookId,
+        },
+      });
     }
 
-    // Rehydrate slides from sessionStorage so the AI context survives a page
-    // refresh.  Then attempt to restore the raw PDF file from IndexedDB so the
-    // iframe can show the real PDF without requiring a re-upload.
+    // Rehydrate slides from localStorage so the AI context survives both
+    // a page refresh and a browser close.  Then attempt to restore the raw
+    // PDF file from IndexedDB so the iframe shows the real PDF without a
+    // re-upload.
     const persisted = loadSlidesFromStorage();
     if (persisted && persisted.slides.length > 0) {
       dispatch({
@@ -1039,8 +1065,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     state.messages.length,
     state.workspaceSections.length,
     state.quizResults.length,
+    state.weakAreas.length,
+    state.performanceHistory.length,
     state.notes.length,
     state.topic,
+    state.docTitle,
+    state.bookId,
   ]);
 
   // ── Persist session when meaningful state changes ─────────────────────────

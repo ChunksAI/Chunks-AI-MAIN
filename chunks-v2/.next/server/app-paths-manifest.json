@@ -7,6 +7,7 @@
   "/page": "app/page.js",
   "/research/page": "app/research/page.js",
   "/study/page": "app/study/page.js",
+  "/study/review/page": "app/study/review/page.js",
   "/privacy/page": "app/privacy/page.js",
   "/terms/page": "app/terms/page.js"
 }
