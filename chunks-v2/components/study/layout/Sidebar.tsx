@@ -193,11 +193,11 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
       <div className="sidebar-header">
         <div className="logo">
           <div className="logo-mark">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-              <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
-              <ellipse cx="12" cy="12" rx="10" ry="4"/>
-              <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(60 12 12)"/>
-              <ellipse cx="12" cy="12" rx="10" ry="4" transform="rotate(120 12 12)"/>
+            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="50" cy="50" rx="36" ry="12" stroke="currentColor" strokeWidth="6" opacity="0.95"/>
+              <ellipse cx="50" cy="50" rx="36" ry="12" stroke="currentColor" strokeWidth="6" transform="rotate(60 50 50)" opacity="0.88"/>
+              <ellipse cx="50" cy="50" rx="36" ry="12" stroke="currentColor" strokeWidth="6" transform="rotate(120 50 50)" opacity="0.80"/>
+              <circle cx="50" cy="50" r="6" fill="currentColor"/>
             </svg>
           </div>
           <span className="logo-name">Chunks</span>
