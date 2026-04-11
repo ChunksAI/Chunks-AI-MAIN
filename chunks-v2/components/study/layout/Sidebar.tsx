@@ -6,8 +6,7 @@ import type { NavItem, RecentItem } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import Toast from '@/components/shared/Toast';
-
-const COLLAPSED_KEY = 'chunks_v2_sidebar_collapsed';
+import { SIDEBAR_COMPACT_KEY } from '@/lib/constants';
 
 interface SidebarProps {
   activeNav: string;
@@ -23,7 +22,6 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'flashcards',  label: 'Flashcards',   icon: 'layers' },
   { id: 'study-plan',  label: 'Study Plan',   icon: 'calendar' },
   { id: 'research',    label: 'Research',     icon: 'search' },
-  { id: 'visual',      label: 'Visual Tutor', icon: 'video',    badge: { text: 'AI',  variant: 'ai' } },
   { id: 'exam',        label: 'Exam Mode',    icon: 'check',    badge: { text: 'Pro', variant: 'pro' } },
 ];
 
@@ -51,20 +49,25 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
   // Load collapsed state from localStorage after mount to avoid SSR/hydration mismatch
   useEffect(() => {
     try {
-      setCollapsed(localStorage.getItem(COLLAPSED_KEY) === 'true');
+      setCollapsed(localStorage.getItem(SIDEBAR_COMPACT_KEY) === 'true');
     } catch { /* localStorage may be unavailable in private browsing or restricted environments */ }
   }, []);
 
   const toggleCollapsed = () => {
     setCollapsed((prev) => {
       const next = !prev;
-      localStorage.setItem(COLLAPSED_KEY, String(next));
+      try {
+        localStorage.setItem(SIDEBAR_COMPACT_KEY, String(next));
+      } catch { /* ignore */ }
       return next;
     });
   };
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Study Plan "coming soon" modal state
+  const [showStudyPlanModal, setShowStudyPlanModal] = useState(false);
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const showToast = (msg: string) => {
@@ -84,11 +87,25 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
   }, [menuOpen]);
 
   const handleNavClick = (id: string) => {
-    if (id === 'exam') {
-      router.push('/exam');
-      return;
+    switch (id) {
+      case 'exam':
+        router.push('/exam');
+        break;
+      case 'library':
+        router.push('/library');
+        break;
+      case 'flashcards':
+        router.push('/flashcards');
+        break;
+      case 'research':
+        router.push('/research');
+        break;
+      case 'study-plan':
+        setShowStudyPlanModal(true);
+        break;
+      default:
+        onNavChange(id);
     }
-    onNavChange(id);
   };
 
   // Derive display values from auth user
@@ -125,6 +142,51 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
 
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}${menuOpen ? ' menu-open' : ''}`}>
+      {/* ── Study Plan "coming soon" modal ── */}
+      {showStudyPlanModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.45)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+          onClick={() => setShowStudyPlanModal(false)}
+        >
+          <div
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: '28px 32px',
+              maxWidth: 380,
+              width: '90%',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 28, marginBottom: 12 }}>📅</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 600, marginBottom: 8 }}>
+              Study Plan
+            </div>
+            <p style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 20, lineHeight: 1.6 }}>
+              The full Study Plan page is coming soon. For now, use the{' '}
+              <strong>📋 Study plan</strong> quick action in the Chat tab to generate a
+              personalised study schedule.
+            </p>
+            <button
+              className="ws-add-btn"
+              style={{ width: '100%' }}
+              onClick={() => setShowStudyPlanModal(false)}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
       {/* ── Header ── */}
       <div className="sidebar-header">
         <div className="logo">

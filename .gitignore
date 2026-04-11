@@ -3,6 +3,9 @@ node_modules/
 __pycache__/
 *.pyc
 
+# Next.js build output
+.next/
+
 # Environment variables
 .env
 .env.local

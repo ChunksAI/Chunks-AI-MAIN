@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useStudy } from '@/contexts/StudyContext';
 import Badge from '@/components/shared/Badge';
 import Card from '@/components/shared/Card';
@@ -11,7 +12,8 @@ import type { TopicChip } from '@/types';
  * actual quiz results. Empty state is shown before the user takes any quiz.
  */
 export default function ReviewerTab() {
-  const { state, handleStartReview } = useStudy();
+  const router = useRouter();
+  const { state, handleStartReview, handleStartReviewSession } = useStudy();
   const { weakAreas, performanceHistory, quizResults } = state;
 
   // Build topic chips from real data
@@ -71,7 +73,10 @@ export default function ReviewerTab() {
         <button
           className="review-session-btn"
           style={{ width: 'auto', padding: '8px 18px', fontSize: 14 }}
-          onClick={() => handleStartReview()}
+          onClick={() => {
+            void handleStartReviewSession();
+            router.push('/study/review');
+          }}
         >
           Start Review Session →
         </button>
@@ -178,7 +183,10 @@ export default function ReviewerTab() {
             <button
               key={w.topic}
               className="ws-add-btn"
-              onClick={() => handleStartReview(w.topic)}
+              onClick={() => {
+                void handleStartReviewSession(w.topic);
+                router.push('/study/review');
+              }}
             >
               📖 Review {w.topic}
             </button>
@@ -187,7 +195,13 @@ export default function ReviewerTab() {
       )}
 
       {/* ── Full review CTA ── */}
-      <button className="review-session-btn" onClick={() => handleStartReview()}>
+      <button
+        className="review-session-btn"
+        onClick={() => {
+          void handleStartReviewSession();
+          router.push('/study/review');
+        }}
+      >
         🎓 Start Personalized Review Session
       </button>
     </div>

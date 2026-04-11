@@ -7,6 +7,7 @@ import { useAutoScroll } from '@/hooks/useAutoScroll';
 import type { ChatMessage } from '@/types';
 
 import MarkdownRenderer from '@/components/study/chat/MarkdownRenderer';
+import MessageActions from '@/components/study/chat/MessageActions';
 import { resolveStudyTopic } from '@/lib/topicFallback';
 
 const QUICK_ACTIONS = [
@@ -16,6 +17,21 @@ const QUICK_ACTIONS = [
   '🔑 Key concepts',
   '↓ Summarize',
 ];
+
+const THINKING_MODES = [null, 'auto', 'think', 'deep'] as const;
+type ThinkingMode = (typeof THINKING_MODES)[number];
+
+const THINKING_LABELS: Record<string, string> = {
+  auto:  'Auto',
+  think: 'Think',
+  deep:  'Deep',
+};
+
+const THINKING_COLORS: Record<string, string> = {
+  auto:  'var(--accent)',
+  think: '#E67E22',
+  deep:  'var(--danger)',
+};
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -93,12 +109,15 @@ function MessageBubble({
                 key={a.actionKey}
                 className="ai-action-btn"
                 onClick={() => onActionClick(a.actionKey)}
+                style={a.actionKey === 'mindmap' ? { display: 'none' } : undefined}
               >
                 {a.label}
               </button>
             ))}
           </div>
         )}
+        {/* Per-message actions: Copy, Retry, Feedback */}
+        <MessageActions msg={msg} />
       </div>
     </div>
   );
@@ -111,15 +130,22 @@ function MessageBubble({
  * No longer needs props from the page — self-contained smart component.
  */
 export default function ChatPanel() {
-  const { state, dispatch, handleSendMessage, handleGenerateFlashcards, handleGenerateQuiz } =
-    useStudy();
+  const {
+    state,
+    dispatch,
+    handleSendMessage,
+    handleGenerateFlashcards,
+    handleGenerateQuiz,
+    handleUploadDocument,
+  } = useStudy();
   const { user } = useAuth();
-  const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle } = state;
+  const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, thinkingMode } = state;
 
   const userInitial = (user?.name?.[0] ?? user?.email?.[0] ?? 'U').toUpperCase();
 
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useAutoScroll([messages, chatLoading]);
 
   // Build memory bar text from real weak areas
@@ -136,6 +162,11 @@ export default function ChatPanel() {
     await handleSendMessage(val);
   };
 
+  const handleStop = () => {
+    dispatch({ type: 'SET_CHAT_LOADING', payload: false });
+    dispatch({ type: 'SHOW_TOAST', payload: '⏹ Generation stopped.' });
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -148,6 +179,23 @@ export default function ChatPanel() {
     const el = e.target;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  };
+
+  const handleThinkingToggle = () => {
+    const currentIndex = THINKING_MODES.indexOf(thinkingMode as ThinkingMode);
+    const nextIndex = (currentIndex + 1) % THINKING_MODES.length;
+    dispatch({ type: 'SET_THINKING_MODE', payload: THINKING_MODES[nextIndex] });
+  };
+
+  const handleAttach = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    void handleUploadDocument(file);
+    e.target.value = '';
   };
 
   // Action chip handler — generates real content via context
@@ -165,7 +213,7 @@ export default function ChatPanel() {
         dispatch({ type: 'SET_ACTIVE_TAB', payload: 'workspace' });
         break;
       case 'mindmap':
-        dispatch({ type: 'SHOW_TOAST', payload: '��️ Mind map coming soon!' });
+        // Mind map is hidden (display:none on the button) until implemented
         break;
       default:
         break;
@@ -174,10 +222,15 @@ export default function ChatPanel() {
 
   // Quick-action toolbar handler
   const handleQuickAction = (label: string) => {
+    if (label === '❓ Quiz me') {
+      const currentTopic = resolveStudyTopic(topic, docTitle, messages);
+      void handleGenerateQuiz(currentTopic);
+      dispatch({ type: 'SET_ACTIVE_TAB', payload: 'workspace' });
+      return;
+    }
     const map: Record<string, string> = {
       '✦ Explain simply': 'Explain the current topic in simple terms.',
       '📋 Study plan': `Create a structured study plan with a checklist for "${state.topic || 'this topic'}". Format it as a numbered list of actionable tasks.`,
-      '❓ Quiz me': 'Give me a quick quiz on what I just read.',
       '🔑 Key concepts': 'What are the key concepts I need to remember?',
       '↓ Summarize': 'Summarize the main points of this topic.',
     };
@@ -187,6 +240,15 @@ export default function ChatPanel() {
 
   return (
     <div className="chat-panel">
+      {/* Hidden file input for PDF attachment */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf"
+        style={{ display: 'none' }}
+        onChange={handleFileChange}
+      />
+
       {/* ── Memory context bar ── */}
       {showMemoryBar && (
         <div className="memory-bar">
@@ -223,7 +285,7 @@ export default function ChatPanel() {
         {messages.map((msg) => (
           <MessageBubble key={msg.id} msg={msg} userInitial={userInitial} onActionClick={handleActionClick} />
         ))}
-        {chatLoading && <TypingIndicator />}
+        {chatLoading && messages[messages.length - 1]?.role !== 'ai' && <TypingIndicator />}
         <div ref={sentinelRef} />
       </div>
 
@@ -248,22 +310,40 @@ export default function ChatPanel() {
               onKeyDown={handleKeyDown}
               disabled={chatLoading}
             />
-            <button className="send-btn" onClick={() => void handleSend()} disabled={chatLoading}>
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
+            {chatLoading ? (
+              <button
+                className="send-btn send-btn--stop"
+                onClick={handleStop}
+                aria-label="Stop generation"
+                title="Stop"
               >
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
-            </button>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                </svg>
+              </button>
+            ) : (
+              <button
+                className="send-btn"
+                onClick={() => void handleSend()}
+                disabled={!inputValue.trim()}
+                aria-label="Send message"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                >
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              </button>
+            )}
           </div>
           <div className="input-footer">
-            <button className="input-tool-btn">
+            <button className="input-tool-btn" onClick={handleAttach} title="Attach PDF">
               <svg
                 width="12"
                 height="12"
@@ -292,7 +372,12 @@ export default function ChatPanel() {
               </svg>
               Voice
             </button>
-            <button className="think-toggle">
+            <button
+              className="think-toggle"
+              onClick={handleThinkingToggle}
+              title={thinkingMode ? `Thinking: ${THINKING_LABELS[thinkingMode] ?? thinkingMode}` : 'Thinking: Off'}
+              style={thinkingMode ? { color: THINKING_COLORS[thinkingMode] } : undefined}
+            >
               <svg
                 width="12"
                 height="12"
@@ -305,7 +390,23 @@ export default function ChatPanel() {
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
-              Think ∨
+              {thinkingMode ? (
+                <span
+                  style={{
+                    background: THINKING_COLORS[thinkingMode],
+                    color: '#fff',
+                    padding: '1px 6px',
+                    borderRadius: 999,
+                    fontSize: 11,
+                    fontWeight: 600,
+                    marginLeft: 2,
+                  }}
+                >
+                  {THINKING_LABELS[thinkingMode]}
+                </span>
+              ) : (
+                'Think ∨'
+              )}
             </button>
           </div>
         </div>

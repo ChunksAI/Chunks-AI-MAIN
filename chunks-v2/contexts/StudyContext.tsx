@@ -37,9 +37,20 @@ import type {
   AnyNote,
   RecentItem,
 } from '@/types';
-import { sendMessage, generateFlashcards, generateQuiz, uploadDocument } from '@/lib/studyApi';
+import { sendMessage, generateFlashcards, generateQuiz, uploadDocument, topicToSlides } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
+import {
+  MAX_HISTORY_ITEMS,
+  MAX_DOC_CONTEXT_CHARS,
+  TOAST_DURATION_MS,
+  DEFAULT_FLASHCARD_COUNT,
+  DEFAULT_QUIZ_COUNT,
+  SESSION_TTL_DAYS,
+  MAX_RECENTS,
+  SESSION_STORAGE_KEY,
+} from '@/lib/constants';
+import { CURRENT_STORAGE_VERSION, migrateSnapshotIfNeeded, type VersionedSnapshot } from '@/lib/storageVersion';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -71,6 +82,10 @@ export interface StudyState {
   messages: ChatMessage[];
   chatLoading: boolean;
   chatError: string | null;
+  /** The text of the most recent user message — used for per-message retry. */
+  lastUserMessage: string;
+  /** Active thinking mode sent to the backend on each /ask request. */
+  thinkingMode: null | 'auto' | 'think' | 'deep';
 
   workspaceSections: WorkspaceSection[];
   workspaceLoading: boolean;
@@ -89,6 +104,45 @@ export interface StudyState {
   showMemoryBar: boolean;
   notes: AnyNote[];
   recents: RecentItem[];
+
+  /** Active personalised review session, null when none is running. */
+  reviewSession: ReviewSessionState | null;
+}
+
+// ─── Review session types ─────────────────────────────────────────────────────
+
+export type ReviewStep = 'explain' | 'flashcards' | 'quiz' | 'result';
+
+export interface ReviewSessionState {
+  active: boolean;
+  topic: string;
+  step: ReviewStep;
+  /** Overall progress 0–100 for the progress bar. */
+  progress: number;
+  /** Final quiz score 0–100. */
+  score: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  /** Unix timestamp when the session started (Date.now()). */
+  startedAt: number;
+  /** AI-generated explanation markdown text, empty while loading. */
+  explanationText: string;
+  flashcardsReady: boolean;
+  quizReady: boolean;
+}
+
+// ─── Restore session payload ──────────────────────────────────────────────────
+
+export interface RestoreSessionPayload {
+  messages: ChatMessage[];
+  workspaceSections: WorkspaceSection[];
+  quizResults: QuizResult[];
+  weakAreas: WeakArea[];
+  performanceHistory: PerformanceEntry[];
+  notes: AnyNote[];
+  topic: string;
+  docTitle: string;
+  bookId: string | null;
 }
 
 // ─── Actions ─────────────────────────────────────────────────────────────────
@@ -97,6 +151,7 @@ export type StudyAction =
   | { type: 'SEND_MESSAGE'; payload: ChatMessage }
   | { type: 'SET_CHAT_LOADING'; payload: boolean }
   | { type: 'RECEIVE_MESSAGE'; payload: ChatMessage }
+  | { type: 'APPEND_MESSAGE_CHUNK'; payload: string }
   | { type: 'MESSAGE_ERROR'; payload: string }
   | { type: 'CLEAR_CHAT_ERROR' }
   | { type: 'SET_WORKSPACE_LOADING'; payload: boolean }
@@ -130,7 +185,19 @@ export type StudyAction =
   | { type: 'SET_BOOK_ID'; payload: string | null }
   | { type: 'SET_BOOK'; payload: { bookId: string; docTitle: string; pdfUrl: string } }
   | { type: 'SET_SESSION_ID'; payload: string }
-  | { type: 'SET_RECENTS'; payload: RecentItem[] };
+  | { type: 'SET_RECENTS'; payload: RecentItem[] }
+  | { type: 'SET_THINKING_MODE'; payload: null | 'auto' | 'think' | 'deep' }
+  | { type: 'RESET_SESSION' }
+  | { type: 'START_REVIEW_SESSION'; payload: { topic: string } }
+  | { type: 'SET_REVIEW_STEP'; payload: ReviewStep }
+  | { type: 'UPDATE_REVIEW_PROGRESS'; payload: number }
+  | { type: 'SET_REVIEW_EXPLANATION'; payload: string }
+  | { type: 'SET_REVIEW_FLASHCARDS_READY' }
+  | { type: 'SET_REVIEW_QUIZ_READY' }
+  | { type: 'RESET_REVIEW_QUIZ_READY' }
+  | { type: 'COMPLETE_REVIEW_QUIZ'; payload: { score: number; correct: number; total: number } }
+  | { type: 'END_REVIEW_SESSION' }
+  | { type: 'RESTORE_SESSION'; payload: RestoreSessionPayload };
 
 // ─── Weak-area calculation ───────────────────────────────────────────────────
 
@@ -171,6 +238,7 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
         messages: [...state.messages, action.payload],
         chatLoading: true,
         chatError: null,
+        lastUserMessage: action.payload.text,
       };
 
     case 'SET_CHAT_LOADING':
@@ -183,6 +251,17 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
         chatLoading: false,
         chatError: null,
       };
+
+    case 'APPEND_MESSAGE_CHUNK': {
+      if (state.messages.length === 0) return state;
+      const lastMsg = state.messages[state.messages.length - 1];
+      if (lastMsg.role !== 'ai') return state;
+      const updated: ChatMessage = { ...lastMsg, text: lastMsg.text + action.payload };
+      return {
+        ...state,
+        messages: [...state.messages.slice(0, -1), updated],
+      };
+    }
 
     case 'MESSAGE_ERROR':
       return { ...state, chatLoading: false, chatError: action.payload };
@@ -380,6 +459,119 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
     case 'SET_RECENTS':
       return { ...state, recents: action.payload };
 
+    case 'SET_THINKING_MODE':
+      return { ...state, thinkingMode: action.payload };
+
+    case 'RESET_SESSION':
+      return {
+        ...INITIAL_STATE,
+        sessionId: `session-${Date.now()}`,
+        // Preserve recents so the sidebar history doesn't disappear
+        recents: state.recents,
+        // Preserve user's thinking mode preference
+        thinkingMode: state.thinkingMode,
+      };
+
+    case 'START_REVIEW_SESSION':
+      return {
+        ...state,
+        reviewSession: {
+          active: true,
+          topic: action.payload.topic,
+          step: 'explain',
+          progress: 0,
+          score: 0,
+          totalQuestions: 0,
+          correctAnswers: 0,
+          startedAt: Date.now(),
+          explanationText: '',
+          flashcardsReady: false,
+          quizReady: false,
+        },
+      };
+
+    case 'SET_REVIEW_STEP': {
+      if (!state.reviewSession) return state;
+      const stepProgress: Record<ReviewStep, number> = {
+        explain: 10,
+        flashcards: 40,
+        quiz: 70,
+        result: 100,
+      };
+      return {
+        ...state,
+        reviewSession: {
+          ...state.reviewSession,
+          step: action.payload,
+          progress: stepProgress[action.payload],
+        },
+      };
+    }
+
+    case 'UPDATE_REVIEW_PROGRESS':
+      if (!state.reviewSession) return state;
+      return {
+        ...state,
+        reviewSession: { ...state.reviewSession, progress: action.payload },
+      };
+
+    case 'SET_REVIEW_EXPLANATION':
+      if (!state.reviewSession) return state;
+      return {
+        ...state,
+        reviewSession: { ...state.reviewSession, explanationText: action.payload },
+      };
+
+    case 'SET_REVIEW_FLASHCARDS_READY':
+      if (!state.reviewSession) return state;
+      return {
+        ...state,
+        reviewSession: { ...state.reviewSession, flashcardsReady: true },
+      };
+
+    case 'SET_REVIEW_QUIZ_READY':
+      if (!state.reviewSession) return state;
+      return {
+        ...state,
+        reviewSession: { ...state.reviewSession, quizReady: true },
+      };
+
+    case 'RESET_REVIEW_QUIZ_READY':
+      if (!state.reviewSession) return state;
+      return {
+        ...state,
+        reviewSession: { ...state.reviewSession, quizReady: false },
+      };
+
+    case 'COMPLETE_REVIEW_QUIZ':
+      if (!state.reviewSession) return state;
+      return {
+        ...state,
+        reviewSession: {
+          ...state.reviewSession,
+          score: action.payload.score,
+          correctAnswers: action.payload.correct,
+          totalQuestions: action.payload.total,
+        },
+      };
+
+    case 'END_REVIEW_SESSION':
+      return { ...state, reviewSession: null };
+
+    case 'RESTORE_SESSION':
+      return {
+        ...state,
+        messages: action.payload.messages,
+        workspaceSections: action.payload.workspaceSections,
+        quizResults: action.payload.quizResults,
+        weakAreas: action.payload.weakAreas,
+        performanceHistory: action.payload.performanceHistory,
+        notes: action.payload.notes,
+        topic: action.payload.topic,
+        docTitle: action.payload.docTitle,
+        bookId: action.payload.bookId,
+      };
+
     default:
       return state;
   }
@@ -399,6 +591,8 @@ const INITIAL_STATE: StudyState = {
   messages: [],
   chatLoading: false,
   chatError: null,
+  lastUserMessage: '',
+  thinkingMode: null,
   workspaceSections: [],
   workspaceLoading: false,
   workspaceError: null,
@@ -413,6 +607,7 @@ const INITIAL_STATE: StudyState = {
   showMemoryBar: true,
   notes: [],
   recents: [],
+  reviewSession: null,
 };
 
 // ─── Context value ────────────────────────────────────────────────────────────
@@ -436,7 +631,12 @@ interface StudyContextValue {
   handleUploadDocument: (file: File) => Promise<void>;
   handleCreateNote: () => void;
   handleCreateTodo: (title: string, items: string[]) => void;
+  handleResetSession: () => void;
   showToast: (message: string) => void;
+  handleStartReviewSession: (topic?: string) => Promise<void>;
+  handleAdvanceReviewStep: () => void;
+  handleEndReviewSession: () => void;
+  handleCompleteReviewQuiz: (score: number, correct: number, total: number) => void;
 }
 
 const StudyContext = createContext<StudyContextValue | null>(null);
@@ -454,7 +654,7 @@ interface PersistedSlides {
 function persistSlidesToStorage(data: PersistedSlides): void {
   if (typeof window === 'undefined') return;
   try {
-    sessionStorage.setItem(SLIDES_STORAGE_KEY, JSON.stringify(data));
+    localStorage.setItem(SLIDES_STORAGE_KEY, JSON.stringify(data));
   } catch {
     // ignore — storage may be unavailable or quota exceeded
   }
@@ -463,7 +663,7 @@ function persistSlidesToStorage(data: PersistedSlides): void {
 function loadSlidesFromStorage(): PersistedSlides | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = sessionStorage.getItem(SLIDES_STORAGE_KEY);
+    const raw = localStorage.getItem(SLIDES_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as unknown;
     if (
@@ -483,7 +683,7 @@ function loadSlidesFromStorage(): PersistedSlides | null {
 function clearSlidesFromStorage(): void {
   if (typeof window === 'undefined') return;
   try {
-    sessionStorage.removeItem(SLIDES_STORAGE_KEY);
+    localStorage.removeItem(SLIDES_STORAGE_KEY);
   } catch {
     // ignore
   }
@@ -612,6 +812,137 @@ function loadRecentsFromStorage(): RecentItem[] {
   }
 }
 
+// ─── Session snapshot persistence (localStorage, 7-day TTL) ──────────────────
+
+function saveSessionSnapshot(sessionId: string, state: StudyState): void {
+  if (typeof window === 'undefined' || !sessionId) return;
+  try {
+    const snapshot: VersionedSnapshot = {
+      version: CURRENT_STORAGE_VERSION,
+      messages: state.messages.slice(-20),
+      workspaceSections: state.workspaceSections,
+      quizResults: state.quizResults,
+      weakAreas: state.weakAreas,
+      performanceHistory: state.performanceHistory,
+      notes: state.notes,
+      topic: state.topic,
+      docTitle: state.docTitle,
+      bookId: state.bookId,
+      recents: state.recents,
+      expiresAt: Date.now() + SESSION_TTL_DAYS * 86_400_000,
+    };
+    localStorage.setItem(`${SESSION_STORAGE_KEY}_${sessionId}`, JSON.stringify(snapshot));
+  } catch {
+    // Ignore quota errors — persistence is best-effort
+  }
+}
+
+function loadLatestSessionSnapshot(): VersionedSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const prefix = `${SESSION_STORAGE_KEY}_`;
+    let latest: VersionedSnapshot | null = null;
+    const keysToDelete: string[] = [];
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(prefix)) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+
+      const parsed = JSON.parse(raw) as unknown;
+      const snap = migrateSnapshotIfNeeded(parsed);
+      if (!snap) {
+        // Corrupt or from a future version — remove it
+        keysToDelete.push(key);
+        continue;
+      }
+      if (snap.expiresAt < Date.now()) {
+        keysToDelete.push(key);
+        continue;
+      }
+      if (!latest || snap.expiresAt > latest.expiresAt) {
+        latest = snap;
+      }
+    }
+
+    // Prune expired / corrupt entries
+    keysToDelete.forEach((k) => localStorage.removeItem(k));
+    return latest;
+  } catch {
+    return null;
+  }
+}
+
+function clearSessionSnapshot(sessionId: string): void {
+  if (typeof window === 'undefined' || !sessionId) return;
+  try {
+    localStorage.removeItem(`${SESSION_STORAGE_KEY}_${sessionId}`);
+  } catch {
+    // ignore
+  }
+}
+
+// ─── Smart doc_context extractor ─────────────────────────────────────────────
+
+/**
+ * Extracts the most relevant slide content for a given question.
+ * Tokenises the question into keywords, scores each slide by keyword-overlap,
+ * and packs the top-scoring slides into MAX_DOC_CONTEXT_CHARS.
+ */
+function buildSmartDocContext(question: string, slides: SlideItem[]): string {
+  if (slides.length === 0) return '';
+
+  // Tokenise: lower-case words, remove stop words, min 3 chars
+  const STOP = new Set([
+    'the','a','an','and','or','but','in','on','at','to','for','of','with',
+    'is','are','was','were','be','been','have','has','had','do','does','did',
+    'will','would','could','should','may','might','can','shall','this','that',
+    'these','those','it','its','what','which','who','how','when','where','why',
+  ]);
+  const keywords = question
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length >= 3 && !STOP.has(w));
+
+  if (keywords.length === 0) {
+    // No useful keywords — fall back to first N chars of all slides
+    return slides
+      .map((s) => [s.title, ...s.content].join('\n'))
+      .join('\n\n')
+      .slice(0, MAX_DOC_CONTEXT_CHARS);
+  }
+
+  // Score each slide by keyword overlap
+  const scored = slides.map((slide) => {
+    const text = [slide.title, ...slide.content, slide.notes ?? '']
+      .join(' ')
+      .toLowerCase();
+    const score = keywords.reduce((sum, kw) => {
+      // Count occurrences for stronger relevance signal
+      let count = 0;
+      let pos = text.indexOf(kw);
+      while (pos !== -1) { count++; pos = text.indexOf(kw, pos + 1); }
+      return sum + count;
+    }, 0);
+    return { slide, score };
+  });
+
+  // Sort descending and pack until budget is exhausted
+  scored.sort((a, b) => b.score - a.score);
+  const parts: string[] = [];
+  let used = 0;
+  for (const { slide } of scored) {
+    const text = [slide.title, ...slide.content].join('\n');
+    if (used + text.length > MAX_DOC_CONTEXT_CHARS) break;
+    parts.push(text);
+    used += text.length + 2; // +2 for the \n\n separator
+  }
+
+  return parts.join('\n\n');
+}
+
 // ─── Message ID counter ───────────────────────────────────────────────────────
 
 let _msgCounter = 100;
@@ -632,12 +963,42 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // ── Initialise browser-only state after mount (avoids SSR/client mismatch) ─
   useEffect(() => {
-    dispatch({ type: 'SET_SESSION_ID', payload: `session-${Date.now()}` });
+    const newSessionId = `session-${Date.now()}`;
+    dispatch({ type: 'SET_SESSION_ID', payload: newSessionId });
     dispatch({ type: 'SET_RECENTS', payload: loadRecentsFromStorage() });
 
-    // Rehydrate slides from sessionStorage so the AI context survives a page
-    // refresh.  Then attempt to restore the raw PDF file from IndexedDB so the
-    // iframe can show the real PDF without requiring a re-upload.
+    // Attempt to restore the last persisted session snapshot (messages,
+    // workspace cards, quiz results, notes, etc.) so state survives a
+    // page refresh and even a browser close/reopen.
+    const snapshot = loadLatestSessionSnapshot();
+    if (snapshot) {
+      // Derive weakAreas from quizResults if the snapshot didn't store them
+      // (legacy snapshots from before versioning may have empty arrays).
+      const restoredWeakAreas =
+        snapshot.weakAreas.length > 0
+          ? snapshot.weakAreas
+          : calcWeakAreas(snapshot.quizResults);
+
+      dispatch({
+        type: 'RESTORE_SESSION',
+        payload: {
+          messages: snapshot.messages,
+          workspaceSections: snapshot.workspaceSections,
+          quizResults: snapshot.quizResults,
+          weakAreas: restoredWeakAreas,
+          performanceHistory: snapshot.performanceHistory,
+          notes: snapshot.notes,
+          topic: snapshot.topic,
+          docTitle: snapshot.docTitle,
+          bookId: snapshot.bookId,
+        },
+      });
+    }
+
+    // Rehydrate slides from localStorage so the AI context survives both
+    // a page refresh and a browser close.  Then attempt to restore the raw
+    // PDF file from IndexedDB so the iframe shows the real PDF without a
+    // re-upload.
     const persisted = loadSlidesFromStorage();
     if (persisted && persisted.slides.length > 0) {
       dispatch({
@@ -670,6 +1031,14 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // Track in-flight chat request so it can be cancelled on re-send
   const abortRef = useRef<AbortController | null>(null);
 
+  // Track in-flight generation requests to prevent double-triggering
+  const flashcardsInFlightRef = useRef(false);
+  const quizInFlightRef = useRef(false);
+
+  // Track in-flight generation abort controllers
+  const flashcardsAbortRef = useRef<AbortController | null>(null);
+  const quizAbortRef = useRef<AbortController | null>(null);
+
   // Track current blob URL so we can revoke it before creating a new one
   const blobUrlRef = useRef<string | null>(null);
 
@@ -681,9 +1050,28 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // ── Auto-clear toast ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!state.toast) return;
-    const t = setTimeout(() => dispatch({ type: 'CLEAR_TOAST' }), 2800);
+    const t = setTimeout(() => dispatch({ type: 'CLEAR_TOAST' }), TOAST_DURATION_MS);
     return () => clearTimeout(t);
   }, [state.toast]);
+
+  // ── Persist session snapshot to localStorage (debounced 500ms) ───────────
+  useEffect(() => {
+    if (state.messages.length === 0 && state.workspaceSections.length === 0) return;
+    const t = setTimeout(() => {
+      saveSessionSnapshot(stateRef.current.sessionId, stateRef.current);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [
+    state.messages.length,
+    state.workspaceSections.length,
+    state.quizResults.length,
+    state.weakAreas.length,
+    state.performanceHistory.length,
+    state.notes.length,
+    state.topic,
+    state.docTitle,
+    state.bookId,
+  ]);
 
   // ── Persist session when meaningful state changes ─────────────────────────
   useEffect(() => {
@@ -770,32 +1158,35 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       const userMsg: ChatMessage = { id: nextMsgId(), role: 'user', text };
       dispatch({ type: 'SEND_MESSAGE', payload: userMsg });
 
-      // Build history from current messages (last 10), stripping HTML tags
-      const history: MessageHistoryItem[] = stateRef.current.messages.slice(-10).map((m) => ({
+      // Build history from current messages (last MAX_HISTORY_ITEMS), stripping HTML tags
+      const history: MessageHistoryItem[] = stateRef.current.messages.slice(-MAX_HISTORY_ITEMS).map((m) => ({
         role: (m.role === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
         content: stripHtml(m.text),
       }));
 
-      // Auto-populate doc_context from uploaded slides when not explicitly provided
+      // Auto-populate doc_context from uploaded slides when not explicitly provided.
+      // Uses smart keyword-based relevance extraction instead of naive truncation.
       const { slides } = stateRef.current;
       const autoDocContext =
-        slides.length > 0
-          ? slides
-              .map((s) => [s.title, ...s.content].join('\n'))
-              .join('\n\n')
-              .slice(0, 4000)
-          : '';
+        opts.docContext !== undefined
+          ? opts.docContext
+          : buildSmartDocContext(text, slides);
 
       // Append markdown format requirement so the model returns well-structured responses
-      const formattedQuestion = `${text}\n\n[Format requirement: Use markdown with ## headers for main sections, ### for subsections. Use $$ for display equations and $ for inline math. Use \\ce{} for chemical formulas. Give thorough explanations with worked examples. End conceptual answers with a > 💡 Key takeaway: blockquote.]`;
+      // Skip for quiz/flashcard generation requests to avoid confusing the backend
+      const isGenerationRequest = /generate.*quiz|generate.*flashcard/i.test(text);
+      const formattedQuestion = isGenerationRequest
+        ? text
+        : `${text}\n\n[Format requirement: Use markdown with ## headers for main sections, ### for subsections. Use $$ for display equations and $ for inline math. Use \\ce{} for chemical formulas. Give thorough explanations with worked examples. End conceptual answers with a > 💡 Key takeaway: blockquote.]`;
 
       try {
         const res = await sendMessage({
           question: formattedQuestion,
           history,
           selected_text: opts.selectedText ?? '',
-          doc_context: opts.docContext ?? autoDocContext,
+          doc_context: autoDocContext,
           mode: 'study',
+          thinking: stateRef.current.thinkingMode,
           bookId: stateRef.current.bookId ?? undefined,
         });
 
@@ -851,7 +1242,13 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   }, [handleSendMessage]);
 
   // ── generateFlashcards ────────────────────────────────────────────────────
-  const handleGenerateFlashcards = useCallback(async (topic: string, count = 10) => {
+  const handleGenerateFlashcards = useCallback(async (topic: string, count = DEFAULT_FLASHCARD_COUNT) => {
+    if (flashcardsInFlightRef.current) return;
+    flashcardsInFlightRef.current = true;
+
+    flashcardsAbortRef.current?.abort();
+    flashcardsAbortRef.current = new AbortController();
+
     dispatch({ type: 'SET_WORKSPACE_LOADING', payload: true });
     dispatch({ type: 'SHOW_TOAST', payload: '🃏 Generating flashcards…' });
 
@@ -881,30 +1278,34 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         payload: `🃏 ${res.flashcards.length} flashcards added to Workspace!`,
       });
     } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
       const message = err instanceof Error ? err.message : 'Failed to generate flashcards.';
       dispatch({ type: 'WORKSPACE_ERROR', payload: message });
       dispatch({ type: 'SHOW_TOAST', payload: `❌ ${message}` });
+    } finally {
+      flashcardsInFlightRef.current = false;
     }
   }, []);
 
   // ── generateQuiz ──────────────────────────────────────────────────────────
   const handleGenerateQuiz = useCallback(
-    async (topic: string, count = 10, difficulty: 'easy' | 'medium' | 'hard' = 'medium') => {
-      // When no document is uploaded there are no slides to send to /generate-quiz.
-      // Fall back to /ask so the AI generates the quiz as a chat response instead.
-      if (stateRef.current.slides.length === 0) {
-        dispatch({ type: 'SET_ACTIVE_TAB', payload: 'chat' });
-        void sendMessageRef.current(
-          `Generate a ${count}-question ${difficulty} multiple choice quiz on "${topic}".`,
-        );
-        return;
-      }
+    async (topic: string, count = DEFAULT_QUIZ_COUNT, difficulty: 'easy' | 'medium' | 'hard' = 'medium') => {
+      if (quizInFlightRef.current) return;
+      quizInFlightRef.current = true;
+
+      quizAbortRef.current?.abort();
+      quizAbortRef.current = new AbortController();
 
       dispatch({ type: 'SET_WORKSPACE_LOADING', payload: true });
       dispatch({ type: 'SHOW_TOAST', payload: '🎯 Generating quiz…' });
 
       try {
-        const slides = stateRef.current.slides;
+        // Use real slides when available; fall back to a topic-seed when not
+        // (e.g. during a personalised review session without an uploaded doc).
+        const slides =
+          stateRef.current.slides.length > 0
+            ? stateRef.current.slides
+            : topicToSlides(topic);
         const res = await generateQuiz({ slides, count, difficulty });
         const cardId = `quiz-${Date.now()}`;
         const card: WorkspaceCard = {
@@ -926,9 +1327,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           payload: `🎯 ${res.questions.length}-question quiz added to Workspace!`,
         });
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') return;
         const message = err instanceof Error ? err.message : 'Failed to generate quiz.';
         dispatch({ type: 'WORKSPACE_ERROR', payload: message });
         dispatch({ type: 'SHOW_TOAST', payload: `❌ ${message}` });
+      } finally {
+        quizInFlightRef.current = false;
       }
     },
     [],
@@ -1062,6 +1466,101 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // ── startReviewSession ────────────────────────────────────────────────────
+  const handleStartReviewSession = useCallback(async (topic?: string) => {
+    // Resolve the target topic: explicit arg → weakest quiz topic → current topic → fallback
+    const { weakAreas, topic: currentTopic } = stateRef.current;
+    const weakestTopic =
+      weakAreas.length > 0
+        ? [...weakAreas].sort((a, b) => a.score - b.score)[0]?.topic ?? null
+        : null;
+
+    const resolvedTopic = topic ?? weakestTopic ?? (currentTopic || 'General Study');
+
+    dispatch({ type: 'START_REVIEW_SESSION', payload: { topic: resolvedTopic } });
+    dispatch({ type: 'SET_CHAT_LOADING', payload: true });
+
+    try {
+      const docContext = stateRef.current.slides
+        .slice(0, 3)
+        .map((s: { content: string[] }) => s.content.join(' '))
+        .join('\n')
+        .slice(0, MAX_DOC_CONTEXT_CHARS);
+
+      const res = await sendMessage({
+        question: `Give me a focused explanation of "${resolvedTopic}" covering the key concepts I need to understand. Use ## headers for sections, worked examples with $$ equations where relevant, and end with a > 💡 Key takeaway blockquote.`,
+        history: [],
+        selected_text: '',
+        doc_context: docContext,
+        mode: 'study',
+        thinking: stateRef.current.thinkingMode,
+        bookId: stateRef.current.bookId ?? undefined,
+      });
+
+      dispatch({ type: 'SET_REVIEW_EXPLANATION', payload: res.answer });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to load explanation.';
+      dispatch({ type: 'SHOW_TOAST', payload: `❌ ${msg}` });
+      dispatch({ type: 'END_REVIEW_SESSION' });
+    } finally {
+      dispatch({ type: 'SET_CHAT_LOADING', payload: false });
+    }
+  }, []);
+
+  // ── advanceReviewStep ─────────────────────────────────────────────────────
+  const handleAdvanceReviewStep = useCallback(() => {
+    const { reviewSession } = stateRef.current;
+    if (!reviewSession) return;
+
+    const next: Record<ReviewStep, ReviewStep | 'done'> = {
+      explain: 'flashcards',
+      flashcards: 'quiz',
+      quiz: 'result',
+      result: 'done',
+    };
+
+    const nextStep = next[reviewSession.step as ReviewStep];
+    if (nextStep === 'done') {
+      dispatch({ type: 'END_REVIEW_SESSION' });
+      return;
+    }
+    dispatch({ type: 'SET_REVIEW_STEP', payload: nextStep });
+  }, []);
+
+  // ── endReviewSession ──────────────────────────────────────────────────────
+  const handleEndReviewSession = useCallback(() => {
+    dispatch({ type: 'END_REVIEW_SESSION' });
+  }, []);
+
+  // ── completeReviewQuiz ────────────────────────────────────────────────────
+  const handleCompleteReviewQuiz = useCallback(
+    (score: number, correct: number, total: number) => {
+      dispatch({ type: 'COMPLETE_REVIEW_QUIZ', payload: { score, correct, total } });
+      dispatch({ type: 'SET_REVIEW_STEP', payload: 'result' });
+    },
+    [],
+  );
+
+  // ── resetSession ──────────────────────────────────────────────────────────
+  const handleResetSession = useCallback(() => {    // Cancel any in-flight requests
+    abortRef.current?.abort();
+    flashcardsAbortRef.current?.abort();
+    quizAbortRef.current?.abort();
+
+    // Clear persisted data so the old session doesn't come back on next refresh
+    clearSlidesFromStorage();
+    clearSessionSnapshot(stateRef.current.sessionId);
+    void clearPdfFromIdb();
+
+    // Revoke any active blob URL
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
+
+    dispatch({ type: 'RESET_SESSION' });
+  }, []);
+
   const value: StudyContextValue = {
     state,
     dispatch,
@@ -1074,7 +1573,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     handleUploadDocument,
     handleCreateNote,
     handleCreateTodo,
+    handleResetSession,
     showToast,
+    handleStartReviewSession,
+    handleAdvanceReviewStep,
+    handleEndReviewSession,
+    handleCompleteReviewQuiz,
   };
 
   return <StudyContext.Provider value={value}>{children}</StudyContext.Provider>;

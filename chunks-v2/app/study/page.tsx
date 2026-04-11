@@ -3,7 +3,7 @@
 import { lazy, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { StudyProvider, useStudy } from '@/contexts/StudyContext';
+import { useStudy } from '@/contexts/StudyContext';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/study/layout/Sidebar';
 import Topbar from '@/components/study/layout/Topbar';
@@ -47,7 +47,7 @@ function BookParamsReader() {
 // ─── Inner layout — has access to StudyContext ────────────────────────────────
 
 function StudyLayout() {
-  const { state, dispatch, handleSendMessage, showToast } = useStudy();
+  const { state, dispatch, handleSendMessage, showToast, handleResetSession } = useStudy();
   const { user } = useAuth();
   const { activeTab, toast, docTitle, topic, recents } = state;
   const { pct, containerRef, onMouseDown } = useResizable();
@@ -81,9 +81,7 @@ function StudyLayout() {
         onNavChange={(id) => {
           if (id === 'library') router.push('/library');
         }}
-        onNewSession={() =>
-          dispatch({ type: 'SHOW_TOAST', payload: '✨ New study session started' })
-        }
+        onNewSession={handleResetSession}
         recents={recents}
       />
 
@@ -153,12 +151,8 @@ function StudyLayout() {
   );
 }
 
-// ─── Page — wraps with StudyProvider ─────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function StudyPage() {
-  return (
-    <StudyProvider>
-      <StudyLayout />
-    </StudyProvider>
-  );
+  return <StudyLayout />;
 }
