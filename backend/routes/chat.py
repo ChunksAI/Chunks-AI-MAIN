@@ -29,9 +29,9 @@ router = APIRouter()
 # These control how long and how structured each mode's answer must be.
 
 NORMAL_MODE_PROMPT = (
-    "Give a concise, direct answer in 1-2 short paragraphs only. "
-    "Do not use headers, excessive bullet points, or long explanations. "
-    "Get straight to the point. Never exceed 2 paragraphs."
+    "Give a clear, complete answer. Use as many paragraphs, headers, or bullet points "
+    "as the question requires — do not cut yourself off. Be focused and avoid padding, "
+    "but always finish your explanation fully."
 )
 
 THINK_MODE_PROMPT = (
@@ -59,7 +59,7 @@ DEEP_THINK_SYSTEM_PROMPT = DEEP_THINK_MODE_PROMPT
 _MODE_MAX_TOKENS = {
     'deep':     4000,   # ~1k for reasoning + 3k for detailed answer
     'thinking':  2000,  # ~500 for reasoning + 1500 for balanced answer
-    None:         400,  # normal / no thinking — brief 1-2 paragraph response
+    None:        1500,  # normal / no thinking — full complete answer
 }
 
 
