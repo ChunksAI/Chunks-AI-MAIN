@@ -258,6 +258,57 @@ body {
   text-overflow: ellipsis;
 }
 
+/* ── Your progress section ───────────────────────────────────────────────── */
+.progress-section {
+  border-top: 1px solid var(--border);
+  padding: 6px 8px;
+}
+.sidebar.collapsed .progress-section { display: none; }
+
+.progress-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; background: none; border: none; cursor: pointer;
+  padding: 4px 2px 6px;
+  color: var(--text2);
+}
+.progress-section-header:hover { color: var(--text); }
+
+.progress-section-body { padding-bottom: 4px; }
+
+.progress-empty {
+  font-size: 11.5px;
+  color: var(--text3);
+  padding: 2px 2px 4px;
+  line-height: 1.5;
+}
+
+.progress-pills-row {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  margin-bottom: 5px;
+}
+
+.gap-pill {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 500;
+  line-height: 1.6;
+  white-space: nowrap;
+  max-width: 130px;
+  overflow: hidden; text-overflow: ellipsis;
+  cursor: default;
+  border: none;
+}
+.gap-pill--failing   { background: var(--danger-light);  color: var(--danger);  cursor: pointer; }
+.gap-pill--reviewing { background: var(--accent-light);  color: var(--accent);  cursor: pointer; }
+.gap-pill--recovering{ background: var(--blue-light);    color: var(--blue);    cursor: pointer; }
+.gap-pill--regressed { background: var(--bg3);           color: var(--text3);   cursor: pointer; }
+.gap-pill--mastered  { background: var(--accent2-light); color: var(--accent2); }
+.gap-pill--failing:hover,
+.gap-pill--reviewing:hover,
+.gap-pill--recovering:hover,
+.gap-pill--regressed:hover { opacity: 0.8; }
+
 .sidebar-footer {
   padding: 12px 10px;
   border-top: 1px solid var(--border);

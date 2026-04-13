@@ -127,6 +127,10 @@ function StudyLayout() {
         onNewSession={handleResetSession}
         recents={recents}
         onRecentClick={handleRecentClick}
+        onSendMessage={(text) => {
+          dispatch({ type: 'SET_ACTIVE_TAB', payload: 'chat' });
+          void handleSendMessage(text);
+        }}
       />
 
       {/* ── Main ── */}
