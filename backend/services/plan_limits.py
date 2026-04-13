@@ -223,10 +223,18 @@ def check_plan_limit(
     - If the limit is  0 (feature disabled) → always raises.
     - Otherwise → increment counter; raise if it exceeds the limit.
 
-    IP-prefixed user IDs (guests) are treated as ``free``.
+    IP-prefixed user IDs (guests, e.g. ``'ip:1.2.3.4'``) are skipped entirely
+    because guest requests are already rate-limited by ``guest_gate()`` before
+    this function is reached.  Applying a second counter on an IP key would
+    create redundant blocking and inflate monthly_* counters in Redis for no
+    practical benefit.
 
     Raises :class:`PlanLimitExceeded` when the limit is breached.
     """
+    # Guests are managed exclusively by guest_gate() — skip plan checks.
+    if user_id and user_id.startswith('ip:'):
+        return
+
     tier_str = tier.value if hasattr(tier, 'value') else str(tier).lower()
     if tier_str not in PLAN_LIMITS:
         tier_str = 'free'
