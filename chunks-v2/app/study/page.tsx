@@ -50,7 +50,10 @@ function BookParamsReader() {
 function StudyLayout() {
   const { state, dispatch, handleSendMessage, showToast, handleResetSession, handleRestoreDocument } = useStudy();
   const { user } = useAuth();
-  const { activeTab, toast, docTitle, topic, recents } = state;
+  const { activeTab, toast, docTitle, topic, recents, pdfBlobUrl, slides, uploadLoading } = state;
+
+  // Show the split layout only when a document is present (or uploading)
+  const hasDocument = !!(pdfBlobUrl || slides.length > 0 || uploadLoading);
   const { pct, containerRef, onMouseDown } = useResizable();
   const router = useRouter();
 
@@ -128,16 +131,20 @@ function StudyLayout() {
         />
 
         <div className="content-area">
-          {/* Chat tab — split layout */}
+          {/* Chat tab — split layout when document loaded, full-width chat otherwise */}
           {activeTab === 'chat' && (
             <div className="workspace" ref={containerRef}>
-              <ContentPanel
-                style={{ width: `${pct}%` }}
-                onExplain={handleExplain}
-                onQuiz={handleQuizFromContent}
-                onSummarize={handleSummarize}
-              />
-              <div className="resizer" onMouseDown={onMouseDown} />
+              {hasDocument && (
+                <>
+                  <ContentPanel
+                    style={{ width: `${pct}%` }}
+                    onExplain={handleExplain}
+                    onQuiz={handleQuizFromContent}
+                    onSummarize={handleSummarize}
+                  />
+                  <div className="resizer" onMouseDown={onMouseDown} />
+                </>
+              )}
               <ErrorBoundary>
                 <ChatPanel />
               </ErrorBoundary>

@@ -550,6 +550,35 @@ body {
   background: var(--bg);
 }
 
+/* ─── Document upload banner ─────────────────────────────────────────────────── */
+.doc-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+.doc-banner-btn {
+  padding: 3px 12px;
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.doc-banner-btn:hover { background: var(--bg2); color: var(--text); }
+.doc-banner-error { color: var(--danger, #e53); font-size: 12px; }
+
 .memory-bar {
   padding: 8px 16px;
   background: var(--accent-light);
@@ -569,12 +598,24 @@ body {
 .chat-messages {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 20px 10px;
+  padding: 20px 0 10px;
   display: flex;
   flex-direction: column;
+  align-items: center;
 }
 .chat-messages::-webkit-scrollbar { width: 4px; }
 .chat-messages::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 2px; }
+
+/* ── 720 px centered column shared by messages and input ──────────────────── */
+.chat-col {
+  width: 100%;
+  max-width: 720px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
 
 .msg { display: flex; max-width: 100%; animation: fadeUp 0.3s ease; margin-bottom: 20px; }
 .msg.user { justify-content: flex-end; }
@@ -664,7 +705,16 @@ body {
 .perf-pct      { font-size: 11px; font-weight: 600; color: var(--text2); width: 32px; text-align: right; }
 
 /* ─── Chat Input ─────────────────────────────────────────────────────────────── */
-.chat-input-area { padding: 14px 16px 16px; flex-shrink: 0; }
+.chat-input-area {
+  padding: 14px 0 16px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* The column inside input area doesn't need to grow — override flex: 1 */
+.chat-input-area > .chat-col { flex: 0 0 auto; }
 
 .input-container {
   background: var(--surface);
