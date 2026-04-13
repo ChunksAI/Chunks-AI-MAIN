@@ -713,7 +713,7 @@ body {
   align-items: center;
 }
 
-/* The column inside input area doesn't need to grow — override flex:1 */
+/* The column inside input area doesn't need to grow — override flex: 1 */
 .chat-input-area > .chat-col { flex: 0 0 auto; }
 
 .input-container {
