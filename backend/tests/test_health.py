@@ -104,7 +104,12 @@ def test_api_me_plan_pro_user(client, monkeypatch):
 # ── POST /api/verify-access ───────────────────────────────────────────────────
 
 def test_api_verify_access_unauthenticated(client, mock_extract_user):
-    """POST /api/verify-access without auth returns 401."""
+    """POST /api/verify-access without auth returns 401.
+
+    mock_extract_user patches _extract_verified_user to return an IP-based
+    (unauthenticated) user — the endpoint checks for the 'ip:' prefix and
+    returns 401.
+    """
     resp = client.post('/api/verify-access')
     assert resp.status_code == 401
     data = resp.json()

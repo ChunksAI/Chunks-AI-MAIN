@@ -132,6 +132,9 @@ def verify_access(request: Request):
         return JSONResponse({'success': False, 'error': 'Authentication required'}, status_code=401)
 
     _, db_role = _get_user_info_from_db(user_id)
+    # The tier from _extract_verified_user (which called _get_user_info_from_db
+    # internally) is used for the response; the second DB call above is only to
+    # retrieve the role string which _extract_verified_user does not expose.
 
     tier_str = tier.value if hasattr(tier, 'value') else str(tier).lower()
 
