@@ -63,9 +63,10 @@ class SaveModelRequest(BaseModel):
 
 _STATUS_PRIORITY = {"recovering": 0, "reviewing": 1, "failing": 2}
 
-_LOW_SCORE_THRESHOLD  = 60   # below this → gap
-_FAILING_THRESHOLD    = 40   # below this → failing
-_RECOVERING_THRESHOLD = 75   # at or above this but still wrong answers → recovering
+_LOW_SCORE_THRESHOLD    = 60    # below this → gap
+_FAILING_THRESHOLD      = 40    # below this → failing
+_RECOVERING_THRESHOLD   = 75    # at or above this but still wrong answers → recovering
+_MIN_CHAIN_COMPLETENESS = 0.6   # discard gaps whose prereq chain is less complete than this
 
 
 def _lifecycle_status(score: float) -> str:
@@ -142,7 +143,7 @@ def analyze_gaps(body: AnalyzeGapsRequest):
             logger.warning(f'[tutor/analyze-gaps] resolve failed for "{concept}": {exc}')
             continue
 
-        if result.chain_completeness <= 0.6:
+        if result.chain_completeness <= _MIN_CHAIN_COMPLETENESS:
             # Chain too incomplete — surface as a warning, not a tracked gap
             prereq_warnings.append({
                 'concept':              concept,
@@ -195,7 +196,10 @@ def next_topic(body: NextTopicRequest):
     }
 
     def _prereqs_satisfied(concept_key: str) -> bool:
-        """All prerequisites of this concept are mastered (not in any gap)."""
+        """All prerequisites of this concept are mastered (not in any gap).
+        get_learning_path returns an ordered chain of prerequisite concepts
+        that must be mastered before the target; the target concept itself is
+        not included in the returned chain."""
         chain = graph.get_learning_path(concept_key)
         for prereq in chain:
             if prereq in gap_concepts:
@@ -232,7 +236,7 @@ def next_topic(body: NextTopicRequest):
     if candidate is None:
         return JSONResponse(
             {'error': 'No suitable next topic found. All gap prerequisites are unmet.'},
-            status_code=200,
+            status_code=404,
         )
 
     node = candidate['node']
@@ -255,8 +259,8 @@ def next_topic(body: NextTopicRequest):
 def save_model(request: Request, body: SaveModelRequest):
     from routes.shared import ctx
 
-    supabase_url = getattr(ctx, 'SUPABASE_URL', '') or ''
-    service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '') or ''
+    supabase_url = getattr(ctx, 'SUPABASE_URL', '')
+    service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
     session      = getattr(ctx, 'session', None)
 
     if not supabase_url or not service_key or not session:
@@ -292,6 +296,6 @@ def save_model(request: Request, body: SaveModelRequest):
                 status_code=502,
             )
         return {'success': True}
-    except Exception as exc:
+    except Exception:
         logger.exception('[tutor/save-model] unexpected error')
-        return JSONResponse({'error': str(exc)}, status_code=500)
+        return JSONResponse({'error': 'Internal server error'}, status_code=500)
