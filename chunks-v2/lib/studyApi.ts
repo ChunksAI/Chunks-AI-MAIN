@@ -483,3 +483,18 @@ export async function fetchNextTopic(
     return null;
   }
 }
+
+// ─── PAEV readiness check ──────────────────────────────────────────────────
+
+/**
+ * Polls whether the PAEV index has finished building for a user-uploaded
+ * document.  Returns true when ready, false otherwise (including on error).
+ */
+export async function checkPaevStatus(bookId: string): Promise<boolean> {
+  try {
+    const res = await apiGet<{ ready: boolean }>(`/tutor/paev-status?book_id=${encodeURIComponent(bookId)}`);
+    return res.ready === true;
+  } catch {
+    return false;
+  }
+}

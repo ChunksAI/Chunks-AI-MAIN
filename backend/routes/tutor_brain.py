@@ -414,3 +414,20 @@ def save_model(request: Request, body: SaveModelRequest):
     except Exception:
         logger.exception('[tutor/save-model] unexpected error')
         return JSONResponse({'error': 'Internal server error'}, status_code=500)
+
+
+# ── GET /tutor/paev-status ────────────────────────────────────────────────────
+
+@router.get('/paev-status')
+def paev_status(book_id: str):
+    """Return whether the PAEV index has been built for a user-uploaded document."""
+    from routes.shared import ctx
+    redis = getattr(ctx, 'redis', None)
+    if redis is not None:
+        try:
+            val = redis.get(f'paev_ready:{book_id}')
+            if val == '1' or val == b'1':
+                return {'ready': True}
+        except Exception:
+            logger.warning('[tutor/paev-status] redis error for %s', book_id)
+    return {'ready': False}
