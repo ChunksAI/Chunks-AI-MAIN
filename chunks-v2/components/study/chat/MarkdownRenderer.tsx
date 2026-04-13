@@ -211,6 +211,20 @@ function preprocessLatex(text: string): string {
     .replace(/\\\)/g, '$');
 }
 
+/**
+ * Single preprocessing pipeline for all content transformations applied
+ * before the string is handed to <Markdown>.
+ *
+ * Stages (in order):
+ *  1. LaTeX bracket-to-dollar normalisation  → preprocessLatex
+ *
+ * Add new text-level transforms here so callers never need to know about
+ * individual preprocessing steps.
+ */
+function preprocessContent(text: string): string {
+  return preprocessLatex(text);
+}
+
 function MarkdownRenderer({ content }: MarkdownRendererProps) {
   if (!content || typeof content !== 'string' || content.trim() === '') {
     return null;
@@ -227,7 +241,7 @@ function MarkdownRenderer({ content }: MarkdownRendererProps) {
         ]}
         components={components}
       >
-        {preprocessLatex(content)}
+        {preprocessContent(content)}
       </Markdown>
     </div>
   );
