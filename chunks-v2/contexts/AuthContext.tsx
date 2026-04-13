@@ -197,10 +197,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return process.env.NEXT_PUBLIC_API_URL ?? 'https://api.chunks.online';
   });
 
-  // Restore guest mode from sessionStorage after mount (avoids SSR/hydration mismatch)
+  // Restore guest mode from sessionStorage after mount (avoids SSR/hydration mismatch).
+  // Also re-set the cookie so that an expired 24-hour cookie doesn't leave the user
+  // stuck: the middleware only reads the cookie, so refreshing it here ensures
+  // subsequent navigations to protected routes pass through correctly.
   useEffect(() => {
     try {
-      setGuestMode(sessionStorage.getItem('chunks_guest_mode') === '1');
+      if (sessionStorage.getItem('chunks_guest_mode') === '1') {
+        document.cookie = 'chunks_guest=1; path=/; max-age=86400; SameSite=Lax';
+        setGuestMode(true);
+      }
     } catch { /* sessionStorage may be unavailable in private browsing or restricted environments */ }
   }, []);
 
