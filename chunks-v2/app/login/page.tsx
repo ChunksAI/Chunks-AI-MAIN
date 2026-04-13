@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getSupabaseClient } from '@/lib/supabaseClient';
+import ChunksLogo from '@/components/shared/ChunksLogo';
 
 /**
  * app/login/page.tsx — authentication page
@@ -96,12 +97,7 @@ export default function LoginPage() {
         {/* ── Logo ── */}
         <div className="login-logo">
           <div className="logo-mark" style={{ width: 36, height: 36 }}>
-            <svg viewBox="0 0 14 14" fill="none">
-              <rect x="1" y="1" width="5" height="5" rx="1.5" fill="white" />
-              <rect x="8" y="1" width="5" height="5" rx="1.5" fill="white" opacity="0.6" />
-              <rect x="1" y="8" width="5" height="5" rx="1.5" fill="white" opacity="0.6" />
-              <rect x="8" y="8" width="5" height="5" rx="1.5" fill="white" opacity="0.3" />
-            </svg>
+            <ChunksLogo size={36} />
           </div>
           <span
             style={{

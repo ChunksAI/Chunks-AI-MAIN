@@ -3,11 +3,13 @@ backend/routes/health.py — Health and config endpoints.
 
 Endpoints
 ---------
-GET  /             Home / index
-GET  /ping         Liveness check (no AI call)
-GET  /health       Full status report
-GET  /api/config   Public Supabase config for the frontend
-GET  /api/me/plan  Authenticated user's plan, limits, and usage
+GET  /                  Home / index
+GET  /ping              Liveness check (no AI call)
+GET  /health            Full status report
+GET  /api/config        Public Supabase config for the frontend
+GET  /api/plan-limits   Plan limits for all tiers (public)
+GET  /api/me/plan       Authenticated user's plan, limits, and usage
+POST /api/verify-access Authenticated user's tier + admin/owner status (called on login)
 """
 from __future__ import annotations
 
@@ -108,4 +110,37 @@ def get_my_plan(request: Request):
         'plan':    tier_str,
         'limits':  limits,
         'usage':   usage,
+    }
+
+
+@router.post('/api/verify-access')
+def verify_access(request: Request):
+    """Return the authenticated user's plan tier and admin/owner status.
+
+    Called by the frontend immediately after Google/email sign-in to
+    determine the user's subscription tier and privilege level.
+
+    Requires a valid Supabase JWT in the Authorization header.
+    Returns 401 if no valid token is provided.
+    """
+    from services.auth import _extract_verified_user, _get_user_info_from_db
+
+    user_id, tier, is_exempt = _extract_verified_user(request)
+
+    # Unauthenticated (IP-based) users get a 401
+    if user_id.startswith('ip:'):
+        return JSONResponse({'success': False, 'error': 'Authentication required'}, status_code=401)
+
+    _, db_role = _get_user_info_from_db(user_id)
+    # The tier from _extract_verified_user (which called _get_user_info_from_db
+    # internally) is used for the response; the second DB call above is only to
+    # retrieve the role string which _extract_verified_user does not expose.
+
+    tier_str = tier.value if hasattr(tier, 'value') else str(tier).lower()
+
+    return {
+        'tier':     tier_str,
+        'role':     db_role,
+        'is_owner': db_role == 'owner',
+        'is_admin': is_exempt,
     }

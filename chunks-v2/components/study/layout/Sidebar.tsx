@@ -8,6 +8,7 @@ import { useSettings } from '@/contexts/SettingsContext';
 import Toast from '@/components/shared/Toast';
 import { SIDEBAR_COMPACT_KEY } from '@/lib/constants';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
+import ChunksLogo from '@/components/shared/ChunksLogo';
 import type { ConceptStatus } from '@/hooks/useTutorBrain';
 
 interface SidebarProps {
@@ -218,12 +219,7 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
       <div className="sidebar-header">
         <div className="logo">
           <div className="logo-mark">
-            <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <ellipse cx="50" cy="50" rx="36" ry="12" stroke="currentColor" strokeWidth="6" opacity="0.95"/>
-              <ellipse cx="50" cy="50" rx="36" ry="12" stroke="currentColor" strokeWidth="6" transform="rotate(60 50 50)" opacity="0.88"/>
-              <ellipse cx="50" cy="50" rx="36" ry="12" stroke="currentColor" strokeWidth="6" transform="rotate(120 50 50)" opacity="0.80"/>
-              <circle cx="50" cy="50" r="6" fill="currentColor"/>
-            </svg>
+              <ChunksLogo size={22} />
           </div>
           <span className="logo-name">Chunks</span>
         </div>
