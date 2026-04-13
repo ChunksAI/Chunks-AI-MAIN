@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStudy } from '@/contexts/StudyContext';
+import { useTutorBrain } from '@/hooks/useTutorBrain';
 import type { QuizResult } from '@/types';
 import { PASS_THRESHOLD } from '@/lib/constants';
 
@@ -20,9 +22,19 @@ interface QuizResultsProps {
  *   ≥ 80%  → 🎓 Take Exam (navigates to /exam)
  */
 export default function QuizResults({ result, onRetry, onReview, onClose }: QuizResultsProps) {
-  const { score, correctAnswers, totalQuestions, topic } = result;
+  const { score, correctAnswers, totalQuestions, topic, wrongAnswers } = result;
   const router = useRouter();
   const { dispatch } = useStudy();
+  const { tbRecordQuizResult, tbRecordMastery } = useTutorBrain();
+
+  // Record quiz result once when this component mounts (= quiz just finished)
+  useEffect(() => {
+    tbRecordQuizResult(topic, score, wrongAnswers ?? []);
+    if (score >= 80) {
+      tbRecordMastery(topic);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const color =
     score >= PASS_THRESHOLD ? 'var(--accent2)' : score >= 50 ? 'var(--accent)' : 'var(--danger)';

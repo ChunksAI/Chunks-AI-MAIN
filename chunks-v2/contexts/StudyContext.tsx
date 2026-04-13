@@ -1626,6 +1626,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     const correct = answers.filter((a) => a.isCorrect).length;
     const score = Math.round((correct / activeQuiz.questions.length) * 100);
 
+    const wrongAnswers = activeQuiz.questions
+      .filter((_, i) => !answers[i]?.isCorrect)
+      .map((q) => q.question);
+
     const result: QuizResult = {
       quizId: activeQuiz.id,
       quizTitle: activeQuiz.title,
@@ -1635,6 +1639,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       answers,
       completedAt: new Date().toISOString(),
       topic: topic || activeQuiz.title,
+      wrongAnswers,
     };
 
     dispatch({ type: 'QUIZ_COMPLETED', payload: result });
