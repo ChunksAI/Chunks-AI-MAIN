@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import ChunksLogo from '@/components/shared/ChunksLogo';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
@@ -16,12 +17,7 @@ export default function TermsPage() {
         <header className="legal-header">
           <Link href="/" className="legal-logo">
             <div className="logo-mark" style={{ width: 32, height: 32 }}>
-              <svg viewBox="0 0 14 14" fill="none">
-                <rect x="1" y="1" width="5" height="5" rx="1.5" fill="white" />
-                <rect x="8" y="1" width="5" height="5" rx="1.5" fill="white" opacity="0.6" />
-                <rect x="1" y="8" width="5" height="5" rx="1.5" fill="white" opacity="0.6" />
-                <rect x="8" y="8" width="5" height="5" rx="1.5" fill="white" opacity="0.3" />
-              </svg>
+              <ChunksLogo size={32} />
             </div>
             <span style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 500 }}>
               Chunks
