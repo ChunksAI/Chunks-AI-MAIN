@@ -140,7 +140,10 @@ export default function ChatPanel() {
     handleUploadDocument,
     handleStop,
   } = useStudy();
-  const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, thinkingMode } = state;
+  const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, thinkingMode, pdfBlobUrl, slides, uploadLoading, uploadError } = state;
+
+  // Banner is shown when no document is present and not in the middle of uploading
+  const hasDocument = !!(pdfBlobUrl || slides.length > 0 || uploadLoading);
 
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -247,6 +250,18 @@ export default function ChatPanel() {
         onChange={handleFileChange}
       />
 
+      {/* ── Document upload banner (only when no document is loaded) ── */}
+      {!hasDocument && (
+        <div className="doc-banner">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0, color: 'var(--text3)' }}>
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+          </svg>
+          <span>Attach a PDF to study from your document</span>
+          <button className="doc-banner-btn" onClick={handleAttach}>Attach PDF</button>
+          {uploadError && <span className="doc-banner-error">⚠️ {uploadError}</span>}
+        </div>
+      )}
+
       {/* ── Memory context bar ── */}
       {showMemoryBar && (
         <div className="memory-bar">
@@ -271,41 +286,44 @@ export default function ChatPanel() {
 
       {/* ── Message list ── */}
       <div className="chat-messages">
-        {messages.length === 0 && !chatLoading && (
-          <div className="chat-empty">
-            <div style={{ fontSize: 32, marginBottom: 12 }}>💬</div>
-            <div style={{ fontWeight: 500, marginBottom: 6 }}>Start a conversation</div>
-            <div style={{ color: 'var(--text3)', fontSize: 13 }}>
-              Ask anything about your study material, or use the quick actions below.
+        <div className="chat-col">
+          {messages.length === 0 && !chatLoading && (
+            <div className="chat-empty">
+              <div style={{ fontSize: 32, marginBottom: 12 }}>💬</div>
+              <div style={{ fontWeight: 500, marginBottom: 6 }}>Start a conversation</div>
+              <div style={{ color: 'var(--text3)', fontSize: 13 }}>
+                Ask anything about your study material, or use the quick actions below.
+              </div>
             </div>
-          </div>
-        )}
-        {messages.map((msg, idx) => {
-          const isLastMessage = idx === messages.length - 1;
-          const isStreaming = chatLoading && isLastMessage && msg.role === 'ai';
-          return (
-            <MessageBubble
-              key={msg.id}
-              msg={msg}
-              onActionClick={handleActionClick}
-              isStreaming={isStreaming}
-            />
-          );
-        })}
-        {/* Typing indicator: show when loading but no AI text yet */}
-        {chatLoading && (
-          messages.length === 0 ||
-          messages[messages.length - 1]?.role === 'user' ||
-          (messages[messages.length - 1]?.role === 'ai' && !messages[messages.length - 1]?.text.trim())
-        ) ? (
-          <TypingIndicator />
-        ) : null}
-        <div ref={sentinelRef} />
+          )}
+          {messages.map((msg, idx) => {
+            const isLastMessage = idx === messages.length - 1;
+            const isStreaming = chatLoading && isLastMessage && msg.role === 'ai';
+            return (
+              <MessageBubble
+                key={msg.id}
+                msg={msg}
+                onActionClick={handleActionClick}
+                isStreaming={isStreaming}
+              />
+            );
+          })}
+          {/* Typing indicator: show when loading but no AI text yet */}
+          {chatLoading && (
+            messages.length === 0 ||
+            messages[messages.length - 1]?.role === 'user' ||
+            (messages[messages.length - 1]?.role === 'ai' && !messages[messages.length - 1]?.text.trim())
+          ) ? (
+            <TypingIndicator />
+          ) : null}
+          <div ref={sentinelRef} />
+        </div>
       </div>
 
       {/* ── Input area ── */}
       <div className="chat-input-area">
-        <div className="input-container">
+        <div className="chat-col">
+          <div className="input-container">
           <div className="quick-actions">
             {QUICK_ACTIONS.map((label) => (
               <button key={label} className="quick-btn" onClick={() => handleQuickAction(label)}>
@@ -423,6 +441,7 @@ export default function ChatPanel() {
               )}
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>
