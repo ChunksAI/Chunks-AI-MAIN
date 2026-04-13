@@ -10,6 +10,27 @@ import MessageActions from '@/components/study/chat/MessageActions';
 import { resolveStudyTopic, cleanTopic } from '@/lib/topicFallback';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
 
+const GAP_MARKER = 'Check your understanding →';
+
+/**
+ * Splits markdown text at the "Check your understanding →" label so the
+ * CTA section can be wrapped in a styled callout block.
+ * Returns null when the marker is not present.
+ */
+function splitAtGapMarker(text: string): { mainText: string; ctaText: string } | null {
+  const idx = text.indexOf(GAP_MARKER);
+  if (idx === -1) return null;
+  // Walk back to the start of the line that contains the marker
+  let lineStart = idx;
+  while (lineStart > 0 && text[lineStart - 1] !== '\n') {
+    lineStart--;
+  }
+  return {
+    mainText: text.slice(0, lineStart).trimEnd(),
+    ctaText:  text.slice(lineStart),
+  };
+}
+
 const STRUGGLE_PHRASES = [
   "i don't understand",
   "i don't get",
@@ -82,7 +103,20 @@ function MessageBubble({
     <div className="msg ai">
       <div className="msg-body">
         <div className="msg-bubble">
-          <MarkdownRenderer content={msg.text} />
+          {(() => {
+            const split = !isStreaming ? splitAtGapMarker(msg.text) : null;
+            if (split) {
+              return (
+                <>
+                  {split.mainText && <MarkdownRenderer content={split.mainText} />}
+                  <div className="gap-cta">
+                    <MarkdownRenderer content={split.ctaText} />
+                  </div>
+                </>
+              );
+            }
+            return <MarkdownRenderer content={msg.text} />;
+          })()}
           {isStreaming && msg.text.trim() && <span className="streaming-dot" aria-hidden="true" />}
           {!isStreaming && !msg.text.trim() && (
             <span className="msg-empty-response">
