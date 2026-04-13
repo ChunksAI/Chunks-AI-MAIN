@@ -99,3 +99,82 @@ def test_api_me_plan_pro_user(client, monkeypatch):
     data = resp.json()
     assert data['plan'] == 'pro'
     assert data['limits']['daily_messages'] == -1
+
+
+# ── POST /api/verify-access ───────────────────────────────────────────────────
+
+def test_api_verify_access_unauthenticated(client, mock_extract_user):
+    """POST /api/verify-access without auth returns 401."""
+    resp = client.post('/api/verify-access')
+    assert resp.status_code == 401
+    data = resp.json()
+    assert data['success'] is False
+
+
+def test_api_verify_access_free_user(client, monkeypatch):
+    """POST /api/verify-access for a free user returns correct tier and flags."""
+    import services.auth as auth_svc
+    from services.auth import Tier
+    monkeypatch.setattr(auth_svc, '_extract_verified_user',
+                        MagicMock(return_value=('user-123', Tier.FREE, False)))
+    monkeypatch.setattr(auth_svc, '_get_user_info_from_db',
+                        MagicMock(return_value=(Tier.FREE, '')))
+
+    resp = client.post('/api/verify-access')
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['tier'] == 'free'
+    assert data['is_admin'] is False
+    assert data['is_owner'] is False
+    assert data['role'] == ''
+
+
+def test_api_verify_access_pro_user(client, monkeypatch):
+    """POST /api/verify-access for a pro user returns pro tier."""
+    import services.auth as auth_svc
+    from services.auth import Tier
+    monkeypatch.setattr(auth_svc, '_extract_verified_user',
+                        MagicMock(return_value=('user-456', Tier.PRO, False)))
+    monkeypatch.setattr(auth_svc, '_get_user_info_from_db',
+                        MagicMock(return_value=(Tier.PRO, '')))
+
+    resp = client.post('/api/verify-access')
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['tier'] == 'pro'
+    assert data['is_admin'] is False
+    assert data['is_owner'] is False
+
+
+def test_api_verify_access_admin_user(client, monkeypatch):
+    """POST /api/verify-access for an admin user returns is_admin=True."""
+    import services.auth as auth_svc
+    from services.auth import Tier
+    monkeypatch.setattr(auth_svc, '_extract_verified_user',
+                        MagicMock(return_value=('user-789', Tier.PRO, True)))
+    monkeypatch.setattr(auth_svc, '_get_user_info_from_db',
+                        MagicMock(return_value=(Tier.PRO, 'admin')))
+
+    resp = client.post('/api/verify-access')
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['is_admin'] is True
+    assert data['is_owner'] is False
+    assert data['role'] == 'admin'
+
+
+def test_api_verify_access_owner_user(client, monkeypatch):
+    """POST /api/verify-access for an owner returns is_admin=True and is_owner=True."""
+    import services.auth as auth_svc
+    from services.auth import Tier
+    monkeypatch.setattr(auth_svc, '_extract_verified_user',
+                        MagicMock(return_value=('user-999', Tier.PRO, True)))
+    monkeypatch.setattr(auth_svc, '_get_user_info_from_db',
+                        MagicMock(return_value=(Tier.PRO, 'owner')))
+
+    resp = client.post('/api/verify-access')
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['is_admin'] is True
+    assert data['is_owner'] is True
+    assert data['role'] == 'owner'
