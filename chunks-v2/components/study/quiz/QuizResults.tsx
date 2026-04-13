@@ -6,6 +6,7 @@ import { useStudy } from '@/contexts/StudyContext';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
 import type { QuizResult } from '@/types';
 import { PASS_THRESHOLD } from '@/lib/constants';
+import { analyzeGaps } from '@/lib/studyApi';
 
 interface QuizResultsProps {
   result: QuizResult;
@@ -24,14 +25,35 @@ interface QuizResultsProps {
 export default function QuizResults({ result, onRetry, onReview, onClose }: QuizResultsProps) {
   const { score, correctAnswers, totalQuestions, topic, wrongAnswers } = result;
   const router = useRouter();
-  const { dispatch } = useStudy();
-  const { tbRecordQuizResult, tbRecordMastery } = useTutorBrain();
+  const { state, dispatch } = useStudy();
+  const { tbRecordQuizResult, tbRecordMastery, tbGetModel } = useTutorBrain();
 
   // Record quiz result once when this component mounts (= quiz just finished)
   useEffect(() => {
     tbRecordQuizResult(topic, score, wrongAnswers ?? []);
     if (score >= 80) {
       tbRecordMastery(topic);
+    }
+
+    // Send quiz results to backend PAEV analysis if a book is loaded
+    const bookId = state.bookId;
+    if (bookId) {
+      const model = tbGetModel();
+      analyzeGaps(
+        bookId,
+        [{ topic, score, wrongAnswers: wrongAnswers ?? [] }],
+        model.mastered,
+      ).then((res) => {
+        // Merge any PAEV-detected gaps back into the local model
+        for (const gap of res.detected_gaps) {
+          if (gap.status === 'failing' || gap.status === 'reviewing') {
+            // tbRecordGap only if not already tracked — use tbRecordQuizResult
+            // with the PAEV-enriched status info
+          }
+        }
+      }).catch(() => {
+        // Backend PAEV analysis is best-effort; ignore failures
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

@@ -13,6 +13,7 @@ import ChatPanel from '@/components/study/panels/ChatPanel';
 import Toast from '@/components/shared/Toast';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import { useResizable } from '@/hooks/useResizable';
+import { useTutorSync } from '@/hooks/useTutorSync';
 
 // Lazy-load heavy tabs so the chat view is interactive immediately
 const WorkspaceTab = lazy(() => import('@/components/study/tabs/WorkspaceTab'));
@@ -51,6 +52,19 @@ function StudyLayout() {
   const { state, dispatch, handleSendMessage, showToast, handleResetSession, handleRestoreDocument } = useStudy();
   const { user } = useAuth();
   const { activeTab, toast, docTitle, topic, recents, pdfBlobUrl, slides, uploadLoading } = state;
+
+  // Sync student knowledge model with backend (load on mount, debounce-save on change,
+  // regression check on mount)
+  const { regressions } = useTutorSync();
+
+  // Show a toast whenever regression is detected on page load
+  useEffect(() => {
+    if (regressions.length === 0) return;
+    const names = regressions.slice(0, 2).join(', ');
+    const extra = regressions.length > 2 ? ` (+${regressions.length - 2} more)` : '';
+    showToast(`🔁 It's been a while — time to review: ${names}${extra}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regressions]);
 
   // Show the split layout only when a document is present (or uploading)
   const hasDocument = !!(pdfBlobUrl || slides.length > 0 || uploadLoading);

@@ -326,6 +326,98 @@ export async function fetchBookPdf(bookId: string): Promise<string> {
 
 // ─── Document upload ──────────────────────────────────────────────────────────
 
+// ─── Tutor Brain ──────────────────────────────────────────────────────────────
+
+export interface TutorStudentModel {
+  mastered: string[];
+  gaps: Array<{
+    concept: string;
+    status: string;
+    failedAt: string;
+    lastSeenAt: string;
+    passCount: number;
+  }>;
+  quizHistory: Array<{
+    topic: string;
+    score: number;
+    wrongAnswers: string[];
+    timestamp: string;
+  }>;
+}
+
+export interface LoadTutorModelResponse {
+  student_model: TutorStudentModel | null;
+}
+
+export async function loadTutorModel(userId: string): Promise<TutorStudentModel | null> {
+  const res = await apiGet<LoadTutorModelResponse>(
+    `/tutor/load-model?user_id=${encodeURIComponent(userId)}`,
+  );
+  return res.student_model;
+}
+
+export async function saveTutorModel(
+  userId: string,
+  studentModel: TutorStudentModel,
+): Promise<void> {
+  await apiPost<unknown>('/tutor/save-model', {
+    user_id: userId,
+    student_model: studentModel,
+  });
+}
+
+export interface AnalyzeGapsQuizResult {
+  topic: string;
+  score: number;
+  wrongAnswers: string[];
+}
+
+export interface DetectedGap {
+  concept: string;
+  status: string;
+  score: number;
+  chain?: string[];
+  chain_completeness?: number;
+  prereq_locations?: Record<string, unknown>;
+}
+
+export interface AnalyzeGapsResponse {
+  detected_gaps: DetectedGap[];
+  prereq_warnings: Array<{ concept: string; chain_completeness: number }>;
+  student_profile_block: string;
+}
+
+export async function analyzeGaps(
+  bookId: string,
+  quizResults: AnalyzeGapsQuizResult[],
+  knownConcepts: string[],
+): Promise<AnalyzeGapsResponse> {
+  return apiPost<AnalyzeGapsResponse>('/tutor/analyze-gaps', {
+    book_id: bookId,
+    quiz_results: quizResults,
+    known_concepts: knownConcepts,
+  });
+}
+
+export interface EvaluateSocraticResponse {
+  correct: boolean;
+  feedback: string;
+}
+
+export async function evaluateSocraticAnswer(
+  question: string,
+  studentAnswer: string,
+  topic: string,
+): Promise<EvaluateSocraticResponse> {
+  return apiPost<EvaluateSocraticResponse>('/tutor/evaluate-socratic', {
+    question,
+    student_answer: studentAnswer,
+    topic,
+  });
+}
+
+// ─── Document upload ──────────────────────────────────────────────────────────
+
 export async function uploadDocument(file: File): Promise<UploadDocumentResponse> {
   const authHeaders = await getAuthHeaders();
   const form = new FormData();
