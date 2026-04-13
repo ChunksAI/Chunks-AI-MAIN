@@ -85,6 +85,7 @@ export type QuizResult = {
   answers: QuizAnswer[];
   completedAt: string;     // ISO date string
   topic: string;
+  wrongAnswers: string[];  // question texts for answers that were incorrect
 };
 
 // ─── Memory / Performance ─────────────────────────────────────────────────────

@@ -450,6 +450,7 @@ from routes.image         import router as image_router      # noqa: E402
 from routes.chat          import router as chat_router       # noqa: E402
 from routes.jobs          import router as jobs_router       # noqa: E402
 from routes.share_content import router as share_router      # noqa: E402
+from routes.tutor_brain   import router as tutor_router      # noqa: E402
 
 app.include_router(admin_router)
 app.include_router(health_router)
@@ -462,6 +463,7 @@ app.include_router(chat_router)
 app.include_router(jobs_router)
 app.include_router(share_router)
 app.include_router(youtube_router)
+app.include_router(tutor_router)
 
 # ── PAEV and progress routes ──────────────────────────────────────────────────
 from paev_routes    import register_paev      # noqa: E402

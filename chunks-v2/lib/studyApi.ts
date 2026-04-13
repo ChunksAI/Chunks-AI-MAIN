@@ -97,6 +97,7 @@ export async function sendMessage(params: SendMessageRequest): Promise<SendMessa
     selected_text: params.selected_text ?? '',
     doc_context: params.doc_context ?? '',
     user_memory: params.user_memory ?? '',
+    ...(params.student_profile ? { student_profile: params.student_profile } : {}),
     ...(params.bookId ? { bookId: params.bookId } : {}),
   });
 }
@@ -158,6 +159,7 @@ export async function sendMessageStream(
       doc_context: params.doc_context ?? '',
       user_memory: params.user_memory ?? '',
       bookId: params.bookId ?? '',
+      ...(params.student_profile ? { student_profile: params.student_profile } : {}),
       stream: true,
     }),
     signal,

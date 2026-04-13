@@ -43,6 +43,7 @@ class AskRequest(_LenientBase):
     doc_context: str = ""
     user_memory: str = ""
     task_type: Optional[str] = None
+    student_profile: str = ""
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗

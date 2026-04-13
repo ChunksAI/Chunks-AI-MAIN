@@ -8,6 +8,38 @@ import type { ChatMessage } from '@/types';
 import MarkdownRenderer from '@/components/study/chat/MarkdownRenderer';
 import MessageActions from '@/components/study/chat/MessageActions';
 import { resolveStudyTopic, cleanTopic } from '@/lib/topicFallback';
+import { useTutorBrain } from '@/hooks/useTutorBrain';
+
+const GAP_MARKER = 'Check your understanding →';
+
+/**
+ * Splits markdown text at the "Check your understanding →" label so the
+ * CTA section can be wrapped in a styled callout block.
+ * Returns null when the marker is not present.
+ */
+function splitAtGapMarker(text: string): { mainText: string; ctaText: string } | null {
+  const idx = text.indexOf(GAP_MARKER);
+  if (idx === -1) return null;
+  // Walk back to the start of the line that contains the marker
+  let lineStart = idx;
+  while (lineStart > 0 && text[lineStart - 1] !== '\n') {
+    lineStart--;
+  }
+  return {
+    mainText: text.slice(0, lineStart).trimEnd(),
+    ctaText:  text.slice(lineStart),
+  };
+}
+
+const STRUGGLE_PHRASES = [
+  "i don't understand",
+  "i don't get",
+  "still confused",
+  "explain again",
+  "what does that mean",
+  "lost me",
+  "can you simplify",
+];
 
 const QUICK_ACTIONS = [
   '✦ Explain simply',
@@ -71,7 +103,20 @@ function MessageBubble({
     <div className="msg ai">
       <div className="msg-body">
         <div className="msg-bubble">
-          <MarkdownRenderer content={msg.text} />
+          {(() => {
+            const split = !isStreaming ? splitAtGapMarker(msg.text) : null;
+            if (split) {
+              return (
+                <>
+                  {split.mainText && <MarkdownRenderer content={split.mainText} />}
+                  <div className="gap-cta">
+                    <MarkdownRenderer content={split.ctaText} />
+                  </div>
+                </>
+              );
+            }
+            return <MarkdownRenderer content={msg.text} />;
+          })()}
           {isStreaming && msg.text.trim() && <span className="streaming-dot" aria-hidden="true" />}
           {!isStreaming && !msg.text.trim() && (
             <span className="msg-empty-response">
@@ -156,11 +201,29 @@ export default function ChatPanel() {
       ? `AI remembers: You struggled with ${cleanTopic(weakAreas[0].topic)} (${weakAreas[0].score}%). Let's revisit it.`
       : 'AI remembers: Keep asking questions — I track your weak areas over time.';
 
+  const { tbRecordGap, tbRecordStudying } = useTutorBrain();
+
+  // Derive the topic of the most recent AI response from its first ## heading
+  const lastAiMessage = [...messages].reverse().find((m) => m.role === 'ai' && m.text.trim());
+  const lastTopic = lastAiMessage
+    ? (lastAiMessage.text.split('\n').find((l) => l.trimStart().startsWith('##'))
+        ?.replace(/^#+\s*/, '')
+        .trim() ?? '')
+    : '';
+
   const handleSend = async () => {
     const val = inputValue.trim();
     if (!val || chatLoading) return;
     setInputValue('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
+
+    // Detect struggle phrases and record gap in tutor brain
+    const lower = val.toLowerCase();
+    if (lastTopic && STRUGGLE_PHRASES.some((p) => lower.includes(p))) {
+      tbRecordGap(lastTopic);
+      tbRecordStudying(lastTopic);
+    }
+
     await handleSendMessage(val);
   };
 

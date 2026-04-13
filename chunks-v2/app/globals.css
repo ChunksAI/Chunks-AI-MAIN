@@ -704,6 +704,25 @@ body {
 .perf-bar-fill  { height: 100%; border-radius: 3px; transition: width 1s ease; }
 .perf-pct      { font-size: 11px; font-weight: 600; color: var(--text2); width: 32px; text-align: right; }
 
+/* ─── Gap lifecycle: "Check your understanding" callout ─────────────────────── */
+.gap-cta {
+  margin-top: 14px;
+  padding: 12px 14px;
+  background: var(--accent2-light);
+  border: 1px solid rgba(74, 124, 89, 0.25);
+  border-left: 3px solid var(--accent2);
+  border-radius: var(--radius-sm);
+}
+.gap-cta .md-root .md-p:first-child strong:first-child {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent2);
+  margin-bottom: 4px;
+}
+
 /* ─── Chat Input ─────────────────────────────────────────────────────────────── */
 .chat-input-area {
   padding: 14px 0 16px;

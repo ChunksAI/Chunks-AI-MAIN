@@ -39,6 +39,7 @@ import type {
   RecentItem,
 } from '@/types';
 import { sendMessage, sendMessageStream, generateFlashcards, generateQuiz, uploadDocument, topicToSlides } from '@/lib/studyApi';
+import { buildStudentProfile } from '@/hooks/useTutorBrain';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
 import {
@@ -1336,6 +1337,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             mode: 'study',
             thinking: stateRef.current.thinkingMode,
             bookId: stateRef.current.bookId ?? undefined,
+            student_profile: buildStudentProfile(),
           },
           (chunk: string) => {
             dispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
@@ -1626,6 +1628,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     const correct = answers.filter((a) => a.isCorrect).length;
     const score = Math.round((correct / activeQuiz.questions.length) * 100);
 
+    const wrongAnswers = activeQuiz.questions
+      .filter((_, i) => !answers[i]?.isCorrect)
+      .map((q) => q.question);
+
     const result: QuizResult = {
       quizId: activeQuiz.id,
       quizTitle: activeQuiz.title,
@@ -1635,6 +1641,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       answers,
       completedAt: new Date().toISOString(),
       topic: topic || activeQuiz.title,
+      wrongAnswers,
     };
 
     dispatch({ type: 'QUIZ_COMPLETED', payload: result });
@@ -1697,6 +1704,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         mode: 'study',
         thinking: stateRef.current.thinkingMode,
         bookId: stateRef.current.bookId ?? undefined,
+        student_profile: buildStudentProfile(),
       });
 
       dispatch({ type: 'SET_REVIEW_EXPLANATION', payload: res.answer });
