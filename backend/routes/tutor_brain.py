@@ -253,6 +253,121 @@ def next_topic(body: NextTopicRequest):
     }
 
 
+# ── GET /tutor/load-model ─────────────────────────────────────────────────────
+
+@router.get('/load-model')
+def load_model(user_id: str, request: Request):
+    from routes.shared import ctx
+
+    supabase_url = getattr(ctx, 'SUPABASE_URL', '')
+    service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
+    session      = getattr(ctx, 'session', None)
+
+    if not supabase_url or not service_key or not session:
+        return JSONResponse(
+            {'error': 'Supabase not configured on this server.'},
+            status_code=500,
+        )
+
+    try:
+        resp = session.get(
+            f'{supabase_url}/rest/v1/user_settings'
+            f'?user_id=eq.{user_id}&select=student_knowledge_model',
+            headers={
+                'Authorization': f'Bearer {service_key}',
+                'apikey':        service_key,
+            },
+            timeout=10,
+        )
+        if resp.status_code not in (200, 201, 204):
+            logger.error(
+                f'[tutor/load-model] Supabase query failed: '
+                f'status={resp.status_code} body={resp.text[:200]}'
+            )
+            return JSONResponse(
+                {'error': f'Supabase returned {resp.status_code}'},
+                status_code=502,
+            )
+        rows = resp.json()
+        if not rows:
+            return {'student_model': None}
+
+        raw = rows[0].get('student_knowledge_model')
+        if not raw:
+            return {'student_model': None}
+
+        try:
+            model = json.loads(raw) if isinstance(raw, str) else raw
+        except (json.JSONDecodeError, TypeError):
+            model = None
+
+        return {'student_model': model}
+    except Exception:
+        logger.exception('[tutor/load-model] unexpected error')
+        return JSONResponse({'error': 'Internal server error'}, status_code=500)
+
+
+# ── POST /tutor/evaluate-socratic ─────────────────────────────────────────────
+
+class EvaluateSocraticRequest(BaseModel):
+    question: str
+    student_answer: str
+    topic: str = ''
+
+
+@router.post('/evaluate-socratic')
+def evaluate_socratic(body: EvaluateSocraticRequest):
+    """
+    Ask the AI to evaluate whether a student's answer to a Socratic
+    checking question is correct.
+
+    Returns:
+        { correct: bool, feedback: str }
+    """
+    import importlib
+    try:
+        ai_mod = importlib.import_module('services.ai')
+        call_ai = getattr(ai_mod, 'call_ai', None)
+    except Exception:
+        call_ai = None
+
+    if call_ai is None:
+        return JSONResponse(
+            {'error': 'AI service not available.'},
+            status_code=500,
+        )
+
+    prompt = (
+        f'A student was asked the following checking question:\n'
+        f'"{body.question}"\n\n'
+        f'The student answered:\n'
+        f'"{body.student_answer}"\n\n'
+        f'Evaluate whether the student\'s answer is essentially correct. '
+        f'Reply ONLY with a JSON object in this exact format '
+        f'(no other text): {{"correct": true/false, "feedback": "one sentence"}}'
+    )
+
+    try:
+        raw = call_ai(
+            prompt,
+            system_prompt='You are a helpful tutor evaluating a student answer. Return only valid JSON.',
+            max_tokens_override=200,
+            endpoint='chat',
+        )
+        # Strip markdown code fences if present
+        cleaned = raw.strip()
+        if cleaned.startswith('```'):
+            cleaned = cleaned.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
+        result = json.loads(cleaned)
+        return {
+            'correct':  bool(result.get('correct', False)),
+            'feedback': str(result.get('feedback', '')),
+        }
+    except Exception:
+        logger.exception('[tutor/evaluate-socratic] unexpected error')
+        return JSONResponse({'error': 'Internal server error'}, status_code=500)
+
+
 # ── POST /tutor/save-model ────────────────────────────────────────────────────
 
 @router.post('/save-model')
@@ -299,3 +414,20 @@ def save_model(request: Request, body: SaveModelRequest):
     except Exception:
         logger.exception('[tutor/save-model] unexpected error')
         return JSONResponse({'error': 'Internal server error'}, status_code=500)
+
+
+# ── GET /tutor/paev-status ────────────────────────────────────────────────────
+
+@router.get('/paev-status')
+def paev_status(book_id: str):
+    """Return whether the PAEV index has been built for a user-uploaded document."""
+    from routes.shared import ctx
+    redis = getattr(ctx, 'redis', None)
+    if redis is not None:
+        try:
+            val = redis.get(f'paev_ready:{book_id}')
+            if val == '1' or val == b'1':
+                return {'ready': True}
+        except Exception:
+            logger.warning('[tutor/paev-status] redis error for %s', book_id)
+    return {'ready': False}

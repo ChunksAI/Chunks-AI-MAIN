@@ -38,7 +38,7 @@ import type {
   AnyNote,
   RecentItem,
 } from '@/types';
-import { sendMessage, sendMessageStream, generateFlashcards, generateQuiz, uploadDocument, topicToSlides } from '@/lib/studyApi';
+import { sendMessage, sendMessageStream, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus } from '@/lib/studyApi';
 import { buildStudentProfile } from '@/hooks/useTutorBrain';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
@@ -1583,6 +1583,32 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         type: 'SHOW_TOAST',
         payload: `✅ "${docTitle}" loaded — ${res.total_slides} pages ready`,
       });
+
+      // Poll /tutor/paev-status every 5 s until PAEV is ready for this upload.
+      // Stop after 5 minutes (60 attempts × 5 s) so the interval doesn't run forever.
+      if (res.bookId) {
+        const uploadedBookId = res.bookId;
+        let paevAttempts = 0;
+        const paevPollId = setInterval(async () => {
+          paevAttempts += 1;
+          if (paevAttempts > 60) {
+            clearInterval(paevPollId);
+            return;
+          }
+          try {
+            const ready = await checkPaevStatus(uploadedBookId);
+            if (ready) {
+              clearInterval(paevPollId);
+              dispatch({
+                type: 'SHOW_TOAST',
+                payload: '🧠 Your document is now fully indexed — your tutor just got smarter',
+              });
+            }
+          } catch {
+            // fail silently — polling will retry on next tick
+          }
+        }, 5000);
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Upload failed. Please try again.';
       clearSlidesFromStorage();

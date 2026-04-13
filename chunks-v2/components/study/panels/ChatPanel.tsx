@@ -9,6 +9,7 @@ import MarkdownRenderer from '@/components/study/chat/MarkdownRenderer';
 import MessageActions from '@/components/study/chat/MessageActions';
 import { resolveStudyTopic, cleanTopic } from '@/lib/topicFallback';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
+import { evaluateSocraticAnswer } from '@/lib/studyApi';
 
 const GAP_MARKER = 'Check your understanding →';
 
@@ -195,6 +196,13 @@ export default function ChatPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useAutoScroll([messages, chatLoading]);
 
+  // ── Socratic response tracking ──────────────────────────────────────────────
+  // When the last AI message contains the "Check your understanding →" marker
+  // we know the AI asked a Socratic question.  The next user message is treated
+  // as the student's answer, and after the AI responds we detect correctness.
+  // Whether we're currently waiting for the AI to evaluate a Socratic answer
+  const pendingSocraticRef = useRef<{ question: string; answer: string; topic: string } | null>(null);
+
   // Build memory bar text from real weak areas
   const memoryText =
     weakAreas.length > 0
@@ -211,6 +219,14 @@ export default function ChatPanel() {
         .trim() ?? '')
     : '';
 
+  // Detect if the last AI message contains a Socratic question
+  const lastAiSplit = lastAiMessage && !chatLoading
+    ? splitAtGapMarker(lastAiMessage.text)
+    : null;
+  const lastSocraticQuestion = lastAiSplit?.ctaText
+    ? lastAiSplit.ctaText.replace(/^\s*\*\*Check your understanding →\*\*\s*/i, '').trim()
+    : null;
+
   const handleSend = async () => {
     const val = inputValue.trim();
     if (!val || chatLoading) return;
@@ -224,7 +240,35 @@ export default function ChatPanel() {
       tbRecordStudying(lastTopic);
     }
 
+    // If the last AI message had a Socratic question, mark this as the student's answer
+    if (lastSocraticQuestion && lastTopic) {
+      pendingSocraticRef.current = {
+        question: lastSocraticQuestion,
+        answer: val,
+        topic: lastTopic,
+      };
+    }
+
     await handleSendMessage(val);
+
+    // After the AI has responded, evaluate the Socratic answer (fire-and-forget)
+    if (pendingSocraticRef.current) {
+      const pending = pendingSocraticRef.current;
+      pendingSocraticRef.current = null;
+      evaluateSocraticAnswer(pending.question, pending.answer, pending.topic)
+        .then((res) => {
+          if (res.correct) {
+            // Correct → promote from failing → reviewing (or reviewing → recovering)
+            tbRecordStudying(pending.topic);
+          } else {
+            // Incorrect → ensure concept is tracked as a gap
+            tbRecordGap(pending.topic);
+          }
+        })
+        .catch(() => {
+          // Best-effort — silently ignore evaluation failures
+        });
+    }
   };
 
   const handleStopClick = () => {

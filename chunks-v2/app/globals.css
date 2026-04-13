@@ -140,7 +140,8 @@ body {
   width: 56px;
   min-width: 56px;
 }
-.sidebar.collapsed .logo-name { display: none; }
+.sidebar.collapsed .logo { display: none; }
+.sidebar.collapsed .sidebar-header { justify-content: center; }
 .sidebar.collapsed .new-chat-btn {
   width: calc(100% - 16px);
   margin: 14px 8px 8px;
@@ -256,6 +257,57 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ── Your progress section ───────────────────────────────────────────────── */
+.progress-section {
+  border-top: 1px solid var(--border);
+  padding: 6px 8px;
+}
+.sidebar.collapsed .progress-section { display: none; }
+
+.progress-section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; background: none; border: none; cursor: pointer;
+  padding: 4px 2px 6px;
+  color: var(--text2);
+}
+.progress-section-header:hover { color: var(--text); }
+
+.progress-section-body { padding-bottom: 4px; }
+
+.progress-empty {
+  font-size: 11.5px;
+  color: var(--text3);
+  padding: 2px 2px 4px;
+  line-height: 1.5;
+}
+
+.progress-pills-row {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  margin-bottom: 5px;
+}
+
+.gap-pill {
+  display: inline-flex; align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px; font-weight: 500;
+  line-height: 1.6;
+  white-space: nowrap;
+  max-width: 130px;
+  overflow: hidden; text-overflow: ellipsis;
+  cursor: default;
+  border: none;
+}
+.gap-pill--failing   { background: var(--danger-light);  color: var(--danger);  cursor: pointer; }
+.gap-pill--reviewing { background: var(--accent-light);  color: var(--accent);  cursor: pointer; }
+.gap-pill--recovering{ background: var(--blue-light);    color: var(--blue);    cursor: pointer; }
+.gap-pill--regressed { background: var(--bg3);           color: var(--text3);   cursor: pointer; }
+.gap-pill--mastered  { background: var(--accent2-light); color: var(--accent2); }
+.gap-pill--failing:hover,
+.gap-pill--reviewing:hover,
+.gap-pill--recovering:hover,
+.gap-pill--regressed:hover { opacity: 0.8; }
 
 .sidebar-footer {
   padding: 12px 10px;
@@ -1388,6 +1440,7 @@ body {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
+  width: 100%;
   background: var(--bg);
   padding: 24px;
 }
@@ -2494,6 +2547,7 @@ body {
 .legal-page {
   min-height: 100vh;
   height: auto;
+  width: 100%;
   background: var(--bg);
   overflow-y: auto;
 }

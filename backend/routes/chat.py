@@ -180,12 +180,31 @@ def ask(request: Request, body: AskRequest):
         else:
             selected_model = route_for_mode(mode, complexity)
 
-        # User-uploaded document: skip textbook index entirely
+        # User-uploaded document: skip textbook index entirely —
+        # unless PAEV has finished indexing it, in which case treat it
+        # like a built-in book so the full PAEV pipeline is active.
         if doc_context:
-            context, similarity, is_relevant, source, all_sources = doc_context, 1.0, True, None, []
-            searcher     = TextbookSearch()
-            use_textbook = False
-            logger.info(f"User doc mode — context length: {len(doc_context)}")
+            paev_ready = False
+            try:
+                redis = getattr(ctx, 'redis', None)
+                if redis is not None:
+                    paev_ready = redis.get(f'paev_ready:{book_id}') in ('1', b'1')
+            except Exception:
+                pass
+
+            if paev_ready:
+                # PAEV index is ready for this upload — switch to textbook-search
+                # mode so the full PAEV pipeline (gap analysis, prereq graph, etc.)
+                # is active.  context/similarity/is_relevant start empty; the
+                # searcher.smart_search() path below will populate them.
+                use_textbook = True
+                context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
+                logger.info(f"User doc PAEV active — switching to textbook mode for book {book_id}")
+            else:
+                context, similarity, is_relevant, source, all_sources = doc_context, 1.0, True, None, []
+                searcher     = TextbookSearch()
+                use_textbook = False
+                logger.info(f"User doc mode — context length: {len(doc_context)}")
         else:
             searcher     = get_book_index(book_id)
             use_textbook = should_search_textbook(question, chunks_loaded=bool(searcher.chunks))

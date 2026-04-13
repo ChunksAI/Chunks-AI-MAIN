@@ -7,6 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import Toast from '@/components/shared/Toast';
 import { SIDEBAR_COMPACT_KEY } from '@/lib/constants';
+import { useTutorBrain } from '@/hooks/useTutorBrain';
+import type { ConceptStatus } from '@/hooks/useTutorBrain';
 
 interface SidebarProps {
   activeNav: string;
@@ -16,6 +18,8 @@ interface SidebarProps {
   recents?: RecentItem[];
   /** Called when the user clicks a recent session item. */
   onRecentClick?: (item: RecentItem) => void;
+  /** Optional: fires a chat message (only available inside StudyProvider). */
+  onSendMessage?: (text: string) => void;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -41,12 +45,22 @@ function NavIcon({ id }: { id: string }) {
   }
 }
 
-export default function Sidebar({ activeNav, onNavChange, onNewSession, recents = [], onRecentClick }: SidebarProps) {
+export default function Sidebar({ activeNav, onNavChange, onNewSession, recents = [], onRecentClick, onSendMessage }: SidebarProps) {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { openSettings } = useSettings();
 
   const [collapsed, setCollapsed] = useState<boolean>(false);
+
+  // ── Tutor brain ────────────────────────────────────────────────────────────
+  const { model } = useTutorBrain();
+  const [, setModelTick] = useState(0);
+
+  useEffect(() => {
+    function handleModelChanged() { setModelTick((n: number) => n + 1); }
+    window.addEventListener('chunks:model-changed', handleModelChanged);
+    return () => window.removeEventListener('chunks:model-changed', handleModelChanged);
+  }, []);
 
   // Load collapsed state from localStorage after mount to avoid SSR/hydration mismatch
   useEffect(() => {
@@ -67,6 +81,7 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [progressOpen, setProgressOpen] = useState(true);
 
   // Study Plan "coming soon" modal state
   const [showStudyPlanModal, setShowStudyPlanModal] = useState(false);
@@ -141,6 +156,16 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
   const displayName = user
     ? (user.isGuest ? 'Guest' : user.name || user.email)
     : 'Guest';
+
+  function gapPillClass(status: ConceptStatus): string {
+    switch (status) {
+      case 'failing':   return 'gap-pill gap-pill--failing';
+      case 'reviewing': return 'gap-pill gap-pill--reviewing';
+      case 'recovering': return 'gap-pill gap-pill--recovering';
+      case 'regressed': return 'gap-pill gap-pill--regressed';
+      default:          return 'gap-pill gap-pill--regressed';
+    }
+  }
 
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}${menuOpen ? ' menu-open' : ''}`}>
@@ -257,6 +282,58 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
               <span className="recent-title">{r.title}</span>
             </div>
           ))
+        )}
+      </div>
+
+      {/* ── Your progress ── */}
+      <div className="progress-section">
+        <button
+          className="progress-section-header"
+          onClick={() => setProgressOpen((v) => !v)}
+          aria-expanded={progressOpen}
+        >
+          <span className="sidebar-label" style={{ padding: 0 }}>Your progress</span>
+          <svg
+            width="12" height="12" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2"
+            style={{ transform: progressOpen ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform var(--transition)', flexShrink: 0 }}
+          >
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+
+        {progressOpen && (
+          <div className="progress-section-body">
+            {model.gaps.length === 0 && model.mastered.length === 0 ? (
+              <p className="progress-empty">Study something to start tracking your progress.</p>
+            ) : (
+              <>
+                {model.gaps.length > 0 && (
+                  <div className="progress-pills-row">
+                    {model.gaps.map((gap) => (
+                      <button
+                        key={gap.concept}
+                        className={gapPillClass(gap.status)}
+                        onClick={() => onSendMessage?.(`Explain ${gap.concept}`)}
+                        title={`Status: ${gap.status} — click to ask about this concept`}
+                      >
+                        {gap.concept}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {model.mastered.length > 0 && (
+                  <div className="progress-pills-row">
+                    {model.mastered.map((concept) => (
+                      <span key={concept} className="gap-pill gap-pill--mastered">
+                        ✓ {concept}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         )}
       </div>
 

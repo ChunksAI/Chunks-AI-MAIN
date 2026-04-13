@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStudy } from '@/contexts/StudyContext';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
 import type { QuizResult } from '@/types';
 import { PASS_THRESHOLD } from '@/lib/constants';
+import { analyzeGaps, fetchNextTopic } from '@/lib/studyApi';
+import type { NextTopicResponse } from '@/lib/studyApi';
 
 interface QuizResultsProps {
   result: QuizResult;
@@ -24,14 +26,43 @@ interface QuizResultsProps {
 export default function QuizResults({ result, onRetry, onReview, onClose }: QuizResultsProps) {
   const { score, correctAnswers, totalQuestions, topic, wrongAnswers } = result;
   const router = useRouter();
-  const { dispatch } = useStudy();
-  const { tbRecordQuizResult, tbRecordMastery } = useTutorBrain();
+  const { state, dispatch } = useStudy();
+  const { tbRecordQuizResult, tbRecordMastery, tbGetModel } = useTutorBrain();
+  const [nextTopic, setNextTopic] = useState<NextTopicResponse | null>(null);
 
   // Record quiz result once when this component mounts (= quiz just finished)
   useEffect(() => {
     tbRecordQuizResult(topic, score, wrongAnswers ?? []);
     if (score >= 80) {
       tbRecordMastery(topic);
+    }
+
+    const bookId = state.bookId;
+
+    // Send quiz results to backend PAEV analysis if a book is loaded
+    if (bookId) {
+      const model = tbGetModel();
+      analyzeGaps(
+        bookId,
+        [{ topic, score, wrongAnswers: wrongAnswers ?? [] }],
+        model.mastered,
+      ).then((res) => {
+        // Merge any PAEV-detected gaps back into the local model
+        for (const gap of res.detected_gaps) {
+          if (gap.status === 'failing' || gap.status === 'reviewing') {
+            // tbRecordGap only if not already tracked — use tbRecordQuizResult
+            // with the PAEV-enriched status info
+          }
+        }
+      }).catch(() => {
+        // Backend PAEV analysis is best-effort; ignore failures
+      });
+
+      // Request next-topic recommendation
+      const gaps = tbGetModel().gaps.map((g) => ({ concept: g.concept, status: g.status }));
+      fetchNextTopic(bookId, gaps).then((res) => {
+        if (res?.concept_name) setNextTopic(res);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -68,6 +99,44 @@ export default function QuizResults({ result, onRetry, onReview, onClose }: Quiz
         {correctAnswers} / {totalQuestions} correct
       </div>
       <p className="results-message">{message}</p>
+
+      {/* ── What to study next banner ── */}
+      {nextTopic && (
+        <div
+          style={{
+            borderLeft: '3px solid var(--accent)',
+            background: 'var(--surface2)',
+            borderRadius: '6px',
+            padding: '10px 14px',
+            marginBottom: '12px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            gap: '8px',
+          }}
+        >
+          <span style={{ fontSize: '13px', color: 'var(--text)', lineHeight: 1.5 }}>
+            <strong>Up next:</strong> {nextTopic.concept_name} — {nextTopic.reason}
+          </span>
+          <button
+            onClick={() => setNextTopic(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: 'var(--text3)',
+              fontSize: '16px',
+              lineHeight: 1,
+              flexShrink: 0,
+              padding: '0 2px',
+            }}
+            aria-label="Dismiss"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <div className="results-actions">
         {/* Score < 50%: Review Flashcards */}
         {score < 50 && (

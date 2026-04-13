@@ -56,6 +56,8 @@ function saveModel(model: StudentModel): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(model));
+    // Notify any listeners (e.g. useTutorSync) that the model has changed
+    window.dispatchEvent(new CustomEvent('chunks:model-changed'));
   } catch {
     // Ignore quota errors — persistence is best-effort
   }

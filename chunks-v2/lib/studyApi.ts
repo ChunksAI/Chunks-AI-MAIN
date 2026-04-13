@@ -326,6 +326,98 @@ export async function fetchBookPdf(bookId: string): Promise<string> {
 
 // ─── Document upload ──────────────────────────────────────────────────────────
 
+// ─── Tutor Brain ──────────────────────────────────────────────────────────────
+
+export interface TutorStudentModel {
+  mastered: string[];
+  gaps: Array<{
+    concept: string;
+    status: string;
+    failedAt: string;
+    lastSeenAt: string;
+    passCount: number;
+  }>;
+  quizHistory: Array<{
+    topic: string;
+    score: number;
+    wrongAnswers: string[];
+    timestamp: string;
+  }>;
+}
+
+export interface LoadTutorModelResponse {
+  student_model: TutorStudentModel | null;
+}
+
+export async function loadTutorModel(userId: string): Promise<TutorStudentModel | null> {
+  const res = await apiGet<LoadTutorModelResponse>(
+    `/tutor/load-model?user_id=${encodeURIComponent(userId)}`,
+  );
+  return res.student_model;
+}
+
+export async function saveTutorModel(
+  userId: string,
+  studentModel: TutorStudentModel,
+): Promise<void> {
+  await apiPost<unknown>('/tutor/save-model', {
+    user_id: userId,
+    student_model: studentModel,
+  });
+}
+
+export interface AnalyzeGapsQuizResult {
+  topic: string;
+  score: number;
+  wrongAnswers: string[];
+}
+
+export interface DetectedGap {
+  concept: string;
+  status: string;
+  score: number;
+  chain?: string[];
+  chain_completeness?: number;
+  prereq_locations?: Record<string, unknown>;
+}
+
+export interface AnalyzeGapsResponse {
+  detected_gaps: DetectedGap[];
+  prereq_warnings: Array<{ concept: string; chain_completeness: number }>;
+  student_profile_block: string;
+}
+
+export async function analyzeGaps(
+  bookId: string,
+  quizResults: AnalyzeGapsQuizResult[],
+  knownConcepts: string[],
+): Promise<AnalyzeGapsResponse> {
+  return apiPost<AnalyzeGapsResponse>('/tutor/analyze-gaps', {
+    book_id: bookId,
+    quiz_results: quizResults,
+    known_concepts: knownConcepts,
+  });
+}
+
+export interface EvaluateSocraticResponse {
+  correct: boolean;
+  feedback: string;
+}
+
+export async function evaluateSocraticAnswer(
+  question: string,
+  studentAnswer: string,
+  topic: string,
+): Promise<EvaluateSocraticResponse> {
+  return apiPost<EvaluateSocraticResponse>('/tutor/evaluate-socratic', {
+    question,
+    student_answer: studentAnswer,
+    topic,
+  });
+}
+
+// ─── Document upload ──────────────────────────────────────────────────────────
+
 export async function uploadDocument(file: File): Promise<UploadDocumentResponse> {
   const authHeaders = await getAuthHeaders();
   const form = new FormData();
@@ -353,4 +445,56 @@ export async function uploadDocument(file: File): Promise<UploadDocumentResponse
   }
 
   return res.json() as Promise<UploadDocumentResponse>;
+}
+
+// ─── Next topic recommendation ────────────────────────────────────────────────
+
+export interface NextTopicGap {
+  concept: string;
+  status: string;
+}
+
+export interface NextTopicResponse {
+  concept_name: string;
+  chapter: number;
+  page: number;
+  reason: string;
+}
+
+/**
+ * Asks the backend to recommend the next concept to study based on the PAEV
+ * graph and the student's current gap list.
+ *
+ * Returns null if the book has no PAEV index built yet, no gap candidates are
+ * ready, or the request fails for any reason — callers should fail silently.
+ */
+export async function fetchNextTopic(
+  bookId: string,
+  studentGaps: NextTopicGap[],
+  currentPage = 0,
+): Promise<NextTopicResponse | null> {
+  try {
+    return await apiPost<NextTopicResponse>('/tutor/next-topic', {
+      book_id: bookId,
+      current_page: currentPage,
+      student_gaps: studentGaps,
+    });
+  } catch {
+    return null;
+  }
+}
+
+// ─── PAEV readiness check ──────────────────────────────────────────────────
+
+/**
+ * Polls whether the PAEV index has finished building for a user-uploaded
+ * document.  Returns true when ready, false otherwise (including on error).
+ */
+export async function checkPaevStatus(bookId: string): Promise<boolean> {
+  try {
+    const res = await apiGet<{ ready: boolean }>(`/tutor/paev-status?book_id=${encodeURIComponent(bookId)}`);
+    return res.ready === true;
+  } catch {
+    return false;
+  }
 }
