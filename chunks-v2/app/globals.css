@@ -140,7 +140,8 @@ body {
   width: 56px;
   min-width: 56px;
 }
-.sidebar.collapsed .logo-name { display: none; }
+.sidebar.collapsed .logo { display: none; }
+.sidebar.collapsed .sidebar-header { justify-content: center; }
 .sidebar.collapsed .new-chat-btn {
   width: calc(100% - 16px);
   margin: 14px 8px 8px;
