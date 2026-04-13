@@ -8,13 +8,13 @@ Why this exists:
   client-side tricks.
 
 Limits per IP per day (matches frontend guestLimits.js):
-  general   → 10 requests
-  workspace →  5 requests
-  library   →  1 book load
-  studyplan →  1 generation
-  visual    →  1 lesson
-  research  →  1 generation
-  exam      →  1 exam (MCQ only, max 5 questions enforced separately)
+  general   → 1 000 requests
+  workspace → 1 000 requests
+  library   → 1 000 book loads
+  studyplan → 1 000 generations
+  visual    → 1 000 lessons
+  research  → 1 000 generations
+  exam      → 1 000 exams (MCQ only, max 5 questions enforced separately)
 
 Usage in any endpoint:
     from guest_limits import guest_gate, GuestLimitExceeded
@@ -46,13 +46,13 @@ logger = logging.getLogger(__name__)
 
 # ── Per-feature daily limits ───────────────────────────────────────────────────
 GUEST_LIMITS: dict[str, int] = {
-    'general':   10,
-    'workspace':  5,
-    'library':    1,
-    'studyplan':  1,
-    'visual':     1,
-    'research':   1,
-    'exam':       1,
+    'general':   1_000,
+    'workspace': 1_000,
+    'library':   1_000,
+    'studyplan': 1_000,
+    'visual':    1_000,
+    'research':  1_000,
+    'exam':      1_000,
 }
 
 
