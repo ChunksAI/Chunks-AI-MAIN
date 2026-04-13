@@ -8,6 +8,17 @@ import type { ChatMessage } from '@/types';
 import MarkdownRenderer from '@/components/study/chat/MarkdownRenderer';
 import MessageActions from '@/components/study/chat/MessageActions';
 import { resolveStudyTopic, cleanTopic } from '@/lib/topicFallback';
+import { useTutorBrain } from '@/hooks/useTutorBrain';
+
+const STRUGGLE_PHRASES = [
+  "i don't understand",
+  "i don't get",
+  "still confused",
+  "explain again",
+  "what does that mean",
+  "lost me",
+  "can you simplify",
+];
 
 const QUICK_ACTIONS = [
   '✦ Explain simply',
@@ -156,11 +167,29 @@ export default function ChatPanel() {
       ? `AI remembers: You struggled with ${cleanTopic(weakAreas[0].topic)} (${weakAreas[0].score}%). Let's revisit it.`
       : 'AI remembers: Keep asking questions — I track your weak areas over time.';
 
+  const { tbRecordGap, tbRecordStudying } = useTutorBrain();
+
+  // Derive the topic of the most recent AI response from its first ## heading
+  const lastAiMessage = [...messages].reverse().find((m) => m.role === 'ai' && m.text.trim());
+  const lastTopic = lastAiMessage
+    ? (lastAiMessage.text.split('\n').find((l) => l.trimStart().startsWith('##'))
+        ?.replace(/^#+\s*/, '')
+        .trim() ?? '')
+    : '';
+
   const handleSend = async () => {
     const val = inputValue.trim();
     if (!val || chatLoading) return;
     setInputValue('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
+
+    // Detect struggle phrases and record gap in tutor brain
+    const lower = val.toLowerCase();
+    if (lastTopic && STRUGGLE_PHRASES.some((p) => lower.includes(p))) {
+      tbRecordGap(lastTopic);
+      tbRecordStudying(lastTopic);
+    }
+
     await handleSendMessage(val);
   };
 
