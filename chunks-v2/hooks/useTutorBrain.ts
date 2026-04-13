@@ -90,6 +90,45 @@ function trimModel(model: StudentModel): StudentModel {
   };
 }
 
+// ─── Profile builder (standalone, no React) ──────────────────────────────────
+
+/**
+ * Reads the student knowledge model from localStorage and formats it into a
+ * prompt-injection string that can be attached to every AI chat request.
+ *
+ * Format:
+ *   [STUDENT PROFILE]
+ *   Gaps: concept (failing), concept (reviewing)
+ *   Mastered: X, Y, Z
+ *   Low quiz scores: topic (40%)
+ *
+ * Safe to call outside React (e.g. inside useCallback / event handlers).
+ */
+export function buildStudentProfile(): string {
+  const m = trimModel(loadModel());
+
+  const gapsPart =
+    m.gaps.length > 0
+      ? m.gaps.map((g) => `${g.concept} (${g.status})`).join(', ')
+      : 'none';
+
+  const masteredPart = m.mastered.length > 0 ? m.mastered.join(', ') : 'none';
+
+  // Collect most-recent score per topic from quiz history; show only those < 80%
+  const latestByTopic = new Map<string, number>();
+  for (const entry of m.quizHistory) {
+    // Iterating forward means later entries overwrite earlier ones → most recent wins
+    latestByTopic.set(entry.topic, entry.score);
+  }
+  const lowScores = [...latestByTopic.entries()]
+    .filter(([, score]) => score < 80)
+    .map(([topic, score]) => `${topic} (${score}%)`)
+    .join(', ');
+  const lowScoresPart = lowScores || 'none';
+
+  return `[STUDENT PROFILE]\nGaps: ${gapsPart}\nMastered: ${masteredPart}\nLow quiz scores: ${lowScoresPart}`;
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export interface UseTutorBrainResult {

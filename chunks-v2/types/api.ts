@@ -24,6 +24,7 @@ export interface SendMessageRequest {
   doc_context?: string;
   user_memory?: string;
   bookId?: string;
+  student_profile?: string;
 }
 
 export interface GenerateFlashcardsRequest {

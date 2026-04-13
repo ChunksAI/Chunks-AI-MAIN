@@ -39,6 +39,7 @@ import type {
   RecentItem,
 } from '@/types';
 import { sendMessage, sendMessageStream, generateFlashcards, generateQuiz, uploadDocument, topicToSlides } from '@/lib/studyApi';
+import { buildStudentProfile } from '@/hooks/useTutorBrain';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
 import {
@@ -1336,6 +1337,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             mode: 'study',
             thinking: stateRef.current.thinkingMode,
             bookId: stateRef.current.bookId ?? undefined,
+            student_profile: buildStudentProfile(),
           },
           (chunk: string) => {
             dispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
@@ -1702,6 +1704,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         mode: 'study',
         thinking: stateRef.current.thinkingMode,
         bookId: stateRef.current.bookId ?? undefined,
+        student_profile: buildStudentProfile(),
       });
 
       dispatch({ type: 'SET_REVIEW_EXPLANATION', payload: res.answer });
