@@ -446,3 +446,40 @@ export async function uploadDocument(file: File): Promise<UploadDocumentResponse
 
   return res.json() as Promise<UploadDocumentResponse>;
 }
+
+// ─── Next topic recommendation ────────────────────────────────────────────────
+
+export interface NextTopicGap {
+  concept: string;
+  status: string;
+}
+
+export interface NextTopicResponse {
+  concept_name: string;
+  chapter: number;
+  page: number;
+  reason: string;
+}
+
+/**
+ * Asks the backend to recommend the next concept to study based on the PAEV
+ * graph and the student's current gap list.
+ *
+ * Returns null if the book has no PAEV index built yet, no gap candidates are
+ * ready, or the request fails for any reason — callers should fail silently.
+ */
+export async function fetchNextTopic(
+  bookId: string,
+  studentGaps: NextTopicGap[],
+  currentPage = 0,
+): Promise<NextTopicResponse | null> {
+  try {
+    return await apiPost<NextTopicResponse>('/tutor/next-topic', {
+      book_id: bookId,
+      current_page: currentPage,
+      student_gaps: studentGaps,
+    });
+  } catch {
+    return null;
+  }
+}
