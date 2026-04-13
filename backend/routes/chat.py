@@ -104,8 +104,9 @@ def ask(request: Request, body: AskRequest):
         history       = data.get('history', [])
         selected_text = data.get('selected_text', '').strip()[:2000]
         doc_context   = data.get('doc_context', '').strip()[:80000]
-        user_memory   = sanitize_user_memory(data.get('user_memory', ''))
-        task_type     = data.get('task_type', None)
+        user_memory     = sanitize_user_memory(data.get('user_memory', ''))
+        task_type       = data.get('task_type', None)
+        student_profile = data.get('student_profile', '')
 
         # ── Guest IP rate limiting ────────────────────────────────────────────
         if task_type == 'home_general' or mode == 'home_general':
@@ -320,6 +321,10 @@ def ask(request: Request, body: AskRequest):
                 f"{response_style_instruction}"
                 f"{teaching_prompt_instruction}"
             )
+
+        # ── Student profile: gaps, lifecycle statuses, mastered concepts ────────
+        if student_profile:
+            base_system += student_profile
 
         # ── Thinking mode: instruct model to emit chain-of-thought ────────────
         if thinking_mode in ('thinking', 'deep'):
