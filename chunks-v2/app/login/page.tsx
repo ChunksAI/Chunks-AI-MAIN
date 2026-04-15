@@ -14,7 +14,12 @@ import ChunksLogo from '@/components/shared/ChunksLogo';
  *  - Magic Link email sign-in (OTP → check inbox)
  *  - Guest mode (continue without signing in — limited access)
  *
- * If the user is already signed in, they are immediately redirected to /study.
+ * If the user is already signed in they are immediately redirected to the
+ * `?next=` URL param (if present) or /study.
+ *
+ * If the user already has an active guest session (sessionStorage) but their
+ * guest cookie expired, we transparently re-enter guest mode and redirect so
+ * they are never stuck on the login page mid-session.
  */
 export default function LoginPage() {
   const { user, isLoading, enterGuestMode } = useAuth();
@@ -26,12 +31,57 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  // Redirect already-authenticated users
+  /**
+   * Returns the safe same-origin redirect destination from ?next=.
+   * Falls back to /study. Guards against protocol-relative open-redirect
+   * attacks such as `?next=//evil.com` by resolving the value against the
+   * current origin and verifying the resulting origin matches.
+   */
+  function getNextUrl(): string {
+    if (typeof window === 'undefined') return '/study';
+    const next = new URLSearchParams(window.location.search).get('next');
+    if (!next) return '/study';
+    try {
+      const resolved = new URL(next, window.location.origin);
+      if (resolved.origin === window.location.origin) {
+        return resolved.pathname + resolved.search + resolved.hash;
+      }
+    } catch { /* invalid URL — fall through to default */ }
+    return '/study';
+  }
+
+  // Redirect authenticated (real) users, and redirect guest users only when
+  // they arrived here because of a middleware redirect (i.e. a `next` param is
+  // present — meaning their guest cookie expired mid-session).
   useEffect(() => {
-    if (!isLoading && user && !user.isGuest) {
-      router.push('/study');
+    if (isLoading) return;
+    if (!user) return;
+    if (!user.isGuest) {
+      // Fully authenticated — always send them to the intended destination.
+      router.replace(getNextUrl());
+    } else {
+      // Guest user: only redirect if there is a `next` param.  Without one
+      // they navigated to /login intentionally (e.g. to sign in for real).
+      const next = new URLSearchParams(window.location.search).get('next');
+      if (next) {
+        // Use getNextUrl() for the same-origin validation.
+        router.replace(getNextUrl());
+      }
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // If the user still has `chunks_guest_mode` in sessionStorage but the cookie
+  // expired (causing the middleware redirect here), silently re-enter guest
+  // mode and navigate back to where they came from.
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('chunks_guest_mode') === '1') {
+        enterGuestMode();
+        window.location.href = getNextUrl();
+      }
+    } catch { /* sessionStorage unavailable */ }
+  // Only run once on mount — enterGuestMode is stable (useCallback)
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Google OAuth ──────────────────────────────────────────────────────────
   const handleGoogleSignIn = async () => {
@@ -42,7 +92,7 @@ export default function LoginPage() {
       const { error: sbError } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/study`,
+          redirectTo: `${window.location.origin}${getNextUrl()}`,
         },
       });
       if (sbError) throw sbError;
@@ -65,7 +115,7 @@ export default function LoginPage() {
       const { error: sbError } = await sb.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: `${window.location.origin}/study`,
+          emailRedirectTo: `${window.location.origin}${getNextUrl()}`,
         },
       });
       if (sbError) throw sbError;
@@ -78,9 +128,12 @@ export default function LoginPage() {
   };
 
   // ── Guest mode ─────────────────────────────────────────────────────────────
+  // Use window.location.href (hard navigation) so the browser sends the freshly
+  // set guest cookie in the very next request to the middleware — bypassing any
+  // stale Next.js router cache that could otherwise serve a cached redirect.
   const handleGuestMode = () => {
     enterGuestMode();
-    router.push('/study');
+    window.location.href = getNextUrl();
   };
 
   if (isLoading) {

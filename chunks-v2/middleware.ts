@@ -40,7 +40,11 @@ export function middleware(request: NextRequest) {
   // No session — redirect to /login with next= so the user is returned here after sign-in
   const loginUrl = new URL('/login', request.url);
   loginUrl.searchParams.set('next', pathname);
-  return NextResponse.redirect(loginUrl);
+  const redirectResponse = NextResponse.redirect(loginUrl);
+  // Prevent browsers/CDNs from caching this redirect so re-authentication
+  // always produces a fresh middleware check instead of a stale redirect loop.
+  redirectResponse.headers.set('Cache-Control', 'no-store');
+  return redirectResponse;
 }
 
 export const config = {
