@@ -1,3 +1,4 @@
+# Superseded by services/usage.py — kept for reference until migration is verified
 """
 backend/services/device_abuse.py — Per-user, per-device rate limiting.
 

@@ -44,6 +44,7 @@ def _share_url(share_type: str, share_id: str) -> str:
 @router.post("/api/share")
 def create_share(request: Request, body: ShareCreateRequest):
     """Create a shareable link.  Requires a valid JWT."""
+    logger.warning("DEPRECATED: POST /api/share is only called by the legacy /src frontend. Migrate callers to chunks-v2 before removing.")
     try:
         from services.auth import _extract_verified_user
         verified_user_id, _tier, _is_exempt = _extract_verified_user(request)
@@ -74,6 +75,7 @@ def create_share(request: Request, body: ShareCreateRequest):
 @router.get("/api/share/{share_id}")
 def get_share(request: Request, share_id: str):
     """Retrieve share data.  Public — no authentication required."""
+    logger.warning("DEPRECATED: GET /api/share is only called by the legacy /src frontend and public share pages. Migrate callers to chunks-v2 before removing.")
     if not share_id or len(share_id) > 64:
         return JSONResponse({"success": False, "error": "Invalid share ID"}, status_code=400)
 

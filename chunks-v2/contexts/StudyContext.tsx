@@ -10,6 +10,12 @@
  *
  * stateRef pattern: all async callbacks read state through a ref so they
  * never become stale without needing to be in dependency arrays.
+ *
+ * Chat state (messages, chatLoading, chatError, lastUserMessage, thinkingMode)
+ * lives in ChatContext.  Quiz state (activeQuiz, quizResults, weakAreas, etc.)
+ * lives in QuizContext.  Notes/todo state lives in NotesContext.  StudyProvider
+ * consumes all three and merges them into the value it exposes so all existing
+ * useStudy() consumers are backward-compatible without any changes.
  */
 
 import {
@@ -32,12 +38,14 @@ import type {
   QuizResult,
   WeakArea,
   PerformanceEntry,
-  PerformanceBar,
   NoteItem,
   TodoItem,
   AnyNote,
   RecentItem,
 } from '@/types';
+import { useChatContext, type ChatState, type ChatAction } from '@/contexts/ChatContext';
+import { useQuizContext, type QuizState, type QuizAction, calcWeakAreas } from '@/contexts/QuizContext';
+import { useNotesContext, type NotesState, type NotesAction } from '@/contexts/NotesContext';
 import { sendMessage, sendMessageStream, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus } from '@/lib/studyApi';
 import { buildStudentProfile } from '@/hooks/useTutorBrain';
 import { useStudySession } from '@/hooks/useStudySession';
@@ -81,30 +89,19 @@ export interface StudyState {
   uploadLoading: boolean;
   uploadError: string | null;
 
-  messages: ChatMessage[];
-  chatLoading: boolean;
-  chatError: string | null;
-  /** The text of the most recent user message — used for per-message retry. */
-  lastUserMessage: string;
-  /** Active thinking mode sent to the backend on each /ask request. */
-  thinkingMode: null | 'auto' | 'think' | 'deep';
+  // Chat fields (messages, chatLoading, chatError, lastUserMessage, thinkingMode)
+  // are owned by ChatContext.  Quiz fields (activeQuiz, quizResults, weakAreas,
+  // performanceHistory, studyInsights) are owned by QuizContext.  Notes/todos
+  // are owned by NotesContext.  All three are merged into the value exposed by
+  // useStudy() so that existing consumers remain backward-compatible.
 
   workspaceSections: WorkspaceSection[];
   workspaceLoading: boolean;
   workspaceError: string | null;
 
-  activeQuiz: Quiz | null;
-  activeQuizAnswers: string[];
-  quizResults: QuizResult[];
-
-  weakAreas: WeakArea[];
-  performanceHistory: PerformanceEntry[];
-  studyInsights: string | null;
-
   activeTab: TabId;
   toast: string | null;
   showMemoryBar: boolean;
-  notes: AnyNote[];
   recents: RecentItem[];
 
   /** Active personalised review session, null when none is running. */
@@ -150,25 +147,17 @@ export interface RestoreSessionPayload {
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 export type StudyAction =
-  | { type: 'SEND_MESSAGE'; payload: ChatMessage }
-  | { type: 'SET_LAST_USER_MESSAGE'; payload: string }
-  | { type: 'SET_CHAT_LOADING'; payload: boolean }
-  | { type: 'RECEIVE_MESSAGE'; payload: ChatMessage }
-  | { type: 'START_AI_MESSAGE'; payload: ChatMessage }
-  | { type: 'APPEND_MESSAGE_CHUNK'; payload: { id: string; chunk: string } }
-  | { type: 'UPDATE_MESSAGE_META'; payload: { id: string; memoryRecall?: string; performanceBars?: PerformanceBar[] } }
-  | { type: 'REMOVE_MESSAGE'; payload: string }
-  | { type: 'MESSAGE_ERROR'; payload: string }
-  | { type: 'CLEAR_CHAT_ERROR' }
   | { type: 'SET_WORKSPACE_LOADING'; payload: boolean }
   | { type: 'WORKSPACE_ERROR'; payload: string }
   | { type: 'CLEAR_WORKSPACE_ERROR' }
   | { type: 'ADD_WORKSPACE_CARD'; payload: { sectionTitle: string; card: WorkspaceCard } }
   | { type: 'UPDATE_WORKSPACE_CARD'; payload: { cardId: string; updates: Partial<WorkspaceCard> } }
-  | { type: 'START_QUIZ'; payload: Quiz }
-  | { type: 'ANSWER_QUESTION'; payload: { questionIndex: number; answer: string } }
+  /**
+   * QUIZ_COMPLETED remains in StudyAction so the study reducer can update the
+   * workspace card score. The quiz-state update (quizResults, weakAreas, etc.)
+   * is handled by QuizContext's QUIZ_COMPLETED case via quizDispatch.
+   */
   | { type: 'QUIZ_COMPLETED'; payload: QuizResult }
-  | { type: 'CLOSE_QUIZ' }
   | { type: 'START_REVIEW' }
   | { type: 'SET_ACTIVE_TAB'; payload: TabId }
   | { type: 'SHOW_TOAST'; payload: string }
@@ -181,18 +170,11 @@ export type StudyAction =
   | { type: 'SET_UPLOAD_LOADING'; payload: boolean }
   | { type: 'UPLOAD_ERROR'; payload: string }
   | { type: 'CLEAR_UPLOAD_ERROR' }
-  | { type: 'ADD_NOTE'; payload: NoteItem }
-  | { type: 'UPDATE_NOTE'; payload: { id: string; title?: string; content?: string; updatedAt: string } }
-  | { type: 'DELETE_NOTE'; payload: string }
-  | { type: 'ADD_TODO'; payload: TodoItem }
-  | { type: 'TOGGLE_TODO_ITEM'; payload: { noteId: string; itemId: string } }
-  | { type: 'DELETE_TODO'; payload: string }
   | { type: 'ADD_RECENT'; payload: RecentItem }
   | { type: 'SET_BOOK_ID'; payload: string | null }
   | { type: 'SET_BOOK'; payload: { bookId: string; docTitle: string; pdfUrl: string } }
   | { type: 'SET_SESSION_ID'; payload: string }
   | { type: 'SET_RECENTS'; payload: RecentItem[] }
-  | { type: 'SET_THINKING_MODE'; payload: null | 'auto' | 'think' | 'deep' }
   | { type: 'RESET_SESSION' }
   | { type: 'START_REVIEW_SESSION'; payload: { topic: string } }
   | { type: 'SET_REVIEW_STEP'; payload: ReviewStep }
@@ -205,110 +187,10 @@ export type StudyAction =
   | { type: 'END_REVIEW_SESSION' }
   | { type: 'RESTORE_SESSION'; payload: RestoreSessionPayload };
 
-// ─── Weak-area calculation ───────────────────────────────────────────────────
-
-function calcWeakAreas(results: QuizResult[]): WeakArea[] {
-  const map = new Map<string, { totalScore: number; attempts: number; lastAttemptAt: string }>();
-  for (const r of results) {
-    const existing = map.get(r.topic);
-    if (existing) {
-      existing.totalScore += r.score;
-      existing.attempts += 1;
-      if (r.completedAt > existing.lastAttemptAt) existing.lastAttemptAt = r.completedAt;
-    } else {
-      map.set(r.topic, { totalScore: r.score, attempts: 1, lastAttemptAt: r.completedAt });
-    }
-  }
-  const areas: WeakArea[] = [];
-  for (const [topic, data] of map) {
-    const avgScore = data.totalScore / data.attempts;
-    if (avgScore < 70) {
-      areas.push({
-        topic,
-        score: Math.round(avgScore),
-        attempts: data.attempts,
-        lastAttemptAt: data.lastAttemptAt,
-      });
-    }
-  }
-  return areas.sort((a, b) => a.score - b.score);
-}
-
 // ─── Reducer ─────────────────────────────────────────────────────────────────
 
 function studyReducer(state: StudyState, action: StudyAction): StudyState {
   switch (action.type) {
-    case 'SEND_MESSAGE':
-      return {
-        ...state,
-        messages: [...state.messages, action.payload],
-        chatLoading: true,
-        chatError: null,
-        lastUserMessage: action.payload.text,
-      };
-
-    case 'SET_LAST_USER_MESSAGE':
-      return { ...state, lastUserMessage: action.payload };
-
-    case 'SET_CHAT_LOADING':
-      return { ...state, chatLoading: action.payload };
-
-    case 'RECEIVE_MESSAGE':
-      return {
-        ...state,
-        messages: [...state.messages, action.payload],
-        chatLoading: false,
-        chatError: null,
-      };
-
-    case 'START_AI_MESSAGE':
-      // Adds an AI bubble without changing chatLoading — used during streaming
-      // so the loading/stop state remains active while chunks are arriving.
-      return {
-        ...state,
-        messages: [...state.messages, action.payload],
-        chatError: null,
-      };
-
-    case 'APPEND_MESSAGE_CHUNK': {
-      const messages = state.messages.map((m) =>
-        m.id === action.payload.id
-          ? { ...m, text: m.text + action.payload.chunk }
-          : m,
-      );
-      return { ...state, messages };
-    }
-
-    case 'UPDATE_MESSAGE_META': {
-      const messages = state.messages.map((m) =>
-        m.id === action.payload.id
-          ? {
-              ...m,
-              ...(action.payload.memoryRecall !== undefined
-                ? { memoryRecall: action.payload.memoryRecall }
-                : {}),
-              ...(action.payload.performanceBars !== undefined
-                ? { performanceBars: action.payload.performanceBars }
-                : {}),
-            }
-          : m,
-      );
-      return { ...state, messages };
-    }
-
-    case 'REMOVE_MESSAGE':
-      return {
-        ...state,
-        messages: state.messages.filter((m) => m.id !== action.payload),
-        chatLoading: false,
-      };
-
-    case 'MESSAGE_ERROR':
-      return { ...state, chatLoading: false, chatError: action.payload };
-
-    case 'CLEAR_CHAT_ERROR':
-      return { ...state, chatError: null };
-
     case 'SET_WORKSPACE_LOADING':
       return { ...state, workspaceLoading: action.payload };
 
@@ -340,26 +222,9 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
       }));
       return { ...state, workspaceSections: sections };
     }
-
-    case 'START_QUIZ':
-      return { ...state, activeQuiz: action.payload, activeQuizAnswers: [] };
-
-    case 'ANSWER_QUESTION': {
-      const answers = [...state.activeQuizAnswers];
-      answers[action.payload.questionIndex] = action.payload.answer;
-      return { ...state, activeQuizAnswers: answers };
-    }
-
     case 'QUIZ_COMPLETED': {
-      const newResults = [...state.quizResults, action.payload];
-      const newWeakAreas = calcWeakAreas(newResults);
-      const entry: PerformanceEntry = {
-        date: action.payload.completedAt,
-        topic: action.payload.topic,
-        score: action.payload.score,
-        type: 'quiz',
-      };
-      // Update the workspace card to reflect latest score
+      // Only update the workspace card score — quiz state (quizResults, weakAreas,
+      // performanceHistory, activeQuiz) is handled by QuizContext via quizDispatch.
       const sections = state.workspaceSections.map((s) => ({
         ...s,
         cards: s.cards.map((c) => {
@@ -376,19 +241,8 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
           };
         }),
       }));
-      return {
-        ...state,
-        activeQuiz: null,
-        activeQuizAnswers: [],
-        quizResults: newResults,
-        weakAreas: newWeakAreas,
-        performanceHistory: [...state.performanceHistory, entry],
-        workspaceSections: sections,
-      };
+      return { ...state, workspaceSections: sections };
     }
-
-    case 'CLOSE_QUIZ':
-      return { ...state, activeQuiz: null, activeQuizAnswers: [] };
 
     case 'START_REVIEW':
       return { ...state, activeTab: 'chat' };
@@ -432,48 +286,6 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
     case 'CLEAR_UPLOAD_ERROR':
       return { ...state, uploadError: null };
 
-    case 'ADD_NOTE':
-      return { ...state, notes: [...state.notes, action.payload] };
-
-    case 'UPDATE_NOTE': {
-      return {
-        ...state,
-        notes: state.notes.map((n): AnyNote => {
-          if (n.id !== action.payload.id || n.type !== 'note') return n;
-          return {
-            ...n,
-            ...(action.payload.title !== undefined ? { title: action.payload.title } : {}),
-            ...(action.payload.content !== undefined ? { content: action.payload.content } : {}),
-            updatedAt: action.payload.updatedAt,
-          };
-        }),
-      };
-    }
-
-    case 'DELETE_NOTE':
-    case 'DELETE_TODO':
-      return { ...state, notes: state.notes.filter((n) => n.id !== action.payload) };
-
-    case 'ADD_TODO':
-      return { ...state, notes: [...state.notes, action.payload] };
-
-    case 'TOGGLE_TODO_ITEM': {
-      return {
-        ...state,
-        notes: state.notes.map((n): AnyNote => {
-          if (n.id !== action.payload.noteId || n.type !== 'todo') return n;
-          return {
-            ...n,
-            items: n.items.map((item) =>
-              item.id !== action.payload.itemId
-                ? item
-                : { ...item, checked: !item.checked },
-            ),
-          };
-        }),
-      };
-    }
-
     case 'ADD_RECENT': {
       const filtered = state.recents.filter((r) => r.title !== action.payload.title);
       return { ...state, recents: [action.payload, ...filtered].slice(0, 5) };
@@ -499,17 +311,12 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
     case 'SET_RECENTS':
       return { ...state, recents: action.payload };
 
-    case 'SET_THINKING_MODE':
-      return { ...state, thinkingMode: action.payload };
-
     case 'RESET_SESSION':
       return {
         ...INITIAL_STATE,
         sessionId: `session-${Date.now()}`,
         // Preserve recents so the sidebar history doesn't disappear
         recents: state.recents,
-        // Preserve user's thinking mode preference
-        thinkingMode: state.thinkingMode,
       };
 
     case 'START_REVIEW_SESSION':
@@ -599,14 +406,12 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
       return { ...state, reviewSession: null };
 
     case 'RESTORE_SESSION':
+      // Note: messages are restored via chatDispatch({ type: 'RESTORE_MESSAGES' }),
+      // quiz state via quizDispatch({ type: 'RESTORE_QUIZ' }), and notes via
+      // notesDispatch({ type: 'RESTORE_NOTES' }) in StudyProvider's mergedDispatch.
       return {
         ...state,
-        messages: action.payload.messages,
         workspaceSections: action.payload.workspaceSections,
-        quizResults: action.payload.quizResults,
-        weakAreas: action.payload.weakAreas,
-        performanceHistory: action.payload.performanceHistory,
-        notes: action.payload.notes,
         topic: action.payload.topic,
         docTitle: action.payload.docTitle,
         bookId: action.payload.bookId,
@@ -628,33 +433,35 @@ const INITIAL_STATE: StudyState = {
   pdfBlobUrl: null,
   uploadLoading: false,
   uploadError: null,
-  messages: [],
-  chatLoading: false,
-  chatError: null,
-  lastUserMessage: '',
-  thinkingMode: null,
   workspaceSections: [],
   workspaceLoading: false,
   workspaceError: null,
-  activeQuiz: null,
-  activeQuizAnswers: [],
-  quizResults: [],
-  weakAreas: [],
-  performanceHistory: [],
-  studyInsights: null,
   activeTab: 'chat',
   toast: null,
   showMemoryBar: true,
-  notes: [],
   recents: [],
   reviewSession: null,
 };
 
 // ─── Context value ────────────────────────────────────────────────────────────
 
+/**
+ * The state exposed through useStudy() merges the study-only slice with the
+ * chat, quiz, and notes slices from their respective contexts so that all
+ * existing consumers remain backward-compatible (they can still read
+ * state.messages, state.activeQuiz, state.notes, etc. without any changes).
+ */
+type MergedStudyState = StudyState & ChatState & QuizState & NotesState;
+
 interface StudyContextValue {
-  state: StudyState;
-  dispatch: Dispatch<StudyAction>;
+  state: MergedStudyState;
+  /**
+   * Merged dispatch: routes chat actions to ChatContext, quiz actions to
+   * QuizContext, notes actions to NotesContext, and study actions to
+   * StudyContext.  RESTORE_SESSION is a special case — it dispatches to all
+   * four, automatically restoring each slice from the snapshot.
+   */
+  dispatch: Dispatch<StudyAction | ChatAction | QuizAction | NotesAction>;
   handleSendMessage: (
     text: string,
     opts?: { selectedText?: string; docContext?: string },
@@ -904,7 +711,7 @@ function loadRecentsFromStorage(): RecentItem[] {
 
 // ─── Session snapshot persistence (localStorage, 7-day TTL) ──────────────────
 
-function saveSessionSnapshot(sessionId: string, state: StudyState): void {
+function saveSessionSnapshot(sessionId: string, state: MergedStudyState): void {
   if (typeof window === 'undefined' || !sessionId) return;
   try {
     const snapshot: VersionedSnapshot = {
@@ -1085,11 +892,78 @@ function nextMsgId(): string {
 export function StudyProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(studyReducer, INITIAL_STATE);
 
-  // Keep a ref so stable callbacks can always read current state
-  const stateRef = useRef(state);
+  // ── Chat slice from ChatContext ────────────────────────────────────────────
+  const { chatState, chatDispatch } = useChatContext();
+
+  // ── Quiz slice from QuizContext ────────────────────────────────────────────
+  const { quizState, quizDispatch } = useQuizContext();
+
+  // ── Notes slice from NotesContext ─────────────────────────────────────────
+  const { notesState, notesDispatch } = useNotesContext();
+
+  // ── Merged dispatch — routes to the correct underlying dispatcher ──────────
+  // • RESTORE_SESSION: dispatches to study + chat + quiz + notes dispatchers.
+  // • QUIZ_COMPLETED: dispatches to BOTH quiz (state) and study (workspace).
+  // • Chat action types: forwarded to chatDispatch.
+  // • Quiz action types: forwarded to quizDispatch.
+  // • Notes action types: forwarded to notesDispatch.
+  // • Everything else: forwarded to the study reducer dispatch.
+  const CHAT_ACTION_TYPES = new Set<string>([
+    'SEND_MESSAGE', 'SET_LAST_USER_MESSAGE', 'SET_CHAT_LOADING',
+    'RECEIVE_MESSAGE', 'START_AI_MESSAGE', 'APPEND_MESSAGE_CHUNK',
+    'UPDATE_MESSAGE_META', 'REMOVE_MESSAGE', 'MESSAGE_ERROR',
+    'CLEAR_CHAT_ERROR', 'SET_THINKING_MODE', 'RESTORE_MESSAGES', 'RESET_CHAT',
+  ]);
+  const QUIZ_ACTION_TYPES = new Set<string>([
+    'START_QUIZ', 'ANSWER_QUESTION', 'CLOSE_QUIZ', 'RESTORE_QUIZ', 'RESET_QUIZ',
+    // QUIZ_COMPLETED is NOT in this set — it is dual-dispatched below
+  ]);
+  const NOTES_ACTION_TYPES = new Set<string>([
+    'ADD_NOTE', 'UPDATE_NOTE', 'DELETE_NOTE',
+    'ADD_TODO', 'TOGGLE_TODO_ITEM', 'DELETE_TODO',
+    'RESTORE_NOTES', 'RESET_NOTES',
+  ]);
+
+  const mergedDispatch = useCallback(
+    (action: StudyAction | ChatAction | QuizAction | NotesAction) => {
+      if (action.type === 'RESTORE_SESSION') {
+        const a = action as StudyAction & { type: 'RESTORE_SESSION' };
+        // Restore each slice independently
+        dispatch(a);
+        chatDispatch({ type: 'RESTORE_MESSAGES', payload: a.payload.messages });
+        quizDispatch({
+          type: 'RESTORE_QUIZ',
+          payload: {
+            quizResults: a.payload.quizResults,
+            weakAreas: a.payload.weakAreas,
+            performanceHistory: a.payload.performanceHistory,
+          },
+        });
+        notesDispatch({ type: 'RESTORE_NOTES', payload: a.payload.notes });
+      } else if (action.type === 'QUIZ_COMPLETED') {
+        // Dual-dispatch: quiz context owns quiz state; study context owns workspace cards
+        quizDispatch(action as QuizAction);
+        dispatch(action as StudyAction);
+      } else if (CHAT_ACTION_TYPES.has(action.type)) {
+        chatDispatch(action as ChatAction);
+      } else if (QUIZ_ACTION_TYPES.has(action.type)) {
+        quizDispatch(action as QuizAction);
+      } else if (NOTES_ACTION_TYPES.has(action.type)) {
+        notesDispatch(action as NotesAction);
+      } else {
+        dispatch(action as StudyAction);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dispatch, chatDispatch, quizDispatch, notesDispatch],
+  );
+
+  // Keep a ref so stable callbacks can always read the latest merged state
+  const mergedState: MergedStudyState = { ...state, ...chatState, ...quizState, ...notesState };
+  const stateRef = useRef<MergedStudyState>(mergedState);
   useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
+    stateRef.current = { ...state, ...chatState, ...quizState, ...notesState };
+  }, [state, chatState, quizState, notesState]);
 
   // ── Initialise browser-only state after mount (avoids SSR/client mismatch) ─
   useEffect(() => {
@@ -1109,7 +983,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           ? snapshot.weakAreas
           : calcWeakAreas(snapshot.quizResults);
 
-      dispatch({
+      // RESTORE_SESSION dispatched through mergedDispatch so it also restores
+      // messages into ChatContext automatically.
+      mergedDispatch({
         type: 'RESTORE_SESSION',
         payload: {
           messages: snapshot.messages,
@@ -1155,6 +1031,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         }
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const { saveSession } = useStudySession();
@@ -1191,21 +1068,21 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // fills in the AI text without changing messages.length, so the snapshot saved
   // on START_AI_MESSAGE still has text:'' and refreshing shows "No response received".
   useEffect(() => {
-    if (state.messages.length === 0 && state.workspaceSections.length === 0) return;
+    if (chatState.messages.length === 0 && state.workspaceSections.length === 0) return;
     // Only save on chatLoading→false (not →true), to avoid saving mid-stream
-    if (state.chatLoading) return;
+    if (chatState.chatLoading) return;
     const t = setTimeout(() => {
       saveSessionSnapshot(stateRef.current.sessionId, stateRef.current);
     }, 500);
     return () => clearTimeout(t);
   }, [
-    state.messages.length,
-    state.chatLoading,
+    chatState.messages.length,
+    chatState.chatLoading,
     state.workspaceSections.length,
-    state.quizResults.length,
-    state.weakAreas.length,
-    state.performanceHistory.length,
-    state.notes.length,
+    quizState.quizResults.length,
+    quizState.weakAreas.length,
+    quizState.performanceHistory.length,
+    notesState.notes.length,
     state.topic,
     state.docTitle,
     state.bookId,
@@ -1213,17 +1090,17 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // ── Persist session when meaningful state changes ─────────────────────────
   useEffect(() => {
-    if (state.messages.length === 0 && state.workspaceSections.length === 0) return;
+    if (chatState.messages.length === 0 && state.workspaceSections.length === 0) return;
     saveSession({
       topic: state.topic,
-      lastAction: state.messages[state.messages.length - 1]?.role ?? null,
-      quizScore: state.quizResults[state.quizResults.length - 1]?.score ?? null,
+      lastAction: chatState.messages[chatState.messages.length - 1]?.role ?? null,
+      quizScore: quizState.quizResults[quizState.quizResults.length - 1]?.score ?? null,
     });
   }, [
     state.topic,
-    state.messages.length,
+    chatState.messages.length,
     state.workspaceSections.length,
-    state.quizResults.length,
+    quizState.quizResults.length,
     saveSession,
   ]);
 
@@ -1262,10 +1139,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       createdAt: now,
       updatedAt: now,
     };
-    dispatch({ type: 'ADD_NOTE', payload: note });
+    notesDispatch({ type: 'ADD_NOTE', payload: note });
     dispatch({ type: 'SET_ACTIVE_TAB', payload: 'notes' });
     dispatch({ type: 'SHOW_TOAST', payload: '📝 New note created!' });
-  }, []);
+  }, [notesDispatch]);
 
   // ── createTodo ────────────────────────────────────────────────────────────
   const handleCreateTodo = useCallback((title: string, items: string[]) => {
@@ -1282,10 +1159,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         checked: false,
       })),
     };
-    dispatch({ type: 'ADD_TODO', payload: todo });
+    notesDispatch({ type: 'ADD_TODO', payload: todo });
     dispatch({ type: 'SET_ACTIVE_TAB', payload: 'notes' });
     dispatch({ type: 'SHOW_TOAST', payload: '📋 To-do list added to Notes!' });
-  }, []);
+  }, [notesDispatch]);
 
   // ── sendMessage ───────────────────────────────────────────────────────────
   const handleSendMessage = useCallback(
@@ -1294,7 +1171,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       abortRef.current = new AbortController();
 
       const userMsg: ChatMessage = { id: nextMsgId(), role: 'user', text };
-      dispatch({ type: 'SEND_MESSAGE', payload: userMsg });
+      chatDispatch({ type: 'SEND_MESSAGE', payload: userMsg });
 
       // Build history from current messages (last MAX_HISTORY_ITEMS), stripping HTML tags
       const history: MessageHistoryItem[] = stateRef.current.messages.slice(-MAX_HISTORY_ITEMS).map((m) => ({
@@ -1325,7 +1202,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           { label: '🎯 Quiz me on this', actionKey: 'quiz' },
         ],
       };
-      dispatch({ type: 'START_AI_MESSAGE', payload: aiMsg });
+      chatDispatch({ type: 'START_AI_MESSAGE', payload: aiMsg });
 
       try {
         const res = await sendMessageStream(
@@ -1340,16 +1217,16 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             student_profile: buildStudentProfile(),
           },
           (chunk: string) => {
-            dispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
+            chatDispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
           },
           abortRef.current.signal,
         );
 
-        dispatch({ type: 'SET_CHAT_LOADING', payload: false });
+        chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
 
         // Update message with memory/performance metadata if present
         if (res.memory_recall || (res.performance_bars && res.performance_bars.length > 0)) {
-          dispatch({
+          chatDispatch({
             type: 'UPDATE_MESSAGE_META',
             payload: {
               id: aiMsgId,
@@ -1426,15 +1303,16 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
           // User clicked Stop — remove the empty/partial AI bubble
-          dispatch({ type: 'REMOVE_MESSAGE', payload: aiMsgId });
+          chatDispatch({ type: 'REMOVE_MESSAGE', payload: aiMsgId });
           return;
         }
         const message =
           err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-        dispatch({ type: 'MESSAGE_ERROR', payload: message });
-        dispatch({ type: 'REMOVE_MESSAGE', payload: aiMsgId });
+        chatDispatch({ type: 'MESSAGE_ERROR', payload: message });
+        chatDispatch({ type: 'REMOVE_MESSAGE', payload: aiMsgId });
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [], // stable — reads state through stateRef
   );
 
@@ -1508,7 +1386,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           stateRef.current.slides.length > 0
             ? stateRef.current.slides
             : topicToSlides(topic);
-        const res = await generateQuiz({ slides, count, difficulty });
+        const res = await generateQuiz({ slides, count, difficulty, bookId: stateRef.current.bookId ?? undefined });
         const cardId = `quiz-${Date.now()}`;
         const card: WorkspaceCard = {
           id: cardId,
@@ -1630,12 +1508,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             questions: card.questions,
             difficulty: card.meta.split('·')[1]?.trim() ?? 'medium',
           };
-          dispatch({ type: 'START_QUIZ', payload: quiz });
+          quizDispatch({ type: 'START_QUIZ', payload: quiz });
           return;
         }
       }
     }
-  }, []);
+  }, [quizDispatch]);
 
   // ── completeQuiz ──────────────────────────────────────────────────────────
   const handleCompleteQuiz = useCallback(() => {
@@ -1670,7 +1548,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       wrongAnswers,
     };
 
-    dispatch({ type: 'QUIZ_COMPLETED', payload: result });
+    // mergedDispatch dual-routes QUIZ_COMPLETED: quiz state to QuizContext,
+    // workspace card score update to StudyContext.
+    mergedDispatch({ type: 'QUIZ_COMPLETED', payload: result });
 
     // Score-based recovery toast (matches studySession.js logic from old system)
     if (score < 50) {
@@ -1686,7 +1566,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         payload: `🏆 Score: ${score}% — great job! You're ready for the exam!`,
       });
     }
-  }, []);
+  }, [mergedDispatch]);
 
   // ── startReview ───────────────────────────────────────────────────────────
   const handleStartReview = useCallback((weakAreaTopic?: string) => {
@@ -1713,7 +1593,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     const resolvedTopic = topic ?? weakestTopic ?? (currentTopic || 'General Study');
 
     dispatch({ type: 'START_REVIEW_SESSION', payload: { topic: resolvedTopic } });
-    dispatch({ type: 'SET_CHAT_LOADING', payload: true });
+    chatDispatch({ type: 'SET_CHAT_LOADING', payload: true });
 
     try {
       const docContext = stateRef.current.slides
@@ -1739,7 +1619,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       dispatch({ type: 'SHOW_TOAST', payload: `❌ ${msg}` });
       dispatch({ type: 'END_REVIEW_SESSION' });
     } finally {
-      dispatch({ type: 'SET_CHAT_LOADING', payload: false });
+      chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
     }
   }, []);
 
@@ -1801,7 +1681,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     }
 
     dispatch({ type: 'RESET_SESSION' });
-  }, []);
+    chatDispatch({ type: 'RESET_CHAT' });
+    quizDispatch({ type: 'RESET_QUIZ' });
+    notesDispatch({ type: 'RESET_NOTES' });
+  }, [chatDispatch, quizDispatch, notesDispatch]);
 
   // ── handleRestoreDocument ────────────────────────────────────────────────────
   // Called when the user clicks a sidebar recent to switch to a different
@@ -1836,8 +1719,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value: StudyContextValue = {
-    state,
-    dispatch,
+    // Merge study state + chat + quiz + notes so all existing useStudy() consumers
+    // can still read state.messages, state.activeQuiz, state.notes, etc.
+    state: { ...state, ...chatState, ...quizState, ...notesState },
+    // mergedDispatch routes actions to the appropriate context dispatcher.
+    dispatch: mergedDispatch,
     handleSendMessage,
     handleGenerateFlashcards,
     handleGenerateQuiz,

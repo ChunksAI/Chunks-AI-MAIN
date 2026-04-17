@@ -3,7 +3,8 @@ backend/services/auth.py — Authentication and authorisation helpers.
 
 Provides:
   - Tier enum (subscription tiers)
-  - _verify_supabase_jwt() — verify a JWT via Supabase REST API
+  - _verify_supabase_jwt() — verify a JWT locally via JWKS (RS256), with
+    automatic fallback to the Supabase REST API on unexpected errors
   - _get_user_tier_from_db() — look up a user's tier in Supabase
   - _get_user_role_from_db() — look up a user's role in Supabase
   - _get_and_increment_daily_count() — atomic free-tier daily counter
@@ -15,10 +16,15 @@ Call init() once from server.py before handling any requests.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import time
 from datetime import datetime, timedelta
 from enum import Enum
+
+import jwt
+from jwt.algorithms import RSAAlgorithm
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +37,42 @@ _redis = None
 FREE_TIER_DAILY_LIMIT = 20   # matches the 20-message client-side limit
 MAX_HISTORY_TURNS     = 10   # consistent conversation context window
 
+# ── JWKS cache ─────────────────────────────────────────────────────────────────
+_jwk_cache: dict = {}          # {kid: RSAPublicKey}
+_jwk_cache_loaded_at: float = 0
+JWK_CACHE_TTL = 86400          # 24 hours
+
+
+def _parse_jwks(jwks: dict) -> dict:
+    """Parse a JWKS response body into a ``{kid: public_key}`` mapping."""
+    keys: dict = {}
+    for key_data in jwks.get('keys', []):
+        kid = key_data.get('kid', '')
+        try:
+            public_key = RSAAlgorithm.from_jwk(json.dumps(key_data))
+            keys[kid] = public_key
+        except Exception as exc:
+            logger.warning("Failed to parse JWK kid=%s: %s", kid, exc)
+    return keys
+
+
+def _get_jwks() -> dict:
+    """Return the cached ``{kid: RSAPublicKey}`` map, refreshing if stale."""
+    global _jwk_cache, _jwk_cache_loaded_at
+    if time.time() - _jwk_cache_loaded_at < JWK_CACHE_TTL and _jwk_cache:
+        return _jwk_cache
+    if not SUPABASE_URL or _session is None:
+        return {}
+    try:
+        resp = _session.get(f"{SUPABASE_URL}/auth/v1/jwks", timeout=10)
+        resp.raise_for_status()
+        _jwk_cache = _parse_jwks(resp.json())
+        _jwk_cache_loaded_at = time.time()
+        logger.info("JWKS loaded: %d key(s) cached", len(_jwk_cache))
+    except Exception as exc:
+        logger.warning("JWKS fetch failed: %s", exc)
+    return _jwk_cache
+
 
 def init(session, supabase_url: str, supabase_service_key: str, redis=None) -> None:
     """Inject shared dependencies. Call once from server.py at startup."""
@@ -39,6 +81,8 @@ def init(session, supabase_url: str, supabase_service_key: str, redis=None) -> N
     SUPABASE_URL        = supabase_url
     SUPABASE_SERVICE_KEY = supabase_service_key
     _redis              = redis
+    # Eagerly load JWKS so the first real request is not slowed by a key fetch.
+    _get_jwks()
 
 
 # ── Tier enum ─────────────────────────────────────────────────────────────────
@@ -49,40 +93,47 @@ class Tier(str, Enum):
     and can be passed wherever a plain string is expected (JSON serialisation,
     f-strings, logging, etc.) without an explicit ``.value`` call.
 
-    Ordering (weakest → strongest): FREE < PAID < PRO < ULTRA.
+    Ordering (weakest → strongest): FREE < PRO < ULTRA.
 
     Usage
     -----
-    Tier('pro')          # → Tier.PRO   (construct from DB string)
+    Tier.from_db('pro')  # → Tier.PRO   (construct from DB string)
     Tier.PRO.is_paid     # → True
     Tier.FREE.is_paid    # → False
     server_tier == Tier.FREE          # direct equality
     """
 
     FREE  = 'free'
-    PAID  = 'paid'
     PRO   = 'pro'
     ULTRA = 'ultra'
 
     @property
     def is_paid(self) -> bool:
         """Return True for any tier that grants paid-level access."""
-        return self in (Tier.PAID, Tier.PRO, Tier.ULTRA)
+        return self in (Tier.PRO, Tier.ULTRA)
 
     @classmethod
     def from_db(cls, value: str) -> 'Tier':
-        """Parse a raw DB string, defaulting to FREE on any unknown value."""
+        """Parse a raw DB string, defaulting to FREE on any unknown value.
+
+        Maps legacy 'paid' rows → PRO so existing database records keep working
+        without a data migration.
+        """
+        normalised = (value or '').lower().strip()
+        if normalised == 'paid':
+            return cls.PRO
         try:
-            return cls(value.lower().strip())
-        except (ValueError, AttributeError):
+            return cls(normalised)
+        except ValueError:
             return cls.FREE
 
 
-def _verify_supabase_jwt(token: str) -> dict | None:
-    """
-    Verify a Supabase JWT and return the user record from the DB, or None if invalid.
-    Uses the Supabase REST API so no extra Python libraries are needed.
-    Returns dict with at least: {'id': <uuid>, 'email': <str>}
+def _verify_supabase_jwt_rest(token: str) -> dict | None:
+    """Fallback: verify JWT by calling the Supabase REST API.
+
+    Used when local RS256 verification raises an unexpected error (e.g. the
+    JWKS endpoint was unreachable at startup and the cache is empty).
+    Returns the user dict from the API, or None on failure.
     """
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY or not token:
         return None
@@ -98,8 +149,99 @@ def _verify_supabase_jwt(token: str) -> dict | None:
         if resp.status_code == 200:
             return resp.json()
     except Exception as e:
-        logger.warning(f"JWT verify error: {e}")
+        logger.warning("JWT REST verify error: %s", e)
     return None
+
+
+def _verify_supabase_jwt(token: str) -> dict | None:
+    """Verify a Supabase JWT and return a user-info dict, or None if invalid.
+
+    Primary path: local RS256 signature check against the cached JWKS.
+    This avoids a network round-trip on every authenticated request.
+
+    Fallback: if the cache is empty or an unexpected error occurs (i.e.
+    *not* ``ExpiredSignatureError``), the old Supabase REST call is used once.
+
+    The returned dict always contains at least ``{'id': <uuid>, 'email': <str>}``
+    so callers are unaffected by whether the local or REST path was taken.
+    """
+    if not SUPABASE_URL or not token:
+        return None
+    try:
+        header = jwt.get_unverified_header(token)
+        kid = header.get('kid')
+        keys = _get_jwks()
+        if kid not in keys:
+            # Key may have rotated — force a single cache refresh.
+            global _jwk_cache_loaded_at
+            _jwk_cache_loaded_at = 0
+            keys = _get_jwks()
+        public_key = keys.get(kid)
+        if not public_key:
+            # JWKS unavailable — fall back to REST verification.
+            logger.debug("No public key for kid=%s — using REST fallback", kid)
+            return _verify_supabase_jwt_rest(token)
+        payload = jwt.decode(
+            token,
+            public_key,
+            algorithms=['RS256'],
+            audience='authenticated',
+        )
+        # Normalise: REST API returns 'id'; JWT payload uses 'sub'.
+        payload.setdefault('id', payload.get('sub'))
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except Exception as exc:
+        logger.warning("Local JWT verification failed (%s) — using REST fallback", exc)
+        return _verify_supabase_jwt_rest(token)
+
+
+USER_CACHE_TTL = 60  # seconds
+
+
+def _get_cached_user_info(user_id: str, redis_client) -> tuple[Tier, str] | None:
+    """Return (Tier, role) from Redis cache, or None on cache miss / error."""
+    if not redis_client:
+        return None
+    key = f"user_info:{user_id}"
+    try:
+        cached = redis_client.get(key)
+        if cached:
+            data = json.loads(cached)
+            logger.debug("user_info cache HIT for %s", user_id)
+            return Tier(data['tier']), data['role']
+    except Exception as exc:
+        logger.debug("user_info cache read error for %s: %s", user_id, exc)
+    logger.debug("user_info cache MISS for %s", user_id)
+    return None
+
+
+def _set_cached_user_info(user_id: str, tier: Tier, role: str, redis_client) -> None:
+    """Write (Tier, role) into Redis with a TTL of USER_CACHE_TTL seconds."""
+    if not redis_client:
+        return
+    key = f"user_info:{user_id}"
+    try:
+        redis_client.setex(key, USER_CACHE_TTL, json.dumps({'tier': tier.value, 'role': role}))
+    except Exception as exc:
+        logger.debug("user_info cache write error for %s: %s", user_id, exc)
+
+
+def invalidate_user_cache(user_id: str, redis_client) -> None:
+    """Delete the cached user-info entry for *user_id*.
+
+    Call this whenever a user's tier or role is changed (e.g. from the admin
+    endpoint) so the next request fetches fresh data from Supabase.
+    """
+    if not redis_client or not user_id:
+        return
+    key = f"user_info:{user_id}"
+    try:
+        redis_client.delete(key)
+        logger.debug("user_info cache invalidated for %s", user_id)
+    except Exception as exc:
+        logger.debug("user_info cache invalidate error for %s: %s", user_id, exc)
 
 
 def _get_user_tier_from_db(user_id: str) -> Tier:
@@ -112,13 +254,25 @@ def _get_user_tier_from_db(user_id: str) -> Tier:
     return tier
 
 
-def _get_user_info_from_db(user_id: str) -> tuple[Tier, str]:
+def _get_user_info_from_db(user_id: str, redis_client=None) -> tuple[Tier, str]:
     """
-    Look up the user's subscription tier and role in Supabase.
+    Look up the user's subscription tier and role, using Redis cache when
+    available.  Falls back to a direct Supabase REST call on cache miss and
+    writes the result back to cache.
+
     Returns a (Tier, role_str) tuple; defaults to (Tier.FREE, '') on any error.
     Expects a 'users' table with columns: id (uuid), plan (text), role (text).
     """
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY or not user_id:
+    if not user_id:
+        return Tier.FREE, ''
+
+    # ── 1. Cache check ────────────────────────────────────────────────────────
+    cached = _get_cached_user_info(user_id, redis_client)
+    if cached is not None:
+        return cached
+
+    # ── 2. Supabase REST ──────────────────────────────────────────────────────
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         return Tier.FREE, ''
     try:
         resp = _session.get(
@@ -135,9 +289,10 @@ def _get_user_info_from_db(user_id: str) -> tuple[Tier, str]:
             if rows:
                 tier = Tier.from_db(rows[0].get('plan', ''))
                 role = (rows[0].get('role') or '').strip().lower()
+                _set_cached_user_info(user_id, tier, role, redis_client)
                 return tier, role
     except Exception as e:
-        logger.warning(f"User info lookup error: {e}")
+        logger.warning("User info lookup error: %s", e)
     return Tier.FREE, ''
 
 
@@ -145,6 +300,9 @@ def _get_user_info_from_db(user_id: str) -> tuple[Tier, str]:
 
 #: Role values that grant full bypass of all usage limits.
 _EXEMPT_ROLES: frozenset[str] = frozenset({'owner', 'admin', 'superadmin'})
+
+# Track emails already warned about env-var fallback to avoid log spam.
+_envvar_warned_emails: set[str] = set()
 
 
 def _get_admin_exempt_emails() -> frozenset[str]:
@@ -166,8 +324,11 @@ def is_admin_exempt(email: str = '', role: str = '') -> bool:
     """Return True if this user should bypass all usage limits.
 
     Checks in order (fastest first):
-      1. Role string against the known exempt roles (owner / admin / superadmin).
-      2. Email address against the env-var admin list.
+      1. Role string from DB against the known exempt roles (owner / admin / superadmin).
+         This is the primary path — roles are stored in users.role after running
+         migration 021_admin_roles.sql and scripts/seed_admin_roles.py.
+      2. Email address against the env-var admin list (TEMPORARY fallback).
+         # Remove env-var fallback after seed script has been run in production.
 
     Both the ``email`` and ``role`` values come from the JWT / DB so they are
     server-verified and cannot be spoofed by the client.
@@ -175,10 +336,24 @@ def is_admin_exempt(email: str = '', role: str = '') -> bool:
     This function is intentionally cheap: it performs no I/O.  Role and email
     are resolved once by ``_extract_verified_user()`` per request.
     """
+    # Primary: DB role check (populated by migration 021 + seed script).
     if role and role.strip().lower() in _EXEMPT_ROLES:
         return True
+
+    # Temporary fallback: env-var email list.
+    # Remove env-var fallback after seed script has been run in production.
     if email:
-        return email.strip().lower() in _get_admin_exempt_emails()
+        exempt_emails = _get_admin_exempt_emails()
+        normalised = email.strip().lower()
+        if normalised in exempt_emails:
+            if normalised not in _envvar_warned_emails:
+                _envvar_warned_emails.add(normalised)
+                logger.warning(
+                    "is_admin_exempt: user %s granted via env-var fallback — "
+                    "run seed_admin_roles.py and remove ADMIN_EMAIL_* env vars",
+                    normalised,
+                )
+            return True
     return False
 
 
@@ -265,7 +440,7 @@ def _extract_verified_user(request=None):
     verified_user_id = verified_user.get('id') if verified_user else None
 
     if verified_user_id:
-        server_tier, db_role = _get_user_info_from_db(verified_user_id)
+        server_tier, db_role = _get_user_info_from_db(verified_user_id, _redis)
         # Email comes from the JWT payload (server-verified via Supabase)
         jwt_email = (verified_user.get('email') or '').strip().lower()
         # Also check app_metadata / user_metadata for role (Supabase auth layer)

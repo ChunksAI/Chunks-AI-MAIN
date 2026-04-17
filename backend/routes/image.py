@@ -31,6 +31,8 @@ def ask_image(request: Request, body: ImageRequest):
         'image/gif',  'image/webp', 'image/bmp',
     }
 
+    logger.warning("DEPRECATED: /ask-image is only called by the legacy /src frontend. Migrate callers to chunks-v2 before removing.")
+
     try:
         from services.auth import _extract_verified_user
         from services.ai import sanitize_text

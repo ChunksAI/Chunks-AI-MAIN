@@ -8,6 +8,7 @@ import Sidebar from '@/components/study/layout/Sidebar';
 import ExamSetup from '@/components/exam/ExamSetup';
 import ExamRunner from '@/components/exam/ExamRunner';
 import ExamResults from '@/components/exam/ExamResults';
+import AuthGate from '@/components/shared/AuthGate';
 
 // ─── Inner layout — has access to ExamContext ─────────────────────────────────
 
@@ -59,10 +60,12 @@ function ExamLayout() {
 export default function ExamPage() {
   return (
     // StudyProvider gives ExamSetup access to state.slides / docTitle
-    <StudyProvider>
-      <ExamProvider>
-        <ExamLayout />
-      </ExamProvider>
-    </StudyProvider>
+    <AuthGate>
+      <StudyProvider>
+        <ExamProvider>
+          <ExamLayout />
+        </ExamProvider>
+      </StudyProvider>
+    </AuthGate>
   );
 }

@@ -141,6 +141,7 @@ def _chunk_transcript(entries: list[dict], chunk_size: int = _CHUNK_SIZE) -> lis
 
 @router.post('/ingest-youtube')
 def ingest_youtube(request: Request, body: dict = Body(default={})):
+    logger.warning("DEPRECATED: /ingest-youtube is only called by the legacy /src frontend. Migrate callers to chunks-v2 before removing.")
     try:
         from services.auth import _extract_verified_user
 

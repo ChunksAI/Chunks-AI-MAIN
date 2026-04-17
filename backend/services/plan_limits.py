@@ -1,3 +1,4 @@
+# Superseded by services/usage.py — kept for reference until migration is verified
 """
 backend/services/plan_limits.py — Per-plan feature limits and enforcement.
 

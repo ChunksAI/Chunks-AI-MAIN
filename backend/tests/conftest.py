@@ -16,9 +16,6 @@ import pytest
 # Ensure the backend directory is on the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-# Disable CSRF checks in tests by default
-os.environ.setdefault('TESTING', 'true')
-
 
 @pytest.fixture(scope='session')
 def app():
@@ -31,6 +28,11 @@ def app():
     with patch('requests.Session', return_value=mock_session), \
          patch('redis.from_url', return_value=mock_redis):
         import server as srv
+        # Disable rate limiting during tests, mirroring how CSRF is
+        # suppressed via PYTEST_CURRENT_TEST.  The limiter is created at
+        # module load time, so we flip its internal flag after import.
+        from routes.limiter import limiter as _limiter
+        _limiter.enabled = False
         yield srv.app
 
 
@@ -50,7 +52,7 @@ def client(app):
 
 
 @pytest.fixture
-def csrf_client(app):
+def csrf_client(app, monkeypatch):
     """Test client with CSRF enforcement turned ON.
 
     Uses a fresh client WITHOUT a default Origin header so CSRF tests can
@@ -58,10 +60,9 @@ def csrf_client(app):
     """
     import server
     from starlette.testclient import TestClient
-    server._csrf_disabled = False
+    monkeypatch.setattr(server, '_is_csrf_disabled', lambda: False)
     with TestClient(app, raise_server_exceptions=False) as tc:
         yield tc
-    server._csrf_disabled = True   # restore — CSRF off for other tests
 
 
 @pytest.fixture
@@ -85,15 +86,16 @@ def mock_extract_user(monkeypatch):
 
 @pytest.fixture
 def mock_guest_gate(monkeypatch):
-    """Patch guest_gate to be a no-op (never blocks) in all route modules."""
-    import guest_limits
-    import routes.chat
+    """Patch guest rate-limiting to a no-op (never blocks) in all route modules.
+
+    Routes call services.usage.enforce → services.usage._enforce_guest, so we
+    patch _enforce_guest directly.  routes.library uses services.guest_limits.guest_gate
+    at module level, so that is patched separately.
+    """
+    import services.guest_limits as guest_limits
+    import services.usage as usage_svc
     import routes.library
-    import routes.flashcards
-    import routes.study
     noop = lambda *a, **kw: None
-    monkeypatch.setattr(guest_limits,      'guest_gate', noop)
-    monkeypatch.setattr(routes.chat,       'guest_gate', noop)
-    monkeypatch.setattr(routes.library,    'guest_gate', noop)
-    monkeypatch.setattr(routes.flashcards, 'guest_gate', noop)
-    monkeypatch.setattr(routes.study,      'guest_gate', noop)
+    monkeypatch.setattr(usage_svc,      '_enforce_guest', noop)
+    monkeypatch.setattr(guest_limits,   'guest_gate', noop)
+    monkeypatch.setattr(routes.library, 'guest_gate', noop)

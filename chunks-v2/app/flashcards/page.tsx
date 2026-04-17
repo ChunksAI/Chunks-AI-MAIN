@@ -7,6 +7,7 @@ import StudySession from '@/components/flashcards/StudySession';
 import Sidebar from '@/components/study/layout/Sidebar';
 import { useStudy } from '@/contexts/StudyContext';
 import { useRouter } from 'next/navigation';
+import AuthGate from '@/components/shared/AuthGate';
 
 export default function FlashcardsPage() {
   const { activeDeckId, studyMode } = useFlashcards();
@@ -14,7 +15,8 @@ export default function FlashcardsPage() {
   const router = useRouter();
 
   return (
-    <div className="app-shell">
+    <AuthGate>
+      <div className="app-shell">
       <Sidebar
         activeNav="flashcards"
         onNavChange={(id) => {
@@ -36,5 +38,6 @@ export default function FlashcardsPage() {
         </div>
       </main>
     </div>
+    </AuthGate>
   );
 }

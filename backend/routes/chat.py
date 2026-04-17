@@ -15,11 +15,14 @@ import random
 import re
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
+from routes.limiter import limiter
 from routes.shared import ctx, TEACHING_PROMPT
 from routes.schemas import AskRequest
-from guest_limits import GuestLimitExceeded, guest_gate
+from services.usage import enforce as _enforce_usage, UsageLimitExceeded as _UsageLimitExceeded
+from services.auth import _extract_verified_user
+from services.cache import cache_svc as _cache_svc
 
 logger = logging.getLogger(__name__)
 
@@ -182,17 +185,16 @@ def build_system_prompt(
 
 
 @router.post('/ask')
+@limiter.limit("10/minute")
 def ask(request: Request, body: AskRequest):
     try:
-        from services.auth import _extract_verified_user
         from services.ai import (
-            call_ai, call_ai_web_search, sanitize_user_memory,
+            call_ai, call_ai_stream, call_ai_web_search, sanitize_user_memory,
             should_search_textbook, extract_thinking_content,
         )
         from services.prompt_guard import screen_prompt
         from services.books import BOOK_LIBRARY, TextbookSearch, get_book_index
-        from ai_router import route, route_for_mode
-        from services.ask_cache import _ask_cache_key, _ask_cache_get, _ask_cache_set, _ask_is_cacheable
+        from services.ai_router import route, route_for_mode
         from services.mcq_parser import _parse_mcq
 
         data = body.model_dump()
@@ -200,9 +202,10 @@ def ask(request: Request, body: AskRequest):
         question      = data.get('question', '')
         complexity    = max(1, min(10, int(data.get('complexity', 3))))
         mode          = data.get('mode', 'study').lower().strip()
-        book_id       = data.get('bookId', 'zumdahl')
+        book_id       = data.get('bookId') or None
         thinking_mode = data.get('thinking', None)
         web_search    = data.get('web_search', False)
+        stream_requested = bool(data.get('stream', False))
         history       = data.get('history', [])
         selected_text = data.get('selected_text', '').strip()[:2000]
         doc_context   = data.get('doc_context', '').strip()[:80000]
@@ -210,7 +213,20 @@ def ask(request: Request, body: AskRequest):
         task_type       = data.get('task_type', None)
         student_profile = data.get('student_profile', '')
 
-        # ── Guest IP rate limiting ────────────────────────────────────────────
+        # ── Parse injected token flags (e.g. [WEB_SEARCH_ENABLED]) ───────────
+        if question.startswith('['):
+            _token_flags = re.findall(r'\[([A-Z_]+)\]', question)
+            for _tok in _token_flags:
+                question = question.replace(f'[{_tok}]', '', 1)
+            question = question.strip()
+            if 'WEB_SEARCH_ENABLED' in _token_flags:
+                web_search    = True
+            if 'THINKING_MODE' in _token_flags:
+                thinking_mode = 'thinking'
+            if 'DEEP_THINKING_MODE' in _token_flags:
+                thinking_mode = 'deep'
+
+        # ── Map mode/task to a guest feature bucket ───────────────────────────
         if task_type == 'home_general' or mode == 'home_general':
             _guest_feature = 'general'
         elif task_type == 'exam' or mode == 'exam':
@@ -223,52 +239,32 @@ def ask(request: Request, body: AskRequest):
             _guest_feature = 'visual'
         else:
             _guest_feature = 'workspace'
+
+        # ── Unified limit enforcement (guest + device + plan) ─────────────────
+        verified_user_id, user_tier, _is_exempt = _extract_verified_user(request)
         try:
-            guest_gate(request, _guest_feature, ctx.redis)
-        except GuestLimitExceeded as _gle:
-            return _gle.response()
+            _enforce_usage(
+                request,
+                user_id=verified_user_id,
+                tier=user_tier,
+                is_exempt=_is_exempt,
+                guest_feature=_guest_feature,
+                plan_feature='daily_messages',
+                redis_client=ctx.redis,
+            )
+        except _UsageLimitExceeded as _ule:
+            return _ule.response()
 
         # ── Redis query cache ─────────────────────────────────────────────────
-        _cache_eligible = _ask_is_cacheable(mode, history, web_search, thinking_mode)
-        _cache_key_val  = _ask_cache_key(book_id, task_type, mode, complexity, question,
-                                         doc_context, student_profile=student_profile) \
+        _cache_eligible = _cache_svc.ask_is_cacheable(mode, history, web_search, thinking_mode)
+        _cache_key_val  = _cache_svc.ask_key(book_id, task_type, mode, complexity, question,
+                                             doc_context, student_profile=student_profile) \
                           if _cache_eligible else None
         if _cache_eligible:
-            cached_payload = _ask_cache_get(_cache_key_val)
+            cached_payload = _cache_svc.ask_get(_cache_key_val)
             if cached_payload:
                 cached_payload['cached'] = True
                 return cached_payload
-
-        # ── Server-side tier + daily limit enforcement ────────────────────────
-        verified_user_id, user_tier, _is_exempt = _extract_verified_user(request)
-
-        # ── Per-user, per-device rate limiting ────────────────────────────────
-        if not _is_exempt:
-            from services.device_abuse import check_device_rate_limit
-            _device_block = check_device_rate_limit(verified_user_id, request)
-            if _device_block is not None:
-                return _device_block
-
-        # ── Plan-based usage limit ────────────────────────────────────────────
-        if not _is_exempt:
-            from services.plan_limits import check_plan_limit, PlanLimitExceeded
-            try:
-                check_plan_limit(verified_user_id, user_tier, 'daily_messages')
-            except PlanLimitExceeded as _ple:
-                return _ple.response()
-
-        # Parse injected token flags from legacy frontend path
-        token_flags = []
-        if question.startswith('['):
-            tokens = re.findall(r'\[([A-Z_]+)\]', question)
-            for tok in tokens:
-                token_flags.append(tok)
-                question = question.replace(f'[{tok}]', '', 1)
-            question = question.strip()
-
-        if 'WEB_SEARCH_ENABLED'  in token_flags: web_search    = True
-        if 'THINKING_MODE'       in token_flags: thinking_mode = 'thinking'
-        if 'DEEP_THINKING_MODE'  in token_flags: thinking_mode = 'deep'
 
         logger.info(f"[{mode.upper()}] task={task_type or 'auto'} Q: {question[:80]} | complexity: {complexity}")
 
@@ -320,7 +316,11 @@ def ask(request: Request, body: AskRequest):
                 use_textbook = False
                 logger.info(f"User doc mode — context length: {len(doc_context)}")
         else:
-            searcher     = get_book_index(book_id)
+            if book_id:
+                searcher     = get_book_index(book_id)
+            else:
+                logger.info("No bookId provided — answering from general knowledge")
+                searcher = TextbookSearch()
             use_textbook = should_search_textbook(question, chunks_loaded=bool(searcher.chunks))
             logger.info(f"Search textbook: {use_textbook} | book: {book_id}")
 
@@ -332,7 +332,6 @@ def ask(request: Request, body: AskRequest):
                 logger.info("Chit-chat / no book loaded")
 
         # ── Semantic answer cache check ───────────────────────────────────────
-        from services import answer_cache as _answer_cache
         _sem_eligible = (
             _cache_eligible
             and mode != 'generate'
@@ -351,8 +350,8 @@ def ask(request: Request, body: AskRequest):
                     if hasattr(_query_emb, 'tolist')
                     else list(_query_emb)
                 )
-                _sem_ctx_hash = _answer_cache.context_hash(mode, complexity, context)
-                _sem_hit = _answer_cache.lookup(_query_emb_list, _sem_ctx_hash)
+                _sem_ctx_hash = _cache_svc.context_hash(mode, complexity, context)
+                _sem_hit = _cache_svc.semantic_lookup(_query_emb_list, _sem_ctx_hash)
                 if _sem_hit:
                     _sem_hit['cached'] = True
                     _sem_hit['semantic_cached'] = True
@@ -779,11 +778,11 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 'thinking_content': thinking_content,
             }
             if _cache_eligible and _cache_key_val:
-                _ask_cache_set(_cache_key_val, _resp,
-                               task_type=task_type, mode=mode,
-                               book_id=book_id, model_used=selected_model)
+                _cache_svc.ask_set(_cache_key_val, _resp,
+                                   task_type=task_type, mode=mode,
+                                   book_id=book_id, model_used=selected_model)
             if _sem_eligible and _sem_ctx_hash and _query_emb_list:
-                _answer_cache.store(_query_emb_list, _sem_ctx_hash, _resp)
+                _cache_svc.semantic_store(_query_emb_list, _sem_ctx_hash, _resp)
             return _resp
 
         # ── MODE: GENERATE ────────────────────────────────────────────────────
@@ -881,9 +880,9 @@ Keep the summary focused, clear, and easy to review before an exam."""
 
             _gen_resp = {'success': True, 'mode': 'generate', 'answer': parsed}
             if _cache_eligible and _cache_key_val:
-                _ask_cache_set(_cache_key_val, _gen_resp,
-                               task_type=task_type, mode=mode,
-                               book_id=book_id, model_used=selected_model)
+                _cache_svc.ask_set(_cache_key_val, _gen_resp,
+                                   task_type=task_type, mode=mode,
+                                   book_id=book_id, model_used=selected_model)
             return _gen_resp
 
         # ── MODE: STUDY (default) ─────────────────────────────────────────────
@@ -960,6 +959,49 @@ FORMATTING: {latex_instruction}
 
 Answer helpfully and clearly."""
 
+            # ── STREAMING PATH ────────────────────────────────────────────────────
+            # Real SSE streaming is only active for the default study mode when the
+            # client opts in with stream=true AND no thinking mode is active (think
+            # blocks require full-response post-processing that cannot be done
+            # incrementally on the wire).
+            if stream_requested and thinking_mode is None:
+                _stream_model     = selected_model
+                _stream_system    = base_system
+                _stream_history   = history
+                _stream_max_tok   = _MODE_MAX_TOKENS[None]
+                _stream_endpoint  = 'chat'
+                _stream_user_id   = verified_user_id
+                _stream_prompt    = prompt
+
+                def _sse_generator():
+                    try:
+                        for _token in call_ai_stream(
+                            _stream_prompt,
+                            system_prompt=_stream_system,
+                            model=_stream_model,
+                            history=_stream_history,
+                            max_tokens_override=_stream_max_tok,
+                            endpoint=_stream_endpoint,
+                            user_id=_stream_user_id,
+                        ):
+                            yield f'data: {json.dumps({"text": _token}, ensure_ascii=False)}\n\n'
+                    except Exception as _sse_err:
+                        logger.error("SSE stream error: %s", _sse_err)
+                        # Send a generic error message — never expose internal exception
+                        # details (stack traces, file paths) to the client.
+                        yield 'data: {"error": "Streaming failed. Please retry."}\n\n'
+                    yield 'data: [DONE]\n\n'
+
+                return StreamingResponse(
+                    _sse_generator(),
+                    media_type='text/event-stream',
+                    headers={
+                        'Cache-Control': 'no-cache',
+                        'X-Accel-Buffering': 'no',
+                    },
+                )
+
+            # ── NON-STREAMING PATH ────────────────────────────────────────────────
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
                              endpoint='chat', user_id=verified_user_id,
                              max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))
@@ -993,11 +1035,11 @@ Answer helpfully and clearly."""
                 'thinking_content': thinking_content,
             }
             if _cache_eligible and _cache_key_val:
-                _ask_cache_set(_cache_key_val, _resp,
-                               task_type=task_type, mode=mode,
-                               book_id=book_id, model_used=selected_model)
+                _cache_svc.ask_set(_cache_key_val, _resp,
+                                   task_type=task_type, mode=mode,
+                                   book_id=book_id, model_used=selected_model)
             if _sem_eligible and _sem_ctx_hash and _query_emb_list:
-                _answer_cache.store(_query_emb_list, _sem_ctx_hash, _resp)
+                _cache_svc.semantic_store(_query_emb_list, _sem_ctx_hash, _resp)
             return _resp
 
     except Exception as e:

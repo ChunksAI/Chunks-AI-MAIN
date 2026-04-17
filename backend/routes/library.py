@@ -3,20 +3,21 @@ backend/routes/library.py — Book library endpoints.
 
 Endpoints
 ---------
-GET  /get-library       List available books
-POST /load-book         Load a book's chunks into memory
-GET  /pdf/<book_id>     Proxy PDF from R2
+GET  /get-library            List available books
+POST /load-book              Load a book's chunks into memory
+GET  /books/<book_id>/pdf    Proxy PDF from R2
+GET  /pdf/<book_id>          Redirects to /books/<book_id>/pdf (legacy compat)
 """
 from __future__ import annotations
 
 import logging
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 
 from routes.shared import ctx
 from routes.schemas import LoadBookRequest
-from guest_limits import GuestLimitExceeded, guest_gate
+from services.guest_limits import GuestLimitExceeded, guest_gate
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ def load_book(request: Request, body: LoadBookRequest):
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
-@router.get('/pdf/{book_id}')
+@router.get('/books/{book_id}/pdf')
 def serve_pdf(request: Request, book_id: str):
     from services.books import BOOK_LIBRARY
     if book_id not in BOOK_LIBRARY:
@@ -87,3 +88,9 @@ def serve_pdf(request: Request, book_id: str):
     except Exception as e:
         logger.error(f"PDF proxy error: {e}")
         return JSONResponse({'error': str(e)}, status_code=500)
+
+
+@router.get('/pdf/{book_id}')
+def serve_pdf_legacy(book_id: str):
+    """Backward-compat redirect for legacy /src frontend."""
+    return RedirectResponse(url=f'/books/{book_id}/pdf', status_code=301)

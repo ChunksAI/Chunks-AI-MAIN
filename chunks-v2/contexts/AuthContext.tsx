@@ -23,6 +23,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 
@@ -33,7 +34,7 @@ export interface AuthUser {
   email: string;
   name: string;
   avatar?: string;
-  tier: 'free' | 'pro' | 'premium' | 'ultra' | 'team';
+  tier: 'free' | 'pro' | 'ultra';
   isGuest: boolean;
   isAdmin: boolean;
   isOwner: boolean;
@@ -106,9 +107,16 @@ function sessionToUser(session: Session): AuthUser {
   // Try to read plan from cached localStorage (populated by fetchUserPlan)
   let tier: AuthUser['tier'] = 'free';
   try {
-    const cached = localStorage.getItem('chunks_user_tier') as AuthUser['tier'] | null;
-    if (cached && ['free', 'pro', 'premium', 'ultra', 'team'].includes(cached)) {
-      tier = cached;
+    const cached = localStorage.getItem('chunks_user_tier');
+    // Migrate legacy tier values that no longer exist on the backend.
+    const migrated =
+      cached === 'premium' || cached === 'paid' ? 'pro' :
+      cached === 'team' ? 'pro' :
+      cached;
+    if (migrated && (['free', 'pro', 'ultra'] as const).includes(migrated as AuthUser['tier'])) {
+      tier = migrated as AuthUser['tier'];
+      // Write back the migrated value so the stale entry is corrected.
+      if (migrated !== cached) localStorage.setItem('chunks_user_tier', migrated);
     }
   } catch { /* ignore */ }
 
@@ -155,10 +163,17 @@ async function fetchUserPlan(
       is_admin?: boolean;
       is_owner?: boolean;
     };
-    const tier = (['free', 'pro', 'premium', 'ultra', 'team'] as const).includes(
-      data.tier as AuthUser['tier'],
+    // Normalise the tier string from the backend.
+    // Map legacy 'paid' → 'pro' so old DB rows don't fall back to 'free'.
+    const rawTier = data.tier ?? '';
+    const normalisedTier =
+      rawTier === 'paid' || rawTier === 'premium' ? 'pro' :
+      rawTier === 'team' ? 'pro' :
+      rawTier;
+    const tier = (['free', 'pro', 'ultra'] as const).includes(
+      normalisedTier as AuthUser['tier'],
     )
-      ? (data.tier as AuthUser['tier'])
+      ? (normalisedTier as AuthUser['tier'])
       : 'free';
     const isOwner = data.is_owner === true || data.role === 'owner';
     const isAdmin = isOwner || data.is_admin === true || data.role === 'admin';
@@ -176,9 +191,16 @@ async function fetchUserPlan(
   }
 }
 
+// Returns '; Secure' when the page is served over HTTPS so the guest cookie is
+// not transmitted over plain HTTP in production.
+function guestCookieSecureFlag(): string {
+  return typeof window !== 'undefined' && window.location.protocol === 'https:' ? '; Secure' : '';
+}
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [state, setState] = useState<AuthState>({
     user: null,
     session: null,
@@ -204,7 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       if (sessionStorage.getItem('chunks_guest_mode') === '1') {
-        document.cookie = 'chunks_guest=1; path=/; max-age=86400; SameSite=Lax';
+        document.cookie = `chunks_guest=1; path=/; max-age=86400; SameSite=Lax${guestCookieSecureFlag()}`;
         setGuestMode(true);
       }
     } catch { /* sessionStorage may be unavailable in private browsing or restricted environments */ }
@@ -264,7 +286,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             });
             // Clear guest mode on successful sign-in
             try { sessionStorage.removeItem('chunks_guest_mode'); } catch { /* ignore */ }
-            try { document.cookie = 'chunks_guest=; path=/; max-age=0'; } catch { /* ignore */ }
+            try { document.cookie = `chunks_guest=; path=/; max-age=0; SameSite=Lax${guestCookieSecureFlag()}`; } catch { /* ignore */ }
             setGuestMode(false);
           } else {
             setState({ user: null, session: null, isLoading: false });
@@ -287,19 +309,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     const sb = await getSupabaseClient();
-    try { localStorage.removeItem('chunks_user_tier'); } catch { /* ignore */ }
+
+    // ── Purge auth-related localStorage keys ─────────────────────────────────
+    for (const key of ['chunks_user_tier', 'chunks_admin_email', 'chunks_owner_email', 'chunks_settings_initialized']) {
+      try { localStorage.removeItem(key); } catch { /* ignore */ }
+    }
+    // Remove all chunks_setting_* keys (user preferences written by SettingsContext)
+    try {
+      const keysToRemove = Object.keys(localStorage).filter((k) => k.startsWith('chunks_setting_'));
+      for (const key of keysToRemove) {
+        try { localStorage.removeItem(key); } catch { /* ignore */ }
+      }
+    } catch { /* ignore */ }
+
+    // ── Purge sessionStorage ──────────────────────────────────────────────────
+    try { sessionStorage.removeItem('chunks_guest_mode'); } catch { /* ignore */ }
+
+    // ── Clear guest cookie ────────────────────────────────────────────────────
+    try { document.cookie = `chunks_guest=; path=/; max-age=0; SameSite=Lax${guestCookieSecureFlag()}`; } catch { /* ignore */ }
+
+    // ── Sign out from Supabase, then redirect ─────────────────────────────────
     await sb.auth.signOut();
-  }, []);
+    router.replace('/login');
+  }, [router]);
 
   const enterGuestMode = useCallback(() => {
     try { sessionStorage.setItem('chunks_guest_mode', '1'); } catch { /* ignore */ }
-    try { document.cookie = 'chunks_guest=1; path=/; max-age=86400; SameSite=Lax'; } catch { /* ignore */ }
+    try { document.cookie = `chunks_guest=1; path=/; max-age=86400; SameSite=Lax${guestCookieSecureFlag()}`; } catch { /* ignore */ }
     setGuestMode(true);
   }, []);
 
   const exitGuestMode = useCallback(() => {
     try { sessionStorage.removeItem('chunks_guest_mode'); } catch { /* ignore */ }
-    try { document.cookie = 'chunks_guest=; path=/; max-age=0'; } catch { /* ignore */ }
+    try { document.cookie = `chunks_guest=; path=/; max-age=0; SameSite=Lax${guestCookieSecureFlag()}`; } catch { /* ignore */ }
     setGuestMode(false);
   }, []);
 

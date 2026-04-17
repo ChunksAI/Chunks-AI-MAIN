@@ -1,3 +1,4 @@
+# DEPRECATED: use services.cache.CacheService instead
 """
 backend/services/material_cache.py — Redis-backed cache for study materials.
 

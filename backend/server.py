@@ -1,5 +1,5 @@
 """
-Chunks Chemistry - Production Server
+Chunks - Production Server
 Cloud-ready with R2 storage integration
 
 server.py — App factory: configuration, middleware, error handlers,
@@ -17,7 +17,7 @@ Business logic has been moved to:
 Route handlers have been moved to:
   routes/health.py     — /, /ping, /health, /api/config
   routes/chat.py       — /ask
-  routes/library.py    — /get-library, /load-book, /pdf/<book_id>
+  routes/library.py    — /get-library, /load-book, /books/<book_id>/pdf
   routes/flashcards.py — /generate-flashcards
   routes/upload.py     — /upload-document
   routes/study.py      — /generate-study-materials, /generate-quiz
@@ -27,7 +27,11 @@ Route handlers have been moved to:
 
 import logging
 import os
+import hashlib
 import re
+import time
+import uuid
+from contextvars import ContextVar
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -37,24 +41,78 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 import redis as redis_lib
 
-from ai_router import route, route_for_mode  # noqa: F401 — re-exported for route files
-from guest_limits import (  # noqa: F401
+from services.ai_router import route, route_for_mode  # noqa: F401 — re-exported for route files
+from services.guest_limits import (  # noqa: F401
     guest_gate, enforce_exam_constraints_for_guest, GuestLimitExceeded,
 )
 
 
+# ── Request-ID context var (one value per async task / coroutine) ─────────────
+_request_id_var: ContextVar[str] = ContextVar('request_id', default='-')
+
+
+class _RequestIdFilter(logging.Filter):
+    """Inject the current request-ID into every log record for this task."""
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.req_id = _request_id_var.get('-')
+        return True
+
+
 # ── Logging ───────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+# Field names whose values must never appear in logs (matched case-insensitively).
+_SENSITIVE_LOG_FIELDS = frozenset({
+    # snake_case
+    'authorization', 'token', 'access_token', 'refresh_token',
+    'api_key', 'password', 'secret', 'jwt', 'supabase_service_key',
+    # camelCase (lowercased)
+    'accesstoken', 'refreshtoken', 'apikey',
+    # kebab-case
+    'x-api-key', 'access-token', 'refresh-token',
+    # misc PII
+    'email',
+})
+
+_is_prod_logging = os.environ.get('PRODUCTION', 'false').lower() == 'true'
+
+if _is_prod_logging:
+    try:
+        from pythonjsonlogger import jsonlogger as _jsonlogger  # type: ignore[import]
+
+        class _SafeJsonFormatter(_jsonlogger.JsonFormatter):
+            """JSON formatter that redacts known-sensitive field names."""
+            def add_fields(self, log_record, record, message_dict):
+                super().add_fields(log_record, record, message_dict)
+                for field in list(log_record.keys()):
+                    if field.lower() in _SENSITIVE_LOG_FIELDS:
+                        log_record[field] = '[REDACTED]'
+
+        _handler = logging.StreamHandler()
+        _handler.setFormatter(_SafeJsonFormatter(
+            fmt='%(asctime)s %(levelname)s %(name)s %(message)s',
+            datefmt='%Y-%m-%dT%H:%M:%SZ',
+        ))
+        logging.root.handlers = [_handler]
+        logging.root.setLevel(logging.INFO)
+    except ImportError:
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s [%(levelname)s] [req:%(req_id)s] %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+        )
+else:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] [req:%(req_id)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
+
 logger = logging.getLogger(__name__)
+# Attach the filter to the root logger so every logger in the app benefits.
+logging.getLogger().addFilter(_RequestIdFilter())
 
 # ── Sentry error monitoring ───────────────────────────────────────────────────
 _SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
@@ -191,12 +249,9 @@ _plan_limits_svc.init(redis=_redis)
 import services.device_abuse as _device_abuse_svc  # noqa: E402
 _device_abuse_svc.init(redis=_redis)
 
-# ── Initialise cache service modules ─────────────────────────────────────────
-import services.material_cache as _material_cache_svc
-_material_cache_svc.init(redis=_redis)
-
-import services.ask_cache as _ask_cache_svc
-_ask_cache_svc.init(
+# ── Unified cache service (replaces material_cache + ask_cache + answer_cache) ─
+import services.cache as _cache_svc_mod  # noqa: E402
+_cache_svc_mod.init(
     redis                = _redis,
     session              = _session,
     supabase_url         = SUPABASE_URL,
@@ -206,12 +261,6 @@ _ask_cache_svc.init(
 # ── Re-export BOOK_LIBRARY for backward compatibility ─────────────────────────
 from services.books import BOOK_LIBRARY  # noqa: F401, E402 — re-export
 
-# ── Re-export cache helpers for backward compatibility ────────────────────────
-# Routes previously imported these from server; they now live in service modules.
-from services.material_cache import _cache_key, _cache_get, _cache_set  # noqa: F401, E402
-from services.ask_cache import (  # noqa: F401, E402
-    _ask_cache_key, _ask_cache_get, _ask_cache_set, _ask_is_cacheable,
-)
 from services.mcq_parser import _parse_mcq  # noqa: F401, E402
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
@@ -222,7 +271,7 @@ _is_production = PRODUCTION
 _PRODUCTION_ORIGINS = [
     "https://chunks.online",
     "https://www.chunks.online",
-    "https://chunks-ai.vercel.app",
+    "https://chunks-ai.vercel.app",    # canonical staging deployment
 ]
 _DEV_ORIGINS = [
     "http://localhost:5173",
@@ -250,10 +299,22 @@ elif _raw_origins == '*':
     )
 
 CORS_ORIGINS = list(dict.fromkeys(_allowed))
-_VERCEL_ORIGIN_REGEX = r'^https://chunks-ai(?:-[a-z0-9]+)*\.vercel\.app$'
+# Vercel preview URLs are scoped to the "chunks-ai" project; the regex
+# matches the base domain and any valid preview suffix (no trailing/double hyphens).
+_VERCEL_ORIGIN_REGEX = (
+    r'^https://chunks-ai(-[a-z0-9]([a-z0-9-]*[a-z0-9])*)?\.vercel\.app$'
+)
 
 logger.info("CORS mode: %s", 'PRODUCTION' if _is_production else 'DEVELOPMENT')
 logger.info("CORS allowed origins: %s", CORS_ORIGINS)
+
+if _is_production and not _raw_origins:
+    logger.warning(
+        "⚠️  ALLOWED_ORIGINS env var is not set. "
+        "CORS is restricted to the hard-coded production allowlist: %s. "
+        "Set ALLOWED_ORIGINS to add extra origins without a redeploy.",
+        _PRODUCTION_ORIGINS,
+    )
 
 
 def _origin_is_allowed(origin: str) -> bool:
@@ -292,19 +353,29 @@ _CSP = '; '.join([
 ])
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
-app = FastAPI(title="Chunks Chemistry API", version="2.0")
+app = FastAPI(title="Chunks API", version="2.0")
 
 # ── Rate limiter ──────────────────────────────────────────────────────────────
 from routes.limiter import limiter  # noqa: E402
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+async def _json_rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """Return a machine-readable JSON 429 instead of slowapi's default HTML."""
+    return JSONResponse(
+        {'error': 'Rate limit exceeded', 'retry_after': 60},
+        status_code=429,
+    )
+
+
+app.add_exception_handler(RateLimitExceeded, _json_rate_limit_handler)
 
 # ── CORS middleware ───────────────────────────────────────────────────────────
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_origin_regex=_VERCEL_ORIGIN_REGEX,
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Device-Id"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Device-Id", "Cache-Control", "X-Request-Id"],
     allow_methods=["GET", "POST", "OPTIONS", "PATCH", "DELETE"],
     allow_credentials=False,
     max_age=86400,
@@ -312,14 +383,28 @@ app.add_middleware(
 
 # ── CSRF origin check middleware ──────────────────────────────────────────────
 _CSRF_SAFE_METHODS = frozenset(('GET', 'HEAD', 'OPTIONS'))
-# Mutable flag so tests can toggle CSRF enforcement at runtime
-_csrf_disabled: bool = os.environ.get('TESTING', '').lower() == 'true'
+
+
+def _is_csrf_disabled() -> bool:
+    """CSRF is disabled only when pytest is actively running. Never in production."""
+    return 'PYTEST_CURRENT_TEST' in os.environ
+
+
+# Belt-and-suspenders: abort startup if CSRF would be suppressed in production.
+if PRODUCTION and 'PYTEST_CURRENT_TEST' not in os.environ and _is_csrf_disabled():
+    logger.critical(
+        "CSRF protection is disabled in a production environment — refusing to start."
+    )
+    raise RuntimeError(
+        "CSRF must not be disabled in production. "
+        "Unset PYTEST_CURRENT_TEST or fix the CSRF configuration."
+    )
 
 
 @app.middleware("http")
 async def csrf_origin_check(request: Request, call_next):
     """Block state-changing requests whose Origin/Referer is untrusted."""
-    if _csrf_disabled:
+    if _is_csrf_disabled():
         return await call_next(request)
 
     if request.method in _CSRF_SAFE_METHODS:
@@ -352,7 +437,46 @@ async def csrf_origin_check(request: Request, call_next):
     return await call_next(request)
 
 
-# ── Security headers middleware ───────────────────────────────────────────────
+# ── Request-ID middleware ─────────────────────────────────────────────────────
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    """Propagate or generate an X-Request-Id for end-to-end traceability.
+
+    Reads ``X-Request-Id`` from the incoming request headers.  If absent,
+    generates an 8-character hex ID.  The ID is:
+    - Stored on ``request.state.request_id`` for use in route handlers.
+    - Stored in the async-task-local ``_request_id_var`` so every log line
+      emitted during this request automatically includes ``[req:<id>]``.
+    - Echoed back in the ``X-Request-Id`` response header.
+    """
+    req_id = request.headers.get('x-request-id') or uuid.uuid4().hex[:8]
+    # Sanitise to prevent log injection: allow only hex chars and hyphens, max 64 chars.
+    if not re.fullmatch(r'[0-9a-fA-F\-]{1,64}', req_id):
+        req_id = uuid.uuid4().hex[:8]
+    request.state.request_id = req_id
+    token = _request_id_var.set(req_id)
+    start_time = time.time()
+    try:
+        response = await call_next(request)
+    finally:
+        _request_id_var.reset(token)
+    response.headers['X-Request-Id'] = req_id
+    user_id = getattr(request.state, 'user_id', None)
+    logger.info(
+        "request",
+        extra={
+            "request_id": req_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "latency_ms": round((time.time() - start_time) * 1000),
+            "user_id_hash": hashlib.sha256(user_id.encode()).hexdigest()[:12] if user_id else None,
+        },
+    )
+    return response
+
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     # HTTP → HTTPS redirect in production
@@ -419,6 +543,30 @@ async def internal_error(request: Request, exc):
     return JSONResponse({'success': False, 'error': 'Internal server error.'}, status_code=500)
 
 
+# ── Startup: validate required secrets ───────────────────────────────────────
+# Names of environment variables that must be set (non-empty and not a
+# placeholder) before the server can safely serve traffic.  In production,
+# any missing/placeholder value is fatal (raises RuntimeError → prevents the
+# worker from starting).  In development it emits a warning so local testing
+# still works without all keys.
+_REQUIRED_ENV_VARS = ['SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'OPENROUTER_API_KEY']
+_ENV_PLACEHOLDER_VALUES = frozenset({'your-key-here', 'placeholder', ''})
+
+
+@app.on_event("startup")
+async def validate_secrets():
+    is_prod = os.environ.get('PRODUCTION', '').lower() == 'true'
+    for env_var in _REQUIRED_ENV_VARS:
+        val = os.environ.get(env_var, '')
+        if not val or val in _ENV_PLACEHOLDER_VALUES:
+            msg = f"MISSING or PLACEHOLDER secret: {env_var}"
+            if is_prod:
+                logger.critical(msg)
+                raise RuntimeError(msg)
+            else:
+                logger.warning(msg)
+
+
 # ── Shared context — populate before registering routers ─────────────────────
 from routes.shared import ctx as _ctx  # noqa: E402
 _ctx._init(
@@ -466,8 +614,8 @@ app.include_router(youtube_router)
 app.include_router(tutor_router)
 
 # ── PAEV and progress routes ──────────────────────────────────────────────────
-from paev_routes    import register_paev      # noqa: E402
-from progress_routes import register_progress  # noqa: E402
+from routes.paev    import register_paev      # noqa: E402
+from routes.progress import register_progress  # noqa: E402
 register_paev(app, redis=_redis)
 register_progress(app)
 

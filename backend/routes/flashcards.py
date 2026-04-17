@@ -15,7 +15,9 @@ from fastapi.responses import JSONResponse
 
 from routes.shared import ctx
 from routes.schemas import FlashcardsRequest
-from guest_limits import GuestLimitExceeded, guest_gate
+from services.usage import enforce as _enforce_usage, UsageLimitExceeded as _UsageLimitExceeded
+from services.auth import _extract_verified_user
+from services.cache import cache_svc as _cache_svc
 
 logger = logging.getLogger(__name__)
 
@@ -26,53 +28,45 @@ router = APIRouter()
 def generate_flashcards(request: Request, body: FlashcardsRequest):
     try:
         data = body.model_dump()
-        try:
-            guest_gate(request, 'workspace', ctx.redis)
-        except GuestLimitExceeded as _gle:
-            return _gle.response()
 
         topic   = data.get('topic', 'chemistry').strip()
         count   = min(int(data.get('count', 10)), 20)
-        book_id = data.get('bookId', 'zumdahl')
+        book_id = data.get('bookId') or None
 
-        # Verify JWT and enforce daily limit
-        from services.auth import _extract_verified_user
+        # ── Unified limit enforcement (guest + device + plan) ─────────────────
         verified_user_id, _tier, _is_exempt = _extract_verified_user(request)
+        try:
+            _enforce_usage(
+                request,
+                user_id=verified_user_id,
+                tier=_tier,
+                is_exempt=_is_exempt,
+                guest_feature='workspace',
+                plan_feature='monthly_flashcard_sets',
+                redis_client=ctx.redis,
+            )
+        except _UsageLimitExceeded as _ule:
+            return _ule.response()
 
-        # ── Per-user, per-device rate limiting ────────────────────────────
-        if not _is_exempt:
-            from services.device_abuse import check_device_rate_limit
-            _device_block = check_device_rate_limit(verified_user_id, request)
-            if _device_block is not None:
-                return _device_block
-
-        # ── Plan-based usage limit ────────────────────────────────────────
-        if not _is_exempt:
-            from services.plan_limits import check_plan_limit, PlanLimitExceeded
-            try:
-                check_plan_limit(verified_user_id, _tier, 'monthly_flashcard_sets')
-            except PlanLimitExceeded as _ple:
-                return _ple.response()
-
-        from services.material_cache import _cache_key, _cache_get, _cache_set
-        from ai_router import route
+        from services.ai_router import route
         from services.books import get_book_index
         from services.ai import call_ai
 
         # ── Cache check ───────────────────────────────────────────────────────
-        cache_k = _cache_key(book_id, topic, 'flashcards', count)
-        cached  = _cache_get(cache_k)
+        cache_k = _cache_svc.material_key(book_id, topic, 'flashcards', count)
+        cached  = _cache_svc.get('material', cache_k)
         if cached:
             logger.info(f"⚡ Cache HIT flashcards: {topic} ({book_id})")
             return {**cached, 'cached': True}
         logger.info(f"🔄 Cache MISS flashcards: {topic} ({book_id})")
 
         context_block = ""
-        searcher = get_book_index(book_id)
-        if searcher.chunks:
-            context, score, is_relevant, _, _ = searcher.smart_search(topic, top_k=5)
-            if is_relevant:
-                context_block = f"Use this source material as your primary reference:\n{context}\n\n"
+        if book_id:
+            searcher = get_book_index(book_id)
+            if searcher.chunks:
+                context, score, is_relevant, _, _ = searcher.smart_search(topic, top_k=5)
+                if is_relevant:
+                    context_block = f"Use this source material as your primary reference:\n{context}\n\n"
 
         prompt = f"""{context_block}Create exactly {count} flashcards about: {topic}
 
@@ -139,7 +133,7 @@ Rules:
 
         logger.info(f"Generated {len(flashcards)} flashcards for: {topic}")
         result_payload = {'success': True, 'flashcards': flashcards, 'count': len(flashcards), 'topic': topic}
-        _cache_set(cache_k, result_payload)
+        _cache_svc.set('material', cache_k, result_payload)
         return result_payload
 
     except Exception as e:

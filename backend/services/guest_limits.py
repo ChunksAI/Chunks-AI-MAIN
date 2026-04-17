@@ -1,3 +1,4 @@
+# Superseded by services/usage.py — kept for reference until migration is verified
 """
 backend/guest_limits.py — Server-side guest rate limiting by IP address.
 

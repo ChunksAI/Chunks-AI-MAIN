@@ -16,6 +16,7 @@ import DiagnosticQuiz from '@/components/study/DiagnosticQuiz';
 import { useResizable } from '@/hooks/useResizable';
 import { useTutorSync } from '@/hooks/useTutorSync';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
+import AuthGate from '@/components/shared/AuthGate';
 
 // Lazy-load heavy tabs so the chat view is interactive immediately
 const WorkspaceTab = lazy(() => import('@/components/study/tabs/WorkspaceTab'));
@@ -244,5 +245,9 @@ function StudyLayout() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function StudyPage() {
-  return <StudyLayout />;
+  return (
+    <AuthGate>
+      <StudyLayout />
+    </AuthGate>
+  );
 }

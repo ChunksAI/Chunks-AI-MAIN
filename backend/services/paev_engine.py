@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 from typing import Optional
 from collections import defaultdict
 
-from paev_fingerprint import (
+from services.paev_fingerprint import (
     EpistemicFingerprint, PrerequisiteGraph, ConceptNode,
     detect_blooms_level, BLOOMS_LEVELS
 )

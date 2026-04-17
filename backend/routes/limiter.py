@@ -10,8 +10,16 @@ RateLimitExceeded exception handler.
 """
 from __future__ import annotations
 
+import os
+
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+
+
+def _is_rate_limit_disabled() -> bool:
+    """Rate limiting is disabled only when pytest is actively running. Never in production."""
+    return 'PYTEST_CURRENT_TEST' in os.environ
+
 
 limiter = Limiter(
     key_func=get_remote_address,

@@ -12,6 +12,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStudy } from '@/contexts/StudyContext';
 import ReviewSession from '@/components/review/ReviewSession';
+import AuthGate from '@/components/shared/AuthGate';
 
 export default function ReviewPage() {
   const { state } = useStudy();
@@ -26,8 +27,11 @@ export default function ReviewPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Render nothing until the redirect fires or the session confirms active
   if (!state.reviewSession) return null;
 
-  return <ReviewSession />;
+  return (
+    <AuthGate>
+      <ReviewSession />
+    </AuthGate>
+  );
 }

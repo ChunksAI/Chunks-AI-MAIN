@@ -30,12 +30,9 @@ from routes.schemas import PaevBuildIndexRequest, PaevAskRequest
 
 logger = logging.getLogger(__name__)
 
-import sys
-sys.path.insert(0, os.path.dirname(__file__))
-
-from hierarchical_indexer import HierarchicalIndexer
-from paev_fingerprint      import EpistemicFingerprintBuilder, PrerequisiteGraph
-from paev_engine           import EpistemicVerifier
+from services.hierarchical_indexer import HierarchicalIndexer
+from services.paev_fingerprint     import EpistemicFingerprintBuilder, PrerequisiteGraph
+from services.paev_engine          import EpistemicVerifier
 
 # ── Config ────────────────────────────────────────────────────────────────────
 API_KEY       = os.environ.get('OPENROUTER_API_KEY', '')
@@ -248,7 +245,7 @@ def _fps_to_dict(fps):
     return {k: v.to_dict() for k, v in fps.items()}
 
 def _fps_from_dict(raw):
-    from paev_fingerprint import EpistemicFingerprint
+    from services.paev_fingerprint import EpistemicFingerprint
     return {k: EpistemicFingerprint.from_dict(v) for k, v in raw.items()}
 
 

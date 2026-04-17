@@ -18,6 +18,7 @@ from fastapi import APIRouter, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 from werkzeug.utils import secure_filename
 
+from routes.limiter import limiter
 from routes.shared import ctx
 
 # Ensure the backend root is importable for the PAEV background thread.
@@ -40,9 +41,9 @@ def _build_paev_index(book_id: str, slides: list) -> None:
     that PAEV is available for this upload.
     """
     try:
-        from hierarchical_indexer import HierarchicalIndexer
-        from paev_fingerprint import EpistemicFingerprintBuilder
-        from paev_routes import _paev_cache_set
+        from services.hierarchical_indexer import HierarchicalIndexer
+        from services.paev_fingerprint import EpistemicFingerprintBuilder
+        from routes.paev import _paev_cache_set
 
         api_key = os.environ.get('OPENROUTER_API_KEY', '')
         model   = os.environ.get('MODEL', 'openai/gpt-4o-mini')
@@ -80,6 +81,7 @@ def _build_paev_index(book_id: str, slides: list) -> None:
 
 
 @router.post('/upload-document')
+@limiter.limit("5/minute")
 def upload_document(request: Request, file: UploadFile = File(default=None)):
     try:
         from services.auth import _extract_verified_user

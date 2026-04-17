@@ -10,6 +10,7 @@ import { useStudy } from '@/contexts/StudyContext';
 import { searchContent, searchMyDocuments } from '@/lib/researchApi';
 import type { ResearchResult, ResearchFilter } from '@/lib/researchApi';
 import { ApiError } from '@/types/api';
+import AuthGate from '@/components/shared/AuthGate';
 
 const DEBOUNCE_MS = 400;
 
@@ -117,7 +118,8 @@ export default function ResearchPage() {
   const isIdle = !hasSearched && !loading;
 
   return (
-    <div className="app-shell">
+    <AuthGate>
+      <div className="app-shell">
       <Sidebar
         activeNav="research"
         onNavChange={(id) => {
@@ -184,5 +186,6 @@ export default function ResearchPage() {
 
       <Toast message={toastMsg ?? state.toast} />
     </div>
+    </AuthGate>
   );
 }
