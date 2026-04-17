@@ -10,6 +10,7 @@ import MessageActions from '@/components/study/chat/MessageActions';
 import { resolveStudyTopic, cleanTopic } from '@/lib/topicFallback';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
 import { evaluateSocraticAnswer } from '@/lib/studyApi';
+import { extractTopicFromResponse } from '@/lib/extractTopic';
 
 const GAP_MARKER = 'Check your understanding →';
 
@@ -209,15 +210,11 @@ export default function ChatPanel() {
       ? `AI remembers: You struggled with ${cleanTopic(weakAreas[0].topic)} (${weakAreas[0].score}%). Let's revisit it.`
       : 'AI remembers: Keep asking questions — I track your weak areas over time.';
 
-  const { tbRecordGap, tbRecordStudying } = useTutorBrain();
+  const { tbRecordGap, tbRecordStudying, tbRecordSocraticPass } = useTutorBrain();
 
-  // Derive the topic of the most recent AI response from its first ## heading
+  // Derive the topic of the most recent AI response using structured extraction
   const lastAiMessage = [...messages].reverse().find((m) => m.role === 'ai' && m.text.trim());
-  const lastTopic = lastAiMessage
-    ? (lastAiMessage.text.split('\n').find((l) => l.trimStart().startsWith('##'))
-        ?.replace(/^#+\s*/, '')
-        .trim() ?? '')
-    : '';
+  const lastTopic = lastAiMessage ? extractTopicFromResponse(lastAiMessage.text) : '';
 
   // Detect if the last AI message contains a Socratic question
   const lastAiSplit = lastAiMessage && !chatLoading
@@ -241,7 +238,8 @@ export default function ChatPanel() {
     }
 
     // If the last AI message had a Socratic question, mark this as the student's answer
-    if (lastSocraticQuestion && lastTopic) {
+    // Only capture if no evaluation is already pending (prevents double-overwrite)
+    if (lastSocraticQuestion && lastTopic && !pendingSocraticRef.current) {
       pendingSocraticRef.current = {
         question: lastSocraticQuestion,
         answer: val,
@@ -258,8 +256,8 @@ export default function ChatPanel() {
       evaluateSocraticAnswer(pending.question, pending.answer, pending.topic)
         .then((res) => {
           if (res.correct) {
-            // Correct → promote from failing → reviewing (or reviewing → recovering)
-            tbRecordStudying(pending.topic);
+            // Correct → advance through failing→reviewing→recovering→mastered
+            tbRecordSocraticPass(pending.topic);
           } else {
             // Incorrect → ensure concept is tracked as a gap
             tbRecordGap(pending.topic);

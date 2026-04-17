@@ -138,6 +138,7 @@ export interface UseTutorBrainResult {
   model: StudentModel;
   tbRecordGap: (topic: string) => void;
   tbRecordStudying: (topic: string) => void;
+  tbRecordSocraticPass: (topic: string) => void;
   tbRecordQuizResult: (topic: string, score: number, wrongAnswers: string[]) => void;
   tbRecordMastery: (topic: string) => void;
   tbCheckRegression: () => void;
@@ -265,6 +266,47 @@ export function useTutorBrain(): UseTutorBrainResult {
   );
 
   /**
+   * Records a successful Socratic answer and advances the concept through the
+   * gap lifecycle:
+   *   failing   → reviewing
+   *   reviewing → recovering
+   *   recovering (2nd pass) → mastered
+   */
+  const tbRecordSocraticPass = useCallback(
+    (topic: string) => {
+      const current = loadModel();
+      const now = new Date().toISOString();
+      const next: StudentModel = {
+        ...current,
+        gaps: current.gaps.map((g) => {
+          if (g.concept !== topic) return g;
+          if (g.status === 'recovering') {
+            // Count passes while in 'recovering'; mastery handled below
+            return { ...g, lastSeenAt: now, passCount: g.passCount + 1 };
+          }
+          if (g.status === 'reviewing') {
+            // Transition to recovering; reset passCount so two consecutive
+            // recovering-passes are required before mastery
+            return { ...g, status: 'recovering' as ConceptStatus, lastSeenAt: now, passCount: 0 };
+          }
+          if (g.status === 'failing') {
+            return { ...g, status: 'reviewing' as ConceptStatus, lastSeenAt: now, passCount: 0 };
+          }
+          return { ...g, lastSeenAt: now };
+        }),
+      };
+      // Check mastery after incrementing passCount
+      const updatedGap = next.gaps.find((g) => g.concept === topic);
+      if (updatedGap && updatedGap.status === 'recovering' && updatedGap.passCount >= 2) {
+        tbRecordMastery(topic);
+        return;
+      }
+      persist(next);
+    },
+    [persist, tbRecordMastery],
+  );
+
+  /**
    * Scans mastered concepts and moves anything last seen more than 14 days ago
    * back into gaps with status "regressed".
    */
@@ -321,6 +363,7 @@ export function useTutorBrain(): UseTutorBrainResult {
     model: trimModel(model),
     tbRecordGap,
     tbRecordStudying,
+    tbRecordSocraticPass,
     tbRecordQuizResult,
     tbRecordMastery,
     tbCheckRegression,
