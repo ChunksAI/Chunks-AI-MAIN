@@ -2,15 +2,15 @@
  * Extracts the study topic from an AI response string.
  *
  * Resolution order:
- *  1. Structured marker: <topic>…</topic>
+ *  1. Structured marker: <!-- chunks-topic:... --> (injected by backend, highest fidelity)
  *  2. ## Heading on its own line
  *  3. ### Heading on its own line
  *  4. Empty string (topic unknown)
  */
 export function extractTopicFromResponse(text: string): string {
-  // Primary: structured marker injected by the backend
-  const structuredMatch = text.match(/<topic>(.*?)<\/topic>/);
-  if (structuredMatch) return structuredMatch[1].trim();
+  // Primary: structured HTML comment injected by the backend
+  const commentMatch = text.match(/<!--\s*chunks-topic:(.*?)\s*-->/);
+  if (commentMatch) return commentMatch[1].trim();
 
   const lines = text.split('\n');
 

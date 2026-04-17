@@ -952,6 +952,21 @@ Answer helpfully and clearly."""
                              endpoint='chat', user_id=verified_user_id,
                              max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))
             answer, thinking_content = extract_thinking_content(answer)
+
+            # Inject structured topic marker for frontend Socratic tracking.
+            # Extract the topic from the first ## heading in the response so the
+            # frontend can identify the concept without fragile heading-parsing.
+            _topic_match = None
+            for _line in answer.split('\n'):
+                _stripped = _line.strip()
+                if _stripped.startswith('##'):
+                    _topic_match = _stripped.lstrip('#').strip()
+                    break
+            if _topic_match:
+                # Sanitize: remove characters that would break the HTML comment
+                _safe_topic = _topic_match.replace('-->', '').replace('<', '').replace('>', '')[:120]
+                answer = answer + f'\n<!-- chunks-topic:{_safe_topic} -->'
+
             _resp = {
                 'success':        True,
                 'mode':           'study',

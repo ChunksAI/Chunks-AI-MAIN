@@ -93,8 +93,14 @@ describe('tbRecordSocraticPass', () => {
 // ── extractTopicFromResponse ───────────────────────────────────────────────────
 
 describe('extractTopicFromResponse', () => {
-  it('returns the topic from a structured <topic> marker', () => {
-    const text = 'Some preamble\n<topic>Entropy</topic>\nMore text';
+  it('returns the topic from a structured <!-- chunks-topic:... --> marker', () => {
+    const text = 'Some preamble\n## Entropy\n\nMore text\n<!-- chunks-topic:Entropy -->';
+    expect(extractTopicFromResponse(text)).toBe('Entropy');
+  });
+
+  it('prioritises the HTML comment marker over heading parsing', () => {
+    // Even when a heading is present, the explicit marker takes priority
+    const text = '## Gibbs Free Energy\n\nExplanation.\n<!-- chunks-topic:Entropy -->';
     expect(extractTopicFromResponse(text)).toBe('Entropy');
   });
 
