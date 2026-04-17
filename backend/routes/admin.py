@@ -692,7 +692,7 @@ def set_role(request: Request, body: AdminSetRoleRequest):
 
     except Exception as e:
         logger.exception('set_role error')
-        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+        return JSONResponse({'success': False, 'error': 'Internal server error'}, status_code=500)
 
 
 @router.delete('/api/admin/users/{email}')

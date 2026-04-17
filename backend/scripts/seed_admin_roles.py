@@ -55,8 +55,15 @@ def _upsert_role(session: requests.Session, supabase_url: str,
     )
     if resp.status_code in (200, 204):
         rows = resp.json() if resp.status_code == 200 else []
-        updated = len(rows) if isinstance(rows, list) else '?'
-        print(f'  ✓  {email} → role={role!r}  ({updated} row(s) updated)')
+        updated = len(rows) if isinstance(rows, list) else 0
+        if updated == 0:
+            print(
+                f'  ⚠  {email} → WARNING: 0 rows updated. '
+                'Check that this email exists in the users table.',
+                file=sys.stderr,
+            )
+        else:
+            print(f'  ✓  {email} → role={role!r}  ({updated} row(s) updated)')
     else:
         print(
             f'  ✗  {email} → FAILED  '

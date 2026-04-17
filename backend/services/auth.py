@@ -301,6 +301,9 @@ def _get_user_info_from_db(user_id: str, redis_client=None) -> tuple[Tier, str]:
 #: Role values that grant full bypass of all usage limits.
 _EXEMPT_ROLES: frozenset[str] = frozenset({'owner', 'admin', 'superadmin'})
 
+# Track emails already warned about env-var fallback to avoid log spam.
+_envvar_warned_emails: set[str] = set()
+
 
 def _get_admin_exempt_emails() -> frozenset[str]:
     """Return the set of admin/owner email addresses from environment variables.
@@ -341,12 +344,15 @@ def is_admin_exempt(email: str = '', role: str = '') -> bool:
     # Remove env-var fallback after seed script has been run in production.
     if email:
         exempt_emails = _get_admin_exempt_emails()
-        if email.strip().lower() in exempt_emails:
-            logger.warning(
-                "is_admin_exempt: user %s granted via env-var fallback — "
-                "run seed_admin_roles.py and remove ADMIN_EMAIL_* env vars",
-                email,
-            )
+        normalised = email.strip().lower()
+        if normalised in exempt_emails:
+            if normalised not in _envvar_warned_emails:
+                _envvar_warned_emails.add(normalised)
+                logger.warning(
+                    "is_admin_exempt: user %s granted via env-var fallback — "
+                    "run seed_admin_roles.py and remove ADMIN_EMAIL_* env vars",
+                    normalised,
+                )
             return True
     return False
 
