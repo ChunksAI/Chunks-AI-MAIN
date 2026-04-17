@@ -31,7 +31,7 @@ def home(request: Request):
             'health': '/health',
             'ask': '/ask',
             'load_book': '/load-book',
-            'pdf': '/pdf/<book_id>',
+            'pdf': '/books/<book_id>/pdf',
             'library': '/get-library',
             'flashcards': '/generate-flashcards',
             'upload_document': '/upload-document',

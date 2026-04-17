@@ -17,7 +17,7 @@ Business logic has been moved to:
 Route handlers have been moved to:
   routes/health.py     — /, /ping, /health, /api/config
   routes/chat.py       — /ask
-  routes/library.py    — /get-library, /load-book, /pdf/<book_id>
+  routes/library.py    — /get-library, /load-book, /books/<book_id>/pdf
   routes/flashcards.py — /generate-flashcards
   routes/upload.py     — /upload-document
   routes/study.py      — /generate-study-materials, /generate-quiz

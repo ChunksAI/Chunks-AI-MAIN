@@ -11,7 +11,7 @@
  *   • Hashed assets (/assets/*-<hash>.js|css) → cache-first (immutable)
  *   • Navigation requests (HTML)              → network-first, cache fallback
  *   • Static files (images, manifest, etc.)   → stale-while-revalidate
- *   • PDF responses (cross-origin /pdf/*)     → cache-first via chunks-pdf-v1
+ *   • PDF responses (/books/<id>/pdf, legacy /pdf/*)  → cache-first via chunks-pdf-v1
  *   • API data requests                       → network-only (never cached)
  */
 
@@ -67,8 +67,9 @@ self.addEventListener('fetch', event => {
 
   // 1. PDF endpoint — cache-first from chunks-pdf-v1.
   //    Matches both cross-origin (api.chunks.online/pdf/<id>) and
-  //    same-origin proxy paths (/api/pdf/<id>).
-  if (/\/pdf\/[^/]+$/.test(url.pathname)) {
+  //    same-origin proxy paths (/api/pdf/<id>), as well as the canonical
+  //    RESTful shape (/books/<id>/pdf).
+  if (/\/pdf\/[^/]+$/.test(url.pathname) || /\/books\/[^/]+\/pdf$/.test(url.pathname)) {
     event.respondWith(_cacheFirst(request, PDF_CACHE));
     return;
   }
