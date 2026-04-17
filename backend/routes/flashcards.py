@@ -33,7 +33,7 @@ def generate_flashcards(request: Request, body: FlashcardsRequest):
 
         topic   = data.get('topic', 'chemistry').strip()
         count   = min(int(data.get('count', 10)), 20)
-        book_id = data.get('bookId', 'zumdahl')
+        book_id = data.get('bookId') or None
 
         # Verify JWT and enforce daily limit
         from services.auth import _extract_verified_user
@@ -68,11 +68,12 @@ def generate_flashcards(request: Request, body: FlashcardsRequest):
         logger.info(f"🔄 Cache MISS flashcards: {topic} ({book_id})")
 
         context_block = ""
-        searcher = get_book_index(book_id)
-        if searcher.chunks:
-            context, score, is_relevant, _, _ = searcher.smart_search(topic, top_k=5)
-            if is_relevant:
-                context_block = f"Use this source material as your primary reference:\n{context}\n\n"
+        if book_id:
+            searcher = get_book_index(book_id)
+            if searcher.chunks:
+                context, score, is_relevant, _, _ = searcher.smart_search(topic, top_k=5)
+                if is_relevant:
+                    context_block = f"Use this source material as your primary reference:\n{context}\n\n"
 
         prompt = f"""{context_block}Create exactly {count} flashcards about: {topic}
 

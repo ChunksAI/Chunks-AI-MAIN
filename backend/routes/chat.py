@@ -200,7 +200,7 @@ def ask(request: Request, body: AskRequest):
         question      = data.get('question', '')
         complexity    = max(1, min(10, int(data.get('complexity', 3))))
         mode          = data.get('mode', 'study').lower().strip()
-        book_id       = data.get('bookId', 'zumdahl')
+        book_id       = data.get('bookId') or None
         thinking_mode = data.get('thinking', None)
         web_search    = data.get('web_search', False)
         history       = data.get('history', [])
@@ -257,19 +257,6 @@ def ask(request: Request, body: AskRequest):
             except PlanLimitExceeded as _ple:
                 return _ple.response()
 
-        # Parse injected token flags from legacy frontend path
-        token_flags = []
-        if question.startswith('['):
-            tokens = re.findall(r'\[([A-Z_]+)\]', question)
-            for tok in tokens:
-                token_flags.append(tok)
-                question = question.replace(f'[{tok}]', '', 1)
-            question = question.strip()
-
-        if 'WEB_SEARCH_ENABLED'  in token_flags: web_search    = True
-        if 'THINKING_MODE'       in token_flags: thinking_mode = 'thinking'
-        if 'DEEP_THINKING_MODE'  in token_flags: thinking_mode = 'deep'
-
         logger.info(f"[{mode.upper()}] task={task_type or 'auto'} Q: {question[:80]} | complexity: {complexity}")
 
         # ── Intent classification ─────────────────────────────────────────────
@@ -320,7 +307,11 @@ def ask(request: Request, body: AskRequest):
                 use_textbook = False
                 logger.info(f"User doc mode — context length: {len(doc_context)}")
         else:
-            searcher     = get_book_index(book_id)
+            if book_id:
+                searcher     = get_book_index(book_id)
+            else:
+                logger.info("No bookId provided — answering from general knowledge")
+                searcher = TextbookSearch()
             use_textbook = should_search_textbook(question, chunks_loaded=bool(searcher.chunks))
             logger.info(f"Search textbook: {use_textbook} | book: {book_id}")
 

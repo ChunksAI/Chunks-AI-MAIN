@@ -35,7 +35,7 @@ class AskRequest(_LenientBase):
     question: str = ""
     complexity: int = Field(default=3, ge=1, le=10)
     mode: str = "study"
-    bookId: str = "zumdahl"
+    bookId: Optional[str] = None
     thinking: Optional[str] = None
     web_search: bool = False
     history: List[Any] = Field(default_factory=list)
@@ -55,7 +55,7 @@ class AskAsyncRequest(_LenientBase):
     question: str = ""
     complexity: int = Field(default=3, ge=1, le=10)
     mode: str = "study"
-    bookId: str = "zumdahl"
+    bookId: Optional[str] = None
     thinking: Optional[str] = None
     web_search: bool = False
     history: List[Any] = Field(default_factory=list)
@@ -72,7 +72,7 @@ class AskAsyncRequest(_LenientBase):
 class FlashcardsRequest(_LenientBase):
     topic: str = "chemistry"
     count: int = Field(default=10, ge=1, le=20)
-    bookId: str = "zumdahl"
+    bookId: Optional[str] = None
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -146,13 +146,13 @@ class AdminUpdateUserRequest(_LenientBase):
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
 class PaevBuildIndexRequest(_LenientBase):
-    bookId: str = "zumdahl"
+    bookId: Optional[str] = None
     fingerprintSampleRate: float = Field(default=0.3, ge=0.0, le=1.0)
 
 
 class PaevAskRequest(_LenientBase):
     question: str = ""
-    bookId: str = "zumdahl"
+    bookId: Optional[str] = None
     complexity: int = Field(default=5, ge=1, le=10)
     history: List[Any] = Field(default_factory=list)
 
@@ -172,7 +172,7 @@ class ProgressWeakSpotsRequest(_LenientBase):
 
 class ProgressStudyPlanRequest(_LenientBase):
     examDate: str = ""
-    bookId: str = "zumdahl"
+    bookId: Optional[str] = None
     progress: Dict[str, Any] = Field(default_factory=dict)
     weakSpots: List[Any] = Field(default_factory=list)
 
