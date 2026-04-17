@@ -21,7 +21,7 @@ import {
   type SlideItem,
   type UploadDocumentResponse,
 } from '@/types/api';
-import { getAccessToken } from './supabaseClient';
+import { getAccessToken, getSupabaseClient } from './supabaseClient';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.chunks.online').replace(/\/$/, '');
 
@@ -32,9 +32,74 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/**
+ * fetchWithAuth — wraps fetch() with a single-retry 401 handler.
+ *
+ * On a 401 response:
+ *   1. Attempt to refresh the Supabase session.
+ *   2. If refresh succeeds, retry the original request once with the new token.
+ *   3. If the retry also returns 401, or if the refresh itself fails, sign the
+ *      user out and redirect to /login?reason=session_expired.
+ *
+ * On a 403 response: the request is NOT retried — throw immediately so the
+ * caller / UI can handle the authorisation error directly.
+ *
+ * All other non-2xx responses are returned as-is for the caller to inspect.
+ */
+async function fetchWithAuth(url: string, options: RequestInit): Promise<Response> {
+  const res = await fetch(url, options);
+
+  if (res.status !== 401) return res;
+
+  // ── First 401: try to refresh the session ────────────────────────────────
+  try {
+    const sb = await getSupabaseClient();
+    const { error: refreshError } = await sb.auth.refreshSession();
+
+    if (refreshError) {
+      // Refresh failed — sign out and redirect
+      await sb.auth.signOut();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login?reason=session_expired';
+      }
+      throw new ApiError('Session expired', 401);
+    }
+
+    // Refresh succeeded — grab the new token and retry once
+    const {
+      data: { session },
+    } = await sb.auth.getSession();
+    const newToken = session?.access_token;
+
+    const retryOptions: RequestInit = {
+      ...options,
+      headers: {
+        ...(options.headers as Record<string, string> | undefined),
+        ...(newToken ? { Authorization: `Bearer ${newToken}` } : {}),
+      },
+    };
+    const retryRes = await fetch(url, retryOptions);
+
+    // Second 401 — refresh token is itself expired or revoked
+    if (retryRes.status === 401) {
+      await sb.auth.signOut();
+      if (typeof window !== 'undefined') {
+        window.location.href = '/login?reason=session_expired';
+      }
+      throw new ApiError('Session expired', 401);
+    }
+
+    return retryRes;
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    // Unexpected error during refresh — propagate original response
+    return res;
+  }
+}
+
 async function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
   const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetchWithAuth(`${API_BASE}${path}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders },
     body: JSON.stringify(body),
@@ -61,7 +126,7 @@ async function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Pr
 
 async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
   const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetchWithAuth(`${API_BASE}${path}`, {
     method: 'GET',
     headers: { ...authHeaders },
     signal,
@@ -143,7 +208,7 @@ export async function sendMessageStream(
 ): Promise<SendMessageResponse> {
   const authHeaders = await getAuthHeaders();
 
-  const res = await fetch(`${API_BASE}/ask`, {
+  const res = await fetchWithAuth(`${API_BASE}/ask`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -311,7 +376,7 @@ export async function loadBook(bookId: string): Promise<void> {
  */
 export async function fetchBookPdf(bookId: string): Promise<string> {
   const authHeaders = await getAuthHeaders();
-  const res = await fetch(`${API_BASE}/books/${bookId}/pdf`, {
+  const res = await fetchWithAuth(`${API_BASE}/books/${bookId}/pdf`, {
     method: 'GET',
     headers: authHeaders,
   });
@@ -423,7 +488,7 @@ export async function uploadDocument(file: File): Promise<UploadDocumentResponse
   const form = new FormData();
   form.append('file', file);
 
-  const res = await fetch(`${API_BASE}/upload-document`, {
+  const res = await fetchWithAuth(`${API_BASE}/upload-document`, {
     method: 'POST',
     headers: authHeaders, // no Content-Type — browser sets multipart boundary
     body: form,
