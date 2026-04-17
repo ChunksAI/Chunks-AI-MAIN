@@ -27,7 +27,9 @@ Route handlers have been moved to:
 
 import logging
 import os
+import hashlib
 import re
+import time
 import uuid
 from contextvars import ContextVar
 
@@ -62,13 +64,48 @@ class _RequestIdFilter(logging.Filter):
 
 
 # ── Logging ───────────────────────────────────────────────────────────────────
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] [req:%(req_id)s] %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
-logger = logging.getLogger(__name__)
+# Field names whose values must never appear in logs (matched case-insensitively).
+_SENSITIVE_LOG_FIELDS = frozenset({
+    'authorization', 'token', 'access_token', 'refresh_token',
+    'api_key', 'apikey', 'password', 'secret', 'jwt',
+    'x-api-key', 'email', 'supabase_service_key',
+})
 
+_is_prod_logging = os.environ.get('PRODUCTION', 'false').lower() == 'true'
+
+if _is_prod_logging:
+    try:
+        from pythonjsonlogger import jsonlogger as _jsonlogger  # type: ignore[import]
+
+        class _SafeJsonFormatter(_jsonlogger.JsonFormatter):
+            """JSON formatter that redacts known-sensitive field names."""
+            def add_fields(self, log_record, record, message_dict):
+                super().add_fields(log_record, record, message_dict)
+                for field in list(log_record.keys()):
+                    if field.lower() in _SENSITIVE_LOG_FIELDS:
+                        log_record[field] = '[REDACTED]'
+
+        _handler = logging.StreamHandler()
+        _handler.setFormatter(_SafeJsonFormatter(
+            fmt='%(asctime)s %(levelname)s %(name)s %(message)s',
+            datefmt='%Y-%m-%dT%H:%M:%SZ',
+        ))
+        logging.root.handlers = [_handler]
+        logging.root.setLevel(logging.INFO)
+    except ImportError:
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s [%(levelname)s] [req:%(req_id)s] %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S',
+        )
+else:
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] [req:%(req_id)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S',
+    )
+
+logger = logging.getLogger(__name__)
 # Attach the filter to the root logger so every logger in the app benefits.
 logging.getLogger().addFilter(_RequestIdFilter())
 
@@ -401,11 +438,24 @@ async def request_id_middleware(request: Request, call_next):
         req_id = uuid.uuid4().hex[:8]
     request.state.request_id = req_id
     token = _request_id_var.set(req_id)
+    start_time = time.time()
     try:
         response = await call_next(request)
     finally:
         _request_id_var.reset(token)
     response.headers['X-Request-Id'] = req_id
+    user_id = getattr(request.state, 'user_id', None)
+    logger.info(
+        "request",
+        extra={
+            "request_id": req_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status_code": response.status_code,
+            "latency_ms": round((time.time() - start_time) * 1000),
+            "user_id_hash": hashlib.sha256(user_id.encode()).hexdigest()[:12] if user_id else None,
+        },
+    )
     return response
 
 
