@@ -137,7 +137,7 @@ export interface UseTutorBrainResult {
   /** Trimmed view of the model ready for display or prompt injection. */
   model: StudentModel;
   tbRecordGap: (topic: string) => void;
-  tbRecordStudying: (topic: string) => void;
+  tbRecordStudying: (topic: string, advance?: boolean) => void;
   tbRecordSocraticPass: (topic: string) => void;
   tbRecordQuizResult: (topic: string, score: number, wrongAnswers: string[]) => void;
   tbRecordMastery: (topic: string) => void;
@@ -181,20 +181,35 @@ export function useTutorBrain(): UseTutorBrainResult {
   );
 
   /**
-   * Advances a concept from "failing" to "reviewing".
-   * Only transitions if current status is "failing".
+   * Advances a concept through the gap lifecycle when the student is actively studying it.
+   * - failing → reviewing (always)
+   * - reviewing → recovering (only when `advance` is true)
+   * - any other status → update lastSeenAt only
+   *
+   * `advance` defaults to false so that passive study (e.g. struggle-phrase detection)
+   * does not promote a concept from reviewing to recovering without deliberate intent.
+   *
+   * If the concept is not currently in gaps, this is a no-op.
    */
   const tbRecordStudying = useCallback(
-    (topic: string) => {
+    (topic: string, advance: boolean = false) => {
       const current = loadModel();
+      // If concept is not tracked in gaps at all, do nothing (prevents phantom entries)
+      if (!current.gaps.find((g) => g.concept === topic)) return;
       const now = new Date().toISOString();
       const next: StudentModel = {
         ...current,
-        gaps: current.gaps.map((g) =>
-          g.concept === topic && g.status === 'failing'
-            ? { ...g, status: 'reviewing' as ConceptStatus, lastSeenAt: now }
-            : g,
-        ),
+        gaps: current.gaps.map((g) => {
+          if (g.concept !== topic) return g;
+          if (g.status === 'failing') {
+            return { ...g, status: 'reviewing' as ConceptStatus, lastSeenAt: now };
+          }
+          if (g.status === 'reviewing' && advance) {
+            return { ...g, status: 'recovering' as ConceptStatus, lastSeenAt: now };
+          }
+          // For any other status (or reviewing without advance), just update lastSeenAt
+          return { ...g, lastSeenAt: now };
+        }),
       };
       persist(next);
     },
