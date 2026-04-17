@@ -17,7 +17,9 @@ from fastapi.responses import JSONResponse
 
 from routes.shared import ctx
 from routes.schemas import StudyMaterialsRequest, QuizRequest
-from guest_limits import GuestLimitExceeded, guest_gate, enforce_exam_constraints_for_guest
+from guest_limits import enforce_exam_constraints_for_guest
+from services.usage import enforce as _enforce_usage, UsageLimitExceeded as _UsageLimitExceeded
+from services.auth import _extract_verified_user
 
 logger = logging.getLogger(__name__)
 
@@ -28,32 +30,24 @@ router = APIRouter()
 def generate_study_materials(request: Request, body: StudyMaterialsRequest):
     try:
         data = body.model_dump()
-        try:
-            guest_gate(request, 'studyplan', ctx.redis)
-        except GuestLimitExceeded as _gle:
-            return _gle.response()
 
         slides        = data.get('slides', [])
         material_type = data.get('type', 'notes')
 
-        # Verify JWT and enforce daily limit
-        from services.auth import _extract_verified_user
+        # ── Unified limit enforcement (guest + device + plan) ─────────────────
         verified_user_id, _tier, _is_exempt = _extract_verified_user(request)
-
-        # ── Per-user, per-device rate limiting ────────────────────────────
-        if not _is_exempt:
-            from services.device_abuse import check_device_rate_limit
-            _device_block = check_device_rate_limit(verified_user_id, request)
-            if _device_block is not None:
-                return _device_block
-
-        # ── Plan-based usage limit ────────────────────────────────────────
-        if not _is_exempt:
-            from services.plan_limits import check_plan_limit, PlanLimitExceeded
-            try:
-                check_plan_limit(verified_user_id, _tier, 'monthly_study_plans')
-            except PlanLimitExceeded as _ple:
-                return _ple.response()
+        try:
+            _enforce_usage(
+                request,
+                user_id=verified_user_id,
+                tier=_tier,
+                is_exempt=_is_exempt,
+                guest_feature='studyplan',
+                plan_feature='monthly_study_plans',
+                redis_client=ctx.redis,
+            )
+        except _UsageLimitExceeded as _ule:
+            return _ule.response()
 
         from services.material_cache import _cache_key, _cache_get, _cache_set
         from ai_router import route
@@ -245,11 +239,24 @@ def generate_study_materials(request: Request, body: StudyMaterialsRequest):
 def generate_quiz(request: Request, body: QuizRequest):
     try:
         data = body.model_dump()
+
+        # ── Unified limit enforcement (guest + device + plan) ─────────────────
+        verified_user_id, _tier, _is_exempt = _extract_verified_user(request)
         try:
-            guest_gate(request, 'exam', ctx.redis)
-            data = enforce_exam_constraints_for_guest(request, data)
-        except GuestLimitExceeded as _gle:
-            return _gle.response()
+            _enforce_usage(
+                request,
+                user_id=verified_user_id,
+                tier=_tier,
+                is_exempt=_is_exempt,
+                guest_feature='exam',
+                plan_feature='monthly_quizzes',
+                redis_client=ctx.redis,
+            )
+        except _UsageLimitExceeded as _ule:
+            return _ule.response()
+
+        # Apply MCQ-only / max-5-question constraints for guest users
+        data = enforce_exam_constraints_for_guest(request, data)
 
         slides             = data.get('slides', [])
         count              = max(5, min(50, int(data.get('count', 10))))
@@ -257,24 +264,6 @@ def generate_quiz(request: Request, body: QuizRequest):
         quiz_mode          = data.get('mode', 'standard').lower().strip()
         question_type      = data.get('question_type', 'mcq').lower().strip()
         existing_questions = data.get('existingQuestions', [])
-
-        from services.auth import _extract_verified_user
-        verified_user_id, _tier, _is_exempt = _extract_verified_user(request)
-
-        # ── Per-user, per-device rate limiting ────────────────────────────
-        if not _is_exempt:
-            from services.device_abuse import check_device_rate_limit
-            _device_block = check_device_rate_limit(verified_user_id, request)
-            if _device_block is not None:
-                return _device_block
-
-        # ── Plan-based usage limit ────────────────────────────────────────
-        if not _is_exempt:
-            from services.plan_limits import check_plan_limit, PlanLimitExceeded
-            try:
-                check_plan_limit(verified_user_id, _tier, 'monthly_quizzes')
-            except PlanLimitExceeded as _ple:
-                return _ple.response()
 
         from ai_router import route
         from services.ai import call_ai

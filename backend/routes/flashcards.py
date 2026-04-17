@@ -15,7 +15,8 @@ from fastapi.responses import JSONResponse
 
 from routes.shared import ctx
 from routes.schemas import FlashcardsRequest
-from guest_limits import GuestLimitExceeded, guest_gate
+from services.usage import enforce as _enforce_usage, UsageLimitExceeded as _UsageLimitExceeded
+from services.auth import _extract_verified_user
 
 logger = logging.getLogger(__name__)
 
@@ -26,33 +27,25 @@ router = APIRouter()
 def generate_flashcards(request: Request, body: FlashcardsRequest):
     try:
         data = body.model_dump()
-        try:
-            guest_gate(request, 'workspace', ctx.redis)
-        except GuestLimitExceeded as _gle:
-            return _gle.response()
 
         topic   = data.get('topic', 'chemistry').strip()
         count   = min(int(data.get('count', 10)), 20)
         book_id = data.get('bookId') or None
 
-        # Verify JWT and enforce daily limit
-        from services.auth import _extract_verified_user
+        # ── Unified limit enforcement (guest + device + plan) ─────────────────
         verified_user_id, _tier, _is_exempt = _extract_verified_user(request)
-
-        # ── Per-user, per-device rate limiting ────────────────────────────
-        if not _is_exempt:
-            from services.device_abuse import check_device_rate_limit
-            _device_block = check_device_rate_limit(verified_user_id, request)
-            if _device_block is not None:
-                return _device_block
-
-        # ── Plan-based usage limit ────────────────────────────────────────
-        if not _is_exempt:
-            from services.plan_limits import check_plan_limit, PlanLimitExceeded
-            try:
-                check_plan_limit(verified_user_id, _tier, 'monthly_flashcard_sets')
-            except PlanLimitExceeded as _ple:
-                return _ple.response()
+        try:
+            _enforce_usage(
+                request,
+                user_id=verified_user_id,
+                tier=_tier,
+                is_exempt=_is_exempt,
+                guest_feature='workspace',
+                plan_feature='monthly_flashcard_sets',
+                redis_client=ctx.redis,
+            )
+        except _UsageLimitExceeded as _ule:
+            return _ule.response()
 
         from services.material_cache import _cache_key, _cache_get, _cache_set
         from ai_router import route

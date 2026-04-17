@@ -19,7 +19,8 @@ from fastapi.responses import JSONResponse
 
 from routes.shared import ctx, TEACHING_PROMPT
 from routes.schemas import AskRequest
-from guest_limits import GuestLimitExceeded, guest_gate
+from services.usage import enforce as _enforce_usage, UsageLimitExceeded as _UsageLimitExceeded
+from services.auth import _extract_verified_user
 
 logger = logging.getLogger(__name__)
 
@@ -184,7 +185,6 @@ def build_system_prompt(
 @router.post('/ask')
 def ask(request: Request, body: AskRequest):
     try:
-        from services.auth import _extract_verified_user
         from services.ai import (
             call_ai, call_ai_web_search, sanitize_user_memory,
             should_search_textbook, extract_thinking_content,
@@ -210,7 +210,7 @@ def ask(request: Request, body: AskRequest):
         task_type       = data.get('task_type', None)
         student_profile = data.get('student_profile', '')
 
-        # ── Guest IP rate limiting ────────────────────────────────────────────
+        # ── Map mode/task to a guest feature bucket ───────────────────────────
         if task_type == 'home_general' or mode == 'home_general':
             _guest_feature = 'general'
         elif task_type == 'exam' or mode == 'exam':
@@ -223,10 +223,21 @@ def ask(request: Request, body: AskRequest):
             _guest_feature = 'visual'
         else:
             _guest_feature = 'workspace'
+
+        # ── Unified limit enforcement (guest + device + plan) ─────────────────
+        verified_user_id, user_tier, _is_exempt = _extract_verified_user(request)
         try:
-            guest_gate(request, _guest_feature, ctx.redis)
-        except GuestLimitExceeded as _gle:
-            return _gle.response()
+            _enforce_usage(
+                request,
+                user_id=verified_user_id,
+                tier=user_tier,
+                is_exempt=_is_exempt,
+                guest_feature=_guest_feature,
+                plan_feature='daily_messages',
+                redis_client=ctx.redis,
+            )
+        except _UsageLimitExceeded as _ule:
+            return _ule.response()
 
         # ── Redis query cache ─────────────────────────────────────────────────
         _cache_eligible = _ask_is_cacheable(mode, history, web_search, thinking_mode)
@@ -238,24 +249,6 @@ def ask(request: Request, body: AskRequest):
             if cached_payload:
                 cached_payload['cached'] = True
                 return cached_payload
-
-        # ── Server-side tier + daily limit enforcement ────────────────────────
-        verified_user_id, user_tier, _is_exempt = _extract_verified_user(request)
-
-        # ── Per-user, per-device rate limiting ────────────────────────────────
-        if not _is_exempt:
-            from services.device_abuse import check_device_rate_limit
-            _device_block = check_device_rate_limit(verified_user_id, request)
-            if _device_block is not None:
-                return _device_block
-
-        # ── Plan-based usage limit ────────────────────────────────────────────
-        if not _is_exempt:
-            from services.plan_limits import check_plan_limit, PlanLimitExceeded
-            try:
-                check_plan_limit(verified_user_id, user_tier, 'daily_messages')
-            except PlanLimitExceeded as _ple:
-                return _ple.response()
 
         logger.info(f"[{mode.upper()}] task={task_type or 'auto'} Q: {question[:80]} | complexity: {complexity}")
 
