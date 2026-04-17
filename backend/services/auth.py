@@ -49,32 +49,38 @@ class Tier(str, Enum):
     and can be passed wherever a plain string is expected (JSON serialisation,
     f-strings, logging, etc.) without an explicit ``.value`` call.
 
-    Ordering (weakest → strongest): FREE < PAID < PRO < ULTRA.
+    Ordering (weakest → strongest): FREE < PRO < ULTRA.
 
     Usage
     -----
-    Tier('pro')          # → Tier.PRO   (construct from DB string)
+    Tier.from_db('pro')  # → Tier.PRO   (construct from DB string)
     Tier.PRO.is_paid     # → True
     Tier.FREE.is_paid    # → False
     server_tier == Tier.FREE          # direct equality
     """
 
     FREE  = 'free'
-    PAID  = 'paid'
     PRO   = 'pro'
     ULTRA = 'ultra'
 
     @property
     def is_paid(self) -> bool:
         """Return True for any tier that grants paid-level access."""
-        return self in (Tier.PAID, Tier.PRO, Tier.ULTRA)
+        return self in (Tier.PRO, Tier.ULTRA)
 
     @classmethod
     def from_db(cls, value: str) -> 'Tier':
-        """Parse a raw DB string, defaulting to FREE on any unknown value."""
+        """Parse a raw DB string, defaulting to FREE on any unknown value.
+
+        Maps legacy 'paid' rows → PRO so existing database records keep working
+        without a data migration.
+        """
+        normalised = (value or '').lower().strip()
+        if normalised == 'paid':
+            return cls.PRO
         try:
-            return cls(value.lower().strip())
-        except (ValueError, AttributeError):
+            return cls(normalised)
+        except ValueError:
             return cls.FREE
 
 

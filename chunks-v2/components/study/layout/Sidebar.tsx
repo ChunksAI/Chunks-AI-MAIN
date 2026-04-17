@@ -152,8 +152,6 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
     ? 'Ultra Plan'
     : user.tier === 'pro'
     ? 'Pro Plan'
-    : user.tier === 'team'
-    ? 'Team Plan'
     : user.isGuest
     ? 'Guest'
     : 'Free Plan';

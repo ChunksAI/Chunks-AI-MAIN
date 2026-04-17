@@ -66,8 +66,6 @@ export default function ProfileDropdown({ user }: ProfileDropdownProps) {
     ? 'Ultra Plan'
     : user.tier === 'pro'
     ? 'Pro Plan'
-    : user.tier === 'team'
-    ? 'Team Plan'
     : user.isGuest
     ? 'Guest'
     : 'Free Plan';

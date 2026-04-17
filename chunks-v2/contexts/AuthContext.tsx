@@ -33,7 +33,7 @@ export interface AuthUser {
   email: string;
   name: string;
   avatar?: string;
-  tier: 'free' | 'pro' | 'premium' | 'ultra' | 'team';
+  tier: 'free' | 'pro' | 'ultra';
   isGuest: boolean;
   isAdmin: boolean;
   isOwner: boolean;
@@ -106,9 +106,16 @@ function sessionToUser(session: Session): AuthUser {
   // Try to read plan from cached localStorage (populated by fetchUserPlan)
   let tier: AuthUser['tier'] = 'free';
   try {
-    const cached = localStorage.getItem('chunks_user_tier') as AuthUser['tier'] | null;
-    if (cached && ['free', 'pro', 'premium', 'ultra', 'team'].includes(cached)) {
-      tier = cached;
+    const cached = localStorage.getItem('chunks_user_tier');
+    // Migrate legacy tier values that no longer exist on the backend.
+    const migrated =
+      cached === 'premium' || cached === 'paid' ? 'pro' :
+      cached === 'team' ? 'pro' :
+      cached;
+    if (migrated && (['free', 'pro', 'ultra'] as const).includes(migrated as AuthUser['tier'])) {
+      tier = migrated as AuthUser['tier'];
+      // Write back the migrated value so the stale entry is corrected.
+      if (migrated !== cached) localStorage.setItem('chunks_user_tier', migrated);
     }
   } catch { /* ignore */ }
 
@@ -155,10 +162,17 @@ async function fetchUserPlan(
       is_admin?: boolean;
       is_owner?: boolean;
     };
-    const tier = (['free', 'pro', 'premium', 'ultra', 'team'] as const).includes(
-      data.tier as AuthUser['tier'],
+    // Normalise the tier string from the backend.
+    // Map legacy 'paid' → 'pro' so old DB rows don't fall back to 'free'.
+    const rawTier = data.tier ?? '';
+    const normalisedTier =
+      rawTier === 'paid' || rawTier === 'premium' ? 'pro' :
+      rawTier === 'team' ? 'pro' :
+      rawTier;
+    const tier = (['free', 'pro', 'ultra'] as const).includes(
+      normalisedTier as AuthUser['tier'],
     )
-      ? (data.tier as AuthUser['tier'])
+      ? (normalisedTier as AuthUser['tier'])
       : 'free';
     const isOwner = data.is_owner === true || data.role === 'owner';
     const isAdmin = isOwner || data.is_admin === true || data.role === 'admin';

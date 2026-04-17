@@ -196,8 +196,6 @@ export default function SettingsModal() {
     ? 'Ultra Plan'
     : user?.tier === 'pro'
     ? 'Pro Plan'
-    : user?.tier === 'team'
-    ? 'Team Plan'
     : 'Free Plan';
 
   return (
