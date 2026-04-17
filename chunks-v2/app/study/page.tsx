@@ -1,6 +1,6 @@
 'use client';
 
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useStudy, loadSnapshotByTitle } from '@/contexts/StudyContext';
@@ -12,8 +12,10 @@ import ContentPanel from '@/components/study/panels/ContentPanel';
 import ChatPanel from '@/components/study/panels/ChatPanel';
 import Toast from '@/components/shared/Toast';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
+import DiagnosticQuiz from '@/components/study/DiagnosticQuiz';
 import { useResizable } from '@/hooks/useResizable';
 import { useTutorSync } from '@/hooks/useTutorSync';
+import { useTutorBrain } from '@/hooks/useTutorBrain';
 
 // Lazy-load heavy tabs so the chat view is interactive immediately
 const WorkspaceTab = lazy(() => import('@/components/study/tabs/WorkspaceTab'));
@@ -56,6 +58,31 @@ function StudyLayout() {
   // Sync student knowledge model with backend (load on mount, debounce-save on change,
   // regression check on mount)
   const { regressions } = useTutorSync();
+  const { tbGetModel } = useTutorBrain();
+
+  // ── Diagnostic quiz gate ──────────────────────────────────────────────────────
+  // Show when a new topic or document is detected and the student model has no
+  // data (gaps or mastered) at all — i.e., a truly new user or fresh topic.
+  const [diagnosticTopic, setDiagnosticTopic] = useState<string | null>(null);
+  // Track the last topic we already triggered a diagnostic for so we don't repeat
+  const [diagnosticDoneTopic, setDiagnosticDoneTopic] = useState<string | null>(null);
+
+  const currentTopic = docTitle || topic;
+
+  useEffect(() => {
+    if (!currentTopic) return;
+    if (currentTopic === diagnosticDoneTopic) return;
+    // Only trigger when the student model is completely empty (brand-new user / topic)
+    const model = tbGetModel();
+    const isEmpty = model.gaps.length === 0 && model.mastered.length === 0 && model.quizHistory.length === 0;
+    if (isEmpty) {
+      setDiagnosticTopic(currentTopic);
+    } else {
+      // Model already has data; mark as done for this topic so we never re-trigger
+      setDiagnosticDoneTopic(currentTopic);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTopic]);
 
   // Show a toast whenever regression is detected on page load
   useEffect(() => {
@@ -117,6 +144,17 @@ function StudyLayout() {
       <Suspense fallback={null}>
         <BookParamsReader />
       </Suspense>
+
+      {/* ── Diagnostic quiz overlay (shown once when student model is empty) ── */}
+      {diagnosticTopic && (
+        <DiagnosticQuiz
+          topic={diagnosticTopic}
+          onComplete={() => {
+            setDiagnosticDoneTopic(diagnosticTopic);
+            setDiagnosticTopic(null);
+          }}
+        />
+      )}
 
       {/* ── Sidebar ── */}
       <Sidebar
