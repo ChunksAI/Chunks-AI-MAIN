@@ -1,4 +1,4 @@
-"""Tests for the library blueprint (/get-library, /load-book, /pdf/<book_id>)."""
+"""Tests for the library blueprint (/get-library, /load-book, /books/<book_id>/pdf)."""
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -32,8 +32,8 @@ def test_load_book_options(client):
 
 
 def test_pdf_unknown_book(client):
-    """GET /pdf/<book_id> with an unknown book_id returns 404."""
-    resp = client.get('/pdf/nonexistent_book_xyz')
+    """GET /books/<book_id>/pdf with an unknown book_id returns 404."""
+    resp = client.get('/books/nonexistent_book_xyz/pdf')
     assert resp.status_code == 404
     data = resp.json()
     assert 'error' in data
@@ -52,7 +52,7 @@ def test_load_book_known_fails_gracefully(client, mock_guest_gate, mock_extract_
 # ── PDF proxy success ────────────────────────────────────────────────────────
 
 def test_pdf_proxy_success(client, monkeypatch):
-    """GET /pdf/<book_id> proxies PDF from R2 successfully."""
+    """GET /books/<book_id>/pdf proxies PDF from R2 successfully."""
     from routes.shared import ctx
 
     mock_resp = MagicMock()
@@ -64,20 +64,27 @@ def test_pdf_proxy_success(client, monkeypatch):
     mock_session.get.return_value = mock_resp
     monkeypatch.setattr(ctx, 'session', mock_session)
 
-    resp = client.get('/pdf/zumdahl')
+    resp = client.get('/books/zumdahl/pdf')
     assert resp.status_code == 200
     assert resp.headers['content-type'] == 'application/pdf'
 
 
 def test_pdf_proxy_error(client, monkeypatch):
-    """GET /pdf/<book_id> returns 500 when R2 fetch fails."""
+    """GET /books/<book_id>/pdf returns 500 when R2 fetch fails."""
     from routes.shared import ctx
 
     mock_session = MagicMock()
     mock_session.get.side_effect = Exception("Connection refused")
     monkeypatch.setattr(ctx, 'session', mock_session)
 
-    resp = client.get('/pdf/zumdahl')
+    resp = client.get('/books/zumdahl/pdf')
     assert resp.status_code == 500
     data = resp.json()
     assert 'error' in data
+
+
+def test_pdf_legacy_redirect(client):
+    """GET /pdf/<book_id> redirects to /books/<book_id>/pdf (301)."""
+    resp = client.get('/pdf/zumdahl', follow_redirects=False)
+    assert resp.status_code == 301
+    assert resp.headers['location'] == '/books/zumdahl/pdf'
