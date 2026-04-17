@@ -303,6 +303,13 @@ def ask(request: Request, body: AskRequest):
                 context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
                 logger.info(f"User doc PAEV active — switching to textbook mode for book {book_id}")
             else:
+                from services.tool_compressor import compress_tool_context as _compress
+                doc_context = _compress(
+                    doc_context,
+                    tool_type='doc',
+                    token_budget=800,
+                    concept_keywords=[question],
+                )
                 context, similarity, is_relevant, source, all_sources = doc_context, 1.0, True, None, []
                 searcher     = TextbookSearch()
                 use_textbook = False
