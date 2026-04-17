@@ -393,8 +393,7 @@ def save_model(request: Request, body: SaveModelRequest):
     ):
         return JSONResponse({'error': 'Invalid student model schema.'}, status_code=422)
 
-    model_json = json.dumps(model)
-    if len(model_json.encode('utf-8')) > 65_536:
+    if len(json.dumps(model).encode('utf-8')) > 65_536:
         return JSONResponse({'error': 'Student model exceeds maximum size.'}, status_code=400)
 
     supabase_url = getattr(ctx, 'SUPABASE_URL', '')
@@ -407,9 +406,11 @@ def save_model(request: Request, body: SaveModelRequest):
             status_code=500,
         )
 
+    # Send the model as a native dict — Supabase REST API accepts JSONB
+    # directly when the column type is JSONB (no json.dumps() needed).
     payload = {
         'user_id':               verified_user_id,
-        'student_knowledge_model': model_json,
+        'student_knowledge_model': model,
     }
 
     try:
