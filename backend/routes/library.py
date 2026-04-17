@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 
 from routes.shared import ctx
 from routes.schemas import LoadBookRequest
-from guest_limits import GuestLimitExceeded, guest_gate
+from services.guest_limits import GuestLimitExceeded, guest_gate
 
 logger = logging.getLogger(__name__)
 

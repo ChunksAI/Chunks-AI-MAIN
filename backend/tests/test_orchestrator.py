@@ -1,7 +1,7 @@
 """Tests for backend/orchestrator.py — pure unit tests, no mocks required."""
 from __future__ import annotations
 
-from orchestrator import OrchestratorDecision, decide
+from services.orchestrator import OrchestratorDecision, decide
 
 # ── Helper ────────────────────────────────────────────────────────────────────
 

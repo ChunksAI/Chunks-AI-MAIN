@@ -213,8 +213,8 @@ def test_routing_table_admin(client):
     """Admin JWT → gets routing table."""
     email = 'admin@chunks.online'
     with patch.dict(os.environ, {'ADMIN_EMAIL_ADMIN': email}):
-        with patch('ai_router.routing_table', return_value=[]), \
-             patch('ai_router._get_models', return_value=[]):
+        with patch('services.ai_router.routing_table', return_value=[]), \
+             patch('services.ai_router._get_models', return_value=[]):
             r = client.get(
                 '/api/admin/routing-table',
                 headers=_admin_headers(email),

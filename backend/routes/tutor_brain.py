@@ -11,18 +11,13 @@ from __future__ import annotations
 
 import json
 import logging
-import os
-import sys
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-# Ensure backend root is on the path so paev_routes / paev_engine can be imported
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from paev_routes import _paev_cache_get                  # noqa: E402
-from paev_engine import PrerequisiteChainResolver         # noqa: E402
+from routes.paev import _paev_cache_get
+from services.paev_engine import PrerequisiteChainResolver
 
 logger = logging.getLogger(__name__)
 

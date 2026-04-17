@@ -512,7 +512,7 @@ def routing_table_endpoint(request: Request):
     if not verified:
         return JSONResponse({'success': False, 'error': 'Unauthorized — admin required'}, status_code=401)
 
-    from ai_router import routing_table, _get_models
+    from services.ai_router import routing_table, _get_models
     return {
         'success': True,
         'models':  _get_models(),

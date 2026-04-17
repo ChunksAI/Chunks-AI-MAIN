@@ -147,7 +147,7 @@ def _enforce_guest(request, feature: str, redis_client) -> None:
     is unavailable, this function fails **closed**: guests are denied when
     Redis cannot be reached, preventing quota bypass during outages.
     """
-    from guest_limits import GUEST_LIMITS, GuestLimitExceeded
+    from services.guest_limits import GUEST_LIMITS, GuestLimitExceeded
 
     limit = GUEST_LIMITS.get(feature)
     if limit is None:

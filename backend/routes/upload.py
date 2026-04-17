@@ -40,9 +40,9 @@ def _build_paev_index(book_id: str, slides: list) -> None:
     that PAEV is available for this upload.
     """
     try:
-        from hierarchical_indexer import HierarchicalIndexer
-        from paev_fingerprint import EpistemicFingerprintBuilder
-        from paev_routes import _paev_cache_set
+        from services.hierarchical_indexer import HierarchicalIndexer
+        from services.paev_fingerprint import EpistemicFingerprintBuilder
+        from routes.paev import _paev_cache_set
 
         api_key = os.environ.get('OPENROUTER_API_KEY', '')
         model   = os.environ.get('MODEL', 'openai/gpt-4o-mini')

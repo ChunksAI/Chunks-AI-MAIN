@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 
 from routes.shared import ctx
 from routes.schemas import StudyMaterialsRequest, QuizRequest
-from guest_limits import enforce_exam_constraints_for_guest
+from services.guest_limits import enforce_exam_constraints_for_guest
 from services.usage import enforce as _enforce_usage, UsageLimitExceeded as _UsageLimitExceeded
 from services.auth import _extract_verified_user
 from services.cache import cache_svc as _cache_svc
@@ -50,7 +50,7 @@ def generate_study_materials(request: Request, body: StudyMaterialsRequest):
         except _UsageLimitExceeded as _ule:
             return _ule.response()
 
-        from ai_router import route
+        from services.ai_router import route
         from services.ai import call_ai
 
         # ── Cache check ───────────────────────────────────────────────────────
@@ -265,7 +265,7 @@ def generate_quiz(request: Request, body: QuizRequest):
         question_type      = data.get('question_type', 'mcq').lower().strip()
         existing_questions = data.get('existingQuestions', [])
 
-        from ai_router import route
+        from services.ai_router import route
         from services.ai import call_ai
         from services.mcq_parser import _parse_mcq
 

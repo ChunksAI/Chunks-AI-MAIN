@@ -42,8 +42,8 @@ from slowapi.errors import RateLimitExceeded
 
 import redis as redis_lib
 
-from ai_router import route, route_for_mode  # noqa: F401 — re-exported for route files
-from guest_limits import (  # noqa: F401
+from services.ai_router import route, route_for_mode  # noqa: F401 — re-exported for route files
+from services.guest_limits import (  # noqa: F401
     guest_gate, enforce_exam_constraints_for_guest, GuestLimitExceeded,
 )
 
@@ -473,8 +473,8 @@ app.include_router(youtube_router)
 app.include_router(tutor_router)
 
 # ── PAEV and progress routes ──────────────────────────────────────────────────
-from paev_routes    import register_paev      # noqa: E402
-from progress_routes import register_progress  # noqa: E402
+from routes.paev    import register_paev      # noqa: E402
+from routes.progress import register_progress  # noqa: E402
 register_paev(app, redis=_redis)
 register_progress(app)
 

@@ -81,15 +81,16 @@ def mock_extract_user(monkeypatch):
 
 @pytest.fixture
 def mock_guest_gate(monkeypatch):
-    """Patch guest_gate to be a no-op (never blocks) in all route modules."""
-    import guest_limits
-    import routes.chat
+    """Patch guest rate-limiting to a no-op (never blocks) in all route modules.
+
+    Routes call services.usage.enforce → services.usage._enforce_guest, so we
+    patch _enforce_guest directly.  routes.library uses services.guest_limits.guest_gate
+    at module level, so that is patched separately.
+    """
+    import services.guest_limits as guest_limits
+    import services.usage as usage_svc
     import routes.library
-    import routes.flashcards
-    import routes.study
     noop = lambda *a, **kw: None
-    monkeypatch.setattr(guest_limits,      'guest_gate', noop)
-    monkeypatch.setattr(routes.chat,       'guest_gate', noop)
-    monkeypatch.setattr(routes.library,    'guest_gate', noop)
-    monkeypatch.setattr(routes.flashcards, 'guest_gate', noop)
-    monkeypatch.setattr(routes.study,      'guest_gate', noop)
+    monkeypatch.setattr(usage_svc,      '_enforce_guest', noop)
+    monkeypatch.setattr(guest_limits,   'guest_gate', noop)
+    monkeypatch.setattr(routes.library, 'guest_gate', noop)

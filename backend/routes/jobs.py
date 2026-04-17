@@ -35,7 +35,7 @@ def _run_ask_job(data: dict) -> dict:
     )
     from services.prompt_guard import screen_prompt  # noqa: F811
     from services.books import BOOK_LIBRARY, TextbookSearch, get_book_index
-    from ai_router import route, route_for_mode
+    from services.ai_router import route, route_for_mode
     from services.cache import cache_svc as _cache_svc
     from services.mcq_parser import _parse_mcq
     import json  # noqa: E401

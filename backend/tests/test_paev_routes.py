@@ -24,9 +24,9 @@ def test_paev_status(client):
 
 def test_paev_status_with_cached(client):
     """Status endpoint reports cached_on_disk when local files exist."""
-    with patch('paev_routes._paev_status_get', return_value=None), \
-         patch('paev_routes._r2_client', return_value=None), \
-         patch('paev_routes.os.path.exists', return_value=True):
+    with patch('routes.paev._paev_status_get', return_value=None), \
+         patch('routes.paev._r2_client', return_value=None), \
+         patch('routes.paev.os.path.exists', return_value=True):
         r = client.get('/paev/status')
         assert r.status_code == 200
         body = r.json()
@@ -37,7 +37,7 @@ def test_paev_status_with_cached(client):
 def test_paev_status_with_redis(client):
     """Status from Redis cache."""
     status = {'stage': 'ready', 'pct': 100}
-    with patch('paev_routes._paev_status_get', return_value=status):
+    with patch('routes.paev._paev_status_get', return_value=status):
         r = client.get('/paev/status')
         body = r.json()
         for info in body['books'].values():
@@ -61,9 +61,9 @@ def test_build_index_unknown_book(client):
 
 def test_build_index_starts(client):
     """Valid request for a known book starts a background build."""
-    with patch('paev_routes._paev_status_get', return_value=None), \
-         patch('paev_routes._paev_status_set'), \
-         patch('paev_routes.threading') as mock_threading:
+    with patch('routes.paev._paev_status_get', return_value=None), \
+         patch('routes.paev._paev_status_set'), \
+         patch('routes.paev.threading') as mock_threading:
         mock_thread = MagicMock()
         mock_threading.Thread.return_value = mock_thread
 
@@ -77,7 +77,7 @@ def test_build_index_starts(client):
 
 def test_build_index_already_built(client):
     """If already built, returns immediately."""
-    with patch('paev_routes._paev_status_get', return_value={'stage': 'ready', 'pct': 100}):
+    with patch('routes.paev._paev_status_get', return_value={'stage': 'ready', 'pct': 100}):
         r = client.post('/paev/build-index', json={'bookId': 'zumdahl'})
         assert r.status_code == 200
         body = r.json()
@@ -86,7 +86,7 @@ def test_build_index_already_built(client):
 
 
 def test_build_index_in_progress(client):
-    with patch('paev_routes._paev_status_get', return_value={'stage': 'building_index', 'pct': 40}):
+    with patch('routes.paev._paev_status_get', return_value={'stage': 'building_index', 'pct': 40}):
         r = client.post('/paev/build-index', json={'bookId': 'zumdahl'})
         assert r.status_code == 200
         body = r.json()
@@ -95,9 +95,9 @@ def test_build_index_in_progress(client):
 
 def test_build_index_error_state(client):
     """After a previous error, re-build is allowed."""
-    with patch('paev_routes._paev_status_get', return_value={'stage': 'error', 'error': 'timeout'}), \
-         patch('paev_routes._paev_status_set'), \
-         patch('paev_routes.threading') as mock_threading:
+    with patch('routes.paev._paev_status_get', return_value={'stage': 'error', 'error': 'timeout'}), \
+         patch('routes.paev._paev_status_set'), \
+         patch('routes.paev.threading') as mock_threading:
         mock_thread = MagicMock()
         mock_threading.Thread.return_value = mock_thread
 
@@ -109,7 +109,7 @@ def test_build_index_error_state(client):
 # ── GET /paev/graph/<book_id> ─────────────────────────────────────────────────
 
 def test_graph_not_built(client):
-    with patch('paev_routes._get_book', return_value=(None, None, None)):
+    with patch('routes.paev._get_book', return_value=(None, None, None)):
         r = client.get('/paev/graph/zumdahl')
         assert r.status_code == 404
         body = r.json()
@@ -124,7 +124,7 @@ def test_graph_success(client):
     mock_graph.nodes = {'mole': mock_node, 'bond': mock_node}
     mock_graph.edges = {'mole': ['bond'], 'bond': []}
 
-    with patch('paev_routes._get_book', return_value=(MagicMock(), MagicMock(), mock_graph)):
+    with patch('routes.paev._get_book', return_value=(MagicMock(), MagicMock(), mock_graph)):
         r = client.get('/paev/graph/zumdahl')
         assert r.status_code == 200
         body = r.json()
@@ -143,7 +143,7 @@ def test_learning_path_no_concept(client):
 
 
 def test_learning_path_not_built(client):
-    with patch('paev_routes._get_book', return_value=(None, None, None)):
+    with patch('routes.paev._get_book', return_value=(None, None, None)):
         r = client.get('/paev/learning-path?bookId=zumdahl&concept=entropy')
         assert r.status_code == 404
 
@@ -160,7 +160,7 @@ def test_learning_path_success(client):
     mock_graph.get_learning_path.return_value = ['energy']
     mock_graph.nodes = {'energy': mock_node}
 
-    with patch('paev_routes._get_book', return_value=(MagicMock(), MagicMock(), mock_graph)):
+    with patch('routes.paev._get_book', return_value=(MagicMock(), MagicMock(), mock_graph)):
         r = client.get('/paev/learning-path?bookId=zumdahl&concept=entropy')
         assert r.status_code == 200
         body = r.json()
@@ -176,7 +176,7 @@ def test_learning_path_empty(client):
     mock_graph.get_learning_path.return_value = []
     mock_graph.nodes = {}
 
-    with patch('paev_routes._get_book', return_value=(MagicMock(), MagicMock(), mock_graph)):
+    with patch('routes.paev._get_book', return_value=(MagicMock(), MagicMock(), mock_graph)):
         r = client.get('/paev/learning-path?bookId=zumdahl&concept=atom')
         assert r.status_code == 200
         body = r.json()
@@ -204,7 +204,7 @@ def test_paev_ask_unknown_book(client):
 
 
 def test_paev_ask_not_indexed(client):
-    with patch('paev_routes._get_book', return_value=(None, None, None)):
+    with patch('routes.paev._get_book', return_value=(None, None, None)):
         r = client.post('/paev/ask', json={
             'question': 'What is pH?',
             'bookId': 'zumdahl',
@@ -215,9 +215,9 @@ def test_paev_ask_not_indexed(client):
 
 def test_paev_ask_success(client):
     mock_result = MagicMock()
-    with patch('paev_routes._get_book', return_value=(MagicMock(), MagicMock(), MagicMock())), \
-         patch('paev_routes._verifier') as mock_verifier, \
-         patch('paev_routes.EpistemicVerifier') as mock_cls:
+    with patch('routes.paev._get_book', return_value=(MagicMock(), MagicMock(), MagicMock())), \
+         patch('routes.paev._verifier') as mock_verifier, \
+         patch('routes.paev.EpistemicVerifier') as mock_cls:
         mock_verifier.run.return_value = mock_result
         mock_cls.result_to_dict.return_value = {'answer': 'pH is ...', 'confidence': 0.9}
 
@@ -233,8 +233,8 @@ def test_paev_ask_success(client):
 
 def test_paev_ask_exception(client):
     """Verifier raises → 500 with error message."""
-    with patch('paev_routes._get_book', return_value=(MagicMock(), MagicMock(), MagicMock())), \
-         patch('paev_routes._verifier') as mock_verifier:
+    with patch('routes.paev._get_book', return_value=(MagicMock(), MagicMock(), MagicMock())), \
+         patch('routes.paev._verifier') as mock_verifier:
         mock_verifier.run.side_effect = RuntimeError('model timeout')
 
         r = client.post('/paev/ask', json={
@@ -251,7 +251,7 @@ def test_paev_ask_exception(client):
 
 def test_paev_pickle_set_no_redis():
     """pickle set with no redis → no-op."""
-    import paev_routes as pr
+    import routes.paev as pr
     original = pr._redis
     try:
         pr._redis = None
@@ -262,7 +262,7 @@ def test_paev_pickle_set_no_redis():
 
 def test_paev_pickle_roundtrip():
     """pickle set + get returns the original object."""
-    import paev_routes as pr
+    import routes.paev as pr
     original = pr._redis
     try:
         mock_redis = MagicMock()
@@ -288,7 +288,7 @@ def test_paev_pickle_roundtrip():
 
 def test_paev_pickle_get_no_redis():
     """pickle get with no redis → None."""
-    import paev_routes as pr
+    import routes.paev as pr
     original = pr._redis
     try:
         pr._redis = None
@@ -299,7 +299,7 @@ def test_paev_pickle_get_no_redis():
 
 def test_paev_status_set_no_redis():
     """status set with no redis → no-op."""
-    import paev_routes as pr
+    import routes.paev as pr
     original = pr._redis
     try:
         pr._redis = None
@@ -310,7 +310,7 @@ def test_paev_status_set_no_redis():
 
 def test_paev_status_get_no_redis():
     """status get with no redis → None."""
-    import paev_routes as pr
+    import routes.paev as pr
     original = pr._redis
     try:
         pr._redis = None
@@ -321,7 +321,7 @@ def test_paev_status_get_no_redis():
 
 def test_paev_status_roundtrip():
     """status set + get returns stored data."""
-    import paev_routes as pr
+    import routes.paev as pr
     original = pr._redis
     try:
         mock_redis = MagicMock()
@@ -346,7 +346,7 @@ def test_paev_status_roundtrip():
 
 def test_paev_cache_set_and_get():
     """cache set + get returns all three objects."""
-    import paev_routes as pr
+    import routes.paev as pr
     original = pr._redis
     try:
         mock_redis = MagicMock()
@@ -374,7 +374,7 @@ def test_paev_cache_set_and_get():
 
 def test_paev_cache_get_miss():
     """cache get returns (None, None, None) on miss."""
-    import paev_routes as pr
+    import routes.paev as pr
     original = pr._redis
     try:
         mock_redis = MagicMock()
@@ -393,7 +393,7 @@ def test_paev_cache_get_miss():
 
 def test_r2_client_not_configured():
     """R2 client returns None when env vars not set."""
-    import paev_routes as pr
+    import routes.paev as pr
     old = pr._r2_client_instance
     try:
         pr._r2_client_instance = None
@@ -411,13 +411,13 @@ def test_r2_client_not_configured():
 
 def test_r2_key():
     """R2 key generation."""
-    import paev_routes as pr
+    import routes.paev as pr
     assert pr._r2_key('zumdahl', 'index') == 'paev_indexes/zumdahl_index.json'
 
 
 def test_r2_upload_not_configured():
     """Upload when R2 not configured returns False."""
-    import paev_routes as pr
+    import routes.paev as pr
     old = pr._r2_client_instance
     try:
         pr._r2_client_instance = None
@@ -434,7 +434,7 @@ def test_r2_upload_not_configured():
 
 def test_r2_download_not_configured():
     """Download when R2 not configured returns None."""
-    import paev_routes as pr
+    import routes.paev as pr
     old = pr._r2_client_instance
     try:
         pr._r2_client_instance = None
@@ -451,7 +451,7 @@ def test_r2_download_not_configured():
 
 def test_r2_exists_not_configured():
     """exists check when R2 not configured returns False."""
-    import paev_routes as pr
+    import routes.paev as pr
     old = pr._r2_client_instance
     try:
         pr._r2_client_instance = None
@@ -468,7 +468,7 @@ def test_r2_exists_not_configured():
 
 def test_r2_upload_success():
     """Upload succeeds with mock client."""
-    import paev_routes as pr
+    import routes.paev as pr
     mock_client = MagicMock()
     old = pr._r2_client_instance
     try:
@@ -482,7 +482,7 @@ def test_r2_upload_success():
 
 def test_r2_download_success():
     """Download succeeds with mock client."""
-    import paev_routes as pr
+    import routes.paev as pr
     mock_client = MagicMock()
     mock_body = MagicMock()
     mock_body.read.return_value = json.dumps({'chapters': []}).encode()
@@ -498,7 +498,7 @@ def test_r2_download_success():
 
 def test_r2_exists_success():
     """exists returns True when all three files exist."""
-    import paev_routes as pr
+    import routes.paev as pr
     mock_client = MagicMock()
     old = pr._r2_client_instance
     try:
@@ -513,7 +513,7 @@ def test_r2_exists_success():
 
 def test_get_book_from_cache():
     """_get_book returns from Redis cache (tier 1)."""
-    import paev_routes as pr
+    import routes.paev as pr
     idx, fps, graph = 'idx', 'fps', 'graph'
     with patch.object(pr, '_paev_cache_get', return_value=(idx, fps, graph)):
         r_idx, r_fps, r_graph = pr._get_book('zumdahl')
@@ -524,16 +524,16 @@ def test_get_book_from_cache():
 
 def test_get_book_from_disk():
     """_get_book loads from local disk (tier 2) when cache misses."""
-    import paev_routes as pr
+    import routes.paev as pr
     mock_idx = MagicMock()
     mock_fps = {'p1': MagicMock()}
     mock_graph = MagicMock()
 
     with patch.object(pr, '_paev_cache_get', return_value=(None, None, None)), \
-         patch('paev_routes.os.path.exists', return_value=True), \
+         patch('routes.paev.os.path.exists', return_value=True), \
          patch.object(pr, '_indexer') as mock_indexer, \
          patch.object(pr, '_fps_from_dict', return_value=mock_fps), \
-         patch('paev_routes.PrerequisiteGraph') as mock_pg_cls, \
+         patch('routes.paev.PrerequisiteGraph') as mock_pg_cls, \
          patch.object(pr, '_paev_cache_set'), \
          patch.object(pr, '_paev_status_set'), \
          patch('builtins.open', MagicMock()), \
@@ -548,9 +548,9 @@ def test_get_book_from_disk():
 
 def test_get_book_disk_error_falls_to_r2():
     """Disk load fails → falls through to R2 tier."""
-    import paev_routes as pr
+    import routes.paev as pr
     with patch.object(pr, '_paev_cache_get', return_value=(None, None, None)), \
-         patch('paev_routes.os.path.exists', return_value=True), \
+         patch('routes.paev.os.path.exists', return_value=True), \
          patch.object(pr, '_indexer') as mock_indexer, \
          patch.object(pr, '_r2_download', return_value=None), \
          patch.object(pr, '_paev_status_set'):
@@ -563,9 +563,9 @@ def test_get_book_disk_error_falls_to_r2():
 
 def test_get_book_r2_not_found():
     """R2 doesn't have the book → returns None."""
-    import paev_routes as pr
+    import routes.paev as pr
     with patch.object(pr, '_paev_cache_get', return_value=(None, None, None)), \
-         patch('paev_routes.os.path.exists', return_value=False), \
+         patch('routes.paev.os.path.exists', return_value=False), \
          patch.object(pr, '_r2_download', return_value=None), \
          patch.object(pr, '_paev_status_set'):
         r_idx, r_fps, r_graph = pr._get_book('zumdahl')
@@ -574,17 +574,17 @@ def test_get_book_r2_not_found():
 
 def test_get_book_r2_success():
     """_get_book loads from R2 (tier 3) when disk and cache miss."""
-    import paev_routes as pr
+    import routes.paev as pr
     mock_idx = MagicMock()
     mock_fps = {'p1': MagicMock()}
     mock_graph = MagicMock()
 
     with patch.object(pr, '_paev_cache_get', return_value=(None, None, None)), \
-         patch('paev_routes.os.path.exists', return_value=False), \
+         patch('routes.paev.os.path.exists', return_value=False), \
          patch.object(pr, '_r2_download', side_effect=[{'idx': 1}, {'fps': 1}, {'graph': 1}]), \
          patch.object(pr, '_indexer') as mock_indexer, \
          patch.object(pr, '_fps_from_dict', return_value=mock_fps), \
-         patch('paev_routes.PrerequisiteGraph') as mock_pg_cls, \
+         patch('routes.paev.PrerequisiteGraph') as mock_pg_cls, \
          patch.object(pr, '_paev_cache_set'), \
          patch.object(pr, '_paev_status_set'), \
          patch('builtins.open', MagicMock()), \
@@ -603,9 +603,9 @@ def test_get_book_r2_success():
 
 def test_get_book_r2_exception():
     """R2 download raises → returns None."""
-    import paev_routes as pr
+    import routes.paev as pr
     with patch.object(pr, '_paev_cache_get', return_value=(None, None, None)), \
-         patch('paev_routes.os.path.exists', return_value=False), \
+         patch('routes.paev.os.path.exists', return_value=False), \
          patch.object(pr, '_r2_download', side_effect=Exception('network error')), \
          patch.object(pr, '_paev_status_set'):
         r_idx, r_fps, r_graph = pr._get_book('zumdahl')
@@ -616,7 +616,7 @@ def test_get_book_r2_exception():
 
 def test_r2_upload_error():
     """Upload raises → returns False."""
-    import paev_routes as pr
+    import routes.paev as pr
     mock_client = MagicMock()
     mock_client.put_object.side_effect = Exception('upload failed')
     old = pr._r2_client_instance
@@ -629,7 +629,7 @@ def test_r2_upload_error():
 
 def test_r2_download_error():
     """Download raises → returns None."""
-    import paev_routes as pr
+    import routes.paev as pr
     mock_client = MagicMock()
     mock_client.get_object.side_effect = Exception('not found')
     old = pr._r2_client_instance
@@ -642,7 +642,7 @@ def test_r2_download_error():
 
 def test_r2_exists_error():
     """exists raises → returns False."""
-    import paev_routes as pr
+    import routes.paev as pr
     mock_client = MagicMock()
     mock_client.head_object.side_effect = Exception('not found')
     old = pr._r2_client_instance
@@ -657,7 +657,7 @@ def test_r2_exists_error():
 
 def test_paev_pickle_set_error():
     """pickle set with Redis error → no-op (logs warning)."""
-    import paev_routes as pr
+    import routes.paev as pr
     original = pr._redis
     try:
         mock_redis = MagicMock()
@@ -670,7 +670,7 @@ def test_paev_pickle_set_error():
 
 def test_paev_pickle_get_error():
     """pickle get with corrupt data → returns None."""
-    import paev_routes as pr
+    import routes.paev as pr
     original = pr._redis
     try:
         mock_redis = MagicMock()
@@ -684,7 +684,7 @@ def test_paev_pickle_get_error():
 
 def test_paev_status_set_error():
     """status set with Redis error → no-op."""
-    import paev_routes as pr
+    import routes.paev as pr
     original = pr._redis
     try:
         mock_redis = MagicMock()
@@ -697,7 +697,7 @@ def test_paev_status_set_error():
 
 def test_paev_status_get_error():
     """status get with Redis error → returns None."""
-    import paev_routes as pr
+    import routes.paev as pr
     original = pr._redis
     try:
         mock_redis = MagicMock()
@@ -712,7 +712,7 @@ def test_paev_status_get_error():
 # ── Unit tests: path helpers ─────────────────────────────────────────────────
 
 def test_path_helpers():
-    import paev_routes as pr
+    import routes.paev as pr
     assert 'zumdahl_index.json' in pr._idx_path('zumdahl')
     assert 'zumdahl_fingerprints.json' in pr._fp_path('zumdahl')
     assert 'zumdahl_graph.json' in pr._graph_path('zumdahl')
@@ -732,7 +732,7 @@ def test_paev_blueprints_registered(app):
 # ── Unit tests: _validate_book_id ───────────────────────────────────────────
 
 def test_validate_book_id_valid():
-    import paev_routes as pr
+    import routes.paev as pr
     assert pr._validate_book_id('zumdahl') is True
     assert pr._validate_book_id('atkins-2e') is True
     assert pr._validate_book_id('book_123') is True
@@ -740,22 +740,22 @@ def test_validate_book_id_valid():
 
 
 def test_validate_book_id_path_traversal():
-    import paev_routes as pr
+    import routes.paev as pr
     assert pr._validate_book_id('../etc/passwd') is False
 
 
 def test_validate_book_id_too_long():
-    import paev_routes as pr
+    import routes.paev as pr
     assert pr._validate_book_id('a' * 200) is False
 
 
 def test_validate_book_id_empty():
-    import paev_routes as pr
+    import routes.paev as pr
     assert pr._validate_book_id('') is False
 
 
 def test_validate_book_id_special_chars():
-    import paev_routes as pr
+    import routes.paev as pr
     assert pr._validate_book_id('book name') is False   # space
     assert pr._validate_book_id('book/id') is False     # slash
     assert pr._validate_book_id('book.id') is False     # dot
@@ -765,7 +765,7 @@ def test_validate_book_id_special_chars():
 
 def test_paev_cache_set_redis_unavailable_falls_back_to_process_cache():
     """When Redis is None, objects are stored in the process-level fallback cache."""
-    import paev_routes as pr
+    import routes.paev as pr
     original_redis = pr._redis
     original_cache = pr._paev_process_cache.copy()
     try:
@@ -782,7 +782,7 @@ def test_paev_cache_set_redis_unavailable_falls_back_to_process_cache():
 
 def test_paev_cache_get_falls_back_to_process_cache():
     """When Redis returns nothing, _paev_cache_get reads from the process cache."""
-    import paev_routes as pr
+    import routes.paev as pr
     original_redis = pr._redis
     original_cache = pr._paev_process_cache.copy()
     try:
@@ -802,7 +802,7 @@ def test_paev_cache_get_falls_back_to_process_cache():
 
 def test_paev_cache_set_invalid_book_id_rejected():
     """_paev_cache_set with an invalid book_id is a no-op."""
-    import paev_routes as pr
+    import routes.paev as pr
     original_cache = pr._paev_process_cache.copy()
     original_redis = pr._redis
     try:
@@ -818,7 +818,7 @@ def test_paev_cache_set_invalid_book_id_rejected():
 
 def test_paev_cache_get_invalid_book_id_returns_none():
     """_paev_cache_get with an invalid book_id returns (None, None, None)."""
-    import paev_routes as pr
+    import routes.paev as pr
     idx, fps, graph = pr._paev_cache_get('../evil')
     assert idx is None
     assert fps is None

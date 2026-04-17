@@ -48,7 +48,7 @@ def generate_flashcards(request: Request, body: FlashcardsRequest):
         except _UsageLimitExceeded as _ule:
             return _ule.response()
 
-        from ai_router import route
+        from services.ai_router import route
         from services.books import get_book_index
         from services.ai import call_ai
 
