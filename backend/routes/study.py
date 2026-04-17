@@ -20,6 +20,7 @@ from routes.schemas import StudyMaterialsRequest, QuizRequest
 from guest_limits import enforce_exam_constraints_for_guest
 from services.usage import enforce as _enforce_usage, UsageLimitExceeded as _UsageLimitExceeded
 from services.auth import _extract_verified_user
+from services.cache import cache_svc as _cache_svc
 
 logger = logging.getLogger(__name__)
 
@@ -49,14 +50,13 @@ def generate_study_materials(request: Request, body: StudyMaterialsRequest):
         except _UsageLimitExceeded as _ule:
             return _ule.response()
 
-        from services.material_cache import _cache_key, _cache_get, _cache_set
         from ai_router import route
         from services.ai import call_ai
 
         # ── Cache check ───────────────────────────────────────────────────────
         _sm_hash    = hashlib.md5(str(slides).encode()).hexdigest()[:16]
-        _sm_cache_k = _cache_key('doc', _sm_hash, material_type, 0)
-        _sm_cached  = _cache_get(_sm_cache_k)
+        _sm_cache_k = _cache_svc.material_key('doc', _sm_hash, material_type, 0)
+        _sm_cached  = _cache_svc.get('material', _sm_cache_k)
         if _sm_cached:
             logger.info(f"⚡ Cache HIT study-materials: {material_type}")
             return {**_sm_cached, 'cached': True}
@@ -227,7 +227,7 @@ def generate_study_materials(request: Request, body: StudyMaterialsRequest):
            endpoint='study_materials', user_id=verified_user_id)
 
         sm_payload = {'success': True, 'materials': {material_type: result}}
-        _cache_set(_sm_cache_k, sm_payload)
+        _cache_svc.set('material', _sm_cache_k, sm_payload)
         return sm_payload
 
     except Exception as e:

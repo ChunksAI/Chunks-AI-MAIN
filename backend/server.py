@@ -191,12 +191,9 @@ _plan_limits_svc.init(redis=_redis)
 import services.device_abuse as _device_abuse_svc  # noqa: E402
 _device_abuse_svc.init(redis=_redis)
 
-# ── Initialise cache service modules ─────────────────────────────────────────
-import services.material_cache as _material_cache_svc
-_material_cache_svc.init(redis=_redis)
-
-import services.ask_cache as _ask_cache_svc
-_ask_cache_svc.init(
+# ── Unified cache service (replaces material_cache + ask_cache + answer_cache) ─
+import services.cache as _cache_svc_mod  # noqa: E402
+_cache_svc_mod.init(
     redis                = _redis,
     session              = _session,
     supabase_url         = SUPABASE_URL,
@@ -206,12 +203,6 @@ _ask_cache_svc.init(
 # ── Re-export BOOK_LIBRARY for backward compatibility ─────────────────────────
 from services.books import BOOK_LIBRARY  # noqa: F401, E402 — re-export
 
-# ── Re-export cache helpers for backward compatibility ────────────────────────
-# Routes previously imported these from server; they now live in service modules.
-from services.material_cache import _cache_key, _cache_get, _cache_set  # noqa: F401, E402
-from services.ask_cache import (  # noqa: F401, E402
-    _ask_cache_key, _ask_cache_get, _ask_cache_set, _ask_is_cacheable,
-)
 from services.mcq_parser import _parse_mcq  # noqa: F401, E402
 
 # ── CORS ──────────────────────────────────────────────────────────────────────

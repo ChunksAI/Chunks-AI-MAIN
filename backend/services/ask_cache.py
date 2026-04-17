@@ -1,3 +1,4 @@
+# DEPRECATED: use services.cache.CacheService instead
 """
 backend/services/ask_cache.py — Redis + Supabase cache layer for /ask queries.
 

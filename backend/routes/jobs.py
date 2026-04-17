@@ -36,7 +36,7 @@ def _run_ask_job(data: dict) -> dict:
     from services.prompt_guard import screen_prompt  # noqa: F811
     from services.books import BOOK_LIBRARY, TextbookSearch, get_book_index
     from ai_router import route, route_for_mode
-    from services.ask_cache import _ask_cache_key, _ask_cache_get, _ask_cache_set, _ask_is_cacheable
+    from services.cache import cache_svc as _cache_svc
     from services.mcq_parser import _parse_mcq
     import json  # noqa: E401
     import os
@@ -57,12 +57,12 @@ def _run_ask_job(data: dict) -> dict:
     verified_user_id = data.get('_verified_user_id', '')
 
     # ── Redis query cache ─────────────────────────────────────────────────
-    _cache_eligible = _ask_is_cacheable(mode, history, web_search, thinking_mode)
-    _cache_key_val  = _ask_cache_key(book_id, task_type, mode, complexity, question,
-                                     doc_context) \
+    _cache_eligible = _cache_svc.ask_is_cacheable(mode, history, web_search, thinking_mode)
+    _cache_key_val  = _cache_svc.ask_key(book_id, task_type, mode, complexity, question,
+                                         doc_context) \
                       if _cache_eligible else None
     if _cache_eligible:
-        cached_payload = _ask_cache_get(_cache_key_val)
+        cached_payload = _cache_svc.ask_get(_cache_key_val)
         if cached_payload:
             cached_payload['cached'] = True
             return cached_payload
@@ -104,7 +104,6 @@ def _run_ask_job(data: dict) -> dict:
             context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
 
     # ── Semantic answer cache check ───────────────────────────────────────
-    from services import answer_cache as _answer_cache
     _sem_eligible = (
         _cache_eligible
         and mode != 'generate'
@@ -123,8 +122,8 @@ def _run_ask_job(data: dict) -> dict:
                 if hasattr(_query_emb, 'tolist')
                 else list(_query_emb)
             )
-            _sem_ctx_hash = _answer_cache.context_hash(mode, complexity, context)
-            _sem_hit = _answer_cache.lookup(_query_emb_list, _sem_ctx_hash)
+            _sem_ctx_hash = _cache_svc.context_hash(mode, complexity, context)
+            _sem_hit = _cache_svc.semantic_lookup(_query_emb_list, _sem_ctx_hash)
             if _sem_hit:
                 _sem_hit['cached'] = True
                 _sem_hit['semantic_cached'] = True
@@ -248,11 +247,11 @@ Answer helpfully and clearly."""
         'thinking_content': thinking_content,
     }
     if _cache_eligible and _cache_key_val:
-        _ask_cache_set(_cache_key_val, _resp,
-                       task_type=task_type, mode=mode,
-                       book_id=book_id, model_used=selected_model)
+        _cache_svc.ask_set(_cache_key_val, _resp,
+                           task_type=task_type, mode=mode,
+                           book_id=book_id, model_used=selected_model)
     if _sem_eligible and _sem_ctx_hash and _query_emb_list:
-        _answer_cache.store(_query_emb_list, _sem_ctx_hash, _resp)
+        _cache_svc.semantic_store(_query_emb_list, _sem_ctx_hash, _resp)
     return _resp
 
 

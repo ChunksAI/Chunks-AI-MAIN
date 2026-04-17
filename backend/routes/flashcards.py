@@ -17,6 +17,7 @@ from routes.shared import ctx
 from routes.schemas import FlashcardsRequest
 from services.usage import enforce as _enforce_usage, UsageLimitExceeded as _UsageLimitExceeded
 from services.auth import _extract_verified_user
+from services.cache import cache_svc as _cache_svc
 
 logger = logging.getLogger(__name__)
 
@@ -47,14 +48,13 @@ def generate_flashcards(request: Request, body: FlashcardsRequest):
         except _UsageLimitExceeded as _ule:
             return _ule.response()
 
-        from services.material_cache import _cache_key, _cache_get, _cache_set
         from ai_router import route
         from services.books import get_book_index
         from services.ai import call_ai
 
         # ── Cache check ───────────────────────────────────────────────────────
-        cache_k = _cache_key(book_id, topic, 'flashcards', count)
-        cached  = _cache_get(cache_k)
+        cache_k = _cache_svc.material_key(book_id, topic, 'flashcards', count)
+        cached  = _cache_svc.get('material', cache_k)
         if cached:
             logger.info(f"⚡ Cache HIT flashcards: {topic} ({book_id})")
             return {**cached, 'cached': True}
@@ -133,7 +133,7 @@ Rules:
 
         logger.info(f"Generated {len(flashcards)} flashcards for: {topic}")
         result_payload = {'success': True, 'flashcards': flashcards, 'count': len(flashcards), 'topic': topic}
-        _cache_set(cache_k, result_payload)
+        _cache_svc.set('material', cache_k, result_payload)
         return result_payload
 
     except Exception as e:

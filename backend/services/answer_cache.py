@@ -1,3 +1,4 @@
+# DEPRECATED: use services.cache.CacheService instead
 """
 backend/services/answer_cache.py — Semantic answer cache.
 
