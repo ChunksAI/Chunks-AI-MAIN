@@ -7,7 +7,11 @@
  */
 
 import type { StudyState } from '@/contexts/StudyContext';
+import type { QuizState } from '@/contexts/QuizContext';
 import type { SRSCard } from '@/lib/srsAlgorithm';
+
+/** Merged shape accepted by weakness functions — both slices are needed. */
+type StudyAndQuizState = StudyState & QuizState;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,10 +42,10 @@ export interface Recommendation {
  *            + min(attempts / 5, 1) × 0.3
  *            + (1 − flashcardMastery) × 0.2
  *
- * @param state    Current StudyState (reads quizResults + weakAreas).
+ * @param state    Merged study+quiz state (reads quizResults + weakAreas).
  * @param srsCards Optional SRS card list for mastery weighting.
  */
-export function computeWeaknessScores(state: StudyState, srsCards?: SRSCard[]): WeaknessScore[] {
+export function computeWeaknessScores(state: StudyAndQuizState, srsCards?: SRSCard[]): WeaknessScore[] {
   const topicMap = new Map<string, { totalScore: number; attempts: number }>();
 
   // Aggregate quiz results by topic
@@ -101,7 +105,7 @@ export function computeWeaknessScores(state: StudyState, srsCards?: SRSCard[]): 
  * Returns the topic string with the highest weakness score.
  * Returns `null` when there is no quiz or weak-area history.
  */
-export function getWeakestTopic(state: StudyState, srsCards?: SRSCard[]): string | null {
+export function getWeakestTopic(state: StudyAndQuizState, srsCards?: SRSCard[]): string | null {
   const scores = computeWeaknessScores(state, srsCards);
   return scores.length > 0 ? (scores[0]?.topic ?? null) : null;
 }
