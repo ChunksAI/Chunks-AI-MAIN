@@ -332,6 +332,7 @@ export async function generateQuiz(params: GenerateQuizRequest): Promise<Generat
     mode: params.mode ?? 'standard',
     question_type: params.question_type ?? 'mcq',
     existingQuestions: params.existingQuestions ?? [],
+    ...(params.bookId ? { bookId: params.bookId } : {}),
   });
 }
 

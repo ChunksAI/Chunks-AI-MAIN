@@ -40,11 +40,13 @@ export interface GenerateQuizRequest {
   mode?: string;
   question_type?: string;
   existingQuestions?: string[];
+  bookId?: string;
 }
 
 export interface GenerateStudyMaterialsRequest {
   slides: SlideItem[];
   type: 'notes' | 'reviewer' | 'flashcards' | 'summary' | 'quiz' | 'all';
+  bookId?: string;
 }
 
 // ─── Response Types ───────────────────────────────────────────────────────────

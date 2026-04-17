@@ -1386,7 +1386,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           stateRef.current.slides.length > 0
             ? stateRef.current.slides
             : topicToSlides(topic);
-        const res = await generateQuiz({ slides, count, difficulty });
+        const res = await generateQuiz({ slides, count, difficulty, bookId: stateRef.current.bookId ?? undefined });
         const cardId = `quiz-${Date.now()}`;
         const card: WorkspaceCard = {
           id: cardId,
