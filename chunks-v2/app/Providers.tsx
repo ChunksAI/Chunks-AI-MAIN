@@ -7,7 +7,9 @@ import { QuizProvider } from '@/contexts/QuizContext';
 import { NotesProvider } from '@/contexts/NotesContext';
 import { StudyProvider } from '@/contexts/StudyContext';
 import { FlashcardsProvider } from '@/contexts/FlashcardsContext';
+import { ToastProvider } from '@/contexts/ToastContext';
 import SettingsModal from '@/components/shared/SettingsModal';
+import ToastHost from '@/components/ToastHost';
 import type { ReactNode } from 'react';
 
 /**
@@ -18,8 +20,11 @@ import type { ReactNode } from 'react';
  * stays a server component.
  *
  * Provider nesting order (outer → inner):
- *   AuthProvider → SettingsProvider → ChatProvider → QuizProvider →
- *   NotesProvider → StudyProvider → FlashcardsProvider
+ *   ToastProvider → AuthProvider → SettingsProvider → ChatProvider →
+ *   QuizProvider → NotesProvider → StudyProvider → FlashcardsProvider
+ *
+ * ToastProvider is outermost so any provider — including AuthProvider — can
+ * fire toast notifications (e.g. on auth error or session expiry).
  *
  * ChatProvider, QuizProvider, and NotesProvider must all be ancestors of
  * StudyProvider because StudyProvider calls useChatContext(), useQuizContext(),
@@ -30,27 +35,31 @@ import type { ReactNode } from 'react';
  *
  * FlashcardsProvider is global so SRS decks and study-mode persist across pages.
  *
- * SettingsModal is rendered here so it is always in the DOM tree regardless
- * of which page/route is active.
+ * SettingsModal and ToastHost are rendered here so they are always in the DOM
+ * tree regardless of which page/route is active.
  */
 export default function Providers({ children }: { children: ReactNode }) {
   return (
-    <AuthProvider>
-      <SettingsProvider>
-        <ChatProvider>
-          <QuizProvider>
-            <NotesProvider>
-              <StudyProvider>
-                <FlashcardsProvider>
-                  {children}
-                </FlashcardsProvider>
-                {/* Global modals — always available regardless of current route */}
-                <SettingsModal />
-              </StudyProvider>
-            </NotesProvider>
-          </QuizProvider>
-        </ChatProvider>
-      </SettingsProvider>
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <SettingsProvider>
+          <ChatProvider>
+            <QuizProvider>
+              <NotesProvider>
+                <StudyProvider>
+                  <FlashcardsProvider>
+                    {children}
+                  </FlashcardsProvider>
+                  {/* Global modals — always available regardless of current route */}
+                  <SettingsModal />
+                </StudyProvider>
+              </NotesProvider>
+            </QuizProvider>
+          </ChatProvider>
+        </SettingsProvider>
+      </AuthProvider>
+      {/* Global toast notifications — rendered outside auth so auth errors show too */}
+      <ToastHost />
+    </ToastProvider>
   );
 }

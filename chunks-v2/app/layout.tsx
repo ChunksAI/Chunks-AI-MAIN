@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import 'katex/dist/katex.min.css';
 import Providers from './Providers';
+import ErrorBoundary from '@/components/shared/ErrorBoundary';
 
 const SITE_URL = 'https://chunks.online';
 const OG_IMAGE = `${SITE_URL}/favicon-512x512.png`;
@@ -88,7 +89,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
-        <Providers>{children}</Providers>
+        <ErrorBoundary>
+          <Providers>{children}</Providers>
+        </ErrorBoundary>
       </body>
     </html>
   );

@@ -31,6 +31,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: { componentStack: string }) {
     console.error('[ErrorBoundary]', error.message, info.componentStack);
+    // TODO: Report to Sentry: Sentry.captureException(error, { extra: info })
   }
 
   render() {
@@ -54,12 +55,20 @@ export default class ErrorBoundary extends Component<Props, State> {
           <p style={{ margin: 0, color: 'var(--text3)', textAlign: 'center', maxWidth: 320 }}>
             {this.state.error?.message ?? 'An unexpected error occurred.'}
           </p>
-          <button
-            className="ws-add-btn"
-            onClick={() => this.setState({ hasError: false, error: null })}
-          >
-            Try again
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="ws-add-btn"
+              onClick={() => this.setState({ hasError: false, error: null })}
+            >
+              Try again
+            </button>
+            <button
+              className="ws-add-btn"
+              onClick={() => window.location.reload()}
+            >
+              Reload page
+            </button>
+          </div>
         </div>
       );
     }
