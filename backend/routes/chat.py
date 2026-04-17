@@ -213,6 +213,19 @@ def ask(request: Request, body: AskRequest):
         task_type       = data.get('task_type', None)
         student_profile = data.get('student_profile', '')
 
+        # ── Parse injected token flags (e.g. [WEB_SEARCH_ENABLED]) ───────────
+        if question.startswith('['):
+            _token_flags = re.findall(r'\[([A-Z_]+)\]', question)
+            for _tok in _token_flags:
+                question = question.replace(f'[{_tok}]', '', 1)
+            question = question.strip()
+            if 'WEB_SEARCH_ENABLED' in _token_flags:
+                web_search    = True
+            if 'THINKING_MODE' in _token_flags:
+                thinking_mode = 'thinking'
+            if 'DEEP_THINKING_MODE' in _token_flags:
+                thinking_mode = 'deep'
+
         # ── Map mode/task to a guest feature bucket ───────────────────────────
         if task_type == 'home_general' or mode == 'home_general':
             _guest_feature = 'general'

@@ -271,7 +271,7 @@ _is_production = PRODUCTION
 _PRODUCTION_ORIGINS = [
     "https://chunks.online",
     "https://www.chunks.online",
-    "https://chunks-v2.vercel.app",   # canonical staging deployment
+    "https://chunks-ai.vercel.app",    # canonical staging deployment
 ]
 _DEV_ORIGINS = [
     "http://localhost:5173",
@@ -299,9 +299,11 @@ elif _raw_origins == '*':
     )
 
 CORS_ORIGINS = list(dict.fromkeys(_allowed))
-# Vercel preview URLs are scoped to the exact project ("chunks-v2") under the
-# "chunksai" org.  The previous pattern matched ANY chunks-ai-* deployment.
-_VERCEL_ORIGIN_REGEX = r'^https://chunks-v2-[a-z0-9-]+-chunksai\.vercel\.app$'
+# Vercel preview URLs are scoped to the "chunks-ai" project; the regex
+# matches the base domain and any valid preview suffix (no trailing/double hyphens).
+_VERCEL_ORIGIN_REGEX = (
+    r'^https://chunks-ai(-[a-z0-9]([a-z0-9-]*[a-z0-9])*)?\.vercel\.app$'
+)
 
 logger.info("CORS mode: %s", 'PRODUCTION' if _is_production else 'DEVELOPMENT')
 logger.info("CORS allowed origins: %s", CORS_ORIGINS)
@@ -594,8 +596,7 @@ from routes.study         import router as study_router      # noqa: E402
 from routes.youtube       import router as youtube_router    # noqa: E402
 from routes.image         import router as image_router      # noqa: E402
 from routes.chat          import router as chat_router       # noqa: E402
-# DEPRECATED - remove after 2026-05-15 if no external callers confirmed
-# from routes.jobs          import router as jobs_router       # noqa: E402
+from routes.jobs          import router as jobs_router       # noqa: E402
 from routes.share_content import router as share_router      # noqa: E402
 from routes.tutor_brain   import router as tutor_router      # noqa: E402
 
@@ -607,8 +608,7 @@ app.include_router(upload_router)
 app.include_router(study_router)
 app.include_router(image_router)
 app.include_router(chat_router)
-# DEPRECATED - remove after 2026-05-15 if no external callers confirmed
-# app.include_router(jobs_router)
+app.include_router(jobs_router)
 app.include_router(share_router)
 app.include_router(youtube_router)
 app.include_router(tutor_router)
