@@ -46,6 +46,12 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
  *
  * All other non-2xx responses are returned as-is for the caller to inspect.
  */
+
+/** Generate a short 6-character alphanumeric request ID for tracing. */
+function makeReqId(): string {
+  return Math.random().toString(36).slice(2, 8);
+}
+
 async function fetchWithAuth(url: string, options: RequestInit): Promise<Response> {
   const res = await fetch(url, options);
 
@@ -101,7 +107,7 @@ async function fetchWithAuth(url: string, options: RequestInit): Promise<Respons
 }
 
 async function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
-  const reqId = Math.random().toString(36).slice(2, 8);
+  const reqId = makeReqId();
   const authHeaders = await getAuthHeaders();
   const res = await fetchWithAuth(`${API_BASE}${path}`, {
     method: 'POST',
@@ -130,7 +136,7 @@ async function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Pr
 }
 
 async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const reqId = Math.random().toString(36).slice(2, 8);
+  const reqId = makeReqId();
   const authHeaders = await getAuthHeaders();
   const res = await fetchWithAuth(`${API_BASE}${path}`, {
     method: 'GET',

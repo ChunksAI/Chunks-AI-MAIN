@@ -386,6 +386,9 @@ async def request_id_middleware(request: Request, call_next):
     - Echoed back in the ``X-Request-Id`` response header.
     """
     req_id = request.headers.get('x-request-id') or uuid.uuid4().hex[:8]
+    # Sanitise to prevent log injection: allow only hex chars and hyphens, max 64 chars.
+    if not re.fullmatch(r'[0-9a-fA-F\-]{1,64}', req_id):
+        req_id = uuid.uuid4().hex[:8]
     request.state.request_id = req_id
     token = _request_id_var.set(req_id)
     try:
