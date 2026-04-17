@@ -532,6 +532,30 @@ async def internal_error(request: Request, exc):
     return JSONResponse({'success': False, 'error': 'Internal server error.'}, status_code=500)
 
 
+# ── Startup: validate required secrets ───────────────────────────────────────
+# Names of environment variables that must be set (non-empty and not a
+# placeholder) before the server can safely serve traffic.  In production,
+# any missing/placeholder value is fatal (raises RuntimeError → prevents the
+# worker from starting).  In development it emits a warning so local testing
+# still works without all keys.
+_REQUIRED_ENV_VARS = ['SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'OPENROUTER_API_KEY']
+_ENV_PLACEHOLDER_VALUES = frozenset({'your-key-here', 'placeholder', ''})
+
+
+@app.on_event("startup")
+async def validate_secrets():
+    is_prod = os.environ.get('PRODUCTION', '').lower() == 'true'
+    for env_var in _REQUIRED_ENV_VARS:
+        val = os.environ.get(env_var, '')
+        if not val or val in _ENV_PLACEHOLDER_VALUES:
+            msg = f"MISSING or PLACEHOLDER secret: {env_var}"
+            if is_prod:
+                logger.critical(msg)
+                raise RuntimeError(msg)
+            else:
+                logger.warning(msg)
+
+
 # ── Shared context — populate before registering routers ─────────────────────
 from routes.shared import ctx as _ctx  # noqa: E402
 _ctx._init(

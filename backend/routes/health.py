@@ -4,14 +4,22 @@ backend/routes/health.py — Health and config endpoints.
 Endpoints
 ---------
 GET  /                  Home / index
-GET  /ping              Liveness check (no AI call)
+GET  /ping              Liveness check — is the process alive? (no dependency checks)
+GET  /ready             Readiness check — can the process serve traffic? (checks Redis + Supabase)
 GET  /health            Full status report
 GET  /api/config        Public Supabase config for the frontend
 GET  /api/plan-limits   Plan limits for all tiers (public)
 GET  /api/me/plan       Authenticated user's plan, limits, and usage
 POST /api/verify-access Authenticated user's tier + admin/owner status (called on login)
+
+Probe semantics
+---------------
+/ping  = liveness   — is the process alive?   Restart if this fails.
+/ready = readiness  — can it serve traffic?   Remove from load-balancer if this fails.
 """
 from __future__ import annotations
+
+import requests as _requests
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -44,13 +52,56 @@ def home(request: Request):
 
 @router.get('/ping')
 def ping(request: Request):
-    # Static liveness check — does NOT call the AI API.
+    # Liveness probe — is the process alive?
+    # Must stay fast and dependency-free; no Redis/DB/network calls here.
     return {
         'status':      'ok',
         'model':       ctx.MODEL,
         'api_key_set': ctx.OPENROUTER_API_KEY != 'your-key-here',
         'r2_set':      ctx.R2_BUCKET_URL != 'https://pub-xxxxx.r2.dev',
     }
+
+
+@router.get('/ready')
+async def readiness(request: Request):
+    """Readiness probe — can this instance serve traffic?
+
+    Returns 200 + ``{"status": "ready"}`` only when all required dependencies
+    are reachable.  Returns 503 + ``{"status": "degraded"}`` otherwise so that
+    load balancers / orchestrators can remove the instance from rotation until
+    it recovers.
+    """
+    checks: dict[str, str] = {}
+
+    # ── Redis ──────────────────────────────────────────────────────────────
+    redis = ctx.redis
+    if redis is None:
+        # Redis is optional (falls back to in-memory); treat as non-blocking.
+        checks['redis'] = 'not configured'
+    else:
+        try:
+            redis.ping()
+            checks['redis'] = 'ok'
+        except Exception as exc:
+            checks['redis'] = f'error: {exc}'
+
+    # ── Supabase ───────────────────────────────────────────────────────────
+    try:
+        r = _requests.get(f"{ctx.SUPABASE_URL}/auth/v1/health", timeout=3)
+        checks['supabase'] = 'ok' if r.ok else f'error: {r.status_code}'
+    except Exception as exc:
+        checks['supabase'] = f'error: {exc}'
+
+    # Redis 'not configured' is non-blocking; only 'error:*' values fail readiness.
+    all_ok = all(
+        v == 'ok' or v == 'not configured'
+        for v in checks.values()
+    ) and any(v == 'ok' for v in checks.values())
+
+    return JSONResponse(
+        {'status': 'ready' if all_ok else 'degraded', 'checks': checks},
+        status_code=200 if all_ok else 503,
+    )
 
 
 @router.get('/health')
