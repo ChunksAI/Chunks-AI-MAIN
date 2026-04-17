@@ -406,8 +406,11 @@ def save_model(request: Request, body: SaveModelRequest):
             status_code=500,
         )
 
-    # Send the model as a native dict — Supabase REST API accepts JSONB
-    # directly when the column type is JSONB (no json.dumps() needed).
+    # Send the model as a native dict.  session.post(json=...) (requests
+    # library) serializes the dict to JSON and sets Content-Type to
+    # application/json automatically.  Because the column is now JSONB,
+    # Supabase's PostgREST parses the JSON body directly into JSONB — no
+    # intermediate TEXT step or json.dumps() on our side is required.
     payload = {
         'user_id':               verified_user_id,
         'student_knowledge_model': model,

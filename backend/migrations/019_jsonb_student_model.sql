@@ -48,7 +48,7 @@ BEGIN
       UPDATE user_settings
          SET student_knowledge_model_v2 = r.student_knowledge_model::jsonb
        WHERE ctid = r.ctid;
-    EXCEPTION WHEN OTHERS THEN
+    EXCEPTION WHEN invalid_text_representation THEN
       -- Unparseable JSON: leave student_knowledge_model_v2 as NULL for this row
       NULL;
     END;
