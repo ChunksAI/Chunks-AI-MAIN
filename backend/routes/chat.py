@@ -17,6 +17,7 @@ import re
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from routes.limiter import limiter
 from routes.shared import ctx, TEACHING_PROMPT
 from routes.schemas import AskRequest
 from services.usage import enforce as _enforce_usage, UsageLimitExceeded as _UsageLimitExceeded
@@ -184,6 +185,7 @@ def build_system_prompt(
 
 
 @router.post('/ask')
+@limiter.limit("10/minute")
 def ask(request: Request, body: AskRequest):
     try:
         from services.ai import (

@@ -24,6 +24,7 @@ import requests as _requests
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from routes.limiter import limiter
 from routes.shared import ctx
 
 router = APIRouter()
@@ -165,6 +166,7 @@ def get_my_plan(request: Request):
 
 
 @router.post('/api/verify-access')
+@limiter.limit("20/minute")
 def verify_access(request: Request):
     """Return the authenticated user's plan tier and admin/owner status.
 

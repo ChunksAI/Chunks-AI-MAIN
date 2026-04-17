@@ -41,7 +41,6 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 import redis as redis_lib
@@ -357,7 +356,17 @@ app = FastAPI(title="Chunks Chemistry API", version="2.0")
 # ── Rate limiter ──────────────────────────────────────────────────────────────
 from routes.limiter import limiter  # noqa: E402
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+async def _json_rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    """Return a machine-readable JSON 429 instead of slowapi's default HTML."""
+    return JSONResponse(
+        {'error': 'Rate limit exceeded', 'retry_after': 60},
+        status_code=429,
+    )
+
+
+app.add_exception_handler(RateLimitExceeded, _json_rate_limit_handler)
 
 # ── CORS middleware ───────────────────────────────────────────────────────────
 app.add_middleware(

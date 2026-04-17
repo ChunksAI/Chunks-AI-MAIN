@@ -18,6 +18,7 @@ from fastapi import APIRouter, Request, UploadFile, File
 from fastapi.responses import JSONResponse
 from werkzeug.utils import secure_filename
 
+from routes.limiter import limiter
 from routes.shared import ctx
 
 # Ensure the backend root is importable for the PAEV background thread.
@@ -80,6 +81,7 @@ def _build_paev_index(book_id: str, slides: list) -> None:
 
 
 @router.post('/upload-document')
+@limiter.limit("5/minute")
 def upload_document(request: Request, file: UploadFile = File(default=None)):
     try:
         from services.auth import _extract_verified_user

@@ -28,6 +28,11 @@ def app():
     with patch('requests.Session', return_value=mock_session), \
          patch('redis.from_url', return_value=mock_redis):
         import server as srv
+        # Disable rate limiting during tests, mirroring how CSRF is
+        # suppressed via PYTEST_CURRENT_TEST.  The limiter is created at
+        # module load time, so we flip its internal flag after import.
+        from routes.limiter import limiter as _limiter
+        _limiter.enabled = False
         yield srv.app
 
 
