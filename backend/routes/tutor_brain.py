@@ -99,7 +99,7 @@ def _build_student_profile(
 
 @router.post('/analyze-gaps')
 @limiter.limit("20/minute")
-def analyze_gaps(request: Request, body: AnalyzeGapsRequest):
+def analyze_gaps(request: Request, body: AnalyzeGapsRequest):  # request required by @limiter.limit
     book_id        = body.book_id
     quiz_results   = body.quiz_results
     known_concepts = [c.lower().strip() for c in body.known_concepts]
@@ -175,7 +175,7 @@ def analyze_gaps(request: Request, body: AnalyzeGapsRequest):
 
 @router.post('/next-topic')
 @limiter.limit("20/minute")
-def next_topic(request: Request, body: NextTopicRequest):
+def next_topic(request: Request, body: NextTopicRequest):  # request required by @limiter.limit
     book_id      = body.book_id
     current_page = body.current_page
 
@@ -447,7 +447,7 @@ def save_model(request: Request, body: SaveModelRequest):
 
 @router.get('/paev-status')
 @limiter.limit("60/minute")
-def paev_status(request: Request, book_id: str):
+def paev_status(request: Request, book_id: str):  # request required by @limiter.limit
     """Return whether the PAEV index has been built for a user-uploaded document."""
     from routes.shared import ctx
     redis = getattr(ctx, 'redis', None)
