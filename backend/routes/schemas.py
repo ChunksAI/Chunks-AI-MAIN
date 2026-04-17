@@ -143,6 +143,18 @@ class AdminUpdateUserRequest(_LenientBase):
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  /api/admin/set-role  (POST)                                               ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+class AdminSetRoleRequest(_StrictBase):
+    """Body for POST /api/admin/set-role — owner-only role assignment."""
+    user_email: str = Field(..., description="Email of the user whose role should change.")
+    role: Literal['user', 'admin', 'owner'] = Field(
+        ..., description="New role: 'user' | 'admin' | 'owner'."
+    )
+
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
 # ║  PAEV routes                                                               ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 

@@ -321,8 +321,11 @@ def is_admin_exempt(email: str = '', role: str = '') -> bool:
     """Return True if this user should bypass all usage limits.
 
     Checks in order (fastest first):
-      1. Role string against the known exempt roles (owner / admin / superadmin).
-      2. Email address against the env-var admin list.
+      1. Role string from DB against the known exempt roles (owner / admin / superadmin).
+         This is the primary path — roles are stored in users.role after running
+         migration 021_admin_roles.sql and scripts/seed_admin_roles.py.
+      2. Email address against the env-var admin list (TEMPORARY fallback).
+         # Remove env-var fallback after seed script has been run in production.
 
     Both the ``email`` and ``role`` values come from the JWT / DB so they are
     server-verified and cannot be spoofed by the client.
@@ -330,10 +333,21 @@ def is_admin_exempt(email: str = '', role: str = '') -> bool:
     This function is intentionally cheap: it performs no I/O.  Role and email
     are resolved once by ``_extract_verified_user()`` per request.
     """
+    # Primary: DB role check (populated by migration 021 + seed script).
     if role and role.strip().lower() in _EXEMPT_ROLES:
         return True
+
+    # Temporary fallback: env-var email list.
+    # Remove env-var fallback after seed script has been run in production.
     if email:
-        return email.strip().lower() in _get_admin_exempt_emails()
+        exempt_emails = _get_admin_exempt_emails()
+        if email.strip().lower() in exempt_emails:
+            logger.warning(
+                "is_admin_exempt: user %s granted via env-var fallback — "
+                "run seed_admin_roles.py and remove ADMIN_EMAIL_* env vars",
+                email,
+            )
+            return True
     return False
 
 

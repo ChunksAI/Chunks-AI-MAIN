@@ -22,7 +22,7 @@ from urllib.parse import quote
 
 from routes.shared import ctx
 from typing import Optional
-from routes.schemas import AdminVerifyRequest, AdminUpdateUserRequest
+from routes.schemas import AdminVerifyRequest, AdminUpdateUserRequest, AdminSetRoleRequest
 
 logger = logging.getLogger(__name__)
 
@@ -609,6 +609,89 @@ def update_user(request: Request, email: str, body: AdminUpdateUserRequest = Non
         return {'success': True}
     except Exception as e:
         logger.exception('update_user error')
+        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+
+
+@router.post('/api/admin/set-role')
+def set_role(request: Request, body: AdminSetRoleRequest):
+    """
+    Update a user's role in the DB.  Callable by role='owner' only.
+
+    Request body: {"user_email": "...", "role": "user"|"admin"|"owner"}
+
+    On success the user-info Redis cache is invalidated so the change takes
+    effect within at most USER_CACHE_TTL seconds (default 60 s) without
+    requiring a token refresh on the user's side.
+    """
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return JSONResponse({'success': False, 'error': 'Unauthorized'}, status_code=401)
+
+    jwt_token = auth_header[7:]
+    verified, requester_role = _check_admin_role(jwt_token)
+    if not verified or requester_role != 'owner':
+        logger.warning(
+            'set_role: access denied — requester role=%s (owner required)',
+            requester_role,
+        )
+        return JSONResponse(
+            {'success': False, 'error': 'Forbidden — owner role required'},
+            status_code=403,
+        )
+
+    requester_id = (verified.get('id') or verified.get('email') or '?')
+    target_email = body.user_email.strip().lower()
+    new_role     = body.role
+
+    supabase_url = getattr(ctx, 'SUPABASE_URL', '') or ''
+    service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '') or ''
+    _sess        = getattr(ctx, 'session', None)
+
+    if not supabase_url or not service_key or not _sess:
+        return JSONResponse({'success': False, 'error': 'Server not configured'}, status_code=500)
+
+    try:
+        from urllib.parse import quote as _quote
+        resp = _sess.patch(
+            f'{supabase_url}/rest/v1/users',
+            params={'email': f'eq.{_quote(target_email, safe="@")}'},
+            json={'role': new_role},
+            headers={
+                'Authorization': f'Bearer {service_key}',
+                'apikey':        service_key,
+                'Content-Type':  'application/json',
+                'Prefer':        'return=representation',
+            },
+            timeout=10,
+        )
+        if resp.status_code not in (200, 204):
+            return JSONResponse(
+                {'success': False, 'error': f'Supabase returned {resp.status_code}: {resp.text[:200]}'},
+                status_code=502,
+            )
+
+        logger.info(
+            'Role change: %s set %s to role=%s',
+            requester_id, target_email, new_role,
+        )
+
+        # Invalidate Redis cache so the change takes effect within TTL seconds.
+        _redis_client = getattr(ctx, '_redis', None)
+        if resp.status_code == 200:
+            try:
+                rows = resp.json()
+                if isinstance(rows, list) and rows:
+                    target_user_id = rows[0].get('id', '')
+                    if target_user_id:
+                        from services.auth import invalidate_user_cache
+                        invalidate_user_cache(target_user_id, _redis_client)
+            except Exception:
+                pass  # cache invalidation is best-effort
+
+        return {'success': True, 'user_email': target_email, 'role': new_role}
+
+    except Exception as e:
+        logger.exception('set_role error')
         return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
 
 
