@@ -41,13 +41,16 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
  *   3. If the retry also returns 401, or if the refresh itself fails, sign the
  *      user out and redirect to /login?reason=session_expired.
  *
- * On a 403 response: the request is NOT retried — throw immediately so the
- * caller / UI can handle the authorisation error directly.
+ * On a 403 response: the request is NOT retried — the 403 Response is returned
+ * immediately so the caller / UI can handle the authorisation error directly.
  *
  * All other non-2xx responses are returned as-is for the caller to inspect.
  */
 async function fetchWithAuth(url: string, options: RequestInit): Promise<Response> {
   const res = await fetch(url, options);
+
+  // 403 — forbidden, do not retry
+  if (res.status === 403) return res;
 
   if (res.status !== 401) return res;
 
