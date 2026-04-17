@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import services.answer_cache as cache
+from services.ask_cache import _ask_cache_key as _ackey
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -251,8 +252,6 @@ class TestInit:
 
 
 # ── Tests: _ask_cache_key (services/ask_cache.py) ────────────────────────────
-
-from services.ask_cache import _ask_cache_key as _ackey  # noqa: E402
 
 
 _KEY_DEFAULTS = dict(

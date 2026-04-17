@@ -55,7 +55,6 @@ class NextTopicRequest(BaseModel):
 
 
 class SaveModelRequest(BaseModel):
-    user_id: str
     student_model: dict
 
 
@@ -256,8 +255,15 @@ def next_topic(body: NextTopicRequest):
 # ── GET /tutor/load-model ─────────────────────────────────────────────────────
 
 @router.get('/load-model')
-def load_model(user_id: str, request: Request):
+def load_model(request: Request):
     from routes.shared import ctx
+    from services.auth import _extract_verified_user
+
+    verified_user_id, _, _ = _extract_verified_user(request)
+    if not verified_user_id:
+        return JSONResponse({'error': 'Authentication required.'}, status_code=401)
+
+    user_id = verified_user_id
 
     supabase_url = getattr(ctx, 'SUPABASE_URL', '')
     service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
@@ -373,6 +379,23 @@ def evaluate_socratic(body: EvaluateSocraticRequest):
 @router.post('/save-model')
 def save_model(request: Request, body: SaveModelRequest):
     from routes.shared import ctx
+    from services.auth import _extract_verified_user
+
+    verified_user_id, _, _ = _extract_verified_user(request)
+    if not verified_user_id:
+        return JSONResponse({'error': 'Authentication required.'}, status_code=401)
+
+    model = body.student_model
+    if not (
+        isinstance(model.get('mastered'), list)
+        and isinstance(model.get('gaps'), list)
+        and isinstance(model.get('quizHistory'), list)
+    ):
+        return JSONResponse({'error': 'Invalid student model schema.'}, status_code=422)
+
+    model_json = json.dumps(model)
+    if len(model_json.encode('utf-8')) > 65_536:
+        return JSONResponse({'error': 'Student model exceeds maximum size.'}, status_code=400)
 
     supabase_url = getattr(ctx, 'SUPABASE_URL', '')
     service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
@@ -385,8 +408,8 @@ def save_model(request: Request, body: SaveModelRequest):
         )
 
     payload = {
-        'user_id':               body.user_id,
-        'student_knowledge_model': json.dumps(body.student_model),
+        'user_id':               verified_user_id,
+        'student_knowledge_model': model_json,
     }
 
     try:
