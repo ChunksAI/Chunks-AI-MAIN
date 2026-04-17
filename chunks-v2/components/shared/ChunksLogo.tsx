@@ -5,7 +5,7 @@
  *   • Outer ring  — faint warm-tan stroke, tilted ~20°
  *   • Mid ring    — violet accent, tilted ~−15°, slightly thicker
  *   • Inner ring  — gold, nearly upright
- * Two orbiting nodes sit on the outer and mid rings.
+ * Two orbiting nodes sit on the outer and mid rings..
  * Strokes are thin, proportional, and scale cleanly with `size`.
  */
 export default function ChunksLogo({ size = 22 }: { size?: number }) {
