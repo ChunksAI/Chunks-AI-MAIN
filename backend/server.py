@@ -66,9 +66,15 @@ class _RequestIdFilter(logging.Filter):
 # ── Logging ───────────────────────────────────────────────────────────────────
 # Field names whose values must never appear in logs (matched case-insensitively).
 _SENSITIVE_LOG_FIELDS = frozenset({
+    # snake_case
     'authorization', 'token', 'access_token', 'refresh_token',
-    'api_key', 'apikey', 'password', 'secret', 'jwt',
-    'x-api-key', 'email', 'supabase_service_key',
+    'api_key', 'password', 'secret', 'jwt', 'supabase_service_key',
+    # camelCase (lowercased)
+    'accesstoken', 'refreshtoken', 'apikey',
+    # kebab-case
+    'x-api-key', 'access-token', 'refresh-token',
+    # misc PII
+    'email',
 })
 
 _is_prod_logging = os.environ.get('PRODUCTION', 'false').lower() == 'true'
