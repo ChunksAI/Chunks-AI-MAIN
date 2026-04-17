@@ -16,9 +16,6 @@ import pytest
 # Ensure the backend directory is on the Python path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-# Disable CSRF checks in tests by default
-os.environ.setdefault('TESTING', 'true')
-
 
 @pytest.fixture(scope='session')
 def app():
@@ -50,7 +47,7 @@ def client(app):
 
 
 @pytest.fixture
-def csrf_client(app):
+def csrf_client(app, monkeypatch):
     """Test client with CSRF enforcement turned ON.
 
     Uses a fresh client WITHOUT a default Origin header so CSRF tests can
@@ -58,10 +55,9 @@ def csrf_client(app):
     """
     import server
     from starlette.testclient import TestClient
-    server._csrf_disabled = False
+    monkeypatch.setattr(server, '_is_csrf_disabled', lambda: False)
     with TestClient(app, raise_server_exceptions=False) as tc:
         yield tc
-    server._csrf_disabled = True   # restore — CSRF off for other tests
 
 
 @pytest.fixture

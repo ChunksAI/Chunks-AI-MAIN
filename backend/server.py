@@ -312,14 +312,28 @@ app.add_middleware(
 
 # ── CSRF origin check middleware ──────────────────────────────────────────────
 _CSRF_SAFE_METHODS = frozenset(('GET', 'HEAD', 'OPTIONS'))
-# Mutable flag so tests can toggle CSRF enforcement at runtime
-_csrf_disabled: bool = os.environ.get('TESTING', '').lower() == 'true'
+
+
+def _is_csrf_disabled() -> bool:
+    """CSRF is disabled only when pytest is actively running. Never in production."""
+    return 'PYTEST_CURRENT_TEST' in os.environ
+
+
+# Belt-and-suspenders: abort startup if CSRF would be suppressed in production.
+if PRODUCTION and 'PYTEST_CURRENT_TEST' not in os.environ and _is_csrf_disabled():
+    logger.critical(
+        "CSRF protection is disabled in a production environment — refusing to start."
+    )
+    raise RuntimeError(
+        "CSRF must not be disabled in production. "
+        "Unset PYTEST_CURRENT_TEST or fix the CSRF configuration."
+    )
 
 
 @app.middleware("http")
 async def csrf_origin_check(request: Request, call_next):
     """Block state-changing requests whose Origin/Referer is untrusted."""
-    if _csrf_disabled:
+    if _is_csrf_disabled():
         return await call_next(request)
 
     if request.method in _CSRF_SAFE_METHODS:
