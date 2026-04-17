@@ -9,6 +9,7 @@ import Sidebar from '@/components/study/layout/Sidebar';
 import BookGrid from '@/components/library/BookGrid';
 
 import MyDocuments from '@/components/library/MyDocuments';
+import AuthGate from '@/components/shared/AuthGate';
 
 const SUBJECTS = ['All', 'Chemistry', 'Biology', 'Medicine'];
 const DIFFICULTIES = ['Beginner', 'Intermediate', 'Advanced'];
@@ -57,7 +58,8 @@ export default function LibraryPage() {
   };
 
   return (
-    <div className="app-shell">
+    <AuthGate>
+      <div className="app-shell">
       <Sidebar
         activeNav="library"
         onNavChange={handleNavChange}
@@ -120,5 +122,6 @@ export default function LibraryPage() {
         </div>
       </main>
     </div>
+    </AuthGate>
   );
 }
