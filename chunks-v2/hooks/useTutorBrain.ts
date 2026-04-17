@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { openRecoveryWindow, closeRecoveryWindow } from '@/lib/recoveryAnalytics';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -195,7 +196,16 @@ export function useTutorBrain(): UseTutorBrainResult {
     (topic: string, advance: boolean = false) => {
       const current = loadModel();
       // If concept is not tracked in gaps at all, do nothing (prevents phantom entries)
-      if (!current.gaps.find((g) => g.concept === topic)) return;
+      const gap = current.gaps.find((g) => g.concept === topic);
+      if (!gap) return;
+
+      // Open a recovery analytics window when the student starts studying a
+      // failing concept — this marks the start of an AI intervention so we can
+      // later measure whether the quiz attempt after this study session succeeds.
+      if (gap.status === 'failing') {
+        openRecoveryWindow(topic, gap.failedAt);
+      }
+
       const now = new Date().toISOString();
       const next: StudentModel = {
         ...current,
@@ -276,6 +286,11 @@ export function useTutorBrain(): UseTutorBrainResult {
       }
 
       persist({ mastered: updatedMastered, gaps: updatedGaps, quizHistory: updatedHistory });
+
+      // Close the recovery analytics window for this concept if one is open.
+      // This records whether the post-intervention quiz attempt was successful
+      // and allows computeRecoveryStats() to measure the AI's intervention rate.
+      closeRecoveryWindow(topic, score);
     },
     [persist],
   );
