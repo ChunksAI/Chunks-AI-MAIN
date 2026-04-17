@@ -229,7 +229,7 @@ _is_production = PRODUCTION
 _PRODUCTION_ORIGINS = [
     "https://chunks.online",
     "https://www.chunks.online",
-    "https://chunks-ai.vercel.app",
+    "https://chunks-v2.vercel.app",   # canonical staging deployment
 ]
 _DEV_ORIGINS = [
     "http://localhost:5173",
@@ -257,10 +257,20 @@ elif _raw_origins == '*':
     )
 
 CORS_ORIGINS = list(dict.fromkeys(_allowed))
-_VERCEL_ORIGIN_REGEX = r'^https://chunks-ai(?:-[a-z0-9]+)*\.vercel\.app$'
+# Vercel preview URLs are scoped to the exact project ("chunks-v2") under the
+# "chunksai" org.  The previous pattern matched ANY chunks-ai-* deployment.
+_VERCEL_ORIGIN_REGEX = r'^https://chunks-v2-[a-z0-9-]+-chunksai\.vercel\.app$'
 
 logger.info("CORS mode: %s", 'PRODUCTION' if _is_production else 'DEVELOPMENT')
 logger.info("CORS allowed origins: %s", CORS_ORIGINS)
+
+if _is_production and not _raw_origins:
+    logger.warning(
+        "⚠️  ALLOWED_ORIGINS env var is not set. "
+        "CORS is restricted to the hard-coded production allowlist: %s. "
+        "Set ALLOWED_ORIGINS to add extra origins without a redeploy.",
+        _PRODUCTION_ORIGINS,
+    )
 
 
 def _origin_is_allowed(origin: str) -> bool:
