@@ -1,11 +1,12 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStudy } from '@/contexts/StudyContext';
 import { useAutoScroll } from '@/hooks/useAutoScroll';
 import type { ChatMessage } from '@/types';
 
 import MarkdownRenderer from '@/components/study/chat/MarkdownRenderer';
+import OrchestratorLog, { type LogEvent } from '@/components/study/panels/OrchestratorLog';
 import MessageActions from '@/components/study/chat/MessageActions';
 import { resolveStudyTopic, cleanTopic } from '@/lib/topicFallback';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
@@ -66,16 +67,38 @@ const THINKING_COLORS: Record<string, string> = {
   deep:  'var(--danger)',
 };
 
+// ─── Orchestrator step progression ───────────────────────────────────────────
+
+/** Steps simulating backend orchestrator decisions — advanced via timers. */
+const ORCHESTRATOR_STEPS: Array<{
+  layer: string;
+  message: string;
+  delay: number;
+  doneAfter: number;
+}> = [
+  { layer: 'Intent Classifier',  message: 'Analyzing message intent…',     delay: 0,    doneAfter: 350  },
+  { layer: 'Memory Layer',       message: 'Checking knowledge gaps…',       delay: 450,  doneAfter: 900  },
+  { layer: 'PAEV Engine',        message: 'Retrieving prerequisite chain…', delay: 1000, doneAfter: 1600 },
+  { layer: 'Context Compressor', message: 'Formatting context window…',     delay: 1700, doneAfter: 2400 },
+];
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function TypingIndicator() {
+function TypingIndicator({ orchestratorEvents }: { orchestratorEvents: LogEvent[] }) {
   return (
     <div className="msg ai">
-      <div className="ai-typing">
-        <div className="typing-dots">
-          <div className="typing-dot" />
-          <div className="typing-dot" />
-          <div className="typing-dot" />
+      <div className="msg-body">
+        <div className="msg-bubble">
+          {orchestratorEvents.length > 0 && (
+            <OrchestratorLog logEvents={orchestratorEvents} />
+          )}
+          <div className="ai-typing">
+            <div className="typing-dots">
+              <div className="typing-dot" />
+              <div className="typing-dot" />
+              <div className="typing-dot" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -86,10 +109,12 @@ function MessageBubble({
   msg,
   onActionClick,
   isStreaming,
+  orchestratorEvents,
 }: {
   msg: ChatMessage;
   onActionClick: (key: string) => void;
   isStreaming?: boolean;
+  orchestratorEvents?: LogEvent[];
 }) {
   if (msg.role === 'user') {
     return (
@@ -105,6 +130,10 @@ function MessageBubble({
     <div className="msg ai">
       <div className="msg-body">
         <div className="msg-bubble">
+          {/* OrchestratorLog pill — shown as a compact badge once streaming starts */}
+          {isStreaming && orchestratorEvents && orchestratorEvents.length > 0 && (
+            <OrchestratorLog logEvents={orchestratorEvents} streamStarted />
+          )}
           {(() => {
             const split = !isStreaming ? splitAtGapMarker(msg.text) : null;
             if (split) {
@@ -196,6 +225,40 @@ export default function ChatPanel() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useAutoScroll([messages, chatLoading]);
+
+  // ── Orchestrator log events ──────────────────────────────────────────────────
+  const [orchestratorEvents, setOrchestratorEvents] = useState<LogEvent[]>([]);
+
+  useEffect(() => {
+    // Reset events whenever loading state changes
+    setOrchestratorEvents([]);
+
+    if (!chatLoading) return;
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    ORCHESTRATOR_STEPS.forEach((step, i) => {
+      // Add step as pending
+      timers.push(
+        setTimeout(() => {
+          setOrchestratorEvents((prev) => [
+            ...prev,
+            { layer: step.layer, message: step.message, status: 'pending' as const },
+          ]);
+        }, step.delay),
+      );
+      // Mark step as done
+      timers.push(
+        setTimeout(() => {
+          setOrchestratorEvents((prev) =>
+            prev.map((ev, idx) => (idx === i ? { ...ev, status: 'done' as const } : ev)),
+          );
+        }, step.doneAfter),
+      );
+    });
+
+    return () => timers.forEach(clearTimeout);
+  }, [chatLoading]);
 
   // ── Socratic response tracking ──────────────────────────────────────────────
   // When the last AI message contains the "Check your understanding →" marker
@@ -410,6 +473,7 @@ export default function ChatPanel() {
                 msg={msg}
                 onActionClick={handleActionClick}
                 isStreaming={isStreaming}
+                orchestratorEvents={isStreaming ? orchestratorEvents : undefined}
               />
             );
           })}
@@ -419,7 +483,7 @@ export default function ChatPanel() {
             messages[messages.length - 1]?.role === 'user' ||
             (messages[messages.length - 1]?.role === 'ai' && !messages[messages.length - 1]?.text.trim())
           ) ? (
-            <TypingIndicator />
+            <TypingIndicator orchestratorEvents={orchestratorEvents} />
           ) : null}
           <div ref={sentinelRef} />
         </div>
