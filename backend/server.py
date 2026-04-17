@@ -1,5 +1,5 @@
 """
-Chunks Chemistry - Production Server
+Chunks - Production Server
 Cloud-ready with R2 storage integration
 
 server.py — App factory: configuration, middleware, error handlers,
@@ -351,7 +351,7 @@ _CSP = '; '.join([
 ])
 
 # ── FastAPI app ───────────────────────────────────────────────────────────────
-app = FastAPI(title="Chunks Chemistry API", version="2.0")
+app = FastAPI(title="Chunks API", version="2.0")
 
 # ── Rate limiter ──────────────────────────────────────────────────────────────
 from routes.limiter import limiter  # noqa: E402
