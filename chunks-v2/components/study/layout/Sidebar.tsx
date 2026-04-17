@@ -21,6 +21,10 @@ interface SidebarProps {
   onRecentClick?: (item: RecentItem) => void;
   /** Optional: fires a chat message (only available inside StudyProvider). */
   onSendMessage?: (text: string) => void;
+  /** Next recommended concept from the post-quiz PAEV flow. */
+  nextTopic?: { concept_name: string; chapter: number; page: number; reason: string } | null;
+  /** Ordered prerequisite chain leading to the next topic, e.g. ['Limits', 'Continuity', 'Derivatives']. */
+  paevChain?: string[];
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -46,7 +50,7 @@ function NavIcon({ id }: { id: string }) {
   }
 }
 
-export default function Sidebar({ activeNav, onNavChange, onNewSession, recents = [], onRecentClick, onSendMessage }: SidebarProps) {
+export default function Sidebar({ activeNav, onNavChange, onNewSession, recents = [], onRecentClick, onSendMessage, nextTopic, paevChain }: SidebarProps) {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { openSettings } = useSettings();
@@ -300,7 +304,44 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
 
         {progressOpen && (
           <div className="progress-section-body">
-            {model.gaps.length === 0 && model.mastered.length === 0 ? (
+            {/* ── Learning path ─────────────────────────────────────────── */}
+            {(nextTopic || (paevChain && paevChain.length > 0)) && (
+              <div className="learning-path-section">
+                <span className="sidebar-label" style={{ padding: 0, marginBottom: 4, display: 'block' }}>Study path</span>
+                {paevChain && paevChain.length > 0 ? (
+                  <div className="path-chain">
+                    {paevChain.map((step, i) => (
+                      <div key={step} className="path-step">
+                        <button
+                          className={`path-pill ${i === paevChain.length - 1 ? 'path-pill--target' : 'path-pill--prereq'}`}
+                          onClick={() => onSendMessage?.(`Explain ${step}`)}
+                          title={i === paevChain.length - 1 ? 'Target concept' : 'Prerequisite — learn this first'}
+                        >
+                          {step}
+                        </button>
+                        {i < paevChain.length - 1 && (
+                          <span className="path-arrow">→</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : nextTopic ? (
+                  <button
+                    className="path-pill path-pill--target"
+                    onClick={() => onSendMessage?.(`Explain ${nextTopic.concept_name}`)}
+                  >
+                    {nextTopic.concept_name}
+                    <span className="path-pill-meta">Ch. {nextTopic.chapter}</span>
+                  </button>
+                ) : null}
+                {nextTopic && (
+                  <p className="path-reason">{nextTopic.reason}</p>
+                )}
+              </div>
+            )}
+
+            {/* ── Gap pills / mastered ───────────────────────────────────── */}
+            {model.gaps.length === 0 && model.mastered.length === 0 && !(nextTopic || (paevChain && paevChain.length > 0)) ? (
               <p className="progress-empty">Study something to start tracking your progress.</p>
             ) : (
               <>
