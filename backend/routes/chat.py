@@ -15,7 +15,7 @@ import random
 import re
 
 from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from routes.shared import ctx, TEACHING_PROMPT
 from routes.schemas import AskRequest
@@ -187,7 +187,7 @@ def build_system_prompt(
 def ask(request: Request, body: AskRequest):
     try:
         from services.ai import (
-            call_ai, call_ai_web_search, sanitize_user_memory,
+            call_ai, call_ai_stream, call_ai_web_search, sanitize_user_memory,
             should_search_textbook, extract_thinking_content,
         )
         from services.prompt_guard import screen_prompt
@@ -203,6 +203,7 @@ def ask(request: Request, body: AskRequest):
         book_id       = data.get('bookId') or None
         thinking_mode = data.get('thinking', None)
         web_search    = data.get('web_search', False)
+        stream_requested = bool(data.get('stream', False))
         history       = data.get('history', [])
         selected_text = data.get('selected_text', '').strip()[:2000]
         doc_context   = data.get('doc_context', '').strip()[:80000]
@@ -943,6 +944,49 @@ FORMATTING: {latex_instruction}
 
 Answer helpfully and clearly."""
 
+            # ── STREAMING PATH ────────────────────────────────────────────────────
+            # Real SSE streaming is only active for the default study mode when the
+            # client opts in with stream=true AND no thinking mode is active (think
+            # blocks require full-response post-processing that cannot be done
+            # incrementally on the wire).
+            if stream_requested and thinking_mode is None:
+                _stream_model     = selected_model
+                _stream_system    = base_system
+                _stream_history   = history
+                _stream_max_tok   = _MODE_MAX_TOKENS[None]
+                _stream_endpoint  = 'chat'
+                _stream_user_id   = verified_user_id
+                _stream_prompt    = prompt
+
+                def _sse_generator():
+                    try:
+                        for _token in call_ai_stream(
+                            _stream_prompt,
+                            system_prompt=_stream_system,
+                            model=_stream_model,
+                            history=_stream_history,
+                            max_tokens_override=_stream_max_tok,
+                            endpoint=_stream_endpoint,
+                            user_id=_stream_user_id,
+                        ):
+                            yield f'data: {json.dumps({"text": _token}, ensure_ascii=False)}\n\n'
+                    except Exception as _sse_err:
+                        logger.error("SSE stream error: %s", _sse_err)
+                        # Send a generic error message — never expose internal exception
+                        # details (stack traces, file paths) to the client.
+                        yield 'data: {"error": "Streaming failed. Please retry."}\n\n'
+                    yield 'data: [DONE]\n\n'
+
+                return StreamingResponse(
+                    _sse_generator(),
+                    media_type='text/event-stream',
+                    headers={
+                        'Cache-Control': 'no-cache',
+                        'X-Accel-Buffering': 'no',
+                    },
+                )
+
+            # ── NON-STREAMING PATH ────────────────────────────────────────────────
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
                              endpoint='chat', user_id=verified_user_id,
                              max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))

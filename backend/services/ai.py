@@ -354,6 +354,127 @@ def _record_usage_from_response(
         )
 
 
+def call_ai_stream(
+    prompt: str,
+    system_prompt: str = "You are an expert tutor.",
+    model: str | None = None,
+    history: list | None = None,
+    max_tokens_override: int | None = None,
+    endpoint: str = 'chat',
+    user_id: str = '',
+):
+    """Streaming version of call_ai().
+
+    Yields raw text tokens as they arrive from the upstream OpenRouter SSE
+    stream.  Uses ``requests`` with ``stream=True`` so FastAPI can wrap this
+    generator in a ``StreamingResponse`` without blocking the event loop.
+
+    Raises ``RuntimeError`` immediately (before any yield) when the upstream
+    HTTP request itself fails (non-200 status code).
+    """
+    import json as _json
+
+    from services import token_budget
+
+    if not token_budget.check_daily_budget():
+        raise RuntimeError("Daily AI cost budget exceeded. Please try again after midnight UTC.")
+
+    use_model = model or MODEL
+    effective_max_tokens = token_budget.max_tokens_for_endpoint(endpoint, override=max_tokens_override)
+
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://chunks.online",
+        "X-Title": "Chunks Chemistry",
+    }
+
+    messages = [{"role": "system", "content": system_prompt}]
+    if history:
+        for h in history[-MAX_HISTORY_TURNS:]:
+            role = h.get("role", "user")
+            content = h.get("content", "")
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": prompt})
+
+    payload = {
+        "model": use_model,
+        "messages": messages,
+        "temperature": 0.15,
+        "max_tokens": effective_max_tokens,
+        "stream": True,
+    }
+
+    logger.info(
+        "Streaming | model: %s | max_tokens: %d | endpoint: %s | user: %s",
+        use_model, effective_max_tokens, endpoint, user_id or "anonymous",
+    )
+
+    response = _session.post(
+        OPENROUTER_URL, headers=headers, json=payload, timeout=55, stream=True
+    )
+
+    if response.status_code != 200:
+        body = response.text[:200]
+        response.close()
+        if response.status_code == 429:
+            raise RuntimeError("Upstream model rate-limited (429). Please retry in a moment.")
+        raise RuntimeError(f"Upstream API returned {response.status_code}: {body}")
+
+    _prompt_tokens = 0
+    _completion_tokens = 0
+    _total_cost = 0.0
+
+    try:
+        for line in response.iter_lines():
+            if not line:
+                continue
+            if isinstance(line, bytes):
+                line = line.decode("utf-8")
+            if not line.startswith("data: "):
+                continue
+            data = line[6:]
+            if data == "[DONE]":
+                break
+            try:
+                chunk_json = _json.loads(data)
+            except _json.JSONDecodeError:
+                continue
+
+            # OpenRouter sometimes sends usage info on the final delta chunk.
+            usage = chunk_json.get("usage") or {}
+            if usage:
+                _prompt_tokens = int(usage.get("prompt_tokens", 0) or 0)
+                _completion_tokens = int(usage.get("completion_tokens", 0) or 0)
+                _total_cost = float(chunk_json.get("total_cost", 0) or 0)
+
+            choices = chunk_json.get("choices") or []
+            if not choices:
+                continue
+            token = (choices[0].get("delta") or {}).get("content") or ""
+            if token:
+                yield token
+
+    finally:
+        response.close()
+        # Best-effort usage recording — values are zero when the provider does
+        # not echo usage counters inside the stream.
+        if _prompt_tokens or _completion_tokens or _total_cost:
+            _record_usage_from_response(
+                {
+                    "usage": {
+                        "prompt_tokens": _prompt_tokens,
+                        "completion_tokens": _completion_tokens,
+                    },
+                    "total_cost": _total_cost,
+                },
+                use_model,
+                endpoint,
+                user_id=user_id,
+            )
+
+
 def call_ai_web_search(question, system_prompt=None, history=None, user_id: str = ''):
     """
     Uses Perplexity Sonar via OpenRouter for real-time web search with citations.

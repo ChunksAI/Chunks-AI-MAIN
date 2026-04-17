@@ -38,6 +38,7 @@ class AskRequest(_LenientBase):
     bookId: Optional[str] = None
     thinking: Optional[str] = None
     web_search: bool = False
+    stream: bool = False
     history: List[Any] = Field(default_factory=list)
     selected_text: str = ""
     doc_context: str = ""

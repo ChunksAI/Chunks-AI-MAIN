@@ -295,7 +295,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_origin_regex=_VERCEL_ORIGIN_REGEX,
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Device-Id"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Device-Id", "Cache-Control"],
     allow_methods=["GET", "POST", "OPTIONS", "PATCH", "DELETE"],
     allow_credentials=False,
     max_age=86400,
