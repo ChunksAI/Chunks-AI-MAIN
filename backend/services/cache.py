@@ -345,7 +345,7 @@ class CacheService:
                 f'{self._supabase_url}/rest/v1/query_cache',
                 params={
                     'cache_key': f'eq.{key}',
-                    'expires_at': f'gt.{datetime.datetime.utcnow().isoformat()}',
+                    'expires_at': f'gt.{datetime.datetime.now(datetime.timezone.utc).isoformat()}',
                     'select':    'answer',
                     'limit':     '1',
                 },
@@ -385,7 +385,7 @@ class CacheService:
         try:
             import datetime
             expires = (
-                datetime.datetime.utcnow()
+                datetime.datetime.now(datetime.timezone.utc)
                 + datetime.timedelta(days=self._SB_CACHE_TTL_DAYS)
             ).isoformat()
             self._session.post(
