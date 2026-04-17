@@ -272,6 +272,11 @@ def ask(request: Request, body: AskRequest):
 
         logger.info(f"[{mode.upper()}] task={task_type or 'auto'} Q: {question[:80]} | complexity: {complexity}")
 
+        # ── Intent classification ─────────────────────────────────────────────
+        from services.intent_classifier import classify as _classify_intent
+        intent = _classify_intent(question)
+        logger.debug('[intent] %s → %s', question[:60], intent)
+
         # ── Model selection via ai_router ─────────────────────────────────────
         if thinking_mode == 'deep':
             selected_model = os.environ.get('DEEP_MODEL', 'google/gemini-2.5-flash')

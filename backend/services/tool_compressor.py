@@ -7,6 +7,9 @@ logger = logging.getLogger(__name__)
 # Rough estimate: 1 token ≈ 4 characters (conservative for English)
 _CHARS_PER_TOKEN = 4
 
+# Maximum number of lines to extract from a structured context block
+_MAX_STRUCTURED_FIELDS = 20
+
 def _estimate_tokens(text: str) -> int:
     return max(1, len(text) // _CHARS_PER_TOKEN)
 
@@ -78,7 +81,7 @@ def _extract_structured_fields(text: str, tool_type: str) -> str:
         if in_block:
             fields.append(line)
             # Stop after Key Points or Concepts section to stay concise
-            if line.strip().lower().startswith('concepts:') or len(fields) > 20:
+            if line.strip().lower().startswith('concepts:') or len(fields) > _MAX_STRUCTURED_FIELDS:
                 break
     return '\n'.join(fields).strip() if fields else ''
 
