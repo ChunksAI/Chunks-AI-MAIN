@@ -3,7 +3,8 @@ backend/services/auth.py — Authentication and authorisation helpers.
 
 Provides:
   - Tier enum (subscription tiers)
-  - _verify_supabase_jwt() — verify a JWT via Supabase REST API
+  - _verify_supabase_jwt() — verify a JWT locally via JWKS (RS256), with
+    automatic fallback to the Supabase REST API on unexpected errors
   - _get_user_tier_from_db() — look up a user's tier in Supabase
   - _get_user_role_from_db() — look up a user's role in Supabase
   - _get_and_increment_daily_count() — atomic free-tier daily counter
@@ -15,10 +16,15 @@ Call init() once from server.py before handling any requests.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
+import time
 from datetime import datetime, timedelta
 from enum import Enum
+
+import jwt
+from jwt.algorithms import RSAAlgorithm
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +37,42 @@ _redis = None
 FREE_TIER_DAILY_LIMIT = 20   # matches the 20-message client-side limit
 MAX_HISTORY_TURNS     = 10   # consistent conversation context window
 
+# ── JWKS cache ─────────────────────────────────────────────────────────────────
+_jwk_cache: dict = {}          # {kid: RSAPublicKey}
+_jwk_cache_loaded_at: float = 0
+JWK_CACHE_TTL = 86400          # 24 hours
+
+
+def _parse_jwks(jwks: dict) -> dict:
+    """Parse a JWKS response body into a ``{kid: public_key}`` mapping."""
+    keys: dict = {}
+    for key_data in jwks.get('keys', []):
+        kid = key_data.get('kid', '')
+        try:
+            public_key = RSAAlgorithm.from_jwk(json.dumps(key_data))
+            keys[kid] = public_key
+        except Exception as exc:
+            logger.warning("Failed to parse JWK kid=%s: %s", kid, exc)
+    return keys
+
+
+def _get_jwks() -> dict:
+    """Return the cached ``{kid: RSAPublicKey}`` map, refreshing if stale."""
+    global _jwk_cache, _jwk_cache_loaded_at
+    if time.time() - _jwk_cache_loaded_at < JWK_CACHE_TTL and _jwk_cache:
+        return _jwk_cache
+    if not SUPABASE_URL or _session is None:
+        return {}
+    try:
+        resp = _session.get(f"{SUPABASE_URL}/auth/v1/jwks", timeout=10)
+        resp.raise_for_status()
+        _jwk_cache = _parse_jwks(resp.json())
+        _jwk_cache_loaded_at = time.time()
+        logger.info("JWKS loaded: %d key(s) cached", len(_jwk_cache))
+    except Exception as exc:
+        logger.warning("JWKS fetch failed: %s", exc)
+    return _jwk_cache
+
 
 def init(session, supabase_url: str, supabase_service_key: str, redis=None) -> None:
     """Inject shared dependencies. Call once from server.py at startup."""
@@ -39,6 +81,8 @@ def init(session, supabase_url: str, supabase_service_key: str, redis=None) -> N
     SUPABASE_URL        = supabase_url
     SUPABASE_SERVICE_KEY = supabase_service_key
     _redis              = redis
+    # Eagerly load JWKS so the first real request is not slowed by a key fetch.
+    _get_jwks()
 
 
 # ── Tier enum ─────────────────────────────────────────────────────────────────
@@ -84,11 +128,12 @@ class Tier(str, Enum):
             return cls.FREE
 
 
-def _verify_supabase_jwt(token: str) -> dict | None:
-    """
-    Verify a Supabase JWT and return the user record from the DB, or None if invalid.
-    Uses the Supabase REST API so no extra Python libraries are needed.
-    Returns dict with at least: {'id': <uuid>, 'email': <str>}
+def _verify_supabase_jwt_rest(token: str) -> dict | None:
+    """Fallback: verify JWT by calling the Supabase REST API.
+
+    Used when local RS256 verification raises an unexpected error (e.g. the
+    JWKS endpoint was unreachable at startup and the cache is empty).
+    Returns the user dict from the API, or None on failure.
     """
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY or not token:
         return None
@@ -104,8 +149,52 @@ def _verify_supabase_jwt(token: str) -> dict | None:
         if resp.status_code == 200:
             return resp.json()
     except Exception as e:
-        logger.warning(f"JWT verify error: {e}")
+        logger.warning("JWT REST verify error: %s", e)
     return None
+
+
+def _verify_supabase_jwt(token: str) -> dict | None:
+    """Verify a Supabase JWT and return a user-info dict, or None if invalid.
+
+    Primary path: local RS256 signature check against the cached JWKS.
+    This avoids a network round-trip on every authenticated request.
+
+    Fallback: if the cache is empty or an unexpected error occurs (i.e.
+    *not* ``ExpiredSignatureError``), the old Supabase REST call is used once.
+
+    The returned dict always contains at least ``{'id': <uuid>, 'email': <str>}``
+    so callers are unaffected by whether the local or REST path was taken.
+    """
+    if not SUPABASE_URL or not token:
+        return None
+    try:
+        header = jwt.get_unverified_header(token)
+        kid = header.get('kid')
+        keys = _get_jwks()
+        if kid not in keys:
+            # Key may have rotated — force a single cache refresh.
+            global _jwk_cache_loaded_at
+            _jwk_cache_loaded_at = 0
+            keys = _get_jwks()
+        public_key = keys.get(kid)
+        if not public_key:
+            # JWKS unavailable — fall back to REST verification.
+            logger.debug("No public key for kid=%s — using REST fallback", kid)
+            return _verify_supabase_jwt_rest(token)
+        payload = jwt.decode(
+            token,
+            public_key,
+            algorithms=['RS256'],
+            audience='authenticated',
+        )
+        # Normalise: REST API returns 'id'; JWT payload uses 'sub'.
+        payload.setdefault('id', payload.get('sub'))
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None
+    except Exception as exc:
+        logger.warning("Local JWT verification failed (%s) — using REST fallback", exc)
+        return _verify_supabase_jwt_rest(token)
 
 
 def _get_user_tier_from_db(user_id: str) -> Tier:
