@@ -101,10 +101,11 @@ async function fetchWithAuth(url: string, options: RequestInit): Promise<Respons
 }
 
 async function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  const reqId = Math.random().toString(36).slice(2, 8);
   const authHeaders = await getAuthHeaders();
   const res = await fetchWithAuth(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...authHeaders },
+    headers: { 'Content-Type': 'application/json', 'X-Request-Id': reqId, ...authHeaders },
     body: JSON.stringify(body),
     signal,
   });
@@ -121,6 +122,7 @@ async function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Pr
     } catch {
       // ignore JSON parse errors
     }
+    console.error('[req:%s] API error on POST %s: %s', reqId, path, message);
     throw new ApiError(message, res.status);
   }
 
@@ -128,10 +130,11 @@ async function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Pr
 }
 
 async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const reqId = Math.random().toString(36).slice(2, 8);
   const authHeaders = await getAuthHeaders();
   const res = await fetchWithAuth(`${API_BASE}${path}`, {
     method: 'GET',
-    headers: { ...authHeaders },
+    headers: { 'X-Request-Id': reqId, ...authHeaders },
     signal,
   });
 
@@ -147,6 +150,7 @@ async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
     } catch {
       // ignore JSON parse errors
     }
+    console.error('[req:%s] API error on GET %s: %s', reqId, path, message);
     throw new ApiError(message, res.status);
   }
 

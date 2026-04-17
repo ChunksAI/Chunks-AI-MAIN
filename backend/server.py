@@ -28,6 +28,8 @@ Route handlers have been moved to:
 import logging
 import os
 import re
+import uuid
+from contextvars import ContextVar
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -48,13 +50,27 @@ from services.guest_limits import (  # noqa: F401
 )
 
 
+# ── Request-ID context var (one value per async task / coroutine) ─────────────
+_request_id_var: ContextVar[str] = ContextVar('request_id', default='-')
+
+
+class _RequestIdFilter(logging.Filter):
+    """Inject the current request-ID into every log record for this task."""
+    def filter(self, record: logging.LogRecord) -> bool:
+        record.req_id = _request_id_var.get('-')
+        return True
+
+
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
+    format='%(asctime)s [%(levelname)s] [req:%(req_id)s] %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
+
+# Attach the filter to the root logger so every logger in the app benefits.
+logging.getLogger().addFilter(_RequestIdFilter())
 
 # ── Sentry error monitoring ───────────────────────────────────────────────────
 _SENTRY_DSN = os.environ.get('SENTRY_DSN', '')
@@ -295,7 +311,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ORIGINS,
     allow_origin_regex=_VERCEL_ORIGIN_REGEX,
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Device-Id", "Cache-Control"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Device-Id", "Cache-Control", "X-Request-Id"],
     allow_methods=["GET", "POST", "OPTIONS", "PATCH", "DELETE"],
     allow_credentials=False,
     max_age=86400,
@@ -357,7 +373,30 @@ async def csrf_origin_check(request: Request, call_next):
     return await call_next(request)
 
 
-# ── Security headers middleware ───────────────────────────────────────────────
+# ── Request-ID middleware ─────────────────────────────────────────────────────
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    """Propagate or generate an X-Request-Id for end-to-end traceability.
+
+    Reads ``X-Request-Id`` from the incoming request headers.  If absent,
+    generates an 8-character hex ID.  The ID is:
+    - Stored on ``request.state.request_id`` for use in route handlers.
+    - Stored in the async-task-local ``_request_id_var`` so every log line
+      emitted during this request automatically includes ``[req:<id>]``.
+    - Echoed back in the ``X-Request-Id`` response header.
+    """
+    req_id = request.headers.get('x-request-id') or uuid.uuid4().hex[:8]
+    request.state.request_id = req_id
+    token = _request_id_var.set(req_id)
+    try:
+        response = await call_next(request)
+    finally:
+        _request_id_var.reset(token)
+    response.headers['X-Request-Id'] = req_id
+    return response
+
+
+
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     # HTTP → HTTPS redirect in production
