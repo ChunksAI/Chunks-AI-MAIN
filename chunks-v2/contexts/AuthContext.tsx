@@ -23,6 +23,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
+import { useRouter } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 
@@ -193,6 +194,7 @@ async function fetchUserPlan(
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const [state, setState] = useState<AuthState>({
     user: null,
     session: null,
@@ -301,9 +303,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     const sb = await getSupabaseClient();
-    try { localStorage.removeItem('chunks_user_tier'); } catch { /* ignore */ }
+
+    // ── Purge auth-related localStorage keys ─────────────────────────────────
+    for (const key of ['chunks_user_tier', 'chunks_admin_email', 'chunks_owner_email', 'chunks_settings_initialized']) {
+      try { localStorage.removeItem(key); } catch { /* ignore */ }
+    }
+    // Remove all chunks_setting_* keys (user preferences written by SettingsContext)
+    try {
+      const keysToRemove = Object.keys(localStorage).filter((k) => k.startsWith('chunks_setting_'));
+      for (const key of keysToRemove) {
+        try { localStorage.removeItem(key); } catch { /* ignore */ }
+      }
+    } catch { /* ignore */ }
+
+    // ── Purge sessionStorage ──────────────────────────────────────────────────
+    try { sessionStorage.removeItem('chunks_guest_mode'); } catch { /* ignore */ }
+
+    // ── Clear guest cookie ────────────────────────────────────────────────────
+    try { document.cookie = 'chunks_guest=; path=/; max-age=0; SameSite=Lax'; } catch { /* ignore */ }
+
+    // ── Sign out from Supabase, then redirect ─────────────────────────────────
     await sb.auth.signOut();
-  }, []);
+    router.replace('/login');
+  }, [router]);
 
   const enterGuestMode = useCallback(() => {
     try { sessionStorage.setItem('chunks_guest_mode', '1'); } catch { /* ignore */ }
