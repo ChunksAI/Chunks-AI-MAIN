@@ -36,12 +36,22 @@ def init(redis=None, session=None, supabase_url: str = '',
 
 # ── Key helpers ───────────────────────────────────────────────────────────────
 
-def _ask_cache_key(book_id: str, task_type: str | None, mode: str,
-                   complexity: int, question: str, doc_context: str = '') -> str:
+def _ask_cache_key(
+    book_id: str,
+    task_type: str | None,
+    mode: str,
+    complexity: int,
+    question: str,
+    doc_context: str = '',
+    student_profile: str = '',   # ADD THIS PARAMETER
+) -> str:
     canonical = f"{book_id}|{task_type or mode}|{complexity}|{question.strip().lower()}"
     if doc_context:
         ctx_hash  = hashlib.sha256(doc_context.encode()).hexdigest()[:12]
-        canonical += f"|{ctx_hash}"
+        canonical += f"|ctx:{ctx_hash}"
+    if student_profile:
+        sp_hash   = hashlib.sha256(student_profile.strip().lower().encode()).hexdigest()[:12]
+        canonical += f"|sp:{sp_hash}"
     digest = hashlib.sha256(canonical.encode()).hexdigest()[:16]
     return f"ask:v1:{digest}"
 
