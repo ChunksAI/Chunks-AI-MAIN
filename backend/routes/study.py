@@ -15,6 +15,7 @@ import re
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from routes.limiter import limiter
 from routes.shared import ctx
 from routes.schemas import StudyMaterialsRequest, QuizRequest
 from services.guest_limits import enforce_exam_constraints_for_guest
@@ -28,6 +29,7 @@ router = APIRouter()
 
 
 @router.post('/generate-study-materials')
+@limiter.limit("20/minute")
 def generate_study_materials(request: Request, body: StudyMaterialsRequest):
     try:
         data = body.model_dump()
@@ -236,6 +238,7 @@ def generate_study_materials(request: Request, body: StudyMaterialsRequest):
 
 
 @router.post('/generate-quiz')
+@limiter.limit("30/minute")
 def generate_quiz(request: Request, body: QuizRequest):
     try:
         data = body.model_dump()

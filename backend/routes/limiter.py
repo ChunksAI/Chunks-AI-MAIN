@@ -14,6 +14,7 @@ import os
 
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from starlette.requests import Request as StarletteRequest
 
 
 def _is_rate_limit_disabled() -> bool:
@@ -21,7 +22,14 @@ def _is_rate_limit_disabled() -> bool:
     return 'PYTEST_CURRENT_TEST' in os.environ
 
 
+def _rate_limit_key(request: StarletteRequest) -> str:
+    """OPTIONS preflight must never be rate-limited."""
+    if request.method == "OPTIONS":
+        return "options-preflight-exempt"
+    return get_remote_address(request)
+
+
 limiter = Limiter(
-    key_func=get_remote_address,
+    key_func=_rate_limit_key,
     default_limits=["500/hour", "120/minute"],
 )

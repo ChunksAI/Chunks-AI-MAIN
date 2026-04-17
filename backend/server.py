@@ -370,17 +370,6 @@ async def _json_rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 app.add_exception_handler(RateLimitExceeded, _json_rate_limit_handler)
 
-# ── CORS middleware ───────────────────────────────────────────────────────────
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
-    allow_origin_regex=_VERCEL_ORIGIN_REGEX,
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Device-Id", "Cache-Control", "X-Request-Id"],
-    allow_methods=["GET", "POST", "OPTIONS", "PATCH", "DELETE"],
-    allow_credentials=False,
-    max_age=86400,
-)
-
 # ── CSRF origin check middleware ──────────────────────────────────────────────
 _CSRF_SAFE_METHODS = frozenset(('GET', 'HEAD', 'OPTIONS'))
 
@@ -500,6 +489,20 @@ async def security_headers(request: Request, call_next):
         del response.headers['x-powered-by']
 
     return response
+
+
+# ── CORS middleware (outermost — must be last add_middleware call) ─────────────
+# Placed after all @app.middleware blocks so it wraps every request first,
+# ensuring CORS headers are present even on error responses (500/401/429).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_origin_regex=_VERCEL_ORIGIN_REGEX,
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Device-Id", "Cache-Control", "X-Request-Id"],
+    allow_methods=["GET", "POST", "OPTIONS", "PATCH", "DELETE"],
+    allow_credentials=False,
+    max_age=86400,
+)
 
 
 # ── Exception handlers ────────────────────────────────────────────────────────

@@ -81,7 +81,7 @@ def _build_paev_index(book_id: str, slides: list) -> None:
 
 
 @router.post('/upload-document')
-@limiter.limit("5/minute")
+@limiter.limit("10/minute")
 def upload_document(request: Request, file: UploadFile = File(default=None)):
     try:
         from services.auth import _extract_verified_user
