@@ -594,6 +594,18 @@ def update_user(request: Request, email: str, body: AdminUpdateUserRequest = Non
         )
         if resp.status_code not in (200, 204):
             return JSONResponse({'success': False, 'error': f'Supabase returned {resp.status_code}: {resp.text[:200]}'}, status_code=502)
+        # Invalidate the user-info cache so the next request picks up the new tier/role.
+        _redis_client = getattr(ctx, '_redis', None)
+        if resp.status_code == 200:
+            try:
+                rows = resp.json()
+                if isinstance(rows, list) and rows:
+                    user_id = rows[0].get('id', '')
+                    if user_id:
+                        from services.auth import invalidate_user_cache
+                        invalidate_user_cache(user_id, _redis_client)
+            except Exception:
+                pass  # cache invalidation is best-effort
         return {'success': True}
     except Exception as e:
         logger.exception('update_user error')

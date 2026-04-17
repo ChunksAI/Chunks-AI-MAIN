@@ -197,6 +197,53 @@ def _verify_supabase_jwt(token: str) -> dict | None:
         return _verify_supabase_jwt_rest(token)
 
 
+USER_CACHE_TTL = 60  # seconds
+
+
+def _get_cached_user_info(user_id: str, redis_client) -> tuple[Tier, str] | None:
+    """Return (Tier, role) from Redis cache, or None on cache miss / error."""
+    if not redis_client:
+        return None
+    key = f"user_info:{user_id}"
+    try:
+        cached = redis_client.get(key)
+        if cached:
+            data = json.loads(cached)
+            logger.debug("user_info cache HIT for %s", user_id)
+            return Tier(data['tier']), data['role']
+    except Exception as exc:
+        logger.debug("user_info cache read error for %s: %s", user_id, exc)
+    logger.debug("user_info cache MISS for %s", user_id)
+    return None
+
+
+def _set_cached_user_info(user_id: str, tier: Tier, role: str, redis_client) -> None:
+    """Write (Tier, role) into Redis with a TTL of USER_CACHE_TTL seconds."""
+    if not redis_client:
+        return
+    key = f"user_info:{user_id}"
+    try:
+        redis_client.setex(key, USER_CACHE_TTL, json.dumps({'tier': tier.value, 'role': role}))
+    except Exception as exc:
+        logger.debug("user_info cache write error for %s: %s", user_id, exc)
+
+
+def invalidate_user_cache(user_id: str, redis_client) -> None:
+    """Delete the cached user-info entry for *user_id*.
+
+    Call this whenever a user's tier or role is changed (e.g. from the admin
+    endpoint) so the next request fetches fresh data from Supabase.
+    """
+    if not redis_client or not user_id:
+        return
+    key = f"user_info:{user_id}"
+    try:
+        redis_client.delete(key)
+        logger.debug("user_info cache invalidated for %s", user_id)
+    except Exception as exc:
+        logger.debug("user_info cache invalidate error for %s: %s", user_id, exc)
+
+
 def _get_user_tier_from_db(user_id: str) -> Tier:
     """
     Look up the user's subscription tier in Supabase.
@@ -207,13 +254,25 @@ def _get_user_tier_from_db(user_id: str) -> Tier:
     return tier
 
 
-def _get_user_info_from_db(user_id: str) -> tuple[Tier, str]:
+def _get_user_info_from_db(user_id: str, redis_client=None) -> tuple[Tier, str]:
     """
-    Look up the user's subscription tier and role in Supabase.
+    Look up the user's subscription tier and role, using Redis cache when
+    available.  Falls back to a direct Supabase REST call on cache miss and
+    writes the result back to cache.
+
     Returns a (Tier, role_str) tuple; defaults to (Tier.FREE, '') on any error.
     Expects a 'users' table with columns: id (uuid), plan (text), role (text).
     """
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY or not user_id:
+    if not user_id:
+        return Tier.FREE, ''
+
+    # ── 1. Cache check ────────────────────────────────────────────────────────
+    cached = _get_cached_user_info(user_id, redis_client)
+    if cached is not None:
+        return cached
+
+    # ── 2. Supabase REST ──────────────────────────────────────────────────────
+    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         return Tier.FREE, ''
     try:
         resp = _session.get(
@@ -230,9 +289,10 @@ def _get_user_info_from_db(user_id: str) -> tuple[Tier, str]:
             if rows:
                 tier = Tier.from_db(rows[0].get('plan', ''))
                 role = (rows[0].get('role') or '').strip().lower()
+                _set_cached_user_info(user_id, tier, role, redis_client)
                 return tier, role
     except Exception as e:
-        logger.warning(f"User info lookup error: {e}")
+        logger.warning("User info lookup error: %s", e)
     return Tier.FREE, ''
 
 
@@ -360,7 +420,7 @@ def _extract_verified_user(request=None):
     verified_user_id = verified_user.get('id') if verified_user else None
 
     if verified_user_id:
-        server_tier, db_role = _get_user_info_from_db(verified_user_id)
+        server_tier, db_role = _get_user_info_from_db(verified_user_id, _redis)
         # Email comes from the JWT payload (server-verified via Supabase)
         jwt_email = (verified_user.get('email') or '').strip().lower()
         # Also check app_metadata / user_metadata for role (Supabase auth layer)
