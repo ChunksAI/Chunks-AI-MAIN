@@ -195,21 +195,39 @@ def _paev_status_get(book_id):
     return None
 
 
+def _validate_book_id(book_id: str) -> bool:
+    """Return True iff book_id is safe to embed in a Redis key or filesystem path."""
+    return bool(_re.match(r'^[a-zA-Z0-9_-]{1,128}$', book_id))
+
+
+# Process-level fallback used when Redis is unavailable (single-worker dev / CI).
+_paev_process_cache: dict = {}
+
+
 def _paev_cache_set(book_id, idx, fps, graph):
-    """Store all three PAEV objects in Redis."""
+    """Store all three PAEV objects in Redis, falling back to the process cache."""
+    if not _validate_book_id(book_id):
+        logger.warning('[paev] Rejected invalid book_id in cache set: %r', book_id)
+        return
     _paev_pickle_set(f"paev_idx:{book_id}", idx)
     _paev_pickle_set(f"paev_fp:{book_id}", fps)
     _paev_pickle_set(f"paev_graph:{book_id}", graph)
+    if _redis is None:
+        _paev_process_cache[book_id] = (idx, fps, graph)
 
 
 def _paev_cache_get(book_id):
     """Load all three PAEV objects from Redis.  Returns (idx, fps, graph) or (None, None, None)."""
+    if not _validate_book_id(book_id):
+        logger.warning('[paev] Rejected invalid book_id in cache get: %r', book_id)
+        return None, None, None
     idx = _paev_pickle_get(f"paev_idx:{book_id}")
     fps = _paev_pickle_get(f"paev_fp:{book_id}")
     graph = _paev_pickle_get(f"paev_graph:{book_id}")
     if all([idx, fps, graph]):
         return idx, fps, graph
-    return None, None, None
+    # Fallback: process-level cache (single-worker environments / Redis unavailable)
+    return _paev_process_cache.get(book_id, (None, None, None))
 
 _indexer    = HierarchicalIndexer(openrouter_api_key=API_KEY)
 _fp_builder = EpistemicFingerprintBuilder(api_key=API_KEY, model=MODEL)

@@ -727,3 +727,99 @@ def test_paev_blueprints_registered(app):
     assert '/paev/ask' in rules
     assert '/paev/graph/{book_id}' in rules
     assert '/paev/learning-path' in rules
+
+
+# ── Unit tests: _validate_book_id ───────────────────────────────────────────
+
+def test_validate_book_id_valid():
+    import paev_routes as pr
+    assert pr._validate_book_id('zumdahl') is True
+    assert pr._validate_book_id('atkins-2e') is True
+    assert pr._validate_book_id('book_123') is True
+    assert pr._validate_book_id('A' * 128) is True
+
+
+def test_validate_book_id_path_traversal():
+    import paev_routes as pr
+    assert pr._validate_book_id('../etc/passwd') is False
+
+
+def test_validate_book_id_too_long():
+    import paev_routes as pr
+    assert pr._validate_book_id('a' * 200) is False
+
+
+def test_validate_book_id_empty():
+    import paev_routes as pr
+    assert pr._validate_book_id('') is False
+
+
+def test_validate_book_id_special_chars():
+    import paev_routes as pr
+    assert pr._validate_book_id('book name') is False   # space
+    assert pr._validate_book_id('book/id') is False     # slash
+    assert pr._validate_book_id('book.id') is False     # dot
+
+
+# ── Unit tests: process cache fallback ──────────────────────────────────────
+
+def test_paev_cache_set_redis_unavailable_falls_back_to_process_cache():
+    """When Redis is None, objects are stored in the process-level fallback cache."""
+    import paev_routes as pr
+    original_redis = pr._redis
+    original_cache = pr._paev_process_cache.copy()
+    try:
+        pr._redis = None
+        pr._paev_process_cache.clear()
+        pr._paev_cache_set('zumdahl', 'idx_obj', 'fps_obj', 'graph_obj')
+        assert 'zumdahl' in pr._paev_process_cache
+        assert pr._paev_process_cache['zumdahl'] == ('idx_obj', 'fps_obj', 'graph_obj')
+    finally:
+        pr._redis = original_redis
+        pr._paev_process_cache.clear()
+        pr._paev_process_cache.update(original_cache)
+
+
+def test_paev_cache_get_falls_back_to_process_cache():
+    """When Redis returns nothing, _paev_cache_get reads from the process cache."""
+    import paev_routes as pr
+    original_redis = pr._redis
+    original_cache = pr._paev_process_cache.copy()
+    try:
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = None
+        pr._redis = mock_redis
+        pr._paev_process_cache['zumdahl'] = ('idx', 'fps', 'graph')
+        r_idx, r_fps, r_graph = pr._paev_cache_get('zumdahl')
+        assert r_idx == 'idx'
+        assert r_fps == 'fps'
+        assert r_graph == 'graph'
+    finally:
+        pr._redis = original_redis
+        pr._paev_process_cache.clear()
+        pr._paev_process_cache.update(original_cache)
+
+
+def test_paev_cache_set_invalid_book_id_rejected():
+    """_paev_cache_set with an invalid book_id is a no-op."""
+    import paev_routes as pr
+    original_cache = pr._paev_process_cache.copy()
+    original_redis = pr._redis
+    try:
+        pr._redis = None
+        pr._paev_process_cache.clear()
+        pr._paev_cache_set('../evil', 'idx', 'fps', 'graph')
+        assert '../evil' not in pr._paev_process_cache
+    finally:
+        pr._redis = original_redis
+        pr._paev_process_cache.clear()
+        pr._paev_process_cache.update(original_cache)
+
+
+def test_paev_cache_get_invalid_book_id_returns_none():
+    """_paev_cache_get with an invalid book_id returns (None, None, None)."""
+    import paev_routes as pr
+    idx, fps, graph = pr._paev_cache_get('../evil')
+    assert idx is None
+    assert fps is None
+    assert graph is None
