@@ -181,9 +181,46 @@ export function useTutorSync(): UseTutorSyncResult {
     if (hasMounted.current) return;
     hasMounted.current = true;
 
-    // 1. Run regression check against localStorage
-    const regressed = checkRegressionLocal();
-    if (regressed.length > 0) setRegressions(regressed);
+    // 1. Run regression check — prefer Web Worker (non-blocking); fall back to
+    //    synchronous execution on SSR or browsers that don't support Worker.
+    if (typeof window !== 'undefined' && typeof Worker !== 'undefined') {
+      const worker = new Worker(
+        new URL('../workers/regressionWorker.ts', import.meta.url),
+        { type: 'module' },
+      );
+      const current = readLocalModel();
+      worker.postMessage({ mastered: current.mastered, quizHistory: current.quizHistory });
+      worker.onmessage = (e: MessageEvent<{ regressed: string[] }>) => {
+        const { regressed } = e.data;
+        worker.terminate();
+        if (regressed.length > 0) {
+          const model = readLocalModel();
+          const nowIso = new Date().toISOString();
+          const next: StudentModel = {
+            ...model,
+            mastered: model.mastered.filter((m) => !regressed.includes(m)),
+            gaps: [
+              ...model.gaps.filter((g) => !regressed.includes(g.concept)),
+              ...regressed.map((concept) => ({
+                concept,
+                status: 'regressed' as ConceptStatus,
+                failedAt: nowIso,
+                lastSeenAt: nowIso,
+                passCount: 0,
+              })),
+            ],
+          };
+          writeLocalModel(next);
+          window.dispatchEvent(new CustomEvent('chunks:model-changed'));
+          setRegressions(regressed);
+        }
+      };
+      worker.onerror = () => worker.terminate(); // fail silently
+    } else {
+      // Synchronous fallback: SSR or browsers without Web Worker support
+      const regressed = checkRegressionLocal();
+      if (regressed.length > 0) setRegressions(regressed);
+    }
 
     // 2. If authenticated, fetch server model and merge
     if (!user || user.isGuest) {

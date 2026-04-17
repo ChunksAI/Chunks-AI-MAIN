@@ -1,4 +1,5 @@
-"""Tests for the semantic answer cache (services/answer_cache.py)."""
+"""Tests for the semantic answer cache (services/answer_cache.py)
+and the ask-query cache key helper (services/ask_cache.py)."""
 from __future__ import annotations
 
 import hashlib
@@ -9,6 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import services.answer_cache as cache
+from services.ask_cache import _ask_cache_key as _ackey
 
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -247,3 +249,51 @@ class TestInit:
         mock = MagicMock()
         cache.init(redis=mock)
         assert cache._redis is mock
+
+
+# ── Tests: _ask_cache_key (services/ask_cache.py) ────────────────────────────
+
+
+_KEY_DEFAULTS = dict(
+    book_id="zumdahl",
+    task_type=None,
+    mode="study",
+    complexity=5,
+    question="What is entropy?",
+)
+
+
+class TestAskCacheKey:
+    def test_same_question_same_profile_yields_same_key(self):
+        k1 = _ackey(**_KEY_DEFAULTS, student_profile='{"status":"failing"}')
+        k2 = _ackey(**_KEY_DEFAULTS, student_profile='{"status":"failing"}')
+        assert k1 == k2
+
+    def test_same_question_different_profile_yields_different_key(self):
+        k1 = _ackey(**_KEY_DEFAULTS, student_profile='{"status":"failing"}')
+        k2 = _ackey(**_KEY_DEFAULTS, student_profile='{"status":"mastered"}')
+        assert k1 != k2
+
+    def test_same_question_empty_profile_on_both_yields_same_key(self):
+        k1 = _ackey(**_KEY_DEFAULTS, student_profile='')
+        k2 = _ackey(**_KEY_DEFAULTS, student_profile='')
+        assert k1 == k2
+
+    def test_profile_whitespace_normalised_to_same_key(self):
+        k1 = _ackey(**_KEY_DEFAULTS, student_profile='{"status":"failing"}')
+        k2 = _ackey(**_KEY_DEFAULTS, student_profile='  {"status":"failing"}  ')
+        assert k1 == k2
+
+    def test_key_prefix(self):
+        assert _ackey(**_KEY_DEFAULTS).startswith("ask:v1:")
+
+    def test_key_digest_length(self):
+        key = _ackey(**_KEY_DEFAULTS)
+        # "ask:v1:" is 7 chars; digest must be 16 hex chars
+        assert len(key) == 7 + 16
+
+    def test_empty_profile_differs_from_nonempty_profile(self):
+        k_empty = _ackey(**_KEY_DEFAULTS, student_profile='')
+        k_filled = _ackey(**_KEY_DEFAULTS, student_profile='{"status":"failing"}')
+        assert k_empty != k_filled
+

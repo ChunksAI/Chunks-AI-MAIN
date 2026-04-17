@@ -211,18 +211,24 @@ function preprocessLatex(text: string): string {
     .replace(/\\\)/g, '$');
 }
 
+/** Strips backend-injected topic markers so they are never visible in the rendered output. */
+function stripTopicComments(text: string): string {
+  return text.replace(/<!--\s*chunks-topic:.*?-->/g, '');
+}
+
 /**
  * Single preprocessing pipeline for all content transformations applied
  * before the string is handed to <Markdown>.
  *
  * Stages (in order):
- *  1. LaTeX bracket-to-dollar normalisation  → preprocessLatex
+ *  1. Strip backend topic markers          → stripTopicComments
+ *  2. LaTeX bracket-to-dollar normalisation → preprocessLatex
  *
  * Add new text-level transforms here so callers never need to know about
  * individual preprocessing steps.
  */
 function preprocessContent(text: string): string {
-  return preprocessLatex(text);
+  return preprocessLatex(stripTopicComments(text));
 }
 
 function MarkdownRenderer({ content }: MarkdownRendererProps) {

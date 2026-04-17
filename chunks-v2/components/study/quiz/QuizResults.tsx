@@ -27,7 +27,7 @@ export default function QuizResults({ result, onRetry, onReview, onClose }: Quiz
   const { score, correctAnswers, totalQuestions, topic, wrongAnswers } = result;
   const router = useRouter();
   const { state, dispatch } = useStudy();
-  const { tbRecordQuizResult, tbRecordMastery, tbGetModel } = useTutorBrain();
+  const { tbRecordQuizResult, tbRecordMastery, tbRecordGap, tbGetModel } = useTutorBrain();
   const [nextTopic, setNextTopic] = useState<NextTopicResponse | null>(null);
 
   // Record quiz result once when this component mounts (= quiz just finished)
@@ -42,26 +42,30 @@ export default function QuizResults({ result, onRetry, onReview, onClose }: Quiz
     // Send quiz results to backend PAEV analysis if a book is loaded
     if (bookId) {
       const model = tbGetModel();
-      analyzeGaps(
-        bookId,
-        [{ topic, score, wrongAnswers: wrongAnswers ?? [] }],
-        model.mastered,
-      ).then((res) => {
+      const gaps = model.gaps.map((g) => ({ concept: g.concept, status: g.status }));
+
+      // Both calls run in parallel; failures are silent
+      Promise.all([
+        analyzeGaps(
+          bookId,
+          [{ topic, score, wrongAnswers: wrongAnswers ?? [] }],
+          model.mastered,
+        ).catch(() => null),
+        fetchNextTopic(bookId, gaps).catch(() => null),
+      ]).then(([gapRes, nextRes]) => {
         // Merge any PAEV-detected gaps back into the local model
-        for (const gap of res.detected_gaps) {
-          if (gap.status === 'failing' || gap.status === 'reviewing') {
-            // tbRecordGap only if not already tracked — use tbRecordQuizResult
-            // with the PAEV-enriched status info
+        if (gapRes) {
+          for (const gap of gapRes.detected_gaps) {
+            if (
+              (gap.status === 'failing' || gap.status === 'reviewing') &&
+              !model.gaps.find((existing) => existing.concept === gap.concept)
+            ) {
+              tbRecordGap(gap.concept);
+            }
           }
         }
-      }).catch(() => {
-        // Backend PAEV analysis is best-effort; ignore failures
-      });
 
-      // Request next-topic recommendation
-      const gaps = tbGetModel().gaps.map((g) => ({ concept: g.concept, status: g.status }));
-      fetchNextTopic(bookId, gaps).then((res) => {
-        if (res?.concept_name) setNextTopic(res);
+        if (nextRes?.concept_name) setNextTopic(nextRes);
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

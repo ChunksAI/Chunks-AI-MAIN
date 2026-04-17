@@ -1,15 +1,17 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStudy } from '@/contexts/StudyContext';
 import { useAutoScroll } from '@/hooks/useAutoScroll';
 import type { ChatMessage } from '@/types';
 
 import MarkdownRenderer from '@/components/study/chat/MarkdownRenderer';
+import OrchestratorLog, { type LogEvent } from '@/components/study/panels/OrchestratorLog';
 import MessageActions from '@/components/study/chat/MessageActions';
 import { resolveStudyTopic, cleanTopic } from '@/lib/topicFallback';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
 import { evaluateSocraticAnswer } from '@/lib/studyApi';
+import { extractTopicFromResponse } from '@/lib/extractTopic';
 
 const GAP_MARKER = 'Check your understanding →';
 
@@ -65,16 +67,38 @@ const THINKING_COLORS: Record<string, string> = {
   deep:  'var(--danger)',
 };
 
+// ─── Orchestrator step progression ───────────────────────────────────────────
+
+/** Steps simulating backend orchestrator decisions — advanced via timers. */
+const ORCHESTRATOR_STEPS: Array<{
+  layer: string;
+  message: string;
+  delay: number;
+  doneAfter: number;
+}> = [
+  { layer: 'Intent Classifier',  message: 'Analyzing message intent…',     delay: 0,    doneAfter: 350  },
+  { layer: 'Memory Layer',       message: 'Checking knowledge gaps…',       delay: 450,  doneAfter: 900  },
+  { layer: 'PAEV Engine',        message: 'Retrieving prerequisite chain…', delay: 1000, doneAfter: 1600 },
+  { layer: 'Context Compressor', message: 'Formatting context window…',     delay: 1700, doneAfter: 2400 },
+];
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function TypingIndicator() {
+function TypingIndicator({ orchestratorEvents }: { orchestratorEvents: LogEvent[] }) {
   return (
     <div className="msg ai">
-      <div className="ai-typing">
-        <div className="typing-dots">
-          <div className="typing-dot" />
-          <div className="typing-dot" />
-          <div className="typing-dot" />
+      <div className="msg-body">
+        <div className="msg-bubble">
+          {orchestratorEvents.length > 0 && (
+            <OrchestratorLog logEvents={orchestratorEvents} />
+          )}
+          <div className="ai-typing">
+            <div className="typing-dots">
+              <div className="typing-dot" />
+              <div className="typing-dot" />
+              <div className="typing-dot" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -85,10 +109,12 @@ function MessageBubble({
   msg,
   onActionClick,
   isStreaming,
+  orchestratorEvents,
 }: {
   msg: ChatMessage;
   onActionClick: (key: string) => void;
   isStreaming?: boolean;
+  orchestratorEvents?: LogEvent[];
 }) {
   if (msg.role === 'user') {
     return (
@@ -104,6 +130,10 @@ function MessageBubble({
     <div className="msg ai">
       <div className="msg-body">
         <div className="msg-bubble">
+          {/* OrchestratorLog pill — shown as a compact badge once streaming starts */}
+          {isStreaming && orchestratorEvents && orchestratorEvents.length > 0 && (
+            <OrchestratorLog logEvents={orchestratorEvents} streamStarted />
+          )}
           {(() => {
             const split = !isStreaming ? splitAtGapMarker(msg.text) : null;
             if (split) {
@@ -196,6 +226,40 @@ export default function ChatPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useAutoScroll([messages, chatLoading]);
 
+  // ── Orchestrator log events ──────────────────────────────────────────────────
+  const [orchestratorEvents, setOrchestratorEvents] = useState<LogEvent[]>([]);
+
+  useEffect(() => {
+    // Reset events whenever loading state changes
+    setOrchestratorEvents([]);
+
+    if (!chatLoading) return;
+
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    ORCHESTRATOR_STEPS.forEach((step, i) => {
+      // Add step as pending
+      timers.push(
+        setTimeout(() => {
+          setOrchestratorEvents((prev) => [
+            ...prev,
+            { layer: step.layer, message: step.message, status: 'pending' as const },
+          ]);
+        }, step.delay),
+      );
+      // Mark step as done
+      timers.push(
+        setTimeout(() => {
+          setOrchestratorEvents((prev) =>
+            prev.map((ev, idx) => (idx === i ? { ...ev, status: 'done' as const } : ev)),
+          );
+        }, step.doneAfter),
+      );
+    });
+
+    return () => timers.forEach(clearTimeout);
+  }, [chatLoading]);
+
   // ── Socratic response tracking ──────────────────────────────────────────────
   // When the last AI message contains the "Check your understanding →" marker
   // we know the AI asked a Socratic question.  The next user message is treated
@@ -209,15 +273,11 @@ export default function ChatPanel() {
       ? `AI remembers: You struggled with ${cleanTopic(weakAreas[0].topic)} (${weakAreas[0].score}%). Let's revisit it.`
       : 'AI remembers: Keep asking questions — I track your weak areas over time.';
 
-  const { tbRecordGap, tbRecordStudying } = useTutorBrain();
+  const { tbRecordGap, tbRecordStudying, tbRecordSocraticPass } = useTutorBrain();
 
-  // Derive the topic of the most recent AI response from its first ## heading
+  // Derive the topic of the most recent AI response using structured extraction
   const lastAiMessage = [...messages].reverse().find((m) => m.role === 'ai' && m.text.trim());
-  const lastTopic = lastAiMessage
-    ? (lastAiMessage.text.split('\n').find((l) => l.trimStart().startsWith('##'))
-        ?.replace(/^#+\s*/, '')
-        .trim() ?? '')
-    : '';
+  const lastTopic = lastAiMessage ? extractTopicFromResponse(lastAiMessage.text) : '';
 
   // Detect if the last AI message contains a Socratic question
   const lastAiSplit = lastAiMessage && !chatLoading
@@ -241,7 +301,8 @@ export default function ChatPanel() {
     }
 
     // If the last AI message had a Socratic question, mark this as the student's answer
-    if (lastSocraticQuestion && lastTopic) {
+    // Only capture if no evaluation is already pending (prevents double-overwrite)
+    if (lastSocraticQuestion && lastTopic && !pendingSocraticRef.current) {
       pendingSocraticRef.current = {
         question: lastSocraticQuestion,
         answer: val,
@@ -258,8 +319,8 @@ export default function ChatPanel() {
       evaluateSocraticAnswer(pending.question, pending.answer, pending.topic)
         .then((res) => {
           if (res.correct) {
-            // Correct → promote from failing → reviewing (or reviewing → recovering)
-            tbRecordStudying(pending.topic);
+            // Correct → advance through failing→reviewing→recovering→mastered
+            tbRecordSocraticPass(pending.topic);
           } else {
             // Incorrect → ensure concept is tracked as a gap
             tbRecordGap(pending.topic);
@@ -412,6 +473,7 @@ export default function ChatPanel() {
                 msg={msg}
                 onActionClick={handleActionClick}
                 isStreaming={isStreaming}
+                orchestratorEvents={isStreaming ? orchestratorEvents : undefined}
               />
             );
           })}
@@ -421,7 +483,7 @@ export default function ChatPanel() {
             messages[messages.length - 1]?.role === 'user' ||
             (messages[messages.length - 1]?.role === 'ai' && !messages[messages.length - 1]?.text.trim())
           ) ? (
-            <TypingIndicator />
+            <TypingIndicator orchestratorEvents={orchestratorEvents} />
           ) : null}
           <div ref={sentinelRef} />
         </div>

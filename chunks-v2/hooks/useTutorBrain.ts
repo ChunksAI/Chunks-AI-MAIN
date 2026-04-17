@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { openRecoveryWindow, closeRecoveryWindow } from '@/lib/recoveryAnalytics';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -137,7 +138,8 @@ export interface UseTutorBrainResult {
   /** Trimmed view of the model ready for display or prompt injection. */
   model: StudentModel;
   tbRecordGap: (topic: string) => void;
-  tbRecordStudying: (topic: string) => void;
+  tbRecordStudying: (topic: string, advance?: boolean) => void;
+  tbRecordSocraticPass: (topic: string) => void;
   tbRecordQuizResult: (topic: string, score: number, wrongAnswers: string[]) => void;
   tbRecordMastery: (topic: string) => void;
   tbCheckRegression: () => void;
@@ -180,20 +182,44 @@ export function useTutorBrain(): UseTutorBrainResult {
   );
 
   /**
-   * Advances a concept from "failing" to "reviewing".
-   * Only transitions if current status is "failing".
+   * Advances a concept through the gap lifecycle when the student is actively studying it.
+   * - failing → reviewing (always)
+   * - reviewing → recovering (only when `advance` is true)
+   * - any other status → update lastSeenAt only
+   *
+   * `advance` defaults to false so that passive study (e.g. struggle-phrase detection)
+   * does not promote a concept from reviewing to recovering without deliberate intent.
+   *
+   * If the concept is not currently in gaps, this is a no-op.
    */
   const tbRecordStudying = useCallback(
-    (topic: string) => {
+    (topic: string, advance: boolean = false) => {
       const current = loadModel();
+      // If concept is not tracked in gaps at all, do nothing (prevents phantom entries)
+      const gap = current.gaps.find((g) => g.concept === topic);
+      if (!gap) return;
+
+      // Open a recovery analytics window when the student starts studying a
+      // failing concept — this marks the start of an AI intervention so we can
+      // later measure whether the quiz attempt after this study session succeeds.
+      if (gap.status === 'failing') {
+        openRecoveryWindow(topic, gap.failedAt);
+      }
+
       const now = new Date().toISOString();
       const next: StudentModel = {
         ...current,
-        gaps: current.gaps.map((g) =>
-          g.concept === topic && g.status === 'failing'
-            ? { ...g, status: 'reviewing' as ConceptStatus, lastSeenAt: now }
-            : g,
-        ),
+        gaps: current.gaps.map((g) => {
+          if (g.concept !== topic) return g;
+          if (g.status === 'failing') {
+            return { ...g, status: 'reviewing' as ConceptStatus, lastSeenAt: now };
+          }
+          if (g.status === 'reviewing' && advance) {
+            return { ...g, status: 'recovering' as ConceptStatus, lastSeenAt: now };
+          }
+          // For any other status (or reviewing without advance), just update lastSeenAt
+          return { ...g, lastSeenAt: now };
+        }),
       };
       persist(next);
     },
@@ -260,8 +286,54 @@ export function useTutorBrain(): UseTutorBrainResult {
       }
 
       persist({ mastered: updatedMastered, gaps: updatedGaps, quizHistory: updatedHistory });
+
+      // Close the recovery analytics window for this concept if one is open.
+      // This records whether the post-intervention quiz attempt was successful
+      // and allows computeRecoveryStats() to measure the AI's intervention rate.
+      closeRecoveryWindow(topic, score);
     },
     [persist],
+  );
+
+  /**
+   * Records a successful Socratic answer and advances the concept through the
+   * gap lifecycle:
+   *   failing   → reviewing
+   *   reviewing → recovering
+   *   recovering (2nd pass) → mastered
+   */
+  const tbRecordSocraticPass = useCallback(
+    (topic: string) => {
+      const current = loadModel();
+      const now = new Date().toISOString();
+      const next: StudentModel = {
+        ...current,
+        gaps: current.gaps.map((g) => {
+          if (g.concept !== topic) return g;
+          if (g.status === 'recovering') {
+            // Count passes while in 'recovering'; mastery handled below
+            return { ...g, lastSeenAt: now, passCount: g.passCount + 1 };
+          }
+          if (g.status === 'reviewing') {
+            // Transition to recovering; reset passCount so two consecutive
+            // recovering-passes are required before mastery
+            return { ...g, status: 'recovering' as ConceptStatus, lastSeenAt: now, passCount: 0 };
+          }
+          if (g.status === 'failing') {
+            return { ...g, status: 'reviewing' as ConceptStatus, lastSeenAt: now, passCount: 0 };
+          }
+          return { ...g, lastSeenAt: now };
+        }),
+      };
+      // Check mastery after incrementing passCount
+      const updatedGap = next.gaps.find((g) => g.concept === topic);
+      if (updatedGap && updatedGap.status === 'recovering' && updatedGap.passCount >= 2) {
+        tbRecordMastery(topic);
+        return;
+      }
+      persist(next);
+    },
+    [persist, tbRecordMastery],
   );
 
   /**
@@ -321,6 +393,7 @@ export function useTutorBrain(): UseTutorBrainResult {
     model: trimModel(model),
     tbRecordGap,
     tbRecordStudying,
+    tbRecordSocraticPass,
     tbRecordQuizResult,
     tbRecordMastery,
     tbCheckRegression,

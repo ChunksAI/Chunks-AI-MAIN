@@ -1191,3 +1191,135 @@ def test_exam_strips_think_block(client, monkeypatch, mock_guest_gate, mock_extr
     assert '<think>' not in data['raw']
     assert data['thinking_content'] is not None
     assert 'molecules' in data['thinking_content']
+
+
+# ── Topic marker injection ────────────────────────────────────────────────────
+
+def test_study_mode_injects_topic_marker_from_heading(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """Study mode injects <!-- chunks-topic:... --> from the first ## heading."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(
+        return_value='## Entropy\n\nEntropy measures disorder in a system.'
+    ))
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'What is entropy?',
+        'mode': 'study',
+        'complexity': 3,
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['success'] is True
+    assert data['answer'].endswith('<!-- chunks-topic:Entropy -->')
+
+
+def test_study_mode_no_marker_when_no_heading(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """Study mode does NOT inject a topic marker when the answer has no ## heading."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(
+        return_value='Entropy measures disorder in a system.'
+    ))
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'What is entropy?',
+        'mode': 'study',
+        'complexity': 3,
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert 'chunks-topic' not in data['answer']
+
+
+def test_exam_mode_does_not_inject_topic_marker(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """Exam mode must NOT inject a topic marker."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+
+    raw_mcq = '{"question":"Q?","choices":["A","B","C","D"],"answer":"A","explanation":"Because."}'
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value=raw_mcq))
+
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'Test me on thermodynamics',
+        'mode': 'exam',
+        'complexity': 5,
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['success'] is True
+    # Exam mode returns structured JSON — topic marker must not be present
+    assert 'chunks-topic' not in str(data)
+
+
+def test_topic_marker_sanitizes_injection_attempt(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """Topic marker sanitization strips --> and angle brackets from heading text."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    import services.device_abuse as device_mod
+    import services.plan_limits as plan_mod
+
+    monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(
+        return_value='## Entropy --> <script>alert(1)</script>\n\nSome content.'
+    ))
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    resp = client.post('/ask', json={
+        'question': 'What is entropy?',
+        'mode': 'study',
+        'complexity': 3,
+    })
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['success'] is True
+    answer = data['answer']
+    # The topic marker must be present
+    assert '<!-- chunks-topic:' in answer
+    # Dangerous characters must be stripped from the marker's topic value only
+    # Extract the topic value from the marker
+    import re
+    marker_match = re.search(r'<!-- chunks-topic:(.*?) -->', answer)
+    assert marker_match is not None, "chunks-topic marker not found"
+    extracted_topic = marker_match.group(1)
+    assert '-->' not in extracted_topic   # injection sequence stripped
+    assert '<' not in extracted_topic     # angle brackets stripped
+    assert '>' not in extracted_topic     # angle brackets stripped
+    # The original concept name is preserved
+    assert 'Entropy' in extracted_topic

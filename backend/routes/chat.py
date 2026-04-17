@@ -79,6 +79,108 @@ def _strip_code_fences(text: str) -> str:
     )
 
 
+def build_system_prompt(
+    *,
+    identity: str,
+    book_label: str,
+    is_relevant: bool,
+    latex_instruction: str,
+    user_memory: str,
+    response_style: str,
+    teaching_prompt: str,
+    student_profile: str,
+    paev_context: str,       # '[PAEV CONTEXT]\n...' or ''
+    thinking_mode: str | None,
+) -> str:
+    """Assemble the system prompt in a guaranteed, deterministic order.
+
+    Ordering (each section only appears if its content is non-empty):
+      1. Identity
+      2. Role definition (relevant vs. general tutor)
+      3. User memory
+      4. Student profile  (ALWAYS before PAEV context)
+      5. PAEV prerequisite context + two-phase teaching protocol
+      6. Response style + teaching prompt (teaching prompt excluded for deep mode)
+      7. Thinking-mode chain-of-thought instructions (always last)
+    """
+    parts: list[str] = []
+
+    # 1. Identity (always first)
+    parts.append(identity)
+
+    # 2. Role definition
+    if is_relevant:
+        parts.append(
+            f"You are an expert tutor for {book_label}. "
+            f"Answer based strictly on the provided textbook context and cite page numbers using: \U0001F4D6 Page N. "
+            f"{latex_instruction}"
+        )
+    else:
+        parts.append(
+            f"You are a knowledgeable tutor. Answer the student's question helpfully and clearly. "
+            f"{latex_instruction}"
+        )
+
+    # 3. User memory (if any)
+    if user_memory:
+        parts.append(f"\n\nUSER PROFILE (remember this about the student):\n{user_memory}")
+
+    # 4. Student profile (ALWAYS before PAEV context)
+    if student_profile:
+        parts.append(f"\n{student_profile}")
+
+    # 5. PAEV prerequisite context
+    if paev_context:
+        parts.append(f"\n{paev_context}")
+        # Structural enforcement: two-phase output requirement
+        parts.append(
+            "\n\nPREREQUISITE TEACHING PROTOCOL \u2014 MANDATORY:\n"
+            "Your response MUST have exactly two phases:\n"
+            "PHASE 1 \u2014 PREREQUISITE(S): Teach each prerequisite concept listed in [PAEV CONTEXT] "
+            "before anything else. Label this section '### Before we begin:'. "
+            "Keep each prerequisite to 2-3 sentences maximum.\n"
+            "PHASE 2 \u2014 MAIN CONCEPT: Only after Phase 1, answer the student's actual question. "
+            "Label this section '### Now, your question:'. "
+            "Do NOT skip Phase 1 even if you think the student already knows the prerequisites."
+        )
+
+    # 6. Response style + teaching prompt
+    parts.append(f"\n{response_style}")
+    # TEACHING_PROMPT is intentionally NOT applied to Deep Think: DEEP_THINK_MODE_PROMPT
+    # already requires comprehensive structure, and Deep Think is designed to be thorough
+    # and exhaustive rather than concise/breathable.
+    if thinking_mode != 'deep':
+        parts.append(teaching_prompt)
+
+    # 7. Thinking mode instructions (always last in system prompt)
+    if thinking_mode in ('thinking', 'deep'):
+        parts.append(
+            "\n\nOUTPUT FORMAT \u2014 TWO SECTIONS, BOTH REQUIRED:\n"
+            "SECTION 1 \u2014 <think>...</think> (private scratchpad, hidden from the student): "
+            "Use this to plan, reason, check your work, and strategise. "
+            "Write whatever internal notes you need here \u2014 the student never sees it.\n"
+            "SECTION 2 \u2014 Your final answer (everything you write AFTER </think> closes): "
+            "This is the ONLY part the student reads. "
+            "It must be a complete, standalone educational response. "
+            "Do NOT begin your answer with the word 'tag' or any XML remnant. "
+            "Start directly with educational content. "
+            "DO NOT write only a social greeting, a single sentence, or a closing phrase here. "
+            "DO NOT summarise your <think> notes \u2014 write the full answer from scratch as if "
+            "<think> does not exist. "
+            "The answer must begin with actual educational content, not with 'Hope that helps' "
+            "or any variant."
+        )
+        if thinking_mode == 'deep':
+            parts.append(
+                "\nFor DEEP mode your final answer (after </think>) should include: "
+                "a full definition, the key components explained clearly, how it works, "
+                "at least one real-world example, and a brief summary. "
+                "Use clear headers. Be thorough but do not pad \u2014 quality over quantity."
+            )
+
+    return "".join(parts)
+
+
 @router.post('/ask')
 def ask(request: Request, body: AskRequest):
     try:
@@ -129,7 +231,7 @@ def ask(request: Request, body: AskRequest):
         # ── Redis query cache ─────────────────────────────────────────────────
         _cache_eligible = _ask_is_cacheable(mode, history, web_search, thinking_mode)
         _cache_key_val  = _ask_cache_key(book_id, task_type, mode, complexity, question,
-                                         doc_context) \
+                                         doc_context, student_profile=student_profile) \
                           if _cache_eligible else None
         if _cache_eligible:
             cached_payload = _ask_cache_get(_cache_key_val)
@@ -170,6 +272,11 @@ def ask(request: Request, body: AskRequest):
 
         logger.info(f"[{mode.upper()}] task={task_type or 'auto'} Q: {question[:80]} | complexity: {complexity}")
 
+        # ── Intent classification ─────────────────────────────────────────────
+        from services.intent_classifier import classify as _classify_intent
+        intent = _classify_intent(question)
+        logger.debug('[intent] %s → %s', question[:60], intent)
+
         # ── Model selection via ai_router ─────────────────────────────────────
         if thinking_mode == 'deep':
             selected_model = os.environ.get('DEEP_MODEL', 'google/gemini-2.5-flash')
@@ -201,6 +308,13 @@ def ask(request: Request, body: AskRequest):
                 context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
                 logger.info(f"User doc PAEV active — switching to textbook mode for book {book_id}")
             else:
+                from services.tool_compressor import compress_tool_context as _compress
+                doc_context = _compress(
+                    doc_context,
+                    tool_type='doc',
+                    token_budget=800,
+                    concept_keywords=[question],
+                )
                 context, similarity, is_relevant, source, all_sources = doc_context, 1.0, True, None, []
                 searcher     = TextbookSearch()
                 use_textbook = False
@@ -274,9 +388,6 @@ def ask(request: Request, body: AskRequest):
             f"\"{selected_text}\"\n\n"
         ) if selected_text else ""
 
-        memory_block = ""
-        if user_memory:
-            memory_block = f"\n\nUSER PROFILE (remember this about the student):\n{user_memory}"
 
         if doc_context:
             book_name  = 'the uploaded document'
@@ -301,11 +412,6 @@ def ask(request: Request, body: AskRequest):
             return NORMAL_MODE_PROMPT
 
         response_style_instruction = _response_style_instruction(thinking_mode)
-        # TEACHING_PROMPT adds structural and formatting guidance for all non-deep modes.
-        # It is intentionally NOT applied to Deep Think: DEEP_THINK_MODE_PROMPT already
-        # requires comprehensive structure, and Deep Think is designed to be thorough
-        # and exhaustive rather than concise/breathable.
-        teaching_prompt_instruction = TEACHING_PROMPT if thinking_mode != 'deep' else ""
 
         _identity_variants = [
             "Your name is Chunks AI. You are an intelligent, friendly AI study assistant built to help students learn and excel. "
@@ -323,53 +429,18 @@ def ask(request: Request, body: AskRequest):
         ]
         IDENTITY = random.choice(_identity_variants)
 
-        if is_relevant:
-            base_system = (
-                f"{IDENTITY}"
-                f"You are an expert tutor for {book_label}. "
-                f"Answer based strictly on the provided textbook context and cite page numbers using: 📖 Page N. "
-                f"{latex_instruction}{memory_block}"
-                f"{response_style_instruction}"
-                f"{teaching_prompt_instruction}"
-            )
-        else:
-            base_system = (
-                f"{IDENTITY}"
-                f"You are a knowledgeable tutor. Answer the student's question helpfully and clearly. "
-                f"{latex_instruction}{memory_block}"
-                f"{response_style_instruction}"
-                f"{teaching_prompt_instruction}"
-            )
-
-        # ── Student profile: gaps, lifecycle statuses, mastered concepts ────────
-        if student_profile:
-            base_system += student_profile
-
-        # ── Thinking mode: instruct model to emit chain-of-thought ────────────
-        if thinking_mode in ('thinking', 'deep'):
-            base_system += (
-                "\n\nOUTPUT FORMAT — TWO SECTIONS, BOTH REQUIRED:\n"
-                "SECTION 1 — <think>...</think> (private scratchpad, hidden from the student): "
-                "Use this to plan, reason, check your work, and strategise. "
-                "Write whatever internal notes you need here — the student never sees it.\n"
-                "SECTION 2 — Your final answer (everything you write AFTER </think> closes): "
-                "This is the ONLY part the student reads. "
-                "It must be a complete, standalone educational response. "
-                "Do NOT begin your answer with the word 'tag' or any XML remnant. "
-                "Start directly with educational content. "
-                "DO NOT write only a social greeting, a single sentence, or a closing phrase here. "
-                "DO NOT summarise your <think> notes — write the full answer from scratch as if "
-                "<think> does not exist. "
-                "The answer must begin with actual educational content, not with 'Hope that helps' "
-                "or any variant."
-            )
-            if thinking_mode == 'deep':
-                base_system += (
-                    "\nFor DEEP mode your final answer (after </think>) should include: "
-                    "a full definition, the key components explained clearly, how it works, "
-                    "at least one real-world example, and a brief summary. "
-                    "Use clear headers. Be thorough but do not pad — quality over quantity."
-                )
+        base_system = build_system_prompt(
+            identity=IDENTITY,
+            book_label=book_label,
+            is_relevant=is_relevant,
+            latex_instruction=latex_instruction,
+            user_memory=user_memory,
+            response_style=response_style_instruction,
+            teaching_prompt=TEACHING_PROMPT,
+            student_profile=student_profile,
+            paev_context='',  # TODO: wire in from decision.use_paev (Phase 2)
+            thinking_mode=thinking_mode,
+        )
 
         # ── MODE: VISUAL_TUTOR ────────────────────────────────────────────────
         if mode == 'visual_tutor':
@@ -893,6 +964,21 @@ Answer helpfully and clearly."""
                              endpoint='chat', user_id=verified_user_id,
                              max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))
             answer, thinking_content = extract_thinking_content(answer)
+
+            # Inject structured topic marker for frontend Socratic tracking.
+            # Extract the topic from the first ## heading in the response so the
+            # frontend can identify the concept without fragile heading-parsing.
+            _topic_match = None
+            for _line in answer.split('\n'):
+                _stripped = _line.strip()
+                if _stripped.startswith('##'):
+                    _topic_match = _stripped.lstrip('#').strip()
+                    break
+            if _topic_match:
+                # Sanitize: remove characters that would break the HTML comment
+                _safe_topic = _topic_match.replace('-->', '').replace('<', '').replace('>', '')[:120]
+                answer = answer + f'\n<!-- chunks-topic:{_safe_topic} -->'
+
             _resp = {
                 'success':        True,
                 'mode':           'study',

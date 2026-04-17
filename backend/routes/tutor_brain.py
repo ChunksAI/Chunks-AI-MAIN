@@ -55,7 +55,6 @@ class NextTopicRequest(BaseModel):
 
 
 class SaveModelRequest(BaseModel):
-    user_id: str
     student_model: dict
 
 
@@ -256,8 +255,15 @@ def next_topic(body: NextTopicRequest):
 # ── GET /tutor/load-model ─────────────────────────────────────────────────────
 
 @router.get('/load-model')
-def load_model(user_id: str, request: Request):
+def load_model(request: Request):
     from routes.shared import ctx
+    from services.auth import _extract_verified_user
+
+    verified_user_id, _, _ = _extract_verified_user(request)
+    if not verified_user_id:
+        return JSONResponse({'error': 'Authentication required.'}, status_code=401)
+
+    user_id = verified_user_id
 
     supabase_url = getattr(ctx, 'SUPABASE_URL', '')
     service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
@@ -373,6 +379,22 @@ def evaluate_socratic(body: EvaluateSocraticRequest):
 @router.post('/save-model')
 def save_model(request: Request, body: SaveModelRequest):
     from routes.shared import ctx
+    from services.auth import _extract_verified_user
+
+    verified_user_id, _, _ = _extract_verified_user(request)
+    if not verified_user_id:
+        return JSONResponse({'error': 'Authentication required.'}, status_code=401)
+
+    model = body.student_model
+    if not (
+        isinstance(model.get('mastered'), list)
+        and isinstance(model.get('gaps'), list)
+        and isinstance(model.get('quizHistory'), list)
+    ):
+        return JSONResponse({'error': 'Invalid student model schema.'}, status_code=422)
+
+    if len(json.dumps(model).encode('utf-8')) > 65_536:
+        return JSONResponse({'error': 'Student model exceeds maximum size.'}, status_code=400)
 
     supabase_url = getattr(ctx, 'SUPABASE_URL', '')
     service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
@@ -384,9 +406,14 @@ def save_model(request: Request, body: SaveModelRequest):
             status_code=500,
         )
 
+    # Send the model as a native dict.  session.post(json=...) (requests
+    # library) serializes the dict to JSON and sets Content-Type to
+    # application/json automatically.  Because the column is now JSONB,
+    # Supabase's PostgREST parses the JSON body directly into JSONB — no
+    # intermediate TEXT step or json.dumps() on our side is required.
     payload = {
-        'user_id':               body.user_id,
-        'student_knowledge_model': json.dumps(body.student_model),
+        'user_id':               verified_user_id,
+        'student_knowledge_model': model,
     }
 
     try:
