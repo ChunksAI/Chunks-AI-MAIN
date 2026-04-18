@@ -58,6 +58,8 @@ export interface SendMessageResponse {
   memory_recall?: string;
   performance_bars?: Array<{ label: string; pct: number; color: string }>;
   requestId?: string;
+  /** Parsed structured data returned by chunk / master / research modes. */
+  structured?: Record<string, unknown> | null;
 }
 
 export interface Flashcard {
