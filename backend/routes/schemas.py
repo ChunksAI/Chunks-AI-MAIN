@@ -31,10 +31,18 @@ class _LenientBase(BaseModel):
 # ║  /ask                                                                      ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
+_AskMode = Literal[
+    # Current modes
+    'snap', 'chunk', 'master', 'research',
+    # Legacy modes still handled by ai_router.py
+    'concise', 'study', 'detailed', 'practice', 'summary', 'generate', 'exam', 'general',
+]
+
+
 class AskRequest(_LenientBase):
     question: str = ""
     complexity: int = Field(default=3, ge=1, le=10)
-    mode: str = "snap"  # current: snap | chunk | master | research  (legacy: study | summary | general | concise | detailed | generate)
+    mode: _AskMode = 'snap'
     bookId: Optional[str] = None
     thinking: Optional[str] = None
     web_search: bool = False
@@ -55,7 +63,7 @@ class AskAsyncRequest(_LenientBase):
     """Identical to AskRequest — used for the async /ask-async endpoint."""
     question: str = ""
     complexity: int = Field(default=3, ge=1, le=10)
-    mode: str = "snap"  # current: snap | chunk | master | research  (legacy: study | summary | general | concise | detailed | generate)
+    mode: _AskMode = 'snap'
     bookId: Optional[str] = None
     thinking: Optional[str] = None
     web_search: bool = False
