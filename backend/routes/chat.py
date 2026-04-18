@@ -9,6 +9,7 @@ POST /ask
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -28,6 +29,19 @@ from services.cache import cache_svc as _cache_svc
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _get_identity_for_user(user_id: str, variants: list[str]) -> str:
+    """Deterministically pick an identity variant based on user_id hash.
+
+    The same user always receives the same variant (stable within a
+    conversation and across sessions).  Guest / IP-keyed users always
+    receive the first (default) variant.
+    """
+    if not user_id or user_id.startswith('ip:'):
+        return variants[0]
+    idx = int(hashlib.md5(user_id.encode()).hexdigest(), 16) % len(variants)
+    return variants[idx]
 
 # In-flight cancellation registry: request_id → cancelled flag.
 # Set by POST /ask/cancel; checked inside _sse_generator on every token.
@@ -435,7 +449,7 @@ def ask(request: Request, body: AskRequest):
             "When someone asks what your name is, who you are, or what AI you are — answer naturally and with energy as Chunks AI. "
             "Mix up your tone: casual, enthusiastic, thoughtful. Never claim to be any other AI. ",
         ]
-        IDENTITY = random.choice(_identity_variants)
+        IDENTITY = _get_identity_for_user(verified_user_id, _identity_variants)
 
         base_system = build_system_prompt(
             identity=IDENTITY,
