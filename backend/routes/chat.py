@@ -43,9 +43,8 @@ def _get_identity_for_user(user_id: str, variants: list[str]) -> str:
     idx = int(hashlib.md5(user_id.encode()).hexdigest(), 16) % len(variants)
     return variants[idx]
 
-# In-flight cancellation registry: request_id → cancelled flag.
-# Set by POST /ask/cancel; checked inside _sse_generator on every token.
-_cancelled_requests: dict[str, bool] = {}
+# Cancellation is handled via Redis (key "cancel:{request_id}", TTL 60 s)
+# so that it works correctly across multiple gunicorn workers.
 
 # Per-mode response length/style instructions applied on every /ask request.
 # These control how long and how structured each mode's answer must be.
@@ -1094,9 +1093,15 @@ Answer helpfully and clearly."""
                         ):
                             if _stop.is_set():
                                 return
-                            if _cancelled_requests.pop(_stream_req_id, False):
-                                logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
-                                return
+                            _cancel_key = f'cancel:{_stream_req_id}'
+                            try:
+                                _redis = _cache_svc._redis
+                                if _redis and _redis.exists(_cancel_key):
+                                    _redis.delete(_cancel_key)
+                                    logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
+                                    return
+                            except Exception:
+                                pass
                             _put(('token', _tok))
 
                     def _stream_to_queue() -> None:
@@ -1354,19 +1359,17 @@ Answer helpfully and clearly."""
 async def cancel_ask(request: Request) -> JSONResponse:
     """Signal the backend to stop an in-flight /ask SSE stream early.
 
-    The SSE generator checks ``_cancelled_requests`` on every token; once set
-    it yields ``[DONE]`` and returns, stopping further calls to OpenRouter.
-    The registry entry is auto-cleaned after 60 seconds.
+    Writes a Redis key ``cancel:{request_id}`` with a 60-second TTL so that
+    any worker running the stream will detect it on the next token.
     """
     body = await request.json()
     req_id = str(body.get('request_id', '')).strip()
     if req_id:
-        _cancelled_requests[req_id] = True
+        try:
+            _redis = _cache_svc._redis
+            if _redis:
+                _redis.setex(f'cancel:{req_id}', 60, '1')
+        except Exception as exc:
+            logger.warning('[/ask/cancel] Redis error: %s', exc)
         logger.info('[/ask/cancel] cancellation registered req_id=%s', req_id)
-
-        async def _cleanup() -> None:
-            await asyncio.sleep(60)
-            _cancelled_requests.pop(req_id, None)
-
-        asyncio.create_task(_cleanup())
     return JSONResponse({'cancelled': bool(req_id)})
