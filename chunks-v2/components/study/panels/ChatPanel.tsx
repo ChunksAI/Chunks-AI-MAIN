@@ -214,14 +214,17 @@ export default function ChatPanel() {
       toast.error('Voice input is not supported in this browser');
       return;
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const SR = (
       (window as unknown as Record<string, unknown>).SpeechRecognition ||
       (window as unknown as Record<string, unknown>).webkitSpeechRecognition
-    ) as typeof SpeechRecognition;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ) as any;
     const recognition = new SR();
     recognition.continuous = false;
     recognition.interimResults = false;
-    recognition.onresult = (e: SpeechRecognitionEvent) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (e: any) => {
       const transcript = e.results[0][0].transcript;
       setInputValue((prev) => prev + transcript);
     };
