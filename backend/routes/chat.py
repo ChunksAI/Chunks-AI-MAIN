@@ -370,6 +370,20 @@ async def ask(request: Request, body: AskRequest):
         except _UsageLimitExceeded as _ule:
             return _ule.response()
 
+        # ── Server-side student model (Redis-first) ───────────────────────────
+        # Prefer the authoritative server-side model over the request body field.
+        # Redis lookup is synchronous and sub-millisecond on cache hits.
+        if verified_user_id and book_id:
+            try:
+                from routes.tutor_brain import get_student_model_cached, _profile_from_model
+                _cached_model = get_student_model_cached(verified_user_id, book_id, ctx.redis)
+                if _cached_model:
+                    student_profile = _profile_from_model(_cached_model)
+                    # Prefer the server-side gap list over any stale client-sent list
+                    student_gaps = _cached_model.get('gaps', student_gaps)
+            except Exception as _smc_err:
+                logger.debug('[ask] student model cache lookup failed: %s', _smc_err)
+
         # ── Redis query cache ─────────────────────────────────────────────────
         _cache_eligible = _cache_svc.ask_is_cacheable(mode, history, web_search, thinking_mode)
         _cache_key_val  = _cache_svc.ask_key(book_id, task_type, mode, complexity, question,

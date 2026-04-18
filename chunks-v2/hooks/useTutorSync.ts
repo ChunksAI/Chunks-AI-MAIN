@@ -169,7 +169,7 @@ export interface UseTutorSyncResult {
 
 const SAVE_DEBOUNCE_MS = 2_000;
 
-export function useTutorSync(): UseTutorSyncResult {
+export function useTutorSync(bookId?: string): UseTutorSyncResult {
   const { user } = useAuth();
   const [regressions, setRegressions] = useState<string[]>([]);
   const [syncReady, setSyncReady] = useState(false);
@@ -230,7 +230,7 @@ export function useTutorSync(): UseTutorSyncResult {
 
     (async () => {
       try {
-        const serverModel = await loadTutorModel(user.id);
+        const serverModel = await loadTutorModel(user.id, bookId);
         if (serverModel) {
           const local = readLocalModel();
           const merged = mergeModels(local, serverModel);
@@ -251,11 +251,11 @@ export function useTutorSync(): UseTutorSyncResult {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       const model = readLocalModel();
-      saveTutorModel(user.id, model).catch(() => {
+      saveTutorModel(user.id, model, bookId).catch(() => {
         // Silently ignore — localStorage is the source of truth
       });
     }, SAVE_DEBOUNCE_MS);
-  }, [user]);
+  }, [user, bookId]);
 
   useEffect(() => {
     window.addEventListener('chunks:model-changed', scheduleSave);

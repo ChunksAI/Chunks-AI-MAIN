@@ -52,6 +52,7 @@ class NextTopicRequest(BaseModel):
 
 class SaveModelRequest(BaseModel):
     student_model: dict
+    book_id: str = ''        # optional per-book scoping for the Redis cache key
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -62,6 +63,59 @@ _LOW_SCORE_THRESHOLD    = 60    # below this → gap
 _FAILING_THRESHOLD      = 40    # below this → failing
 _RECOVERING_THRESHOLD   = 75    # at or above this but still wrong answers → recovering
 _MIN_CHAIN_COMPLETENESS = 0.6   # discard gaps whose prereq chain is less complete than this
+
+# ── Redis key helper ─────────────────────────────────────────────────────────
+
+_STUDENT_MODEL_TTL = 86_400   # 24 h
+
+
+def _student_model_redis_key(user_id: str, book_id: str | None) -> str:
+    """Return the Redis key for a user's student model (per book when book_id is set)."""
+    scope = book_id.strip() if book_id and book_id.strip() else 'global'
+    return f"student_model:{user_id}:{scope}"
+
+
+def get_student_model_cached(user_id: str, book_id: str | None, redis_client) -> dict | None:
+    """Return the student model dict from Redis, or None on cache miss / error.
+
+    This is a pure Redis lookup (no Supabase fallback) so it is safe to call
+    synchronously on the hot request path in ask().  The authoritative
+    Supabase fallback is handled by the /tutor/load-model endpoint.
+    """
+    if not redis_client or not user_id:
+        return None
+    key = _student_model_redis_key(user_id, book_id)
+    try:
+        raw = redis_client.get(key)
+        if raw is None:
+            return None
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            logger.debug('[student_model] cache HIT for %s', key)
+            return data
+    except Exception as exc:
+        logger.debug('[student_model] cache read error for %s: %s', key, exc)
+    return None
+
+
+def _profile_from_model(model: dict) -> str:
+    """Convert a cached student model dict into a [STUDENT PROFILE] text block.
+
+    Used by ask() to build the system-prompt profile string from the
+    server-side model instead of parsing it from the request body.
+    """
+    gaps     = model.get('gaps', [])
+    mastered = model.get('mastered', [])
+    history  = model.get('quizHistory', [])
+
+    low_scores: list[tuple[str, float]] = [
+        (entry['topic'], float(entry['score']))
+        for entry in history
+        if isinstance(entry, dict)
+        and float(entry.get('score', 100)) < _LOW_SCORE_THRESHOLD
+    ]
+
+    return _build_student_profile(gaps, mastered, low_scores)
 
 
 def _lifecycle_status(score: float) -> str:
@@ -254,7 +308,7 @@ def next_topic(request: Request, body: NextTopicRequest):  # request required by
 
 @router.get('/load-model')
 @limiter.limit("60/minute")
-async def load_model(request: Request):
+async def load_model(request: Request, book_id: str = ''):
     from routes.shared import ctx
     from services.auth import _extract_verified_user
 
@@ -264,6 +318,14 @@ async def load_model(request: Request):
 
     user_id = verified_user_id
 
+    # ── 1. Redis cache first ─────────────────────────────────────────────────
+    _redis = getattr(ctx, 'redis', None)
+    cached = get_student_model_cached(user_id, book_id or None, _redis)
+    if cached is not None:
+        logger.debug('[tutor/load-model] Redis HIT for user=%s book=%s', user_id, book_id or 'global')
+        return {'student_model': cached}
+
+    # ── 2. Supabase fallback ─────────────────────────────────────────────────
     supabase_url  = getattr(ctx, 'SUPABASE_URL', '')
     service_key   = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
     async_client  = getattr(ctx, 'async_client', None)
@@ -303,6 +365,17 @@ async def load_model(request: Request):
             model = json.loads(raw) if isinstance(raw, str) else raw
         except (json.JSONDecodeError, TypeError):
             model = None
+
+        # Backfill Redis so the next load-model call is a cache hit
+        if model and _redis:
+            try:
+                _redis.setex(
+                    _student_model_redis_key(user_id, book_id or None),
+                    _STUDENT_MODEL_TTL,
+                    json.dumps(model),
+                )
+            except Exception as exc:
+                logger.debug('[tutor/load-model] Redis backfill error: %s', exc)
 
         return {'student_model': model}
     except Exception:
@@ -425,10 +498,23 @@ async def save_model(request: Request, body: SaveModelRequest):
                 {'error': f'Supabase returned {resp.status_code}'},
                 status_code=502,
             )
-        return {'success': True}
     except Exception:
         logger.exception('[tutor/save-model] unexpected error')
         return JSONResponse({'error': 'Internal server error'}, status_code=500)
+
+    # ── Write to Redis cache ─────────────────────────────────────────────────
+    _redis = getattr(ctx, 'redis', None)
+    if _redis:
+        try:
+            _redis.setex(
+                _student_model_redis_key(verified_user_id, body.book_id or None),
+                _STUDENT_MODEL_TTL,
+                json.dumps(model),
+            )
+        except Exception as exc:
+            logger.debug('[tutor/save-model] Redis write error: %s', exc)
+
+    return {'success': True}
 
 
 # ── GET /tutor/paev-status ────────────────────────────────────────────────────

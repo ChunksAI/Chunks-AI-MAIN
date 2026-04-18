@@ -572,20 +572,22 @@ export interface LoadTutorModelResponse {
   student_model: TutorStudentModel | null;
 }
 
-export async function loadTutorModel(userId: string): Promise<TutorStudentModel | null> {
-  const res = await apiGet<LoadTutorModelResponse>(
-    `/tutor/load-model?user_id=${encodeURIComponent(userId)}`,
-  );
+export async function loadTutorModel(userId: string, bookId?: string): Promise<TutorStudentModel | null> {
+  const params = new URLSearchParams({ user_id: userId });
+  if (bookId) params.set('book_id', bookId);
+  const res = await apiGet<LoadTutorModelResponse>(`/tutor/load-model?${params.toString()}`);
   return res.student_model;
 }
 
 export async function saveTutorModel(
   userId: string,
   studentModel: TutorStudentModel,
+  bookId?: string,
 ): Promise<void> {
   await apiPost<unknown>('/tutor/save-model', {
     user_id: userId,
     student_model: studentModel,
+    ...(bookId ? { book_id: bookId } : {}),
   });
 }
 

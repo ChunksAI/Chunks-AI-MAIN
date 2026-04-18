@@ -47,7 +47,6 @@ import { useChatContext, type ChatState, type ChatAction } from '@/contexts/Chat
 import { useQuizContext, type QuizState, type QuizAction, calcWeakAreas } from '@/contexts/QuizContext';
 import { useNotesContext, type NotesState, type NotesAction } from '@/contexts/NotesContext';
 import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus } from '@/lib/studyApi';
-import { buildStudentProfile } from '@/hooks/useTutorBrain';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
 import {
@@ -1248,7 +1247,6 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             doc_context: autoDocContext,
             mode: currentChatMode,
             bookId: stateRef.current.bookId ?? undefined,
-            student_profile: buildStudentProfile(),
           },
           (chunk: string) => {
             if (isStreamingMode) {
@@ -1664,7 +1662,6 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         doc_context: docContext,
         mode: stateRef.current.chatMode,
         bookId: stateRef.current.bookId ?? undefined,
-        student_profile: buildStudentProfile(),
       });
 
       dispatch({ type: 'SET_REVIEW_EXPLANATION', payload: res.answer });

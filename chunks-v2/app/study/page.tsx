@@ -57,8 +57,8 @@ function StudyLayout() {
   const { activeTab, toast, docTitle, topic, recents, pdfBlobUrl, slides, uploadLoading } = state;
 
   // Sync student knowledge model with backend (load on mount, debounce-save on change,
-  // regression check on mount)
-  const { regressions } = useTutorSync();
+  // regression check on mount). Pass bookId so save/load are scoped per book.
+  const { regressions } = useTutorSync(state.bookId ?? undefined);
   const { tbGetModel } = useTutorBrain();
 
   // ── Diagnostic quiz gate ──────────────────────────────────────────────────────
