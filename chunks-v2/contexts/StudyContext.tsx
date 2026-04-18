@@ -913,6 +913,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     'RECEIVE_MESSAGE', 'START_AI_MESSAGE', 'APPEND_MESSAGE_CHUNK',
     'UPDATE_MESSAGE_META', 'REMOVE_MESSAGE', 'MESSAGE_ERROR',
     'CLEAR_CHAT_ERROR', 'SET_THINKING_MODE', 'SET_CHAT_MODE', 'RESTORE_MESSAGES', 'RESET_CHAT',
+    // Note: SET_THINKING_MODE is deprecated — use SET_CHAT_MODE instead.
+    // Remove SET_THINKING_MODE once all callers have migrated.
   ]);
   const QUIZ_ACTION_TYPES = new Set<string>([
     'START_QUIZ', 'ANSWER_QUESTION', 'CLOSE_QUIZ', 'RESTORE_QUIZ', 'RESET_QUIZ',

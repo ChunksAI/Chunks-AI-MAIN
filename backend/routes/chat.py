@@ -1098,6 +1098,6 @@ Answer helpfully and clearly."""
         )
         return JSONResponse({
             'success': False,
-            'error': str(e),
+            'error': 'An unexpected error occurred. Please try again.',
             'error_type': type(e).__name__,
         }, status_code=500)
