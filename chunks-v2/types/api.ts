@@ -54,6 +54,8 @@ export interface SendMessageResponse {
   success: boolean;
   answer: string;
   mode: string;
+  /** Topic extracted by the backend for Socratic/weak-area tracking. */
+  topic?: string;
   cached?: boolean;
   memory_recall?: string;
   performance_bars?: Array<{ label: string; pct: number; color: string }>;

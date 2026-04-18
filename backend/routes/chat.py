@@ -1220,25 +1220,43 @@ Answer helpfully and clearly."""
                     logger.warning('[/ask] mode=%s failed to parse JSON response', mode)
                     structured = {'answer': answer}  # fallback to raw text
 
-            # Inject structured topic marker for frontend Socratic tracking.
-            # Extract the topic from the first ## heading in the response so the
-            # frontend can identify the concept without fragile heading-parsing.
-            _topic_match = None
-            for _line in answer.split('\n'):
-                _stripped = _line.strip()
-                if _stripped.startswith('##'):
-                    _topic_match = _stripped.lstrip('#').strip()
-                    break
+            # Extract topic for Socratic tracking. For structured modes, pull
+            # from the parsed JSON fields; for snap, fall back to a ## heading.
+            _topic_match: str | None = None
+            if _is_structured_mode and structured:
+                if mode == 'chunk':
+                    _kc = structured.get('key_concepts', [])
+                    _topic_match = _kc[0] if isinstance(_kc, list) and _kc else None
+                elif mode == 'master':
+                    _core = structured.get('core_explanation', '') or ''
+                    _topic_match = _core.split('.')[0].strip() or None
+                elif mode == 'research':
+                    _summary = structured.get('summary', '') or ''
+                    _topic_match = _summary.split('.')[0].strip() or None
+            else:
+                for _line in answer.split('\n'):
+                    _stripped = _line.strip()
+                    if _stripped.startswith('##'):
+                        _topic_match = _stripped.lstrip('#').strip()
+                        break
+                if _topic_match:
+                    # Sanitize and embed in the SSE text so the frontend comment
+                    # parser can extract it without a separate field.
+                    _safe_topic = _topic_match.replace('-->', '').replace('<', '').replace('>', '')[:120]
+                    answer = answer + f'\n<!-- chunks-topic:{_safe_topic} -->'
+
+            # Sanitise the topic string for the response field (strip HTML-comment
+            # breaking chars and cap length, same rules as the SSE comment above).
+            _resp_topic = ''
             if _topic_match:
-                # Sanitize: remove characters that would break the HTML comment
-                _safe_topic = _topic_match.replace('-->', '').replace('<', '').replace('>', '')[:120]
-                answer = answer + f'\n<!-- chunks-topic:{_safe_topic} -->'
+                _resp_topic = _topic_match.replace('-->', '').replace('<', '').replace('>', '')[:120]
 
             _resp = {
                 'success':        True,
                 'mode':           mode,
                 'answer':         answer,
                 'structured':     structured,
+                'topic':          _resp_topic,
                 'model_used':     selected_model,
                 'context':        context,
                 'similarity':     float(similarity),

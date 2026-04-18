@@ -293,9 +293,13 @@ export default function ChatPanel() {
 
   const { tbRecordGap, tbRecordStudying, tbRecordSocraticPass } = useTutorBrain();
 
-  // Derive the topic of the most recent AI response using structured extraction
+  // Derive the topic of the most recent AI response. Prefer the `topic` field
+  // stored on the message (populated from the backend's structured extraction)
+  // and fall back to regex-based heading parsing for snap-mode responses.
   const lastAiMessage = [...messages].reverse().find((m) => m.role === 'ai' && m.text.trim());
-  const lastTopic = lastAiMessage ? extractTopicFromResponse(lastAiMessage.text) : '';
+  const lastTopic = lastAiMessage
+    ? (lastAiMessage.topic || extractTopicFromResponse(lastAiMessage.text))
+    : '';
 
   // Detect if the last AI message contains a Socratic question
   const lastAiSplit = lastAiMessage && !chatLoading

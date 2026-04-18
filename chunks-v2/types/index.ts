@@ -34,6 +34,8 @@ export type ChatMessage = {
   id: string;
   role: MessageRole;
   text: string;
+  /** Topic extracted from the AI response for Socratic/weak-area tracking. */
+  topic?: string;
   memoryRecall?: string;
   performanceBars?: PerformanceBar[];
   actions?: { label: string; actionKey: string }[];

@@ -1262,11 +1262,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
 
         // Update message with memory/performance metadata if present
-        if (res.memory_recall || (res.performance_bars && res.performance_bars.length > 0)) {
+        if (res.topic || res.memory_recall || (res.performance_bars && res.performance_bars.length > 0)) {
           chatDispatch({
             type: 'UPDATE_MESSAGE_META',
             payload: {
               id: aiMsgId,
+              ...(res.topic ? { topic: res.topic } : {}),
               memoryRecall: res.memory_recall,
               performanceBars: res.performance_bars ?? [],
             },
