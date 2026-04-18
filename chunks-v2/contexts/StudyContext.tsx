@@ -46,6 +46,7 @@ import type {
 import { useChatContext, type ChatState, type ChatAction } from '@/contexts/ChatContext';
 import { useQuizContext, type QuizState, type QuizAction, calcWeakAreas } from '@/contexts/QuizContext';
 import { useNotesContext, type NotesState, type NotesAction } from '@/contexts/NotesContext';
+import { useViewerContext } from '@/contexts/ViewerContext';
 import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
@@ -900,6 +901,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // ── Notes slice from NotesContext ─────────────────────────────────────────
   const { notesState, notesDispatch } = useNotesContext();
 
+  // ── Viewer dispatch from ViewerContext ────────────────────────────────────
+  const { viewerDispatch } = useViewerContext();
+
   // ── Merged dispatch — routes to the correct underlying dispatcher ──────────
   // • RESTORE_SESSION: dispatches to study + chat + quiz + notes dispatchers.
   // • QUIZ_COMPLETED: dispatches to BOTH quiz (state) and study (workspace).
@@ -954,7 +958,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dispatch, chatDispatch, quizDispatch, notesDispatch],
+    [dispatch, chatDispatch, quizDispatch, notesDispatch, viewerDispatch],
   );
 
   // Keep a ref so stable callbacks can always read the latest merged state
@@ -1271,6 +1275,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         );
 
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
+
+        // Forward viewer_action to ViewerContext so the embedded player can seek
+        if (res.viewer_action) {
+          viewerDispatch({ type: 'SET_VIEWER_ACTION', payload: res.viewer_action });
+        }
 
         // Update message with memory/performance metadata if present
         if (res.topic || res.memory_recall || (res.performance_bars && res.performance_bars.length > 0)) {

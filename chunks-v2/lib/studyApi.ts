@@ -20,6 +20,7 @@ import {
   type GenerateStudyMaterialsResponse,
   type SlideItem,
   type UploadDocumentResponse,
+  type ViewerAction,
 } from '@/types/api';
 import { getAccessToken, getSupabaseClient } from './supabaseClient';
 
@@ -348,6 +349,7 @@ export async function sendMessageStream(
 
     const decoder = new TextDecoder();
     let fullText = '';
+    let streamViewerAction: ViewerAction | undefined;
 
     // RAF-based chunk batching: accumulate tokens and flush at most once per
     // animation frame so React re-renders at display rate instead of once per token.
@@ -392,10 +394,17 @@ export async function sendMessageStream(
             const data = line.slice(6).trim();
             if (data === '[DONE]') break outer; // exit both loops
             try {
-              const parsed = JSON.parse(data) as SseChunk & { error?: string };
+              const parsed = JSON.parse(data) as SseChunk & { error?: string; meta?: { viewer_action?: ViewerAction } };
               // Check for a server-sent error before treating the chunk as content
               if (parsed.error) {
                 throw new ApiError(parsed.error, 502);
+              }
+              // Capture metadata event (e.g. viewer_action) — no text content
+              if (parsed.meta) {
+                if (parsed.meta.viewer_action) {
+                  streamViewerAction = parsed.meta.viewer_action;
+                }
+                continue;
               }
               const text = extractStreamText(parsed, data);
               fullText += text;
@@ -423,7 +432,13 @@ export async function sendMessageStream(
     if (!fullText.trim()) {
       throw new ApiError('No response received from AI. Please retry.', 502);
     }
-    return { success: true, answer: fullText, mode: params.mode ?? 'study', requestId: reqId };
+    return {
+      success: true,
+      answer: fullText,
+      mode: params.mode ?? 'study',
+      requestId: reqId,
+      ...(streamViewerAction ? { viewer_action: streamViewerAction } : {}),
+    };
   }
 
   // ── Fallback: full JSON response ──────────────────────────────────────────

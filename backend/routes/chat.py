@@ -139,6 +139,52 @@ _STRICT_JSON_SYSTEM_PROMPT = (
 )
 
 
+_TIMESTAMP_RE = re.compile(
+    r'\[(\d{1,2}):(\d{2})\]'          # [MM:SS]
+    r'|(?:^|[^\d])(\d{1,2}):(\d{2})(?=[^:\d]|$)',  # bare MM:SS not inside a larger number
+    re.MULTILINE,
+)
+
+
+def _build_viewer_action(
+    decision,
+    answer: str,
+    viewer_state: dict | None,
+) -> dict | None:
+    """Return a viewer_action dict if the response warrants a seek event.
+
+    A ``seek_youtube`` action is emitted when:
+      * The orchestrator chose the ``viewer_context`` route
+        (``decision.viewer_route is True``), AND
+      * The LLM answer contains at least one ``[MM:SS]`` or bare ``MM:SS``
+        timestamp pattern, AND
+      * The viewer_state carries a ``video_id``.
+
+    Returns ``None`` in all other cases so the field is simply omitted from
+    the response payload rather than being serialised as ``null``.
+    """
+    if not (decision.viewer_route and viewer_state):
+        return None
+
+    m = _TIMESTAMP_RE.search(answer)
+    if not m:
+        return None
+
+    # Groups: (1,2) for [MM:SS], (3,4) for bare MM:SS
+    mm = int(m.group(1) or m.group(3))
+    ss = int(m.group(2) or m.group(4))
+    ts = float(mm * 60 + ss)
+
+    viewer_type = viewer_state.get('type', '')
+    if viewer_type == 'youtube':
+        vid = viewer_state.get('video_id', '')
+        if not vid:
+            return None
+        return {'type': 'seek_youtube', 'video_id': vid, 'timestamp_seconds': ts}
+
+    return None
+
+
 def _strip_code_fences(text: str) -> str:
     """Remove markdown code fences the model may have emitted despite instructions.
 
@@ -1269,6 +1315,7 @@ Answer helpfully and clearly."""
                     _thread = threading.Thread(target=_stream_to_queue, daemon=True)
                     _thread.start()
                     _tok_buf: list[str] = []
+                    _full_text: list[str] = []   # accumulate for viewer_action detection
                     _last_flush = loop.time()
                     try:
                         while True:
@@ -1292,6 +1339,12 @@ Answer helpfully and clearly."""
                             if _kind == 'done':
                                 if _tok_buf:
                                     yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                # Emit viewer_action metadata before [DONE] if applicable
+                                _va = _build_viewer_action(
+                                    _decision, ''.join(_full_text), viewer_state
+                                )
+                                if _va:
+                                    yield f'data: {json.dumps({"meta": {"viewer_action": _va}}, ensure_ascii=False)}\n\n'
                                 yield 'data: [DONE]\n\n'
                                 break
                             elif _kind == 'error':
@@ -1304,6 +1357,7 @@ Answer helpfully and clearly."""
                                 # Micro-batch: accumulate tokens and flush when
                                 # the buffer is large enough or 50 ms have passed.
                                 _tok_buf.append(_value)
+                                _full_text.append(_value)
                                 _now = loop.time()
                                 if len(_tok_buf) >= _FLUSH_COUNT or (_now - _last_flush) >= _FLUSH_SECS:
                                     yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
@@ -1453,6 +1507,7 @@ Answer helpfully and clearly."""
             if _topic_match:
                 _resp_topic = _topic_match.replace('-->', '').replace('<', '').replace('>', '')[:120]
 
+            _viewer_action = _build_viewer_action(_decision, answer, viewer_state)
             _resp = {
                 'success':        True,
                 'mode':           mode,
@@ -1469,6 +1524,7 @@ Answer helpfully and clearly."""
                 'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf',
                 'thinking_content': thinking_content,
                 'fallback_note':  _timeout_fallback_note,
+                **({'viewer_action': _viewer_action} if _viewer_action else {}),
             }
             if _cache_eligible and _cache_key_val:
                 _cache_svc.ask_set(_cache_key_val, _resp,
