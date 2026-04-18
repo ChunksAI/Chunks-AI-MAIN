@@ -326,24 +326,18 @@ async def load_model(request: Request, book_id: str = ''):
         return {'student_model': cached}
 
     # ── 2. Supabase fallback ─────────────────────────────────────────────────
-    supabase_url  = getattr(ctx, 'SUPABASE_URL', '')
-    service_key   = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
-    async_client  = getattr(ctx, 'async_client', None)
+    supabase_client = getattr(ctx, 'supabase_client', None)
 
-    if not supabase_url or not service_key or not async_client:
+    if not supabase_client:
         return JSONResponse(
             {'error': 'Supabase not configured on this server.'},
             status_code=500,
         )
 
     try:
-        resp = await async_client.get(
-            f'{supabase_url}/rest/v1/user_settings'
+        resp = await supabase_client.get(
+            '/rest/v1/user_settings'
             f'?user_id=eq.{user_id}&select=student_knowledge_model',
-            headers={
-                'Authorization': f'Bearer {service_key}',
-                'apikey':        service_key,
-            },
             timeout=10,
         )
         if resp.status_code not in (200, 201, 204):
@@ -464,11 +458,9 @@ async def save_model(request: Request, body: SaveModelRequest):
     if len(json.dumps(model).encode('utf-8')) > 65_536:
         return JSONResponse({'error': 'Student model exceeds maximum size.'}, status_code=400)
 
-    supabase_url  = getattr(ctx, 'SUPABASE_URL', '')
-    service_key   = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
-    async_client  = getattr(ctx, 'async_client', None)
+    supabase_client = getattr(ctx, 'supabase_client', None)
 
-    if not supabase_url or not service_key or not async_client:
+    if not supabase_client:
         return JSONResponse(
             {'error': 'Supabase not configured on this server.'},
             status_code=500,
@@ -480,14 +472,12 @@ async def save_model(request: Request, body: SaveModelRequest):
     }
 
     try:
-        resp = await async_client.post(
-            f'{supabase_url}/rest/v1/user_settings',
+        resp = await supabase_client.post(
+            '/rest/v1/user_settings',
             json=payload,
             headers={
-                'Authorization': f'Bearer {service_key}',
-                'apikey':        service_key,
-                'Content-Type':  'application/json',
-                'Prefer':        'resolution=merge-duplicates,return=minimal',
+                'Content-Type': 'application/json',
+                'Prefer':       'resolution=merge-duplicates,return=minimal',
             },
             timeout=10,
         )

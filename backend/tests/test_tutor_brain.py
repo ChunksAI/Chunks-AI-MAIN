@@ -35,8 +35,8 @@ def _mock_supabase_ok(monkeypatch):
     mock_resp = MagicMock()
     mock_resp.status_code = 204
     mock_resp.json.return_value = []
-    ctx.async_client.post = AsyncMock(return_value=mock_resp)
-    ctx.async_client.get = AsyncMock(return_value=mock_resp)
+    ctx.supabase_client.post = AsyncMock(return_value=mock_resp)
+    ctx.supabase_client.get = AsyncMock(return_value=mock_resp)
     monkeypatch.setattr(shared_mod, 'ctx', ctx)
     return ctx
 
@@ -206,7 +206,7 @@ class TestSaveModelRedis:
         ctx.SUPABASE_SERVICE_KEY = 'fake-key'
         mock_resp = MagicMock()
         mock_resp.status_code = 204
-        ctx.async_client.post = AsyncMock(return_value=mock_resp)
+        ctx.supabase_client.post = AsyncMock(return_value=mock_resp)
         mock_redis = MagicMock()
         ctx.redis = mock_redis
         monkeypatch.setattr(shared_mod, 'ctx', ctx)
@@ -234,7 +234,7 @@ class TestSaveModelRedis:
         ctx.SUPABASE_SERVICE_KEY = 'fake-key'
         mock_resp = MagicMock()
         mock_resp.status_code = 204
-        ctx.async_client.post = AsyncMock(return_value=mock_resp)
+        ctx.supabase_client.post = AsyncMock(return_value=mock_resp)
         ctx.redis = MagicMock()
         monkeypatch.setattr(shared_mod, 'ctx', ctx)
 
@@ -258,7 +258,7 @@ class TestSaveModelRedis:
         ctx.SUPABASE_SERVICE_KEY = 'fake-key'
         mock_resp = MagicMock()
         mock_resp.status_code = 204
-        ctx.async_client.post = AsyncMock(return_value=mock_resp)
+        ctx.supabase_client.post = AsyncMock(return_value=mock_resp)
         ctx.redis = MagicMock()
         ctx.redis.setex.side_effect = Exception('Redis unavailable')
         monkeypatch.setattr(shared_mod, 'ctx', ctx)
@@ -292,7 +292,7 @@ class TestLoadModelRedis:
         )
         assert resp.status_code == 200
         assert resp.json()['student_model'] == _VALID_MODEL
-        ctx.async_client.get.assert_not_called()
+        ctx.supabase_client.get.assert_not_called()
 
     def test_load_model_falls_back_to_supabase_on_cache_miss(self, client, monkeypatch):
         import json
@@ -310,7 +310,7 @@ class TestLoadModelRedis:
         mock_sb_resp = MagicMock()
         mock_sb_resp.status_code = 200
         mock_sb_resp.json.return_value = [{'student_knowledge_model': json.dumps(_VALID_MODEL)}]
-        ctx.async_client.get = AsyncMock(return_value=mock_sb_resp)
+        ctx.supabase_client.get = AsyncMock(return_value=mock_sb_resp)
         monkeypatch.setattr(shared_mod, 'ctx', ctx)
 
         resp = client.get(

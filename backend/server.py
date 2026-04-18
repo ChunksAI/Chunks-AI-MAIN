@@ -266,6 +266,12 @@ _prompt_guard_svc.init(
     async_client       = _async_http_client,
 )
 
+import services.supabase_client as _supabase_client_svc  # noqa: E402
+_supabase_client_svc.init(
+    supabase_url = SUPABASE_URL,
+    service_key  = SUPABASE_SERVICE_KEY,
+)
+
 import services.token_budget as _token_budget_svc  # noqa: E402
 _token_budget_svc.init(redis=_redis)
 
@@ -623,6 +629,12 @@ async def close_async_http_client():
 
 
 @app.on_event("shutdown")
+async def close_supabase_http_client():
+    """Drain keep-alive connections and close the Supabase httpx.AsyncClient."""
+    await _supabase_client_svc.aclose()
+
+
+@app.on_event("shutdown")
 async def shutdown_sb_write_executor():
     """Drain pending Supabase cache writes and shut down the thread pool."""
     _sb_write_executor.shutdown(wait=True, cancel_futures=False)
@@ -634,6 +646,7 @@ from routes.shared import ctx as _ctx  # noqa: E402
 _ctx._init(
     session              = _session,
     async_client         = _async_http_client,
+    supabase_client      = _supabase_client_svc.get_client(),
     SUPABASE_URL         = SUPABASE_URL,
     SUPABASE_SERVICE_KEY = SUPABASE_SERVICE_KEY,
     SUPABASE_ANON_KEY    = SUPABASE_ANON_KEY,
