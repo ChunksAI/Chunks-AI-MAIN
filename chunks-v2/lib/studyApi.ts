@@ -335,7 +335,7 @@ export async function generateFlashcards(
 // ─── Quiz ─────────────────────────────────────────────────────────────────────
 
 export async function generateQuiz(params: GenerateQuizRequest): Promise<GenerateQuizResponse> {
-  return apiPost<GenerateQuizResponse>('/generate-quiz', {
+  const attempt = () => apiPost<GenerateQuizResponse>('/generate-quiz', {
     slides: params.slides,
     count: params.count ?? 10,
     difficulty: params.difficulty ?? 'medium',
@@ -344,6 +344,16 @@ export async function generateQuiz(params: GenerateQuizRequest): Promise<Generat
     existingQuestions: params.existingQuestions ?? [],
     ...(params.bookId ? { bookId: params.bookId } : {}),
   });
+  try {
+    return await attempt();
+  } catch (err) {
+    if (err instanceof ApiError && err.status >= 400 && err.status < 500) {
+      throw err; // Don't retry client errors (400, 401, 403, 429)
+    }
+    // Network error or 5xx — wait 1.5s and retry once
+    await new Promise<void>((r) => setTimeout(r, 1500));
+    return attempt();
+  }
 }
 
 /**

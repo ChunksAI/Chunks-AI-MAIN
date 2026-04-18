@@ -30,8 +30,11 @@ import os
 import hashlib
 import re
 import time
+import traceback
 import uuid
+from collections import deque
 from contextvars import ContextVar
+from datetime import datetime
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -53,6 +56,9 @@ from services.guest_limits import (  # noqa: F401
 
 # ── Request-ID context var (one value per async task / coroutine) ─────────────
 _request_id_var: ContextVar[str] = ContextVar('request_id', default='-')
+
+# ── In-memory circular buffer for the last 20 unhandled errors ────────────────
+_recent_errors: deque = deque(maxlen=20)
 
 
 class _RequestIdFilter(logging.Filter):
@@ -370,17 +376,6 @@ async def _json_rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 app.add_exception_handler(RateLimitExceeded, _json_rate_limit_handler)
 
-# ── CORS middleware ───────────────────────────────────────────────────────────
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
-    allow_origin_regex=_VERCEL_ORIGIN_REGEX,
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Device-Id", "Cache-Control", "X-Request-Id"],
-    allow_methods=["GET", "POST", "OPTIONS", "PATCH", "DELETE"],
-    allow_credentials=False,
-    max_age=86400,
-)
-
 # ── CSRF origin check middleware ──────────────────────────────────────────────
 _CSRF_SAFE_METHODS = frozenset(('GET', 'HEAD', 'OPTIONS'))
 
@@ -502,6 +497,20 @@ async def security_headers(request: Request, call_next):
     return response
 
 
+# ── CORS middleware (outermost — must be last add_middleware call) ─────────────
+# Placed after all @app.middleware blocks so it wraps every request first,
+# ensuring CORS headers are present even on error responses (500/401/429).
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_origin_regex=_VERCEL_ORIGIN_REGEX,
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "X-Device-Id", "Cache-Control", "X-Request-Id"],
+    allow_methods=["GET", "POST", "OPTIONS", "PATCH", "DELETE"],
+    allow_credentials=False,
+    max_age=86400,
+)
+
+
 # ── Exception handlers ────────────────────────────────────────────────────────
 from fastapi.exceptions import RequestValidationError  # noqa: E402
 
@@ -540,6 +549,13 @@ async def method_not_allowed(request: Request, exc):
 @app.exception_handler(500)
 async def internal_error(request: Request, exc):
     logger.exception("Unhandled 500 error")
+    _recent_errors.append({
+        'time':       datetime.utcnow().isoformat(),
+        'path':       request.url.path,
+        'error_type': type(exc).__name__,
+        'error':      str(exc)[:500],
+        'traceback':  traceback.format_exc()[-2000:],
+    })
     return JSONResponse({'success': False, 'error': 'Internal server error.'}, status_code=500)
 
 
@@ -565,6 +581,17 @@ async def validate_secrets():
                 raise RuntimeError(msg)
             else:
                 logger.warning(msg)
+
+
+@app.on_event("startup")
+async def validate_services():
+    try:
+        from services.cache import cache_svc
+        from services.usage import enforce
+        logger.info("Core services loaded OK")
+    except Exception as e:
+        logger.critical("Service import failed at startup: %s", e)
+        raise
 
 
 # ── Shared context — populate before registering routers ─────────────────────

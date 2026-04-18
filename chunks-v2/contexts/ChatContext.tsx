@@ -3,7 +3,7 @@
 /**
  * contexts/ChatContext.tsx — chat slice of the study session state.
  *
- * Owns all chat-related state (messages, loading, errors, thinking mode) and
+ * Owns all chat-related state (messages, loading, errors, chat mode) and
  * the corresponding reducer cases.  StudyProvider consumes this context
  * internally and merges it into the StudyContextValue so existing consumers
  * of useStudy() continue to work without changes.
@@ -20,13 +20,17 @@ import type { ChatMessage, PerformanceBar } from '@/types';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
+export type ChatMode = 'snap' | 'chunk' | 'master' | 'research';
+
 export interface ChatState {
   messages: ChatMessage[];
   chatLoading: boolean;
   chatError: string | null;
   /** The text of the most recent user message — used for per-message retry. */
   lastUserMessage: string;
-  /** Active thinking mode sent to the backend on each /ask request. */
+  /** Active chat mode sent to the backend on each /ask request. */
+  chatMode: ChatMode;
+  /** @deprecated Use chatMode instead. Kept for backward compat. */
   thinkingMode: null | 'auto' | 'think' | 'deep';
 }
 
@@ -43,10 +47,12 @@ export type ChatAction =
   | { type: 'REMOVE_MESSAGE'; payload: string }
   | { type: 'MESSAGE_ERROR'; payload: string }
   | { type: 'CLEAR_CHAT_ERROR' }
+  | { type: 'SET_CHAT_MODE'; payload: ChatMode }
+  /** @deprecated Use SET_CHAT_MODE instead. Kept for backward compat. */
   | { type: 'SET_THINKING_MODE'; payload: null | 'auto' | 'think' | 'deep' }
   /** Bulk-restore messages (e.g. from a session snapshot). */
   | { type: 'RESTORE_MESSAGES'; payload: ChatMessage[] }
-  /** Reset chat to initial state while preserving thinkingMode preference. */
+  /** Reset chat to initial state while preserving chatMode preference. */
   | { type: 'RESET_CHAT' };
 
 // ─── Initial state ────────────────────────────────────────────────────────────
@@ -56,6 +62,7 @@ export const INITIAL_CHAT_STATE: ChatState = {
   chatLoading: false,
   chatError: null,
   lastUserMessage: '',
+  chatMode: 'snap',
   thinkingMode: null,
 };
 
@@ -137,13 +144,17 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'SET_THINKING_MODE':
       return { ...state, thinkingMode: action.payload };
 
+    case 'SET_CHAT_MODE':
+      return { ...state, chatMode: action.payload };
+
     case 'RESTORE_MESSAGES':
       return { ...state, messages: action.payload };
 
     case 'RESET_CHAT':
       return {
         ...INITIAL_CHAT_STATE,
-        // Preserve the user's thinking mode preference across session resets
+        // Preserve the user's chat mode preference across session resets
+        chatMode: state.chatMode,
         thinkingMode: state.thinkingMode,
       };
 

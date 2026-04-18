@@ -146,8 +146,8 @@ function StudyLayout() {
         <BookParamsReader />
       </Suspense>
 
-      {/* ── Diagnostic quiz overlay (shown once when student model is empty) ── */}
-      {diagnosticTopic && (
+      {/* ── Diagnostic quiz overlay (shown once when student model is empty and a document is loaded) ── */}
+      {diagnosticTopic && hasDocument && (
         <DiagnosticQuiz
           topic={diagnosticTopic}
           onComplete={() => {

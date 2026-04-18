@@ -239,7 +239,7 @@ export default function DiagnosticQuiz({ topic, onComplete }: Props) {
     );
   }
 
-  // Error state — allow the user to skip
+  // Error state — allow the user to retry or skip
   if (phase === 'error') {
     return (
       <div style={overlay}>
@@ -248,11 +248,32 @@ export default function DiagnosticQuiz({ topic, onComplete }: Props) {
             <div style={{ fontSize: 28, marginBottom: 10 }}>⚠️</div>
             <div style={{ fontWeight: 600, marginBottom: 6, color: 'var(--text)' }}>Couldn't load diagnostic</div>
             <div style={{ color: 'var(--text2)', fontSize: 13, marginBottom: 20 }}>
-              We couldn't fetch questions right now. You can skip the diagnostic and chat normally.
+              We couldn't fetch questions right now. Check your connection and try again, or skip to start chatting.
             </div>
-            <button style={{ ...primaryBtn, alignSelf: 'center' }} onClick={onComplete}>
-              Continue to chat
-            </button>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button
+                style={{ ...primaryBtn, alignSelf: 'center', background: 'var(--bg2)', color: 'var(--text)', border: '1px solid var(--border)' }}
+                onClick={() => {
+                  setPhase('loading');
+                  const slides = topicToSlides(topic);
+                  generateQuiz({ slides, count: DIAGNOSTIC_COUNT, difficulty: 'medium', mode: 'diagnostic' })
+                    .then((res) => {
+                      if (res.success && res.questions.length > 0) {
+                        setQuestions(res.questions.slice(0, DIAGNOSTIC_COUNT));
+                        setPhase('quiz');
+                      } else {
+                        setPhase('error');
+                      }
+                    })
+                    .catch(() => setPhase('error'));
+                }}
+              >
+                Try again
+              </button>
+              <button style={{ ...primaryBtn, alignSelf: 'center' }} onClick={onComplete}>
+                Continue to chat
+              </button>
+            </div>
           </div>
         </div>
       </div>

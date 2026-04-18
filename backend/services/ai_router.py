@@ -56,8 +56,8 @@ def _get_models() -> dict:
         'small':  os.environ.get('SMALL_MODEL',  'openai/gpt-4o-mini'),
         'medium': medium,
         'large':  os.environ.get('LARGE_MODEL',  'google/gemini-2.5-flash'),
-        'think':  os.environ.get('THINK_MODEL',  'deepseek/deepseek-r1-distill-llama-70b:free'),
-        'deep':   os.environ.get('DEEP_MODEL',   'deepseek/deepseek-r1:free'),
+        'think':  os.environ.get('THINK_MODEL',  'anthropic/claude-3-5-haiku'),
+        'deep':   os.environ.get('DEEP_MODEL',   'google/gemini-2.0-flash-001'),
     }
 
 
@@ -187,6 +187,12 @@ def route_for_mode(mode: str, complexity: int = 5) -> str:
     *         → workspace_study  (safe default)
     """
     MODE_MAP: dict[str, str] = {
+        # New mode system (snap/chunk/master/research)
+        'snap':     'workspace_study',    # fast, streaming-capable
+        'chunk':    'workspace_study',    # guided learning — medium
+        'master':   'workspace_detailed', # advanced reasoning — large
+        'research': 'research_layer',     # comprehensive discovery — large
+        # Legacy modes (backward compat)
         'concise':  'workspace_concise',
         'study':    'workspace_study',
         'detailed': 'workspace_detailed',

@@ -912,7 +912,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     'SEND_MESSAGE', 'SET_LAST_USER_MESSAGE', 'SET_CHAT_LOADING',
     'RECEIVE_MESSAGE', 'START_AI_MESSAGE', 'APPEND_MESSAGE_CHUNK',
     'UPDATE_MESSAGE_META', 'REMOVE_MESSAGE', 'MESSAGE_ERROR',
-    'CLEAR_CHAT_ERROR', 'SET_THINKING_MODE', 'RESTORE_MESSAGES', 'RESET_CHAT',
+    'CLEAR_CHAT_ERROR', 'SET_THINKING_MODE', 'SET_CHAT_MODE', 'RESTORE_MESSAGES', 'RESET_CHAT',
+    // Note: SET_THINKING_MODE is deprecated — use SET_CHAT_MODE instead.
+    // Remove SET_THINKING_MODE once all callers have migrated.
   ]);
   const QUIZ_ACTION_TYPES = new Set<string>([
     'START_QUIZ', 'ANSWER_QUESTION', 'CLOSE_QUIZ', 'RESTORE_QUIZ', 'RESET_QUIZ',
@@ -1211,8 +1213,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             history,
             selected_text: opts.selectedText ?? '',
             doc_context: autoDocContext,
-            mode: 'study',
-            thinking: stateRef.current.thinkingMode,
+            mode: stateRef.current.chatMode,
             bookId: stateRef.current.bookId ?? undefined,
             student_profile: buildStudentProfile(),
           },
@@ -1607,8 +1608,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         history: [],
         selected_text: '',
         doc_context: docContext,
-        mode: 'study',
-        thinking: stateRef.current.thinkingMode,
+        mode: stateRef.current.chatMode,
         bookId: stateRef.current.bookId ?? undefined,
         student_profile: buildStudentProfile(),
       });

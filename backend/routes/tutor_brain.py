@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from routes.paev import _paev_cache_get
+from routes.limiter import limiter
 from services.paev_engine import PrerequisiteChainResolver
 
 logger = logging.getLogger(__name__)
@@ -97,7 +98,8 @@ def _build_student_profile(
 # ── POST /tutor/analyze-gaps ──────────────────────────────────────────────────
 
 @router.post('/analyze-gaps')
-def analyze_gaps(body: AnalyzeGapsRequest):
+@limiter.limit("20/minute")
+def analyze_gaps(request: Request, body: AnalyzeGapsRequest):  # request required by @limiter.limit
     book_id        = body.book_id
     quiz_results   = body.quiz_results
     known_concepts = [c.lower().strip() for c in body.known_concepts]
@@ -172,7 +174,8 @@ def analyze_gaps(body: AnalyzeGapsRequest):
 # ── POST /tutor/next-topic ────────────────────────────────────────────────────
 
 @router.post('/next-topic')
-def next_topic(body: NextTopicRequest):
+@limiter.limit("20/minute")
+def next_topic(request: Request, body: NextTopicRequest):  # request required by @limiter.limit
     book_id      = body.book_id
     current_page = body.current_page
 
@@ -250,6 +253,7 @@ def next_topic(body: NextTopicRequest):
 # ── GET /tutor/load-model ─────────────────────────────────────────────────────
 
 @router.get('/load-model')
+@limiter.limit("60/minute")
 def load_model(request: Request):
     from routes.shared import ctx
     from services.auth import _extract_verified_user
@@ -372,6 +376,7 @@ def evaluate_socratic(body: EvaluateSocraticRequest):
 # ── POST /tutor/save-model ────────────────────────────────────────────────────
 
 @router.post('/save-model')
+@limiter.limit("30/minute")
 def save_model(request: Request, body: SaveModelRequest):
     from routes.shared import ctx
     from services.auth import _extract_verified_user
@@ -441,7 +446,8 @@ def save_model(request: Request, body: SaveModelRequest):
 # ── GET /tutor/paev-status ────────────────────────────────────────────────────
 
 @router.get('/paev-status')
-def paev_status(book_id: str):
+@limiter.limit("60/minute")
+def paev_status(request: Request, book_id: str):  # request required by @limiter.limit
     """Return whether the PAEV index has been built for a user-uploaded document."""
     from routes.shared import ctx
     redis = getattr(ctx, 'redis', None)

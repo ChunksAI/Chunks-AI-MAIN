@@ -52,20 +52,13 @@ const QUICK_ACTIONS = [
   '↓ Summarize',
 ];
 
-const THINKING_MODES = [null, 'auto', 'think', 'deep'] as const;
-type ThinkingMode = (typeof THINKING_MODES)[number];
-
-const THINKING_LABELS: Record<string, string> = {
-  auto:  'Auto',
-  think: 'Think',
-  deep:  'Deep',
-};
-
-const THINKING_COLORS: Record<string, string> = {
-  auto:  'var(--accent)',
-  think: '#E67E22',
-  deep:  'var(--danger)',
-};
+const CHAT_MODES = [
+  { key: 'snap',     label: 'Snap',     description: 'Real-time solutions' },
+  { key: 'chunk',    label: 'Chunk',    description: 'Guided learning' },
+  { key: 'master',   label: 'Master',   description: 'Advanced reasoning' },
+  { key: 'research', label: 'Research', description: 'Comprehensive discovery' },
+] as const;
+type ChatModeKey = (typeof CHAT_MODES)[number]['key'];
 
 // ─── Orchestrator step progression ───────────────────────────────────────────
 
@@ -216,7 +209,7 @@ export default function ChatPanel() {
     handleUploadDocument,
     handleStop,
   } = useStudy();
-  const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, thinkingMode, pdfBlobUrl, slides, uploadLoading, uploadError } = state;
+  const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, chatMode, pdfBlobUrl, slides, uploadLoading, uploadError } = state;
 
   // Banner is shown when no document is present and not in the middle of uploading
   const hasDocument = !!(pdfBlobUrl || slides.length > 0 || uploadLoading);
@@ -266,6 +259,22 @@ export default function ChatPanel() {
   // as the student's answer, and after the AI responds we detect correctness.
   // Whether we're currently waiting for the AI to evaluate a Socratic answer
   const pendingSocraticRef = useRef<{ question: string; answer: string; topic: string } | null>(null);
+
+  // ── Mode dropdown ─────────────────────────────────────────────────────────
+  const [modeMenuOpen, setModeMenuOpen] = useState(false);
+
+  // Close mode dropdown on outside click
+  const modeWrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!modeMenuOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (modeWrapRef.current && !modeWrapRef.current.contains(e.target as Node)) {
+        setModeMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [modeMenuOpen]);
 
   // Build memory bar text from real weak areas
   const memoryText =
@@ -350,10 +359,9 @@ export default function ChatPanel() {
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
   };
 
-  const handleThinkingToggle = () => {
-    const currentIndex = THINKING_MODES.indexOf(thinkingMode as ThinkingMode);
-    const nextIndex = (currentIndex + 1) % THINKING_MODES.length;
-    dispatch({ type: 'SET_THINKING_MODE', payload: THINKING_MODES[nextIndex] });
+  const handleModeSelect = (key: ChatModeKey) => {
+    dispatch({ type: 'SET_CHAT_MODE', payload: key });
+    setModeMenuOpen(false);
   };
 
   const handleAttach = () => {
@@ -573,42 +581,35 @@ export default function ChatPanel() {
               </svg>
               Voice
             </button>
-            <button
-              className="think-toggle"
-              onClick={handleThinkingToggle}
-              title={thinkingMode ? `Thinking: ${THINKING_LABELS[thinkingMode] ?? thinkingMode}` : 'Thinking: Off'}
-              style={thinkingMode ? { color: THINKING_COLORS[thinkingMode] } : undefined}
-            >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+            <div className="mode-dropdown-wrap" ref={modeWrapRef}>
+              <button
+                className="mode-dropdown-btn"
+                onClick={() => setModeMenuOpen((o) => !o)}
+                title="Select chat mode"
               >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="12" y1="8" x2="12" y2="12" />
-                <line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              {thinkingMode ? (
-                <span
-                  style={{
-                    background: THINKING_COLORS[thinkingMode],
-                    color: '#fff',
-                    padding: '1px 6px',
-                    borderRadius: 999,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    marginLeft: 2,
-                  }}
-                >
-                  {THINKING_LABELS[thinkingMode]}
-                </span>
-              ) : (
-                'Think ∨'
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="8 12 12 16 16 12" />
+                </svg>
+                {CHAT_MODES.find((m) => m.key === chatMode)?.label ?? 'Snap'}
+              </button>
+              {modeMenuOpen && (
+                <ul className="mode-dropdown-menu" role="listbox">
+                  {CHAT_MODES.map((m) => (
+                    <li
+                      key={m.key}
+                      role="option"
+                      aria-selected={chatMode === m.key}
+                      className={`mode-dropdown-item${chatMode === m.key ? ' active' : ''}`}
+                      onClick={() => handleModeSelect(m.key)}
+                    >
+                      <span className="mode-dropdown-label">{m.label}</span>
+                      <span className="mode-dropdown-desc">{m.description}</span>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </button>
+            </div>
           </div>
         </div>
         </div>
