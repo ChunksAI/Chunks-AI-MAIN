@@ -1052,6 +1052,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // Track current blob URL so we can revoke it before creating a new one
   const blobUrlRef = useRef<string | null>(null);
 
+  // Track PAEV polling interval so it can be cleared on unmount
+  const paevPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   // ── Ref for handleSendMessage so handleStartReview can call it stably ──────
   const sendMessageRef = useRef<
     (text: string, opts?: { selectedText?: string; docContext?: string }) => Promise<void>
@@ -1121,6 +1124,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     return () => {
       if (blobUrlRef.current) {
         URL.revokeObjectURL(blobUrlRef.current);
+      }
+      if (paevPollRef.current !== null) {
+        clearInterval(paevPollRef.current);
       }
     };
   }, []);
@@ -1496,16 +1502,19 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       if (res.bookId) {
         const uploadedBookId = res.bookId;
         let paevAttempts = 0;
-        const paevPollId = setInterval(async () => {
+        if (paevPollRef.current !== null) clearInterval(paevPollRef.current);
+        paevPollRef.current = setInterval(async () => {
           paevAttempts += 1;
           if (paevAttempts > 60) {
-            clearInterval(paevPollId);
+            clearInterval(paevPollRef.current!);
+            paevPollRef.current = null;
             return;
           }
           try {
             const ready = await checkPaevStatus(uploadedBookId);
             if (ready) {
-              clearInterval(paevPollId);
+              clearInterval(paevPollRef.current!);
+              paevPollRef.current = null;
               dispatch({
                 type: 'SHOW_TOAST',
                 payload: '🧠 Your document is now fully indexed — your tutor just got smarter',
