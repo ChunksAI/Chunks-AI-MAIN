@@ -1217,8 +1217,48 @@ Answer helpfully and clearly."""
                     if missing:
                         logger.warning('[/ask] mode=%s missing structured keys: %s', mode, missing)
                 except (json.JSONDecodeError, TypeError):
-                    logger.warning('[/ask] mode=%s failed to parse JSON response', mode)
-                    structured = {'answer': answer}  # fallback to raw text
+                    logger.warning(
+                        '[/ask] mode=%s model=%s failed to parse JSON response — retrying with stricter prompt',
+                        mode, selected_model,
+                    )
+                    # Retry with a stricter system prompt to coerce JSON output.
+                    _stricter_system = (
+                        'Output ONLY the JSON object. No prose, no markdown fences, no explanation. '
+                        'Start your response with { and end with }.'
+                    )
+                    _retry_model = _mode_fallback or selected_model
+                    try:
+                        _retry_answer = call_ai(
+                            prompt, system_prompt=_stricter_system, model=_retry_model,
+                            history=history, endpoint='chat', user_id=verified_user_id,
+                            timeout=_ai_timeout, max_tokens_override=_max_tok,
+                            response_format=_response_format,
+                        )
+                        _retry_answer, _ = extract_thinking_content(_retry_answer)
+                        _retry_raw = _strip_code_fences(_retry_answer) if _retry_answer else ''
+                        structured = json.loads(_retry_raw)
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(
+                            '[/ask] mode=%s model=%s (retry) still failed to parse JSON — returning 500',
+                            mode, _retry_model,
+                        )
+                        structured = None
+                    except Exception as _retry_err:
+                        logger.warning(
+                            '[/ask] mode=%s model=%s retry call failed: %s',
+                            mode, _retry_model, _retry_err,
+                        )
+                        structured = None
+
+                    if structured is None:
+                        return JSONResponse(
+                            {
+                                'success': False,
+                                'error': 'AI returned malformed JSON after retry. Please try again.',
+                                'error_type': 'MalformedJSON',
+                            },
+                            status_code=500,
+                        )
 
             # Extract topic for Socratic tracking. For structured modes, pull
             # from the parsed JSON fields; for snap, fall back to a ## heading.
