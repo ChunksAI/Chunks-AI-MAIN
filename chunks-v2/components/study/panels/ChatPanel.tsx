@@ -217,7 +217,9 @@ export default function ChatPanel() {
 
   // Stop the microphone when the component unmounts (resource/leak guard).
   useEffect(() => {
-    return () => { recognitionRef.current?.stop(); };
+    return () => {
+      try { recognitionRef.current?.stop(); } catch { /* ignore stop() errors on unmount */ }
+    };
   }, []);
 
   const handleVoice = () => {
@@ -503,7 +505,7 @@ export default function ChatPanel() {
                 isStreaming={isStreaming}
                 onRetry={msg.error && msg.originalQuestion ? () => {
                   dispatch({ type: 'REMOVE_MESSAGE', payload: msg.id });
-                  void handleSendMessage(msg.originalQuestion!);
+                  void handleSendMessage(msg.originalQuestion ?? '');
                 } : undefined}
               />
             );
