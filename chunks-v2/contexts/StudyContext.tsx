@@ -1198,7 +1198,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       // placeholder so the user sees meaningful feedback during the 5-15 s wait.
       const isStreamingMode = stateRef.current.chatMode === 'snap';
       const placeholderText: Record<string, string> = {
-        chunk:    '📖 Analysing in depth…',
+        chunk:    '📖 Analyzing in depth…',
         master:   '🧠 Deep reasoning in progress…',
         research: '🔬 Researching…',
       };
@@ -1208,10 +1208,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         role: 'ai',
         text: isStreamingMode ? '' : (placeholderText[stateRef.current.chatMode] ?? 'Thinking…'),
         isPlaceholder: !isStreamingMode,
-        actions: [
-          { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
-          { label: '🎯 Quiz me on this', actionKey: 'quiz' },
-        ],
+        actions: isStreamingMode
+          ? [
+              { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
+              { label: '🎯 Quiz me on this', actionKey: 'quiz' },
+            ]
+          : [],
       };
       chatDispatch({ type: 'START_AI_MESSAGE', payload: aiMsg });
 
@@ -1231,7 +1233,17 @@ export function StudyProvider({ children }: { children: ReactNode }) {
               chatDispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
             } else {
               // Non-streaming: single chunk contains the full answer — replace placeholder.
-              chatDispatch({ type: 'REPLACE_AI_MESSAGE', payload: { id: aiMsgId, text: chunk } });
+              chatDispatch({
+                type: 'REPLACE_AI_MESSAGE',
+                payload: {
+                  id: aiMsgId,
+                  text: chunk,
+                  actions: [
+                    { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
+                    { label: '🎯 Quiz me on this', actionKey: 'quiz' },
+                  ],
+                },
+              });
             }
           },
           abortRef.current.signal,
