@@ -911,7 +911,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   const CHAT_ACTION_TYPES = new Set<string>([
     'SEND_MESSAGE', 'SET_LAST_USER_MESSAGE', 'SET_CHAT_LOADING',
     'RECEIVE_MESSAGE', 'START_AI_MESSAGE', 'APPEND_MESSAGE_CHUNK',
-    'UPDATE_MESSAGE_META', 'REMOVE_MESSAGE', 'MESSAGE_ERROR',
+    'UPDATE_MESSAGE_META', 'REMOVE_MESSAGE', 'MESSAGE_ERROR', 'HANDLE_CHAT_ERROR',
     'CLEAR_CHAT_ERROR', 'SET_CHAT_MODE', 'RESTORE_MESSAGES', 'RESET_CHAT',
   ]);
   const QUIZ_ACTION_TYPES = new Set<string>([
@@ -1345,8 +1345,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         }
         const message =
           err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-        chatDispatch({ type: 'MESSAGE_ERROR', payload: message });
-        chatDispatch({ type: 'REMOVE_MESSAGE', payload: aiMsgId });
+        chatDispatch({ type: 'HANDLE_CHAT_ERROR', payload: { messageId: aiMsgId, error: message } });
       } finally {
         currentRequestIdRef.current = null;
       }

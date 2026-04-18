@@ -44,6 +44,7 @@ export type ChatAction =
   | { type: 'UPDATE_MESSAGE_META'; payload: { id: string; memoryRecall?: string; performanceBars?: PerformanceBar[] } }
   | { type: 'REMOVE_MESSAGE'; payload: string }
   | { type: 'MESSAGE_ERROR'; payload: string }
+  | { type: 'HANDLE_CHAT_ERROR'; payload: { messageId: string; error: string } }
   | { type: 'CLEAR_CHAT_ERROR' }
   | { type: 'REPLACE_AI_MESSAGE'; payload: { id: string; text: string; actions?: { label: string; actionKey: string }[] } }
   | { type: 'SET_CHAT_MODE'; payload: ChatMode }
@@ -133,6 +134,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'MESSAGE_ERROR':
       return { ...state, chatLoading: false, chatError: action.payload };
+
+    case 'HANDLE_CHAT_ERROR':
+      return {
+        ...state,
+        chatLoading: false,
+        chatError: action.payload.error,
+        messages: state.messages.filter((m) => m.id !== action.payload.messageId),
+      };
 
     case 'CLEAR_CHAT_ERROR':
       return { ...state, chatError: null };
