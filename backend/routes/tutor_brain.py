@@ -285,10 +285,8 @@ async def load_model(request: Request):
             timeout=10,
         )
         if resp.status_code not in (200, 201, 204):
-            logger.error(
-                '[tutor/load-model] Supabase query failed: '
-                'status=%d body=%s', resp.status_code, resp.text[:200],
-            )
+            logger.error('[tutor/load-model] Supabase query failed: status=%d body=%s',
+                         resp.status_code, resp.text[:200])
             return JSONResponse(
                 {'error': f'Supabase returned {resp.status_code}'},
                 status_code=502,
@@ -421,10 +419,8 @@ async def save_model(request: Request, body: SaveModelRequest):
             timeout=10,
         )
         if resp.status_code not in (200, 201, 204):
-            logger.error(
-                '[tutor/save-model] Supabase upsert failed: '
-                'status=%d body=%s', resp.status_code, resp.text[:200],
-            )
+            logger.error('[tutor/save-model] Supabase upsert failed: status=%d body=%s',
+                         resp.status_code, resp.text[:200])
             return JSONResponse(
                 {'error': f'Supabase returned {resp.status_code}'},
                 status_code=502,

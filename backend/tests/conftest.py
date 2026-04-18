@@ -93,6 +93,10 @@ def _async_ai_shim(monkeypatch):
     monkeypatch.setattr(ai_svc, 'call_ai_web_search_async', _call_ai_web_search_async_shim)
     monkeypatch.setattr(pg_svc, 'screen_prompt_async', _screen_prompt_async_shim)
     yield
+
+
+@pytest.fixture
+def mock_call_ai(monkeypatch):
     """Patch services.ai.call_ai to return a canned string response."""
     import services.ai as ai_svc
     mock = MagicMock(return_value="Mocked AI response for testing.")
