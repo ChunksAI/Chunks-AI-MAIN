@@ -279,33 +279,15 @@ def ask(request: Request, body: AskRequest):
         logger.debug('[intent] %s → %s', question[:60], intent)
 
         # ── Model selection via ai_router ─────────────────────────────────────
-        # Per-mode primary/fallback model pairs (configurable via env vars).
-        # Phase 1: Streaming enabled only for Snap mode
-        _MODE_MODELS: dict[str, tuple[str, str]] = {
-            'snap':     (os.environ.get('SNAP_MODEL',      'google/gemini-flash-1.5'),
-                         os.environ.get('SNAP_FALLBACK',   'openai/gpt-4o-mini')),
-            'chunk':    (os.environ.get('CHUNK_MODEL',     'deepseek/deepseek-chat-v3-0324'),
-                         os.environ.get('CHUNK_FALLBACK',  'anthropic/claude-3-5-haiku')),
-            'master':   (os.environ.get('MASTER_MODEL',    'openai/o4-mini'),
-                         os.environ.get('MASTER_FALLBACK', 'google/gemini-2.5-flash')),
-            'research': (os.environ.get('RESEARCH_MODEL',  'google/gemini-2.5-flash'),
-                         os.environ.get('RESEARCH_FALLBACK','google/gemini-2.0-flash-001')),
-        }
-        _mode_primary: str | None = None
         _mode_fallback: str | None = None
-        if mode in _MODE_MODELS:
-            _mode_primary, _mode_fallback = _MODE_MODELS[mode]
-
         if thinking_mode == 'deep':
             selected_model = os.environ.get('DEEP_MODEL', 'google/gemini-2.0-flash-001')
+            _mode_fallback = os.environ.get('DEEP_FALLBACK', 'google/gemini-2.5-flash')
         elif thinking_mode == 'thinking':
             selected_model = os.environ.get('THINK_MODEL', 'anthropic/claude-3-5-haiku')
-        elif _mode_primary:
-            selected_model = _mode_primary
-        elif task_type:
-            selected_model = route(task_type, complexity)
+            _mode_fallback = os.environ.get('THINK_FALLBACK', 'openai/gpt-4o-mini')
         else:
-            selected_model = route_for_mode(mode, complexity)
+            selected_model, _mode_fallback = route_for_mode(mode or task_type or 'snap', complexity)
 
         # User-uploaded document: skip textbook index entirely —
         # unless PAEV has finished indexing it, in which case treat it
