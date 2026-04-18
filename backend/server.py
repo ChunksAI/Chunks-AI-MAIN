@@ -650,18 +650,19 @@ _ctx._init(
 )
 
 # ── Router registration ───────────────────────────────────────────────────────
-from routes.admin         import router as admin_router      # noqa: E402
-from routes.health        import router as health_router     # noqa: E402
-from routes.library       import router as library_router    # noqa: E402
-from routes.flashcards    import router as flashcards_router  # noqa: E402
-from routes.upload        import router as upload_router     # noqa: E402
-from routes.study         import router as study_router      # noqa: E402
-from routes.youtube       import router as youtube_router, router_v2 as youtube_v2_router    # noqa: E402
-from routes.image         import router as image_router      # noqa: E402
-from routes.chat          import router as chat_router       # noqa: E402
-from routes.jobs          import router as jobs_router       # noqa: E402
-from routes.share_content import router as share_router      # noqa: E402
-from routes.tutor_brain   import router as tutor_router      # noqa: E402
+from routes.admin            import router as admin_router            # noqa: E402
+from routes.health           import router as health_router           # noqa: E402
+from routes.library          import router as library_router          # noqa: E402
+from routes.flashcards       import router as flashcards_router       # noqa: E402
+from routes.upload           import router as upload_router           # noqa: E402
+from routes.study            import router as study_router            # noqa: E402
+from routes.youtube          import router as youtube_router, router_v2 as youtube_v2_router  # noqa: E402
+from routes.image            import router as image_router            # noqa: E402
+from routes.chat             import router as chat_router             # noqa: E402
+from routes.jobs             import router as jobs_router             # noqa: E402
+from routes.share_content    import router as share_router            # noqa: E402
+from routes.tutor_brain      import router as tutor_router            # noqa: E402
+from routes.research_ingest  import router as research_ingest_router  # noqa: E402
 
 app.include_router(admin_router)
 app.include_router(health_router)
@@ -676,6 +677,7 @@ app.include_router(share_router)
 app.include_router(youtube_router)
 app.include_router(youtube_v2_router)
 app.include_router(tutor_router)
+app.include_router(research_ingest_router)
 
 # ── PAEV and progress routes ──────────────────────────────────────────────────
 from routes.paev    import register_paev      # noqa: E402
