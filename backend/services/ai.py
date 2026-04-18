@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import time
 from urllib.parse import urlparse
 
 import requests
@@ -240,7 +241,7 @@ def extract_thinking_content(text: str) -> tuple[str, str | None]:
 
 def call_ai(prompt, system_prompt="You are an expert tutor.", model=None,
             history=None, max_tokens_override=None, endpoint: str = 'chat',
-            user_id: str = ''):
+            user_id: str = '', timeout: int = 30):
     """Call OpenRouter for a standard chat completion.
 
     Parameters
@@ -302,13 +303,16 @@ def call_ai(prompt, system_prompt="You are an expert tutor.", model=None,
             use_model, effective_max_tokens, endpoint,
             len(history) if history else 0,
         )
-        response = _session.post(OPENROUTER_URL, headers=headers, json=payload, timeout=55)
+        _t0 = time.time()
+        logger.info("[call_ai] START model=%s timeout=%ds", use_model, timeout)
+        response = _session.post(OPENROUTER_URL, headers=headers, json=payload, timeout=timeout)
         if response.status_code == 200:
             resp_json = response.json()
             choices = resp_json.get('choices', [])
             if choices:
                 _record_usage_from_response(resp_json, use_model, endpoint, user_id=user_id)
                 content = choices[0]['message']['content']
+                logger.info("[call_ai] END model=%s latency=%.1fs", use_model, time.time() - _t0)
                 if not content or not content.strip():
                     raise RuntimeError("AI returned empty content. Please retry.")
                 return content
@@ -366,6 +370,7 @@ def call_ai_stream(
     max_tokens_override: int | None = None,
     endpoint: str = 'chat',
     user_id: str = '',
+    timeout: int = 30,
 ):
     """Streaming version of call_ai().
 
@@ -415,8 +420,10 @@ def call_ai_stream(
         use_model, effective_max_tokens, endpoint, user_id or "anonymous",
     )
 
+    _t0 = time.time()
+    logger.info("[call_ai_stream] START model=%s timeout=%ds", use_model, timeout)
     response = _session.post(
-        OPENROUTER_URL, headers=headers, json=payload, timeout=55, stream=True
+        OPENROUTER_URL, headers=headers, json=payload, timeout=timeout, stream=True
     )
 
     if response.status_code != 200:
@@ -462,6 +469,7 @@ def call_ai_stream(
 
     finally:
         response.close()
+        logger.info("[call_ai_stream] END model=%s latency=%.1fs", use_model, time.time() - _t0)
         # Best-effort usage recording — values are zero when the provider does
         # not echo usage counters inside the stream.
         if _prompt_tokens or _completion_tokens or _total_cost:

@@ -289,6 +289,9 @@ def ask(request: Request, body: AskRequest):
         else:
             selected_model, _mode_fallback = route_for_mode(mode or task_type or 'snap', complexity)
 
+        # Per-mode request timeout: use full 55s for slow/large modes; 30s elsewhere.
+        _ai_timeout = 55 if mode in ('master', 'research') or thinking_mode in ('deep', 'thinking') else 30
+
         # User-uploaded document: skip textbook index entirely —
         # unless PAEV has finished indexing it, in which case treat it
         # like a built-in book so the full PAEV pipeline is active.
@@ -576,7 +579,7 @@ def ask(request: Request, body: AskRequest):
                 "- The 'key_difference' must be one concise sentence (under 20 words)"
             )
             answer = call_ai(question, system_prompt=vt_system, model=selected_model, history=history,
-                             endpoint='chat_visual', user_id=verified_user_id)
+                             endpoint='chat_visual', user_id=verified_user_id, timeout=_ai_timeout)
             answer, thinking_content = extract_thinking_content(answer)
             # Strip the internal visual_plan field from diagram responses so it is
             # never exposed to the client.  We parse, pop the key, then re-serialise;
@@ -698,7 +701,7 @@ Rules:
 - Do NOT add any text before Q1 or after Q10's explanation"""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_exam', user_id=verified_user_id)
+                             endpoint='chat_exam', user_id=verified_user_id, timeout=_ai_timeout)
             answer, thinking_content = extract_thinking_content(answer)
             questions = _parse_mcq(answer)
             return {
@@ -735,7 +738,7 @@ Structure your response like this:
 {latex_instruction}"""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_practice', user_id=verified_user_id)
+                             endpoint='chat_practice', user_id=verified_user_id, timeout=_ai_timeout)
             answer, thinking_content = extract_thinking_content(answer)
             return {
                 'success':        True,
@@ -769,7 +772,7 @@ Include these sections:
 Keep the summary focused, clear, and easy to review before an exam."""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_summary', user_id=verified_user_id)
+                             endpoint='chat_summary', user_id=verified_user_id, timeout=_ai_timeout)
             answer, thinking_content = extract_thinking_content(answer)
             _resp = {
                 'success':        True,
@@ -857,6 +860,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     model=selected_model,
                     endpoint='chat_generate',
                     user_id=verified_user_id,
+                    timeout=_ai_timeout,
                 )
             except RuntimeError as _ai_err:
                 logger.warning(
@@ -909,7 +913,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     logger.warning(f"Web search failed ({answer[:80]}), falling back to standard model")
                     fallback_prompt = f"STUDENT QUESTION: {question}\n\nAnswer helpfully and clearly."
                     answer = call_ai(fallback_prompt, system_prompt=base_system, model=selected_model, history=history,
-                                     endpoint='chat', user_id=verified_user_id,
+                                     endpoint='chat', user_id=verified_user_id, timeout=_ai_timeout,
                                      max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))
                     answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
                     web_citations = []
@@ -978,6 +982,7 @@ Answer helpfully and clearly."""
                 _stream_user_id   = verified_user_id
                 _stream_prompt    = prompt
                 _stream_req_id    = getattr(request.state, 'request_id', '')
+                _stream_timeout   = _ai_timeout
 
                 def _sse_generator():
                     try:
@@ -989,6 +994,7 @@ Answer helpfully and clearly."""
                             max_tokens_override=_stream_max_tok,
                             endpoint=_stream_endpoint,
                             user_id=_stream_user_id,
+                            timeout=_stream_timeout,
                         ):
                             if _cancelled_requests.pop(_stream_req_id, False):
                                 logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
@@ -1008,6 +1014,7 @@ Answer helpfully and clearly."""
                                     max_tokens_override=_stream_max_tok,
                                     endpoint=_stream_endpoint,
                                     user_id=_stream_user_id,
+                                    timeout=_stream_timeout,
                                 ):
                                     if _cancelled_requests.pop(_stream_req_id, False):
                                         logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
@@ -1038,7 +1045,7 @@ Answer helpfully and clearly."""
             _max_tok = _MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None])
             try:
                 answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                                 endpoint='chat', user_id=verified_user_id,
+                                 endpoint='chat', user_id=verified_user_id, timeout=_ai_timeout,
                                  max_tokens_override=_max_tok)
             except Exception as _primary_err:
                 if _mode_fallback:
@@ -1046,7 +1053,7 @@ Answer helpfully and clearly."""
                                    selected_model, _primary_err, _mode_fallback)
                     answer = call_ai(prompt, system_prompt=base_system, model=_mode_fallback,
                                      history=history, endpoint='chat', user_id=verified_user_id,
-                                     max_tokens_override=_max_tok)
+                                     timeout=_ai_timeout, max_tokens_override=_max_tok)
                 else:
                     raise
             answer, thinking_content = extract_thinking_content(answer)
