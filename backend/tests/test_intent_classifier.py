@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from services.intent_classifier import classify
+from services.intent_classifier import ClassificationResult, classify
 
 
 # ── Specified test cases (from problem statement) ─────────────────────────────
@@ -230,3 +230,123 @@ class TestShortMessageFastPath:
         q = "thanks a lot!!"
         assert len(q) == 14
         assert classify(q).primary_intent == 'chitchat'
+
+
+# ── ClassificationResult fields ───────────────────────────────────────────────
+
+class TestClassificationResult:
+    def test_returns_dataclass(self):
+        r = classify("What is entropy?")
+        assert isinstance(r, ClassificationResult)
+
+    def test_result_is_immutable(self):
+        r = classify("What is entropy?")
+        try:
+            r.primary_intent = 'chitchat'  # type: ignore[misc]
+            assert False, 'should have raised'
+        except (AttributeError, TypeError):
+            pass
+
+    def test_no_confusion_clear_concept(self):
+        r = classify("What is entropy?")
+        assert r.confusion_level == 0.0
+
+    def test_confusion_level_increases_with_hits(self):
+        # Two confusion patterns in the question → 2 * 0.3 = 0.6
+        r = classify("I don't understand and I'm confused about entropy")
+        assert r.confusion_level > 0.0
+
+    def test_confusion_capped_at_one(self):
+        # Many confusion patterns — score should not exceed 1.0
+        r = classify(
+            "I don't understand, I'm confused, I'm lost, I'm stuck, "
+            "not sure what this means, can you re-explain, doesn't make sense"
+        )
+        assert r.confusion_level <= 1.0
+
+    def test_is_multi_intent_true_when_secondary_present(self):
+        r = classify("I don't understand how to calculate entropy step by step")
+        assert r.secondary_intent is not None
+        assert r.is_multi_intent is True
+
+    def test_is_multi_intent_false_for_pure_chitchat(self):
+        r = classify("Hi there")
+        assert r.is_multi_intent is False
+
+    def test_secondary_intent_none_for_unambiguous_question(self):
+        r = classify("What is Newton's second law?")
+        assert r.secondary_intent is None
+
+
+# ── History-based confusion scoring ──────────────────────────────────────────
+
+class TestHistoryConfusionLevel:
+    def test_no_history_gives_current_only_score(self):
+        r = classify("I don't get this", history=None)
+        assert r.confusion_level == pytest.approx(0.3, abs=0.01)
+
+    def test_history_confusion_increases_score(self):
+        history = [
+            {'role': 'user', 'content': "I'm confused about the last part"},
+            {'role': 'assistant', 'content': 'Let me explain again.'},
+        ]
+        r_no_hist = classify("I don't get this")
+        r_with_hist = classify("I don't get this", history=history)
+        assert r_with_hist.confusion_level > r_no_hist.confusion_level
+
+    def test_only_last_3_history_messages_counted(self):
+        # 5 historical user messages with confusion — only last 3 should count
+        history = [
+            {'role': 'user', 'content': "I don't understand"},
+            {'role': 'user', 'content': "I don't understand"},
+            {'role': 'user', 'content': "I don't understand"},
+            {'role': 'user', 'content': "I don't understand"},
+            {'role': 'user', 'content': "I don't understand"},
+        ]
+        r = classify("What is entropy?", history=history)
+        # Last 3 messages each contribute 0.3 per hit × 0.2 weight = 0.2 * 3 = 0.6
+        assert r.confusion_level == pytest.approx(0.6, abs=0.05)
+
+    def test_assistant_messages_not_counted(self):
+        history = [
+            {'role': 'assistant', 'content': "I don't understand your question"},
+        ]
+        r = classify("What is entropy?", history=history)
+        assert r.confusion_level == 0.0
+
+    def test_history_score_capped_at_one(self):
+        history = [
+            {'role': 'user', 'content': "I don't understand, I'm confused, I'm lost"},
+            {'role': 'user', 'content': "I'm stuck and not sure about anything"},
+            {'role': 'user', 'content': "can you re-explain, it doesn't make sense"},
+        ]
+        r = classify("I don't get this at all", history=history)
+        assert r.confusion_level <= 1.0
+
+
+# ── is_viewer_reference ───────────────────────────────────────────────────────
+
+class TestViewerReference:
+    def test_no_viewer_state_is_false(self):
+        r = classify("What is entropy?", viewer_state=None)
+        assert r.is_viewer_reference is False
+
+    def test_empty_segment_is_false(self):
+        r = classify("What is entropy?", viewer_state={'visible_transcript_segment': ''})
+        assert r.is_viewer_reference is False
+
+    def test_matching_token_is_true(self):
+        viewer = {'visible_transcript_segment': 'entropy increases in closed systems over time'}
+        r = classify("What is entropy?", viewer_state=viewer)
+        assert r.is_viewer_reference is True
+
+    def test_no_overlap_is_false(self):
+        viewer = {'visible_transcript_segment': 'photosynthesis occurs in plant cells'}
+        r = classify("What is entropy?", viewer_state=viewer)
+        assert r.is_viewer_reference is False
+
+    def test_stop_words_only_overlap_is_false(self):
+        # Both question and segment share only stop words — should be False
+        viewer = {'visible_transcript_segment': 'the is a in of'}
+        r = classify("what is the answer?", viewer_state=viewer)
+        assert r.is_viewer_reference is False

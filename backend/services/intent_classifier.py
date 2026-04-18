@@ -92,6 +92,9 @@ def _confusion_level(question: str, history: list | None) -> float:
     return min(1.0, score)
 
 
+_PUNCT_RE = re.compile(r'[^\w]')
+
+
 def _is_viewer_reference(question: str, viewer_state: dict | None) -> bool:
     """Return True if the question overlaps with the viewer's visible transcript."""
     if not viewer_state:
@@ -99,8 +102,12 @@ def _is_viewer_reference(question: str, viewer_state: dict | None) -> bool:
     segment = viewer_state.get('visible_transcript_segment', '') or ''
     if not segment:
         return False
-    segment_tokens = set(segment.lower().split()[:20]) - _STOP_WORDS
-    question_tokens = set(question.lower().split()) - _STOP_WORDS
+    segment_tokens = {
+        _PUNCT_RE.sub('', t) for t in segment.lower().split()[:20]
+    } - _STOP_WORDS - {''}
+    question_tokens = {
+        _PUNCT_RE.sub('', t) for t in question.lower().split()
+    } - _STOP_WORDS - {''}
     return bool(segment_tokens & question_tokens)
 
 
