@@ -883,7 +883,12 @@ body {
 }
 .input-tool-btn:hover { background: var(--bg2); color: var(--text2); }
 
-.think-toggle {
+.mode-dropdown-wrap {
+  position: relative;
+  margin-left: auto;
+}
+
+.mode-dropdown-btn {
   display: flex; align-items: center; gap: 5px;
   font-size: 12px; font-weight: 500;
   color: var(--text3);
@@ -894,9 +899,45 @@ body {
   background: none;
   font-family: var(--font-body);
   transition: all var(--transition);
-  margin-left: auto;
 }
-.think-toggle:hover { background: var(--bg2); color: var(--text2); }
+.mode-dropdown-btn:hover { background: var(--bg2); color: var(--text2); }
+
+.mode-dropdown-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.15);
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  z-index: 200;
+}
+
+.mode-dropdown-item {
+  display: flex; flex-direction: column;
+  padding: 8px 12px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.mode-dropdown-item:hover { background: var(--bg2); }
+.mode-dropdown-item.active { background: var(--bg2); }
+
+.mode-dropdown-label {
+  font-size: 13px; font-weight: 600;
+  color: var(--text);
+}
+.mode-dropdown-item.active .mode-dropdown-label { color: var(--accent); }
+
+.mode-dropdown-desc {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 1px;
+}
 
 .send-btn {
   width: 34px; height: 34px;

@@ -570,6 +570,17 @@ async def validate_secrets():
                 logger.warning(msg)
 
 
+@app.on_event("startup")
+async def validate_services():
+    try:
+        from services.cache import cache_svc
+        from services.usage import enforce
+        logger.info("Core services loaded OK")
+    except Exception as e:
+        logger.critical("Service import failed at startup: %s", e)
+        raise
+
+
 # ── Shared context — populate before registering routers ─────────────────────
 from routes.shared import ctx as _ctx  # noqa: E402
 _ctx._init(

@@ -253,6 +253,10 @@ def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=No
     """
     from services import token_budget
 
+    # ── API key guard ─────────────────────────────────────────────────────
+    if not os.environ.get('OPENROUTER_API_KEY') and not OPENROUTER_API_KEY:
+        raise RuntimeError("OPENROUTER_API_KEY is not set — cannot call AI")
+
     # ── Budget gate ───────────────────────────────────────────────────────
     if not token_budget.check_daily_budget():
         raise RuntimeError("Daily AI cost budget exceeded. Please try again after midnight UTC.")

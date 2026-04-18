@@ -201,7 +201,7 @@ def ask(request: Request, body: AskRequest):
 
         question      = data.get('question', '')
         complexity    = max(1, min(10, int(data.get('complexity', 3))))
-        mode          = data.get('mode', 'study').lower().strip()
+        mode          = data.get('mode', 'snap').lower().strip()
         book_id       = data.get('bookId') or None
         thinking_mode = data.get('thinking', None)
         web_search    = data.get('web_search', False)
@@ -231,7 +231,7 @@ def ask(request: Request, body: AskRequest):
             _guest_feature = 'general'
         elif task_type == 'exam' or mode == 'exam':
             _guest_feature = 'exam'
-        elif task_type == 'research' or mode == 'research':
+        elif task_type == 'research' or mode in ('research', 'master'):
             _guest_feature = 'research'
         elif task_type == 'study_plan':
             _guest_feature = 'studyplan'
@@ -274,10 +274,29 @@ def ask(request: Request, body: AskRequest):
         logger.debug('[intent] %s → %s', question[:60], intent)
 
         # ── Model selection via ai_router ─────────────────────────────────────
+        # Per-mode primary/fallback model pairs (configurable via env vars).
+        # Phase 1: Streaming enabled only for Snap mode
+        _MODE_MODELS: dict[str, tuple[str, str]] = {
+            'snap':     (os.environ.get('SNAP_MODEL',      'google/gemini-flash-1.5'),
+                         os.environ.get('SNAP_FALLBACK',   'openai/gpt-4o-mini')),
+            'chunk':    (os.environ.get('CHUNK_MODEL',     'deepseek/deepseek-chat-v3-0324'),
+                         os.environ.get('CHUNK_FALLBACK',  'anthropic/claude-3-5-haiku')),
+            'master':   (os.environ.get('MASTER_MODEL',    'openai/o4-mini'),
+                         os.environ.get('MASTER_FALLBACK', 'google/gemini-2.5-flash')),
+            'research': (os.environ.get('RESEARCH_MODEL',  'google/gemini-2.5-flash'),
+                         os.environ.get('RESEARCH_FALLBACK','google/gemini-2.0-flash-001')),
+        }
+        _mode_primary: str | None = None
+        _mode_fallback: str | None = None
+        if mode in _MODE_MODELS:
+            _mode_primary, _mode_fallback = _MODE_MODELS[mode]
+
         if thinking_mode == 'deep':
-            selected_model = os.environ.get('DEEP_MODEL', 'google/gemini-2.5-flash')
+            selected_model = os.environ.get('DEEP_MODEL', 'google/gemini-2.0-flash-001')
         elif thinking_mode == 'thinking':
-            selected_model = os.environ.get('THINK_MODEL', 'openai/gpt-oss-20b:nitro')
+            selected_model = os.environ.get('THINK_MODEL', 'anthropic/claude-3-5-haiku')
+        elif _mode_primary:
+            selected_model = _mode_primary
         elif task_type:
             selected_model = route(task_type, complexity)
         else:
@@ -960,12 +979,11 @@ FORMATTING: {latex_instruction}
 Answer helpfully and clearly."""
 
             # ── STREAMING PATH ────────────────────────────────────────────────────
-            # Real SSE streaming is only active for the default study mode when the
-            # client opts in with stream=true AND no thinking mode is active (think
-            # blocks require full-response post-processing that cannot be done
-            # incrementally on the wire).
-            if stream_requested and thinking_mode is None:
+            # Phase 1: Streaming enabled only for Snap mode.
+            # Chunk/Master/Research always return JSONResponse.
+            if stream_requested and mode == 'snap' and thinking_mode is None:
                 _stream_model     = selected_model
+                _stream_fallback  = _mode_fallback
                 _stream_system    = base_system
                 _stream_history   = history
                 _stream_max_tok   = _MODE_MAX_TOKENS[None]
@@ -986,7 +1004,26 @@ Answer helpfully and clearly."""
                         ):
                             yield f'data: {json.dumps({"text": _token}, ensure_ascii=False)}\n\n'
                     except Exception as _sse_err:
-                        logger.error("SSE stream error: %s", _sse_err)
+                        if _stream_fallback:
+                            logger.warning("[/ask] snap stream primary failed (%s), retrying with fallback %s",
+                                           _sse_err, _stream_fallback)
+                            try:
+                                for _token in call_ai_stream(
+                                    _stream_prompt,
+                                    system_prompt=_stream_system,
+                                    model=_stream_fallback,
+                                    history=_stream_history,
+                                    max_tokens_override=_stream_max_tok,
+                                    endpoint=_stream_endpoint,
+                                    user_id=_stream_user_id,
+                                ):
+                                    yield f'data: {json.dumps({"text": _token}, ensure_ascii=False)}\n\n'
+                                yield 'data: [DONE]\n\n'
+                                return
+                            except Exception as _fb_err:
+                                logger.error("SSE fallback stream error: %s", _fb_err)
+                        else:
+                            logger.error("SSE stream error: %s", _sse_err)
                         # Send a generic error message — never expose internal exception
                         # details (stack traces, file paths) to the client.
                         yield 'data: {"error": "Streaming failed. Please retry."}\n\n'
@@ -1002,9 +1039,20 @@ Answer helpfully and clearly."""
                 )
 
             # ── NON-STREAMING PATH ────────────────────────────────────────────────
-            answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat', user_id=verified_user_id,
-                             max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))
+            _max_tok = _MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None])
+            try:
+                answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
+                                 endpoint='chat', user_id=verified_user_id,
+                                 max_tokens_override=_max_tok)
+            except Exception as _primary_err:
+                if _mode_fallback:
+                    logger.warning("[/ask] primary model %s failed (%s), retrying with fallback %s",
+                                   selected_model, _primary_err, _mode_fallback)
+                    answer = call_ai(prompt, system_prompt=base_system, model=_mode_fallback,
+                                     history=history, endpoint='chat', user_id=verified_user_id,
+                                     max_tokens_override=_max_tok)
+                else:
+                    raise
             answer, thinking_content = extract_thinking_content(answer)
 
             # Inject structured topic marker for frontend Socratic tracking.
@@ -1023,7 +1071,7 @@ Answer helpfully and clearly."""
 
             _resp = {
                 'success':        True,
-                'mode':           'study',
+                'mode':           mode,
                 'answer':         answer,
                 'context':        context,
                 'similarity':     float(similarity),
@@ -1043,5 +1091,13 @@ Answer helpfully and clearly."""
             return _resp
 
     except Exception as e:
-        logger.exception("Unhandled error")
-        return JSONResponse({'success': False, 'error': str(e)}, status_code=500)
+        import traceback
+        logger.error(
+            "[/ask] UNHANDLED EXCEPTION type=%s msg=%s\ntraceback=%s",
+            type(e).__name__, str(e), traceback.format_exc()
+        )
+        return JSONResponse({
+            'success': False,
+            'error': str(e),
+            'error_type': type(e).__name__,
+        }, status_code=500)
