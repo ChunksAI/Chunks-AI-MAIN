@@ -1012,10 +1012,10 @@ Answer helpfully and clearly."""
                     _stop = threading.Event()
 
                     def _put(item) -> None:  # called from producer thread
-                        def _safe_put() -> None:
-                            _async_q.put_nowait(item)
                         try:
-                            loop.call_soon_threadsafe(_safe_put)
+                            # call_soon_threadsafe forwards *item* as an arg
+                            # to put_nowait — no closure allocation per call.
+                            loop.call_soon_threadsafe(_async_q.put_nowait, item)
                         except RuntimeError:
                             # Event loop already closed — stream already ended.
                             _stop.set()
