@@ -1290,7 +1290,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
         // Forward viewer_action to ViewerContext so the embedded player can seek
         if (res.viewer_action) {
-          viewerDispatch({ type: 'SET_VIEWER_ACTION', payload: res.viewer_action });
+          if (res.viewer_action.type === 'seek_youtube') {
+            viewerDispatch({ type: 'SEEK_YOUTUBE', timestamp: res.viewer_action.timestamp_seconds });
+          } else if (res.viewer_action.type === 'switch_to_research') {
+            viewerDispatch({ type: 'OPEN_RESEARCH', url: res.viewer_action.url });
+          }
         }
 
         // Update message with memory/performance metadata if present
