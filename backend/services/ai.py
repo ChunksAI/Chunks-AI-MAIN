@@ -238,7 +238,7 @@ def extract_thinking_content(text: str) -> tuple[str, str | None]:
 
 # ── Core AI caller ────────────────────────────────────────────────────────────
 
-def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=None,
+def call_ai(prompt, system_prompt="You are an expert tutor.", model=None,
             history=None, max_tokens_override=None, endpoint: str = 'chat',
             user_id: str = ''):
     """Call OpenRouter for a standard chat completion.
@@ -273,7 +273,7 @@ def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=No
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://chunks.online",
-            "X-Title": "Chunks Chemistry"
+            "X-Title": "Chunks"
         }
         messages = [{"role": "system", "content": system_prompt}]
         if history:
@@ -288,7 +288,7 @@ def call_ai(prompt, system_prompt="You are an expert chemistry tutor.", model=No
             "model": use_model,
             "messages": messages,
             # FIX: lowered temperature from 0.4 → 0.15
-            # Chemistry facts, equations, and constants must be deterministic.
+            # Numerical facts and constants must be deterministic.
             "temperature": 0.15,
             "max_tokens": effective_max_tokens,
         }
@@ -390,7 +390,7 @@ def call_ai_stream(
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://chunks.online",
-        "X-Title": "Chunks Chemistry",
+        "X-Title": "Chunks",
     }
 
     messages = [{"role": "system", "content": system_prompt}]
@@ -498,7 +498,7 @@ def call_ai_web_search(question, system_prompt=None, history=None, user_id: str 
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type":  "application/json",
             "HTTP-Referer":  "https://chunks.online",
-            "X-Title":       "Chunks Chemistry"
+            "X-Title":       "Chunks"
         }
 
         sys_prompt = system_prompt or (
