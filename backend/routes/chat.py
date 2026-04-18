@@ -998,53 +998,88 @@ Answer helpfully and clearly."""
                 _stream_req_id    = getattr(request.state, 'request_id', '')
                 _stream_timeout   = _ai_timeout
 
-                def _sse_generator():
-                    try:
-                        for _token in call_ai_stream(
+                async def _sse_generator():
+                    # Async generator so Starlette can cancel it (raise
+                    # CancelledError) when the client disconnects.  The
+                    # blocking call_ai_stream runs in a background daemon
+                    # thread; results are forwarded via an asyncio.Queue
+                    # using loop.call_soon_threadsafe so the bridge is
+                    # thread-safe without holding the GIL.
+                    import threading
+
+                    loop = asyncio.get_running_loop()
+                    _async_q: asyncio.Queue = asyncio.Queue()   # unbounded
+                    _stop = threading.Event()
+
+                    def _put(item) -> None:  # called from producer thread
+                        def _safe_put() -> None:
+                            _async_q.put_nowait(item)
+                        try:
+                            loop.call_soon_threadsafe(_safe_put)
+                        except RuntimeError:
+                            # Event loop already closed — stream already ended.
+                            _stop.set()
+
+                    def _iter(model: str) -> None:
+                        for _tok in call_ai_stream(
                             _stream_prompt,
                             system_prompt=_stream_system,
-                            model=_stream_model,
+                            model=model,
                             history=_stream_history,
                             max_tokens_override=_stream_max_tok,
                             endpoint=_stream_endpoint,
                             user_id=_stream_user_id,
                             timeout=_stream_timeout,
                         ):
+                            if _stop.is_set():
+                                return
                             if _cancelled_requests.pop(_stream_req_id, False):
                                 logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
-                                yield 'data: [DONE]\n\n'
                                 return
-                            yield f'data: {json.dumps({"text": _token}, ensure_ascii=False)}\n\n'
-                    except Exception as _sse_err:
-                        if _stream_fallback:
-                            logger.warning("[/ask] snap stream primary failed (%s), retrying with fallback %s",
-                                           _sse_err, _stream_fallback)
-                            try:
-                                for _token in call_ai_stream(
-                                    _stream_prompt,
-                                    system_prompt=_stream_system,
-                                    model=_stream_fallback,
-                                    history=_stream_history,
-                                    max_tokens_override=_stream_max_tok,
-                                    endpoint=_stream_endpoint,
-                                    user_id=_stream_user_id,
-                                    timeout=_stream_timeout,
-                                ):
-                                    if _cancelled_requests.pop(_stream_req_id, False):
-                                        logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
-                                        yield 'data: [DONE]\n\n'
-                                        return
-                                    yield f'data: {json.dumps({"text": _token}, ensure_ascii=False)}\n\n'
+                            _put(('token', _tok))
+
+                    def _stream_to_queue() -> None:
+                        try:
+                            _iter(_stream_model)
+                            _put(('done', None))
+                        except Exception as _primary_err:
+                            if _stream_fallback:
+                                logger.warning(
+                                    "[/ask] snap stream primary failed (%s), retrying with fallback %s",
+                                    _primary_err, _stream_fallback,
+                                )
+                                try:
+                                    _iter(_stream_fallback)
+                                    _put(('done', None))
+                                    return
+                                except Exception as _fb_err:
+                                    logger.error("SSE fallback stream error: %s", _fb_err)
+                            else:
+                                logger.error("SSE stream error: %s", _primary_err)
+                            # Never expose internal exception details to the client.
+                            _put(('error', None))
+
+                    _thread = threading.Thread(target=_stream_to_queue, daemon=True)
+                    _thread.start()
+                    try:
+                        while True:
+                            _kind, _value = await _async_q.get()
+                            if _kind == 'done':
                                 yield 'data: [DONE]\n\n'
-                                return
-                            except Exception as _fb_err:
-                                logger.error("SSE fallback stream error: %s", _fb_err)
-                        else:
-                            logger.error("SSE stream error: %s", _sse_err)
-                        # Send a generic error message — never expose internal exception
-                        # details (stack traces, file paths) to the client.
-                        yield f'data: {json.dumps({"error": "Streaming failed. Please retry.", "text": ""}, ensure_ascii=False)}\n\n'
-                    yield 'data: [DONE]\n\n'
+                                break
+                            elif _kind == 'error':
+                                yield f'data: {json.dumps({"error": "Streaming failed. Please retry.", "text": ""}, ensure_ascii=False)}\n\n'
+                                yield 'data: [DONE]\n\n'
+                                break
+                            else:
+                                yield f'data: {json.dumps({"text": _value}, ensure_ascii=False)}\n\n'
+                    except asyncio.CancelledError:
+                        # Client disconnected — Starlette cancels async generators.
+                        logger.info('[/ask] SSE client disconnected — stopping generation req_id=%s', _stream_req_id)
+                        _stop.set()
+                        raise
+                    finally:
+                        _stop.set()
 
                 return StreamingResponse(
                     _sse_generator(),
