@@ -209,7 +209,7 @@ export default function ChatPanel() {
 
   // ── Voice input ──────────────────────────────────────────────────────────────
   const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition>(null);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   // Stop the microphone when the component unmounts (resource/leak guard).
   useEffect(() => {
