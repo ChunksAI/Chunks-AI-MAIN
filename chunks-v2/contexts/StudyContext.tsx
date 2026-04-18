@@ -1182,11 +1182,24 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       const userMsg: ChatMessage = { id: nextMsgId(), role: 'user', text };
       chatDispatch({ type: 'SEND_MESSAGE', payload: userMsg });
 
-      // Build history from current messages (last MAX_HISTORY_ITEMS), stripping HTML tags
-      const history: MessageHistoryItem[] = stateRef.current.messages.slice(-MAX_HISTORY_ITEMS).map((m) => ({
-        role: (m.role === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
-        content: stripHtml(m.text),
-      }));
+      // Build history from current messages (last MAX_HISTORY_ITEMS), stripping HTML tags.
+      // Filter out assistant messages that contain raw JSON (from chunk/master/research turns)
+      // to prevent JSON bleed when the user switches back to snap mode.
+      const history: MessageHistoryItem[] = stateRef.current.messages
+        .slice(-MAX_HISTORY_ITEMS)
+        .filter((m) => {
+          if (m.role === 'ai') {
+            const trimmed = m.text.trim();
+            if (trimmed.startsWith('{')) {
+              try { JSON.parse(trimmed); return false; } catch { /* not JSON, keep */ }
+            }
+          }
+          return true;
+        })
+        .map((m) => ({
+          role: (m.role === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
+          content: stripHtml(m.text),
+        }));
 
       // Auto-populate doc_context from uploaded slides when not explicitly provided.
       const { slides } = stateRef.current;
