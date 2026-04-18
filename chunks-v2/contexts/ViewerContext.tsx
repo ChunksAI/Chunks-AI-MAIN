@@ -26,7 +26,7 @@ import {
   type ReactNode,
   type Dispatch,
 } from 'react';
-import type { ViewerAction } from '@/types/api';
+import type { ViewerAction, ViewerStatePayload } from '@/types/api';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
@@ -58,19 +58,9 @@ export interface ViewerState {
 
 // ─── Backend payload shape ────────────────────────────────────────────────────
 
-/**
- * The viewer_state dict shape expected by the backend /ask schema.
- * @see backend/routes/schemas.py AskRequest.viewer_state
- */
-export interface ViewerStatePayload {
-  type: ViewerType;
-  video_id?: string;
-  current_timestamp_seconds?: number;
-  visible_segment?: string;
-  pdf_page?: number;
-  pdf_visible_text?: string;
-  research_url?: string;
-}
+// ViewerStatePayload is imported from @/types/api (canonical definition) and
+// re-exported here so consumers can import it from either location.
+export type { ViewerStatePayload };
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
 
