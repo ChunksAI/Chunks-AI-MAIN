@@ -8,6 +8,7 @@ POST /ask
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -27,6 +28,10 @@ from services.cache import cache_svc as _cache_svc
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+# In-flight cancellation registry: request_id → cancelled flag.
+# Set by POST /ask/cancel; checked inside _sse_generator on every token.
+_cancelled_requests: dict[str, bool] = {}
 
 # Per-mode response length/style instructions applied on every /ask request.
 # These control how long and how structured each mode's answer must be.
@@ -990,6 +995,7 @@ Answer helpfully and clearly."""
                 _stream_endpoint  = 'chat'
                 _stream_user_id   = verified_user_id
                 _stream_prompt    = prompt
+                _stream_req_id    = getattr(request.state, 'request_id', '')
 
                 def _sse_generator():
                     try:
@@ -1002,6 +1008,10 @@ Answer helpfully and clearly."""
                             endpoint=_stream_endpoint,
                             user_id=_stream_user_id,
                         ):
+                            if _cancelled_requests.pop(_stream_req_id, False):
+                                logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
+                                yield 'data: [DONE]\n\n'
+                                return
                             yield f'data: {json.dumps({"text": _token}, ensure_ascii=False)}\n\n'
                     except Exception as _sse_err:
                         if _stream_fallback:
@@ -1017,6 +1027,10 @@ Answer helpfully and clearly."""
                                     endpoint=_stream_endpoint,
                                     user_id=_stream_user_id,
                                 ):
+                                    if _cancelled_requests.pop(_stream_req_id, False):
+                                        logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
+                                        yield 'data: [DONE]\n\n'
+                                        return
                                     yield f'data: {json.dumps({"text": _token}, ensure_ascii=False)}\n\n'
                                 yield 'data: [DONE]\n\n'
                                 return
@@ -1101,3 +1115,25 @@ Answer helpfully and clearly."""
             'error': 'An unexpected error occurred. Please try again.',
             'error_type': type(e).__name__,
         }, status_code=500)
+
+
+@router.post('/ask/cancel')
+async def cancel_ask(request: Request) -> JSONResponse:
+    """Signal the backend to stop an in-flight /ask SSE stream early.
+
+    The SSE generator checks ``_cancelled_requests`` on every token; once set
+    it yields ``[DONE]`` and returns, stopping further calls to OpenRouter.
+    The registry entry is auto-cleaned after 60 seconds.
+    """
+    body = await request.json()
+    req_id = str(body.get('request_id', '')).strip()
+    if req_id:
+        _cancelled_requests[req_id] = True
+        logger.info('[/ask/cancel] cancellation registered req_id=%s', req_id)
+
+        async def _cleanup() -> None:
+            await asyncio.sleep(60)
+            _cancelled_requests.pop(req_id, None)
+
+        asyncio.create_task(_cleanup())
+    return JSONResponse({'cancelled': bool(req_id)})

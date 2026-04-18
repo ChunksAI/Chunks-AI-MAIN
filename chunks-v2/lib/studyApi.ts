@@ -165,6 +165,19 @@ async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Fire-and-forget signal to the backend to stop an in-flight /ask SSE stream.
+ * Never throws — caller should not await or handle errors.
+ */
+export function cancelAsk(requestId: string): void {
+  void fetch(`${API_BASE}/ask/cancel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ request_id: requestId }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
 export async function sendMessage(params: SendMessageRequest): Promise<SendMessageResponse> {
   return apiPost<SendMessageResponse>('/ask', {
     question: params.question,
@@ -218,13 +231,17 @@ export async function sendMessageStream(
   params: SendMessageRequest,
   onChunk: (text: string) => void,
   signal?: AbortSignal,
+  onRequestId?: (id: string) => void,
 ): Promise<SendMessageResponse> {
   const authHeaders = await getAuthHeaders();
+  const reqId = makeReqId();
+  onRequestId?.(reqId);
 
   const res = await fetchWithAuth(`${API_BASE}/ask`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-Request-Id': reqId,
       ...authHeaders,
     },
     body: JSON.stringify({

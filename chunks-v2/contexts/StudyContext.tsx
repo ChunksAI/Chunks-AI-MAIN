@@ -46,7 +46,7 @@ import type {
 import { useChatContext, type ChatState, type ChatAction } from '@/contexts/ChatContext';
 import { useQuizContext, type QuizState, type QuizAction, calcWeakAreas } from '@/contexts/QuizContext';
 import { useNotesContext, type NotesState, type NotesAction } from '@/contexts/NotesContext';
-import { sendMessage, sendMessageStream, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus } from '@/lib/studyApi';
+import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus } from '@/lib/studyApi';
 import { buildStudentProfile } from '@/hooks/useTutorBrain';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
@@ -1041,6 +1041,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // Track in-flight chat request so it can be cancelled on re-send
   const abortRef = useRef<AbortController | null>(null);
 
+  // Track the X-Request-Id of the current in-flight /ask request for server-side cancel
+  const currentRequestIdRef = useRef<string | null>(null);
+
   // Track in-flight generation requests to prevent double-triggering
   const flashcardsInFlightRef = useRef(false);
   const quizInFlightRef = useRef(false);
@@ -1255,6 +1258,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             }
           },
           abortRef.current.signal,
+          (reqId) => { currentRequestIdRef.current = reqId; },
         );
 
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
@@ -1345,6 +1349,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           err instanceof Error ? err.message : 'Something went wrong. Please try again.';
         chatDispatch({ type: 'MESSAGE_ERROR', payload: message });
         chatDispatch({ type: 'REMOVE_MESSAGE', payload: aiMsgId });
+      } finally {
+        currentRequestIdRef.current = null;
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1696,6 +1702,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // ── stop ──────────────────────────────────────────────────────────────────
   const handleStop = useCallback(() => {
+    // Signal the backend to stop streaming before we cut the connection
+    const currentReqId = currentRequestIdRef.current;
+    if (currentReqId) {
+      cancelAsk(currentReqId);
+    }
     abortRef.current?.abort();
     dispatch({ type: 'SHOW_TOAST', payload: '⏹ Generation stopped.' });
   }, []);
