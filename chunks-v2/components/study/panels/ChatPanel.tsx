@@ -9,6 +9,7 @@ import MarkdownRenderer from '@/components/study/chat/MarkdownRenderer';
 import MessageActions from '@/components/study/chat/MessageActions';
 import { resolveStudyTopic, cleanTopic } from '@/lib/topicFallback';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
+import { useToast } from '@/contexts/ToastContext';
 import { evaluateSocraticAnswer } from '@/lib/studyApi';
 import { extractTopicFromResponse } from '@/lib/extractTopic';
 
@@ -202,6 +203,33 @@ export default function ChatPanel() {
   // as the student's answer, and after the AI responds we detect correctness.
   // Whether we're currently waiting for the AI to evaluate a Socratic answer
   const pendingSocraticRef = useRef<{ question: string; answer: string; topic: string } | null>(null);
+
+  const { toast } = useToast();
+
+  // ── Voice input ──────────────────────────────────────────────────────────────
+  const [isListening, setIsListening] = useState(false);
+
+  const handleVoice = () => {
+    if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      toast.error('Voice input is not supported in this browser');
+      return;
+    }
+    const SR = (
+      (window as unknown as Record<string, unknown>).SpeechRecognition ||
+      (window as unknown as Record<string, unknown>).webkitSpeechRecognition
+    ) as typeof SpeechRecognition;
+    const recognition = new SR();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onresult = (e: SpeechRecognitionEvent) => {
+      const transcript = e.results[0][0].transcript;
+      setInputValue((prev) => prev + transcript);
+    };
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+    setIsListening(true);
+    recognition.start();
+  };
 
   // ── Mode dropdown ─────────────────────────────────────────────────────────
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
@@ -507,7 +535,11 @@ export default function ChatPanel() {
               </svg>
               Attach
             </button>
-            <button className="input-tool-btn">
+            <button
+              className={`input-tool-btn${isListening ? ' active' : ''}`}
+              onClick={handleVoice}
+              title={isListening ? 'Listening…' : 'Voice input'}
+            >
               <svg
                 width="12"
                 height="12"
@@ -521,7 +553,7 @@ export default function ChatPanel() {
                 <line x1="12" y1="19" x2="12" y2="23" />
                 <line x1="8" y1="23" x2="16" y2="23" />
               </svg>
-              Voice
+              {isListening ? 'Listening…' : 'Voice'}
             </button>
             <div className="mode-dropdown-wrap" ref={modeWrapRef}>
               <button
