@@ -387,6 +387,20 @@ def _record_usage_from_response(
         )
 
 
+# ── Retry constants ────────────────────────────────────────────────────────────
+_MAX_ATTEMPTS = 3              # 1 original attempt + 2 retries
+_BACKOFF_SECS = (0.0, 1.0, 2.0)    # wait before attempt[i] (0 = immediate first try)
+_RETRYABLE_STATUSES = frozenset({429, 502, 503})
+
+
+class _RetryableError(Exception):
+    """Internal: transient upstream error that should trigger a retry."""
+
+    def __init__(self, message: str, retry_after: float = 0.0) -> None:
+        super().__init__(message)
+        self.retry_after = retry_after
+
+
 async def call_ai_async(
     prompt,
     system_prompt: str = "You are an expert tutor.",
@@ -404,15 +418,18 @@ async def call_ai_async(
     All parameters and return semantics are identical to call_ai().
     Raises ``RuntimeError`` on any non-200 response, empty content, or timeout.
 
+    Transient errors (HTTP 429/502/503, ``httpx.TimeoutException``) are retried
+    up to ``_MAX_ATTEMPTS`` times with exponential backoff (0 s → 1 s → 2 s).
+    On HTTP 429 the ``Retry-After`` response header is honoured when present.
+    Non-transient errors (HTTP 400/401/422) are raised immediately.
+
     Parameters
     ----------
     fallback_model : str | None
-        If provided, an ``asyncio.TimeoutError`` on the primary model is caught
-        and retried immediately with this model (covers TCP-level hangs that
-        httpx cannot detect).  If the fallback also times out,
-        ``RuntimeError("LLM_TIMEOUT")`` is raised.  Without a fallback, a
-        primary asyncio timeout also raises ``RuntimeError("LLM_TIMEOUT")``.
-        Maximum observed latency is ``timeout × 2`` (primary + fallback).
+        If provided and all primary-model attempts are exhausted, one final
+        attempt is made with this model before raising ``RuntimeError``.
+        ``RuntimeError("LLM_TIMEOUT")`` is raised when every attempt (primary
+        retries + fallback) times out.
     """
     from services import token_budget
 
@@ -463,12 +480,15 @@ async def call_ai_async(
             "max_tokens":  effective_max_tokens,
             **({"response_format": response_format} if response_format else {}),
         }
-        response = await _async_client.post(
-            OPENROUTER_URL,
-            headers=headers,
-            json=payload,
-            timeout=httpx.Timeout(connect=5.0, read=float(timeout), write=10.0, pool=5.0),
-        )
+        try:
+            response = await _async_client.post(
+                OPENROUTER_URL,
+                headers=headers,
+                json=payload,
+                timeout=httpx.Timeout(connect=5.0, read=float(timeout), write=10.0, pool=5.0),
+            )
+        except httpx.TimeoutException as exc:
+            raise _RetryableError(f"httpx timeout ({type(exc).__name__})") from exc
         if response.status_code == 200:
             resp_json = response.json()
             choices   = resp_json.get('choices', [])
@@ -485,8 +505,18 @@ async def call_ai_async(
         status  = response.status_code
         snippet = response.text[:200]
         logger.error("API error %d: %s", status, response.text[:300])
-        if status == 429:
-            raise RuntimeError("Upstream model rate-limited (429). Please retry in a moment.")
+        if status in _RETRYABLE_STATUSES:
+            retry_after = 0.0
+            if status == 429:
+                raw_ra = response.headers.get('retry-after', '').strip()
+                try:
+                    retry_after = max(0.0, float(raw_ra))
+                except (ValueError, TypeError):
+                    pass
+            raise _RetryableError(
+                f"Upstream API returned {status}: {snippet}",
+                retry_after=retry_after,
+            )
         raise RuntimeError(f"Upstream API returned {status}: {snippet}")
 
     _t0 = time.time()
@@ -511,48 +541,73 @@ async def call_ai_async(
         fallback_model = None  # already on fallback; no further retry
 
     try:
+        # ── Retry loop: up to _MAX_ATTEMPTS on transient errors ───────────────
+        _last_exc: BaseException | None = None
+        for _attempt in range(_MAX_ATTEMPTS):
+            if _attempt > 0:
+                _scheduled = _BACKOFF_SECS[_attempt]
+                _ra = _last_exc.retry_after if isinstance(_last_exc, _RetryableError) else 0.0
+                _wait = max(_scheduled, _ra)
+                logger.warning(
+                    "[call_ai_async] retry attempt=%d/%d model=%s error=%r wait=%.1fs",
+                    _attempt + 1, _MAX_ATTEMPTS, use_model, str(_last_exc)[:80], _wait,
+                )
+                await asyncio.sleep(_wait)
+            try:
+                result = await asyncio.wait_for(_do_post(use_model), timeout=float(timeout))
+                _cb.record_result(use_model, success=True)
+                logger.info(
+                    "[call_ai_async] END path=%s model=%s latency=%.1fs",
+                    "skipped-primary" if _primary_skipped else "primary",
+                    use_model, time.time() - _t0,
+                )
+                return result
+            except asyncio.TimeoutError as exc:
+                _cb.record_result(use_model, success=False)
+                _last_exc = exc
+                logger.warning(
+                    "[call_ai_async] timeout attempt=%d/%d model=%s timeout=%ds fallback=%s",
+                    _attempt + 1, _MAX_ATTEMPTS, use_model, timeout, fallback_model or "none",
+                )
+            except _RetryableError as exc:
+                _cb.record_result(use_model, success=False)
+                _last_exc = exc
+                logger.warning(
+                    "[call_ai_async] transient error attempt=%d/%d model=%s error=%r",
+                    _attempt + 1, _MAX_ATTEMPTS, use_model, str(exc)[:80],
+                )
+            except RuntimeError:
+                _cb.record_result(use_model, success=False)
+                raise
+
+        # ── All primary retries exhausted ─────────────────────────────────────
+        if not fallback_model:
+            if isinstance(_last_exc, asyncio.TimeoutError):
+                raise RuntimeError("LLM_TIMEOUT")
+            raise RuntimeError(str(_last_exc))
+
+        logger.warning(
+            "[call_ai_async] all %d attempts exhausted for primary=%s — trying fallback=%s",
+            _MAX_ATTEMPTS, use_model, fallback_model,
+        )
         try:
-            result = await asyncio.wait_for(_do_post(use_model), timeout=float(timeout))
-            _cb.record_result(use_model, success=True)
+            result = await asyncio.wait_for(_do_post(fallback_model), timeout=float(timeout))
+            _cb.record_result(fallback_model, success=True)
             logger.info(
-                "[call_ai_async] END path=%s model=%s latency=%.1fs",
-                "skipped-primary" if _primary_skipped else "primary",
-                use_model, time.time() - _t0,
+                "[call_ai_async] END path=fallback primary=%s fallback=%s latency=%.1fs",
+                use_model, fallback_model, time.time() - _t0,
             )
             return result
         except asyncio.TimeoutError:
-            _cb.record_result(use_model, success=False)
+            _cb.record_result(fallback_model, success=False)
             logger.warning(
-                "[call_ai_async] TIMEOUT path=primary model=%s timeout=%ds fallback=%s",
-                use_model, timeout, fallback_model or "none",
+                "[call_ai_async] TIMEOUT path=fallback model=%s timeout=%ds — raising LLM_TIMEOUT",
+                fallback_model, timeout,
             )
-            if not fallback_model:
-                raise RuntimeError("LLM_TIMEOUT")
-            try:
-                result = await asyncio.wait_for(
-                    _do_post(fallback_model), timeout=float(timeout),
-                )
-                _cb.record_result(fallback_model, success=True)
-                logger.info(
-                    "[call_ai_async] END path=fallback primary=%s fallback=%s latency=%.1fs",
-                    use_model, fallback_model, time.time() - _t0,
-                )
-                return result
-            except asyncio.TimeoutError:
-                _cb.record_result(fallback_model, success=False)
-                logger.warning(
-                    "[call_ai_async] TIMEOUT path=fallback model=%s timeout=%ds — raising LLM_TIMEOUT",
-                    fallback_model, timeout,
-                )
-                raise RuntimeError("LLM_TIMEOUT")
-        except RuntimeError as _re:
-            # HTTP 5xx / rate-limit errors from _do_post — record as failures
-            _err_str = str(_re)
-            if 'LLM_TIMEOUT' not in _err_str and 'rate-limited' not in _err_str:
-                _cb.record_result(use_model, success=False)
-            raise
-    except httpx.TimeoutException:
-        raise RuntimeError("The AI model timed out. Please try again.")
+            raise RuntimeError("LLM_TIMEOUT")
+        except (_RetryableError, RuntimeError) as exc:
+            _cb.record_result(fallback_model, success=False)
+            raise RuntimeError(str(exc)) from exc
     except RuntimeError:
         raise
     except Exception as e:
