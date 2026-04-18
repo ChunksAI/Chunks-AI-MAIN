@@ -241,7 +241,8 @@ def extract_thinking_content(text: str) -> tuple[str, str | None]:
 
 def call_ai(prompt, system_prompt="You are an expert tutor.", model=None,
             history=None, max_tokens_override=None, endpoint: str = 'chat',
-            user_id: str = '', timeout: int = 30):
+            user_id: str = '', timeout: int = 30,
+            response_format: dict | None = None):
     """Call OpenRouter for a standard chat completion.
 
     Parameters
@@ -292,6 +293,7 @@ def call_ai(prompt, system_prompt="You are an expert tutor.", model=None,
             # Numerical facts and constants must be deterministic.
             "temperature": 0.15,
             "max_tokens": effective_max_tokens,
+            **({"response_format": response_format} if response_format else {}),
         }
         _system_preview = (system_prompt or "")[:SYSTEM_PROMPT_PREVIEW_LENGTH]
         logger.info(

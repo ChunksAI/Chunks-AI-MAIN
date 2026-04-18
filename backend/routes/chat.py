@@ -84,6 +84,55 @@ _MODE_MAX_TOKENS = {
     None:        1500,  # normal / no thinking — full complete answer
 }
 
+# System-prompt overrides for structured-JSON modes (chunk / master / research).
+# These replace the free-form "answer helpfully" instruction with a strict JSON
+# schema so the frontend can render rich, structured UI cards.
+# IMPORTANT: snap mode must NOT appear here — it uses SSE streaming.
+MODE_SYSTEM_PROMPTS: dict[str, str] = {
+    'chunk': """You are a structured teaching assistant.
+Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
+Required keys (all must be present):
+{
+  "overview": "one paragraph — what this topic is",
+  "key_concepts": ["concept 1", "concept 2", ...],
+  "step_by_step": ["step 1", "step 2", ...],
+  "example": "a concrete real-world example"
+}
+Rules: Simple, clear, teaching-focused. No assumed prior knowledge.""",
+
+    'master': """You are an advanced reasoning assistant.
+Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
+Required keys (all must be present):
+{
+  "core_explanation": "deep explanation of the concept",
+  "mechanism": "how/why it works at a fundamental level",
+  "analysis": "implications, edge cases, nuances",
+  "connections": "how this connects to related concepts",
+  "key_insight": "the single most important takeaway"
+}
+Rules: Analytical. Explain WHY and HOW. No fluff.""",
+
+    'research': """You are an evidence-based research assistant.
+Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
+Required keys (all must be present):
+{
+  "summary": "brief overview of what the research shows",
+  "key_findings": ["finding 1", "finding 2", ...],
+  "sources": ["Source name (year) — description", ...],
+  "simplified_explanation": "plain-language explanation for a student"
+}
+Rules: Only cite real, credible sources. If uncertain, write \
+"General scientific consensus — verify with primary literature". \
+Never fabricate citations.""",
+}
+
+# Required JSON keys for each structured mode — used to warn on partial responses.
+_STRUCTURED_REQUIRED_KEYS: dict[str, set[str]] = {
+    'chunk':    {'overview', 'key_concepts', 'step_by_step', 'example'},
+    'master':   {'core_explanation', 'mechanism', 'analysis', 'connections', 'key_insight'},
+    'research': {'summary', 'key_findings', 'sources', 'simplified_explanation'},
+}
+
 
 def _strip_code_fences(text: str) -> str:
     """Remove markdown code fences the model may have emitted despite instructions.
@@ -1126,20 +1175,50 @@ Answer helpfully and clearly."""
 
             # ── NON-STREAMING PATH ────────────────────────────────────────────────
             _max_tok = _MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None])
+
+            # For structured modes, append the JSON-schema instruction and
+            # request json_object response format from the model.
+            _is_structured_mode = mode in MODE_SYSTEM_PROMPTS and mode != 'snap'
+            if _is_structured_mode:
+                _mode_instruction = MODE_SYSTEM_PROMPTS[mode]
+                if _mode_instruction:
+                    _call_system = (base_system + '\n\n' + _mode_instruction) if base_system else _mode_instruction
+                else:
+                    _call_system = base_system
+                _response_format: dict | None = {"type": "json_object"}
+            else:
+                _call_system = base_system
+                _response_format = None
+
             try:
-                answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
+                answer = call_ai(prompt, system_prompt=_call_system, model=selected_model, history=history,
                                  endpoint='chat', user_id=verified_user_id, timeout=_ai_timeout,
-                                 max_tokens_override=_max_tok)
+                                 max_tokens_override=_max_tok, response_format=_response_format)
             except Exception as _primary_err:
                 if _mode_fallback:
                     logger.warning("[/ask] primary model %s failed (%s), retrying with fallback %s",
                                    selected_model, _primary_err, _mode_fallback)
-                    answer = call_ai(prompt, system_prompt=base_system, model=_mode_fallback,
+                    answer = call_ai(prompt, system_prompt=_call_system, model=_mode_fallback,
                                      history=history, endpoint='chat', user_id=verified_user_id,
-                                     timeout=_ai_timeout, max_tokens_override=_max_tok)
+                                     timeout=_ai_timeout, max_tokens_override=_max_tok,
+                                     response_format=_response_format)
                 else:
                     raise
             answer, thinking_content = extract_thinking_content(answer)
+
+            # For structured modes, parse the JSON response and validate required keys.
+            structured: dict | None = None
+            if _is_structured_mode:
+                _raw_for_parse = _strip_code_fences(answer) if answer else ''
+                try:
+                    structured = json.loads(_raw_for_parse) if isinstance(_raw_for_parse, str) else _raw_for_parse
+                    required = _STRUCTURED_REQUIRED_KEYS.get(mode, set())
+                    missing = required - set(structured.keys())
+                    if missing:
+                        logger.warning('[/ask] mode=%s missing structured keys: %s', mode, missing)
+                except (json.JSONDecodeError, TypeError):
+                    logger.warning('[/ask] mode=%s failed to parse JSON response', mode)
+                    structured = {'answer': answer}  # fallback to raw text
 
             # Inject structured topic marker for frontend Socratic tracking.
             # Extract the topic from the first ## heading in the response so the
@@ -1159,6 +1238,8 @@ Answer helpfully and clearly."""
                 'success':        True,
                 'mode':           mode,
                 'answer':         answer,
+                'structured':     structured,
+                'model_used':     selected_model,
                 'context':        context,
                 'similarity':     float(similarity),
                 'is_relevant':    is_relevant,
