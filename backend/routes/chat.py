@@ -355,7 +355,7 @@ async def _fetch_paev_context(
 async def ask(request: Request, body: AskRequest):
     try:
         from services.ai import (
-            call_ai_async, call_ai_stream, call_ai_web_search_async, sanitize_user_memory,
+            call_ai_async, call_ai_stream_async, call_ai_web_search_async, sanitize_user_memory,
             should_search_textbook, extract_thinking_content,
         )
         from services.prompt_guard import screen_prompt_async
@@ -1253,135 +1253,108 @@ Answer helpfully and clearly."""
                 _stream_timeout   = _ai_timeout
 
                 async def _sse_generator():
-                    # Async generator so Starlette can cancel it (raise
-                    # CancelledError) when the client disconnects.  The
-                    # blocking call_ai_stream runs in a background daemon
-                    # thread; results are forwarded via an asyncio.Queue
-                    # using loop.call_soon_threadsafe so the bridge is
-                    # thread-safe without holding the GIL.
-                    import threading
+                    # Fully async generator — zero OS threads per connection.
+                    # call_ai_stream_async() is a native async generator backed
+                    # by httpx.AsyncClient.stream(), so the event loop is never
+                    # blocked.  CancelledError from Starlette (client disconnect)
+                    # propagates naturally through asyncio.wait_for(), closing
+                    # the httpx stream via its async context manager __aexit__.
 
                     loop = asyncio.get_running_loop()
-                    _async_q: asyncio.Queue = asyncio.Queue()   # unbounded
-                    _stop = threading.Event()
 
-                    def _put(item) -> None:  # called from producer thread
-                        try:
-                            # call_soon_threadsafe forwards *item* as an arg
-                            # to put_nowait — no closure allocation per call.
-                            loop.call_soon_threadsafe(_async_q.put_nowait, item)
-                        except RuntimeError:
-                            # Event loop already closed — stream already ended.
-                            _stop.set()
-
-                    def _iter(model: str) -> None:
-                        for _tok in call_ai_stream(
-                            _stream_prompt,
-                            system_prompt=_stream_system,
-                            model=model,
-                            history=_stream_history,
-                            max_tokens_override=_stream_max_tok,
-                            endpoint=_stream_endpoint,
-                            user_id=_stream_user_id,
-                            timeout=_stream_timeout,
-                        ):
-                            if _stop.is_set():
-                                return
-                            _cancel_key = f'cancel:{_stream_req_id}'
-                            try:
-                                _redis = _cache_svc._redis
-                                if _redis and _redis.exists(_cancel_key):
-                                    _redis.delete(_cancel_key)
-                                    logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
-                                    return
-                            except Exception as _redis_err:
-                                logger.debug('[/ask] Redis cancel check error: %s', _redis_err)
-                            _put(('token', _tok))
-
-                    def _stream_to_queue() -> None:
-                        try:
-                            _iter(_stream_model)
-                            _put(('done', None))
-                        except Exception as _primary_err:
-                            if _stream_fallback:
-                                logger.warning(
-                                    "[/ask] snap stream primary failed (%s), retrying with fallback %s",
-                                    _primary_err, _stream_fallback,
-                                )
-                                try:
-                                    _iter(_stream_fallback)
-                                    _put(('done', None))
-                                    return
-                                except Exception as _fb_err:
-                                    logger.error("SSE fallback stream error: %s", _fb_err)
-                            else:
-                                logger.error("SSE stream error: %s", _primary_err)
-                            # Never expose internal exception details to the client.
-                            _put(('error', None))
-
-                    # Heartbeat / batching constants
+                    # Heartbeat / batching constants (unchanged behaviour)
                     _HEARTBEAT_SECS = 15.0   # SSE comment every N idle seconds
                     _FLUSH_SECS     = 0.05   # max age of a non-empty token buffer
                     _FLUSH_COUNT    = 3      # flush when this many tokens buffered
 
-                    _thread = threading.Thread(target=_stream_to_queue, daemon=True)
-                    _thread.start()
+                    _cancel_key = f'cancel:{_stream_req_id}'
                     _tok_buf: list[str] = []
                     _full_text: list[str] = []   # accumulate for viewer_action detection
                     _last_flush = loop.time()
-                    try:
-                        while True:
-                            # Wait at most _HEARTBEAT_SECS for the next queue item.
-                            # A TimeoutError means the model is slow / idle —
-                            # send a keepalive SSE comment so proxies don't close
-                            # the connection, then flush any buffered tokens.
-                            try:
-                                _kind, _value = await asyncio.wait_for(
-                                    _async_q.get(),
-                                    timeout=_HEARTBEAT_SECS,
-                                )
-                            except asyncio.TimeoutError:
-                                if _tok_buf:
-                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
-                                    _tok_buf = []
-                                    _last_flush = loop.time()
-                                yield ': heartbeat\n\n'
-                                continue
 
-                            if _kind == 'done':
-                                if _tok_buf:
-                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
-                                # Emit viewer_action metadata before [DONE] if applicable
-                                _va = _build_viewer_action(
-                                    _decision, ''.join(_full_text), viewer_state
-                                )
-                                if _va:
-                                    yield f'data: {json.dumps({"meta": {"viewer_action": _va}}, ensure_ascii=False)}\n\n'
-                                yield 'data: [DONE]\n\n'
-                                break
-                            elif _kind == 'error':
-                                if _tok_buf:
-                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
-                                yield f'data: {json.dumps({"error": "Streaming failed. Please retry.", "text": ""}, ensure_ascii=False)}\n\n'
-                                yield 'data: [DONE]\n\n'
-                                break
-                            else:
+                    _models = [_stream_model] + ([_stream_fallback] if _stream_fallback else [])
+
+                    for _attempt, _model in enumerate(_models):
+                        try:
+                            _aiter = call_ai_stream_async(
+                                _stream_prompt,
+                                system_prompt=_stream_system,
+                                model=_model,
+                                history=_stream_history,
+                                max_tokens_override=_stream_max_tok,
+                                endpoint=_stream_endpoint,
+                                user_id=_stream_user_id,
+                                timeout=_stream_timeout,
+                            )
+                            while True:
+                                # Wait at most _HEARTBEAT_SECS for the next
+                                # token.  TimeoutError → keepalive heartbeat.
+                                try:
+                                    _tok = await asyncio.wait_for(
+                                        _aiter.__anext__(),
+                                        timeout=_HEARTBEAT_SECS,
+                                    )
+                                except StopAsyncIteration:
+                                    # Stream finished normally.
+                                    if _tok_buf:
+                                        yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                    _va = _build_viewer_action(
+                                        _decision, ''.join(_full_text), viewer_state
+                                    )
+                                    if _va:
+                                        yield f'data: {json.dumps({"meta": {"viewer_action": _va}}, ensure_ascii=False)}\n\n'
+                                    yield 'data: [DONE]\n\n'
+                                    return
+                                except asyncio.TimeoutError:
+                                    if _tok_buf:
+                                        yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                        _tok_buf = []
+                                        _last_flush = loop.time()
+                                    yield ': heartbeat\n\n'
+                                    continue
+
+                                # Redis cancel check (sync redis.exists is a
+                                # single round-trip; acceptable per token).
+                                try:
+                                    _redis = _cache_svc._redis
+                                    if _redis and _redis.exists(_cancel_key):
+                                        _redis.delete(_cancel_key)
+                                        logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
+                                        await _aiter.aclose()
+                                        if _tok_buf:
+                                            yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                        yield 'data: [DONE]\n\n'
+                                        return
+                                except Exception as _redis_err:
+                                    logger.debug('[/ask] Redis cancel check error: %s', _redis_err)
+
                                 # Micro-batch: accumulate tokens and flush when
-                                # the buffer is large enough or 50 ms have passed.
-                                _tok_buf.append(_value)
-                                _full_text.append(_value)
+                                # buffer is large enough or 50 ms have passed.
+                                _tok_buf.append(_tok)
+                                _full_text.append(_tok)
                                 _now = loop.time()
                                 if len(_tok_buf) >= _FLUSH_COUNT or (_now - _last_flush) >= _FLUSH_SECS:
                                     yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
                                     _tok_buf = []
                                     _last_flush = _now
-                    except asyncio.CancelledError:
-                        # Client disconnected — Starlette cancels async generators.
-                        logger.info('[/ask] SSE client disconnected — stopping generation req_id=%s', _stream_req_id)
-                        _stop.set()
-                        raise
-                    finally:
-                        _stop.set()
+
+                        except asyncio.CancelledError:
+                            # Client disconnected — Starlette cancels the generator.
+                            logger.info('[/ask] SSE client disconnected — stopping generation req_id=%s', _stream_req_id)
+                            raise
+                        except Exception as _err:
+                            if _attempt < len(_models) - 1:
+                                logger.warning(
+                                    "[/ask] snap stream primary failed (%s), retrying with fallback %s",
+                                    _err, _stream_fallback,
+                                )
+                                continue
+                            logger.error("SSE stream error: %s", _err)
+                            if _tok_buf:
+                                yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                            yield f'data: {json.dumps({"error": "Streaming failed. Please retry.", "text": ""}, ensure_ascii=False)}\n\n'
+                            yield 'data: [DONE]\n\n'
+                            return
 
                 return StreamingResponse(
                     _sse_generator(),
