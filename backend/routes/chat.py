@@ -362,7 +362,7 @@ def ask(request: Request, body: AskRequest):
         # frequently slow or gated — use a short 20s cap so the fallback triggers
         # quickly rather than making users wait 55s.  All other slow modes get 55s.
         _is_o_series_model = bool(selected_model and
-                                   __import__('re').match(r'openai/o\d', selected_model))
+                                   re.match(r'openai/o\d', selected_model))
         _ai_timeout = (20 if _is_o_series_model
                        else 55 if mode in ('master', 'research') or thinking_mode in ('deep', 'thinking')
                        else 30)
@@ -1217,7 +1217,7 @@ Answer helpfully and clearly."""
                         )
                         if mode == 'master':
                             _timeout_fallback_note = (
-                                'Master mode is taking longer than usual. Switching to fast mode\u2026'
+                                'Master mode is taking longer than usual. Switching to fast mode...'
                             )
                     else:
                         logger.warning("[/ask] primary model %s failed (%s), retrying with fallback %s",
