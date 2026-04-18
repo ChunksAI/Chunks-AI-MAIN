@@ -38,6 +38,7 @@ from datetime import datetime
 
 import requests
 import httpx
+from concurrent.futures import ThreadPoolExecutor
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -175,6 +176,11 @@ _async_http_client = httpx.AsyncClient(
     timeout=httpx.Timeout(connect=5.0, read=60.0, write=10.0, pool=5.0),
 )
 
+# ── Thread pool for Supabase cache writes (bounded, no per-request threads) ───
+_sb_write_executor = ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix='sb-write',
+)
+
 # ── App config ────────────────────────────────────────────────────────────────
 OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY', 'your-key-here')
 R2_BUCKET_URL      = os.environ.get('R2_BUCKET_URL', 'https://pub-xxxxx.r2.dev')
@@ -275,6 +281,7 @@ _cache_svc_mod.init(
     session              = _session,
     supabase_url         = SUPABASE_URL,
     supabase_service_key = SUPABASE_SERVICE_KEY,
+    executor             = _sb_write_executor,
 )
 
 # ── Re-export BOOK_LIBRARY for backward compatibility ─────────────────────────
@@ -612,6 +619,13 @@ async def close_async_http_client():
     """Drain keep-alive connections and close the shared httpx.AsyncClient."""
     await _async_http_client.aclose()
     logger.info("Async HTTP client closed.")
+
+
+@app.on_event("shutdown")
+async def shutdown_sb_write_executor():
+    """Drain pending Supabase cache writes and shut down the thread pool."""
+    _sb_write_executor.shutdown(wait=True, cancel_futures=False)
+    logger.info("Supabase write executor shut down.")
 
 
 # ── Shared context — populate before registering routers ─────────────────────

@@ -46,8 +46,8 @@ import json
 import logging
 import math
 import re
-import threading
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -92,6 +92,11 @@ class CacheService:
         self._session = None
         self._supabase_url: str = ''
         self._supabase_service_key: str = ''
+        # ThreadPoolExecutor used for background Supabase writes.
+        # None means fall back to a private per-instance pool created lazily
+        # during the first write so tests without a server.py startup still work.
+        self._executor: ThreadPoolExecutor | None = None
+        self._own_executor: ThreadPoolExecutor | None = None
 
         # In-memory fallback for semantic cache when Redis is unavailable.
         # OrderedDict enables O(1) LRU eviction: most-recently used key is at
@@ -107,12 +112,15 @@ class CacheService:
         session=None,
         supabase_url: str = '',
         supabase_service_key: str = '',
+        executor: ThreadPoolExecutor | None = None,
     ) -> None:
         """Inject shared dependencies. Call once from server.py at startup."""
         self._redis = redis
         self._session = session
         self._supabase_url = supabase_url
         self._supabase_service_key = supabase_service_key
+        if executor is not None:
+            self._executor = executor
         logger.info("Semantic cache: %d context hashes in memory", len(self._sem_mem))
 
     # ── Generic key-value interface ───────────────────────────────────────────
@@ -430,8 +438,17 @@ class CacheService:
             except Exception as exc:
                 logger.warning('cache._sb_cache_set error: %s', exc)
 
-        threading.Thread(target=_write, daemon=True, name='sb-cache-write').start()
-        logger.debug('cache._sb_cache_set dispatched to background thread for key=%s', key[:20])
+        executor = self._executor
+        if executor is None:
+            # Lazy fallback pool — only used when init() was called without an
+            # executor (e.g. in unit tests that don't go through server.py).
+            if self._own_executor is None:
+                self._own_executor = ThreadPoolExecutor(
+                    max_workers=4, thread_name_prefix='sb-write',
+                )
+            executor = self._own_executor
+        executor.submit(_write)
+        logger.debug('cache._sb_cache_set submitted to thread pool for key=%s', key[:20])
 
     # ── Semantic cache storage helpers ────────────────────────────────────────
 
@@ -498,6 +515,7 @@ def init(
     session=None,
     supabase_url: str = '',
     supabase_service_key: str = '',
+    executor: ThreadPoolExecutor | None = None,
 ) -> None:
     """Convenience wrapper around ``cache_svc.init()``.
 
@@ -511,4 +529,5 @@ def init(
         session=session,
         supabase_url=supabase_url,
         supabase_service_key=supabase_service_key,
+        executor=executor,
     )
