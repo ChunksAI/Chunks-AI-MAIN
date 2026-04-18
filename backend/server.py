@@ -37,6 +37,7 @@ from contextvars import ContextVar
 from datetime import datetime
 
 import requests
+import httpx
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -164,6 +165,16 @@ def _build_session():
 
 _session = _build_session()
 
+# ── Async HTTP client — shared across all LLM calls ───────────────────────────
+_async_http_client = httpx.AsyncClient(
+    limits=httpx.Limits(
+        max_connections=100,
+        max_keepalive_connections=20,
+        keepalive_expiry=30,
+    ),
+    timeout=httpx.Timeout(connect=5.0, read=60.0, write=10.0, pool=5.0),
+)
+
 # ── App config ────────────────────────────────────────────────────────────────
 OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY', 'your-key-here')
 R2_BUCKET_URL      = os.environ.get('R2_BUCKET_URL', 'https://pub-xxxxx.r2.dev')
@@ -227,6 +238,7 @@ _ai_svc.init(
     openrouter_api_key = OPENROUTER_API_KEY,
     model              = MODEL,
     max_history_turns  = MAX_HISTORY_TURNS,
+    async_client       = _async_http_client,
 )
 _vector_store_svc.init(
     session              = _session,
@@ -244,6 +256,7 @@ _answer_cache_svc.init(redis=_redis)
 _prompt_guard_svc.init(
     session            = _session,
     openrouter_api_key = OPENROUTER_API_KEY,
+    async_client       = _async_http_client,
 )
 
 import services.token_budget as _token_budget_svc  # noqa: E402
@@ -594,10 +607,18 @@ async def validate_services():
         raise
 
 
+@app.on_event("shutdown")
+async def close_async_http_client():
+    """Drain keep-alive connections and close the shared httpx.AsyncClient."""
+    await _async_http_client.aclose()
+    logger.info("Async HTTP client closed.")
+
+
 # ── Shared context — populate before registering routers ─────────────────────
 from routes.shared import ctx as _ctx  # noqa: E402
 _ctx._init(
     session              = _session,
+    async_client         = _async_http_client,
     SUPABASE_URL         = SUPABASE_URL,
     SUPABASE_SERVICE_KEY = SUPABASE_SERVICE_KEY,
     SUPABASE_ANON_KEY    = SUPABASE_ANON_KEY,

@@ -26,7 +26,8 @@ def _mock_extract_verified(monkeypatch, user_id=_VERIFIED_USER_ID):
 
 
 def _mock_supabase_ok(monkeypatch):
-    """Make the Supabase session return 200 on upsert/select."""
+    """Make the Supabase async_client return 200 on upsert/select."""
+    from unittest.mock import AsyncMock
     from routes import shared as shared_mod
     ctx = MagicMock()
     ctx.SUPABASE_URL = 'https://fake.supabase.co'
@@ -34,8 +35,8 @@ def _mock_supabase_ok(monkeypatch):
     mock_resp = MagicMock()
     mock_resp.status_code = 204
     mock_resp.json.return_value = []
-    ctx.session.post.return_value = mock_resp
-    ctx.session.get.return_value = mock_resp
+    ctx.async_client.post = AsyncMock(return_value=mock_resp)
+    ctx.async_client.get = AsyncMock(return_value=mock_resp)
     monkeypatch.setattr(shared_mod, 'ctx', ctx)
     return ctx
 

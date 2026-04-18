@@ -259,13 +259,13 @@ def build_system_prompt(
 
 @router.post('/ask')
 @limiter.limit("10/minute")
-def ask(request: Request, body: AskRequest):
+async def ask(request: Request, body: AskRequest):
     try:
         from services.ai import (
-            call_ai, call_ai_stream, call_ai_web_search, sanitize_user_memory,
+            call_ai_async, call_ai_stream, call_ai_web_search_async, sanitize_user_memory,
             should_search_textbook, extract_thinking_content,
         )
-        from services.prompt_guard import screen_prompt
+        from services.prompt_guard import screen_prompt_async
         from services.books import BOOK_LIBRARY, TextbookSearch, get_book_index
         from services.ai_router import route, route_for_mode
         from services.mcq_parser import _parse_mcq
@@ -652,7 +652,7 @@ def ask(request: Request, body: AskRequest):
                 "third 'amber' (use 'coral' only if a fourth item is somehow needed)\n"
                 "- The 'key_difference' must be one concise sentence (under 20 words)"
             )
-            answer = call_ai(question, system_prompt=vt_system, model=selected_model, history=history,
+            answer = await call_ai_async(question, system_prompt=vt_system, model=selected_model, history=history,
                              endpoint='chat_visual', user_id=verified_user_id, timeout=_ai_timeout)
             answer, thinking_content = extract_thinking_content(answer)
             # Strip the internal visual_plan field from diagram responses so it is
@@ -774,7 +774,7 @@ Rules:
 - {latex_instruction}
 - Do NOT add any text before Q1 or after Q10's explanation"""
 
-            answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
+            answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
                              endpoint='chat_exam', user_id=verified_user_id, timeout=_ai_timeout)
             answer, thinking_content = extract_thinking_content(answer)
             questions = _parse_mcq(answer)
@@ -811,7 +811,7 @@ Structure your response like this:
 
 {latex_instruction}"""
 
-            answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
+            answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
                              endpoint='chat_practice', user_id=verified_user_id, timeout=_ai_timeout)
             answer, thinking_content = extract_thinking_content(answer)
             return {
@@ -845,7 +845,7 @@ Include these sections:
 {latex_instruction}
 Keep the summary focused, clear, and easy to review before an exam."""
 
-            answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
+            answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
                              endpoint='chat_summary', user_id=verified_user_id, timeout=_ai_timeout)
             answer, thinking_content = extract_thinking_content(answer)
             _resp = {
@@ -903,7 +903,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 _injection_flagged, _injection_method = False, 'clean'
             else:
                 _screen_text = question
-                _injection_flagged, _injection_method = screen_prompt(_screen_text, user_id=verified_user_id)
+                _injection_flagged, _injection_method = await screen_prompt_async(_screen_text, user_id=verified_user_id)
 
             if _injection_flagged:
                 logger.warning(
@@ -920,7 +920,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
             logger.info("generate mode: prompt len=%d user=%s", len(question), verified_user_id)
 
             try:
-                raw_json = call_ai(
+                raw_json = await call_ai_async(
                     question,
                     system_prompt=(
                         'You are a structured JSON generator for an educational platform. '
@@ -938,7 +938,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 )
             except RuntimeError as _ai_err:
                 logger.warning(
-                    "generate mode: call_ai failed (user %s): %s",
+                    "generate mode: call_ai_async failed (user %s): %s",
                     verified_user_id, _ai_err,
                 )
                 return JSONResponse({
@@ -979,14 +979,14 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     "a source, include the full URL in the text so users can visit it. "
                     f"{response_style_instruction}"
                 )
-                answer, web_citations = call_ai_web_search(
+                answer, web_citations = await call_ai_web_search_async(
                     question, system_prompt=web_system, history=history,
                     user_id=verified_user_id,
                 )
                 if answer.startswith('Error:') or answer.startswith('Web search error:'):
                     logger.warning(f"Web search failed ({answer[:80]}), falling back to standard model")
                     fallback_prompt = f"STUDENT QUESTION: {question}\n\nAnswer helpfully and clearly."
-                    answer = call_ai(fallback_prompt, system_prompt=base_system, model=selected_model, history=history,
+                    answer = await call_ai_async(fallback_prompt, system_prompt=base_system, model=selected_model, history=history,
                                      endpoint='chat', user_id=verified_user_id, timeout=_ai_timeout,
                                      max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))
                     answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
@@ -1209,7 +1209,7 @@ Answer helpfully and clearly."""
 
             _timeout_fallback_note: str | None = None
             try:
-                answer = call_ai(prompt, system_prompt=_call_system, model=selected_model, history=history,
+                answer = await call_ai_async(prompt, system_prompt=_call_system, model=selected_model, history=history,
                                  endpoint='chat', user_id=verified_user_id, timeout=_ai_timeout,
                                  max_tokens_override=_max_tok, response_format=_response_format)
             except Exception as _primary_err:
@@ -1227,7 +1227,7 @@ Answer helpfully and clearly."""
                     else:
                         logger.warning("[/ask] primary model %s failed (%s), retrying with fallback %s",
                                        selected_model, _primary_err, _mode_fallback)
-                    answer = call_ai(prompt, system_prompt=_call_system, model=_mode_fallback,
+                    answer = await call_ai_async(prompt, system_prompt=_call_system, model=_mode_fallback,
                                      history=history, endpoint='chat', user_id=verified_user_id,
                                      timeout=_ai_timeout, max_tokens_override=_max_tok,
                                      response_format=_response_format)
@@ -1253,7 +1253,7 @@ Answer helpfully and clearly."""
                     # Retry with a stricter system prompt to coerce JSON output.
                     _retry_model = _mode_fallback or selected_model
                     try:
-                        _retry_answer = call_ai(
+                        _retry_answer = await call_ai_async(
                             prompt, system_prompt=_STRICT_JSON_SYSTEM_PROMPT, model=_retry_model,
                             history=history, endpoint='chat', user_id=verified_user_id,
                             timeout=_ai_timeout, max_tokens_override=_max_tok,

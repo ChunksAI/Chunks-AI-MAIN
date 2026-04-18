@@ -254,7 +254,7 @@ def next_topic(request: Request, body: NextTopicRequest):  # request required by
 
 @router.get('/load-model')
 @limiter.limit("60/minute")
-def load_model(request: Request):
+async def load_model(request: Request):
     from routes.shared import ctx
     from services.auth import _extract_verified_user
 
@@ -264,18 +264,18 @@ def load_model(request: Request):
 
     user_id = verified_user_id
 
-    supabase_url = getattr(ctx, 'SUPABASE_URL', '')
-    service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
-    session      = getattr(ctx, 'session', None)
+    supabase_url  = getattr(ctx, 'SUPABASE_URL', '')
+    service_key   = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
+    async_client  = getattr(ctx, 'async_client', None)
 
-    if not supabase_url or not service_key or not session:
+    if not supabase_url or not service_key or not async_client:
         return JSONResponse(
             {'error': 'Supabase not configured on this server.'},
             status_code=500,
         )
 
     try:
-        resp = session.get(
+        resp = await async_client.get(
             f'{supabase_url}/rest/v1/user_settings'
             f'?user_id=eq.{user_id}&select=student_knowledge_model',
             headers={
@@ -286,8 +286,8 @@ def load_model(request: Request):
         )
         if resp.status_code not in (200, 201, 204):
             logger.error(
-                f'[tutor/load-model] Supabase query failed: '
-                f'status={resp.status_code} body={resp.text[:200]}'
+                '[tutor/load-model] Supabase query failed: '
+                'status=%d body=%s', resp.status_code, resp.text[:200],
             )
             return JSONResponse(
                 {'error': f'Supabase returned {resp.status_code}'},
@@ -321,7 +321,7 @@ class EvaluateSocraticRequest(BaseModel):
 
 
 @router.post('/evaluate-socratic')
-def evaluate_socratic(body: EvaluateSocraticRequest):
+async def evaluate_socratic(body: EvaluateSocraticRequest):
     """
     Ask the AI to evaluate whether a student's answer to a Socratic
     checking question is correct.
@@ -329,14 +329,12 @@ def evaluate_socratic(body: EvaluateSocraticRequest):
     Returns:
         { correct: bool, feedback: str }
     """
-    import importlib
     try:
-        ai_mod = importlib.import_module('services.ai')
-        call_ai = getattr(ai_mod, 'call_ai', None)
-    except Exception:
-        call_ai = None
+        from services.ai import call_ai_async
+    except ImportError:
+        call_ai_async = None
 
-    if call_ai is None:
+    if call_ai_async is None:
         return JSONResponse(
             {'error': 'AI service not available.'},
             status_code=500,
@@ -353,13 +351,12 @@ def evaluate_socratic(body: EvaluateSocraticRequest):
     )
 
     try:
-        raw = call_ai(
+        raw = await call_ai_async(
             prompt,
             system_prompt='You are a helpful tutor evaluating a student answer. Return only valid JSON.',
             max_tokens_override=200,
             endpoint='chat',
         )
-        # Strip markdown code fences if present
         cleaned = raw.strip()
         if cleaned.startswith('```'):
             cleaned = cleaned.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
@@ -377,7 +374,7 @@ def evaluate_socratic(body: EvaluateSocraticRequest):
 
 @router.post('/save-model')
 @limiter.limit("30/minute")
-def save_model(request: Request, body: SaveModelRequest):
+async def save_model(request: Request, body: SaveModelRequest):
     from routes.shared import ctx
     from services.auth import _extract_verified_user
 
@@ -396,28 +393,23 @@ def save_model(request: Request, body: SaveModelRequest):
     if len(json.dumps(model).encode('utf-8')) > 65_536:
         return JSONResponse({'error': 'Student model exceeds maximum size.'}, status_code=400)
 
-    supabase_url = getattr(ctx, 'SUPABASE_URL', '')
-    service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
-    session      = getattr(ctx, 'session', None)
+    supabase_url  = getattr(ctx, 'SUPABASE_URL', '')
+    service_key   = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
+    async_client  = getattr(ctx, 'async_client', None)
 
-    if not supabase_url or not service_key or not session:
+    if not supabase_url or not service_key or not async_client:
         return JSONResponse(
             {'error': 'Supabase not configured on this server.'},
             status_code=500,
         )
 
-    # Send the model as a native dict.  session.post(json=...) (requests
-    # library) serializes the dict to JSON and sets Content-Type to
-    # application/json automatically.  Because the column is now JSONB,
-    # Supabase's PostgREST parses the JSON body directly into JSONB — no
-    # intermediate TEXT step or json.dumps() on our side is required.
     payload = {
         'user_id':               verified_user_id,
         'student_knowledge_model': model,
     }
 
     try:
-        resp = session.post(
+        resp = await async_client.post(
             f'{supabase_url}/rest/v1/user_settings',
             json=payload,
             headers={
@@ -430,8 +422,8 @@ def save_model(request: Request, body: SaveModelRequest):
         )
         if resp.status_code not in (200, 201, 204):
             logger.error(
-                f'[tutor/save-model] Supabase upsert failed: '
-                f'status={resp.status_code} body={resp.text[:200]}'
+                '[tutor/save-model] Supabase upsert failed: '
+                'status=%d body=%s', resp.status_code, resp.text[:200],
             )
             return JSONResponse(
                 {'error': f'Supabase returned {resp.status_code}'},

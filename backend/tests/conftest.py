@@ -65,8 +65,34 @@ def csrf_client(app, monkeypatch):
         yield tc
 
 
-@pytest.fixture
-def mock_call_ai(monkeypatch):
+@pytest.fixture(autouse=True)
+def _async_ai_shim(monkeypatch):
+    """Automatically wire async AI helpers to their sync counterparts.
+
+    Tests mock the sync ``call_ai``, ``call_ai_web_search``, and
+    ``screen_prompt`` functions.  Now that route handlers call the *async*
+    variants, we install shims so that any test-level mock of the sync
+    function is automatically exercised by the async path too.
+
+    If a test explicitly patches the async variant itself (e.g. with
+    AsyncMock), that explicit patch wins because it runs after this fixture.
+    """
+    import services.ai as ai_svc
+    import services.prompt_guard as pg_svc
+
+    async def _call_ai_async_shim(*args, **kwargs):
+        return ai_svc.call_ai(*args, **kwargs)
+
+    async def _call_ai_web_search_async_shim(*args, **kwargs):
+        return ai_svc.call_ai_web_search(*args, **kwargs)
+
+    async def _screen_prompt_async_shim(*args, **kwargs):
+        return pg_svc.screen_prompt(*args, **kwargs)
+
+    monkeypatch.setattr(ai_svc, 'call_ai_async', _call_ai_async_shim)
+    monkeypatch.setattr(ai_svc, 'call_ai_web_search_async', _call_ai_web_search_async_shim)
+    monkeypatch.setattr(pg_svc, 'screen_prompt_async', _screen_prompt_async_shim)
+    yield
     """Patch services.ai.call_ai to return a canned string response."""
     import services.ai as ai_svc
     mock = MagicMock(return_value="Mocked AI response for testing.")
