@@ -15,6 +15,7 @@ import logging
 import os
 import random
 import re
+import uuid
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -1263,6 +1264,9 @@ Answer helpfully and clearly."""
                     # propagates naturally through asyncio.wait_for(), closing
                     # the httpx stream via its async context manager __aexit__.
 
+                    # Unique ID for this stream — used by the recovery buffer.
+                    stream_id = uuid.uuid4().hex  # full 32-char UUID hex
+
                     loop = asyncio.get_running_loop()
 
                     # Heartbeat / batching constants (unchanged behaviour)
@@ -1274,6 +1278,10 @@ Answer helpfully and clearly."""
                     _tok_buf: list[str] = []
                     _full_text: list[str] = []   # accumulate for viewer_action detection
                     _last_flush = loop.time()
+
+                    # Emit stream_id as the very first SSE event so the client
+                    # can use it to recover a truncated stream via /api/stream/{stream_id}.
+                    yield f'data: {json.dumps({"stream_id": stream_id}, ensure_ascii=False)}\n\n'
 
                     _models = [_stream_model] + ([_stream_fallback] if _stream_fallback else [])
 
@@ -1307,6 +1315,22 @@ Answer helpfully and clearly."""
                                     if _va:
                                         yield f'data: {json.dumps({"meta": {"viewer_action": _va}}, ensure_ascii=False)}\n\n'
                                     yield 'data: [DONE]\n\n'
+                                    # Persist the completed stream to Redis for
+                                    # best-effort client recovery (5-minute TTL).
+                                    # Skip if the buffer is unexpectedly large (> 1 MB)
+                                    # to avoid excessive Redis memory under high concurrency.
+                                    try:
+                                        _redis = _cache_svc._redis
+                                        if _redis:
+                                            _buf_json = json.dumps(_full_text)
+                                            if len(_buf_json) <= 1024 * 1024:
+                                                _redis.setex(
+                                                    f'{_KEY_NS_PREFIX}stream:{stream_id}',
+                                                    300,
+                                                    _buf_json,
+                                                )
+                                    except Exception as _buf_err:
+                                        logger.debug('[/ask] stream buffer write error: %s', _buf_err)
                                     return
                                 except asyncio.TimeoutError:
                                     if _tok_buf:
@@ -1553,3 +1577,28 @@ async def cancel_ask(request: Request) -> JSONResponse:
             logger.warning('[/ask/cancel] Redis error: %s', exc)
         logger.info('[/ask/cancel] cancellation registered req_id=%s', req_id)
     return JSONResponse({'cancelled': bool(req_id)})
+
+
+@router.get('/api/stream/{stream_id}')
+async def get_stream_buffer(stream_id: str) -> JSONResponse:
+    """Retrieve the token buffer for a completed SSE stream.
+
+    Returns ``{"complete": true, "tokens": [...]}`` when the stream finished
+    and its buffer is still within the 5-minute TTL.  Returns HTTP 404 when
+    the ``stream_id`` is unknown or the TTL has expired.
+
+    This is a best-effort recovery endpoint — it only holds data for streams
+    that completed successfully within the last 5 minutes.
+    """
+    try:
+        _redis = _cache_svc._redis
+        if not _redis:
+            return JSONResponse({'detail': 'Stream not found.'}, status_code=404)
+        raw = _redis.get(f'{_KEY_NS_PREFIX}stream:{stream_id}')
+        if raw is None:
+            return JSONResponse({'detail': 'Stream not found or expired.'}, status_code=404)
+        tokens: list[str] = json.loads(raw)
+        return JSONResponse({'complete': True, 'tokens': tokens})
+    except Exception as exc:
+        logger.warning('[/api/stream] error fetching buffer stream_id=%s: %s', stream_id, exc)
+        return JSONResponse({'detail': 'Stream not found.'}, status_code=404)

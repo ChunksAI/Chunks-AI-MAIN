@@ -179,6 +179,26 @@ export function cancelAsk(requestId: string): void {
   }).catch(() => {});
 }
 
+/**
+ * Fetch the token buffer for a completed SSE stream.
+ * Returns the buffered tokens when the stream finished within the last 5 minutes,
+ * or null when the stream_id is unknown, still in-progress, or the TTL has expired.
+ * This is a best-effort recovery call — never throws.
+ */
+export async function getStreamBuffer(
+  streamId: string,
+  signal?: AbortSignal,
+): Promise<{ complete: boolean; tokens: string[] } | null> {
+  try {
+    return await apiGet<{ complete: boolean; tokens: string[] }>(
+      `/api/stream/${streamId}`,
+      signal,
+    );
+  } catch {
+    return null;
+  }
+}
+
 export async function sendMessage(params: SendMessageRequest): Promise<SendMessageResponse> {
   return apiPost<SendMessageResponse>('/ask', {
     question: params.question,
@@ -298,6 +318,7 @@ export async function sendMessageStream(
   onChunk: (text: string) => void,
   signal?: AbortSignal,
   onRequestId?: (id: string) => void,
+  onStreamId?: (id: string) => void,
 ): Promise<SendMessageResponse> {
   const authHeaders = await getAuthHeaders();
   const reqId = makeReqId();
@@ -394,10 +415,15 @@ export async function sendMessageStream(
             const data = line.slice(6).trim();
             if (data === '[DONE]') break outer; // exit both loops
             try {
-              const parsed = JSON.parse(data) as SseChunk & { error?: string; meta?: { viewer_action?: ViewerAction } };
+              const parsed = JSON.parse(data) as SseChunk & { error?: string; meta?: { viewer_action?: ViewerAction }; stream_id?: string };
               // Check for a server-sent error before treating the chunk as content
               if (parsed.error) {
                 throw new ApiError(parsed.error, 502);
+              }
+              // Capture stream_id emitted as the first SSE event for recovery.
+              if (parsed.stream_id) {
+                onStreamId?.(parsed.stream_id);
+                continue;
               }
               // Capture metadata event (e.g. viewer_action) — no text content
               if (parsed.meta) {

@@ -47,7 +47,7 @@ import { useChatContext, type ChatState, type ChatAction } from '@/contexts/Chat
 import { useQuizContext, type QuizState, type QuizAction, calcWeakAreas } from '@/contexts/QuizContext';
 import { useNotesContext, type NotesState, type NotesAction } from '@/contexts/NotesContext';
 import { useViewerContext } from '@/contexts/ViewerContext';
-import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus } from '@/lib/studyApi';
+import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus, getStreamBuffer } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
 import {
@@ -1045,6 +1045,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // Track the X-Request-Id of the current in-flight /ask request for server-side cancel
   const currentRequestIdRef = useRef<string | null>(null);
 
+  // Track the stream_id of the current SSE stream for best-effort recovery
+  const streamIdRef = useRef<string | null>(null);
+
   // Track in-flight generation requests to prevent double-triggering
   const flashcardsInFlightRef = useRef(false);
   const quizInFlightRef = useRef(false);
@@ -1181,6 +1184,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     async (text: string, opts: { selectedText?: string; docContext?: string } = {}) => {
       abortRef.current?.abort();
       abortRef.current = new AbortController();
+      streamIdRef.current = null;
 
       const userMsg: ChatMessage = { id: nextMsgId(), role: 'user', text };
       chatDispatch({ type: 'SEND_MESSAGE', payload: userMsg });
@@ -1272,6 +1276,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           },
           abortRef.current.signal,
           (reqId) => { currentRequestIdRef.current = reqId; },
+          (sid) => { streamIdRef.current = sid; },
         );
 
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
@@ -1364,11 +1369,39 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           chatDispatch({ type: 'REMOVE_MESSAGE', payload: aiMsgId });
           return;
         }
+        // Best-effort stream recovery: if the backend completed the stream
+        // before the client lost connection, the full token list will be in
+        // Redis for up to 5 minutes.  Replay it instead of showing an error.
+        const capturedStreamId = streamIdRef.current;
+        if (capturedStreamId && isStreamingMode) {
+          try {
+            const buffer = await getStreamBuffer(capturedStreamId);
+            if (buffer?.complete && buffer.tokens.length > 0) {
+              const recoveredText = buffer.tokens.join('');
+              chatDispatch({
+                type: 'REPLACE_AI_MESSAGE',
+                payload: {
+                  id: aiMsgId,
+                  text: recoveredText,
+                  actions: [
+                    { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
+                    { label: '🎯 Quiz me on this', actionKey: 'quiz' },
+                  ],
+                },
+              });
+              chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
+              return;
+            }
+          } catch {
+            // Recovery failed — fall through to normal error handling
+          }
+        }
         const message =
           err instanceof Error ? err.message : 'Something went wrong. Please try again.';
         chatDispatch({ type: 'HANDLE_CHAT_ERROR', payload: { messageId: aiMsgId, error: message, originalQuestion: text } });
       } finally {
         currentRequestIdRef.current = null;
+        streamIdRef.current = null;
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
