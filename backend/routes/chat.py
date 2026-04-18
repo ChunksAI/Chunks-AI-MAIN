@@ -358,8 +358,14 @@ def ask(request: Request, body: AskRequest):
         else:
             selected_model, _mode_fallback = route_for_mode(mode or task_type or 'snap', complexity)
 
-        # Per-mode request timeout: use full 55s for slow/large modes; 30s elsewhere.
-        _ai_timeout = 55 if mode in ('master', 'research') or thinking_mode in ('deep', 'thinking') else 30
+        # Per-mode request timeout: o-series reasoning models (e.g. o4-mini) are
+        # frequently slow or gated — use a short 20s cap so the fallback triggers
+        # quickly rather than making users wait 55s.  All other slow modes get 55s.
+        _is_o_series_model = bool(selected_model and
+                                   __import__('re').match(r'openai/o\d', selected_model))
+        _ai_timeout = (20 if _is_o_series_model
+                       else 55 if mode in ('master', 'research') or thinking_mode in ('deep', 'thinking')
+                       else 30)
 
         # User-uploaded document: skip textbook index entirely —
         # unless PAEV has finished indexing it, in which case treat it
@@ -1196,14 +1202,26 @@ Answer helpfully and clearly."""
                 _call_system = base_system
                 _response_format = None
 
+            _timeout_fallback_note: str | None = None
             try:
                 answer = call_ai(prompt, system_prompt=_call_system, model=selected_model, history=history,
                                  endpoint='chat', user_id=verified_user_id, timeout=_ai_timeout,
                                  max_tokens_override=_max_tok, response_format=_response_format)
             except Exception as _primary_err:
                 if _mode_fallback:
-                    logger.warning("[/ask] primary model %s failed (%s), retrying with fallback %s",
-                                   selected_model, _primary_err, _mode_fallback)
+                    _is_timeout = 'timed out' in str(_primary_err).lower()
+                    if _is_timeout:
+                        logger.warning(
+                            "[/ask] mode=%s primary model %s timed out — switching to fallback %s",
+                            mode, selected_model, _mode_fallback,
+                        )
+                        if mode == 'master':
+                            _timeout_fallback_note = (
+                                'Master mode is taking longer than usual. Switching to fast mode\u2026'
+                            )
+                    else:
+                        logger.warning("[/ask] primary model %s failed (%s), retrying with fallback %s",
+                                       selected_model, _primary_err, _mode_fallback)
                     answer = call_ai(prompt, system_prompt=_call_system, model=_mode_fallback,
                                      history=history, endpoint='chat', user_id=verified_user_id,
                                      timeout=_ai_timeout, max_tokens_override=_max_tok,
@@ -1309,6 +1327,7 @@ Answer helpfully and clearly."""
                 'complexity_used': complexity,
                 'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf',
                 'thinking_content': thinking_content,
+                'fallback_note':  _timeout_fallback_note,
             }
             if _cache_eligible and _cache_key_val:
                 _cache_svc.ask_set(_cache_key_val, _resp,
