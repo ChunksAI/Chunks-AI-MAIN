@@ -1240,8 +1240,9 @@ Answer helpfully and clearly."""
                         _topic_match = _stripped.lstrip('#').strip()
                         break
                 if _topic_match:
-                    # Sanitize and embed in the SSE text so the frontend comment
-                    # parser can extract it without a separate field.
+                    # Sanitize and embed as an HTML comment in the snap answer so
+                    # that the frontend's extractTopicFromResponse() can parse it
+                    # from the streamed text (SSE path has no separate JSON field).
                     _safe_topic = _topic_match.replace('-->', '').replace('<', '').replace('>', '')[:120]
                     answer = answer + f'\n<!-- chunks-topic:{_safe_topic} -->'
 
