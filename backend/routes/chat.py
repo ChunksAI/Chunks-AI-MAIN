@@ -653,7 +653,8 @@ async def ask(request: Request, body: AskRequest):
                 "- The 'key_difference' must be one concise sentence (under 20 words)"
             )
             answer = await call_ai_async(question, system_prompt=vt_system, model=selected_model, history=history,
-                             endpoint='chat_visual', user_id=verified_user_id, timeout=_ai_timeout)
+                             endpoint='chat_visual', user_id=verified_user_id, timeout=_ai_timeout,
+                             fallback_model=_mode_fallback)
             answer, thinking_content = extract_thinking_content(answer)
             # Strip the internal visual_plan field from diagram responses so it is
             # never exposed to the client.  We parse, pop the key, then re-serialise;
@@ -775,7 +776,8 @@ Rules:
 - Do NOT add any text before Q1 or after Q10's explanation"""
 
             answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_exam', user_id=verified_user_id, timeout=_ai_timeout)
+                             endpoint='chat_exam', user_id=verified_user_id, timeout=_ai_timeout,
+                             fallback_model=_mode_fallback)
             answer, thinking_content = extract_thinking_content(answer)
             questions = _parse_mcq(answer)
             return {
@@ -812,7 +814,8 @@ Structure your response like this:
 {latex_instruction}"""
 
             answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_practice', user_id=verified_user_id, timeout=_ai_timeout)
+                             endpoint='chat_practice', user_id=verified_user_id, timeout=_ai_timeout,
+                             fallback_model=_mode_fallback)
             answer, thinking_content = extract_thinking_content(answer)
             return {
                 'success':        True,
@@ -846,7 +849,8 @@ Include these sections:
 Keep the summary focused, clear, and easy to review before an exam."""
 
             answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_summary', user_id=verified_user_id, timeout=_ai_timeout)
+                             endpoint='chat_summary', user_id=verified_user_id, timeout=_ai_timeout,
+                             fallback_model=_mode_fallback)
             answer, thinking_content = extract_thinking_content(answer)
             _resp = {
                 'success':        True,

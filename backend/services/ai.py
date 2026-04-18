@@ -17,6 +17,8 @@ import re
 import time
 from urllib.parse import urlparse
 
+import asyncio
+
 import httpx
 import requests
 
@@ -379,11 +381,22 @@ async def call_ai_async(
     user_id: str = '',
     timeout: int = 30,
     response_format: dict | None = None,
+    fallback_model: str | None = None,
 ):
     """Async counterpart to call_ai().  Uses the module-level httpx.AsyncClient.
 
     All parameters and return semantics are identical to call_ai().
     Raises ``RuntimeError`` on any non-200 response, empty content, or timeout.
+
+    Parameters
+    ----------
+    fallback_model : str | None
+        If provided, an ``asyncio.TimeoutError`` on the primary model is caught
+        and retried immediately with this model (covers TCP-level hangs that
+        httpx cannot detect).  If the fallback also times out,
+        ``RuntimeError("LLM_TIMEOUT")`` is raised.  Without a fallback, a
+        primary asyncio timeout also raises ``RuntimeError("LLM_TIMEOUT")``.
+        Maximum observed latency is ``timeout × 2`` (primary + fallback).
     """
     from services import token_budget
 
@@ -401,41 +414,39 @@ async def call_ai_async(
     if _async_client is None:
         raise RuntimeError("Async HTTP client not initialised — call ai.init() first")
 
-    try:
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://chunks.online",
-            "X-Title": "Chunks",
-        }
-        messages = [{"role": "system", "content": system_prompt}]
-        if history:
-            for h in history[-MAX_HISTORY_TURNS:]:
-                role    = h.get("role", "user")
-                content = h.get("content", "")
-                if role in ("user", "assistant") and content:
-                    messages.append({"role": role, "content": content})
-        messages.append({"role": "user", "content": prompt})
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://chunks.online",
+        "X-Title": "Chunks",
+    }
+    messages = [{"role": "system", "content": system_prompt}]
+    if history:
+        for h in history[-MAX_HISTORY_TURNS:]:
+            role    = h.get("role", "user")
+            content = h.get("content", "")
+            if role in ("user", "assistant") and content:
+                messages.append({"role": role, "content": content})
+    messages.append({"role": "user", "content": prompt})
 
+    _system_preview = (system_prompt or "")[:SYSTEM_PROMPT_PREVIEW_LENGTH]
+    logger.info(
+        "[SYSTEM_PROMPT] len=%d | preview=%s", len(system_prompt or ""), _system_preview,
+    )
+    logger.info(
+        "Model: %s | max_tokens: %d | endpoint: %s | history: %d turns",
+        use_model, effective_max_tokens, endpoint,
+        len(history) if history else 0,
+    )
+
+    async def _do_post(mdl: str) -> str:
         payload = {
-            "model":       use_model,
+            "model":       mdl,
             "messages":    messages,
             "temperature": 0.15,
             "max_tokens":  effective_max_tokens,
             **({"response_format": response_format} if response_format else {}),
         }
-        _system_preview = (system_prompt or "")[:SYSTEM_PROMPT_PREVIEW_LENGTH]
-        logger.info(
-            "[SYSTEM_PROMPT] len=%d | preview=%s", len(system_prompt or ""), _system_preview,
-        )
-        logger.info(
-            "Model: %s | max_tokens: %d | endpoint: %s | history: %d turns",
-            use_model, effective_max_tokens, endpoint,
-            len(history) if history else 0,
-        )
-        _t0 = time.time()
-        logger.info("[call_ai_async] START model=%s timeout=%ds", use_model, timeout)
-
         response = await _async_client.post(
             OPENROUTER_URL,
             headers=headers,
@@ -446,9 +457,8 @@ async def call_ai_async(
             resp_json = response.json()
             choices   = resp_json.get('choices', [])
             if choices:
-                _record_usage_from_response(resp_json, use_model, endpoint, user_id=user_id)
+                _record_usage_from_response(resp_json, mdl, endpoint, user_id=user_id)
                 content = choices[0]['message']['content']
-                logger.info("[call_ai_async] END model=%s latency=%.1fs", use_model, time.time() - _t0)
                 if not content or not content.strip():
                     raise RuntimeError("AI returned empty content. Please retry.")
                 return content
@@ -462,6 +472,43 @@ async def call_ai_async(
         if status == 429:
             raise RuntimeError("Upstream model rate-limited (429). Please retry in a moment.")
         raise RuntimeError(f"Upstream API returned {status}: {snippet}")
+
+    _t0 = time.time()
+    logger.info(
+        "[call_ai_async] START primary=%s fallback=%s timeout=%ds",
+        use_model, fallback_model or "none", timeout,
+    )
+
+    try:
+        try:
+            result = await asyncio.wait_for(_do_post(use_model), timeout=float(timeout))
+            logger.info(
+                "[call_ai_async] END path=primary model=%s latency=%.1fs",
+                use_model, time.time() - _t0,
+            )
+            return result
+        except asyncio.TimeoutError:
+            logger.warning(
+                "[call_ai_async] TIMEOUT path=primary model=%s timeout=%ds fallback=%s",
+                use_model, timeout, fallback_model or "none",
+            )
+            if not fallback_model:
+                raise RuntimeError("LLM_TIMEOUT")
+            try:
+                result = await asyncio.wait_for(
+                    _do_post(fallback_model), timeout=float(timeout),
+                )
+                logger.info(
+                    "[call_ai_async] END path=fallback primary=%s fallback=%s latency=%.1fs",
+                    use_model, fallback_model, time.time() - _t0,
+                )
+                return result
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "[call_ai_async] TIMEOUT path=fallback model=%s timeout=%ds — raising LLM_TIMEOUT",
+                    fallback_model, timeout,
+                )
+                raise RuntimeError("LLM_TIMEOUT")
     except httpx.TimeoutException:
         raise RuntimeError("The AI model timed out. Please try again.")
     except RuntimeError:
