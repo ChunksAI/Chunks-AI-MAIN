@@ -280,8 +280,9 @@ async def _fetch_paev_context(
 ) -> str:
     """Build a ``[PAEV CONTEXT]`` string from the student's failing gaps.
 
-    This is pure Python (no blocking I/O) but is an async coroutine so that
-    it composes cleanly with asyncio.gather() alongside ``_fetch_textbook_context``.
+    This is pure Python (no blocking I/O).  It is an async coroutine for API
+    consistency with ``_fetch_textbook_context`` so that both can be composed
+    with a single ``asyncio.gather()`` call on PAEV routes without wrapping.
 
     Returns an empty string when there are no failing gaps.
     """
@@ -503,7 +504,7 @@ async def ask(request: Request, body: AskRequest):
                 paev_context = await _fetch_paev_context(
                     student_gaps, _decision.paev_prereq_limit
                 )
-                logger.info("Chit-chat / no book loaded")
+                logger.info("PAEV-only route — no textbook search needed")
             else:
                 context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
                 paev_context = ''
