@@ -30,8 +30,11 @@ import os
 import hashlib
 import re
 import time
+import traceback
 import uuid
+from collections import deque
 from contextvars import ContextVar
+from datetime import datetime
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -53,6 +56,9 @@ from services.guest_limits import (  # noqa: F401
 
 # ── Request-ID context var (one value per async task / coroutine) ─────────────
 _request_id_var: ContextVar[str] = ContextVar('request_id', default='-')
+
+# ── In-memory circular buffer for the last 20 unhandled errors ────────────────
+_recent_errors: deque = deque(maxlen=20)
 
 
 class _RequestIdFilter(logging.Filter):
@@ -543,6 +549,13 @@ async def method_not_allowed(request: Request, exc):
 @app.exception_handler(500)
 async def internal_error(request: Request, exc):
     logger.exception("Unhandled 500 error")
+    _recent_errors.append({
+        'time':       datetime.utcnow().isoformat(),
+        'path':       request.url.path,
+        'error_type': type(exc).__name__,
+        'error':      str(exc)[:500],
+        'traceback':  traceback.format_exc()[-2000:],
+    })
     return JSONResponse({'success': False, 'error': 'Internal server error.'}, status_code=500)
 
 

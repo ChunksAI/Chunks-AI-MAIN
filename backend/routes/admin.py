@@ -883,3 +883,46 @@ def user_usage(request: Request):
     report = token_budget.get_user_monthly_usage(user['id'], month)
 
     return {'success': True, **report}
+
+
+@router.get('/api/admin/debug/last-errors')
+def last_errors(request: Request):
+    """Return the last 20 unhandled server errors. Requires admin JWT."""
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return JSONResponse({'success': False, 'error': 'Unauthorized'}, status_code=401)
+
+    jwt_token = auth_header[7:].strip()
+    verified, role = _check_admin_role(jwt_token)
+    if not verified or not role:
+        return JSONResponse({'success': False, 'error': 'Forbidden — admin only'}, status_code=403)
+
+    from server import _recent_errors
+    return {'success': True, 'errors': list(_recent_errors)}
+
+
+@router.get('/api/admin/debug/env-check')
+def env_check(request: Request):
+    """
+    Confirm (without revealing values) which env vars are set.
+    Requires admin JWT.
+    """
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return JSONResponse({'success': False, 'error': 'Unauthorized'}, status_code=401)
+
+    jwt_token = auth_header[7:].strip()
+    verified, role = _check_admin_role(jwt_token)
+    if not verified or not role:
+        return JSONResponse({'success': False, 'error': 'Forbidden — admin only'}, status_code=403)
+
+    keys = [
+        'OPENROUTER_API_KEY', 'SUPABASE_URL', 'SUPABASE_SERVICE_KEY',
+        'REDIS_URL', 'R2_BUCKET_URL', 'PRODUCTION',
+        'THINK_MODEL', 'DEEP_MODEL',
+        'SNAP_MODEL', 'CHUNK_MODEL', 'MASTER_MODEL', 'RESEARCH_MODEL',
+    ]
+    return {
+        'success': True,
+        'env': {k: ('SET' if os.environ.get(k) else 'MISSING') for k in keys},
+    }
