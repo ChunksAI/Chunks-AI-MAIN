@@ -46,6 +46,7 @@ import json
 import logging
 import math
 import re
+from collections import OrderedDict
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,9 @@ class CacheService:
     _SIMILARITY_THRESHOLD = 0.97
     _DEDUP_THRESHOLD = 0.99
     _MAX_ENTRIES_PER_CTX = 20
+    # Max unique context-hash keys kept in the in-memory fallback.
+    # Approx 500 × 20 entries × ~500 bytes ≈ 5 MB upper bound.
+    _SEM_MEM_MAX_KEYS = 500
 
     def __init__(self) -> None:
         self._redis = None
@@ -88,9 +92,11 @@ class CacheService:
         self._supabase_url: str = ''
         self._supabase_service_key: str = ''
 
-        # In-memory fallback for semantic cache when Redis is unavailable
+        # In-memory fallback for semantic cache when Redis is unavailable.
+        # OrderedDict enables O(1) LRU eviction: most-recently used key is at
+        # the end; popitem(last=False) removes the least-recently used key.
         # context_hash → list of {emb, ans} dicts
-        self._sem_mem: dict[str, list[dict]] = {}
+        self._sem_mem: OrderedDict[str, list[dict]] = OrderedDict()
 
     # ── Initialisation ────────────────────────────────────────────────────────
 
@@ -106,6 +112,7 @@ class CacheService:
         self._session = session
         self._supabase_url = supabase_url
         self._supabase_service_key = supabase_service_key
+        logger.info("Semantic cache: %d context hashes in memory", len(self._sem_mem))
 
     # ── Generic key-value interface ───────────────────────────────────────────
 
@@ -426,7 +433,19 @@ class CacheService:
                     return json.loads(raw)
             except Exception as exc:
                 logger.warning('cache._sem_load redis error: %s', exc)
+        # Mark as recently used before returning
+        if ctx_hash in self._sem_mem:
+            self._sem_mem.move_to_end(ctx_hash)
         return list(self._sem_mem.get(ctx_hash, []))
+
+    def _sem_mem_set(self, ctx_hash: str, entries: list[dict]) -> None:
+        """Store entries in the LRU in-memory fallback, evicting the least-recently
+        used key when the dict exceeds ``_SEM_MEM_MAX_KEYS``."""
+        if ctx_hash in self._sem_mem:
+            self._sem_mem.move_to_end(ctx_hash)
+        self._sem_mem[ctx_hash] = entries
+        while len(self._sem_mem) > self._SEM_MEM_MAX_KEYS:
+            self._sem_mem.popitem(last=False)  # remove LRU entry
 
     def _sem_save(self, ctx_hash: str, entries: list[dict]) -> None:
         if self._redis is not None:
@@ -440,7 +459,7 @@ class CacheService:
             except Exception as exc:
                 logger.warning('cache._sem_save redis error: %s', exc)
         else:
-            self._sem_mem[ctx_hash] = entries
+            self._sem_mem_set(ctx_hash, entries)
 
     @staticmethod
     def _cosine_similarity(a: list[float], b: list[float]) -> float:
