@@ -1100,8 +1100,8 @@ Answer helpfully and clearly."""
                                     _redis.delete(_cancel_key)
                                     logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
                                     return
-                            except Exception:
-                                pass
+                            except Exception as _redis_err:
+                                logger.debug('[/ask] Redis cancel check error: %s', _redis_err)
                             _put(('token', _tok))
 
                     def _stream_to_queue() -> None:
