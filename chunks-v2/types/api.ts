@@ -12,6 +12,12 @@ export interface MessageHistoryItem {
   content: string;
 }
 
+// ─── Viewer action — emitted by the backend when the AI references a video ───
+
+export type ViewerAction =
+  | { type: 'seek_youtube'; video_id: string; timestamp_seconds: number }
+  | { type: 'switch_to_research'; url: string };
+
 // ─── Request Types ────────────────────────────────────────────────────────────
 
 export interface SendMessageRequest {
@@ -62,6 +68,12 @@ export interface SendMessageResponse {
   requestId?: string;
   /** Parsed structured data returned by chunk / master / research modes. */
   structured?: Record<string, unknown> | null;
+  /**
+   * Optional viewer action emitted when the AI references a video timestamp
+   * while the viewer_context route is active.  The frontend should seek the
+   * embedded player to the specified position when this field is present.
+   */
+  viewer_action?: ViewerAction | null;
 }
 
 export interface Flashcard {
