@@ -437,6 +437,18 @@ async def ask(request: Request, body: AskRequest):
             except Exception as _smc_err:
                 logger.debug('[ask] student model cache lookup failed: %s', _smc_err)
 
+        # ── Server-side viewer state fallback (Redis) ─────────────────────────
+        # If the client omitted viewer_state, check Redis so the server always
+        # knows what the student is viewing (set via POST /api/viewer/set-state).
+        if viewer_state is None and verified_user_id and not verified_user_id.startswith('ip:'):
+            try:
+                import json as _json
+                _vs_raw = ctx.redis.get(f'viewer_state:{verified_user_id}') if ctx.redis else None
+                if _vs_raw:
+                    viewer_state = _json.loads(_vs_raw)
+            except Exception as _vs_err:
+                logger.debug('[ask] viewer state cache lookup failed: %s', _vs_err)
+
         # ── Redis query cache ─────────────────────────────────────────────────
         _cache_eligible = _cache_svc.ask_is_cacheable(mode, history, web_search, thinking_mode)
         _cache_key_val  = _cache_svc.ask_key(book_id, task_type, mode, complexity, question,

@@ -738,3 +738,47 @@ export async function checkPaevStatus(bookId: string): Promise<boolean> {
     return false;
   }
 }
+
+// ─── Viewer session ───────────────────────────────────────────────────────────
+
+export type ViewerStatePayload = {
+  type: 'youtube' | 'pdf' | 'research' | 'none';
+  video_id?: string;
+  current_timestamp_seconds?: number;
+  visible_segment?: string;
+  pdf_page?: number;
+  pdf_visible_text?: string;
+  [key: string]: unknown;
+};
+
+/**
+ * Fire-and-forget: persist the student's current viewer state on the server
+ * so that /ask calls can be context-aware even when the frontend omits
+ * viewer_state from the request body.
+ *
+ * Never throws — failures are silently swallowed to avoid blocking the UI.
+ */
+export function setViewerState(viewerState: ViewerStatePayload): void {
+  void (async () => {
+    try {
+      await apiPost<unknown>('/api/viewer/set-state', { viewer_state: viewerState });
+    } catch {
+      // fire-and-forget: ignore errors
+    }
+  })();
+}
+
+/**
+ * Read back the viewer state the server has stored for the current user.
+ * Returns null when no state is stored or on any error.
+ */
+export async function getViewerState(): Promise<ViewerStatePayload | null> {
+  try {
+    const res = await apiGet<{ success: boolean; viewer_state: ViewerStatePayload | null }>(
+      '/api/viewer/get-state',
+    );
+    return res.viewer_state ?? null;
+  } catch {
+    return null;
+  }
+}
