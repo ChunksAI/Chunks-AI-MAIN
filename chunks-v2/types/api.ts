@@ -18,7 +18,6 @@ export interface SendMessageRequest {
   question: string;
   complexity?: number;
   mode?: string;
-  thinking?: string | null;
   history?: MessageHistoryItem[];
   selected_text?: string;
   doc_context?: string;

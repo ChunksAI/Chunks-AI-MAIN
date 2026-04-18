@@ -11,7 +11,7 @@
  * stateRef pattern: all async callbacks read state through a ref so they
  * never become stale without needing to be in dependency arrays.
  *
- * Chat state (messages, chatLoading, chatError, lastUserMessage, thinkingMode)
+ * Chat state (messages, chatLoading, chatError, lastUserMessage, chatMode)
  * lives in ChatContext.  Quiz state (activeQuiz, quizResults, weakAreas, etc.)
  * lives in QuizContext.  Notes/todo state lives in NotesContext.  StudyProvider
  * consumes all three and merges them into the value it exposes so all existing
@@ -89,7 +89,7 @@ export interface StudyState {
   uploadLoading: boolean;
   uploadError: string | null;
 
-  // Chat fields (messages, chatLoading, chatError, lastUserMessage, thinkingMode)
+  // Chat fields (messages, chatLoading, chatError, lastUserMessage, chatMode)
   // are owned by ChatContext.  Quiz fields (activeQuiz, quizResults, weakAreas,
   // performanceHistory, studyInsights) are owned by QuizContext.  Notes/todos
   // are owned by NotesContext.  All three are merged into the value exposed by
@@ -912,9 +912,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     'SEND_MESSAGE', 'SET_LAST_USER_MESSAGE', 'SET_CHAT_LOADING',
     'RECEIVE_MESSAGE', 'START_AI_MESSAGE', 'APPEND_MESSAGE_CHUNK',
     'UPDATE_MESSAGE_META', 'REMOVE_MESSAGE', 'MESSAGE_ERROR',
-    'CLEAR_CHAT_ERROR', 'SET_THINKING_MODE', 'SET_CHAT_MODE', 'RESTORE_MESSAGES', 'RESET_CHAT',
-    // Note: SET_THINKING_MODE is deprecated — use SET_CHAT_MODE instead.
-    // Remove SET_THINKING_MODE once all callers have migrated.
+    'CLEAR_CHAT_ERROR', 'SET_CHAT_MODE', 'RESTORE_MESSAGES', 'RESET_CHAT',
   ]);
   const QUIZ_ACTION_TYPES = new Set<string>([
     'START_QUIZ', 'ANSWER_QUESTION', 'CLOSE_QUIZ', 'RESTORE_QUIZ', 'RESET_QUIZ',

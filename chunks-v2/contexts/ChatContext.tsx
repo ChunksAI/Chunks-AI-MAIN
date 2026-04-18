@@ -30,8 +30,6 @@ export interface ChatState {
   lastUserMessage: string;
   /** Active chat mode sent to the backend on each /ask request. */
   chatMode: ChatMode;
-  /** @deprecated Use chatMode instead. Kept for backward compat. */
-  thinkingMode: null | 'auto' | 'think' | 'deep';
 }
 
 // ─── Actions ──────────────────────────────────────────────────────────────────
@@ -49,8 +47,6 @@ export type ChatAction =
   | { type: 'CLEAR_CHAT_ERROR' }
   | { type: 'REPLACE_AI_MESSAGE'; payload: { id: string; text: string; actions?: { label: string; actionKey: string }[] } }
   | { type: 'SET_CHAT_MODE'; payload: ChatMode }
-  /** @deprecated Use SET_CHAT_MODE instead. Kept for backward compat. */
-  | { type: 'SET_THINKING_MODE'; payload: null | 'auto' | 'think' | 'deep' }
   /** Bulk-restore messages (e.g. from a session snapshot). */
   | { type: 'RESTORE_MESSAGES'; payload: ChatMessage[] }
   /** Reset chat to initial state while preserving chatMode preference. */
@@ -64,7 +60,6 @@ export const INITIAL_CHAT_STATE: ChatState = {
   chatError: null,
   lastUserMessage: '',
   chatMode: 'snap',
-  thinkingMode: null,
 };
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
@@ -157,9 +152,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, messages };
     }
 
-    case 'SET_THINKING_MODE':
-      return { ...state, thinkingMode: action.payload };
-
     case 'SET_CHAT_MODE':
       return { ...state, chatMode: action.payload };
 
@@ -171,7 +163,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...INITIAL_CHAT_STATE,
         // Preserve the user's chat mode preference across session resets
         chatMode: state.chatMode,
-        thinkingMode: state.thinkingMode,
       };
 
     default:
