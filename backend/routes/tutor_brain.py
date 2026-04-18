@@ -163,11 +163,7 @@ def analyze_gaps(request: Request, body: AnalyzeGapsRequest):  # request require
 
     # 1. Load PAEV objects from cache
     idx, fps, graph = _paev_cache_get(book_id)
-    if idx is None:
-        return JSONResponse(
-            {'error': 'PAEV index not built for this book. Run /paev/build-index first.'},
-            status_code=404,
-        )
+    paev_available = idx is not None
 
     # 2. Identify gap concepts from quiz results
     gap_map: dict[str, dict] = {}   # concept_key → {concept, status, score}
@@ -183,7 +179,25 @@ def analyze_gaps(request: Request, body: AnalyzeGapsRequest):  # request require
                 gap_map[key] = {'concept': topic, 'status': status, 'score': score}
             low_scores.append((topic, score))
 
-    # 3. Resolve prerequisite chains for each gap concept
+    # 3a. PAEV unavailable — return a partial result using quiz scores only.
+    #     The response is less precise (no prerequisite chains), but the
+    #     endpoint never returns 404; PAEV enrichment is additive, not required.
+    if not paev_available:
+        detected_gaps = [
+            {'concept': info['concept'], 'status': info['status']}
+            for info in gap_map.values()
+        ]
+        gap_keys = {g['concept'].lower() for g in detected_gaps}
+        mastered = [c for c in body.known_concepts if c.lower() not in gap_keys]
+        student_profile_block = _build_student_profile(detected_gaps, mastered, low_scores)
+        return {
+            'detected_gaps':         detected_gaps,
+            'prereq_warnings':       [],
+            'student_profile_block': student_profile_block,
+            'paev_available':        False,
+        }
+
+    # 3b. Resolve prerequisite chains for each gap concept (full PAEV analysis)
     resolver        = PrerequisiteChainResolver()
     detected_gaps   = []
     prereq_warnings = []
@@ -222,9 +236,10 @@ def analyze_gaps(request: Request, body: AnalyzeGapsRequest):  # request require
     student_profile_block = _build_student_profile(detected_gaps, mastered, low_scores)
 
     return {
-        'detected_gaps':        detected_gaps,
-        'prereq_warnings':      prereq_warnings,
+        'detected_gaps':         detected_gaps,
+        'prereq_warnings':       prereq_warnings,
         'student_profile_block': student_profile_block,
+        'paev_available':        True,
     }
 
 
