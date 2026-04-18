@@ -40,7 +40,7 @@ def _get_identity_for_user(user_id: str, variants: list[str]) -> str:
     """
     if not user_id or user_id.startswith('ip:'):
         return variants[0]
-    idx = int(hashlib.md5(user_id.encode()).hexdigest(), 16) % len(variants)
+    idx = int(hashlib.md5(user_id.encode(), usedforsecurity=False).hexdigest(), 16) % len(variants)
     return variants[idx]
 
 # Cancellation is handled via Redis (key "cancel:{request_id}", TTL 60 s)
