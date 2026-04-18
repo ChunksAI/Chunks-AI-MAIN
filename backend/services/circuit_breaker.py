@@ -22,6 +22,7 @@ no-op.  A DEBUG-level warning is logged.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -30,6 +31,8 @@ logger = logging.getLogger(__name__)
 FAILURE_THRESHOLD   = 3    # failures before opening the circuit
 FAILURE_WINDOW_SECS = 60   # sliding window for failure counter (seconds)
 OPEN_WINDOW_SECS    = 30   # how long circuit stays OPEN before moving to HALF_OPEN
+
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
 
 
 class CircuitBreaker:
@@ -67,15 +70,15 @@ class CircuitBreaker:
 
     @staticmethod
     def _key_state(model: str) -> str:
-        return f"cb:{model}:state"
+        return f"{_KEY_NS_PREFIX}cb:{model}:state"
 
     @staticmethod
     def _key_failures(model: str) -> str:
-        return f"cb:{model}:failures"
+        return f"{_KEY_NS_PREFIX}cb:{model}:failures"
 
     @staticmethod
     def _key_trial(model: str) -> str:
-        return f"cb:{model}:trial"
+        return f"{_KEY_NS_PREFIX}cb:{model}:trial"
 
     # ── Public API ─────────────────────────────────────────────────────────────
 

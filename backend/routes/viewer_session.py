@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -32,10 +33,11 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix='/api/viewer')
 
 _VIEWER_STATE_TTL = 3600  # seconds (1 hour)
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
 
 
 def _redis_key(user_id: str) -> str:
-    return f'viewer_state:{user_id}'
+    return f'{_KEY_NS_PREFIX}viewer_state:{user_id}'
 
 
 @router.post('/set-state')

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -23,6 +24,8 @@ from services.paev_engine import PrerequisiteChainResolver
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix='/tutor')
+
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
 
 # ── Request schemas ───────────────────────────────────────────────────────────
 
@@ -72,7 +75,7 @@ _STUDENT_MODEL_TTL = 86_400   # 24 h
 def _student_model_redis_key(user_id: str, book_id: str | None) -> str:
     """Return the Redis key for a user's student model (per book when book_id is set)."""
     scope = book_id.strip() if book_id and book_id.strip() else 'global'
-    return f"student_model:{user_id}:{scope}"
+    return f"{_KEY_NS_PREFIX}student_model:{user_id}:{scope}"
 
 
 def get_student_model_cached(user_id: str, book_id: str | None, redis_client) -> dict | None:
@@ -517,7 +520,7 @@ def paev_status(request: Request, book_id: str):  # request required by @limiter
     redis = getattr(ctx, 'redis', None)
     if redis is not None:
         try:
-            val = redis.get(f'paev_ready:{book_id}')
+            val = redis.get(f'{_KEY_NS_PREFIX}paev_ready:{book_id}')
             if val == '1' or val == b'1':
                 return {'ready': True}
         except Exception:

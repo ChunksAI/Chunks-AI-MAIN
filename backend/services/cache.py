@@ -45,12 +45,18 @@ import hashlib
 import json
 import logging
 import math
+import os
 import re
 from collections import OrderedDict
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+# Optional environment prefix that isolates Redis keys per deployment
+# environment (e.g. REDIS_KEY_PREFIX=prod: or REDIS_KEY_PREFIX=staging:).
+# Defaults to '' so existing deployments are unaffected until the var is set.
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
 
 
 class CacheService:
@@ -207,7 +213,7 @@ class CacheService:
             sp_hash    = hashlib.sha256(student_profile.strip().lower().encode()).hexdigest()[:12]
             canonical += f"|sp:{sp_hash}"
         digest = hashlib.sha256(canonical.encode()).hexdigest()[:16]
-        return f"ask:v1:{digest}"
+        return f"{_KEY_NS_PREFIX}ask:v1:{digest}"
 
     def ask_is_cacheable(
         self,
@@ -287,7 +293,7 @@ class CacheService:
     ) -> str:
         """Build a Redis key for study-material / flashcard cache entries."""
         norm = re.sub(r'[^a-z0-9]', '_', topic.lower().strip())[:60]
-        return f"{mtype}:{book_id}:{norm}:{count}"
+        return f"{_KEY_NS_PREFIX}{mtype}:{book_id}:{norm}:{count}"
 
     # ── Semantic / answer-cache helpers ───────────────────────────────────────
 
@@ -468,7 +474,7 @@ class CacheService:
     # ── Semantic cache storage helpers ────────────────────────────────────────
 
     def _sem_redis_key(self, ctx_hash: str) -> str:
-        return self.KEY_PREFIX['answer'] + ctx_hash
+        return _KEY_NS_PREFIX + self.KEY_PREFIX['answer'] + ctx_hash
 
     def _sem_load(self, ctx_hash: str) -> list[dict]:
         if self._redis is not None:

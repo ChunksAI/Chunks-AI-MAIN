@@ -102,8 +102,9 @@ def max_tokens_for_endpoint(
 # until the next UTC day.  Default: 0 → unlimited.
 
 _BUDGET_ENV = 'DAILY_COST_BUDGET_USD'
-_REDIS_DAILY_KEY_PREFIX = 'token_budget:daily:'
-_REDIS_USER_MONTH_KEY_PREFIX = 'token_usage:user:'
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
+_REDIS_DAILY_KEY_PREFIX = f'{_KEY_NS_PREFIX}token_budget:daily:'
+_REDIS_USER_MONTH_KEY_PREFIX = f'{_KEY_NS_PREFIX}token_usage:user:'
 
 # In-memory fallback accumulators (lost on process restart).
 _mem_usage: dict[str, dict] = {}

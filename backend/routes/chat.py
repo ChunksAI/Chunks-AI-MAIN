@@ -28,6 +28,9 @@ from services.cache import cache_svc as _cache_svc
 
 logger = logging.getLogger(__name__)
 
+# Optional environment prefix for Redis key namespacing (e.g. 'prod:' / 'staging:')
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
+
 router = APIRouter()
 
 
@@ -443,7 +446,7 @@ async def ask(request: Request, body: AskRequest):
         if viewer_state is None and verified_user_id and not verified_user_id.startswith('ip:'):
             try:
                 import json as _json
-                _vs_raw = ctx.redis.get(f'viewer_state:{verified_user_id}') if ctx.redis else None
+                _vs_raw = ctx.redis.get(f'{_KEY_NS_PREFIX}viewer_state:{verified_user_id}') if ctx.redis else None
                 if _vs_raw:
                     viewer_state = _json.loads(_vs_raw)
             except Exception as _vs_err:
@@ -478,7 +481,7 @@ async def ask(request: Request, body: AskRequest):
         try:
             _r = getattr(ctx, 'redis', None)
             if _r is not None and book_id:
-                _paev_ready_flag = _r.get(f'paev_ready:{book_id}') in ('1', b'1')
+                _paev_ready_flag = _r.get(f'{_KEY_NS_PREFIX}paev_ready:{book_id}') in ('1', b'1')
         except Exception:
             pass
         _decision = _orch_decide(
@@ -524,7 +527,7 @@ async def ask(request: Request, body: AskRequest):
             try:
                 redis = getattr(ctx, 'redis', None)
                 if redis is not None:
-                    paev_ready = redis.get(f'paev_ready:{book_id}') in ('1', b'1')
+                    paev_ready = redis.get(f'{_KEY_NS_PREFIX}paev_ready:{book_id}') in ('1', b'1')
             except Exception:
                 pass
 
@@ -1267,7 +1270,7 @@ Answer helpfully and clearly."""
                     _FLUSH_SECS     = 0.05   # max age of a non-empty token buffer
                     _FLUSH_COUNT    = 3      # flush when this many tokens buffered
 
-                    _cancel_key = f'cancel:{_stream_req_id}'
+                    _cancel_key = f'{_KEY_NS_PREFIX}cancel:{_stream_req_id}'
                     _tok_buf: list[str] = []
                     _full_text: list[str] = []   # accumulate for viewer_action detection
                     _last_flush = loop.time()
@@ -1545,7 +1548,7 @@ async def cancel_ask(request: Request) -> JSONResponse:
         try:
             _redis = _cache_svc._redis
             if _redis:
-                _redis.setex(f'cancel:{req_id}', 60, '1')
+                _redis.setex(f'{_KEY_NS_PREFIX}cancel:{req_id}', 60, '1')
         except Exception as exc:
             logger.warning('[/ask/cancel] Redis error: %s', exc)
         logger.info('[/ask/cancel] cancellation registered req_id=%s', req_id)

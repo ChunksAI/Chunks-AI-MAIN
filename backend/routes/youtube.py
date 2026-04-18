@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Optional environment prefix for Redis key namespacing
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
+
 # Maximum characters of transcript to return (~120k matches the IndexedDB cap)
 _MAX_TRANSCRIPT_CHARS = 120_000
 # Target characters per chunk (shown as one "slide" card in the viewer)
@@ -451,7 +454,7 @@ async def ingest_youtube_v2(request: Request, body: dict = Body(default={})):
         if _redis:
             try:
                 _redis.setex(
-                    f"yt_transcript:{video_id}",
+                    f"{_KEY_NS_PREFIX}yt_transcript:{video_id}",
                     _YT_TRANSCRIPT_TTL,
                     json.dumps(slides),
                 )
