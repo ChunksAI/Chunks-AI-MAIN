@@ -183,6 +183,11 @@ def analyze_gaps(request: Request, body: AnalyzeGapsRequest):  # request require
     #     The response is less precise (no prerequisite chains), but the
     #     endpoint never returns 404; PAEV enrichment is additive, not required.
     if not paev_available:
+        logger.info(
+            '[tutor/analyze-gaps] PAEV index not built for book_id=%r; '
+            'returning partial result (%d gap(s)) without prerequisite chains.',
+            book_id, len(gap_map),
+        )
         detected_gaps = [
             {'concept': info['concept'], 'status': info['status']}
             for info in gap_map.values()
