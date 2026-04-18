@@ -541,7 +541,7 @@ export default function ChatPanel() {
                 isStreaming={isStreaming}
                 onRetry={msg.error && msg.originalQuestion ? () => {
                   dispatch({ type: 'REMOVE_MESSAGE', payload: msg.id });
-                  void handleSendMessage(msg.originalQuestion ?? '');
+                  void handleSendMessage(msg.originalQuestion!);
                 } : undefined}
               />
             );
