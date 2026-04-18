@@ -54,7 +54,16 @@ logger = logging.getLogger(__name__)
 
 
 class CacheService:
-    """Single cache service covering ask, material, and semantic answer caches."""
+    """Single cache service covering ask, material, and semantic answer caches.
+
+    **Multi-worker note:** All persistent state goes through Redis, which is
+    shared across all Gunicorn/uvicorn workers.  The ``_sem_mem`` OrderedDict
+    is a *per-process in-memory fallback* used only when Redis is unavailable.
+    Entries stored there are not visible to other workers, so cache hit rates
+    will be degraded (approximately 1/N of normal with N workers) whenever the
+    Redis fallback is active.  This is an acceptable degraded mode; the warning
+    logged at startup and on first fallback write makes it observable.
+    """
 
     # Redis key prefix per namespace
     KEY_PREFIX: dict[str, str] = {
@@ -121,6 +130,12 @@ class CacheService:
         self._supabase_service_key = supabase_service_key
         if executor is not None:
             self._executor = executor
+        if self._redis is None:
+            logger.warning(
+                "CacheService: Redis is unavailable — semantic cache will use the "
+                "per-process in-memory fallback (_sem_mem). Entries are NOT shared "
+                "across workers; cache hit rates will be degraded."
+            )
         logger.info("Semantic cache: %d context hashes in memory", len(self._sem_mem))
 
     # ── Generic key-value interface ───────────────────────────────────────────
@@ -491,6 +506,10 @@ class CacheService:
             except Exception as exc:
                 logger.warning('cache._sem_save redis error: %s', exc)
         else:
+            logger.warning(
+                "cache._sem_save: Redis unavailable — writing to per-process "
+                "_sem_mem fallback. Entry will NOT be visible to other workers."
+            )
             self._sem_mem_set(ctx_hash, entries)
 
     @staticmethod
