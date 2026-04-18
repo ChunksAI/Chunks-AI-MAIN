@@ -133,6 +133,12 @@ _STRUCTURED_REQUIRED_KEYS: dict[str, set[str]] = {
     'research': {'summary', 'key_findings', 'sources', 'simplified_explanation'},
 }
 
+# System prompt used when retrying a structured-mode call after a JSON parse failure.
+_STRICT_JSON_SYSTEM_PROMPT = (
+    'Output ONLY the JSON object. No prose, no markdown fences, no explanation. '
+    'Start your response with { and end with }.'
+)
+
 
 def _strip_code_fences(text: str) -> str:
     """Remove markdown code fences the model may have emitted despite instructions.
@@ -1222,14 +1228,10 @@ Answer helpfully and clearly."""
                         mode, selected_model,
                     )
                     # Retry with a stricter system prompt to coerce JSON output.
-                    _stricter_system = (
-                        'Output ONLY the JSON object. No prose, no markdown fences, no explanation. '
-                        'Start your response with { and end with }.'
-                    )
                     _retry_model = _mode_fallback or selected_model
                     try:
                         _retry_answer = call_ai(
-                            prompt, system_prompt=_stricter_system, model=_retry_model,
+                            prompt, system_prompt=_STRICT_JSON_SYSTEM_PROMPT, model=_retry_model,
                             history=history, endpoint='chat', user_id=verified_user_id,
                             timeout=_ai_timeout, max_tokens_override=_max_tok,
                             response_format=_response_format,
