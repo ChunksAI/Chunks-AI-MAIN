@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { useStudy } from '@/contexts/StudyContext';
 import { useAutoScroll } from '@/hooks/useAutoScroll';
 import type { ChatMessage } from '@/types';
@@ -234,15 +235,49 @@ export default function ChatPanel() {
     recognition.start();
   };
 
-  // ── Mode dropdown ─────────────────────────────────────────────────────────
+  // ── Mode dropdown (portal) ────────────────────────────────────────────────
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
 
-  // Close mode dropdown on outside click
+  // Refs for the trigger button and the portal <ul> (for outside-click detection)
   const modeWrapRef = useRef<HTMLDivElement>(null);
+  const modeBtnRef = useRef<HTMLButtonElement>(null);
+  const modeMenuRef = useRef<HTMLUListElement>(null);
+
+  /** Compute fixed-position coordinates from the trigger button's bounding rect. */
+  const calcDropdownPos = useCallback(() => {
+    if (!modeBtnRef.current) return;
+    const rect = modeBtnRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.top - 6,           // 6 px gap above the button
+      right: window.innerWidth - rect.right,
+    });
+  }, []);
+
+  const openModeMenu = () => {
+    calcDropdownPos();
+    setModeMenuOpen(true);
+  };
+
+  // Reposition on scroll / resize while open
+  useEffect(() => {
+    if (!modeMenuOpen) return;
+    window.addEventListener('scroll', calcDropdownPos, true);
+    window.addEventListener('resize', calcDropdownPos);
+    return () => {
+      window.removeEventListener('scroll', calcDropdownPos, true);
+      window.removeEventListener('resize', calcDropdownPos);
+    };
+  }, [modeMenuOpen, calcDropdownPos]);
+
+  // Close on outside click (checks both the trigger wrapper and the portal menu)
   useEffect(() => {
     if (!modeMenuOpen) return;
     const handleOutside = (e: MouseEvent) => {
-      if (modeWrapRef.current && !modeWrapRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideBtn = modeWrapRef.current?.contains(target) ?? false;
+      const insideMenu = modeMenuRef.current?.contains(target) ?? false;
+      if (!insideBtn && !insideMenu) {
         setModeMenuOpen(false);
       }
     };
@@ -560,8 +595,9 @@ export default function ChatPanel() {
             </button>
             <div className="mode-dropdown-wrap" ref={modeWrapRef}>
               <button
+                ref={modeBtnRef}
                 className="mode-dropdown-btn"
-                onClick={() => setModeMenuOpen((o) => !o)}
+                onClick={() => (modeMenuOpen ? setModeMenuOpen(false) : openModeMenu())}
                 title="Select chat mode"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -570,8 +606,13 @@ export default function ChatPanel() {
                 </svg>
                 {CHAT_MODES.find((m) => m.key === chatMode)?.label ?? 'Snap'}
               </button>
-              {modeMenuOpen && (
-                <ul className="mode-dropdown-menu" role="listbox">
+              {modeMenuOpen && dropdownPos !== null && ReactDOM.createPortal(
+                <ul
+                  ref={modeMenuRef}
+                  className="mode-dropdown-menu-portal"
+                  role="listbox"
+                  style={{ top: dropdownPos.top, right: dropdownPos.right }}
+                >
                   {CHAT_MODES.map((m) => (
                     <li
                       key={m.key}
@@ -584,7 +625,8 @@ export default function ChatPanel() {
                       <span className="mode-dropdown-desc">{m.description}</span>
                     </li>
                   ))}
-                </ul>
+                </ul>,
+                document.body,
               )}
             </div>
           </div>
