@@ -69,9 +69,12 @@ class CacheService:
     }
 
     # Modes eligible for ask-cache hits
-    _ASK_CACHEABLE_MODES = frozenset(
-        ['study', 'summary', 'general', 'concise', 'detailed', 'generate']
-    )
+    _ASK_CACHEABLE_MODES = frozenset([
+        # Legacy modes (kept for backward compat)
+        'study', 'summary', 'general', 'concise', 'detailed', 'generate',
+        # Current production modes
+        'snap', 'chunk', 'master', 'research',
+    ])
     _SB_CACHE_TTL_DAYS = 7
 
     # Semantic-cache thresholds
