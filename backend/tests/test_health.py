@@ -1,6 +1,6 @@
 """Tests for the health blueprint (/, /ping, /health, /api/config, /api/me/plan)."""
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 
 def test_home(client):
@@ -183,3 +183,100 @@ def test_api_verify_access_owner_user(client, monkeypatch):
     assert data['is_admin'] is True
     assert data['is_owner'] is True
     assert data['role'] == 'owner'
+
+
+# ── GET /ready (readiness probe, lines 75-104) ────────────────────────────────
+
+def test_ready_all_healthy(client, monkeypatch):
+    """GET /ready returns 200 when Redis and Supabase are both reachable."""
+    import routes.shared as shared_mod
+    mock_redis = MagicMock()
+    mock_redis.ping.return_value = True
+    monkeypatch.setattr(shared_mod.ctx, 'redis', mock_redis)
+
+    with patch('routes.health._requests') as mock_req:
+        mock_req.get.return_value = MagicMock(ok=True)
+        resp = client.get('/ready')
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['status'] == 'ready'
+    assert data['checks']['redis'] == 'ok'
+    assert data['checks']['supabase'] == 'ok'
+
+
+def test_ready_redis_error(client, monkeypatch):
+    """GET /ready returns 503 when Redis ping fails."""
+    import routes.shared as shared_mod
+    mock_redis = MagicMock()
+    mock_redis.ping.side_effect = Exception("Connection refused")
+    monkeypatch.setattr(shared_mod.ctx, 'redis', mock_redis)
+
+    with patch('routes.health._requests') as mock_req:
+        mock_req.get.return_value = MagicMock(ok=True)
+        resp = client.get('/ready')
+
+    assert resp.status_code == 503
+    data = resp.json()
+    assert data['status'] == 'degraded'
+    assert 'error' in data['checks']['redis']
+
+
+def test_ready_redis_not_configured(client, monkeypatch):
+    """GET /ready treats Redis=None as non-blocking; returns ready if Supabase is ok."""
+    import routes.shared as shared_mod
+    monkeypatch.setattr(shared_mod.ctx, 'redis', None)
+
+    with patch('routes.health._requests') as mock_req:
+        mock_req.get.return_value = MagicMock(ok=True)
+        resp = client.get('/ready')
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['checks']['redis'] == 'not configured'
+    assert data['checks']['supabase'] == 'ok'
+
+
+def test_ready_supabase_error(client, monkeypatch):
+    """GET /ready returns 503 when Supabase health check raises an exception."""
+    import routes.shared as shared_mod
+    mock_redis = MagicMock()
+    mock_redis.ping.return_value = True
+    monkeypatch.setattr(shared_mod.ctx, 'redis', mock_redis)
+
+    with patch('routes.health._requests') as mock_req:
+        mock_req.get.side_effect = Exception("Supabase unreachable")
+        resp = client.get('/ready')
+
+    assert resp.status_code == 503
+    data = resp.json()
+    assert data['status'] == 'degraded'
+    assert 'error' in data['checks']['supabase']
+
+
+# ── Limiter helpers (lines 22, 27-29) ────────────────────────────────────────
+
+def test_is_rate_limit_disabled_during_pytest():
+    """_is_rate_limit_disabled returns True when PYTEST_CURRENT_TEST is set (line 22)."""
+    from routes.limiter import _is_rate_limit_disabled
+    # PYTEST_CURRENT_TEST is always present while pytest is running
+    assert _is_rate_limit_disabled() is True
+
+
+def test_rate_limit_key_options_exempt():
+    """_rate_limit_key returns the exempt key for OPTIONS requests (line 27-28)."""
+    from routes.limiter import _rate_limit_key
+    req = MagicMock()
+    req.method = "OPTIONS"
+    assert _rate_limit_key(req) == "options-preflight-exempt"
+
+
+def test_rate_limit_key_returns_remote_address():
+    """_rate_limit_key delegates to get_remote_address for non-OPTIONS requests (line 29)."""
+    from routes.limiter import _rate_limit_key
+    req = MagicMock()
+    req.method = "POST"
+    req.client = MagicMock()
+    req.client.host = "1.2.3.4"
+    result = _rate_limit_key(req)
+    assert result == "1.2.3.4"

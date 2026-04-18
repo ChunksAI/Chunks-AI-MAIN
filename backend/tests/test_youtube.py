@@ -473,3 +473,235 @@ def test_ingest_youtube_429_all_retries_exhausted_with_proxy(client, mock_extrac
     assert 'proxy' in data['error'].lower()
     assert 'WEBSHARE_PROXY_USERNAME' not in data['error']
 
+
+# ── Non-dict transcript entries (_chunk_transcript else branch) ───────────────
+
+def test_chunk_transcript_non_dict_entries():
+    """_chunk_transcript handles non-dict FetchedTranscriptSnippet objects (lines 109-110, 112)."""
+    from routes.youtube import _chunk_transcript
+
+    class Snippet:
+        def __init__(self, text, start):
+            self.text = text
+            self.start = start
+
+    entries = [
+        Snippet('Hello world from non-dict entry', 0.0),
+        Snippet('', 1.0),          # empty text → skipped (line 112)
+        Snippet('Second sentence', 2.0),
+    ]
+    slides = _chunk_transcript(entries, chunk_size=1200)
+    assert len(slides) >= 1
+    assert 'Hello world from non-dict entry' in slides[0]['content'][0]
+
+
+# ── ImportError coverage (lines 166-168) ─────────────────────────────────────
+
+def test_ingest_youtube_missing_dependency(client, mock_extract_user):
+    """POST /ingest-youtube returns 500 when youtube-transcript-api is not installed."""
+    with patch.dict('sys.modules', {'youtube_transcript_api': None}):
+        resp = client.post('/ingest-youtube',
+                           json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+    assert resp.status_code == 500
+    data = resp.json()
+    assert data['success'] is False
+    assert 'not installed' in data['error']
+
+
+# ── Fallback transcript selection (lines 181-186) ────────────────────────────
+
+def test_ingest_youtube_fallback_to_generated_transcript(client, mock_extract_user):
+    """Falls back to generated transcript when manually created one is unavailable (lines 181-183)."""
+    entries = [{'text': 'Generated transcript text.', 'start': 0.0, 'duration': 2.0}]
+
+    mock_fetched = MagicMock()
+    mock_fetched.to_raw_data.return_value = entries
+
+    mock_transcript = MagicMock()
+    mock_transcript.fetch.return_value = mock_fetched
+
+    mock_list = MagicMock()
+    mock_list.find_manually_created_transcript.side_effect = Exception("No manual transcript")
+    mock_list.find_generated_transcript.return_value = mock_transcript
+    mock_list.__iter__ = MagicMock(return_value=iter([mock_transcript]))
+
+    mock_instance = MagicMock()
+    mock_instance.list.return_value = mock_list
+    mock_api_class = MagicMock(return_value=mock_instance)
+
+    with patch.dict('sys.modules', {
+        'youtube_transcript_api': MagicMock(
+            YouTubeTranscriptApi=mock_api_class,
+            IpBlocked=Exception,
+            RequestBlocked=Exception,
+            NoTranscriptFound=Exception,
+            TranscriptsDisabled=Exception,
+        ),
+    }), patch('requests.get') as mock_get:
+        mock_get.return_value = MagicMock(ok=False)
+        resp = client.post('/ingest-youtube',
+                           json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['success'] is True
+    assert 'Generated transcript text' in data['transcript']
+
+
+def test_ingest_youtube_fallback_to_first_transcript(client, mock_extract_user):
+    """Falls back to first available transcript when both preferred ones fail (lines 184-186)."""
+    entries = [{'text': 'First available transcript.', 'start': 0.0, 'duration': 2.0}]
+
+    mock_fetched = MagicMock()
+    mock_fetched.to_raw_data.return_value = entries
+
+    mock_transcript = MagicMock()
+    mock_transcript.fetch.return_value = mock_fetched
+
+    mock_list = MagicMock()
+    mock_list.find_manually_created_transcript.side_effect = Exception("No manual transcript")
+    mock_list.find_generated_transcript.side_effect = Exception("No generated transcript")
+    mock_list.__iter__ = MagicMock(return_value=iter([mock_transcript]))
+
+    mock_instance = MagicMock()
+    mock_instance.list.return_value = mock_list
+    mock_api_class = MagicMock(return_value=mock_instance)
+
+    with patch.dict('sys.modules', {
+        'youtube_transcript_api': MagicMock(
+            YouTubeTranscriptApi=mock_api_class,
+            IpBlocked=Exception,
+            RequestBlocked=Exception,
+            NoTranscriptFound=Exception,
+            TranscriptsDisabled=Exception,
+        ),
+    }), patch('requests.get') as mock_get:
+        mock_get.return_value = MagicMock(ok=False)
+        resp = client.post('/ingest-youtube',
+                           json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['success'] is True
+    assert 'First available transcript' in data['transcript']
+
+
+# ── Fetched transcript without to_raw_data (line 192) ─────────────────────────
+
+def test_ingest_youtube_fetched_list_not_raw_data(client, mock_extract_user):
+    """POST /ingest-youtube handles fetched transcript that is a plain list (line 192)."""
+    # A plain list has no to_raw_data attribute → falls back to list(fetched)
+    entries = [{'text': 'List-based transcript entry.', 'start': 0.0, 'duration': 2.0}]
+
+    mock_transcript = MagicMock()
+    mock_transcript.fetch.return_value = entries  # plain list, no to_raw_data
+
+    mock_list = MagicMock()
+    mock_list.find_manually_created_transcript.return_value = mock_transcript
+    mock_list.__iter__ = MagicMock(return_value=iter([mock_transcript]))
+
+    mock_instance = MagicMock()
+    mock_instance.list.return_value = mock_list
+    mock_api_class = MagicMock(return_value=mock_instance)
+
+    with patch.dict('sys.modules', {
+        'youtube_transcript_api': MagicMock(
+            YouTubeTranscriptApi=mock_api_class,
+            IpBlocked=Exception,
+            RequestBlocked=Exception,
+            NoTranscriptFound=Exception,
+            TranscriptsDisabled=Exception,
+        ),
+    }), patch('requests.get') as mock_get:
+        mock_get.return_value = MagicMock(ok=False)
+        resp = client.post('/ingest-youtube',
+                           json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['success'] is True
+    assert 'List-based transcript entry' in data['transcript']
+
+
+# ── Generic non-rate-limited fetch exception (lines 237-238) ─────────────────
+
+def test_ingest_youtube_general_fetch_exception(client, mock_extract_user):
+    """POST /ingest-youtube returns 422 for a generic (non-rate-limited) fetch error (lines 237-238)."""
+    class _NoTranscriptFound(Exception):
+        pass
+
+    class _TranscriptsDisabled(Exception):
+        pass
+
+    class _IpBlocked(Exception):
+        pass
+
+    class _RequestBlocked(Exception):
+        pass
+
+    mock_instance = MagicMock()
+    mock_instance.list.side_effect = Exception("weird connection error")
+    mock_api_class = MagicMock(return_value=mock_instance)
+
+    with patch.dict('sys.modules', {
+        'youtube_transcript_api': MagicMock(
+            YouTubeTranscriptApi=mock_api_class,
+            IpBlocked=_IpBlocked,
+            RequestBlocked=_RequestBlocked,
+            NoTranscriptFound=_NoTranscriptFound,
+            TranscriptsDisabled=_TranscriptsDisabled,
+        ),
+    }):
+        resp = client.post('/ingest-youtube',
+                           json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+
+    assert resp.status_code == 422
+    data = resp.json()
+    assert data['success'] is False
+    assert 'Could not fetch transcript' in data['error']
+    assert 'weird connection error' in data['error']
+
+
+# ── oEmbed request exception (lines 258-259) ─────────────────────────────────
+
+def test_ingest_youtube_oembed_exception(client, mock_extract_user):
+    """POST /ingest-youtube still succeeds with fallback title when oEmbed request raises (lines 258-259)."""
+    entries = [{'text': 'Test transcript.', 'start': 0.0, 'duration': 2.0}]
+    mock_api_class = _make_mock_transcript_api(entries)
+
+    with patch.dict('sys.modules', {
+        'youtube_transcript_api': MagicMock(
+            YouTubeTranscriptApi=mock_api_class,
+            IpBlocked=Exception,
+            RequestBlocked=Exception,
+            NoTranscriptFound=Exception,
+            TranscriptsDisabled=Exception,
+        ),
+    }), patch('requests.get', side_effect=Exception("connection refused")):
+        resp = client.post('/ingest-youtube',
+                           json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['success'] is True
+    # Title falls back to the default "YouTube — <video_id>" format
+    assert 'dQw4w9WgXcQ' in data['title']
+
+
+# ── Outer exception handler (lines 270-272) ──────────────────────────────────
+
+def test_ingest_youtube_outer_exception(client, monkeypatch):
+    """POST /ingest-youtube catches unexpected exceptions at the top level and returns 500 (lines 270-272)."""
+    import services.auth as auth_svc
+    monkeypatch.setattr(
+        auth_svc,
+        '_extract_verified_user',
+        MagicMock(side_effect=RuntimeError("unexpected error")),
+    )
+    resp = client.post('/ingest-youtube',
+                       json={'url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'})
+    assert resp.status_code == 500
+    data = resp.json()
+    assert data['success'] is False
+    assert 'unexpected error' in data['error']
+
