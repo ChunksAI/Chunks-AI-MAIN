@@ -320,7 +320,7 @@ export async function sendMessageStream(
       user_memory: params.user_memory ?? '',
       bookId: params.bookId ?? '',
       ...(params.student_profile ? { student_profile: params.student_profile } : {}),
-      stream: true,
+      stream: params.mode === 'snap',
     }),
     signal,
   });
