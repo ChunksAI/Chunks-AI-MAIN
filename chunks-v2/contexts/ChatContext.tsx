@@ -47,6 +47,7 @@ export type ChatAction =
   | { type: 'REMOVE_MESSAGE'; payload: string }
   | { type: 'MESSAGE_ERROR'; payload: string }
   | { type: 'CLEAR_CHAT_ERROR' }
+  | { type: 'REPLACE_AI_MESSAGE'; payload: { id: string; text: string } }
   | { type: 'SET_CHAT_MODE'; payload: ChatMode }
   /** @deprecated Use SET_CHAT_MODE instead. Kept for backward compat. */
   | { type: 'SET_THINKING_MODE'; payload: null | 'auto' | 'think' | 'deep' }
@@ -140,6 +141,16 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'CLEAR_CHAT_ERROR':
       return { ...state, chatError: null };
+
+    case 'REPLACE_AI_MESSAGE': {
+      // Replaces placeholder text with the real answer and clears isPlaceholder.
+      const messages = state.messages.map((m) =>
+        m.id === action.payload.id
+          ? { ...m, text: action.payload.text, isPlaceholder: false }
+          : m,
+      );
+      return { ...state, messages };
+    }
 
     case 'SET_THINKING_MODE':
       return { ...state, thinkingMode: action.payload };

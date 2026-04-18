@@ -1193,12 +1193,21 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         ? text
         : `${text}\n\n[Format requirement: Use markdown with ## headers for main sections, ### for subsections. Use $$ for display equations and $ for inline math. Use \\ce{} for chemical formulas. Give thorough explanations with worked examples. End conceptual answers with a > 💡 Key takeaway: blockquote.]`;
 
-      // Create an empty AI bubble immediately so streaming fills it in word by word
+      // For snap mode, stream tokens into an empty bubble as they arrive.
+      // For non-streaming modes (chunk/master/research), show a mode-specific
+      // placeholder so the user sees meaningful feedback during the 5-15 s wait.
+      const isStreamingMode = stateRef.current.chatMode === 'snap';
+      const placeholderText: Record<string, string> = {
+        chunk:    '📖 Analysing in depth…',
+        master:   '🧠 Deep reasoning in progress…',
+        research: '🔬 Researching…',
+      };
       const aiMsgId = nextMsgId();
       const aiMsg: ChatMessage = {
         id: aiMsgId,
         role: 'ai',
-        text: '',
+        text: isStreamingMode ? '' : (placeholderText[stateRef.current.chatMode] ?? 'Thinking…'),
+        isPlaceholder: !isStreamingMode,
         actions: [
           { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
           { label: '🎯 Quiz me on this', actionKey: 'quiz' },
@@ -1218,7 +1227,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             student_profile: buildStudentProfile(),
           },
           (chunk: string) => {
-            chatDispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
+            if (isStreamingMode) {
+              chatDispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
+            } else {
+              // Non-streaming: single chunk contains the full answer — replace placeholder.
+              chatDispatch({ type: 'REPLACE_AI_MESSAGE', payload: { id: aiMsgId, text: chunk } });
+            }
           },
           abortRef.current.signal,
         );

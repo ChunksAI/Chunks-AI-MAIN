@@ -127,7 +127,9 @@ function MessageBubble({
           {isStreaming && orchestratorEvents && orchestratorEvents.length > 0 && (
             <OrchestratorLog logEvents={orchestratorEvents} streamStarted />
           )}
-          {(() => {
+          {msg.isPlaceholder ? (
+            <span className="msg-placeholder">{msg.text}</span>
+          ) : (() => {
             const split = !isStreaming ? splitAtGapMarker(msg.text) : null;
             if (split) {
               return (
@@ -141,8 +143,8 @@ function MessageBubble({
             }
             return <MarkdownRenderer content={msg.text} />;
           })()}
-          {isStreaming && msg.text.trim() && <span className="streaming-dot" aria-hidden="true" />}
-          {!isStreaming && !msg.text.trim() && (
+          {isStreaming && !msg.isPlaceholder && msg.text.trim() && <span className="streaming-dot" aria-hidden="true" />}
+          {!isStreaming && !msg.isPlaceholder && !msg.text.trim() && (
             <span className="msg-empty-response">
               No response received — please retry.
             </span>
@@ -172,7 +174,7 @@ function MessageBubble({
             </div>
           </div>
         )}
-        {!isStreaming && msg.text.trim() && msg.actions && msg.actions.length > 0 && (
+        {!isStreaming && !msg.isPlaceholder && msg.text.trim() && msg.actions && msg.actions.length > 0 && (
           <div className="ai-actions">
             {msg.actions.map((a) => (
               <button
@@ -187,7 +189,7 @@ function MessageBubble({
           </div>
         )}
         {/* Per-message actions: Copy, Retry, Feedback — only shown once AI has content */}
-        {!isStreaming && msg.text.trim() && <MessageActions msg={msg} />}
+        {!isStreaming && !msg.isPlaceholder && msg.text.trim() && <MessageActions msg={msg} />}
       </div>
     </div>
   );
