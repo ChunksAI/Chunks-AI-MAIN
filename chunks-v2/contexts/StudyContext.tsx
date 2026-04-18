@@ -1196,7 +1196,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       // For snap mode, stream tokens into an empty bubble as they arrive.
       // For non-streaming modes (chunk/master/research), show a mode-specific
       // placeholder so the user sees meaningful feedback during the 5-15 s wait.
-      const isStreamingMode = stateRef.current.chatMode === 'snap';
+      const currentChatMode = stateRef.current.chatMode;
+      const isStreamingMode = currentChatMode === 'snap';
+      // 'snap' is intentionally omitted — it never reads this map (isStreamingMode === true).
       const placeholderText: Record<string, string> = {
         chunk:    '📖 Analyzing in depth…',
         master:   '🧠 Deep reasoning in progress…',
@@ -1206,7 +1208,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       const aiMsg: ChatMessage = {
         id: aiMsgId,
         role: 'ai',
-        text: isStreamingMode ? '' : (placeholderText[stateRef.current.chatMode] ?? 'Thinking…'),
+        text: isStreamingMode ? '' : (placeholderText[currentChatMode] ?? 'Thinking…'),
         isPlaceholder: !isStreamingMode,
         actions: isStreamingMode
           ? [
@@ -1224,7 +1226,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             history,
             selected_text: opts.selectedText ?? '',
             doc_context: autoDocContext,
-            mode: stateRef.current.chatMode,
+            mode: currentChatMode,
             bookId: stateRef.current.bookId ?? undefined,
             student_profile: buildStudentProfile(),
           },

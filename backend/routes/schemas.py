@@ -34,7 +34,7 @@ class _LenientBase(BaseModel):
 class AskRequest(_LenientBase):
     question: str = ""
     complexity: int = Field(default=3, ge=1, le=10)
-    mode: str = "snap"  # snap | chunk | master | research
+    mode: str = "snap"  # current: snap | chunk | master | research  (legacy: study | summary | general | concise | detailed | generate)
     bookId: Optional[str] = None
     thinking: Optional[str] = None
     web_search: bool = False
@@ -55,7 +55,7 @@ class AskAsyncRequest(_LenientBase):
     """Identical to AskRequest — used for the async /ask-async endpoint."""
     question: str = ""
     complexity: int = Field(default=3, ge=1, le=10)
-    mode: str = "snap"  # snap | chunk | master | research
+    mode: str = "snap"  # current: snap | chunk | master | research  (legacy: study | summary | general | concise | detailed | generate)
     bookId: Optional[str] = None
     thinking: Optional[str] = None
     web_search: bool = False
