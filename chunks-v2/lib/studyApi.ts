@@ -298,11 +298,16 @@ export async function sendMessageStream(
             const data = line.slice(6).trim();
             if (data === '[DONE]') break outer; // exit both loops
             try {
-              const parsed = JSON.parse(data) as SseChunk;
+              const parsed = JSON.parse(data) as SseChunk & { error?: string };
+              // Check for a server-sent error before treating the chunk as content
+              if (parsed.error) {
+                throw new ApiError(parsed.error, 502);
+              }
               const text = extractStreamText(parsed, data);
               fullText += text;
               onChunk(text);
-            } catch {
+            } catch (e) {
+              if (e instanceof ApiError) throw e; // propagate server-sent errors
               // Plain text chunk, not JSON
               fullText += data;
               onChunk(data);

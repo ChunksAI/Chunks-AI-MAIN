@@ -1040,7 +1040,7 @@ Answer helpfully and clearly."""
                             logger.error("SSE stream error: %s", _sse_err)
                         # Send a generic error message — never expose internal exception
                         # details (stack traces, file paths) to the client.
-                        yield 'data: {"error": "Streaming failed. Please retry."}\n\n'
+                        yield f'data: {json.dumps({"error": "Streaming failed. Please retry.", "text": ""}, ensure_ascii=False)}\n\n'
                     yield 'data: [DONE]\n\n'
 
                 return StreamingResponse(
