@@ -132,7 +132,9 @@ def decide(
         'has_failing_gaps':    float(bool(failing_gaps)),
         'has_any_gaps':        float(bool(student_gaps)),
         'paev_ready':          float(paev_ready),
-        'viewer_active':       float(viewer_state is not None),
+        'viewer_active':       float(
+            bool(viewer_state and viewer_state.get('type') not in ('none', None))
+        ),
         'is_viewer_reference': float(clf.is_viewer_reference),
         'confusion_level':     clf.confusion_level,
         'is_multi_intent':     float(clf.is_multi_intent),

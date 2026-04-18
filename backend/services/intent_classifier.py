@@ -99,7 +99,14 @@ def _is_viewer_reference(question: str, viewer_state: dict | None) -> bool:
     """Return True if the question overlaps with the viewer's visible transcript."""
     if not viewer_state:
         return False
-    segment = viewer_state.get('visible_transcript_segment', '') or ''
+    # Support both legacy key (visible_transcript_segment) and new schema keys
+    # (visible_segment for YouTube, pdf_visible_text for PDF).
+    segment = (
+        viewer_state.get('visible_transcript_segment')
+        or viewer_state.get('visible_segment')
+        or viewer_state.get('pdf_visible_text')
+        or ''
+    )
     if not segment:
         return False
     segment_tokens = {

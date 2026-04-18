@@ -350,3 +350,27 @@ class TestViewerReference:
         viewer = {'visible_transcript_segment': 'the is a in of'}
         r = classify("what is the answer?", viewer_state=viewer)
         assert r.is_viewer_reference is False
+
+    def test_visible_segment_key_works(self):
+        """New schema uses 'visible_segment' — must be treated the same as 'visible_transcript_segment'."""
+        viewer = {'visible_segment': 'entropy increases in closed systems over time'}
+        r = classify("What is entropy?", viewer_state=viewer)
+        assert r.is_viewer_reference is True
+
+    def test_pdf_visible_text_key_works(self):
+        """PDF viewer uses 'pdf_visible_text' key — must be treated the same as 'visible_transcript_segment'."""
+        viewer = {'type': 'pdf', 'pdf_visible_text': 'entropy increases in closed systems over time'}
+        r = classify("What is entropy?", viewer_state=viewer)
+        assert r.is_viewer_reference is True
+
+    def test_legacy_key_still_works(self):
+        """Backward-compat: 'visible_transcript_segment' must still be checked."""
+        viewer = {'visible_transcript_segment': 'entropy increases in closed systems over time'}
+        r = classify("What is entropy?", viewer_state=viewer)
+        assert r.is_viewer_reference is True
+
+    def test_new_key_empty_falls_back_to_false(self):
+        """viewer_state with 'visible_segment': '' should not match."""
+        viewer = {'type': 'youtube', 'visible_segment': ''}
+        r = classify("What is entropy?", viewer_state=viewer)
+        assert r.is_viewer_reference is False

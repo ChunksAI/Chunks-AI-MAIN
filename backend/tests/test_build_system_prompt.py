@@ -25,6 +25,7 @@ def _build(**overrides):
         student_profile='',
         paev_context='',
         thinking_mode=None,
+        viewer_context='',
     )
     defaults.update(overrides)
     return build_system_prompt(**defaults)
@@ -179,3 +180,42 @@ def test_returns_string():
 
 def test_returns_non_empty():
     assert len(_build()) > 0
+
+
+# ── viewer_context ─────────────────────────────────────────────────────────────
+
+_VIEWER = "[VIEWER CONTEXT]\nEntropy increases in isolated systems over time."
+
+
+def test_viewer_context_appears_in_output():
+    result = _build(viewer_context=_VIEWER)
+    assert _VIEWER in result
+
+
+def test_empty_viewer_context_not_in_output():
+    result = _build(viewer_context='')
+    assert '[VIEWER CONTEXT]' not in result
+
+
+def test_viewer_context_after_student_profile():
+    """viewer_context must appear after student_profile."""
+    result = _build(student_profile=_PROFILE, viewer_context=_VIEWER)
+    assert result.index(_PROFILE) < result.index(_VIEWER)
+
+
+def test_viewer_context_before_paev_context():
+    """viewer_context must appear before paev_context."""
+    result = _build(viewer_context=_VIEWER, paev_context=_PAEV)
+    assert result.index(_VIEWER) < result.index(_PAEV)
+
+
+def test_viewer_context_ordering_full():
+    """With all sections populated: profile < viewer < paev."""
+    result = _build(student_profile=_PROFILE, viewer_context=_VIEWER, paev_context=_PAEV)
+    assert result.index(_PROFILE) < result.index(_VIEWER) < result.index(_PAEV)
+
+
+def test_viewer_context_without_profile_still_included():
+    result = _build(student_profile='', viewer_context=_VIEWER)
+    assert _VIEWER in result
+

@@ -167,6 +167,7 @@ def build_system_prompt(
     student_profile: str,
     paev_context: str,       # '[PAEV CONTEXT]\n...' or ''
     thinking_mode: str | None,
+    viewer_context: str = '',  # '[VIEWER CONTEXT]\n...' or ''
 ) -> str:
     """Assemble the system prompt in a guaranteed, deterministic order.
 
@@ -174,7 +175,8 @@ def build_system_prompt(
       1. Identity
       2. Role definition (relevant vs. general tutor)
       3. User memory
-      4. Student profile  (ALWAYS before PAEV context)
+      4. Student profile  (ALWAYS before viewer/PAEV context)
+      4.5 Viewer context  (visible transcript/PDF segment the student is viewing)
       5. PAEV prerequisite context + two-phase teaching protocol
       6. Response style + teaching prompt (teaching prompt excluded for deep mode)
       7. Thinking-mode chain-of-thought instructions (always last)
@@ -201,9 +203,13 @@ def build_system_prompt(
     if user_memory:
         parts.append(f"\n\nUSER PROFILE (remember this about the student):\n{user_memory}")
 
-    # 4. Student profile (ALWAYS before PAEV context)
+    # 4. Student profile (ALWAYS before viewer/PAEV context)
     if student_profile:
         parts.append(f"\n{student_profile}")
+
+    # 4.5 Viewer context (visible transcript or PDF segment)
+    if viewer_context:
+        parts.append(f"\n{viewer_context}")
 
     # 5. PAEV prerequisite context
     if paev_context:
@@ -327,6 +333,7 @@ async def ask(request: Request, body: AskRequest):
         task_type       = data.get('task_type', None)
         student_profile = data.get('student_profile', '')
         student_gaps    = data.get('student_gaps', [])
+        viewer_state    = data.get('viewer_state') or None
 
         # ── Parse injected token flags (e.g. [WEB_SEARCH_ENABLED]) ───────────
         if question.startswith('['):
@@ -399,7 +406,7 @@ async def ask(request: Request, body: AskRequest):
 
         # ── Intent classification ─────────────────────────────────────────────
         from services.intent_classifier import classify as _classify_intent
-        _clf_result = _classify_intent(question, history=history)
+        _clf_result = _classify_intent(question, history=history, viewer_state=viewer_state)
         intent = _clf_result.primary_intent
         logger.debug('[intent] %s → %s (confusion=%.2f, multi=%s)',
                      question[:60], intent, _clf_result.confusion_level,
@@ -425,6 +432,7 @@ async def ask(request: Request, body: AskRequest):
             question=question,
             student_profile=student_profile,
             web_search_requested=web_search,
+            viewer_state=viewer_state,
         )
         logger.debug('[orchestrator] route=%s paev=%s viewer=%s escalated=%s',
                      _decision.reason[:60], _decision.use_paev,
@@ -621,6 +629,19 @@ async def ask(request: Request, body: AskRequest):
         ]
         IDENTITY = _get_identity_for_user(verified_user_id, _identity_variants)
 
+        # Build viewer context block for system prompt injection
+        _viewer_context_str = ''
+        if viewer_state and viewer_state.get('type') not in ('none', None):
+            _vs = viewer_state
+            _visible = (
+                _vs.get('visible_segment')
+                or _vs.get('pdf_visible_text')
+                or _vs.get('visible_transcript_segment')
+                or ''
+            )
+            if _visible:
+                _viewer_context_str = f'[VIEWER CONTEXT]\n{_visible}'
+
         base_system = build_system_prompt(
             identity=IDENTITY,
             book_label=book_label,
@@ -632,6 +653,7 @@ async def ask(request: Request, body: AskRequest):
             student_profile=student_profile,
             paev_context=paev_context,
             thinking_mode=thinking_mode,
+            viewer_context=_viewer_context_str,
         )
 
         # ── MODE: VISUAL_TUTOR ────────────────────────────────────────────────
