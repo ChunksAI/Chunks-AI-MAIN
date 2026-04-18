@@ -237,6 +237,7 @@ export async function sendMessageStream(
   const reqId = makeReqId();
   onRequestId?.(reqId);
 
+  try {
   const res = await fetchWithAuth(`${API_BASE}/ask`, {
     method: 'POST',
     headers: {
@@ -326,7 +327,7 @@ export async function sendMessageStream(
     if (!fullText.trim()) {
       throw new ApiError('No response received from AI. Please retry.', 502);
     }
-    return { success: true, answer: fullText, mode: params.mode ?? 'study' };
+    return { success: true, answer: fullText, mode: params.mode ?? 'study', requestId: reqId };
   }
 
   // ── Fallback: full JSON response ──────────────────────────────────────────
@@ -339,7 +340,11 @@ export async function sendMessageStream(
     throw new ApiError('No response received from AI. Please retry.', 502);
   }
   onChunk(answerText);
-  return data;
+  return { ...data, requestId: reqId };
+  } catch (err) {
+    console.error('[req:%s] sendMessageStream error:', reqId, err);
+    throw err;
+  }
 }
 
 // ─── Flashcards ───────────────────────────────────────────────────────────────
