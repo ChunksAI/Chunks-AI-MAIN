@@ -36,6 +36,8 @@ _AskMode = Literal[
     'snap', 'chunk', 'master', 'research',
     # Legacy modes still handled by ai_router.py
     'concise', 'study', 'detailed', 'practice', 'summary', 'generate', 'exam', 'general',
+    # Visual/tutoring modes
+    'visual_tutor',
 ]
 
 
