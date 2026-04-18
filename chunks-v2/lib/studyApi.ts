@@ -21,6 +21,7 @@ import {
   type SlideItem,
   type UploadDocumentResponse,
   type ViewerAction,
+  type ViewerStatePayload,
 } from '@/types/api';
 import { getAccessToken, getSupabaseClient } from './supabaseClient';
 
@@ -210,6 +211,7 @@ export async function sendMessage(params: SendMessageRequest): Promise<SendMessa
     user_memory: params.user_memory ?? '',
     ...(params.student_profile ? { student_profile: params.student_profile } : {}),
     ...(params.bookId ? { bookId: params.bookId } : {}),
+    ...(params.viewer_state != null ? { viewer_state: params.viewer_state } : {}),
   });
 }
 
@@ -342,6 +344,7 @@ export async function sendMessageStream(
       user_memory: params.user_memory ?? '',
       bookId: params.bookId ?? '',
       ...(params.student_profile ? { student_profile: params.student_profile } : {}),
+      ...(params.viewer_state != null ? { viewer_state: params.viewer_state } : {}),
       stream: params.mode === 'snap',
     }),
     signal,
@@ -767,15 +770,7 @@ export async function checkPaevStatus(bookId: string): Promise<boolean> {
 
 // ─── Viewer session ───────────────────────────────────────────────────────────
 
-export type ViewerStatePayload = {
-  type: 'youtube' | 'pdf' | 'research' | 'none';
-  video_id?: string;
-  current_timestamp_seconds?: number;
-  visible_segment?: string;
-  pdf_page?: number;
-  pdf_visible_text?: string;
-  [key: string]: unknown;
-};
+// ViewerStatePayload is imported from @/types/api
 
 /**
  * Fire-and-forget: persist the student's current viewer state on the server

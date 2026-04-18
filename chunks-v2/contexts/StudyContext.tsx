@@ -46,7 +46,7 @@ import type {
 import { useChatContext, type ChatState, type ChatAction } from '@/contexts/ChatContext';
 import { useQuizContext, type QuizState, type QuizAction, calcWeakAreas } from '@/contexts/QuizContext';
 import { useNotesContext, type NotesState, type NotesAction } from '@/contexts/NotesContext';
-import { useViewerContext } from '@/contexts/ViewerContext';
+import { useViewerContext, buildViewerState } from '@/contexts/ViewerContext';
 import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus, getStreamBuffer } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
@@ -902,7 +902,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   const { notesState, notesDispatch } = useNotesContext();
 
   // ── Viewer dispatch from ViewerContext ────────────────────────────────────
-  const { viewerDispatch } = useViewerContext();
+  const { viewerState, viewerDispatch } = useViewerContext();
 
   // ── Merged dispatch — routes to the correct underlying dispatcher ──────────
   // • RESTORE_SESSION: dispatches to study + chat + quiz + notes dispatchers.
@@ -967,6 +967,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     stateRef.current = { ...state, ...chatState, ...quizState, ...notesState };
   }, [state, chatState, quizState, notesState]);
+
+  // Keep a ref so stable callbacks can always read the latest viewer state
+  const viewerStateRef = useRef(viewerState);
+  useEffect(() => {
+    viewerStateRef.current = viewerState;
+  }, [viewerState]);
 
   // ── Initialise browser-only state after mount (avoids SSR/client mismatch) ─
   useEffect(() => {
@@ -1255,6 +1261,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             doc_context: autoDocContext,
             mode: currentChatMode,
             bookId: stateRef.current.bookId ?? undefined,
+            viewer_state: buildViewerState(viewerStateRef.current),
           },
           (chunk: string) => {
             if (isStreamingMode) {
@@ -1704,6 +1711,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         doc_context: docContext,
         mode: stateRef.current.chatMode,
         bookId: stateRef.current.bookId ?? undefined,
+        viewer_state: buildViewerState(viewerStateRef.current),
       });
 
       dispatch({ type: 'SET_REVIEW_EXPLANATION', payload: res.answer });
