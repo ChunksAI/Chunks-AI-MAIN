@@ -216,7 +216,8 @@ async def _ingest_arxiv(arxiv_id: str, http: Any) -> dict:
                                headers={'User-Agent': 'ChunksAI/1.0 (research ingest)'})
         resp.raise_for_status()
     except Exception as exc:
-        raise ValueError(f'Could not fetch arXiv page for {arxiv_id}: {exc}') from exc
+        logger.warning('arXiv fetch failed for %s: %s', arxiv_id, exc)
+        raise ValueError(f'Could not fetch arXiv page for {arxiv_id}') from None
 
     parser = _ArxivHTMLParser()
     parser.feed(resp.text)
@@ -253,7 +254,8 @@ async def _ingest_doi(doi: str, http: Any) -> dict:
         resp.raise_for_status()
         data = resp.json()
     except Exception as exc:
-        raise ValueError(f'Could not fetch CrossRef record for DOI {doi}: {exc}') from exc
+        logger.warning('CrossRef fetch failed for DOI %s: %s', doi, exc)
+        raise ValueError(f'Could not fetch CrossRef record for DOI {doi}') from None
 
     msg: dict = data.get('message', {})
 
@@ -308,7 +310,8 @@ async def _ingest_url(url: str, http: Any) -> dict:
         )
         resp.raise_for_status()
     except Exception as exc:
-        raise ValueError(f'Could not fetch URL {url}: {exc}') from exc
+        logger.warning('Generic URL fetch failed for %s: %s', url, exc)
+        raise ValueError(f'Could not fetch URL') from None
 
     content_type = resp.headers.get('content-type', '')
     if 'html' not in content_type and 'text' not in content_type:
