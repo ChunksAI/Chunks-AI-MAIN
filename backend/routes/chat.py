@@ -343,8 +343,11 @@ async def ask(request: Request, body: AskRequest):
 
         # ── Intent classification ─────────────────────────────────────────────
         from services.intent_classifier import classify as _classify_intent
-        intent = _classify_intent(question)
-        logger.debug('[intent] %s → %s', question[:60], intent)
+        _clf_result = _classify_intent(question, history=history)
+        intent = _clf_result.primary_intent
+        logger.debug('[intent] %s → %s (confusion=%.2f, multi=%s)',
+                     question[:60], intent, _clf_result.confusion_level,
+                     _clf_result.is_multi_intent)
 
         # ── Model selection via ai_router ─────────────────────────────────────
         _mode_fallback: str | None = None
