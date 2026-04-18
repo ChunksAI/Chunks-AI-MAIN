@@ -926,3 +926,42 @@ def env_check(request: Request):
         'success': True,
         'env': {k: ('SET' if os.environ.get(k) else 'MISSING') for k in keys},
     }
+
+
+@router.get('/api/admin/circuit-breaker-status')
+def circuit_breaker_status(request: Request):
+    """Return current circuit breaker state for all known LLM models.
+
+    Requires admin JWT.  Returns state (closed/open/half_open) and failure
+    count for each model known to the AI router.
+    """
+    auth_header = request.headers.get('Authorization', '')
+    if not auth_header.startswith('Bearer '):
+        return JSONResponse({'success': False, 'error': 'Unauthorized'}, status_code=401)
+
+    jwt_token = auth_header[7:].strip()
+    verified, role = _check_admin_role(jwt_token)
+    if not verified or not role:
+        return JSONResponse({'success': False, 'error': 'Forbidden — admin only'}, status_code=403)
+
+    from services.circuit_breaker import _breaker
+    from services.ai_router import _get_models
+
+    models_cfg = _get_models()
+    # Collect all unique model identifiers
+    all_models: list[str] = []
+    seen: set[str] = set()
+    for m in models_cfg.values():
+        if m and m not in seen:
+            all_models.append(m)
+            seen.add(m)
+
+    return {
+        'success': True,
+        'circuit_breakers': _breaker.status_all(all_models),
+        'config': {
+            'failure_threshold':   _breaker.failure_threshold,
+            'failure_window_secs': _breaker.failure_window_secs,
+            'open_window_secs':    _breaker.open_window_secs,
+        },
+    }

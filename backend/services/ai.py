@@ -33,18 +33,34 @@ MAX_HISTORY_TURNS: int = 10
 MODEL: str = 'openai/gpt-oss-20b:nitroe'
 SYSTEM_PROMPT_PREVIEW_LENGTH: int = 300
 
+# Circuit breaker — replaced at startup via init(); module import is deferred so
+# the service file is importable even before Redis is connected.
+_circuit_breaker = None
+
+
+def _get_circuit_breaker():
+    """Return the active circuit breaker (lazy-import to avoid circular deps)."""
+    global _circuit_breaker
+    if _circuit_breaker is None:
+        from services.circuit_breaker import _breaker
+        _circuit_breaker = _breaker
+    return _circuit_breaker
+
 
 def init(session, openrouter_api_key: str, model: str,
          max_history_turns: int = 10,
-         async_client: httpx.AsyncClient | None = None) -> None:
+         async_client: httpx.AsyncClient | None = None,
+         circuit_breaker=None) -> None:
     """Inject shared dependencies. Call once from server.py at startup."""
-    global _session, OPENROUTER_API_KEY, MODEL, MAX_HISTORY_TURNS, _async_client
+    global _session, OPENROUTER_API_KEY, MODEL, MAX_HISTORY_TURNS, _async_client, _circuit_breaker
     _session           = session
     OPENROUTER_API_KEY = openrouter_api_key
     MODEL              = model
     MAX_HISTORY_TURNS  = max_history_turns
     if async_client is not None:
         _async_client = async_client
+    if circuit_breaker is not None:
+        _circuit_breaker = circuit_breaker
 
 
 # ── Input sanitisation ────────────────────────────────────────────────────────
@@ -479,15 +495,33 @@ async def call_ai_async(
         use_model, fallback_model or "none", timeout,
     )
 
+    _cb = _get_circuit_breaker()
+
+    # ── Circuit breaker: short-circuit the primary when OPEN ──────────────────
+    _primary_skipped = False
+    if not _cb.can_call(use_model):
+        logger.warning(
+            "[call_ai_async] circuit OPEN for %s — using fallback %s directly",
+            use_model, fallback_model or "none",
+        )
+        _primary_skipped = True
+        if not fallback_model:
+            raise RuntimeError("LLM_TIMEOUT")
+        use_model = fallback_model
+        fallback_model = None  # already on fallback; no further retry
+
     try:
         try:
             result = await asyncio.wait_for(_do_post(use_model), timeout=float(timeout))
+            _cb.record_result(use_model, success=True)
             logger.info(
-                "[call_ai_async] END path=primary model=%s latency=%.1fs",
+                "[call_ai_async] END path=%s model=%s latency=%.1fs",
+                "skipped-primary" if _primary_skipped else "primary",
                 use_model, time.time() - _t0,
             )
             return result
         except asyncio.TimeoutError:
+            _cb.record_result(use_model, success=False)
             logger.warning(
                 "[call_ai_async] TIMEOUT path=primary model=%s timeout=%ds fallback=%s",
                 use_model, timeout, fallback_model or "none",
@@ -498,17 +532,25 @@ async def call_ai_async(
                 result = await asyncio.wait_for(
                     _do_post(fallback_model), timeout=float(timeout),
                 )
+                _cb.record_result(fallback_model, success=True)
                 logger.info(
                     "[call_ai_async] END path=fallback primary=%s fallback=%s latency=%.1fs",
                     use_model, fallback_model, time.time() - _t0,
                 )
                 return result
             except asyncio.TimeoutError:
+                _cb.record_result(fallback_model, success=False)
                 logger.warning(
                     "[call_ai_async] TIMEOUT path=fallback model=%s timeout=%ds — raising LLM_TIMEOUT",
                     fallback_model, timeout,
                 )
                 raise RuntimeError("LLM_TIMEOUT")
+        except RuntimeError as _re:
+            # HTTP 5xx / rate-limit errors from _do_post — record as failures
+            _err_str = str(_re)
+            if 'LLM_TIMEOUT' not in _err_str and 'rate-limited' not in _err_str:
+                _cb.record_result(use_model, success=False)
+            raise
     except httpx.TimeoutException:
         raise RuntimeError("The AI model timed out. Please try again.")
     except RuntimeError:

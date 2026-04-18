@@ -231,6 +231,7 @@ import services.books as _books_svc
 import services.embedding_cache as _embed_cache_svc
 import services.vector_store as _vector_store_svc
 import services.prompt_guard as _prompt_guard_svc
+import services.circuit_breaker as _circuit_breaker_svc
 
 _auth_svc.init(
     session              = _session,
@@ -238,12 +239,14 @@ _auth_svc.init(
     supabase_service_key = SUPABASE_SERVICE_KEY,
     redis                = _redis,
 )
+_circuit_breaker_svc.init(redis_client=_redis)
 _ai_svc.init(
     session            = _session,
     openrouter_api_key = OPENROUTER_API_KEY,
     model              = MODEL,
     max_history_turns  = MAX_HISTORY_TURNS,
     async_client       = _async_http_client,
+    circuit_breaker    = _circuit_breaker_svc._breaker,
 )
 _vector_store_svc.init(
     session              = _session,
