@@ -257,6 +257,46 @@ def build_system_prompt(
     return "".join(parts)
 
 
+# ── Async context-fetch helpers ───────────────────────────────────────────────
+# Both are coroutines so they can be composed with asyncio.gather() when the
+# orchestrator decides both PAEV + textbook context are needed.
+
+async def _fetch_textbook_context(
+    searcher,
+    question: str,
+    top_k: int = 5,
+) -> tuple:
+    """Wrap the blocking TextbookSearch.smart_search() in a thread pool.
+
+    Returns the same 5-tuple as smart_search:
+        (context_str, similarity, is_relevant, source, all_sources)
+    """
+    return await asyncio.to_thread(searcher.smart_search, question, top_k=top_k)
+
+
+async def _fetch_paev_context(
+    gaps: list[dict],
+    prereq_limit: int,
+) -> str:
+    """Build a ``[PAEV CONTEXT]`` string from the student's failing gaps.
+
+    This is pure Python (no blocking I/O) but is an async coroutine so that
+    it composes cleanly with asyncio.gather() alongside ``_fetch_textbook_context``.
+
+    Returns an empty string when there are no failing gaps.
+    """
+    if not gaps:
+        return ''
+    failing = [g for g in gaps if g.get('status') == 'failing']
+    if not failing:
+        return ''
+    concepts = [g['concept'] for g in failing[:prereq_limit] if g.get('concept')]
+    if not concepts:
+        return ''
+    prereq_lines = '\n'.join(f'- prerequisite: {c}' for c in concepts)
+    return f'[PAEV CONTEXT]\n{prereq_lines}'
+
+
 @router.post('/ask')
 @limiter.limit("10/minute")
 async def ask(request: Request, body: AskRequest):
@@ -285,6 +325,7 @@ async def ask(request: Request, body: AskRequest):
         user_memory     = sanitize_user_memory(data.get('user_memory', ''))
         task_type       = data.get('task_type', None)
         student_profile = data.get('student_profile', '')
+        student_gaps    = data.get('student_gaps', [])
 
         # ── Parse injected token flags (e.g. [WEB_SEARCH_ENABLED]) ───────────
         if question.startswith('['):
@@ -349,6 +390,31 @@ async def ask(request: Request, body: AskRequest):
                      question[:60], intent, _clf_result.confusion_level,
                      _clf_result.is_multi_intent)
 
+        # ── Orchestrator routing decision ─────────────────────────────────────
+        # Synchronous, <1ms — pure Python, no I/O.  Must happen before any
+        # context-fetch so we know which sources to prefetch in parallel.
+        from services.orchestrator import decide as _orch_decide
+        _paev_ready_flag = False
+        try:
+            _r = getattr(ctx, 'redis', None)
+            if _r is not None and book_id:
+                _paev_ready_flag = _r.get(f'paev_ready:{book_id}') in ('1', b'1')
+        except Exception:
+            pass
+        _decision = _orch_decide(
+            intent=_clf_result,
+            student_gaps=student_gaps,
+            paev_ready=_paev_ready_flag,
+            has_doc_context=bool(doc_context),
+            mode=mode,
+            question=question,
+            student_profile=student_profile,
+            web_search_requested=web_search,
+        )
+        logger.debug('[orchestrator] route=%s paev=%s viewer=%s escalated=%s',
+                     _decision.reason[:60], _decision.use_paev,
+                     _decision.viewer_route, _decision.confusion_escalated)
+
         # ── Model selection via ai_router ─────────────────────────────────────
         _mode_fallback: str | None = None
         if thinking_mode == 'deep':
@@ -388,6 +454,7 @@ async def ask(request: Request, body: AskRequest):
                 # searcher.smart_search() path below will populate them.
                 use_textbook = True
                 context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
+                paev_context = ''
                 logger.info(f"User doc PAEV active — switching to textbook mode for book {book_id}")
             else:
                 from services.tool_compressor import compress_tool_context as _compress
@@ -400,6 +467,7 @@ async def ask(request: Request, body: AskRequest):
                 context, similarity, is_relevant, source, all_sources = doc_context, 1.0, True, None, []
                 searcher     = TextbookSearch()
                 use_textbook = False
+                paev_context = ''
                 logger.info(f"User doc mode — context length: {len(doc_context)}")
         else:
             if book_id:
@@ -410,11 +478,35 @@ async def ask(request: Request, body: AskRequest):
             use_textbook = should_search_textbook(question, chunks_loaded=bool(searcher.chunks))
             logger.info(f"Search textbook: {use_textbook} | book: {book_id}")
 
-            if use_textbook:
-                context, similarity, is_relevant, source, all_sources = searcher.smart_search(question, top_k=5)
+            if use_textbook and _decision.use_paev:
+                # ── Parallel fetch: textbook + PAEV context ───────────────────
+                # Both calls are I/O-bound (or CPU-bound but blocking); run them
+                # concurrently to save the duration of the slower fetch.
+                (context, similarity, is_relevant, source, all_sources), paev_context = \
+                    await asyncio.gather(
+                        _fetch_textbook_context(searcher, question, top_k=5),
+                        _fetch_paev_context(student_gaps, _decision.paev_prereq_limit),
+                    )
+                logger.debug(
+                    'parallel fetch done: score=%.4f relevant=%s paev_ctx_len=%d',
+                    similarity, is_relevant, len(paev_context),
+                )
+            elif use_textbook:
+                # ── Single fetch: textbook only ───────────────────────────────
+                context, similarity, is_relevant, source, all_sources = \
+                    await _fetch_textbook_context(searcher, question, top_k=5)
+                paev_context = ''
                 logger.debug(f"Score: {similarity:.4f} | Relevant: {is_relevant}")
+            elif _decision.use_paev:
+                # ── Single fetch: PAEV only (no textbook) ────────────────────
+                context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
+                paev_context = await _fetch_paev_context(
+                    student_gaps, _decision.paev_prereq_limit
+                )
+                logger.info("Chit-chat / no book loaded")
             else:
                 context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
+                paev_context = ''
                 logger.info("Chit-chat / no book loaded")
 
         # ── Semantic answer cache check ───────────────────────────────────────
@@ -523,7 +615,7 @@ async def ask(request: Request, body: AskRequest):
             response_style=response_style_instruction,
             teaching_prompt=TEACHING_PROMPT,
             student_profile=student_profile,
-            paev_context='',  # TODO: wire in from decision.use_paev (Phase 2)
+            paev_context=paev_context,
             thinking_mode=thinking_mode,
         )
 

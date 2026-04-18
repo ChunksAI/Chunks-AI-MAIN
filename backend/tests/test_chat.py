@@ -1356,3 +1356,193 @@ def test_topic_marker_sanitizes_injection_attempt(client, monkeypatch, mock_gues
     assert '>' not in extracted_topic     # angle brackets stripped
     # The original concept name is preserved
     assert 'Entropy' in extracted_topic
+
+
+# ── _fetch_textbook_context / _fetch_paev_context helpers ────────────────────
+
+class TestFetchHelpers:
+    """Unit tests for the module-level async context-fetch helpers."""
+
+    def test_fetch_textbook_context_wraps_smart_search(self, anyio_backend='asyncio'):
+        """_fetch_textbook_context returns smart_search result via asyncio.to_thread."""
+        import asyncio
+        from routes.chat import _fetch_textbook_context
+        from unittest.mock import MagicMock
+
+        expected = ("ctx", 0.9, True, "p1", ["p1"])
+        mock_searcher = MagicMock()
+        mock_searcher.smart_search = MagicMock(return_value=expected)
+
+        result = asyncio.get_event_loop().run_until_complete(
+            _fetch_textbook_context(mock_searcher, "What is entropy?", top_k=5)
+        )
+        assert result == expected
+        mock_searcher.smart_search.assert_called_once_with("What is entropy?", top_k=5)
+
+    def test_fetch_paev_context_empty_gaps(self, anyio_backend='asyncio'):
+        """_fetch_paev_context returns '' when gaps list is empty."""
+        import asyncio
+        from routes.chat import _fetch_paev_context
+
+        result = asyncio.get_event_loop().run_until_complete(
+            _fetch_paev_context([], prereq_limit=3)
+        )
+        assert result == ''
+
+    def test_fetch_paev_context_no_failing_gaps(self, anyio_backend='asyncio'):
+        """_fetch_paev_context returns '' when no gaps have status='failing'."""
+        import asyncio
+        from routes.chat import _fetch_paev_context
+
+        gaps = [
+            {'concept': 'entropy', 'status': 'ok'},
+            {'concept': 'enthalpy', 'status': 'ok'},
+        ]
+        result = asyncio.get_event_loop().run_until_complete(
+            _fetch_paev_context(gaps, prereq_limit=3)
+        )
+        assert result == ''
+
+    def test_fetch_paev_context_builds_context_string(self, anyio_backend='asyncio'):
+        """_fetch_paev_context formats failing gaps into [PAEV CONTEXT] string."""
+        import asyncio
+        from routes.chat import _fetch_paev_context
+
+        gaps = [
+            {'concept': 'entropy', 'status': 'failing'},
+            {'concept': 'enthalpy', 'status': 'failing'},
+            {'concept': 'Gibbs free energy', 'status': 'ok'},
+        ]
+        result = asyncio.get_event_loop().run_until_complete(
+            _fetch_paev_context(gaps, prereq_limit=3)
+        )
+        assert result.startswith('[PAEV CONTEXT]')
+        assert 'entropy' in result
+        assert 'enthalpy' in result
+        assert 'Gibbs free energy' not in result
+
+    def test_fetch_paev_context_respects_prereq_limit(self, anyio_backend='asyncio'):
+        """_fetch_paev_context caps output to prereq_limit failing gaps."""
+        import asyncio
+        from routes.chat import _fetch_paev_context
+
+        gaps = [
+            {'concept': f'concept_{i}', 'status': 'failing'} for i in range(5)
+        ]
+        result = asyncio.get_event_loop().run_until_complete(
+            _fetch_paev_context(gaps, prereq_limit=2)
+        )
+        assert result.count('- prerequisite:') == 2
+
+
+# ── Parallel context fetching via asyncio.gather() ───────────────────────────
+
+class TestParallelContextFetching:
+    """Integration tests: verify asyncio.gather() path fires for PAEV routes."""
+
+    def _base_mocks(self, monkeypatch):
+        import services.ai as ai_svc
+        import services.books as books_svc
+
+        monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value='Answer.'))
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(return_value='Answer.'))
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=True))
+
+        mock_searcher = MagicMock()
+        mock_searcher.chunks = ['chunk1']
+        mock_searcher.has_embeddings = False
+        mock_searcher.smart_search = MagicMock(
+            return_value=('textbook ctx', 0.85, True, 'p1', ['p1'])
+        )
+        monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+        return mock_searcher
+
+    def test_parallel_fetch_fires_for_paev_route(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user
+    ):
+        """When student_gaps has failing gaps + book has PAEV ready, gather() fires."""
+        import asyncio
+        import routes.chat as chat_mod
+
+        self._base_mocks(monkeypatch)
+        gather_calls: list = []
+        _orig_gather = asyncio.gather
+
+        async def _spy_gather(*coros, **kw):
+            gather_calls.append(len(coros))
+            return await _orig_gather(*coros, **kw)
+
+        monkeypatch.setattr(asyncio, 'gather', _spy_gather)
+        # Patch paev_ready flag so orchestrator activates PAEV
+        monkeypatch.setattr(
+            'routes.chat.ctx',
+            type('_FakeCtx', (), {'redis': type('R', (), {
+                'get': lambda self, k: b'1'
+            })()})(),
+        )
+
+        resp = client.post('/ask', json={
+            'question': "I don't understand entropy",
+            'mode': 'snap',
+            'complexity': 3,
+            'bookId': 'zumdahl',
+            'student_gaps': [
+                {'concept': 'entropy', 'status': 'failing'},
+            ],
+        })
+        assert resp.status_code == 200
+        # gather() should have been called for the parallel fetch
+        assert len(gather_calls) >= 1, "asyncio.gather() was not called"
+
+    def test_single_fetch_when_no_paev(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user
+    ):
+        """Without PAEV, only textbook is fetched (no gather overhead)."""
+        import asyncio
+        import routes.chat as chat_mod
+
+        self._base_mocks(monkeypatch)
+        gather_calls: list = []
+        _orig_gather = asyncio.gather
+
+        async def _spy_gather(*coros, **kw):
+            gather_calls.append(len(coros))
+            return await _orig_gather(*coros, **kw)
+
+        monkeypatch.setattr(asyncio, 'gather', _spy_gather)
+
+        resp = client.post('/ask', json={
+            'question': 'What is entropy?',
+            'mode': 'snap',
+            'complexity': 3,
+            'bookId': 'zumdahl',
+            'student_gaps': [],   # no gaps → no PAEV
+        })
+        assert resp.status_code == 200
+        # gather() must NOT have been used for the context fetch
+        assert len(gather_calls) == 0, "asyncio.gather() was unexpectedly called"
+
+    def test_student_gaps_field_accepted(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user
+    ):
+        """student_gaps field in request is accepted without validation error."""
+        import services.ai as ai_svc
+        import services.books as books_svc
+
+        monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value='Answer.'))
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(return_value='Answer.'))
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+        mock_searcher = MagicMock()
+        mock_searcher.chunks = []
+        mock_searcher.has_embeddings = False
+        monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+        resp = client.post('/ask', json={
+            'question': 'What is entropy?',
+            'mode': 'snap',
+            'complexity': 3,
+            'student_gaps': [
+                {'concept': 'thermodynamics', 'status': 'failing'},
+            ],
+        })
+        assert resp.status_code == 200

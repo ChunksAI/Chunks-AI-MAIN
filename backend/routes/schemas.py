@@ -55,6 +55,7 @@ class AskRequest(_LenientBase):
     user_memory: str = ""
     task_type: Optional[str] = None
     student_profile: str = ""
+    student_gaps: List[Any] = Field(default_factory=list)
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
