@@ -283,6 +283,35 @@ export async function sendMessageStream(
     const decoder = new TextDecoder();
     let fullText = '';
 
+    // RAF-based chunk batching: accumulate tokens and flush at most once per
+    // animation frame so React re-renders at display rate instead of once per token.
+    const scheduleFlush =
+      typeof requestAnimationFrame !== 'undefined'
+        ? requestAnimationFrame
+        : (fn: () => void) => setTimeout(fn, 16) as unknown as number;
+    const cancelFlush =
+      typeof cancelAnimationFrame !== 'undefined'
+        ? cancelAnimationFrame
+        : clearTimeout;
+
+    let pendingChunks = '';
+    let rafId: number | null = null;
+
+    const flushChunks = () => {
+      if (pendingChunks) {
+        onChunk(pendingChunks);
+        pendingChunks = '';
+      }
+      rafId = null;
+    };
+
+    const bufferChunk = (text: string) => {
+      pendingChunks += text;
+      if (rafId === null) {
+        rafId = scheduleFlush(flushChunks);
+      }
+    };
+
     try {
       outer: while (true) {
         const { done, value } = await reader.read();
@@ -304,22 +333,25 @@ export async function sendMessageStream(
               }
               const text = extractStreamText(parsed, data);
               fullText += text;
-              onChunk(text);
+              bufferChunk(text);
             } catch (e) {
               if (e instanceof ApiError) throw e; // propagate server-sent errors
               // Plain text chunk, not JSON
               fullText += data;
-              onChunk(data);
+              bufferChunk(data);
             }
           } else if (line.trim() && !line.startsWith(':')) {
             // Plain streaming (not SSE format)
             fullText += line;
-            onChunk(line);
+            bufferChunk(line);
           }
         }
       }
     } finally {
       reader.releaseLock();
+      // Cancel any pending RAF and flush remaining buffered text immediately.
+      if (rafId !== null) cancelFlush(rafId);
+      if (pendingChunks) onChunk(pendingChunks);
     }
 
     if (!fullText.trim()) {
