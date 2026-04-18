@@ -8,6 +8,8 @@ POST /ask
 """
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -27,6 +29,23 @@ from services.cache import cache_svc as _cache_svc
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+def _get_identity_for_user(user_id: str, variants: list[str]) -> str:
+    """Deterministically pick an identity variant based on user_id hash.
+
+    The same user always receives the same variant (stable within a
+    conversation and across sessions).  Guest / IP-keyed users always
+    receive the first (default) variant.
+    """
+    if not user_id or user_id.startswith('ip:'):
+        return variants[0]
+    idx = int(hashlib.md5(user_id.encode()).hexdigest(), 16) % len(variants)
+    return variants[idx]
+
+# In-flight cancellation registry: request_id → cancelled flag.
+# Set by POST /ask/cancel; checked inside _sse_generator on every token.
+_cancelled_requests: dict[str, bool] = {}
 
 # Per-mode response length/style instructions applied on every /ask request.
 # These control how long and how structured each mode's answer must be.
@@ -63,6 +82,55 @@ _MODE_MAX_TOKENS = {
     'deep':     4000,   # ~1k for reasoning + 3k for detailed answer
     'thinking':  2000,  # ~500 for reasoning + 1500 for balanced answer
     None:        1500,  # normal / no thinking — full complete answer
+}
+
+# System-prompt overrides for structured-JSON modes (chunk / master / research).
+# These replace the free-form "answer helpfully" instruction with a strict JSON
+# schema so the frontend can render rich, structured UI cards.
+# IMPORTANT: snap mode must NOT appear here — it uses SSE streaming.
+MODE_SYSTEM_PROMPTS: dict[str, str] = {
+    'chunk': """You are a structured teaching assistant.
+Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
+Required keys (all must be present):
+{
+  "overview": "one paragraph — what this topic is",
+  "key_concepts": ["concept 1", "concept 2", ...],
+  "step_by_step": ["step 1", "step 2", ...],
+  "example": "a concrete real-world example"
+}
+Rules: Simple, clear, teaching-focused. No assumed prior knowledge.""",
+
+    'master': """You are an advanced reasoning assistant.
+Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
+Required keys (all must be present):
+{
+  "core_explanation": "deep explanation of the concept",
+  "mechanism": "how/why it works at a fundamental level",
+  "analysis": "implications, edge cases, nuances",
+  "connections": "how this connects to related concepts",
+  "key_insight": "the single most important takeaway"
+}
+Rules: Analytical. Explain WHY and HOW. No fluff.""",
+
+    'research': """You are an evidence-based research assistant.
+Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
+Required keys (all must be present):
+{
+  "summary": "brief overview of what the research shows",
+  "key_findings": ["finding 1", "finding 2", ...],
+  "sources": ["Source name (year) — description", ...],
+  "simplified_explanation": "plain-language explanation for a student"
+}
+Rules: Only cite real, credible sources. If uncertain, write \
+"General scientific consensus — verify with primary literature". \
+Never fabricate citations.""",
+}
+
+# Required JSON keys for each structured mode — used to warn on partial responses.
+_STRUCTURED_REQUIRED_KEYS: dict[str, set[str]] = {
+    'chunk':    {'overview', 'key_concepts', 'step_by_step', 'example'},
+    'master':   {'core_explanation', 'mechanism', 'analysis', 'connections', 'key_insight'},
+    'research': {'summary', 'key_findings', 'sources', 'simplified_explanation'},
 }
 
 
@@ -274,33 +342,18 @@ def ask(request: Request, body: AskRequest):
         logger.debug('[intent] %s → %s', question[:60], intent)
 
         # ── Model selection via ai_router ─────────────────────────────────────
-        # Per-mode primary/fallback model pairs (configurable via env vars).
-        # Phase 1: Streaming enabled only for Snap mode
-        _MODE_MODELS: dict[str, tuple[str, str]] = {
-            'snap':     (os.environ.get('SNAP_MODEL',      'google/gemini-flash-1.5'),
-                         os.environ.get('SNAP_FALLBACK',   'openai/gpt-4o-mini')),
-            'chunk':    (os.environ.get('CHUNK_MODEL',     'deepseek/deepseek-chat-v3-0324'),
-                         os.environ.get('CHUNK_FALLBACK',  'anthropic/claude-3-5-haiku')),
-            'master':   (os.environ.get('MASTER_MODEL',    'openai/o4-mini'),
-                         os.environ.get('MASTER_FALLBACK', 'google/gemini-2.5-flash')),
-            'research': (os.environ.get('RESEARCH_MODEL',  'google/gemini-2.5-flash'),
-                         os.environ.get('RESEARCH_FALLBACK','google/gemini-2.0-flash-001')),
-        }
-        _mode_primary: str | None = None
         _mode_fallback: str | None = None
-        if mode in _MODE_MODELS:
-            _mode_primary, _mode_fallback = _MODE_MODELS[mode]
-
         if thinking_mode == 'deep':
             selected_model = os.environ.get('DEEP_MODEL', 'google/gemini-2.0-flash-001')
+            _mode_fallback = os.environ.get('DEEP_FALLBACK', 'google/gemini-2.5-flash')
         elif thinking_mode == 'thinking':
             selected_model = os.environ.get('THINK_MODEL', 'anthropic/claude-3-5-haiku')
-        elif _mode_primary:
-            selected_model = _mode_primary
-        elif task_type:
-            selected_model = route(task_type, complexity)
+            _mode_fallback = os.environ.get('THINK_FALLBACK', 'openai/gpt-4o-mini')
         else:
-            selected_model = route_for_mode(mode, complexity)
+            selected_model, _mode_fallback = route_for_mode(mode or task_type or 'snap', complexity)
+
+        # Per-mode request timeout: use full 55s for slow/large modes; 30s elsewhere.
+        _ai_timeout = 55 if mode in ('master', 'research') or thinking_mode in ('deep', 'thinking') else 30
 
         # User-uploaded document: skip textbook index entirely —
         # unless PAEV has finished indexing it, in which case treat it
@@ -445,7 +498,7 @@ def ask(request: Request, body: AskRequest):
             "When someone asks what your name is, who you are, or what AI you are — answer naturally and with energy as Chunks AI. "
             "Mix up your tone: casual, enthusiastic, thoughtful. Never claim to be any other AI. ",
         ]
-        IDENTITY = random.choice(_identity_variants)
+        IDENTITY = _get_identity_for_user(verified_user_id, _identity_variants)
 
         base_system = build_system_prompt(
             identity=IDENTITY,
@@ -589,7 +642,7 @@ def ask(request: Request, body: AskRequest):
                 "- The 'key_difference' must be one concise sentence (under 20 words)"
             )
             answer = call_ai(question, system_prompt=vt_system, model=selected_model, history=history,
-                             endpoint='chat_visual', user_id=verified_user_id)
+                             endpoint='chat_visual', user_id=verified_user_id, timeout=_ai_timeout)
             answer, thinking_content = extract_thinking_content(answer)
             # Strip the internal visual_plan field from diagram responses so it is
             # never exposed to the client.  We parse, pop the key, then re-serialise;
@@ -711,7 +764,7 @@ Rules:
 - Do NOT add any text before Q1 or after Q10's explanation"""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_exam', user_id=verified_user_id)
+                             endpoint='chat_exam', user_id=verified_user_id, timeout=_ai_timeout)
             answer, thinking_content = extract_thinking_content(answer)
             questions = _parse_mcq(answer)
             return {
@@ -748,7 +801,7 @@ Structure your response like this:
 {latex_instruction}"""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_practice', user_id=verified_user_id)
+                             endpoint='chat_practice', user_id=verified_user_id, timeout=_ai_timeout)
             answer, thinking_content = extract_thinking_content(answer)
             return {
                 'success':        True,
@@ -782,7 +835,7 @@ Include these sections:
 Keep the summary focused, clear, and easy to review before an exam."""
 
             answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_summary', user_id=verified_user_id)
+                             endpoint='chat_summary', user_id=verified_user_id, timeout=_ai_timeout)
             answer, thinking_content = extract_thinking_content(answer)
             _resp = {
                 'success':        True,
@@ -870,6 +923,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     model=selected_model,
                     endpoint='chat_generate',
                     user_id=verified_user_id,
+                    timeout=_ai_timeout,
                 )
             except RuntimeError as _ai_err:
                 logger.warning(
@@ -922,7 +976,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     logger.warning(f"Web search failed ({answer[:80]}), falling back to standard model")
                     fallback_prompt = f"STUDENT QUESTION: {question}\n\nAnswer helpfully and clearly."
                     answer = call_ai(fallback_prompt, system_prompt=base_system, model=selected_model, history=history,
-                                     endpoint='chat', user_id=verified_user_id,
+                                     endpoint='chat', user_id=verified_user_id, timeout=_ai_timeout,
                                      max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))
                     answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
                     web_citations = []
@@ -990,44 +1044,125 @@ Answer helpfully and clearly."""
                 _stream_endpoint  = 'chat'
                 _stream_user_id   = verified_user_id
                 _stream_prompt    = prompt
+                _stream_req_id    = getattr(request.state, 'request_id', '')
+                _stream_timeout   = _ai_timeout
 
-                def _sse_generator():
-                    try:
-                        for _token in call_ai_stream(
+                async def _sse_generator():
+                    # Async generator so Starlette can cancel it (raise
+                    # CancelledError) when the client disconnects.  The
+                    # blocking call_ai_stream runs in a background daemon
+                    # thread; results are forwarded via an asyncio.Queue
+                    # using loop.call_soon_threadsafe so the bridge is
+                    # thread-safe without holding the GIL.
+                    import threading
+
+                    loop = asyncio.get_running_loop()
+                    _async_q: asyncio.Queue = asyncio.Queue()   # unbounded
+                    _stop = threading.Event()
+
+                    def _put(item) -> None:  # called from producer thread
+                        try:
+                            # call_soon_threadsafe forwards *item* as an arg
+                            # to put_nowait — no closure allocation per call.
+                            loop.call_soon_threadsafe(_async_q.put_nowait, item)
+                        except RuntimeError:
+                            # Event loop already closed — stream already ended.
+                            _stop.set()
+
+                    def _iter(model: str) -> None:
+                        for _tok in call_ai_stream(
                             _stream_prompt,
                             system_prompt=_stream_system,
-                            model=_stream_model,
+                            model=model,
                             history=_stream_history,
                             max_tokens_override=_stream_max_tok,
                             endpoint=_stream_endpoint,
                             user_id=_stream_user_id,
+                            timeout=_stream_timeout,
                         ):
-                            yield f'data: {json.dumps({"text": _token}, ensure_ascii=False)}\n\n'
-                    except Exception as _sse_err:
-                        if _stream_fallback:
-                            logger.warning("[/ask] snap stream primary failed (%s), retrying with fallback %s",
-                                           _sse_err, _stream_fallback)
-                            try:
-                                for _token in call_ai_stream(
-                                    _stream_prompt,
-                                    system_prompt=_stream_system,
-                                    model=_stream_fallback,
-                                    history=_stream_history,
-                                    max_tokens_override=_stream_max_tok,
-                                    endpoint=_stream_endpoint,
-                                    user_id=_stream_user_id,
-                                ):
-                                    yield f'data: {json.dumps({"text": _token}, ensure_ascii=False)}\n\n'
-                                yield 'data: [DONE]\n\n'
+                            if _stop.is_set():
                                 return
-                            except Exception as _fb_err:
-                                logger.error("SSE fallback stream error: %s", _fb_err)
-                        else:
-                            logger.error("SSE stream error: %s", _sse_err)
-                        # Send a generic error message — never expose internal exception
-                        # details (stack traces, file paths) to the client.
-                        yield 'data: {"error": "Streaming failed. Please retry."}\n\n'
-                    yield 'data: [DONE]\n\n'
+                            if _cancelled_requests.pop(_stream_req_id, False):
+                                logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
+                                return
+                            _put(('token', _tok))
+
+                    def _stream_to_queue() -> None:
+                        try:
+                            _iter(_stream_model)
+                            _put(('done', None))
+                        except Exception as _primary_err:
+                            if _stream_fallback:
+                                logger.warning(
+                                    "[/ask] snap stream primary failed (%s), retrying with fallback %s",
+                                    _primary_err, _stream_fallback,
+                                )
+                                try:
+                                    _iter(_stream_fallback)
+                                    _put(('done', None))
+                                    return
+                                except Exception as _fb_err:
+                                    logger.error("SSE fallback stream error: %s", _fb_err)
+                            else:
+                                logger.error("SSE stream error: %s", _primary_err)
+                            # Never expose internal exception details to the client.
+                            _put(('error', None))
+
+                    # Heartbeat / batching constants
+                    _HEARTBEAT_SECS = 15.0   # SSE comment every N idle seconds
+                    _FLUSH_SECS     = 0.05   # max age of a non-empty token buffer
+                    _FLUSH_COUNT    = 3      # flush when this many tokens buffered
+
+                    _thread = threading.Thread(target=_stream_to_queue, daemon=True)
+                    _thread.start()
+                    _tok_buf: list[str] = []
+                    _last_flush = loop.time()
+                    try:
+                        while True:
+                            # Wait at most _HEARTBEAT_SECS for the next queue item.
+                            # A TimeoutError means the model is slow / idle —
+                            # send a keepalive SSE comment so proxies don't close
+                            # the connection, then flush any buffered tokens.
+                            try:
+                                _kind, _value = await asyncio.wait_for(
+                                    _async_q.get(),
+                                    timeout=_HEARTBEAT_SECS,
+                                )
+                            except asyncio.TimeoutError:
+                                if _tok_buf:
+                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                    _tok_buf = []
+                                    _last_flush = loop.time()
+                                yield ': heartbeat\n\n'
+                                continue
+
+                            if _kind == 'done':
+                                if _tok_buf:
+                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                yield 'data: [DONE]\n\n'
+                                break
+                            elif _kind == 'error':
+                                if _tok_buf:
+                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                yield f'data: {json.dumps({"error": "Streaming failed. Please retry.", "text": ""}, ensure_ascii=False)}\n\n'
+                                yield 'data: [DONE]\n\n'
+                                break
+                            else:
+                                # Micro-batch: accumulate tokens and flush when
+                                # the buffer is large enough or 50 ms have passed.
+                                _tok_buf.append(_value)
+                                _now = loop.time()
+                                if len(_tok_buf) >= _FLUSH_COUNT or (_now - _last_flush) >= _FLUSH_SECS:
+                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                    _tok_buf = []
+                                    _last_flush = _now
+                    except asyncio.CancelledError:
+                        # Client disconnected — Starlette cancels async generators.
+                        logger.info('[/ask] SSE client disconnected — stopping generation req_id=%s', _stream_req_id)
+                        _stop.set()
+                        raise
+                    finally:
+                        _stop.set()
 
                 return StreamingResponse(
                     _sse_generator(),
@@ -1040,20 +1175,50 @@ Answer helpfully and clearly."""
 
             # ── NON-STREAMING PATH ────────────────────────────────────────────────
             _max_tok = _MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None])
+
+            # For structured modes, append the JSON-schema instruction and
+            # request json_object response format from the model.
+            _is_structured_mode = mode in MODE_SYSTEM_PROMPTS and mode != 'snap'
+            if _is_structured_mode:
+                _mode_instruction = MODE_SYSTEM_PROMPTS[mode]
+                if _mode_instruction:
+                    _call_system = (base_system + '\n\n' + _mode_instruction) if base_system else _mode_instruction
+                else:
+                    _call_system = base_system
+                _response_format: dict | None = {"type": "json_object"}
+            else:
+                _call_system = base_system
+                _response_format = None
+
             try:
-                answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                                 endpoint='chat', user_id=verified_user_id,
-                                 max_tokens_override=_max_tok)
+                answer = call_ai(prompt, system_prompt=_call_system, model=selected_model, history=history,
+                                 endpoint='chat', user_id=verified_user_id, timeout=_ai_timeout,
+                                 max_tokens_override=_max_tok, response_format=_response_format)
             except Exception as _primary_err:
                 if _mode_fallback:
                     logger.warning("[/ask] primary model %s failed (%s), retrying with fallback %s",
                                    selected_model, _primary_err, _mode_fallback)
-                    answer = call_ai(prompt, system_prompt=base_system, model=_mode_fallback,
+                    answer = call_ai(prompt, system_prompt=_call_system, model=_mode_fallback,
                                      history=history, endpoint='chat', user_id=verified_user_id,
-                                     max_tokens_override=_max_tok)
+                                     timeout=_ai_timeout, max_tokens_override=_max_tok,
+                                     response_format=_response_format)
                 else:
                     raise
             answer, thinking_content = extract_thinking_content(answer)
+
+            # For structured modes, parse the JSON response and validate required keys.
+            structured: dict | None = None
+            if _is_structured_mode:
+                _raw_for_parse = _strip_code_fences(answer) if answer else ''
+                try:
+                    structured = json.loads(_raw_for_parse) if isinstance(_raw_for_parse, str) else _raw_for_parse
+                    required = _STRUCTURED_REQUIRED_KEYS.get(mode, set())
+                    missing = required - set(structured.keys())
+                    if missing:
+                        logger.warning('[/ask] mode=%s missing structured keys: %s', mode, missing)
+                except (json.JSONDecodeError, TypeError):
+                    logger.warning('[/ask] mode=%s failed to parse JSON response', mode)
+                    structured = {'answer': answer}  # fallback to raw text
 
             # Inject structured topic marker for frontend Socratic tracking.
             # Extract the topic from the first ## heading in the response so the
@@ -1073,6 +1238,8 @@ Answer helpfully and clearly."""
                 'success':        True,
                 'mode':           mode,
                 'answer':         answer,
+                'structured':     structured,
+                'model_used':     selected_model,
                 'context':        context,
                 'similarity':     float(similarity),
                 'is_relevant':    is_relevant,
@@ -1101,3 +1268,25 @@ Answer helpfully and clearly."""
             'error': 'An unexpected error occurred. Please try again.',
             'error_type': type(e).__name__,
         }, status_code=500)
+
+
+@router.post('/ask/cancel')
+async def cancel_ask(request: Request) -> JSONResponse:
+    """Signal the backend to stop an in-flight /ask SSE stream early.
+
+    The SSE generator checks ``_cancelled_requests`` on every token; once set
+    it yields ``[DONE]`` and returns, stopping further calls to OpenRouter.
+    The registry entry is auto-cleaned after 60 seconds.
+    """
+    body = await request.json()
+    req_id = str(body.get('request_id', '')).strip()
+    if req_id:
+        _cancelled_requests[req_id] = True
+        logger.info('[/ask/cancel] cancellation registered req_id=%s', req_id)
+
+        async def _cleanup() -> None:
+            await asyncio.sleep(60)
+            _cancelled_requests.pop(req_id, None)
+
+        asyncio.create_task(_cleanup())
+    return JSONResponse({'cancelled': bool(req_id)})

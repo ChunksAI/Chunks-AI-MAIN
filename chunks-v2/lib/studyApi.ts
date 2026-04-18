@@ -165,12 +165,24 @@ async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 // ─── Chat ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Fire-and-forget signal to the backend to stop an in-flight /ask SSE stream.
+ * Never throws — caller should not await or handle errors.
+ */
+export function cancelAsk(requestId: string): void {
+  void fetch(`${API_BASE}/ask/cancel`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ request_id: requestId }),
+    keepalive: true,
+  }).catch(() => {});
+}
+
 export async function sendMessage(params: SendMessageRequest): Promise<SendMessageResponse> {
   return apiPost<SendMessageResponse>('/ask', {
     question: params.question,
     complexity: params.complexity ?? 3,
     mode: params.mode ?? 'study',
-    thinking: params.thinking ?? null,
     history: params.history ?? [],
     selected_text: params.selected_text ?? '',
     doc_context: params.doc_context ?? '',
@@ -218,20 +230,24 @@ export async function sendMessageStream(
   params: SendMessageRequest,
   onChunk: (text: string) => void,
   signal?: AbortSignal,
+  onRequestId?: (id: string) => void,
 ): Promise<SendMessageResponse> {
   const authHeaders = await getAuthHeaders();
+  const reqId = makeReqId();
+  onRequestId?.(reqId);
 
+  try {
   const res = await fetchWithAuth(`${API_BASE}/ask`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'X-Request-Id': reqId,
       ...authHeaders,
     },
     body: JSON.stringify({
       question: params.question,
       complexity: params.complexity ?? 3,
       mode: params.mode ?? 'study',
-      thinking: params.thinking ?? null,
       history: params.history ?? [],
       selected_text: params.selected_text ?? '',
       doc_context: params.doc_context ?? '',
@@ -267,6 +283,35 @@ export async function sendMessageStream(
     const decoder = new TextDecoder();
     let fullText = '';
 
+    // RAF-based chunk batching: accumulate tokens and flush at most once per
+    // animation frame so React re-renders at display rate instead of once per token.
+    const scheduleFlush =
+      typeof requestAnimationFrame !== 'undefined'
+        ? requestAnimationFrame
+        : (fn: () => void) => setTimeout(fn, 16) as unknown as number;
+    const cancelFlush =
+      typeof cancelAnimationFrame !== 'undefined'
+        ? cancelAnimationFrame
+        : clearTimeout;
+
+    let pendingChunks = '';
+    let rafId: number | null = null;
+
+    const flushChunks = () => {
+      if (pendingChunks) {
+        onChunk(pendingChunks);
+        pendingChunks = '';
+      }
+      rafId = null;
+    };
+
+    const bufferChunk = (text: string) => {
+      pendingChunks += text;
+      if (rafId === null) {
+        rafId = scheduleFlush(flushChunks);
+      }
+    };
+
     try {
       outer: while (true) {
         const { done, value } = await reader.read();
@@ -281,30 +326,38 @@ export async function sendMessageStream(
             const data = line.slice(6).trim();
             if (data === '[DONE]') break outer; // exit both loops
             try {
-              const parsed = JSON.parse(data) as SseChunk;
+              const parsed = JSON.parse(data) as SseChunk & { error?: string };
+              // Check for a server-sent error before treating the chunk as content
+              if (parsed.error) {
+                throw new ApiError(parsed.error, 502);
+              }
               const text = extractStreamText(parsed, data);
               fullText += text;
-              onChunk(text);
-            } catch {
+              bufferChunk(text);
+            } catch (e) {
+              if (e instanceof ApiError) throw e; // propagate server-sent errors
               // Plain text chunk, not JSON
               fullText += data;
-              onChunk(data);
+              bufferChunk(data);
             }
           } else if (line.trim() && !line.startsWith(':')) {
             // Plain streaming (not SSE format)
             fullText += line;
-            onChunk(line);
+            bufferChunk(line);
           }
         }
       }
     } finally {
       reader.releaseLock();
+      // Cancel any pending RAF and flush remaining buffered text immediately.
+      if (rafId !== null) cancelFlush(rafId);
+      if (pendingChunks) onChunk(pendingChunks);
     }
 
     if (!fullText.trim()) {
       throw new ApiError('No response received from AI. Please retry.', 502);
     }
-    return { success: true, answer: fullText, mode: params.mode ?? 'study' };
+    return { success: true, answer: fullText, mode: params.mode ?? 'study', requestId: reqId };
   }
 
   // ── Fallback: full JSON response ──────────────────────────────────────────
@@ -317,7 +370,11 @@ export async function sendMessageStream(
     throw new ApiError('No response received from AI. Please retry.', 502);
   }
   onChunk(answerText);
-  return data;
+  return { ...data, requestId: reqId };
+  } catch (err) {
+    console.error('[req:%s] sendMessageStream error:', reqId, err);
+    throw err;
+  }
 }
 
 // ─── Flashcards ───────────────────────────────────────────────────────────────

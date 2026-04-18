@@ -18,7 +18,6 @@ export interface SendMessageRequest {
   question: string;
   complexity?: number;
   mode?: string;
-  thinking?: string | null;
   history?: MessageHistoryItem[];
   selected_text?: string;
   doc_context?: string;
@@ -58,6 +57,7 @@ export interface SendMessageResponse {
   cached?: boolean;
   memory_recall?: string;
   performance_bars?: Array<{ label: string; pct: number; color: string }>;
+  requestId?: string;
 }
 
 export interface Flashcard {

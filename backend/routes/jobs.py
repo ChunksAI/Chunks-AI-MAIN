@@ -88,7 +88,7 @@ def _run_ask_job(data: dict) -> dict:
     elif task_type:
         selected_model = route(task_type, complexity)
     else:
-        selected_model = route_for_mode(mode, complexity)
+        selected_model, _ = route_for_mode(mode, complexity)
 
     # User-uploaded document: skip textbook index entirely
     if doc_context:

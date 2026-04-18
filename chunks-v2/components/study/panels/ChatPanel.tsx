@@ -6,10 +6,10 @@ import { useAutoScroll } from '@/hooks/useAutoScroll';
 import type { ChatMessage } from '@/types';
 
 import MarkdownRenderer from '@/components/study/chat/MarkdownRenderer';
-import OrchestratorLog, { type LogEvent } from '@/components/study/panels/OrchestratorLog';
 import MessageActions from '@/components/study/chat/MessageActions';
 import { resolveStudyTopic, cleanTopic } from '@/lib/topicFallback';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
+import { useToast } from '@/contexts/ToastContext';
 import { evaluateSocraticAnswer } from '@/lib/studyApi';
 import { extractTopicFromResponse } from '@/lib/extractTopic';
 
@@ -60,31 +60,13 @@ const CHAT_MODES = [
 ] as const;
 type ChatModeKey = (typeof CHAT_MODES)[number]['key'];
 
-// ─── Orchestrator step progression ───────────────────────────────────────────
-
-/** Steps simulating backend orchestrator decisions — advanced via timers. */
-const ORCHESTRATOR_STEPS: Array<{
-  layer: string;
-  message: string;
-  delay: number;
-  doneAfter: number;
-}> = [
-  { layer: 'Intent Classifier',  message: 'Analyzing message intent…',     delay: 0,    doneAfter: 350  },
-  { layer: 'Memory Layer',       message: 'Checking knowledge gaps…',       delay: 450,  doneAfter: 900  },
-  { layer: 'PAEV Engine',        message: 'Retrieving prerequisite chain…', delay: 1000, doneAfter: 1600 },
-  { layer: 'Context Compressor', message: 'Formatting context window…',     delay: 1700, doneAfter: 2400 },
-];
-
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function TypingIndicator({ orchestratorEvents }: { orchestratorEvents: LogEvent[] }) {
+function TypingIndicator() {
   return (
     <div className="msg ai">
       <div className="msg-body">
         <div className="msg-bubble">
-          {orchestratorEvents.length > 0 && (
-            <OrchestratorLog logEvents={orchestratorEvents} />
-          )}
           <div className="ai-typing">
             <div className="typing-dots">
               <div className="typing-dot" />
@@ -102,12 +84,10 @@ function MessageBubble({
   msg,
   onActionClick,
   isStreaming,
-  orchestratorEvents,
 }: {
   msg: ChatMessage;
   onActionClick: (key: string) => void;
   isStreaming?: boolean;
-  orchestratorEvents?: LogEvent[];
 }) {
   if (msg.role === 'user') {
     return (
@@ -123,11 +103,9 @@ function MessageBubble({
     <div className="msg ai">
       <div className="msg-body">
         <div className="msg-bubble">
-          {/* OrchestratorLog pill — shown as a compact badge once streaming starts */}
-          {isStreaming && orchestratorEvents && orchestratorEvents.length > 0 && (
-            <OrchestratorLog logEvents={orchestratorEvents} streamStarted />
-          )}
-          {(() => {
+          {msg.isPlaceholder ? (
+            <span className="msg-placeholder">{msg.text}</span>
+          ) : (() => {
             const split = !isStreaming ? splitAtGapMarker(msg.text) : null;
             if (split) {
               return (
@@ -141,8 +119,8 @@ function MessageBubble({
             }
             return <MarkdownRenderer content={msg.text} />;
           })()}
-          {isStreaming && msg.text.trim() && <span className="streaming-dot" aria-hidden="true" />}
-          {!isStreaming && !msg.text.trim() && (
+          {isStreaming && !msg.isPlaceholder && msg.text.trim() && <span className="streaming-dot" aria-hidden="true" />}
+          {!isStreaming && !msg.isPlaceholder && !msg.text.trim() && (
             <span className="msg-empty-response">
               No response received — please retry.
             </span>
@@ -172,7 +150,7 @@ function MessageBubble({
             </div>
           </div>
         )}
-        {!isStreaming && msg.text.trim() && msg.actions && msg.actions.length > 0 && (
+        {!isStreaming && !msg.isPlaceholder && msg.text.trim() && msg.actions && msg.actions.length > 0 && (
           <div className="ai-actions">
             {msg.actions.map((a) => (
               <button
@@ -187,7 +165,7 @@ function MessageBubble({
           </div>
         )}
         {/* Per-message actions: Copy, Retry, Feedback — only shown once AI has content */}
-        {!isStreaming && msg.text.trim() && <MessageActions msg={msg} />}
+        {!isStreaming && !msg.isPlaceholder && msg.text.trim() && <MessageActions msg={msg} />}
       </div>
     </div>
   );
@@ -219,46 +197,42 @@ export default function ChatPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useAutoScroll([messages, chatLoading]);
 
-  // ── Orchestrator log events ──────────────────────────────────────────────────
-  const [orchestratorEvents, setOrchestratorEvents] = useState<LogEvent[]>([]);
-
-  useEffect(() => {
-    // Reset events whenever loading state changes
-    setOrchestratorEvents([]);
-
-    if (!chatLoading) return;
-
-    const timers: ReturnType<typeof setTimeout>[] = [];
-
-    ORCHESTRATOR_STEPS.forEach((step, i) => {
-      // Add step as pending
-      timers.push(
-        setTimeout(() => {
-          setOrchestratorEvents((prev) => [
-            ...prev,
-            { layer: step.layer, message: step.message, status: 'pending' as const },
-          ]);
-        }, step.delay),
-      );
-      // Mark step as done
-      timers.push(
-        setTimeout(() => {
-          setOrchestratorEvents((prev) =>
-            prev.map((ev, idx) => (idx === i ? { ...ev, status: 'done' as const } : ev)),
-          );
-        }, step.doneAfter),
-      );
-    });
-
-    return () => timers.forEach(clearTimeout);
-  }, [chatLoading]);
-
   // ── Socratic response tracking ──────────────────────────────────────────────
   // When the last AI message contains the "Check your understanding →" marker
   // we know the AI asked a Socratic question.  The next user message is treated
   // as the student's answer, and after the AI responds we detect correctness.
   // Whether we're currently waiting for the AI to evaluate a Socratic answer
   const pendingSocraticRef = useRef<{ question: string; answer: string; topic: string } | null>(null);
+
+  const { toast } = useToast();
+
+  // ── Voice input ──────────────────────────────────────────────────────────────
+  const [isListening, setIsListening] = useState(false);
+
+  const handleVoice = () => {
+    if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      toast.error('Voice input is not supported in this browser');
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (
+      (window as unknown as Record<string, unknown>).SpeechRecognition ||
+      (window as unknown as Record<string, unknown>).webkitSpeechRecognition
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ) as any;
+    const recognition = new SR();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (e: any) => {
+      const transcript = e.results[0][0].transcript;
+      setInputValue((prev) => prev + transcript);
+    };
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+    setIsListening(true);
+    recognition.start();
+  };
 
   // ── Mode dropdown ─────────────────────────────────────────────────────────
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
@@ -481,7 +455,6 @@ export default function ChatPanel() {
                 msg={msg}
                 onActionClick={handleActionClick}
                 isStreaming={isStreaming}
-                orchestratorEvents={isStreaming ? orchestratorEvents : undefined}
               />
             );
           })}
@@ -491,7 +464,7 @@ export default function ChatPanel() {
             messages[messages.length - 1]?.role === 'user' ||
             (messages[messages.length - 1]?.role === 'ai' && !messages[messages.length - 1]?.text.trim())
           ) ? (
-            <TypingIndicator orchestratorEvents={orchestratorEvents} />
+            <TypingIndicator />
           ) : null}
           <div ref={sentinelRef} />
         </div>
@@ -565,7 +538,11 @@ export default function ChatPanel() {
               </svg>
               Attach
             </button>
-            <button className="input-tool-btn">
+            <button
+              className={`input-tool-btn${isListening ? ' active' : ''}`}
+              onClick={handleVoice}
+              title={isListening ? 'Listening…' : 'Voice input'}
+            >
               <svg
                 width="12"
                 height="12"
@@ -579,7 +556,7 @@ export default function ChatPanel() {
                 <line x1="12" y1="19" x2="12" y2="23" />
                 <line x1="8" y1="23" x2="16" y2="23" />
               </svg>
-              Voice
+              {isListening ? 'Listening…' : 'Voice'}
             </button>
             <div className="mode-dropdown-wrap" ref={modeWrapRef}>
               <button

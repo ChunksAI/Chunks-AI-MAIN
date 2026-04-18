@@ -3,6 +3,20 @@ import pytest
 from unittest.mock import MagicMock
 
 
+def test_validate_request_decorator():
+    """validate_request is a no-op pass-through decorator (covers routes/validation.py)."""
+    from routes.validation import validate_request
+
+    class DummyModel:
+        pass
+
+    @validate_request(DummyModel)
+    def dummy():
+        return 42
+
+    assert dummy() == 42
+
+
 # ── Chat /ask ─────────────────────────────────────────────────────────────────
 
 def test_ask_invalid_complexity_type(client, mock_guest_gate, mock_extract_user):

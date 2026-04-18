@@ -662,7 +662,7 @@ _share_store_svc.init(redis=_redis)
 if __name__ == '__main__':
     import uvicorn
     logger.info("=" * 60)
-    logger.info("🧪 CHUNKS CHEMISTRY - PRODUCTION SERVER (FastAPI/ASGI)")
+    logger.info("🧠 CHUNKS API - PRODUCTION SERVER (FastAPI/ASGI)")
     logger.info("=" * 60)
     logger.info(f"Mode: {'PRODUCTION' if PRODUCTION else 'DEVELOPMENT'}")
     logger.info(f"Books: {len(BOOK_LIBRARY)}")

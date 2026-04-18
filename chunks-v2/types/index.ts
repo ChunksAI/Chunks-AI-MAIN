@@ -37,6 +37,8 @@ export type ChatMessage = {
   memoryRecall?: string;
   performanceBars?: PerformanceBar[];
   actions?: { label: string; actionKey: string }[];
+  /** True while waiting for a non-streaming (chunk/master/research) response. */
+  isPlaceholder?: boolean;
 };
 
 // ─── Workspace ────────────────────────────────────────────────────────────────

@@ -740,6 +740,11 @@ body {
   font-size: 13px;
   font-style: italic;
 }
+.msg-placeholder {
+  color: var(--text3);
+  font-style: italic;
+  font-size: 14px;
+}
 
 .ai-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
 

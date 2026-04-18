@@ -46,6 +46,8 @@ import json
 import logging
 import math
 import re
+import threading
+from collections import OrderedDict
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -69,15 +71,21 @@ class CacheService:
     }
 
     # Modes eligible for ask-cache hits
-    _ASK_CACHEABLE_MODES = frozenset(
-        ['study', 'summary', 'general', 'concise', 'detailed', 'generate']
-    )
+    _ASK_CACHEABLE_MODES = frozenset([
+        # Legacy modes (kept for backward compat)
+        'study', 'summary', 'general', 'concise', 'detailed', 'generate',
+        # Current production modes
+        'snap', 'chunk', 'master', 'research',
+    ])
     _SB_CACHE_TTL_DAYS = 7
 
     # Semantic-cache thresholds
     _SIMILARITY_THRESHOLD = 0.97
     _DEDUP_THRESHOLD = 0.99
     _MAX_ENTRIES_PER_CTX = 20
+    # Max unique context-hash keys kept in the in-memory fallback.
+    # Approx 500 × 20 entries × ~500 bytes ≈ 5 MB upper bound.
+    _SEM_MEM_MAX_KEYS = 500
 
     def __init__(self) -> None:
         self._redis = None
@@ -85,9 +93,11 @@ class CacheService:
         self._supabase_url: str = ''
         self._supabase_service_key: str = ''
 
-        # In-memory fallback for semantic cache when Redis is unavailable
+        # In-memory fallback for semantic cache when Redis is unavailable.
+        # OrderedDict enables O(1) LRU eviction: most-recently used key is at
+        # the end; popitem(last=False) removes the least-recently used key.
         # context_hash → list of {emb, ans} dicts
-        self._sem_mem: dict[str, list[dict]] = {}
+        self._sem_mem: OrderedDict[str, list[dict]] = OrderedDict()
 
     # ── Initialisation ────────────────────────────────────────────────────────
 
@@ -103,6 +113,7 @@ class CacheService:
         self._session = session
         self._supabase_url = supabase_url
         self._supabase_service_key = supabase_service_key
+        logger.info("Semantic cache: %d context hashes in memory", len(self._sem_mem))
 
     # ── Generic key-value interface ───────────────────────────────────────────
 
@@ -380,33 +391,47 @@ class CacheService:
         book_id: str,
         model_used: str,
     ) -> None:
+        """Write to Supabase cache in a background daemon thread (fire-and-forget).
+
+        The thread is marked daemon=True so it never prevents server shutdown.
+        """
         if not self._supabase_url or not self._supabase_service_key or self._session is None:
             return
-        try:
-            import datetime
-            expires = (
-                datetime.datetime.now(datetime.timezone.utc)
-                + datetime.timedelta(days=self._SB_CACHE_TTL_DAYS)
-            ).isoformat()
-            self._session.post(
-                f'{self._supabase_url}/rest/v1/query_cache',
-                json={
-                    'cache_key':  key,
-                    'answer':     payload,
-                    'task_type':  task_type,
-                    'mode':       mode,
-                    'book_id':    book_id,
-                    'model_used': model_used,
-                    'expires_at': expires,
-                },
-                headers={
-                    **self._sb_headers(),
-                    'Prefer': 'resolution=merge-duplicates,return=minimal',
-                },
-                timeout=4,
-            )
-        except Exception as exc:
-            logger.warning('cache._sb_cache_set error: %s', exc)
+
+        import datetime
+        expires = (
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(days=self._SB_CACHE_TTL_DAYS)
+        ).isoformat()
+        body = {
+            'cache_key':  key,
+            'answer':     payload,
+            'task_type':  task_type,
+            'mode':       mode,
+            'book_id':    book_id,
+            'model_used': model_used,
+            'expires_at': expires,
+        }
+        headers = {
+            **self._sb_headers(),
+            'Prefer': 'resolution=merge-duplicates,return=minimal',
+        }
+        url = f'{self._supabase_url}/rest/v1/query_cache'
+        session = self._session  # capture reference for the thread closure
+
+        def _write() -> None:
+            try:
+                resp = session.post(url, json=body, headers=headers, timeout=8)
+                if not resp.ok:
+                    logger.warning(
+                        'cache._sb_cache_set HTTP %s for key=%s',
+                        resp.status_code, key[:20],
+                    )
+            except Exception as exc:
+                logger.warning('cache._sb_cache_set error: %s', exc)
+
+        threading.Thread(target=_write, daemon=True, name='sb-cache-write').start()
+        logger.debug('cache._sb_cache_set dispatched to background thread for key=%s', key[:20])
 
     # ── Semantic cache storage helpers ────────────────────────────────────────
 
@@ -423,7 +448,19 @@ class CacheService:
                     return json.loads(raw)
             except Exception as exc:
                 logger.warning('cache._sem_load redis error: %s', exc)
+        # Mark as recently used before returning
+        if ctx_hash in self._sem_mem:
+            self._sem_mem.move_to_end(ctx_hash)
         return list(self._sem_mem.get(ctx_hash, []))
+
+    def _sem_mem_set(self, ctx_hash: str, entries: list[dict]) -> None:
+        """Store entries in the LRU in-memory fallback, evicting the least-recently
+        used key when the dict exceeds ``_SEM_MEM_MAX_KEYS``."""
+        if ctx_hash in self._sem_mem:
+            self._sem_mem.move_to_end(ctx_hash)
+        self._sem_mem[ctx_hash] = entries
+        while len(self._sem_mem) > self._SEM_MEM_MAX_KEYS:
+            self._sem_mem.popitem(last=False)  # remove LRU entry
 
     def _sem_save(self, ctx_hash: str, entries: list[dict]) -> None:
         if self._redis is not None:
@@ -437,7 +474,7 @@ class CacheService:
             except Exception as exc:
                 logger.warning('cache._sem_save redis error: %s', exc)
         else:
-            self._sem_mem[ctx_hash] = entries
+            self._sem_mem_set(ctx_hash, entries)
 
     @staticmethod
     def _cosine_similarity(a: list[float], b: list[float]) -> float:

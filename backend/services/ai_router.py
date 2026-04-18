@@ -42,6 +42,21 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# ── Per-mode primary/fallback pairs ───────────────────────────────────────────
+# Single source of truth for snap/chunk/master/research model selection.
+# Evaluated at call-time so Railway env-var overrides take effect immediately.
+
+MODE_ENV_MODELS: dict[str, tuple[str, str]] = {
+    'snap':     (os.environ.get('SNAP_MODEL',        'google/gemini-flash-1.5'),
+                 os.environ.get('SNAP_FALLBACK',      'openai/gpt-4o-mini')),
+    'chunk':    (os.environ.get('CHUNK_MODEL',        'deepseek/deepseek-chat-v3-0324'),
+                 os.environ.get('CHUNK_FALLBACK',     'anthropic/claude-3-5-haiku')),
+    'master':   (os.environ.get('MASTER_MODEL',       'openai/o4-mini'),
+                 os.environ.get('MASTER_FALLBACK',    'google/gemini-2.5-flash')),
+    'research': (os.environ.get('RESEARCH_MODEL',     'google/gemini-2.5-flash'),
+                 os.environ.get('RESEARCH_FALLBACK',  'google/gemini-2.0-flash-001')),
+}
+
 # ── Tier resolution ────────────────────────────────────────────────────────────
 
 def _get_models() -> dict:
@@ -168,31 +183,28 @@ def route(task_type: str | None, complexity: int = 5) -> str:
     return model
 
 
-def route_for_mode(mode: str, complexity: int = 5) -> str:
-    """
-    Convenience wrapper: maps the /ask 'mode' field to a task_type and
-    calls route().  Used by the /ask endpoint to avoid repeating the
-    mode→task_type mapping everywhere.
+def route_for_mode(mode: str, complexity: int = 5) -> tuple[str, str]:
+    """Return (primary_model, fallback_model) for a given mode and complexity.
 
-    Mode → task_type mapping
-    ─────────────────────────
-    concise   → workspace_concise
-    study     → workspace_study
-    detailed  → workspace_detailed
-    practice  → workspace_practice
-    summary   → workspace_summary
-    generate  → workspace_generate
-    exam      → workspace_exam  (then complexity sub-splits handled by route)
-    general   → home_general
-    *         → workspace_study  (safe default)
+    For snap/chunk/master/research modes, models are drawn from MODE_ENV_MODELS
+    so they stay in sync with env-var configuration.  Complexity promotion
+    applies to master/research at complexity ≥ 9: primary is upgraded to
+    DEEP_MODEL if set.
+
+    For legacy modes (concise/study/detailed/…) and unknown modes, falls back
+    to the tier-based router.  The fallback model is one tier lower.
     """
+    complexity = max(1, min(10, int(complexity)))
+
+    if mode in MODE_ENV_MODELS:
+        primary, fallback = MODE_ENV_MODELS[mode]
+        # Complexity promotion for advanced modes
+        if mode in ('master', 'research') and complexity >= 9:
+            primary = os.environ.get('DEEP_MODEL', primary)
+        return primary, fallback
+
+    # Legacy / unknown modes — fall back to tier-based routing
     MODE_MAP: dict[str, str] = {
-        # New mode system (snap/chunk/master/research)
-        'snap':     'workspace_study',    # fast, streaming-capable
-        'chunk':    'workspace_study',    # guided learning — medium
-        'master':   'workspace_detailed', # advanced reasoning — large
-        'research': 'research_layer',     # comprehensive discovery — large
-        # Legacy modes (backward compat)
         'concise':  'workspace_concise',
         'study':    'workspace_study',
         'detailed': 'workspace_detailed',
@@ -203,7 +215,9 @@ def route_for_mode(mode: str, complexity: int = 5) -> str:
         'general':  'home_general',
     }
     task_type = MODE_MAP.get(mode, 'workspace_study')
-    return route(task_type, complexity)
+    primary  = route(task_type, complexity)
+    fallback = route(task_type, max(1, complexity - 2))
+    return primary, fallback
 
 
 # ── Introspection helper (used by admin endpoint) ─────────────────────────────

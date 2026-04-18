@@ -11,7 +11,7 @@
  * stateRef pattern: all async callbacks read state through a ref so they
  * never become stale without needing to be in dependency arrays.
  *
- * Chat state (messages, chatLoading, chatError, lastUserMessage, thinkingMode)
+ * Chat state (messages, chatLoading, chatError, lastUserMessage, chatMode)
  * lives in ChatContext.  Quiz state (activeQuiz, quizResults, weakAreas, etc.)
  * lives in QuizContext.  Notes/todo state lives in NotesContext.  StudyProvider
  * consumes all three and merges them into the value it exposes so all existing
@@ -46,7 +46,7 @@ import type {
 import { useChatContext, type ChatState, type ChatAction } from '@/contexts/ChatContext';
 import { useQuizContext, type QuizState, type QuizAction, calcWeakAreas } from '@/contexts/QuizContext';
 import { useNotesContext, type NotesState, type NotesAction } from '@/contexts/NotesContext';
-import { sendMessage, sendMessageStream, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus } from '@/lib/studyApi';
+import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus } from '@/lib/studyApi';
 import { buildStudentProfile } from '@/hooks/useTutorBrain';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
@@ -89,7 +89,7 @@ export interface StudyState {
   uploadLoading: boolean;
   uploadError: string | null;
 
-  // Chat fields (messages, chatLoading, chatError, lastUserMessage, thinkingMode)
+  // Chat fields (messages, chatLoading, chatError, lastUserMessage, chatMode)
   // are owned by ChatContext.  Quiz fields (activeQuiz, quizResults, weakAreas,
   // performanceHistory, studyInsights) are owned by QuizContext.  Notes/todos
   // are owned by NotesContext.  All three are merged into the value exposed by
@@ -911,10 +911,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   const CHAT_ACTION_TYPES = new Set<string>([
     'SEND_MESSAGE', 'SET_LAST_USER_MESSAGE', 'SET_CHAT_LOADING',
     'RECEIVE_MESSAGE', 'START_AI_MESSAGE', 'APPEND_MESSAGE_CHUNK',
-    'UPDATE_MESSAGE_META', 'REMOVE_MESSAGE', 'MESSAGE_ERROR',
-    'CLEAR_CHAT_ERROR', 'SET_THINKING_MODE', 'SET_CHAT_MODE', 'RESTORE_MESSAGES', 'RESET_CHAT',
-    // Note: SET_THINKING_MODE is deprecated — use SET_CHAT_MODE instead.
-    // Remove SET_THINKING_MODE once all callers have migrated.
+    'UPDATE_MESSAGE_META', 'REMOVE_MESSAGE', 'MESSAGE_ERROR', 'HANDLE_CHAT_ERROR',
+    'CLEAR_CHAT_ERROR', 'SET_CHAT_MODE', 'RESTORE_MESSAGES', 'RESET_CHAT',
   ]);
   const QUIZ_ACTION_TYPES = new Set<string>([
     'START_QUIZ', 'ANSWER_QUESTION', 'CLOSE_QUIZ', 'RESTORE_QUIZ', 'RESET_QUIZ',
@@ -1041,6 +1039,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // Track in-flight chat request so it can be cancelled on re-send
   const abortRef = useRef<AbortController | null>(null);
 
+  // Track the X-Request-Id of the current in-flight /ask request for server-side cancel
+  const currentRequestIdRef = useRef<string | null>(null);
+
   // Track in-flight generation requests to prevent double-triggering
   const flashcardsInFlightRef = useRef(false);
   const quizInFlightRef = useRef(false);
@@ -1051,6 +1052,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // Track current blob URL so we can revoke it before creating a new one
   const blobUrlRef = useRef<string | null>(null);
+
+  // Track PAEV polling interval so it can be cleared on unmount
+  const paevPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Ref for handleSendMessage so handleStartReview can call it stably ──────
   const sendMessageRef = useRef<
@@ -1121,6 +1125,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     return () => {
       if (blobUrlRef.current) {
         URL.revokeObjectURL(blobUrlRef.current);
+      }
+      if (paevPollRef.current !== null) {
+        clearInterval(paevPollRef.current);
       }
     };
   }, []);
@@ -1193,16 +1200,29 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         ? text
         : `${text}\n\n[Format requirement: Use markdown with ## headers for main sections, ### for subsections. Use $$ for display equations and $ for inline math. Use \\ce{} for chemical formulas. Give thorough explanations with worked examples. End conceptual answers with a > 💡 Key takeaway: blockquote.]`;
 
-      // Create an empty AI bubble immediately so streaming fills it in word by word
+      // For snap mode, stream tokens into an empty bubble as they arrive.
+      // For non-streaming modes (chunk/master/research), show a mode-specific
+      // placeholder so the user sees meaningful feedback during the 5-15 s wait.
+      const currentChatMode = stateRef.current.chatMode;
+      const isStreamingMode = currentChatMode === 'snap';
+      // 'snap' is intentionally omitted — it never reads this map (isStreamingMode === true).
+      const placeholderText: Record<string, string> = {
+        chunk:    '📖 Analyzing in depth…',
+        master:   '🧠 Deep reasoning in progress…',
+        research: '🔬 Researching…',
+      };
       const aiMsgId = nextMsgId();
       const aiMsg: ChatMessage = {
         id: aiMsgId,
         role: 'ai',
-        text: '',
-        actions: [
-          { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
-          { label: '🎯 Quiz me on this', actionKey: 'quiz' },
-        ],
+        text: isStreamingMode ? '' : (placeholderText[currentChatMode] ?? 'Thinking…'),
+        isPlaceholder: !isStreamingMode,
+        actions: isStreamingMode
+          ? [
+              { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
+              { label: '🎯 Quiz me on this', actionKey: 'quiz' },
+            ]
+          : [],
       };
       chatDispatch({ type: 'START_AI_MESSAGE', payload: aiMsg });
 
@@ -1213,14 +1233,30 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             history,
             selected_text: opts.selectedText ?? '',
             doc_context: autoDocContext,
-            mode: stateRef.current.chatMode,
+            mode: currentChatMode,
             bookId: stateRef.current.bookId ?? undefined,
             student_profile: buildStudentProfile(),
           },
           (chunk: string) => {
-            chatDispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
+            if (isStreamingMode) {
+              chatDispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
+            } else {
+              // Non-streaming: single chunk contains the full answer — replace placeholder.
+              chatDispatch({
+                type: 'REPLACE_AI_MESSAGE',
+                payload: {
+                  id: aiMsgId,
+                  text: chunk,
+                  actions: [
+                    { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
+                    { label: '🎯 Quiz me on this', actionKey: 'quiz' },
+                  ],
+                },
+              });
+            }
           },
           abortRef.current.signal,
+          (reqId) => { currentRequestIdRef.current = reqId; },
         );
 
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
@@ -1309,8 +1345,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         }
         const message =
           err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-        chatDispatch({ type: 'MESSAGE_ERROR', payload: message });
-        chatDispatch({ type: 'REMOVE_MESSAGE', payload: aiMsgId });
+        chatDispatch({ type: 'HANDLE_CHAT_ERROR', payload: { messageId: aiMsgId, error: message } });
+      } finally {
+        currentRequestIdRef.current = null;
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1468,16 +1505,19 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       if (res.bookId) {
         const uploadedBookId = res.bookId;
         let paevAttempts = 0;
-        const paevPollId = setInterval(async () => {
+        if (paevPollRef.current !== null) clearInterval(paevPollRef.current);
+        paevPollRef.current = setInterval(async () => {
           paevAttempts += 1;
           if (paevAttempts > 60) {
-            clearInterval(paevPollId);
+            clearInterval(paevPollRef.current!);
+            paevPollRef.current = null;
             return;
           }
           try {
             const ready = await checkPaevStatus(uploadedBookId);
             if (ready) {
-              clearInterval(paevPollId);
+              clearInterval(paevPollRef.current!);
+              paevPollRef.current = null;
               dispatch({
                 type: 'SHOW_TOAST',
                 payload: '🧠 Your document is now fully indexed — your tutor just got smarter',
@@ -1659,6 +1699,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // ── stop ──────────────────────────────────────────────────────────────────
   const handleStop = useCallback(() => {
+    // Signal the backend to stop streaming before we cut the connection
+    const currentReqId = currentRequestIdRef.current;
+    if (currentReqId) {
+      cancelAsk(currentReqId);
+    }
     abortRef.current?.abort();
     dispatch({ type: 'SHOW_TOAST', payload: '⏹ Generation stopped.' });
   }, []);
