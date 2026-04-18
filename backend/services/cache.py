@@ -46,6 +46,7 @@ import json
 import logging
 import math
 import re
+import threading
 from collections import OrderedDict
 from typing import Optional
 
@@ -390,33 +391,47 @@ class CacheService:
         book_id: str,
         model_used: str,
     ) -> None:
+        """Write to Supabase cache in a background daemon thread (fire-and-forget).
+
+        The thread is marked daemon=True so it never prevents server shutdown.
+        """
         if not self._supabase_url or not self._supabase_service_key or self._session is None:
             return
-        try:
-            import datetime
-            expires = (
-                datetime.datetime.now(datetime.timezone.utc)
-                + datetime.timedelta(days=self._SB_CACHE_TTL_DAYS)
-            ).isoformat()
-            self._session.post(
-                f'{self._supabase_url}/rest/v1/query_cache',
-                json={
-                    'cache_key':  key,
-                    'answer':     payload,
-                    'task_type':  task_type,
-                    'mode':       mode,
-                    'book_id':    book_id,
-                    'model_used': model_used,
-                    'expires_at': expires,
-                },
-                headers={
-                    **self._sb_headers(),
-                    'Prefer': 'resolution=merge-duplicates,return=minimal',
-                },
-                timeout=4,
-            )
-        except Exception as exc:
-            logger.warning('cache._sb_cache_set error: %s', exc)
+
+        import datetime
+        expires = (
+            datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(days=self._SB_CACHE_TTL_DAYS)
+        ).isoformat()
+        body = {
+            'cache_key':  key,
+            'answer':     payload,
+            'task_type':  task_type,
+            'mode':       mode,
+            'book_id':    book_id,
+            'model_used': model_used,
+            'expires_at': expires,
+        }
+        headers = {
+            **self._sb_headers(),
+            'Prefer': 'resolution=merge-duplicates,return=minimal',
+        }
+        url = f'{self._supabase_url}/rest/v1/query_cache'
+        session = self._session  # capture reference for the thread closure
+
+        def _write() -> None:
+            try:
+                resp = session.post(url, json=body, headers=headers, timeout=8)
+                if not resp.ok:
+                    logger.warning(
+                        'cache._sb_cache_set HTTP %s for key=%s',
+                        resp.status_code, key[:20],
+                    )
+            except Exception as exc:
+                logger.warning('cache._sb_cache_set error: %s', exc)
+
+        threading.Thread(target=_write, daemon=True, name='sb-cache-write').start()
+        logger.debug('cache._sb_cache_set dispatched to background thread for key=%s', key[:20])
 
     # ── Semantic cache storage helpers ────────────────────────────────────────
 
