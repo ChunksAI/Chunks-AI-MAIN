@@ -1059,20 +1059,54 @@ Answer helpfully and clearly."""
                             # Never expose internal exception details to the client.
                             _put(('error', None))
 
+                    # Heartbeat / batching constants
+                    _HEARTBEAT_SECS = 15.0   # SSE comment every N idle seconds
+                    _FLUSH_SECS     = 0.05   # max age of a non-empty token buffer
+                    _FLUSH_COUNT    = 3      # flush when this many tokens buffered
+
                     _thread = threading.Thread(target=_stream_to_queue, daemon=True)
                     _thread.start()
+                    _tok_buf: list[str] = []
+                    _last_flush = loop.time()
                     try:
                         while True:
-                            _kind, _value = await _async_q.get()
+                            # Wait at most _HEARTBEAT_SECS for the next queue item.
+                            # A TimeoutError means the model is slow / idle —
+                            # send a keepalive SSE comment so proxies don't close
+                            # the connection, then flush any buffered tokens.
+                            try:
+                                _kind, _value = await asyncio.wait_for(
+                                    _async_q.get(),
+                                    timeout=_HEARTBEAT_SECS,
+                                )
+                            except asyncio.TimeoutError:
+                                if _tok_buf:
+                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                    _tok_buf = []
+                                    _last_flush = loop.time()
+                                yield ': heartbeat\n\n'
+                                continue
+
                             if _kind == 'done':
+                                if _tok_buf:
+                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
                                 yield 'data: [DONE]\n\n'
                                 break
                             elif _kind == 'error':
+                                if _tok_buf:
+                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
                                 yield f'data: {json.dumps({"error": "Streaming failed. Please retry.", "text": ""}, ensure_ascii=False)}\n\n'
                                 yield 'data: [DONE]\n\n'
                                 break
                             else:
-                                yield f'data: {json.dumps({"text": _value}, ensure_ascii=False)}\n\n'
+                                # Micro-batch: accumulate tokens and flush when
+                                # the buffer is large enough or 50 ms have passed.
+                                _tok_buf.append(_value)
+                                _now = loop.time()
+                                if len(_tok_buf) >= _FLUSH_COUNT or (_now - _last_flush) >= _FLUSH_SECS:
+                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                    _tok_buf = []
+                                    _last_flush = _now
                     except asyncio.CancelledError:
                         # Client disconnected — Starlette cancels async generators.
                         logger.info('[/ask] SSE client disconnected — stopping generation req_id=%s', _stream_req_id)
