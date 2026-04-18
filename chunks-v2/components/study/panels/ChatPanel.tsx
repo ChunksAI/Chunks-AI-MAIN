@@ -209,28 +209,31 @@ export default function ChatPanel() {
 
   // ── Voice input ──────────────────────────────────────────────────────────────
   const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition>(null);
+
+  // Stop the microphone when the component unmounts (resource/leak guard).
+  useEffect(() => {
+    return () => { recognitionRef.current?.stop(); };
+  }, []);
 
   const handleVoice = () => {
     if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       toast.error('Voice input is not supported in this browser');
       return;
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (
-      (window as unknown as Record<string, unknown>).SpeechRecognition ||
-      (window as unknown as Record<string, unknown>).webkitSpeechRecognition
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ) as any;
+    const SR: typeof SpeechRecognition =
+      window.SpeechRecognition ??
+      (window as unknown as { webkitSpeechRecognition: typeof SpeechRecognition }).webkitSpeechRecognition;
     const recognition = new SR();
     recognition.continuous = false;
     recognition.interimResults = false;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (e: any) => {
+    recognition.onresult = (e: SpeechRecognitionEvent) => {
       const transcript = e.results[0][0].transcript;
       setInputValue((prev) => prev + transcript);
     };
     recognition.onend = () => setIsListening(false);
     recognition.onerror = () => setIsListening(false);
+    recognitionRef.current = recognition;
     setIsListening(true);
     recognition.start();
   };
