@@ -40,12 +40,11 @@ def _get_identity_for_user(user_id: str, variants: list[str]) -> str:
     """
     if not user_id or user_id.startswith('ip:'):
         return variants[0]
-    idx = int(hashlib.md5(user_id.encode()).hexdigest(), 16) % len(variants)
+    idx = int(hashlib.md5(user_id.encode(), usedforsecurity=False).hexdigest(), 16) % len(variants)
     return variants[idx]
 
-# In-flight cancellation registry: request_id → cancelled flag.
-# Set by POST /ask/cancel; checked inside _sse_generator on every token.
-_cancelled_requests: dict[str, bool] = {}
+# Cancellation is handled via Redis (key "cancel:{request_id}", TTL 60 s)
+# so that it works correctly across multiple gunicorn workers.
 
 # Per-mode response length/style instructions applied on every /ask request.
 # These control how long and how structured each mode's answer must be.
@@ -132,6 +131,12 @@ _STRUCTURED_REQUIRED_KEYS: dict[str, set[str]] = {
     'master':   {'core_explanation', 'mechanism', 'analysis', 'connections', 'key_insight'},
     'research': {'summary', 'key_findings', 'sources', 'simplified_explanation'},
 }
+
+# System prompt used when retrying a structured-mode call after a JSON parse failure.
+_STRICT_JSON_SYSTEM_PROMPT = (
+    'Output ONLY the JSON object. No prose, no markdown fences, no explanation. '
+    'Start your response with { and end with }.'
+)
 
 
 def _strip_code_fences(text: str) -> str:
@@ -352,8 +357,14 @@ def ask(request: Request, body: AskRequest):
         else:
             selected_model, _mode_fallback = route_for_mode(mode or task_type or 'snap', complexity)
 
-        # Per-mode request timeout: use full 55s for slow/large modes; 30s elsewhere.
-        _ai_timeout = 55 if mode in ('master', 'research') or thinking_mode in ('deep', 'thinking') else 30
+        # Per-mode request timeout: o-series reasoning models (e.g. o4-mini) are
+        # frequently slow or gated — use a short 20s cap so the fallback triggers
+        # quickly rather than making users wait 55s.  All other slow modes get 55s.
+        _is_o_series_model = bool(selected_model and
+                                   re.match(r'openai/o\d', selected_model))
+        _ai_timeout = (20 if _is_o_series_model
+                       else 55 if mode in ('master', 'research') or thinking_mode in ('deep', 'thinking')
+                       else 30)
 
         # User-uploaded document: skip textbook index entirely —
         # unless PAEV has finished indexing it, in which case treat it
@@ -1082,9 +1093,15 @@ Answer helpfully and clearly."""
                         ):
                             if _stop.is_set():
                                 return
-                            if _cancelled_requests.pop(_stream_req_id, False):
-                                logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
-                                return
+                            _cancel_key = f'cancel:{_stream_req_id}'
+                            try:
+                                _redis = _cache_svc._redis
+                                if _redis and _redis.exists(_cancel_key):
+                                    _redis.delete(_cancel_key)
+                                    logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
+                                    return
+                            except Exception as _redis_err:
+                                logger.debug('[/ask] Redis cancel check error: %s', _redis_err)
                             _put(('token', _tok))
 
                     def _stream_to_queue() -> None:
@@ -1190,14 +1207,26 @@ Answer helpfully and clearly."""
                 _call_system = base_system
                 _response_format = None
 
+            _timeout_fallback_note: str | None = None
             try:
                 answer = call_ai(prompt, system_prompt=_call_system, model=selected_model, history=history,
                                  endpoint='chat', user_id=verified_user_id, timeout=_ai_timeout,
                                  max_tokens_override=_max_tok, response_format=_response_format)
             except Exception as _primary_err:
                 if _mode_fallback:
-                    logger.warning("[/ask] primary model %s failed (%s), retrying with fallback %s",
-                                   selected_model, _primary_err, _mode_fallback)
+                    _is_timeout = 'timed out' in str(_primary_err).lower()
+                    if _is_timeout:
+                        logger.warning(
+                            "[/ask] mode=%s primary model %s timed out — switching to fallback %s",
+                            mode, selected_model, _mode_fallback,
+                        )
+                        if mode == 'master':
+                            _timeout_fallback_note = (
+                                'Master mode is taking longer than usual. Switching to fast mode...'
+                            )
+                    else:
+                        logger.warning("[/ask] primary model %s failed (%s), retrying with fallback %s",
+                                       selected_model, _primary_err, _mode_fallback)
                     answer = call_ai(prompt, system_prompt=_call_system, model=_mode_fallback,
                                      history=history, endpoint='chat', user_id=verified_user_id,
                                      timeout=_ai_timeout, max_tokens_override=_max_tok,
@@ -1217,28 +1246,83 @@ Answer helpfully and clearly."""
                     if missing:
                         logger.warning('[/ask] mode=%s missing structured keys: %s', mode, missing)
                 except (json.JSONDecodeError, TypeError):
-                    logger.warning('[/ask] mode=%s failed to parse JSON response', mode)
-                    structured = {'answer': answer}  # fallback to raw text
+                    logger.warning(
+                        '[/ask] mode=%s model=%s failed to parse JSON response — retrying with stricter prompt',
+                        mode, selected_model,
+                    )
+                    # Retry with a stricter system prompt to coerce JSON output.
+                    _retry_model = _mode_fallback or selected_model
+                    try:
+                        _retry_answer = call_ai(
+                            prompt, system_prompt=_STRICT_JSON_SYSTEM_PROMPT, model=_retry_model,
+                            history=history, endpoint='chat', user_id=verified_user_id,
+                            timeout=_ai_timeout, max_tokens_override=_max_tok,
+                            response_format=_response_format,
+                        )
+                        _retry_answer, _ = extract_thinking_content(_retry_answer)
+                        _retry_raw = _strip_code_fences(_retry_answer) if _retry_answer else ''
+                        structured = json.loads(_retry_raw)
+                    except (json.JSONDecodeError, TypeError):
+                        logger.warning(
+                            '[/ask] mode=%s model=%s (retry) still failed to parse JSON — returning 500',
+                            mode, _retry_model,
+                        )
+                        structured = None
+                    except Exception as _retry_err:
+                        logger.warning(
+                            '[/ask] mode=%s model=%s retry call failed: %s',
+                            mode, _retry_model, _retry_err,
+                        )
+                        structured = None
 
-            # Inject structured topic marker for frontend Socratic tracking.
-            # Extract the topic from the first ## heading in the response so the
-            # frontend can identify the concept without fragile heading-parsing.
-            _topic_match = None
-            for _line in answer.split('\n'):
-                _stripped = _line.strip()
-                if _stripped.startswith('##'):
-                    _topic_match = _stripped.lstrip('#').strip()
-                    break
+                    if structured is None:
+                        return JSONResponse(
+                            {
+                                'success': False,
+                                'error': 'AI returned malformed JSON after retry. Please try again.',
+                                'error_type': 'MalformedJSON',
+                            },
+                            status_code=500,
+                        )
+
+            # Extract topic for Socratic tracking. For structured modes, pull
+            # from the parsed JSON fields; for snap, fall back to a ## heading.
+            _topic_match: str | None = None
+            if _is_structured_mode and structured:
+                if mode == 'chunk':
+                    _kc = structured.get('key_concepts', [])
+                    _topic_match = _kc[0] if isinstance(_kc, list) and _kc else None
+                elif mode == 'master':
+                    _core = structured.get('core_explanation', '') or ''
+                    _topic_match = _core.split('.')[0].strip() or None
+                elif mode == 'research':
+                    _summary = structured.get('summary', '') or ''
+                    _topic_match = _summary.split('.')[0].strip() or None
+            else:
+                for _line in answer.split('\n'):
+                    _stripped = _line.strip()
+                    if _stripped.startswith('##'):
+                        _topic_match = _stripped.lstrip('#').strip()
+                        break
+                if _topic_match:
+                    # Sanitize and embed as an HTML comment in the snap answer so
+                    # that the frontend's extractTopicFromResponse() can parse it
+                    # from the streamed text (SSE path has no separate JSON field).
+                    _safe_topic = _topic_match.replace('-->', '').replace('<', '').replace('>', '')[:120]
+                    answer = answer + f'\n<!-- chunks-topic:{_safe_topic} -->'
+
+            # Sanitise the topic string for the response field (strip HTML-comment
+            # breaking chars and cap length, same rules as the SSE comment above).
+            _resp_topic = ''
             if _topic_match:
-                # Sanitize: remove characters that would break the HTML comment
-                _safe_topic = _topic_match.replace('-->', '').replace('<', '').replace('>', '')[:120]
-                answer = answer + f'\n<!-- chunks-topic:{_safe_topic} -->'
+                _resp_topic = _topic_match.replace('-->', '').replace('<', '').replace('>', '')[:120]
 
             _resp = {
                 'success':        True,
                 'mode':           mode,
                 'answer':         answer,
                 'structured':     structured,
+                'topic':          _resp_topic,
                 'model_used':     selected_model,
                 'context':        context,
                 'similarity':     float(similarity),
@@ -1248,6 +1332,7 @@ Answer helpfully and clearly."""
                 'complexity_used': complexity,
                 'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf',
                 'thinking_content': thinking_content,
+                'fallback_note':  _timeout_fallback_note,
             }
             if _cache_eligible and _cache_key_val:
                 _cache_svc.ask_set(_cache_key_val, _resp,
@@ -1274,19 +1359,17 @@ Answer helpfully and clearly."""
 async def cancel_ask(request: Request) -> JSONResponse:
     """Signal the backend to stop an in-flight /ask SSE stream early.
 
-    The SSE generator checks ``_cancelled_requests`` on every token; once set
-    it yields ``[DONE]`` and returns, stopping further calls to OpenRouter.
-    The registry entry is auto-cleaned after 60 seconds.
+    Writes a Redis key ``cancel:{request_id}`` with a 60-second TTL so that
+    any worker running the stream will detect it on the next token.
     """
     body = await request.json()
     req_id = str(body.get('request_id', '')).strip()
     if req_id:
-        _cancelled_requests[req_id] = True
+        try:
+            _redis = _cache_svc._redis
+            if _redis:
+                _redis.setex(f'cancel:{req_id}', 60, '1')
+        except Exception as exc:
+            logger.warning('[/ask/cancel] Redis error: %s', exc)
         logger.info('[/ask/cancel] cancellation registered req_id=%s', req_id)
-
-        async def _cleanup() -> None:
-            await asyncio.sleep(60)
-            _cancelled_requests.pop(req_id, None)
-
-        asyncio.create_task(_cleanup())
     return JSONResponse({'cancelled': bool(req_id)})

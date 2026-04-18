@@ -51,7 +51,7 @@ MODE_ENV_MODELS: dict[str, tuple[str, str]] = {
                  os.environ.get('SNAP_FALLBACK',      'openai/gpt-4o-mini')),
     'chunk':    (os.environ.get('CHUNK_MODEL',        'deepseek/deepseek-chat-v3-0324'),
                  os.environ.get('CHUNK_FALLBACK',     'anthropic/claude-3-5-haiku')),
-    'master':   (os.environ.get('MASTER_MODEL',       'openai/o4-mini'),
+    'master':   (os.environ.get('MASTER_MODEL',       'anthropic/claude-sonnet-4-6'),
                  os.environ.get('MASTER_FALLBACK',    'google/gemini-2.5-flash')),
     'research': (os.environ.get('RESEARCH_MODEL',     'google/gemini-2.5-flash'),
                  os.environ.get('RESEARCH_FALLBACK',  'google/gemini-2.0-flash-001')),

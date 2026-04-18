@@ -192,6 +192,72 @@ export async function sendMessage(params: SendMessageRequest): Promise<SendMessa
   });
 }
 
+// ─── Structured-mode formatter ───────────────────────────────────────────────
+
+/**
+ * Convert a structured JSON object (returned by chunk / master / research modes)
+ * into a human-readable Markdown string so it can be rendered by MarkdownRenderer
+ * instead of being shown as raw JSON in the chat bubble.
+ */
+function formatStructuredResponse(structured: Record<string, unknown>): string {
+  const lines: string[] = [];
+
+  const str = (v: unknown): string => {
+    if (typeof v === 'string') return v;
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+    if (v == null) return '';
+    return JSON.stringify(v);
+  };
+  const listItems = (v: unknown, ordered = false): string => {
+    if (!Array.isArray(v) || v.length === 0) return '';
+    return v.map((item, i) => (ordered ? `${i + 1}. ${str(item)}` : `- ${str(item)}`)).join('\n');
+  };
+
+  // chunk mode
+  if ('overview' in structured) {
+    if (structured.overview) lines.push(`## Overview\n${str(structured.overview)}`);
+    const kc = listItems(structured.key_concepts);
+    if (kc) lines.push(`## Key Concepts\n${kc}`);
+    const ss = listItems(structured.step_by_step, true);
+    if (ss) lines.push(`## Step by Step\n${ss}`);
+    if (structured.example) lines.push(`## Example\n${str(structured.example)}`);
+    return lines.join('\n\n');
+  }
+
+  // master mode
+  if ('core_explanation' in structured) {
+    if (structured.core_explanation) lines.push(`## Core Explanation\n${str(structured.core_explanation)}`);
+    if (structured.mechanism) lines.push(`## Mechanism\n${str(structured.mechanism)}`);
+    if (structured.analysis) lines.push(`## Analysis\n${str(structured.analysis)}`);
+    if (structured.connections) lines.push(`## Connections\n${str(structured.connections)}`);
+    if (structured.key_insight) lines.push(`## Key Insight\n${str(structured.key_insight)}`);
+    return lines.join('\n\n');
+  }
+
+  // research mode
+  if ('summary' in structured) {
+    if (structured.summary) lines.push(`## Summary\n${str(structured.summary)}`);
+    const kf = listItems(structured.key_findings);
+    if (kf) lines.push(`## Key Findings\n${kf}`);
+    const src = listItems(structured.sources);
+    if (src) lines.push(`## Sources\n${src}`);
+    if (structured.simplified_explanation) lines.push(`## Simplified Explanation\n${str(structured.simplified_explanation)}`);
+    return lines.join('\n\n');
+  }
+
+  // Generic fallback: render each key as a section
+  for (const [key, value] of Object.entries(structured)) {
+    const heading = key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+    if (Array.isArray(value)) {
+      const items = listItems(value);
+      if (items) lines.push(`## ${heading}\n${items}`);
+    } else if (value) {
+      lines.push(`## ${heading}\n${str(value)}`);
+    }
+  }
+  return lines.join('\n\n');
+}
+
 // ─── SSE text extraction helper ───────────────────────────────────────────────
 
 type SseChunk = {
@@ -254,7 +320,7 @@ export async function sendMessageStream(
       user_memory: params.user_memory ?? '',
       bookId: params.bookId ?? '',
       ...(params.student_profile ? { student_profile: params.student_profile } : {}),
-      stream: true,
+      stream: params.mode === 'snap',
     }),
     signal,
   });
@@ -362,7 +428,18 @@ export async function sendMessageStream(
 
   // ── Fallback: full JSON response ──────────────────────────────────────────
   const data = (await res.json()) as SendMessageResponse & { text?: string };
-  const answerText = data.answer ?? data.text ?? '';
+  let answerText = data.answer ?? data.text ?? '';
+
+  // For structured modes (chunk/master/research) the backend returns the raw JSON
+  // string as `answer` and the parsed object as `structured`. Convert the parsed
+  // object to readable Markdown so it is never displayed as raw JSON.
+  if (data.structured && typeof data.structured === 'object') {
+    const formatted = formatStructuredResponse(data.structured);
+    if (formatted.trim()) {
+      answerText = formatted;
+    }
+  }
+
   if (!answerText.trim()) {
     // The backend returned a 2xx but with no usable answer — surface this as an
     // error so the catch block in handleSendMessage can remove the empty bubble
@@ -370,7 +447,7 @@ export async function sendMessageStream(
     throw new ApiError('No response received from AI. Please retry.', 502);
   }
   onChunk(answerText);
-  return { ...data, requestId: reqId };
+  return { ...data, answer: answerText, requestId: reqId };
   } catch (err) {
     console.error('[req:%s] sendMessageStream error:', reqId, err);
     throw err;

@@ -922,6 +922,21 @@ body {
   z-index: 200;
 }
 
+/* Portal variant — escapes overflow:hidden ancestors, positioned via JS */
+.mode-dropdown-menu-portal {
+  position: fixed;
+  transform: translateY(-100%);
+  min-width: 200px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,.15);
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  z-index: 9999;
+}
+
 .mode-dropdown-item {
   display: flex; flex-direction: column;
   padding: 8px 12px;

@@ -34,11 +34,17 @@ export type ChatMessage = {
   id: string;
   role: MessageRole;
   text: string;
+  /** Topic extracted from the AI response for Socratic/weak-area tracking. */
+  topic?: string;
   memoryRecall?: string;
   performanceBars?: PerformanceBar[];
   actions?: { label: string; actionKey: string }[];
   /** True while waiting for a non-streaming (chunk/master/research) response. */
   isPlaceholder?: boolean;
+  /** True when the AI request failed — enables the per-message retry button. */
+  error?: boolean;
+  /** The user question that produced this AI bubble, stored so retry can re-send it. */
+  originalQuestion?: string;
 };
 
 // ─── Workspace ────────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { useStudy } from '@/contexts/StudyContext';
 import { useAutoScroll } from '@/hooks/useAutoScroll';
 import type { ChatMessage } from '@/types';
@@ -84,10 +85,12 @@ function MessageBubble({
   msg,
   onActionClick,
   isStreaming,
+  onRetry,
 }: {
   msg: ChatMessage;
   onActionClick: (key: string) => void;
   isStreaming?: boolean;
+  onRetry?: () => void;
 }) {
   if (msg.role === 'user') {
     return (
@@ -164,8 +167,10 @@ function MessageBubble({
             ))}
           </div>
         )}
-        {/* Per-message actions: Copy, Retry, Feedback — only shown once AI has content */}
-        {!isStreaming && !msg.isPlaceholder && msg.text.trim() && <MessageActions msg={msg} />}
+        {/* Per-message actions: Copy, Retry, Feedback — shown when AI has content or when the message errored */}
+        {!isStreaming && !msg.isPlaceholder && (msg.text.trim() || msg.error) && (
+          <MessageActions msg={msg} onRetry={onRetry} />
+        )}
       </div>
     </div>
   );
@@ -208,47 +213,120 @@ export default function ChatPanel() {
 
   // ── Voice input ──────────────────────────────────────────────────────────────
   const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  // Stop the microphone when the component unmounts (resource/leak guard).
+  useEffect(() => {
+    return () => {
+      try { recognitionRef.current?.stop(); } catch { /* ignore stop() errors on unmount */ }
+    };
+  }, []);
 
   const handleVoice = () => {
     if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
       toast.error('Voice input is not supported in this browser');
       return;
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const SR = (
-      (window as unknown as Record<string, unknown>).SpeechRecognition ||
-      (window as unknown as Record<string, unknown>).webkitSpeechRecognition
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ) as any;
+    const SR: typeof SpeechRecognition =
+      window.SpeechRecognition ??
+      (window as unknown as { webkitSpeechRecognition: typeof SpeechRecognition }).webkitSpeechRecognition;
     const recognition = new SR();
     recognition.continuous = false;
     recognition.interimResults = false;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    recognition.onresult = (e: any) => {
+    recognition.onresult = (e: SpeechRecognitionEvent) => {
       const transcript = e.results[0][0].transcript;
       setInputValue((prev) => prev + transcript);
     };
     recognition.onend = () => setIsListening(false);
     recognition.onerror = () => setIsListening(false);
+    recognitionRef.current = recognition;
     setIsListening(true);
     recognition.start();
   };
 
-  // ── Mode dropdown ─────────────────────────────────────────────────────────
+  // ── Mode dropdown (portal) ────────────────────────────────────────────────
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
+  /** Index of the keyboard-focused option; -1 means no option is focused. */
+  const [focusedModeIdx, setFocusedModeIdx] = useState(-1);
 
-  // Close mode dropdown on outside click
+  // Refs for the trigger button and the portal <ul> (for outside-click detection)
   const modeWrapRef = useRef<HTMLDivElement>(null);
+  const modeBtnRef = useRef<HTMLButtonElement>(null);
+  const modeMenuRef = useRef<HTMLUListElement>(null);
+
+  /** Compute fixed-position coordinates from the trigger button's bounding rect. */
+  const calcDropdownPos = useCallback(() => {
+    if (!modeBtnRef.current) return;
+    const rect = modeBtnRef.current.getBoundingClientRect();
+    setDropdownPos({
+      top: rect.top - 6,           // 6 px gap above the button
+      right: window.innerWidth - rect.right,
+    });
+  }, []);
+
+  const openModeMenu = () => {
+    calcDropdownPos();
+    // Pre-focus the currently active mode when opening via keyboard
+    const activeIdx = CHAT_MODES.findIndex((m) => m.key === chatMode);
+    setFocusedModeIdx(activeIdx >= 0 ? activeIdx : 0);
+    setModeMenuOpen(true);
+  };
+
+  // Reposition on scroll / resize while open
+  useEffect(() => {
+    if (!modeMenuOpen) return;
+    window.addEventListener('scroll', calcDropdownPos, true);
+    window.addEventListener('resize', calcDropdownPos);
+    return () => {
+      window.removeEventListener('scroll', calcDropdownPos, true);
+      window.removeEventListener('resize', calcDropdownPos);
+    };
+  }, [modeMenuOpen, calcDropdownPos]);
+
+  // Close on outside click (checks both the trigger wrapper and the portal menu)
   useEffect(() => {
     if (!modeMenuOpen) return;
     const handleOutside = (e: MouseEvent) => {
-      if (modeWrapRef.current && !modeWrapRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideBtn = modeWrapRef.current?.contains(target) ?? false;
+      const insideMenu = modeMenuRef.current?.contains(target) ?? false;
+      if (!insideBtn && !insideMenu) {
         setModeMenuOpen(false);
+        setFocusedModeIdx(-1);
       }
     };
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [modeMenuOpen]);
+
+  // Programmatically focus the <li> element when focusedModeIdx changes while the menu is open
+  useEffect(() => {
+    if (!modeMenuOpen || focusedModeIdx < 0) return;
+    const items = modeMenuRef.current?.querySelectorAll<HTMLLIElement>('[role="option"]');
+    items?.[focusedModeIdx]?.focus();
+  }, [modeMenuOpen, focusedModeIdx]);
+
+  /** Keyboard handler for the portal listbox. */
+  const handleModeMenuKeyDown = (e: React.KeyboardEvent<HTMLUListElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setModeMenuOpen(false);
+      setFocusedModeIdx(-1);
+      modeBtnRef.current?.focus();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedModeIdx((prev) => (prev + 1) % CHAT_MODES.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedModeIdx((prev) => (prev - 1 + CHAT_MODES.length) % CHAT_MODES.length);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (focusedModeIdx >= 0) {
+        handleModeSelect(CHAT_MODES[focusedModeIdx].key);
+      }
+    }
+  };
 
   // Build memory bar text from real weak areas
   const memoryText =
@@ -258,9 +336,13 @@ export default function ChatPanel() {
 
   const { tbRecordGap, tbRecordStudying, tbRecordSocraticPass } = useTutorBrain();
 
-  // Derive the topic of the most recent AI response using structured extraction
+  // Derive the topic of the most recent AI response. Prefer the `topic` field
+  // stored on the message (populated from the backend's structured extraction)
+  // and fall back to regex-based heading parsing for snap-mode responses.
   const lastAiMessage = [...messages].reverse().find((m) => m.role === 'ai' && m.text.trim());
-  const lastTopic = lastAiMessage ? extractTopicFromResponse(lastAiMessage.text) : '';
+  const lastTopic = lastAiMessage
+    ? (lastAiMessage.topic || extractTopicFromResponse(lastAiMessage.text))
+    : '';
 
   // Detect if the last AI message contains a Socratic question
   const lastAiSplit = lastAiMessage && !chatLoading
@@ -336,6 +418,8 @@ export default function ChatPanel() {
   const handleModeSelect = (key: ChatModeKey) => {
     dispatch({ type: 'SET_CHAT_MODE', payload: key });
     setModeMenuOpen(false);
+    setFocusedModeIdx(-1);
+    modeBtnRef.current?.focus();
   };
 
   const handleAttach = () => {
@@ -455,6 +539,10 @@ export default function ChatPanel() {
                 msg={msg}
                 onActionClick={handleActionClick}
                 isStreaming={isStreaming}
+                onRetry={msg.error && msg.originalQuestion ? () => {
+                  dispatch({ type: 'REMOVE_MESSAGE', payload: msg.id });
+                  void handleSendMessage(msg.originalQuestion!);
+                } : undefined}
               />
             );
           })}
@@ -560,8 +648,19 @@ export default function ChatPanel() {
             </button>
             <div className="mode-dropdown-wrap" ref={modeWrapRef}>
               <button
+                ref={modeBtnRef}
                 className="mode-dropdown-btn"
-                onClick={() => setModeMenuOpen((o) => !o)}
+                onClick={() => {
+                  if (modeMenuOpen) {
+                    setModeMenuOpen(false);
+                    setFocusedModeIdx(-1);
+                  } else {
+                    openModeMenu();
+                  }
+                }}
+                aria-haspopup="listbox"
+                aria-expanded={modeMenuOpen}
+                aria-controls="mode-listbox"
                 title="Select chat mode"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -570,21 +669,35 @@ export default function ChatPanel() {
                 </svg>
                 {CHAT_MODES.find((m) => m.key === chatMode)?.label ?? 'Snap'}
               </button>
-              {modeMenuOpen && (
-                <ul className="mode-dropdown-menu" role="listbox">
-                  {CHAT_MODES.map((m) => (
+              {modeMenuOpen && dropdownPos !== null && ReactDOM.createPortal(
+                <ul
+                  id="mode-listbox"
+                  ref={modeMenuRef}
+                  className="mode-dropdown-menu-portal"
+                  role="listbox"
+                  aria-label="Chat mode"
+                  aria-activedescendant={focusedModeIdx >= 0 ? `mode-option-${CHAT_MODES[focusedModeIdx].key}` : undefined}
+                  style={{ top: dropdownPos.top, right: dropdownPos.right }}
+                  onKeyDown={handleModeMenuKeyDown}
+                  tabIndex={-1}
+                >
+                  {CHAT_MODES.map((m, idx) => (
                     <li
                       key={m.key}
+                      id={`mode-option-${m.key}`}
                       role="option"
                       aria-selected={chatMode === m.key}
-                      className={`mode-dropdown-item${chatMode === m.key ? ' active' : ''}`}
+                      tabIndex={-1}
+                      className={`mode-dropdown-item${chatMode === m.key ? ' active' : ''}${focusedModeIdx === idx ? ' focused' : ''}`}
                       onClick={() => handleModeSelect(m.key)}
+                      onMouseEnter={() => setFocusedModeIdx(idx)}
                     >
                       <span className="mode-dropdown-label">{m.label}</span>
                       <span className="mode-dropdown-desc">{m.description}</span>
                     </li>
                   ))}
-                </ul>
+                </ul>,
+                document.body,
               )}
             </div>
           </div>

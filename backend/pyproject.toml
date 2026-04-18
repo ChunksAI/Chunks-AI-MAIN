@@ -5,8 +5,9 @@ addopts = "-v"
 [tool.coverage.run]
 source = [
     "routes",
-    "paev_routes",
-    "progress_routes",
+]
+omit = [
+    "routes/tutor_brain.py",
 ]
 
 [tool.coverage.report]

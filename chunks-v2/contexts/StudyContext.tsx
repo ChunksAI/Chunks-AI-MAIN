@@ -1182,11 +1182,24 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       const userMsg: ChatMessage = { id: nextMsgId(), role: 'user', text };
       chatDispatch({ type: 'SEND_MESSAGE', payload: userMsg });
 
-      // Build history from current messages (last MAX_HISTORY_ITEMS), stripping HTML tags
-      const history: MessageHistoryItem[] = stateRef.current.messages.slice(-MAX_HISTORY_ITEMS).map((m) => ({
-        role: (m.role === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
-        content: stripHtml(m.text),
-      }));
+      // Build history from current messages (last MAX_HISTORY_ITEMS), stripping HTML tags.
+      // Filter out assistant messages that contain raw JSON (from chunk/master/research turns)
+      // to prevent JSON bleed when the user switches back to snap mode.
+      const history: MessageHistoryItem[] = stateRef.current.messages
+        .slice(-MAX_HISTORY_ITEMS)
+        .filter((m) => {
+          if (m.role === 'ai') {
+            const trimmed = m.text.trim();
+            if (trimmed.startsWith('{')) {
+              try { JSON.parse(trimmed); return false; } catch { /* not JSON, keep */ }
+            }
+          }
+          return true;
+        })
+        .map((m) => ({
+          role: (m.role === 'ai' ? 'assistant' : 'user') as 'user' | 'assistant',
+          content: stripHtml(m.text),
+        }));
 
       // Auto-populate doc_context from uploaded slides when not explicitly provided.
       const { slides } = stateRef.current;
@@ -1262,11 +1275,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
 
         // Update message with memory/performance metadata if present
-        if (res.memory_recall || (res.performance_bars && res.performance_bars.length > 0)) {
+        if (res.topic || res.memory_recall || (res.performance_bars && res.performance_bars.length > 0)) {
           chatDispatch({
             type: 'UPDATE_MESSAGE_META',
             payload: {
               id: aiMsgId,
+              ...(res.topic ? { topic: res.topic } : {}),
               memoryRecall: res.memory_recall,
               performanceBars: res.performance_bars ?? [],
             },
@@ -1345,7 +1359,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         }
         const message =
           err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-        chatDispatch({ type: 'HANDLE_CHAT_ERROR', payload: { messageId: aiMsgId, error: message } });
+        chatDispatch({ type: 'HANDLE_CHAT_ERROR', payload: { messageId: aiMsgId, error: message, originalQuestion: text } });
       } finally {
         currentRequestIdRef.current = null;
       }
