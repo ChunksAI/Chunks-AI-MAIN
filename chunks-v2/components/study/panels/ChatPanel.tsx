@@ -85,10 +85,12 @@ function MessageBubble({
   msg,
   onActionClick,
   isStreaming,
+  onRetry,
 }: {
   msg: ChatMessage;
   onActionClick: (key: string) => void;
   isStreaming?: boolean;
+  onRetry?: () => void;
 }) {
   if (msg.role === 'user') {
     return (
@@ -165,8 +167,10 @@ function MessageBubble({
             ))}
           </div>
         )}
-        {/* Per-message actions: Copy, Retry, Feedback — only shown once AI has content */}
-        {!isStreaming && !msg.isPlaceholder && msg.text.trim() && <MessageActions msg={msg} />}
+        {/* Per-message actions: Copy, Retry, Feedback — shown when AI has content or when the message errored */}
+        {!isStreaming && !msg.isPlaceholder && (msg.text.trim() || msg.error) && (
+          <MessageActions msg={msg} onRetry={onRetry} />
+        )}
       </div>
     </div>
   );
@@ -497,6 +501,10 @@ export default function ChatPanel() {
                 msg={msg}
                 onActionClick={handleActionClick}
                 isStreaming={isStreaming}
+                onRetry={msg.error && msg.originalQuestion ? () => {
+                  dispatch({ type: 'REMOVE_MESSAGE', payload: msg.id });
+                  void handleSendMessage(msg.originalQuestion!);
+                } : undefined}
               />
             );
           })}

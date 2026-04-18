@@ -1346,7 +1346,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         }
         const message =
           err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-        chatDispatch({ type: 'HANDLE_CHAT_ERROR', payload: { messageId: aiMsgId, error: message } });
+        chatDispatch({ type: 'HANDLE_CHAT_ERROR', payload: { messageId: aiMsgId, error: message, originalQuestion: text } });
       } finally {
         currentRequestIdRef.current = null;
       }
