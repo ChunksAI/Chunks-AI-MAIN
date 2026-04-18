@@ -247,6 +247,8 @@ export default function ChatPanel() {
   // ── Mode dropdown (portal) ────────────────────────────────────────────────
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
   const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
+  /** Index of the keyboard-focused option; -1 means no option is focused. */
+  const [focusedModeIdx, setFocusedModeIdx] = useState(-1);
 
   // Refs for the trigger button and the portal <ul> (for outside-click detection)
   const modeWrapRef = useRef<HTMLDivElement>(null);
@@ -265,6 +267,9 @@ export default function ChatPanel() {
 
   const openModeMenu = () => {
     calcDropdownPos();
+    // Pre-focus the currently active mode when opening via keyboard
+    const activeIdx = CHAT_MODES.findIndex((m) => m.key === chatMode);
+    setFocusedModeIdx(activeIdx >= 0 ? activeIdx : 0);
     setModeMenuOpen(true);
   };
 
@@ -288,11 +293,40 @@ export default function ChatPanel() {
       const insideMenu = modeMenuRef.current?.contains(target) ?? false;
       if (!insideBtn && !insideMenu) {
         setModeMenuOpen(false);
+        setFocusedModeIdx(-1);
       }
     };
     document.addEventListener('mousedown', handleOutside);
     return () => document.removeEventListener('mousedown', handleOutside);
   }, [modeMenuOpen]);
+
+  // Programmatically focus the <li> element when focusedModeIdx changes while the menu is open
+  useEffect(() => {
+    if (!modeMenuOpen || focusedModeIdx < 0) return;
+    const items = modeMenuRef.current?.querySelectorAll<HTMLLIElement>('[role="option"]');
+    items?.[focusedModeIdx]?.focus();
+  }, [modeMenuOpen, focusedModeIdx]);
+
+  /** Keyboard handler for the portal listbox. */
+  const handleModeMenuKeyDown = (e: React.KeyboardEvent<HTMLUListElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setModeMenuOpen(false);
+      setFocusedModeIdx(-1);
+      modeBtnRef.current?.focus();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setFocusedModeIdx((prev) => (prev + 1) % CHAT_MODES.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setFocusedModeIdx((prev) => (prev - 1 + CHAT_MODES.length) % CHAT_MODES.length);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (focusedModeIdx >= 0) {
+        handleModeSelect(CHAT_MODES[focusedModeIdx].key);
+      }
+    }
+  };
 
   // Build memory bar text from real weak areas
   const memoryText =
@@ -384,6 +418,8 @@ export default function ChatPanel() {
   const handleModeSelect = (key: ChatModeKey) => {
     dispatch({ type: 'SET_CHAT_MODE', payload: key });
     setModeMenuOpen(false);
+    setFocusedModeIdx(-1);
+    modeBtnRef.current?.focus();
   };
 
   const handleAttach = () => {
@@ -614,7 +650,17 @@ export default function ChatPanel() {
               <button
                 ref={modeBtnRef}
                 className="mode-dropdown-btn"
-                onClick={() => (modeMenuOpen ? setModeMenuOpen(false) : openModeMenu())}
+                onClick={() => {
+                  if (modeMenuOpen) {
+                    setModeMenuOpen(false);
+                    setFocusedModeIdx(-1);
+                  } else {
+                    openModeMenu();
+                  }
+                }}
+                aria-haspopup="listbox"
+                aria-expanded={modeMenuOpen}
+                aria-controls="mode-listbox"
                 title="Select chat mode"
               >
                 <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -625,18 +671,26 @@ export default function ChatPanel() {
               </button>
               {modeMenuOpen && dropdownPos !== null && ReactDOM.createPortal(
                 <ul
+                  id="mode-listbox"
                   ref={modeMenuRef}
                   className="mode-dropdown-menu-portal"
                   role="listbox"
+                  aria-label="Chat mode"
+                  aria-activedescendant={focusedModeIdx >= 0 ? `mode-option-${CHAT_MODES[focusedModeIdx].key}` : undefined}
                   style={{ top: dropdownPos.top, right: dropdownPos.right }}
+                  onKeyDown={handleModeMenuKeyDown}
+                  tabIndex={-1}
                 >
-                  {CHAT_MODES.map((m) => (
+                  {CHAT_MODES.map((m, idx) => (
                     <li
                       key={m.key}
+                      id={`mode-option-${m.key}`}
                       role="option"
                       aria-selected={chatMode === m.key}
-                      className={`mode-dropdown-item${chatMode === m.key ? ' active' : ''}`}
+                      tabIndex={-1}
+                      className={`mode-dropdown-item${chatMode === m.key ? ' active' : ''}${focusedModeIdx === idx ? ' focused' : ''}`}
                       onClick={() => handleModeSelect(m.key)}
+                      onMouseEnter={() => setFocusedModeIdx(idx)}
                     >
                       <span className="mode-dropdown-label">{m.label}</span>
                       <span className="mode-dropdown-desc">{m.description}</span>
