@@ -1222,16 +1222,21 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       chatDispatch({ type: 'SEND_MESSAGE', payload: userMsg });
 
       // Build history from current messages (last MAX_HISTORY_ITEMS), stripping HTML tags.
-      // Filter out assistant messages that contain raw JSON (from chunk/master/research turns)
-      // to prevent JSON bleed when the user switches back to snap mode.
+      // Filter out AI messages from structured modes (chunk/master/research) to prevent
+      // JSON/Markdown bleed when the user switches back to snap mode.
+      // Primary signal: the mode field stamped when the message was created.
+      // Defensive fallback: also drop anything that parses as JSON (plain or code-fenced),
+      // which handles old messages that predate the mode field.
       const history: MessageHistoryItem[] = stateRef.current.messages
         .slice(-MAX_HISTORY_ITEMS)
         .filter((m) => {
-          if (m.role === 'ai') {
-            const trimmed = m.text.trim();
-            if (trimmed.startsWith('{')) {
-              try { JSON.parse(trimmed); return false; } catch { /* not JSON, keep */ }
-            }
+          if (m.role !== 'ai') return true;
+          // Primary: drop AI messages from structured modes
+          if (m.mode && m.mode !== 'snap') return false;
+          // Defensive: also drop anything that looks like a JSON blob (plain or code-fenced)
+          const t = m.text.trim().replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '').trim();
+          if (t.startsWith('{') || t.startsWith('[')) {
+            try { JSON.parse(t); return false; } catch { /* not JSON, keep */ }
           }
           return true;
         })
@@ -1269,6 +1274,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         role: 'ai',
         text: isStreamingMode ? '' : (placeholderText[currentChatMode] ?? 'Thinking…'),
         isPlaceholder: !isStreamingMode,
+        mode: currentChatMode,
         actions: isStreamingMode
           ? [
               { label: '🃏 Generate flashcards', actionKey: 'flashcards' },

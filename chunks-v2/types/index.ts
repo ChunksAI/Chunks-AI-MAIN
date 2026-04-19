@@ -46,6 +46,11 @@ export type ChatMessage = {
   /** The user question that produced this AI bubble, stored so retry can re-send it. */
   originalQuestion?: string;
   /**
+   * The chat mode that produced this AI message ('snap' | 'chunk' | 'master' | 'research').
+   * Used by the history-filter to exclude structured-mode turns from snap context.
+   */
+  mode?: string;
+  /**
    * Parsed structured data for chunk / master / research modes.
    * When present, ChatPanel renders ChunkCard or ResearchCard instead of MarkdownRenderer.
    */
