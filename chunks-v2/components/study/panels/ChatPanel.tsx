@@ -17,6 +17,14 @@ import { extractTopicFromResponse } from '@/lib/extractTopic';
 const GAP_MARKER = 'Check your understanding →';
 
 /**
+ * Matches a YouTube video URL (standard watch, shorts, embed) including
+ * optional www./m. subdomain prefix.  Used to intercept paste-to-ingest.
+ * Keep in sync with _YT_URL_RE in backend/routes/chat.py.
+ */
+const YT_URL_RE =
+  /^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/i;
+
+/**
  * Splits markdown text at the "Check your understanding →" label so the
  * CTA section can be wrapped in a styled callout block.
  * Returns null when the marker is not present.
@@ -191,6 +199,7 @@ export default function ChatPanel() {
     handleGenerateQuiz,
     handleUploadDocument,
     handleStop,
+    handleIngestYouTube,
   } = useStudy();
   const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, chatMode, pdfBlobUrl, slides, uploadLoading, uploadError } = state;
 
@@ -355,6 +364,15 @@ export default function ChatPanel() {
   const handleSend = async () => {
     const val = inputValue.trim();
     if (!val || chatLoading) return;
+
+    // ── YouTube URL intercept — paste a video link to load it into the viewer ──
+    if (YT_URL_RE.test(val)) {
+      setInputValue('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      await handleIngestYouTube(val);
+      return;
+    }
+
     setInputValue('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 

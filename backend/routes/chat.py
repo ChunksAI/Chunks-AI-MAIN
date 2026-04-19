@@ -149,15 +149,25 @@ _TIMESTAMP_RE = re.compile(
     re.MULTILINE,
 )
 
+# Matches a YouTube video ID embedded in a standard watch/short/embed URL.
+# Keep in sync with YT_URL_RE in chunks-v2/components/study/panels/ChatPanel.tsx.
+_YT_URL_RE = re.compile(
+    r'(?:(?:www\.|m\.)?youtube\.com/(?:watch\?v=|shorts/|embed/)|youtu\.be/)([A-Za-z0-9_-]{11})'
+)
+
 
 def _build_viewer_action(
     decision,
     answer: str,
     viewer_state: dict | None,
 ) -> dict | None:
-    """Return a viewer_action dict if the response warrants a seek event.
+    """Return a viewer_action dict if the response warrants a seek or open event.
 
-    A ``seek_youtube`` action is emitted when:
+    ``open_youtube`` is emitted when the LLM answer contains a YouTube URL that
+    refers to a video the viewer panel is NOT already showing.  This lets the
+    AI open the viewer on behalf of the student when it recommends a video.
+
+    ``seek_youtube`` is emitted when:
       * The orchestrator chose the ``viewer_context`` route
         (``decision.viewer_route is True``), AND
       * The LLM answer contains at least one ``[MM:SS]`` or bare ``MM:SS``
@@ -167,6 +177,15 @@ def _build_viewer_action(
     Returns ``None`` in all other cases so the field is simply omitted from
     the response payload rather than being serialised as ``null``.
     """
+    # ── open_youtube — LLM cited a YouTube URL the viewer isn't already showing ─
+    yt = _YT_URL_RE.search(answer or '')
+    if yt:
+        new_vid = yt.group(1)
+        cur_vid = (viewer_state or {}).get('video_id') if viewer_state else None
+        if new_vid and new_vid != cur_vid:
+            return {'type': 'open_youtube', 'video_id': new_vid}
+
+    # ── seek_youtube — viewer is open and the LLM referenced a timestamp ────────
     if not (decision.viewer_route and viewer_state):
         return None
 

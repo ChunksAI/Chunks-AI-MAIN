@@ -804,6 +804,26 @@ export async function getViewerState(): Promise<ViewerStatePayload | null> {
   }
 }
 
+// ─── YouTube ingestion ────────────────────────────────────────────────────────
+
+export interface YouTubeIngestResponse {
+  success: boolean;
+  video_id: string;
+  title: string;
+  duration_seconds: number;
+  slides: SlideItem[];
+  transcript_full: string;
+  total_slides: number;
+}
+
+/**
+ * Ingest a YouTube video by URL.
+ * Returns structured slide/transcript data that can be used as AI context.
+ */
+export async function ingestYouTube(url: string): Promise<YouTubeIngestResponse> {
+  return apiPost<YouTubeIngestResponse>('/api/youtube/ingest', { url });
+}
+
 // ─── Research ingestion ───────────────────────────────────────────────────────
 
 export interface ResearchIngestResponse {

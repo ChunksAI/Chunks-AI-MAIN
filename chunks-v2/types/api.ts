@@ -15,6 +15,7 @@ export interface MessageHistoryItem {
 // ─── Viewer action — emitted by the backend when the AI references a video ───
 
 export type ViewerAction =
+  | { type: 'open_youtube'; video_id: string; start_seconds?: number }
   | { type: 'seek_youtube'; video_id: string; timestamp_seconds: number }
   | { type: 'switch_to_research'; url: string };
 

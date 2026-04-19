@@ -47,7 +47,7 @@ import { useChatContext, type ChatState, type ChatAction } from '@/contexts/Chat
 import { useQuizContext, type QuizState, type QuizAction, calcWeakAreas } from '@/contexts/QuizContext';
 import { useNotesContext, type NotesState, type NotesAction } from '@/contexts/NotesContext';
 import { useViewerContext, buildViewerState } from '@/contexts/ViewerContext';
-import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus, getStreamBuffer } from '@/lib/studyApi';
+import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus, getStreamBuffer, ingestYouTube, setViewerState } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
 import {
@@ -487,6 +487,11 @@ interface StudyContextValue {
   handleCompleteReviewQuiz: (score: number, correct: number, total: number) => void;
   /** Restore the slides and PDF blob URL for a previously-uploaded document. */
   handleRestoreDocument: (docTitle: string) => Promise<void>;
+  /**
+   * Ingest a YouTube video URL: calls /api/youtube/ingest, opens the viewer
+   * panel, stores slides as AI context, and fires a success chat bubble.
+   */
+  handleIngestYouTube: (url: string) => Promise<void>;
 }
 
 const StudyContext = createContext<StudyContextValue | null>(null);
@@ -1292,6 +1297,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         if (res.viewer_action) {
           if (res.viewer_action.type === 'seek_youtube') {
             viewerDispatch({ type: 'SEEK_YOUTUBE', timestamp: res.viewer_action.timestamp_seconds });
+          } else if (res.viewer_action.type === 'open_youtube') {
+            viewerDispatch({ type: 'OPEN_YOUTUBE', videoId: res.viewer_action.video_id });
+            if (res.viewer_action.start_seconds != null) {
+              viewerDispatch({ type: 'SEEK_YOUTUBE', timestamp: res.viewer_action.start_seconds });
+            }
           } else if (res.viewer_action.type === 'switch_to_research') {
             viewerDispatch({ type: 'OPEN_RESEARCH', url: res.viewer_action.url });
           }
@@ -1423,6 +1433,67 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     sendMessageRef.current = handleSendMessage;
   }, [handleSendMessage]);
+
+  // ── ingestYouTube ─────────────────────────────────────────────────────────
+  /**
+   * Paste-to-ingest handler: called when the user types a YouTube URL into the
+   * chat box.  Calls /api/youtube/ingest, opens the viewer panel, stores the
+   * returned slides as AI context (so subsequent /ask calls are grounded in the
+   * transcript), and fires a success chat bubble.  Never throws — errors are
+   * surfaced as error-state chat bubbles.
+   */
+  const handleIngestYouTube = useCallback(async (url: string) => {
+    const userMsg: ChatMessage = { id: nextMsgId(), role: 'user', text: url };
+    chatDispatch({ type: 'SEND_MESSAGE', payload: userMsg });
+
+    const placeholderId = nextMsgId();
+    chatDispatch({
+      type: 'START_AI_MESSAGE',
+      payload: { id: placeholderId, role: 'ai', text: '🎬 Loading video transcript…', isPlaceholder: true },
+    });
+
+    try {
+      const res = await ingestYouTube(url);
+
+      // Open the viewer panel showing this video
+      viewerDispatch({ type: 'OPEN_YOUTUBE', videoId: res.video_id });
+
+      // Store slides as AI context so subsequent /ask calls are grounded in the transcript
+      dispatch({ type: 'SET_SLIDES', payload: { slides: res.slides, docTitle: res.title, bookId: null } });
+
+      // Push the first transcript chunk as visibleSegment for instant grounding
+      const firstSegment = res.slides[0]?.content?.[0] ?? '';
+      if (firstSegment) {
+        viewerDispatch({ type: 'UPDATE_VISIBLE_SEGMENT', segment: firstSegment });
+      }
+
+      // Persist viewer_state server-side so /ask is context-aware even on the
+      // very next request (fire-and-forget — failures are non-fatal).
+      setViewerState({
+        type: 'youtube',
+        video_id: res.video_id,
+        visible_segment: firstSegment,
+      });
+
+      chatDispatch({
+        type: 'REPLACE_AI_MESSAGE',
+        payload: {
+          id: placeholderId,
+          text: `📺 **${res.title}** loaded — ${res.total_slides} segment${res.total_slides === 1 ? '' : 's'}. Ask me anything about it.`,
+          actions: [
+            { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
+            { label: '🎯 Quiz me on this', actionKey: 'quiz' },
+          ],
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load video.';
+      chatDispatch({
+        type: 'HANDLE_CHAT_ERROR',
+        payload: { messageId: placeholderId, error: message, originalQuestion: url },
+      });
+    }
+  }, [chatDispatch, viewerDispatch, dispatch]);
 
   // ── generateFlashcards ────────────────────────────────────────────────────
   const handleGenerateFlashcards = useCallback(async (topic: string, count = DEFAULT_FLASHCARD_COUNT) => {
@@ -1851,6 +1922,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     handleAdvanceReviewStep,
     handleEndReviewSession,
     handleCompleteReviewQuiz,
+    handleIngestYouTube,
   };
 
   return <StudyContext.Provider value={value}>{children}</StudyContext.Provider>;
