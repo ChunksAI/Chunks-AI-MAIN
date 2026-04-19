@@ -1233,8 +1233,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           if (m.role !== 'ai') return true;
           // Primary: drop AI messages from structured modes
           if (m.mode && m.mode !== 'snap') return false;
-          // Defensive: also drop anything that looks like a JSON blob (plain or code-fenced)
-          const t = m.text.trim().replace(/^```(?:json)?\s*/, '').replace(/```\s*$/, '').trim();
+          // Defensive: also drop anything that looks like a JSON blob (plain or code-fenced).
+          // Only strip code fences when both opening and closing are present.
+          const raw = m.text.trim();
+          const fenceMatch = raw.match(/^```(?:json)?\s*([\s\S]*?)```\s*$/);
+          const t = fenceMatch ? fenceMatch[1].trim() : raw;
           if (t.startsWith('{') || t.startsWith('[')) {
             try { JSON.parse(t); return false; } catch { /* not JSON, keep */ }
           }
