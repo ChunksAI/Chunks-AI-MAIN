@@ -505,7 +505,9 @@ export async function sendMessageStream(
   onChunk(answerText);
   return { ...data, answer: answerText, requestId: reqId };
   } catch (err) {
-    console.error('[req:%s] sendMessageStream error:', reqId, err);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[req:%s] sendMessageStream error:', reqId, err);
+    }
     throw err;
   }
 }

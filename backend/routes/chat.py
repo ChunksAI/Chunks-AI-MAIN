@@ -479,7 +479,7 @@ async def ask(request: Request, body: AskRequest):
                 if _vs_raw:
                     viewer_state = _json.loads(_vs_raw)
             except Exception as _vs_err:
-                logger.debug('[ask] viewer state cache lookup failed: %s', _vs_err)
+                logger.warning('[ask] viewer state cache lookup failed: %s', _vs_err)
 
         # ── Redis query cache ─────────────────────────────────────────────────
         _cache_eligible = _cache_svc.ask_is_cacheable(mode, history, web_search, thinking_mode)
@@ -1337,7 +1337,7 @@ Answer helpfully and clearly."""
                     # can use it to recover a truncated stream via /api/stream/{stream_id}.
                     yield f'data: {json.dumps({"stream_id": stream_id}, ensure_ascii=False)}\n\n'
 
-                    _models = [_stream_model] + ([_stream_fallback] if _stream_fallback else [])
+                    _models = list(dict.fromkeys(m for m in [_stream_model, _stream_fallback] if m))
 
                     for _attempt, _model in enumerate(_models):
                         _full_text = []
