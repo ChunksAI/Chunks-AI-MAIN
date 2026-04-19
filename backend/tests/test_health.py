@@ -278,5 +278,7 @@ def test_rate_limit_key_returns_remote_address():
     req.method = "POST"
     req.client = MagicMock()
     req.client.host = "1.2.3.4"
+    # Simulate no Authorization header so the function falls through to IP-based keying
+    req.headers.get.return_value = ""
     result = _rate_limit_key(req)
     assert result == "1.2.3.4"

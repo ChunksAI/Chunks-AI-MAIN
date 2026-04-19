@@ -1253,7 +1253,8 @@ def test_study_mode_injects_topic_marker_from_heading(client, monkeypatch, mock_
     assert resp.status_code == 200
     data = resp.json()
     assert data['success'] is True
-    assert data['answer'].endswith('<!-- chunks-topic:Entropy -->')
+    # Topic is now returned in the 'topic' field, not injected as an HTML comment
+    assert data['topic'] == 'Entropy'
 
 
 def test_study_mode_no_marker_when_no_heading(client, monkeypatch, mock_guest_gate, mock_extract_user):
@@ -1342,20 +1343,15 @@ def test_topic_marker_sanitizes_injection_attempt(client, monkeypatch, mock_gues
     assert resp.status_code == 200
     data = resp.json()
     assert data['success'] is True
-    answer = data['answer']
-    # The topic marker must be present
-    assert '<!-- chunks-topic:' in answer
-    # Dangerous characters must be stripped from the marker's topic value only
-    # Extract the topic value from the marker
-    import re
-    marker_match = re.search(r'<!-- chunks-topic:(.*?) -->', answer)
-    assert marker_match is not None, "chunks-topic marker not found"
-    extracted_topic = marker_match.group(1)
-    assert '-->' not in extracted_topic   # injection sequence stripped
-    assert '<' not in extracted_topic     # angle brackets stripped
-    assert '>' not in extracted_topic     # angle brackets stripped
+    # Topic is now returned in the 'topic' field, not injected as an HTML comment
+    topic = data['topic']
+    assert topic, "topic field must not be empty"
+    # Dangerous characters must be stripped from the topic value
+    assert '-->' not in topic     # injection sequence stripped
+    assert '<' not in topic       # angle brackets stripped
+    assert '>' not in topic       # angle brackets stripped
     # The original concept name is preserved
-    assert 'Entropy' in extracted_topic
+    assert 'Entropy' in topic
 
 
 # ── _fetch_textbook_context / _fetch_paev_context helpers ────────────────────

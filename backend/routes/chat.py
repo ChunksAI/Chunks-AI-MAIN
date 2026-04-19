@@ -633,7 +633,15 @@ def _extract_topic(mode: str, structured: dict | None, answer: str) -> str:
             if _stripped.startswith('##'):
                 _topic_match = _stripped.lstrip('#').strip()
                 break
-    return _topic_match[:120] if _topic_match else ''
+    if not _topic_match:
+        return ''
+    # Strip characters that are dangerous in HTML/comment contexts before
+    # returning the topic in any downstream context.
+    # Order matters: strip --> before stripping <> so the full sequence is matched.
+    import re as _re
+    _topic_match = _topic_match.replace('-->', '')        # strip comment-close sequence
+    _topic_match = _re.sub(r'[<>]', '', _topic_match)   # strip angle brackets
+    return _topic_match.strip()[:120]
 
 
 # ── Cache write helper ────────────────────────────────────────────────────────
