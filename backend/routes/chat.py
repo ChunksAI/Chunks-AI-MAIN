@@ -16,6 +16,7 @@ import os
 import random
 import re
 import uuid
+from dataclasses import dataclass
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -380,6 +381,725 @@ async def _fetch_paev_context(
         return ''
     prereq_lines = '\n'.join(f'- prerequisite: {c}' for c in concepts)
     return f'[PAEV CONTEXT]\n{prereq_lines}'
+
+
+# ── AskContext dataclass ──────────────────────────────────────────────────────
+# Carries all shared state produced by the pre-processing phase of ask() so
+# that the per-mode handler functions (_handle_snap, _handle_chunk,
+# _handle_master, _handle_research) can operate without passing ~25 args.
+
+@dataclass
+class AskContext:
+    """All shared state from ask() pre-processing, passed to per-mode handlers."""
+
+    # ── Request inputs ────────────────────────────────────────────────────────
+    question: str
+    complexity: int
+    mode: str
+    thinking_mode: str | None
+    web_search: bool
+    stream_requested: bool
+    history: list
+    selected_text: str
+    doc_context: str
+    user_memory: str
+    task_type: str | None
+    student_profile: str
+    student_gaps: list
+    viewer_state: dict | None
+    book_id: str | None
+
+    # ── Auth / user ───────────────────────────────────────────────────────────
+    verified_user_id: str
+    user_tier: str
+    is_exempt: bool
+
+    # ── Model selection ───────────────────────────────────────────────────────
+    selected_model: str
+    mode_fallback: str | None
+    ai_timeout: int
+
+    # ── Context results ───────────────────────────────────────────────────────
+    context: str
+    similarity: float
+    is_relevant: bool
+    source: object
+    all_sources: list
+    paev_context: str
+    searcher: object
+    use_textbook: bool
+
+    # ── Prompt helpers ────────────────────────────────────────────────────────
+    base_system: str
+    complexity_instruction: str
+    ctx_block: str
+    sel_block: str
+    book_label: str
+    book_name: str
+    latex_instruction: str
+    response_style_instruction: str
+
+    # ── Orchestrator ──────────────────────────────────────────────────────────
+    decision: object
+
+    # ── Cache ─────────────────────────────────────────────────────────────────
+    cache_eligible: bool
+    cache_key_val: str | None
+    sem_eligible: bool
+    sem_ctx_hash: str | None
+    query_emb_list: list | None
+
+    # ── Request tracking ──────────────────────────────────────────────────────
+    request_id: str
+
+
+# ── Shared prompt helper ──────────────────────────────────────────────────────
+
+def _build_study_prompt(actx: AskContext) -> str:
+    """Build the user-facing prompt text shared by snap / chunk / master / research."""
+    if actx.selected_text:
+        return f"""You are a tutor for {actx.book_label}.
+
+The student highlighted this passage from the textbook:
+"{actx.selected_text}"
+
+STUDENT QUESTION: {actx.question}
+
+COMPLEXITY LEVEL {actx.complexity}/10: {actx.complexity_instruction}
+
+FORMATTING: {actx.latex_instruction}
+
+Explain and answer based strictly on the highlighted passage above. Do not bring in unrelated content."""
+    elif actx.is_relevant:
+        return f"""You are a tutor for {actx.book_label}.
+
+{actx.sel_block}TEXTBOOK CONTEXT (cite pages using \U0001F4D6 Page N):
+{actx.context}
+
+STUDENT QUESTION: {actx.question}
+
+COMPLEXITY LEVEL {actx.complexity}/10: {actx.complexity_instruction}
+
+FORMATTING: {actx.latex_instruction}
+
+Answer based on the textbook context. Be helpful and clear. Cite the page number whenever you reference specific information from the context."""
+    else:
+        return f"""You are a knowledgeable tutor.
+
+{actx.sel_block}STUDENT QUESTION: {actx.question}
+
+COMPLEXITY LEVEL {actx.complexity}/10: {actx.complexity_instruction}
+
+FORMATTING: {actx.latex_instruction}
+
+Answer helpfully and clearly."""
+
+
+# ── Shared structured-AI call helper ─────────────────────────────────────────
+
+async def _call_structured_ai(
+    prompt: str,
+    call_system: str,
+    actx: AskContext,
+    response_format: dict | None,
+    max_tok: int,
+) -> tuple:
+    """Primary AI call + fallback + JSON parse + retry for structured modes.
+
+    Returns ``(answer, thinking_content, structured, timeout_fallback_note)``
+    where ``structured`` is ``None`` when JSON parsing failed after retry.
+    """
+    from services.ai import call_ai_async, extract_thinking_content
+
+    _timeout_fallback_note: str | None = None
+    try:
+        answer = await call_ai_async(
+            prompt,
+            system_prompt=call_system,
+            model=actx.selected_model,
+            history=actx.history,
+            endpoint='chat',
+            user_id=actx.verified_user_id,
+            timeout=actx.ai_timeout,
+            max_tokens_override=max_tok,
+            response_format=response_format,
+        )
+    except Exception as _primary_err:
+        if actx.mode_fallback:
+            _is_timeout = 'timed out' in str(_primary_err).lower()
+            if _is_timeout:
+                logger.warning(
+                    "[/ask] mode=%s primary model %s timed out — switching to fallback %s",
+                    actx.mode, actx.selected_model, actx.mode_fallback,
+                )
+                if actx.mode == 'master':
+                    _timeout_fallback_note = (
+                        'Master mode is taking longer than usual. Switching to fast mode...'
+                    )
+            else:
+                logger.warning(
+                    "[/ask] primary model %s failed (%s), retrying with fallback %s",
+                    actx.selected_model, _primary_err, actx.mode_fallback,
+                )
+            answer = await call_ai_async(
+                prompt,
+                system_prompt=call_system,
+                model=actx.mode_fallback,
+                history=actx.history,
+                endpoint='chat',
+                user_id=actx.verified_user_id,
+                timeout=actx.ai_timeout,
+                max_tokens_override=max_tok,
+                response_format=response_format,
+            )
+        else:
+            raise
+
+    answer, thinking_content = extract_thinking_content(answer)
+
+    # JSON parse + key validation + retry on failure
+    _raw_for_parse = _strip_code_fences(answer) if answer else ''
+    structured: dict | None = None
+    try:
+        structured = json.loads(_raw_for_parse) if isinstance(_raw_for_parse, str) else _raw_for_parse
+        required = _STRUCTURED_REQUIRED_KEYS.get(actx.mode, set())
+        missing = required - set(structured.keys())
+        if missing:
+            logger.warning('[/ask] mode=%s missing structured keys: %s', actx.mode, missing)
+    except (json.JSONDecodeError, TypeError):
+        logger.warning(
+            '[/ask] mode=%s model=%s failed to parse JSON response — retrying with stricter prompt',
+            actx.mode, actx.selected_model,
+        )
+        _retry_model = actx.mode_fallback or actx.selected_model
+        try:
+            _retry_answer = await call_ai_async(
+                prompt,
+                system_prompt=_STRICT_JSON_SYSTEM_PROMPT,
+                model=_retry_model,
+                history=actx.history,
+                endpoint='chat',
+                user_id=actx.verified_user_id,
+                timeout=actx.ai_timeout,
+                max_tokens_override=max_tok,
+                response_format=response_format,
+            )
+            _retry_answer, _ = extract_thinking_content(_retry_answer)
+            _retry_raw = _strip_code_fences(_retry_answer) if _retry_answer else ''
+            structured = json.loads(_retry_raw)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning(
+                '[/ask] mode=%s model=%s (retry) still failed to parse JSON — returning 500',
+                actx.mode, _retry_model,
+            )
+            structured = None
+        except Exception as _retry_err:
+            logger.warning(
+                '[/ask] mode=%s model=%s retry call failed: %s',
+                actx.mode, _retry_model, _retry_err,
+            )
+            structured = None
+
+    return answer, thinking_content, structured, _timeout_fallback_note
+
+
+# ── Topic extraction helper ───────────────────────────────────────────────────
+
+def _extract_topic(mode: str, structured: dict | None, answer: str) -> str:
+    """Extract a topic string for the response from structured data or a ## heading."""
+    _topic_match: str | None = None
+    _is_structured = mode in MODE_SYSTEM_PROMPTS
+    if _is_structured and structured:
+        if mode == 'chunk':
+            _kc = structured.get('key_concepts', [])
+            _topic_match = _kc[0] if isinstance(_kc, list) and _kc else None
+        elif mode == 'master':
+            _core = structured.get('core_explanation', '') or ''
+            _topic_match = _core.split('.')[0].strip() or None
+        elif mode == 'research':
+            _summary = structured.get('summary', '') or ''
+            _topic_match = _summary.split('.')[0].strip() or None
+    else:
+        for _line in answer.split('\n'):
+            _stripped = _line.strip()
+            if _stripped.startswith('##'):
+                _topic_match = _stripped.lstrip('#').strip()
+                break
+    return _topic_match[:120] if _topic_match else ''
+
+
+# ── Cache write helper ────────────────────────────────────────────────────────
+
+def _write_cache(actx: AskContext, resp: dict) -> None:
+    """Write resp to both key-value and semantic caches when eligible."""
+    if actx.cache_eligible and actx.cache_key_val:
+        _cache_svc.ask_set(
+            actx.cache_key_val,
+            resp,
+            task_type=actx.task_type,
+            mode=actx.mode,
+            book_id=actx.book_id,
+            model_used=actx.selected_model,
+        )
+    if actx.sem_eligible and actx.sem_ctx_hash and actx.query_emb_list:
+        _cache_svc.semantic_store(actx.query_emb_list, actx.sem_ctx_hash, resp)
+
+
+# ── Per-mode handlers ─────────────────────────────────────────────────────────
+
+async def _handle_snap(actx: AskContext, request: Request):
+    """Handle snap mode: web search, SSE streaming, or non-streaming plain text."""
+    from services.ai import (
+        call_ai_async, call_ai_stream_async, call_ai_web_search_async,
+        extract_thinking_content,
+    )
+
+    # ── web_search branch (modifier on snap) ─────────────────────────────────
+    if actx.web_search:
+        web_system = (
+            "You are a helpful research assistant. Answer clearly and accurately "
+            "using current web information. Use markdown formatting with headers, "
+            "bullet points, and bold text where it aids clarity. When you reference "
+            "a source, include the full URL in the text so users can visit it. "
+            f"{actx.response_style_instruction}"
+        )
+        answer, web_citations = await call_ai_web_search_async(
+            actx.question,
+            system_prompt=web_system,
+            history=actx.history,
+            user_id=actx.verified_user_id,
+        )
+        if answer.startswith('Error:') or answer.startswith('Web search error:'):
+            logger.warning(f"Web search failed ({answer[:80]}), falling back to standard model")
+            fallback_prompt = f"STUDENT QUESTION: {actx.question}\n\nAnswer helpfully and clearly."
+            answer = await call_ai_async(
+                fallback_prompt,
+                system_prompt=actx.base_system,
+                model=actx.selected_model,
+                history=actx.history,
+                endpoint='chat',
+                user_id=actx.verified_user_id,
+                timeout=actx.ai_timeout,
+                max_tokens_override=_MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None]),
+            )
+            answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
+            web_citations = []
+        answer, thinking_content = extract_thinking_content(answer)
+        return {
+            'success':        True,
+            'mode':           'study',
+            'answer':         answer,
+            'web_search':     True,
+            'web_citations':  web_citations,
+            'similarity':     0.0,
+            'is_relevant':    False,
+            'source':         None,
+            'sources':        [],
+            'complexity_used': actx.complexity,
+            'thinking_content': thinking_content,
+        }
+
+    # ── Prompt construction ───────────────────────────────────────────────────
+    prompt = _build_study_prompt(actx)
+
+    # ── Streaming path ────────────────────────────────────────────────────────
+    if actx.stream_requested and actx.mode == 'snap' and actx.thinking_mode is None:
+        _stream_model    = actx.selected_model
+        _stream_fallback = actx.mode_fallback
+        _stream_system   = actx.base_system
+        _stream_history  = actx.history
+        _stream_max_tok  = _MODE_MAX_TOKENS[None]
+        _stream_endpoint = 'chat'
+        _stream_user_id  = actx.verified_user_id
+        _stream_prompt   = prompt
+        _stream_req_id   = actx.request_id
+        _stream_timeout  = actx.ai_timeout
+        _decision        = actx.decision
+        viewer_state     = actx.viewer_state
+
+        async def _sse_generator():
+            # Fully async generator — zero OS threads per connection.
+            # call_ai_stream_async() is a native async generator backed
+            # by httpx.AsyncClient.stream(), so the event loop is never
+            # blocked.  CancelledError from Starlette (client disconnect)
+            # propagates naturally through asyncio.wait_for(), closing
+            # the httpx stream via its async context manager __aexit__.
+
+            # Unique ID for this stream — used by the recovery buffer.
+            stream_id = uuid.uuid4().hex  # full 32-char UUID hex
+
+            loop = asyncio.get_running_loop()
+
+            # Heartbeat / batching constants (unchanged behaviour)
+            _HEARTBEAT_SECS = 15.0   # SSE comment every N idle seconds
+            _FLUSH_SECS     = 0.05   # max age of a non-empty token buffer
+            _FLUSH_COUNT    = 3      # flush when this many tokens buffered
+
+            _cancel_key = f'{_KEY_NS_PREFIX}cancel:{_stream_req_id}'
+            _tok_buf: list[str] = []
+            _full_text: list[str] = []   # accumulate for viewer_action detection
+            _last_flush = loop.time()
+
+            # Emit stream_id as the very first SSE event so the client
+            # can use it to recover a truncated stream via /api/stream/{stream_id}.
+            yield f'data: {json.dumps({"stream_id": stream_id}, ensure_ascii=False)}\n\n'
+
+            _models = list(dict.fromkeys(m for m in [_stream_model, _stream_fallback] if m))
+
+            for _attempt, _model in enumerate(_models):
+                _full_text = []
+                _tok_buf = []
+                try:
+                    _aiter = call_ai_stream_async(
+                        _stream_prompt,
+                        system_prompt=_stream_system,
+                        model=_model,
+                        history=_stream_history,
+                        max_tokens_override=_stream_max_tok,
+                        endpoint=_stream_endpoint,
+                        user_id=_stream_user_id,
+                        timeout=_stream_timeout,
+                    )
+                    while True:
+                        # Wait at most _HEARTBEAT_SECS for the next
+                        # token.  TimeoutError → keepalive heartbeat.
+                        try:
+                            _tok = await asyncio.wait_for(
+                                _aiter.__anext__(),
+                                timeout=_HEARTBEAT_SECS,
+                            )
+                        except StopAsyncIteration:
+                            # Stream finished normally.
+                            if _tok_buf:
+                                yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                            # Emit topic as a structured meta event so the
+                            # frontend can update the message in real-time
+                            # without relying on fragile HTML-comment parsing.
+                            _full_answer = ''.join(_full_text)
+                            _sse_topic: str | None = None
+                            for _line in _full_answer.split('\n'):
+                                _ls = _line.strip()
+                                if _ls.startswith('##'):
+                                    _sse_topic = _ls.lstrip('#').strip()[:120]
+                                    break
+                            if _sse_topic:
+                                yield f'data: {json.dumps({"meta": {"topic": _sse_topic}}, ensure_ascii=False)}\n\n'
+                            _va = _build_viewer_action(
+                                _decision, _full_answer, viewer_state
+                            )
+                            if _va:
+                                yield f'data: {json.dumps({"meta": {"viewer_action": _va}}, ensure_ascii=False)}\n\n'
+                            yield 'data: [DONE]\n\n'
+                            # Persist the completed stream to Redis for
+                            # best-effort client recovery (5-minute TTL).
+                            # Skip if the buffer is unexpectedly large (> 1 MB)
+                            # to avoid excessive Redis memory under high concurrency.
+                            try:
+                                _redis = _cache_svc._redis
+                                if _redis:
+                                    _buf_json = json.dumps(_full_text)
+                                    if len(_buf_json) <= 1024 * 1024:
+                                        _redis.setex(
+                                            f'{_KEY_NS_PREFIX}stream:{stream_id}',
+                                            300,
+                                            _buf_json,
+                                        )
+                            except Exception as _buf_err:
+                                logger.debug('[/ask] stream buffer write error: %s', _buf_err)
+                            return
+                        except asyncio.TimeoutError:
+                            if _tok_buf:
+                                yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                _tok_buf = []
+                                _last_flush = loop.time()
+                            yield ': heartbeat\n\n'
+                            continue
+
+                        # Redis cancel check (sync redis.exists is a
+                        # single round-trip; acceptable per token).
+                        try:
+                            _redis = _cache_svc._redis
+                            if _redis and _redis.exists(_cancel_key):
+                                _redis.delete(_cancel_key)
+                                logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
+                                await _aiter.aclose()
+                                if _tok_buf:
+                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                yield 'data: [DONE]\n\n'
+                                return
+                        except Exception as _redis_err:
+                            logger.debug('[/ask] Redis cancel check error: %s', _redis_err)
+
+                        # Micro-batch: accumulate tokens and flush when
+                        # buffer is large enough or 50 ms have passed.
+                        _tok_buf.append(_tok)
+                        _full_text.append(_tok)
+                        _now = loop.time()
+                        if len(_tok_buf) >= _FLUSH_COUNT or (_now - _last_flush) >= _FLUSH_SECS:
+                            yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                            _tok_buf = []
+                            _last_flush = _now
+
+                except asyncio.CancelledError:
+                    # Client disconnected — Starlette cancels the generator.
+                    logger.info('[/ask] SSE client disconnected — stopping generation req_id=%s', _stream_req_id)
+                    raise
+                except Exception as _err:
+                    if _attempt < len(_models) - 1:
+                        logger.warning(
+                            "[/ask] snap stream primary failed (%s), retrying with fallback %s",
+                            _err, _stream_fallback,
+                        )
+                        continue
+                    logger.error("SSE stream error: %s", _err)
+                    if _tok_buf:
+                        yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                    yield f'data: {json.dumps({"error": "Streaming failed. Please retry.", "text": ""}, ensure_ascii=False)}\n\n'
+                    yield 'data: [DONE]\n\n'
+                    return
+
+        return StreamingResponse(
+            _sse_generator(),
+            media_type='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',
+            },
+        )
+
+    # ── Non-streaming snap path ───────────────────────────────────────────────
+    _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+    _timeout_fallback_note: str | None = None
+    try:
+        answer = await call_ai_async(
+            prompt,
+            system_prompt=actx.base_system,
+            model=actx.selected_model,
+            history=actx.history,
+            endpoint='chat',
+            user_id=actx.verified_user_id,
+            timeout=actx.ai_timeout,
+            max_tokens_override=_max_tok,
+        )
+    except Exception as _primary_err:
+        if actx.mode_fallback:
+            _is_timeout = 'timed out' in str(_primary_err).lower()
+            if _is_timeout:
+                logger.warning(
+                    "[/ask] mode=%s primary model %s timed out — switching to fallback %s",
+                    actx.mode, actx.selected_model, actx.mode_fallback,
+                )
+            else:
+                logger.warning(
+                    "[/ask] primary model %s failed (%s), retrying with fallback %s",
+                    actx.selected_model, _primary_err, actx.mode_fallback,
+                )
+            answer = await call_ai_async(
+                prompt,
+                system_prompt=actx.base_system,
+                model=actx.mode_fallback,
+                history=actx.history,
+                endpoint='chat',
+                user_id=actx.verified_user_id,
+                timeout=actx.ai_timeout,
+                max_tokens_override=_max_tok,
+            )
+        else:
+            raise
+    answer, thinking_content = extract_thinking_content(answer)
+
+    _resp_topic = _extract_topic(actx.mode, None, answer)
+    _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
+    _resp = {
+        'success':        True,
+        'mode':           actx.mode,
+        'answer':         answer,
+        'structured':     None,
+        'topic':          _resp_topic,
+        'model_used':     actx.selected_model,
+        'context':        actx.context,
+        'similarity':     float(actx.similarity),
+        'is_relevant':    actx.is_relevant,
+        'source':         actx.source,
+        'sources':        actx.all_sources,
+        'complexity_used': actx.complexity,
+        'search_mode':    'hybrid' if actx.searcher.has_embeddings else 'tfidf',
+        'thinking_content': thinking_content,
+        'fallback_note':  _timeout_fallback_note,
+        **({'viewer_action': _viewer_action} if _viewer_action else {}),
+    }
+    _write_cache(actx, _resp)
+    return _resp
+
+
+async def _handle_chunk(actx: AskContext) -> dict | JSONResponse:
+    """Handle chunk mode: structured JSON teaching card."""
+    prompt = _build_study_prompt(actx)
+    _mode_instruction = MODE_SYSTEM_PROMPTS['chunk']
+    _call_system = (actx.base_system + '\n\n' + _mode_instruction) if actx.base_system else _mode_instruction
+    _response_format: dict = {"type": "json_object"}
+    _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+
+    answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
+        prompt, _call_system, actx, _response_format, _max_tok,
+    )
+
+    if structured is None:
+        return JSONResponse(
+            {
+                'success': False,
+                'error': 'AI returned malformed JSON after retry. Please try again.',
+                'error_type': 'MalformedJSON',
+            },
+            status_code=500,
+        )
+
+    _resp_topic = _extract_topic('chunk', structured, answer)
+    _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
+    _resp = {
+        'success':        True,
+        'mode':           actx.mode,
+        'answer':         answer,
+        'structured':     structured,
+        'topic':          _resp_topic,
+        'model_used':     actx.selected_model,
+        'context':        actx.context,
+        'similarity':     float(actx.similarity),
+        'is_relevant':    actx.is_relevant,
+        'source':         actx.source,
+        'sources':        actx.all_sources,
+        'complexity_used': actx.complexity,
+        'search_mode':    'hybrid' if actx.searcher.has_embeddings else 'tfidf',
+        'thinking_content': thinking_content,
+        'fallback_note':  _timeout_fallback_note,
+        **({'viewer_action': _viewer_action} if _viewer_action else {}),
+    }
+    _write_cache(actx, _resp)
+    return _resp
+
+
+async def _handle_master(actx: AskContext) -> dict | JSONResponse:
+    """Handle master mode: deep structured JSON analysis card."""
+    prompt = _build_study_prompt(actx)
+    _mode_instruction = MODE_SYSTEM_PROMPTS['master']
+    _call_system = (actx.base_system + '\n\n' + _mode_instruction) if actx.base_system else _mode_instruction
+    _response_format: dict = {"type": "json_object"}
+    _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+
+    answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
+        prompt, _call_system, actx, _response_format, _max_tok,
+    )
+
+    if structured is None:
+        return JSONResponse(
+            {
+                'success': False,
+                'error': 'AI returned malformed JSON after retry. Please try again.',
+                'error_type': 'MalformedJSON',
+            },
+            status_code=500,
+        )
+
+    _resp_topic = _extract_topic('master', structured, answer)
+    _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
+    _resp = {
+        'success':        True,
+        'mode':           actx.mode,
+        'answer':         answer,
+        'structured':     structured,
+        'topic':          _resp_topic,
+        'model_used':     actx.selected_model,
+        'context':        actx.context,
+        'similarity':     float(actx.similarity),
+        'is_relevant':    actx.is_relevant,
+        'source':         actx.source,
+        'sources':        actx.all_sources,
+        'complexity_used': actx.complexity,
+        'search_mode':    'hybrid' if actx.searcher.has_embeddings else 'tfidf',
+        'thinking_content': thinking_content,
+        'fallback_note':  _timeout_fallback_note,
+        **({'viewer_action': _viewer_action} if _viewer_action else {}),
+    }
+    _write_cache(actx, _resp)
+    return _resp
+
+
+async def _handle_research(actx: AskContext) -> dict | JSONResponse:
+    """Handle research mode: web-grounded structured JSON research card."""
+    from services.ai import call_ai_web_search_async
+
+    prompt = _build_study_prompt(actx)
+
+    # ── Web citation pre-fetch ────────────────────────────────────────────────
+    _research_web_citations: list = []
+    try:
+        _, _research_web_citations = await call_ai_web_search_async(
+            actx.question,
+            system_prompt=(
+                "Find credible, authoritative sources for the following research topic. "
+                "Return a concise answer citing real, accessible URLs."
+            ),
+            history=actx.history,
+            user_id=actx.verified_user_id,
+        )
+    except Exception as _rw_err:
+        logger.debug('[ask] research web citation fetch failed: %s', _rw_err)
+    if _research_web_citations:
+        _cit_lines = '\n'.join(
+            f'- {c.get("title", c.get("url", ""))} — {c.get("url", "")}'
+            # Cap at 8 citations to keep prompt size reasonable while still
+            # providing enough variety for the LLM to pick the best sources.
+            for c in _research_web_citations[:8]
+            if c.get('url')
+        )
+        prompt = (
+            f'{prompt}\n\n'
+            f'[VERIFIED WEB SOURCES — include these real URLs in your sources array '
+            f'when they are relevant to the question]\n{_cit_lines}'
+        )
+
+    _mode_instruction = MODE_SYSTEM_PROMPTS['research']
+    _call_system = (actx.base_system + '\n\n' + _mode_instruction) if actx.base_system else _mode_instruction
+    _response_format: dict = {"type": "json_object"}
+    _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+
+    answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
+        prompt, _call_system, actx, _response_format, _max_tok,
+    )
+
+    if structured is None:
+        return JSONResponse(
+            {
+                'success': False,
+                'error': 'AI returned malformed JSON after retry. Please try again.',
+                'error_type': 'MalformedJSON',
+            },
+            status_code=500,
+        )
+
+    _resp_topic = _extract_topic('research', structured, answer)
+    _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
+    _resp = {
+        'success':        True,
+        'mode':           actx.mode,
+        'answer':         answer,
+        'structured':     structured,
+        'topic':          _resp_topic,
+        'model_used':     actx.selected_model,
+        'context':        actx.context,
+        'similarity':     float(actx.similarity),
+        'is_relevant':    actx.is_relevant,
+        'source':         actx.source,
+        'sources':        actx.all_sources,
+        'complexity_used': actx.complexity,
+        'search_mode':    'hybrid' if actx.searcher.has_embeddings else 'tfidf',
+        'thinking_content': thinking_content,
+        'fallback_note':  _timeout_fallback_note,
+        'web_citations':  _research_web_citations,
+        **({'viewer_action': _viewer_action} if _viewer_action else {}),
+    }
+    _write_cache(actx, _resp)
+    return _resp
 
 
 @router.post('/ask')
@@ -1223,421 +1943,60 @@ Keep the summary focused, clear, and easy to review before an exam."""
 
         # ── MODE: STUDY (default) ─────────────────────────────────────────────
         else:
-            if web_search:
-                web_system = (
-                    "You are a helpful research assistant. Answer clearly and accurately "
-                    "using current web information. Use markdown formatting with headers, "
-                    "bullet points, and bold text where it aids clarity. When you reference "
-                    "a source, include the full URL in the text so users can visit it. "
-                    f"{response_style_instruction}"
-                )
-                answer, web_citations = await call_ai_web_search_async(
-                    question, system_prompt=web_system, history=history,
-                    user_id=verified_user_id,
-                )
-                if answer.startswith('Error:') or answer.startswith('Web search error:'):
-                    logger.warning(f"Web search failed ({answer[:80]}), falling back to standard model")
-                    fallback_prompt = f"STUDENT QUESTION: {question}\n\nAnswer helpfully and clearly."
-                    answer = await call_ai_async(fallback_prompt, system_prompt=base_system, model=selected_model, history=history,
-                                     endpoint='chat', user_id=verified_user_id, timeout=_ai_timeout,
-                                     max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))
-                    answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
-                    web_citations = []
-                answer, thinking_content = extract_thinking_content(answer)
-                return {
-                    'success':        True,
-                    'mode':           'study',
-                    'answer':         answer,
-                    'web_search':     True,
-                    'web_citations':  web_citations,
-                    'similarity':     0.0,
-                    'is_relevant':    False,
-                    'source':         None,
-                    'sources':        [],
-                    'complexity_used': complexity,
-                    'thinking_content': thinking_content,
-                }
-
-            if selected_text:
-                prompt = f"""You are a tutor for {book_label}.
-
-The student highlighted this passage from the textbook:
-"{selected_text}"
-
-STUDENT QUESTION: {question}
-
-COMPLEXITY LEVEL {complexity}/10: {complexity_instruction}
-
-FORMATTING: {latex_instruction}
-
-Explain and answer based strictly on the highlighted passage above. Do not bring in unrelated content."""
-            elif is_relevant:
-                prompt = f"""You are a tutor for {book_label}.
-
-{sel_block}TEXTBOOK CONTEXT (cite pages using 📖 Page N):
-{context}
-
-STUDENT QUESTION: {question}
-
-COMPLEXITY LEVEL {complexity}/10: {complexity_instruction}
-
-FORMATTING: {latex_instruction}
-
-Answer based on the textbook context. Be helpful and clear. Cite the page number whenever you reference specific information from the context."""
+            actx = AskContext(
+                question=question,
+                complexity=complexity,
+                mode=mode,
+                thinking_mode=thinking_mode,
+                web_search=web_search,
+                stream_requested=stream_requested,
+                history=history,
+                selected_text=selected_text,
+                doc_context=doc_context,
+                user_memory=user_memory,
+                task_type=task_type,
+                student_profile=student_profile,
+                student_gaps=student_gaps,
+                viewer_state=viewer_state,
+                book_id=book_id,
+                verified_user_id=verified_user_id,
+                user_tier=user_tier,
+                is_exempt=_is_exempt,
+                selected_model=selected_model,
+                mode_fallback=_mode_fallback,
+                ai_timeout=_ai_timeout,
+                context=context,
+                similarity=similarity,
+                is_relevant=is_relevant,
+                source=source,
+                all_sources=all_sources,
+                paev_context=paev_context,
+                searcher=searcher,
+                use_textbook=use_textbook,
+                base_system=base_system,
+                complexity_instruction=complexity_instruction,
+                ctx_block=ctx_block,
+                sel_block=sel_block,
+                book_label=book_label,
+                book_name=book_name,
+                latex_instruction=latex_instruction,
+                response_style_instruction=response_style_instruction,
+                decision=_decision,
+                cache_eligible=_cache_eligible,
+                cache_key_val=_cache_key_val,
+                sem_eligible=_sem_eligible,
+                sem_ctx_hash=_sem_ctx_hash,
+                query_emb_list=_query_emb_list,
+                request_id=getattr(request.state, 'request_id', ''),
+            )
+            if mode == 'chunk':
+                return await _handle_chunk(actx)
+            elif mode == 'master':
+                return await _handle_master(actx)
+            elif mode == 'research':
+                return await _handle_research(actx)
             else:
-                prompt = f"""You are a knowledgeable tutor.
-
-{sel_block}STUDENT QUESTION: {question}
-
-COMPLEXITY LEVEL {complexity}/10: {complexity_instruction}
-
-FORMATTING: {latex_instruction}
-
-Answer helpfully and clearly."""
-
-            # ── STREAMING PATH ────────────────────────────────────────────────────
-            # Phase 1: Streaming enabled only for Snap mode.
-            # Chunk/Master/Research always return JSONResponse.
-            if stream_requested and mode == 'snap' and thinking_mode is None:
-                _stream_model     = selected_model
-                _stream_fallback  = _mode_fallback
-                _stream_system    = base_system
-                _stream_history   = history
-                _stream_max_tok   = _MODE_MAX_TOKENS[None]
-                _stream_endpoint  = 'chat'
-                _stream_user_id   = verified_user_id
-                _stream_prompt    = prompt
-                _stream_req_id    = getattr(request.state, 'request_id', '')
-                _stream_timeout   = _ai_timeout
-
-                async def _sse_generator():
-                    # Fully async generator — zero OS threads per connection.
-                    # call_ai_stream_async() is a native async generator backed
-                    # by httpx.AsyncClient.stream(), so the event loop is never
-                    # blocked.  CancelledError from Starlette (client disconnect)
-                    # propagates naturally through asyncio.wait_for(), closing
-                    # the httpx stream via its async context manager __aexit__.
-
-                    # Unique ID for this stream — used by the recovery buffer.
-                    stream_id = uuid.uuid4().hex  # full 32-char UUID hex
-
-                    loop = asyncio.get_running_loop()
-
-                    # Heartbeat / batching constants (unchanged behaviour)
-                    _HEARTBEAT_SECS = 15.0   # SSE comment every N idle seconds
-                    _FLUSH_SECS     = 0.05   # max age of a non-empty token buffer
-                    _FLUSH_COUNT    = 3      # flush when this many tokens buffered
-
-                    _cancel_key = f'{_KEY_NS_PREFIX}cancel:{_stream_req_id}'
-                    _tok_buf: list[str] = []
-                    _full_text: list[str] = []   # accumulate for viewer_action detection
-                    _last_flush = loop.time()
-
-                    # Emit stream_id as the very first SSE event so the client
-                    # can use it to recover a truncated stream via /api/stream/{stream_id}.
-                    yield f'data: {json.dumps({"stream_id": stream_id}, ensure_ascii=False)}\n\n'
-
-                    _models = list(dict.fromkeys(m for m in [_stream_model, _stream_fallback] if m))
-
-                    for _attempt, _model in enumerate(_models):
-                        _full_text = []
-                        _tok_buf = []
-                        try:
-                            _aiter = call_ai_stream_async(
-                                _stream_prompt,
-                                system_prompt=_stream_system,
-                                model=_model,
-                                history=_stream_history,
-                                max_tokens_override=_stream_max_tok,
-                                endpoint=_stream_endpoint,
-                                user_id=_stream_user_id,
-                                timeout=_stream_timeout,
-                            )
-                            while True:
-                                # Wait at most _HEARTBEAT_SECS for the next
-                                # token.  TimeoutError → keepalive heartbeat.
-                                try:
-                                    _tok = await asyncio.wait_for(
-                                        _aiter.__anext__(),
-                                        timeout=_HEARTBEAT_SECS,
-                                    )
-                                except StopAsyncIteration:
-                                    # Stream finished normally.
-                                    if _tok_buf:
-                                        yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
-                                    # Emit topic as a structured meta event so the
-                                    # frontend can update the message in real-time
-                                    # without relying on fragile HTML-comment parsing.
-                                    _full_answer = ''.join(_full_text)
-                                    _sse_topic: str | None = None
-                                    for _line in _full_answer.split('\n'):
-                                        _ls = _line.strip()
-                                        if _ls.startswith('##'):
-                                            _sse_topic = _ls.lstrip('#').strip()[:120]
-                                            break
-                                    if _sse_topic:
-                                        yield f'data: {json.dumps({"meta": {"topic": _sse_topic}}, ensure_ascii=False)}\n\n'
-                                    _va = _build_viewer_action(
-                                        _decision, _full_answer, viewer_state
-                                    )
-                                    if _va:
-                                        yield f'data: {json.dumps({"meta": {"viewer_action": _va}}, ensure_ascii=False)}\n\n'
-                                    yield 'data: [DONE]\n\n'
-                                    # Persist the completed stream to Redis for
-                                    # best-effort client recovery (5-minute TTL).
-                                    # Skip if the buffer is unexpectedly large (> 1 MB)
-                                    # to avoid excessive Redis memory under high concurrency.
-                                    try:
-                                        _redis = _cache_svc._redis
-                                        if _redis:
-                                            _buf_json = json.dumps(_full_text)
-                                            if len(_buf_json) <= 1024 * 1024:
-                                                _redis.setex(
-                                                    f'{_KEY_NS_PREFIX}stream:{stream_id}',
-                                                    300,
-                                                    _buf_json,
-                                                )
-                                    except Exception as _buf_err:
-                                        logger.debug('[/ask] stream buffer write error: %s', _buf_err)
-                                    return
-                                except asyncio.TimeoutError:
-                                    if _tok_buf:
-                                        yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
-                                        _tok_buf = []
-                                        _last_flush = loop.time()
-                                    yield ': heartbeat\n\n'
-                                    continue
-
-                                # Redis cancel check (sync redis.exists is a
-                                # single round-trip; acceptable per token).
-                                try:
-                                    _redis = _cache_svc._redis
-                                    if _redis and _redis.exists(_cancel_key):
-                                        _redis.delete(_cancel_key)
-                                        logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
-                                        await _aiter.aclose()
-                                        if _tok_buf:
-                                            yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
-                                        yield 'data: [DONE]\n\n'
-                                        return
-                                except Exception as _redis_err:
-                                    logger.debug('[/ask] Redis cancel check error: %s', _redis_err)
-
-                                # Micro-batch: accumulate tokens and flush when
-                                # buffer is large enough or 50 ms have passed.
-                                _tok_buf.append(_tok)
-                                _full_text.append(_tok)
-                                _now = loop.time()
-                                if len(_tok_buf) >= _FLUSH_COUNT or (_now - _last_flush) >= _FLUSH_SECS:
-                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
-                                    _tok_buf = []
-                                    _last_flush = _now
-
-                        except asyncio.CancelledError:
-                            # Client disconnected — Starlette cancels the generator.
-                            logger.info('[/ask] SSE client disconnected — stopping generation req_id=%s', _stream_req_id)
-                            raise
-                        except Exception as _err:
-                            if _attempt < len(_models) - 1:
-                                logger.warning(
-                                    "[/ask] snap stream primary failed (%s), retrying with fallback %s",
-                                    _err, _stream_fallback,
-                                )
-                                continue
-                            logger.error("SSE stream error: %s", _err)
-                            if _tok_buf:
-                                yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
-                            yield f'data: {json.dumps({"error": "Streaming failed. Please retry.", "text": ""}, ensure_ascii=False)}\n\n'
-                            yield 'data: [DONE]\n\n'
-                            return
-
-                return StreamingResponse(
-                    _sse_generator(),
-                    media_type='text/event-stream',
-                    headers={
-                        'Cache-Control': 'no-cache',
-                        'X-Accel-Buffering': 'no',
-                    },
-                )
-
-            # ── NON-STREAMING PATH ────────────────────────────────────────────────
-            _max_tok = _MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None])
-
-            # For structured modes, append the JSON-schema instruction and
-            # request json_object response format from the model.
-            _is_structured_mode = mode in MODE_SYSTEM_PROMPTS and mode != 'snap'
-
-            # Research mode: fetch live web citations to ground the structured
-            # JSON response in real, verifiable URLs before the main AI call.
-            _research_web_citations: list = []
-            if mode == 'research':
-                try:
-                    _, _research_web_citations = await call_ai_web_search_async(
-                        question,
-                        system_prompt=(
-                            "Find credible, authoritative sources for the following research topic. "
-                            "Return a concise answer citing real, accessible URLs."
-                        ),
-                        history=history,
-                        user_id=verified_user_id,
-                    )
-                except Exception as _rw_err:
-                    logger.debug('[ask] research web citation fetch failed: %s', _rw_err)
-                if _research_web_citations:
-                    _cit_lines = '\n'.join(
-                        f'- {c.get("title", c.get("url", ""))} — {c.get("url", "")}'
-                        # Cap at 8 citations to keep prompt size reasonable while still
-                        # providing enough variety for the LLM to pick the best sources.
-                        for c in _research_web_citations[:8]
-                        if c.get('url')
-                    )
-                    prompt = (
-                        f'{prompt}\n\n'
-                        f'[VERIFIED WEB SOURCES — include these real URLs in your sources array '
-                        f'when they are relevant to the question]\n{_cit_lines}'
-                    )
-
-            if _is_structured_mode:
-                _mode_instruction = MODE_SYSTEM_PROMPTS[mode]
-                if _mode_instruction:
-                    _call_system = (base_system + '\n\n' + _mode_instruction) if base_system else _mode_instruction
-                else:
-                    _call_system = base_system
-                _response_format: dict | None = {"type": "json_object"}
-            else:
-                _call_system = base_system
-                _response_format = None
-
-            _timeout_fallback_note: str | None = None
-            try:
-                answer = await call_ai_async(prompt, system_prompt=_call_system, model=selected_model, history=history,
-                                 endpoint='chat', user_id=verified_user_id, timeout=_ai_timeout,
-                                 max_tokens_override=_max_tok, response_format=_response_format)
-            except Exception as _primary_err:
-                if _mode_fallback:
-                    _is_timeout = 'timed out' in str(_primary_err).lower()
-                    if _is_timeout:
-                        logger.warning(
-                            "[/ask] mode=%s primary model %s timed out — switching to fallback %s",
-                            mode, selected_model, _mode_fallback,
-                        )
-                        if mode == 'master':
-                            _timeout_fallback_note = (
-                                'Master mode is taking longer than usual. Switching to fast mode...'
-                            )
-                    else:
-                        logger.warning("[/ask] primary model %s failed (%s), retrying with fallback %s",
-                                       selected_model, _primary_err, _mode_fallback)
-                    answer = await call_ai_async(prompt, system_prompt=_call_system, model=_mode_fallback,
-                                     history=history, endpoint='chat', user_id=verified_user_id,
-                                     timeout=_ai_timeout, max_tokens_override=_max_tok,
-                                     response_format=_response_format)
-                else:
-                    raise
-            answer, thinking_content = extract_thinking_content(answer)
-
-            # For structured modes, parse the JSON response and validate required keys.
-            structured: dict | None = None
-            if _is_structured_mode:
-                _raw_for_parse = _strip_code_fences(answer) if answer else ''
-                try:
-                    structured = json.loads(_raw_for_parse) if isinstance(_raw_for_parse, str) else _raw_for_parse
-                    required = _STRUCTURED_REQUIRED_KEYS.get(mode, set())
-                    missing = required - set(structured.keys())
-                    if missing:
-                        logger.warning('[/ask] mode=%s missing structured keys: %s', mode, missing)
-                except (json.JSONDecodeError, TypeError):
-                    logger.warning(
-                        '[/ask] mode=%s model=%s failed to parse JSON response — retrying with stricter prompt',
-                        mode, selected_model,
-                    )
-                    # Retry with a stricter system prompt to coerce JSON output.
-                    _retry_model = _mode_fallback or selected_model
-                    try:
-                        _retry_answer = await call_ai_async(
-                            prompt, system_prompt=_STRICT_JSON_SYSTEM_PROMPT, model=_retry_model,
-                            history=history, endpoint='chat', user_id=verified_user_id,
-                            timeout=_ai_timeout, max_tokens_override=_max_tok,
-                            response_format=_response_format,
-                        )
-                        _retry_answer, _ = extract_thinking_content(_retry_answer)
-                        _retry_raw = _strip_code_fences(_retry_answer) if _retry_answer else ''
-                        structured = json.loads(_retry_raw)
-                    except (json.JSONDecodeError, TypeError):
-                        logger.warning(
-                            '[/ask] mode=%s model=%s (retry) still failed to parse JSON — returning 500',
-                            mode, _retry_model,
-                        )
-                        structured = None
-                    except Exception as _retry_err:
-                        logger.warning(
-                            '[/ask] mode=%s model=%s retry call failed: %s',
-                            mode, _retry_model, _retry_err,
-                        )
-                        structured = None
-
-                    if structured is None:
-                        return JSONResponse(
-                            {
-                                'success': False,
-                                'error': 'AI returned malformed JSON after retry. Please try again.',
-                                'error_type': 'MalformedJSON',
-                            },
-                            status_code=500,
-                        )
-
-            # Extract topic for Socratic tracking. For structured modes, pull
-            # from the parsed JSON fields; for snap, fall back to a ## heading.
-            _topic_match: str | None = None
-            if _is_structured_mode and structured:
-                if mode == 'chunk':
-                    _kc = structured.get('key_concepts', [])
-                    _topic_match = _kc[0] if isinstance(_kc, list) and _kc else None
-                elif mode == 'master':
-                    _core = structured.get('core_explanation', '') or ''
-                    _topic_match = _core.split('.')[0].strip() or None
-                elif mode == 'research':
-                    _summary = structured.get('summary', '') or ''
-                    _topic_match = _summary.split('.')[0].strip() or None
-            else:
-                for _line in answer.split('\n'):
-                    _stripped = _line.strip()
-                    if _stripped.startswith('##'):
-                        _topic_match = _stripped.lstrip('#').strip()
-                        break
-
-            # Sanitise the topic string for the response field.
-            _resp_topic = ''
-            if _topic_match:
-                _resp_topic = _topic_match[:120]
-
-            _viewer_action = _build_viewer_action(_decision, answer, viewer_state)
-            _resp = {
-                'success':        True,
-                'mode':           mode,
-                'answer':         answer,
-                'structured':     structured,
-                'topic':          _resp_topic,
-                'model_used':     selected_model,
-                'context':        context,
-                'similarity':     float(similarity),
-                'is_relevant':    is_relevant,
-                'source':         source,
-                'sources':        all_sources,
-                'complexity_used': complexity,
-                'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf',
-                'thinking_content': thinking_content,
-                'fallback_note':  _timeout_fallback_note,
-                **({'web_citations': _research_web_citations} if mode == 'research' else {}),
-                **({'viewer_action': _viewer_action} if _viewer_action else {}),
-            }
-            if _cache_eligible and _cache_key_val:
-                _cache_svc.ask_set(_cache_key_val, _resp,
-                                   task_type=task_type, mode=mode,
-                                   book_id=book_id, model_used=selected_model)
-            if _sem_eligible and _sem_ctx_hash and _query_emb_list:
-                _cache_svc.semantic_store(_query_emb_list, _sem_ctx_hash, _resp)
-            return _resp
+                return await _handle_snap(actx, request)
 
     except Exception as e:
         import traceback
