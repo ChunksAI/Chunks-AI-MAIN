@@ -282,3 +282,19 @@ def test_rate_limit_key_returns_remote_address():
     req.headers.get.return_value = ""
     result = _rate_limit_key(req)
     assert result == "1.2.3.4"
+
+
+def test_rate_limit_key_bearer_keyed_by_token():
+    """_rate_limit_key returns a bearer-prefixed key for authenticated requests."""
+    from routes.limiter import _rate_limit_key
+    req = MagicMock()
+    req.method = "POST"
+    req.client = MagicMock()
+    req.client.host = "1.2.3.4"
+    # Simulate a Bearer token in the Authorization header
+    req.headers.get.side_effect = lambda key, default="": (
+        "Bearer mytoken123" if key in ("authorization", "Authorization") else default
+    )
+    result = _rate_limit_key(req)
+    assert result.startswith("bearer:")
+    assert "mytoken123" in result
