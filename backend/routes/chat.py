@@ -720,7 +720,33 @@ async def ask(request: Request, body: AskRequest):
                 or _vs.get('visible_transcript_segment')
                 or ''
             )
-            if _visible:
+            # YouTube fallback — pull the cached transcript from Redis when no
+            # visible_segment was sent (e.g. the user just loaded the video and
+            # the IFrame API has not emitted its first infoDelivery event yet).
+            if not _visible and _vs.get('type') == 'youtube' and _vs.get('video_id'):
+                try:
+                    _yt_raw = ctx.redis.get(
+                        f'{_KEY_NS_PREFIX}yt_transcript:{_vs["video_id"]}'
+                    ) if ctx.redis else None
+                    if _yt_raw:
+                        _slides = json.loads(_yt_raw)
+                        # Concatenate all slide texts; cap at ~8 000 chars
+                        # (≈2 000 tokens) to avoid bloating the prompt on
+                        # long videos while still covering the full topic.
+                        _all_text = ' '.join(
+                            ' '.join(s.get('content', [])) for s in _slides
+                        )[:8000]
+                        _ts = _vs.get('current_timestamp_seconds')
+                        if _ts is not None:
+                            _viewer_context_str = (
+                                f'[VIDEO TRANSCRIPT — viewer at {int(_ts)}s]\n{_all_text}'
+                            )
+                        else:
+                            _viewer_context_str = f'[VIDEO TRANSCRIPT]\n{_all_text}'
+                except Exception as _yt_err:
+                    logger.debug('[ask] yt transcript fallback failed: %s', _yt_err)
+
+            if _visible and not _viewer_context_str:
                 _viewer_context_str = f'[VIEWER CONTEXT]\n{_visible}'
 
         base_system = build_system_prompt(

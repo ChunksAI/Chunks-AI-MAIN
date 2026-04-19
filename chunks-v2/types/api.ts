@@ -5,6 +5,8 @@ export interface SlideItem {
   slide_number?: number;
   content: string[];
   notes?: string;
+  /** Timestamp in seconds (YouTube slides only). */
+  timestamp_seconds?: number;
 }
 
 export interface MessageHistoryItem {

@@ -979,6 +979,27 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     viewerStateRef.current = viewerState;
   }, [viewerState]);
 
+  // ── Sync visibleSegment with YouTube playback position ────────────────────
+  // Fires whenever the YouTube player advances (via the postMessage listener in
+  // ViewerPanel that dispatches SEEK_YOUTUBE).  Looks up the transcript slide
+  // whose timestamp bracket contains the current playback position and dispatches
+  // UPDATE_VISIBLE_SEGMENT so every subsequent /ask request is grounded in the
+  // content currently on screen.
+  useEffect(() => {
+    if (viewerState.viewerType !== 'youtube') return;
+    const ts = viewerState.currentTimestamp;
+    const slides = stateRef.current.slides;
+    const slide = slides.find((s, i) => {
+      // Slides returned by /api/youtube/ingest are in ascending timestamp order.
+      const next = slides[i + 1]?.timestamp_seconds ?? Infinity;
+      return ts >= (s.timestamp_seconds ?? 0) && ts < next;
+    });
+    if (slide?.content?.[0]) {
+      viewerDispatch({ type: 'UPDATE_VISIBLE_SEGMENT', segment: slide.content[0] });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewerState.currentTimestamp, viewerState.viewerType]);
+
   // ── Initialise browser-only state after mount (avoids SSR/client mismatch) ─
   useEffect(() => {
     const newSessionId = `session-${Date.now()}`;
