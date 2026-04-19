@@ -1340,6 +1340,8 @@ Answer helpfully and clearly."""
                     _models = [_stream_model] + ([_stream_fallback] if _stream_fallback else [])
 
                     for _attempt, _model in enumerate(_models):
+                        _full_text = []
+                        _tok_buf = []
                         try:
                             _aiter = call_ai_stream_async(
                                 _stream_prompt,
