@@ -41,6 +41,22 @@ def _rate_limit_key(request: StarletteRequest) -> str:
     return get_remote_address(request)
 
 
+def _dynamic_ask_limit(key: str) -> str:
+    """
+    Return the per-minute rate limit for the /ask endpoint.
+
+    SlowAPI calls this with the result of ``key_func`` (_rate_limit_key), so
+    ``key`` is either ``"bearer:<token>"`` for authenticated users or an IP
+    address for anonymous ones.
+
+    - Authenticated users (Bearer token present): 60 requests/minute.
+    - Anonymous users (no token): 15 requests/minute.
+    """
+    if key.startswith("bearer:"):
+        return "60/minute"
+    return "15/minute"
+
+
 limiter = Limiter(
     key_func=_rate_limit_key,
     default_limits=["500/hour", "120/minute"],
