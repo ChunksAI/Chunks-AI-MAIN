@@ -55,9 +55,13 @@ def _get_identity_for_user(user_id: str, variants: list[str]) -> str:
 # These control how long and how structured each mode's answer must be.
 
 NORMAL_MODE_PROMPT = (
-    "Give a clear, complete answer. Use as many paragraphs, headers, or bullet points "
-    "as the question requires — do not cut yourself off. Be focused and avoid padding, "
-    "but always finish your explanation fully."
+    "Give a focused, complete answer to the student's question. "
+    "Use as many paragraphs, headers, or bullets as the topic requires — never cut yourself off, never pad. "
+    "When [VIEWER CONTEXT], [VIDEO TRANSCRIPT], or [TEXTBOOK CONTEXT] is present, ground your answer in it explicitly: "
+    "quote a short fragment, cite the page (\U0001f4d6 Page N) or the timestamp ([MM:SS]) you are drawing from. "
+    "If the loaded source does not actually answer the question, say so plainly in one sentence and then answer "
+    "from general knowledge clearly labeled as such. "
+    "End every conceptual answer with a single '> \U0001f4a1 Key takeaway:' blockquote."
 )
 
 THINK_MODE_PROMPT = (
@@ -102,7 +106,8 @@ Required keys (all must be present):
   "step_by_step": ["step 1", "step 2", ...],
   "example": "a concrete real-world example"
 }
-Rules: Simple, clear, teaching-focused. No assumed prior knowledge.""",
+Rules: Simple, clear, teaching-focused. No assumed prior knowledge.
+step_by_step must contain exactly 4–7 steps. Each step is one complete sentence describing a single action or sub-concept. Do not use sub-bullets or nested lists inside steps.""",
 
     'master': """You are an advanced reasoning assistant.
 Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
@@ -114,7 +119,10 @@ Required keys (all must be present):
   "connections": "how this connects to related concepts",
   "key_insight": "the single most important takeaway"
 }
-Rules: Analytical. Explain WHY and HOW. No fluff.""",
+Rules: Analytical. Explain WHY and HOW. No fluff.
+Each field (core_explanation, mechanism, analysis, connections) must be 80–200 words.
+'connections' must reference at least 2 specific related concepts by name.
+'key_insight' must be a single sentence of under 30 words.""",
 
     'research': """You are an evidence-based research assistant.
 Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
