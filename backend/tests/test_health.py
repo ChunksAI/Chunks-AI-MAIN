@@ -298,3 +298,15 @@ def test_rate_limit_key_bearer_keyed_by_token():
     result = _rate_limit_key(req)
     assert result.startswith("bearer:")
     assert "mytoken123" in result
+
+
+def test_dynamic_ask_limit_authenticated():
+    """_dynamic_ask_limit returns 60/minute for bearer-keyed (authenticated) requests."""
+    from routes.limiter import _dynamic_ask_limit
+    assert _dynamic_ask_limit("bearer:sometoken123") == "60/minute"
+
+
+def test_dynamic_ask_limit_anonymous():
+    """_dynamic_ask_limit returns 15/minute for IP-keyed (anonymous) requests."""
+    from routes.limiter import _dynamic_ask_limit
+    assert _dynamic_ask_limit("1.2.3.4") == "15/minute"
