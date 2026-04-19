@@ -200,7 +200,9 @@ function StudyLayout() {
               {showLeftPanel && (
                 <>
                   {showViewerPanel ? (
-                    <ViewerPanel style={{ width: `${pct}%` }} />
+                    <ErrorBoundary>
+                      <ViewerPanel style={{ width: `${pct}%` }} />
+                    </ErrorBoundary>
                   ) : (
                     <ContentPanel
                       style={{ width: `${pct}%` }}

@@ -1084,6 +1084,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   const flashcardsInFlightRef = useRef(false);
   const quizInFlightRef = useRef(false);
 
+  // Prevent duplicate /ask calls on rapid clicks (e.g. double-submit)
+  const inflightRef = useRef(false);
+
   // Track in-flight generation abort controllers
   const flashcardsAbortRef = useRef<AbortController | null>(null);
   const quizAbortRef = useRef<AbortController | null>(null);
@@ -1214,6 +1217,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // ── sendMessage ───────────────────────────────────────────────────────────
   const handleSendMessage = useCallback(
     async (text: string, opts: { selectedText?: string; docContext?: string } = {}) => {
+      // Prevent duplicate /ask calls on rapid clicks (e.g. double-submit).
+      // inflightRef is reset to false in the finally block below.
+      if (inflightRef.current) return;
+      inflightRef.current = true;
+
       abortRef.current?.abort();
       abortRef.current = new AbortController();
       streamIdRef.current = null;
@@ -1453,6 +1461,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           err instanceof Error ? err.message : 'Something went wrong. Please try again.';
         chatDispatch({ type: 'HANDLE_CHAT_ERROR', payload: { messageId: aiMsgId, error: message, originalQuestion: text } });
       } finally {
+        inflightRef.current = false;
         currentRequestIdRef.current = null;
         streamIdRef.current = null;
       }

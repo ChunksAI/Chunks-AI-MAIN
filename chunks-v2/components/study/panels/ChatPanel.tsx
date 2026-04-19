@@ -96,12 +96,27 @@ function MessageBubble({
   onActionClick,
   isStreaming,
   onRetry,
+  onCancel,
 }: {
   msg: ChatMessage;
   onActionClick: (key: string) => void;
   isStreaming?: boolean;
   onRetry?: () => void;
+  /** Called when the user clicks Cancel on a non-streaming placeholder bubble. */
+  onCancel?: () => void;
 }) {
+  // After 20 s, update the placeholder text to warn that the response is slow.
+  // Timer is started only for non-streaming placeholder messages and cleared
+  // automatically when the component re-renders with isPlaceholder = false.
+  const [slowWarning, setSlowWarning] = useState(false);
+  useEffect(() => {
+    if (!msg.isPlaceholder) {
+      setSlowWarning(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlowWarning(true), 20_000);
+    return () => clearTimeout(timer);
+  }, [msg.isPlaceholder]);
   if (msg.role === 'user') {
     return (
       <div className="msg user">
@@ -117,7 +132,20 @@ function MessageBubble({
       <div className="msg-body">
         <div className="msg-bubble">
           {msg.isPlaceholder ? (
-            <span className="msg-placeholder">{msg.text}</span>
+            <>
+              <span className="msg-placeholder">
+                {slowWarning ? 'Still working… this is taking longer than usual.' : msg.text}
+              </span>
+              {onCancel && (
+                <button
+                  className="ai-action-btn"
+                  onClick={onCancel}
+                  style={{ marginTop: 8 }}
+                >
+                  ✕ Cancel
+                </button>
+              )}
+            </>
           ) : (() => {
             // Structured modes: render rich cards instead of flat markdown.
             if (msg.structured && typeof msg.structured === 'object') {
@@ -570,6 +598,7 @@ export default function ChatPanel() {
                   dispatch({ type: 'REMOVE_MESSAGE', payload: msg.id });
                   void handleSendMessage(msg.originalQuestion!);
                 } : undefined}
+                onCancel={msg.isPlaceholder ? handleStopClick : undefined}
               />
             );
           })}
