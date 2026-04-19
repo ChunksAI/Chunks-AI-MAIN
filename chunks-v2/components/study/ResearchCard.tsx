@@ -30,6 +30,31 @@ function toList(v: unknown): string[] {
   return v.map(str).filter(Boolean);
 }
 
+type SourceObj = {
+  title?: string;
+  url?: string;
+  year?: string;
+  authors?: string;
+  note?: string;
+};
+
+/** Normalise a sources array that may contain strings or objects into SourceObj[]. */
+function toSources(v: unknown): SourceObj[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .map((s): SourceObj => {
+      if (typeof s === 'string') {
+        const m = s.match(/https?:\/\/[^\s)]+/);
+        return m
+          ? { title: s.replace(m[0], '').replace(/\s*—\s*$/, '').trim() || m[0], url: m[0] }
+          : { title: s };
+      }
+      if (s && typeof s === 'object') return s as SourceObj;
+      return { title: String(s) };
+    })
+    .filter((s) => s.title || s.url);
+}
+
 // ─── Confidence indicator ─────────────────────────────────────────────────────
 
 type ConfidenceLevel = 'limited' | 'moderate' | 'strong';
@@ -72,26 +97,24 @@ function FindingCard({ text, index }: { text: string; index: number }) {
   );
 }
 
-function SourceChip({ text }: { text: string }) {
-  // Try to extract a URL from the source text (e.g. from "Source (year) — https://…")
-  const urlMatch = text.match(/https?:\/\/[^\s)]+/);
-  if (urlMatch) {
-    const label = text.replace(urlMatch[0], '').replace(/\s*—\s*$/, '').trim() || text;
+function SourceChip({ src }: { src: SourceObj }) {
+  const label = [src.title, src.year ? `(${src.year})` : ''].filter(Boolean).join(' ');
+  if (src.url) {
     return (
       <a
-        href={urlMatch[0]}
+        href={src.url}
         target="_blank"
         rel="noopener noreferrer"
         className="rc-source-chip rc-source-chip--link"
-        title={text}
+        title={[label, src.note].filter(Boolean).join(' — ')}
       >
-        🔗 {label}
+        🔗 {label || src.url}
       </a>
     );
   }
   return (
-    <span className="rc-source-chip" title={text}>
-      📄 {text}
+    <span className="rc-source-chip" title={src.note ?? label}>
+      📄 {label}
     </span>
   );
 }
@@ -100,12 +123,22 @@ function SourceChip({ text }: { text: string }) {
 
 export interface ResearchCardProps {
   structured: Record<string, unknown>;
+  /** Live web citations from the backend's Perplexity Sonar pass (optional). */
+  webCitations?: Array<{ url: string; title?: string }>;
 }
 
-function ResearchCard({ structured }: ResearchCardProps) {
+function ResearchCard({ structured, webCitations }: ResearchCardProps) {
   const summary               = str(structured.summary);
   const findings              = toList(structured.key_findings);
-  const sources               = toList(structured.sources);
+  const structuredSources     = toSources(structured.sources);
+
+  // Merge web citations (from Perplexity Sonar) as additional sources, deduping by URL.
+  const seenUrls = new Set(structuredSources.map((s) => s.url).filter(Boolean));
+  const extraSources: SourceObj[] = (webCitations ?? [])
+    .filter((c) => c.url && !seenUrls.has(c.url))
+    .map((c) => ({ title: c.title || c.url, url: c.url }));
+  const sources = [...structuredSources, ...extraSources];
+
   const simplifiedExplanation = str(structured.simplified_explanation);
 
   const confidence      = getConfidence(sources.length);
@@ -147,7 +180,7 @@ function ResearchCard({ structured }: ResearchCardProps) {
           <div className="rc-section-body">
             <div className="rc-sources">
               {sources.map((s, i) => (
-                <SourceChip key={i} text={s} />
+                <SourceChip key={i} src={s} />
               ))}
             </div>
           </div>

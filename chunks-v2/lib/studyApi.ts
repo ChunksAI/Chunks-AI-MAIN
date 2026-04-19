@@ -262,8 +262,20 @@ function formatStructuredResponse(structured: Record<string, unknown>): string {
     if (structured.summary) lines.push(`## Summary\n${str(structured.summary)}`);
     const kf = listItems(structured.key_findings);
     if (kf) lines.push(`## Key Findings\n${kf}`);
-    const src = listItems(structured.sources);
-    if (src) lines.push(`## Sources\n${src}`);
+    // Sources may be objects {title, url, year, authors, note} or plain strings.
+    const srcArr = Array.isArray(structured.sources) ? structured.sources : [];
+    const srcLines = srcArr.map((s: unknown): string => {
+      if (typeof s === 'string') return `- ${s}`;
+      if (s && typeof s === 'object') {
+        const src = s as { title?: string; url?: string; year?: string; authors?: string; note?: string };
+        const label = [src.title, src.year ? `(${src.year})` : ''].filter(Boolean).join(' ');
+        const note = src.note ? ` — ${src.note}` : '';
+        if (src.url) return `- [${label || src.url}](${src.url})${note}`;
+        return `- ${label}${note}`;
+      }
+      return `- ${str(s)}`;
+    }).filter(Boolean);
+    if (srcLines.length) lines.push(`## Sources\n${srcLines.join('\n')}`);
     if (structured.simplified_explanation) lines.push(`## Simplified Explanation\n${str(structured.simplified_explanation)}`);
     return lines.join('\n\n');
   }

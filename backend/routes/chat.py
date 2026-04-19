@@ -119,14 +119,23 @@ Rules: Analytical. Explain WHY and HOW. No fluff.""",
 Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
 Required keys (all must be present):
 {
-  "summary": "brief overview of what the research shows",
+  "summary": "brief overview of what the research shows (2-3 sentences)",
   "key_findings": ["finding 1", "finding 2", ...],
-  "sources": ["Source name (year) — description", ...],
+  "sources": [
+    {
+      "title": "Full title of the work or organisation",
+      "authors": "Author surnames or org name",
+      "year": "YYYY or 'n.d.'",
+      "url": "https://... — REQUIRED, must be a real, live URL. Never guess.",
+      "note": "one-line description of what this source supports"
+    }
+  ],
   "simplified_explanation": "plain-language explanation for a student"
 }
-Rules: Only cite real, credible sources. If uncertain, write \
-"General scientific consensus — verify with primary literature". \
-Never fabricate citations.""",
+Rules:
+- Every source MUST include a real URL. If you cannot supply a URL, omit that source entirely.
+- Prefer primary literature, peer-reviewed journals, official institutional pages, .gov, .edu, .org.
+- Never fabricate URLs. If you have no verified sources, return an empty sources array and note in summary that web search is recommended.""",
 }
 
 # Required JSON keys for each structured mode — used to warn on partial responses.
@@ -1443,6 +1452,37 @@ Answer helpfully and clearly."""
             # For structured modes, append the JSON-schema instruction and
             # request json_object response format from the model.
             _is_structured_mode = mode in MODE_SYSTEM_PROMPTS and mode != 'snap'
+
+            # Research mode: fetch live web citations to ground the structured
+            # JSON response in real, verifiable URLs before the main AI call.
+            _research_web_citations: list = []
+            if mode == 'research':
+                try:
+                    _, _research_web_citations = await call_ai_web_search_async(
+                        question,
+                        system_prompt=(
+                            "Find credible, authoritative sources for the following research topic. "
+                            "Return a concise answer citing real, accessible URLs."
+                        ),
+                        history=history,
+                        user_id=verified_user_id,
+                    )
+                except Exception as _rw_err:
+                    logger.debug('[ask] research web citation fetch failed: %s', _rw_err)
+                if _research_web_citations:
+                    _cit_lines = '\n'.join(
+                        f'- {c.get("title", c.get("url", ""))} — {c.get("url", "")}'
+                        # Cap at 8 citations to keep prompt size reasonable while still
+                        # providing enough variety for the LLM to pick the best sources.
+                        for c in _research_web_citations[:8]
+                        if c.get('url')
+                    )
+                    prompt = (
+                        f'{prompt}\n\n'
+                        f'[VERIFIED WEB SOURCES — include these real URLs in your sources array '
+                        f'when they are relevant to the question]\n{_cit_lines}'
+                    )
+
             if _is_structured_mode:
                 _mode_instruction = MODE_SYSTEM_PROMPTS[mode]
                 if _mode_instruction:
@@ -1581,6 +1621,7 @@ Answer helpfully and clearly."""
                 'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf',
                 'thinking_content': thinking_content,
                 'fallback_note':  _timeout_fallback_note,
+                **({'web_citations': _research_web_citations} if mode == 'research' else {}),
                 **({'viewer_action': _viewer_action} if _viewer_action else {}),
             }
             if _cache_eligible and _cache_key_val:
