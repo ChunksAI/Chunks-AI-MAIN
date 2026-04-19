@@ -1329,7 +1329,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         }
 
         // Update message with memory/performance metadata if present
-        if (res.topic || res.memory_recall || (res.performance_bars && res.performance_bars.length > 0)) {
+        if (res.topic || res.memory_recall || (res.performance_bars && res.performance_bars.length > 0) || res.structured || res.web_citations) {
           chatDispatch({
             type: 'UPDATE_MESSAGE_META',
             payload: {
@@ -1337,6 +1337,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
               ...(res.topic ? { topic: res.topic } : {}),
               memoryRecall: res.memory_recall,
               performanceBars: res.performance_bars ?? [],
+              ...(res.structured ? { structured: res.structured } : {}),
+              ...(res.web_citations ? { webCitations: res.web_citations } : {}),
             },
           });
         }

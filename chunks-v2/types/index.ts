@@ -45,6 +45,13 @@ export type ChatMessage = {
   error?: boolean;
   /** The user question that produced this AI bubble, stored so retry can re-send it. */
   originalQuestion?: string;
+  /**
+   * Parsed structured data for chunk / master / research modes.
+   * When present, ChatPanel renders ChunkCard or ResearchCard instead of MarkdownRenderer.
+   */
+  structured?: Record<string, unknown> | null;
+  /** Live web citations returned by the research mode Perplexity Sonar pass. */
+  webCitations?: Array<{ url: string; title?: string }>;
 };
 
 // ─── Workspace ────────────────────────────────────────────────────────────────

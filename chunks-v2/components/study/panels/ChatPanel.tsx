@@ -8,6 +8,8 @@ import type { ChatMessage } from '@/types';
 
 import MarkdownRenderer from '@/components/study/chat/MarkdownRenderer';
 import MessageActions from '@/components/study/chat/MessageActions';
+import ChunkCard from '@/components/study/ChunkCard';
+import ResearchCard from '@/components/study/ResearchCard';
 import { resolveStudyTopic, cleanTopic } from '@/lib/topicFallback';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
 import { useToast } from '@/contexts/ToastContext';
@@ -117,6 +119,13 @@ function MessageBubble({
           {msg.isPlaceholder ? (
             <span className="msg-placeholder">{msg.text}</span>
           ) : (() => {
+            // Structured modes: render rich cards instead of flat markdown.
+            if (msg.structured && typeof msg.structured === 'object') {
+              if ('summary' in msg.structured) {
+                return <ResearchCard structured={msg.structured} webCitations={msg.webCitations} />;
+              }
+              return <ChunkCard structured={msg.structured} />;
+            }
             const split = !isStreaming ? splitAtGapMarker(msg.text) : null;
             if (split) {
               return (
@@ -131,7 +140,7 @@ function MessageBubble({
             return <MarkdownRenderer content={msg.text} />;
           })()}
           {isStreaming && !msg.isPlaceholder && msg.text.trim() && <span className="streaming-dot" aria-hidden="true" />}
-          {!isStreaming && !msg.isPlaceholder && !msg.text.trim() && (
+          {!isStreaming && !msg.isPlaceholder && !msg.structured && !msg.text.trim() && (
             <span className="msg-empty-response">
               No response received — please retry.
             </span>
