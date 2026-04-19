@@ -191,7 +191,7 @@ if OPENROUTER_API_KEY == 'your-key-here':
 PORT               = int(os.environ.get('PORT', 5000))
 PRODUCTION         = os.environ.get('PRODUCTION', 'false').lower() == 'true'
 OPENROUTER_URL     = "https://openrouter.ai/api/v1/chat/completions"
-MODEL              = os.environ.get('MODEL', 'openai/gpt-oss-20b:nitro')
+MODEL              = os.environ.get('MODEL', 'openai/gpt-4.1-mini')
 
 SUPABASE_URL         = os.environ.get('SUPABASE_URL', '')
 SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')

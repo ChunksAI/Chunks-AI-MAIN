@@ -1251,11 +1251,11 @@ async def ask(request: Request, body: AskRequest):
         # ── Model selection via ai_router ─────────────────────────────────────
         _mode_fallback: str | None = None
         if thinking_mode == 'deep':
-            selected_model = os.environ.get('DEEP_MODEL', 'google/gemini-2.0-flash-001')
+            selected_model = os.environ.get('DEEP_MODEL', 'anthropic/claude-sonnet-4.5')
             _mode_fallback = os.environ.get('DEEP_FALLBACK', 'google/gemini-2.5-flash')
         elif thinking_mode == 'thinking':
-            selected_model = os.environ.get('THINK_MODEL', 'anthropic/claude-3-5-haiku')
-            _mode_fallback = os.environ.get('THINK_FALLBACK', 'openai/gpt-4o-mini')
+            selected_model = os.environ.get('THINK_MODEL', 'anthropic/claude-haiku-4.5')
+            _mode_fallback = os.environ.get('THINK_FALLBACK', 'openai/gpt-4.1-mini')
         else:
             selected_model, _mode_fallback = route_for_mode(mode or task_type or 'snap', complexity)
 

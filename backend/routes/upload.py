@@ -48,7 +48,7 @@ def _build_paev_index(book_id: str, slides: list) -> None:
         from routes.paev import _paev_cache_set
 
         api_key = os.environ.get('OPENROUTER_API_KEY', '')
-        model   = os.environ.get('MODEL', 'openai/gpt-4o-mini')
+        model   = os.environ.get('MODEL', 'openai/gpt-4.1-mini')
 
         # Convert slides → chunks format {page, text}
         chunks = [
