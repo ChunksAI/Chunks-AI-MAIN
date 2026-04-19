@@ -330,6 +330,55 @@ class TestYouTubeIngestV2:
         assert resp.status_code == 200
         assert resp.json()['success'] is True
 
+    def test_v2_proxy_type_error_falls_back_to_no_proxy(self, client, mock_extract_user, monkeypatch):
+        """When YouTubeTranscriptApi(proxy_config=...) raises TypeError the code falls back
+        to YouTubeTranscriptApi() so older installed versions still work (lines 227-230)."""
+        entries = [{'text': 'Fallback proxy test.', 'start': 0.0, 'duration': 3.0}]
+
+        # Build the mock instance returned by the no-proxy constructor call
+        mock_fetched = MagicMock()
+        mock_fetched.to_raw_data.return_value = entries
+        mock_transcript = MagicMock()
+        mock_transcript.fetch.return_value = mock_fetched
+        mock_list = MagicMock()
+        mock_list.find_manually_created_transcript.return_value = mock_transcript
+        mock_list.__iter__ = MagicMock(return_value=iter([mock_transcript]))
+        mock_instance = MagicMock()
+        mock_instance.list.return_value = mock_list
+
+        # Raise TypeError when proxy_config kwarg is present; succeed without it
+        def _api_class_factory(*args, **kwargs):
+            if 'proxy_config' in kwargs:
+                raise TypeError("__init__() got an unexpected keyword argument 'proxy_config'")
+            return mock_instance
+
+        mock_api_class = MagicMock(side_effect=_api_class_factory)
+
+        import routes.shared as shared_mod
+        mock_ctx = MagicMock()
+        mock_ctx.redis = None
+        monkeypatch.setattr(shared_mod, 'ctx', mock_ctx)
+
+        with patch.dict('sys.modules', {
+            'youtube_transcript_api': MagicMock(
+                YouTubeTranscriptApi=mock_api_class,
+                IpBlocked=Exception,
+                RequestBlocked=Exception,
+                NoTranscriptFound=Exception,
+                TranscriptsDisabled=Exception,
+            ),
+        }), patch('httpx.AsyncClient') as mock_httpx:
+            mock_httpx.return_value.__aenter__ = MagicMock(
+                return_value=MagicMock(get=MagicMock(return_value=MagicMock(status_code=404)))
+            )
+            mock_httpx.return_value.__aexit__ = MagicMock(return_value=False)
+            resp = client.post(self._URL, json={'url': self._VIDEO_URL})
+
+        assert resp.status_code == 200
+        assert resp.json()['success'] is True
+        # Class called twice: first with proxy_config (TypeError), then without args
+        assert mock_api_class.call_count == 2
+
     def test_v2_no_transcript_returns_422(self, client, mock_extract_user, monkeypatch):
         """POST /api/youtube/ingest returns 422 when no transcript is available."""
         class _NoTranscriptFound(Exception):

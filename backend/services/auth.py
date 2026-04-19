@@ -67,7 +67,11 @@ def _get_jwks() -> dict:
     if not SUPABASE_URL or _session is None:
         return {}
     try:
-        resp = _session.get(f"{SUPABASE_URL}/auth/v1/jwks", timeout=10)
+        resp = _session.get(
+            f"{SUPABASE_URL}/auth/v1/jwks",
+            headers={"apikey": SUPABASE_SERVICE_KEY},
+            timeout=10,
+        )
         resp.raise_for_status()
         _jwk_cache = _parse_jwks(resp.json())
         _jwk_cache_loaded_at = time.time()
