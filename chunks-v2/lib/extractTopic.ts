@@ -1,17 +1,16 @@
 /**
  * Extracts the study topic from an AI response string.
  *
+ * Used as a fallback when the backend's SSE meta event ({"meta":{"topic":...}})
+ * is not available (e.g. old cached responses or non-streaming paths that do
+ * not return a `topic` field).
+ *
  * Resolution order:
- *  1. Structured marker: <!-- chunks-topic:... --> (injected by backend, highest fidelity)
- *  2. ## Heading on its own line
- *  3. ### Heading on its own line
- *  4. Empty string (topic unknown)
+ *  1. ## Heading on its own line
+ *  2. ### Heading on its own line
+ *  3. Empty string (topic unknown)
  */
 export function extractTopicFromResponse(text: string): string {
-  // Primary: structured HTML comment injected by the backend
-  const commentMatch = text.match(/<!--\s*chunks-topic:(.*?)\s*-->/);
-  if (commentMatch) return commentMatch[1].trim();
-
   const lines = text.split('\n');
 
   // Fallback 1: ## heading

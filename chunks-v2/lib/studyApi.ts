@@ -333,6 +333,7 @@ export async function sendMessageStream(
   signal?: AbortSignal,
   onRequestId?: (id: string) => void,
   onStreamId?: (id: string) => void,
+  onMeta?: (meta: { topic?: string }) => void,
 ): Promise<SendMessageResponse> {
   const authHeaders = await getAuthHeaders();
   const reqId = makeReqId();
@@ -386,6 +387,7 @@ export async function sendMessageStream(
     const decoder = new TextDecoder();
     let fullText = '';
     let streamViewerAction: ViewerAction | undefined;
+    let streamTopic: string | undefined;
 
     // RAF-based chunk batching: accumulate tokens and flush at most once per
     // animation frame so React re-renders at display rate instead of once per token.
@@ -430,7 +432,7 @@ export async function sendMessageStream(
             const data = line.slice(6).trim();
             if (data === '[DONE]') break outer; // exit both loops
             try {
-              const parsed = JSON.parse(data) as SseChunk & { error?: string; meta?: { viewer_action?: ViewerAction }; stream_id?: string };
+              const parsed = JSON.parse(data) as SseChunk & { error?: string; meta?: { viewer_action?: ViewerAction; topic?: string }; stream_id?: string };
               // Check for a server-sent error before treating the chunk as content
               if (parsed.error) {
                 throw new ApiError(parsed.error, 502);
@@ -440,10 +442,14 @@ export async function sendMessageStream(
                 onStreamId?.(parsed.stream_id);
                 continue;
               }
-              // Capture metadata event (e.g. viewer_action) — no text content
+              // Capture metadata event (e.g. viewer_action, topic) — no text content
               if (parsed.meta) {
                 if (parsed.meta.viewer_action) {
                   streamViewerAction = parsed.meta.viewer_action;
+                }
+                if (parsed.meta.topic) {
+                  streamTopic = parsed.meta.topic;
+                  onMeta?.({ topic: streamTopic });
                 }
                 continue;
               }
@@ -478,6 +484,7 @@ export async function sendMessageStream(
       answer: fullText,
       mode: params.mode ?? 'study',
       requestId: reqId,
+      ...(streamTopic ? { topic: streamTopic } : {}),
       ...(streamViewerAction ? { viewer_action: streamViewerAction } : {}),
     };
   }

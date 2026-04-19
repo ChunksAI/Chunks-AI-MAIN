@@ -1365,8 +1365,20 @@ Answer helpfully and clearly."""
                                     # Stream finished normally.
                                     if _tok_buf:
                                         yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                    # Emit topic as a structured meta event so the
+                                    # frontend can update the message in real-time
+                                    # without relying on fragile HTML-comment parsing.
+                                    _full_answer = ''.join(_full_text)
+                                    _sse_topic: str | None = None
+                                    for _line in _full_answer.split('\n'):
+                                        _ls = _line.strip()
+                                        if _ls.startswith('##'):
+                                            _sse_topic = _ls.lstrip('#').strip()[:120]
+                                            break
+                                    if _sse_topic:
+                                        yield f'data: {json.dumps({"meta": {"topic": _sse_topic}}, ensure_ascii=False)}\n\n'
                                     _va = _build_viewer_action(
-                                        _decision, ''.join(_full_text), viewer_state
+                                        _decision, _full_answer, viewer_state
                                     )
                                     if _va:
                                         yield f'data: {json.dumps({"meta": {"viewer_action": _va}}, ensure_ascii=False)}\n\n'
@@ -1593,18 +1605,11 @@ Answer helpfully and clearly."""
                     if _stripped.startswith('##'):
                         _topic_match = _stripped.lstrip('#').strip()
                         break
-                if _topic_match:
-                    # Sanitize and embed as an HTML comment in the snap answer so
-                    # that the frontend's extractTopicFromResponse() can parse it
-                    # from the streamed text (SSE path has no separate JSON field).
-                    _safe_topic = _topic_match.replace('-->', '').replace('<', '').replace('>', '')[:120]
-                    answer = answer + f'\n<!-- chunks-topic:{_safe_topic} -->'
 
-            # Sanitise the topic string for the response field (strip HTML-comment
-            # breaking chars and cap length, same rules as the SSE comment above).
+            # Sanitise the topic string for the response field.
             _resp_topic = ''
             if _topic_match:
-                _resp_topic = _topic_match.replace('-->', '').replace('<', '').replace('>', '')[:120]
+                _resp_topic = _topic_match[:120]
 
             _viewer_action = _build_viewer_action(_decision, answer, viewer_state)
             _resp = {

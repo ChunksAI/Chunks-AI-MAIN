@@ -1327,6 +1327,16 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           abortRef.current.signal,
           (reqId) => { currentRequestIdRef.current = reqId; },
           (sid) => { streamIdRef.current = sid; },
+          // Dispatch topic immediately when received via SSE meta event (snap mode)
+          // so useTutorBrain and weaknessEngine see it during streaming.
+          (meta) => {
+            if (meta.topic) {
+              chatDispatch({
+                type: 'UPDATE_MESSAGE_META',
+                payload: { id: aiMsgId, topic: meta.topic },
+              });
+            }
+          },
         );
 
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
