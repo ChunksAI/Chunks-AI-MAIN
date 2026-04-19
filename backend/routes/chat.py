@@ -2007,7 +2007,6 @@ Keep the summary focused, clear, and easy to review before an exam."""
         return JSONResponse({
             'success': False,
             'error': 'An unexpected error occurred. Please try again.',
-            'error_type': type(e).__name__,
         }, status_code=500)
 
 
