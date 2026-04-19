@@ -233,15 +233,9 @@ class TestYouTubeProcess:
             'duration_seconds': 42.0,
         }]
 
-        mock_supabase = MagicMock()
-        mock_supabase.get = MagicMock(return_value=mock_sb_resp)
-        # Make get awaitable
-        import asyncio
-        mock_supabase.get = MagicMock()
-        mock_supabase.get.return_value = mock_sb_resp
-
         async def _sb_get(*a, **kw):
             return mock_sb_resp
+        mock_supabase = MagicMock()
         mock_supabase.get = _sb_get
 
         self._mock_ctx(monkeypatch, redis=mock_redis, supabase=mock_supabase)

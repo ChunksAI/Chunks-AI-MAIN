@@ -44,16 +44,22 @@ function extractVideoId(urlOrId: string): string | null {
  * Decode HTML entities and strip any XML tags from a caption text node.
  * YouTube sometimes wraps text in <font> or <b> tags and HTML-encodes
  * characters like &amp; and &#39;.
+ *
+ * Uses a single-pass lookup so that encoded entities are never double-decoded
+ * (e.g. &amp;lt; → &lt;, not <).
  */
 function decodeCaption(raw: string): string {
+  const ENTITIES: Record<string, string> = {
+    '&amp;':  '&',
+    '&lt;':   '<',
+    '&gt;':   '>',
+    '&quot;': '"',
+    '&#39;':  "'",
+    '&#x27;': "'",
+  };
   return raw
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/<[^>]+>/g, '') // strip any inner XML tags
+    .replace(/<[^>]*>/g, '')  // strip XML/HTML tags before entity decoding
+    .replace(/&(?:amp|lt|gt|quot|#39|#x27);/g, (entity) => ENTITIES[entity] ?? entity)
     .trim();
 }
 
@@ -61,10 +67,13 @@ function decodeCaption(raw: string): string {
  * Parse YouTube's timed-text XML into TranscriptEntry objects.
  * Each entry looks like:
  *   <text start="0.5" dur="2.3">Hello &amp; world</text>
+ *
+ * Caption text in YouTube's timed-text format never contains literal '<'
+ * (it is encoded as \u003c / &lt;), so [^<]* is safe and efficient.
  */
 function parseCaptionXml(xml: string): TranscriptEntry[] {
   const entries: TranscriptEntry[] = [];
-  const RE = /<text\s[^>]*\bstart="([^"]+)"[^>]*\bdur="([^"]+)"[^>]*>([\s\S]*?)<\/text>/g;
+  const RE = /<text\s[^>]*\bstart="([^"]+)"[^>]*\bdur="([^"]+)"[^>]*>([^<]*)<\/text>/g;
   let m: RegExpExecArray | null;
   while ((m = RE.exec(xml)) !== null) {
     const text = decodeCaption(m[3]);
@@ -110,8 +119,10 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
 
   const html = await pageRes.text();
 
-  // ── 2. Extract ytInitialPlayerResponse ────────────────────────────────────
-  const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{[\s\S]+?\});/);
+  // YouTube encodes '<' as '\u003c' in JSON to avoid breaking script tag parsers,
+  // so [^<]* safely and efficiently captures the full JSON object without
+  // crossing into adjacent script tags.
+  const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{[^<]*\});/);
   if (!playerMatch) {
     throw new Error('Could not parse YouTube player data — the page format may have changed');
   }

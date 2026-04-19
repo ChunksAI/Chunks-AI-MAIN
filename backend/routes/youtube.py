@@ -108,6 +108,13 @@ def _compute_duration_seconds(entries: list) -> float:
     return float(getattr(last, 'start', 0.0)) + float(getattr(last, 'duration', 0.0))
 
 
+def _duration_from_slides(slides: list[dict]) -> float:
+    """Estimate duration from the last slide's timestamp when entries are unavailable."""
+    if not slides:
+        return 0.0
+    return float(slides[-1].get('timestamp_seconds', 0.0))
+
+
 # ── Router ─────────────────────────────────────────────────────────────────────
 
 router_v2 = APIRouter(prefix='/api/youtube')
@@ -184,7 +191,7 @@ async def process_youtube(request: Request, body: dict = Body(default={})):
                         'success':          True,
                         'video_id':         video_id,
                         'title':            title,
-                        'duration_seconds': _compute_duration_seconds(entries) if entries else 0.0,
+                        'duration_seconds': _compute_duration_seconds(entries) if entries else _duration_from_slides(slides),
                         'slides':           slides,
                         'transcript_full':  '',
                         'total_slides':     len(slides),
