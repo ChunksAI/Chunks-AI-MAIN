@@ -37,6 +37,8 @@ from contextvars import ContextVar
 from datetime import datetime
 
 import requests
+import httpx
+from concurrent.futures import ThreadPoolExecutor
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -164,6 +166,21 @@ def _build_session():
 
 _session = _build_session()
 
+# ── Async HTTP client — shared across all LLM calls ───────────────────────────
+_async_http_client = httpx.AsyncClient(
+    limits=httpx.Limits(
+        max_connections=100,
+        max_keepalive_connections=20,
+        keepalive_expiry=30,
+    ),
+    timeout=httpx.Timeout(connect=5.0, read=60.0, write=10.0, pool=5.0),
+)
+
+# ── Thread pool for Supabase cache writes (bounded, no per-request threads) ───
+_sb_write_executor = ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix='sb-write',
+)
+
 # ── App config ────────────────────────────────────────────────────────────────
 OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY', 'your-key-here')
 R2_BUCKET_URL      = os.environ.get('R2_BUCKET_URL', 'https://pub-xxxxx.r2.dev')
@@ -213,8 +230,8 @@ import services.ai   as _ai_svc
 import services.books as _books_svc
 import services.embedding_cache as _embed_cache_svc
 import services.vector_store as _vector_store_svc
-import services.answer_cache as _answer_cache_svc
 import services.prompt_guard as _prompt_guard_svc
+import services.circuit_breaker as _circuit_breaker_svc
 
 _auth_svc.init(
     session              = _session,
@@ -222,11 +239,14 @@ _auth_svc.init(
     supabase_service_key = SUPABASE_SERVICE_KEY,
     redis                = _redis,
 )
+_circuit_breaker_svc.init(redis_client=_redis)
 _ai_svc.init(
     session            = _session,
     openrouter_api_key = OPENROUTER_API_KEY,
     model              = MODEL,
     max_history_turns  = MAX_HISTORY_TURNS,
+    async_client       = _async_http_client,
+    circuit_breaker    = _circuit_breaker_svc._breaker,
 )
 _vector_store_svc.init(
     session              = _session,
@@ -240,10 +260,16 @@ _books_svc.init(
     redis              = _redis,
 )
 _embed_cache_svc.init(redis=_redis)
-_answer_cache_svc.init(redis=_redis)
 _prompt_guard_svc.init(
     session            = _session,
     openrouter_api_key = OPENROUTER_API_KEY,
+    async_client       = _async_http_client,
+)
+
+import services.supabase_client as _supabase_client_svc  # noqa: E402
+_supabase_client_svc.init(
+    supabase_url = SUPABASE_URL,
+    service_key  = SUPABASE_SERVICE_KEY,
 )
 
 import services.token_budget as _token_budget_svc  # noqa: E402
@@ -262,6 +288,7 @@ _cache_svc_mod.init(
     session              = _session,
     supabase_url         = SUPABASE_URL,
     supabase_service_key = SUPABASE_SERVICE_KEY,
+    executor             = _sb_write_executor,
 )
 
 # ── Re-export BOOK_LIBRARY for backward compatibility ─────────────────────────
@@ -594,10 +621,32 @@ async def validate_services():
         raise
 
 
+@app.on_event("shutdown")
+async def close_async_http_client():
+    """Drain keep-alive connections and close the shared httpx.AsyncClient."""
+    await _async_http_client.aclose()
+    logger.info("Async HTTP client closed.")
+
+
+@app.on_event("shutdown")
+async def close_supabase_http_client():
+    """Drain keep-alive connections and close the Supabase httpx.AsyncClient."""
+    await _supabase_client_svc.aclose()
+
+
+@app.on_event("shutdown")
+async def shutdown_sb_write_executor():
+    """Drain pending Supabase cache writes and shut down the thread pool."""
+    _sb_write_executor.shutdown(wait=True, cancel_futures=False)
+    logger.info("Supabase write executor shut down.")
+
+
 # ── Shared context — populate before registering routers ─────────────────────
 from routes.shared import ctx as _ctx  # noqa: E402
 _ctx._init(
     session              = _session,
+    async_client         = _async_http_client,
+    supabase_client      = _supabase_client_svc.get_client(),
     SUPABASE_URL         = SUPABASE_URL,
     SUPABASE_SERVICE_KEY = SUPABASE_SERVICE_KEY,
     SUPABASE_ANON_KEY    = SUPABASE_ANON_KEY,
@@ -614,18 +663,20 @@ _ctx._init(
 )
 
 # ── Router registration ───────────────────────────────────────────────────────
-from routes.admin         import router as admin_router      # noqa: E402
-from routes.health        import router as health_router     # noqa: E402
-from routes.library       import router as library_router    # noqa: E402
-from routes.flashcards    import router as flashcards_router  # noqa: E402
-from routes.upload        import router as upload_router     # noqa: E402
-from routes.study         import router as study_router      # noqa: E402
-from routes.youtube       import router as youtube_router    # noqa: E402
-from routes.image         import router as image_router      # noqa: E402
-from routes.chat          import router as chat_router       # noqa: E402
-from routes.jobs          import router as jobs_router       # noqa: E402
-from routes.share_content import router as share_router      # noqa: E402
-from routes.tutor_brain   import router as tutor_router      # noqa: E402
+from routes.admin            import router as admin_router            # noqa: E402
+from routes.health           import router as health_router           # noqa: E402
+from routes.library          import router as library_router          # noqa: E402
+from routes.flashcards       import router as flashcards_router       # noqa: E402
+from routes.upload           import router as upload_router           # noqa: E402
+from routes.study            import router as study_router            # noqa: E402
+from routes.youtube          import router as youtube_router, router_v2 as youtube_v2_router  # noqa: E402
+from routes.image            import router as image_router            # noqa: E402
+from routes.chat             import router as chat_router             # noqa: E402
+from routes.jobs             import router as jobs_router             # noqa: E402
+from routes.share_content    import router as share_router            # noqa: E402
+from routes.tutor_brain      import router as tutor_router            # noqa: E402
+from routes.research_ingest  import router as research_ingest_router  # noqa: E402
+from routes.viewer_session   import router as viewer_session_router   # noqa: E402
 
 app.include_router(admin_router)
 app.include_router(health_router)
@@ -638,7 +689,10 @@ app.include_router(chat_router)
 app.include_router(jobs_router)
 app.include_router(share_router)
 app.include_router(youtube_router)
+app.include_router(youtube_v2_router)
 app.include_router(tutor_router)
+app.include_router(research_ingest_router)
+app.include_router(viewer_session_router)
 
 # ── PAEV and progress routes ──────────────────────────────────────────────────
 from routes.paev    import register_paev      # noqa: E402

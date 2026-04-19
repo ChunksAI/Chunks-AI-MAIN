@@ -12,6 +12,28 @@ export interface MessageHistoryItem {
   content: string;
 }
 
+// ─── Viewer action — emitted by the backend when the AI references a video ───
+
+export type ViewerAction =
+  | { type: 'seek_youtube'; video_id: string; timestamp_seconds: number }
+  | { type: 'switch_to_research'; url: string };
+
+// ─── Viewer state payload — sent in every /ask request ───────────────────────
+
+/**
+ * The viewer_state dict shape expected by the backend /ask schema.
+ * @see backend/routes/schemas.py AskRequest.viewer_state
+ */
+export interface ViewerStatePayload {
+  type: 'youtube' | 'pdf' | 'research' | 'none';
+  video_id?: string;
+  current_timestamp_seconds?: number;
+  visible_segment?: string;
+  pdf_page?: number;
+  pdf_visible_text?: string;
+  research_url?: string;
+}
+
 // ─── Request Types ────────────────────────────────────────────────────────────
 
 export interface SendMessageRequest {
@@ -24,6 +46,7 @@ export interface SendMessageRequest {
   user_memory?: string;
   bookId?: string;
   student_profile?: string;
+  viewer_state?: ViewerStatePayload | null;
 }
 
 export interface GenerateFlashcardsRequest {
@@ -62,6 +85,12 @@ export interface SendMessageResponse {
   requestId?: string;
   /** Parsed structured data returned by chunk / master / research modes. */
   structured?: Record<string, unknown> | null;
+  /**
+   * Optional viewer action emitted when the AI references a video timestamp
+   * while the viewer_context route is active.  The frontend should seek the
+   * embedded player to the specified position when this field is present.
+   */
+  viewer_action?: ViewerAction | null;
 }
 
 export interface Flashcard {

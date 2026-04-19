@@ -28,6 +28,8 @@ if _BACKEND_ROOT not in sys.path:
 
 logger = logging.getLogger(__name__)
 
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
+
 router = APIRouter()
 
 
@@ -73,7 +75,7 @@ def _build_paev_index(book_id: str, slides: list) -> None:
 
         redis = getattr(ctx, 'redis', None)
         if redis is not None:
-            redis.setex(f'paev_ready:{book_id}', 86400, '1')
+            redis.setex(f'{_KEY_NS_PREFIX}paev_ready:{book_id}', 86400, '1')
 
         logger.info('[%s] PAEV background build complete', book_id)
     except Exception:

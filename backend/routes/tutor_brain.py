@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -23,6 +24,8 @@ from services.paev_engine import PrerequisiteChainResolver
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix='/tutor')
+
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
 
 # ── Request schemas ───────────────────────────────────────────────────────────
 
@@ -52,6 +55,7 @@ class NextTopicRequest(BaseModel):
 
 class SaveModelRequest(BaseModel):
     student_model: dict
+    book_id: str = ''        # optional per-book scoping for the Redis cache key
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -62,6 +66,59 @@ _LOW_SCORE_THRESHOLD    = 60    # below this → gap
 _FAILING_THRESHOLD      = 40    # below this → failing
 _RECOVERING_THRESHOLD   = 75    # at or above this but still wrong answers → recovering
 _MIN_CHAIN_COMPLETENESS = 0.6   # discard gaps whose prereq chain is less complete than this
+
+# ── Redis key helper ─────────────────────────────────────────────────────────
+
+_STUDENT_MODEL_TTL = 86_400   # 24 h
+
+
+def _student_model_redis_key(user_id: str, book_id: str | None) -> str:
+    """Return the Redis key for a user's student model (per book when book_id is set)."""
+    scope = book_id.strip() if book_id and book_id.strip() else 'global'
+    return f"{_KEY_NS_PREFIX}student_model:{user_id}:{scope}"
+
+
+def get_student_model_cached(user_id: str, book_id: str | None, redis_client) -> dict | None:
+    """Return the student model dict from Redis, or None on cache miss / error.
+
+    This is a pure Redis lookup (no Supabase fallback) so it is safe to call
+    synchronously on the hot request path in ask().  The authoritative
+    Supabase fallback is handled by the /tutor/load-model endpoint.
+    """
+    if not redis_client or not user_id:
+        return None
+    key = _student_model_redis_key(user_id, book_id)
+    try:
+        raw = redis_client.get(key)
+        if raw is None:
+            return None
+        data = json.loads(raw)
+        if isinstance(data, dict):
+            logger.debug('[student_model] cache HIT for %s', key)
+            return data
+    except Exception as exc:
+        logger.debug('[student_model] cache read error for %s: %s', key, exc)
+    return None
+
+
+def _profile_from_model(model: dict) -> str:
+    """Convert a cached student model dict into a [STUDENT PROFILE] text block.
+
+    Used by ask() to build the system-prompt profile string from the
+    server-side model instead of parsing it from the request body.
+    """
+    gaps     = model.get('gaps', [])
+    mastered = model.get('mastered', [])
+    history  = model.get('quizHistory', [])
+
+    low_scores: list[tuple[str, float]] = [
+        (entry['topic'], float(entry['score']))
+        for entry in history
+        if isinstance(entry, dict)
+        and float(entry.get('score', 100)) < _LOW_SCORE_THRESHOLD
+    ]
+
+    return _build_student_profile(gaps, mastered, low_scores)
 
 
 def _lifecycle_status(score: float) -> str:
@@ -106,11 +163,7 @@ def analyze_gaps(request: Request, body: AnalyzeGapsRequest):  # request require
 
     # 1. Load PAEV objects from cache
     idx, fps, graph = _paev_cache_get(book_id)
-    if idx is None:
-        return JSONResponse(
-            {'error': 'PAEV index not built for this book. Run /paev/build-index first.'},
-            status_code=404,
-        )
+    paev_available = idx is not None
 
     # 2. Identify gap concepts from quiz results
     gap_map: dict[str, dict] = {}   # concept_key → {concept, status, score}
@@ -126,7 +179,30 @@ def analyze_gaps(request: Request, body: AnalyzeGapsRequest):  # request require
                 gap_map[key] = {'concept': topic, 'status': status, 'score': score}
             low_scores.append((topic, score))
 
-    # 3. Resolve prerequisite chains for each gap concept
+    # 3a. PAEV unavailable — return a partial result using quiz scores only.
+    #     The response is less precise (no prerequisite chains), but the
+    #     endpoint never returns 404; PAEV enrichment is additive, not required.
+    if not paev_available:
+        logger.info(
+            '[tutor/analyze-gaps] PAEV index not built for book_id=%r; '
+            'returning partial result (%d gap(s)) without prerequisite chains.',
+            book_id, len(gap_map),
+        )
+        detected_gaps = [
+            {'concept': info['concept'], 'status': info['status']}
+            for info in gap_map.values()
+        ]
+        gap_keys = {g['concept'].lower() for g in detected_gaps}
+        mastered = [c for c in body.known_concepts if c.lower() not in gap_keys]
+        student_profile_block = _build_student_profile(detected_gaps, mastered, low_scores)
+        return {
+            'detected_gaps':         detected_gaps,
+            'prereq_warnings':       [],
+            'student_profile_block': student_profile_block,
+            'paev_available':        False,
+        }
+
+    # 3b. Resolve prerequisite chains for each gap concept (full PAEV analysis)
     resolver        = PrerequisiteChainResolver()
     detected_gaps   = []
     prereq_warnings = []
@@ -165,9 +241,10 @@ def analyze_gaps(request: Request, body: AnalyzeGapsRequest):  # request require
     student_profile_block = _build_student_profile(detected_gaps, mastered, low_scores)
 
     return {
-        'detected_gaps':        detected_gaps,
-        'prereq_warnings':      prereq_warnings,
+        'detected_gaps':         detected_gaps,
+        'prereq_warnings':       prereq_warnings,
         'student_profile_block': student_profile_block,
+        'paev_available':        True,
     }
 
 
@@ -254,7 +331,7 @@ def next_topic(request: Request, body: NextTopicRequest):  # request required by
 
 @router.get('/load-model')
 @limiter.limit("60/minute")
-def load_model(request: Request):
+async def load_model(request: Request, book_id: str = ''):
     from routes.shared import ctx
     from services.auth import _extract_verified_user
 
@@ -264,31 +341,31 @@ def load_model(request: Request):
 
     user_id = verified_user_id
 
-    supabase_url = getattr(ctx, 'SUPABASE_URL', '')
-    service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
-    session      = getattr(ctx, 'session', None)
+    # ── 1. Redis cache first ─────────────────────────────────────────────────
+    _redis = getattr(ctx, 'redis', None)
+    cached = get_student_model_cached(user_id, book_id or None, _redis)
+    if cached is not None:
+        logger.debug('[tutor/load-model] Redis HIT for user=%s book=%s', user_id, book_id or 'global')
+        return {'student_model': cached}
 
-    if not supabase_url or not service_key or not session:
+    # ── 2. Supabase fallback ─────────────────────────────────────────────────
+    supabase_client = getattr(ctx, 'supabase_client', None)
+
+    if not supabase_client:
         return JSONResponse(
             {'error': 'Supabase not configured on this server.'},
             status_code=500,
         )
 
     try:
-        resp = session.get(
-            f'{supabase_url}/rest/v1/user_settings'
+        resp = await supabase_client.get(
+            '/rest/v1/user_settings'
             f'?user_id=eq.{user_id}&select=student_knowledge_model',
-            headers={
-                'Authorization': f'Bearer {service_key}',
-                'apikey':        service_key,
-            },
             timeout=10,
         )
         if resp.status_code not in (200, 201, 204):
-            logger.error(
-                f'[tutor/load-model] Supabase query failed: '
-                f'status={resp.status_code} body={resp.text[:200]}'
-            )
+            logger.error('[tutor/load-model] Supabase query failed: status=%d body=%s',
+                         resp.status_code, resp.text[:200])
             return JSONResponse(
                 {'error': f'Supabase returned {resp.status_code}'},
                 status_code=502,
@@ -306,6 +383,17 @@ def load_model(request: Request):
         except (json.JSONDecodeError, TypeError):
             model = None
 
+        # Backfill Redis so the next load-model call is a cache hit
+        if model and _redis:
+            try:
+                _redis.setex(
+                    _student_model_redis_key(user_id, book_id or None),
+                    _STUDENT_MODEL_TTL,
+                    json.dumps(model),
+                )
+            except Exception as exc:
+                logger.debug('[tutor/load-model] Redis backfill error: %s', exc)
+
         return {'student_model': model}
     except Exception:
         logger.exception('[tutor/load-model] unexpected error')
@@ -321,7 +409,7 @@ class EvaluateSocraticRequest(BaseModel):
 
 
 @router.post('/evaluate-socratic')
-def evaluate_socratic(body: EvaluateSocraticRequest):
+async def evaluate_socratic(body: EvaluateSocraticRequest):
     """
     Ask the AI to evaluate whether a student's answer to a Socratic
     checking question is correct.
@@ -329,14 +417,12 @@ def evaluate_socratic(body: EvaluateSocraticRequest):
     Returns:
         { correct: bool, feedback: str }
     """
-    import importlib
     try:
-        ai_mod = importlib.import_module('services.ai')
-        call_ai = getattr(ai_mod, 'call_ai', None)
-    except Exception:
-        call_ai = None
+        from services.ai import call_ai_async
+    except ImportError:
+        call_ai_async = None
 
-    if call_ai is None:
+    if call_ai_async is None:
         return JSONResponse(
             {'error': 'AI service not available.'},
             status_code=500,
@@ -353,13 +439,12 @@ def evaluate_socratic(body: EvaluateSocraticRequest):
     )
 
     try:
-        raw = call_ai(
+        raw = await call_ai_async(
             prompt,
             system_prompt='You are a helpful tutor evaluating a student answer. Return only valid JSON.',
             max_tokens_override=200,
             endpoint='chat',
         )
-        # Strip markdown code fences if present
         cleaned = raw.strip()
         if cleaned.startswith('```'):
             cleaned = cleaned.split('\n', 1)[-1].rsplit('```', 1)[0].strip()
@@ -377,7 +462,7 @@ def evaluate_socratic(body: EvaluateSocraticRequest):
 
 @router.post('/save-model')
 @limiter.limit("30/minute")
-def save_model(request: Request, body: SaveModelRequest):
+async def save_model(request: Request, body: SaveModelRequest):
     from routes.shared import ctx
     from services.auth import _extract_verified_user
 
@@ -396,51 +481,53 @@ def save_model(request: Request, body: SaveModelRequest):
     if len(json.dumps(model).encode('utf-8')) > 65_536:
         return JSONResponse({'error': 'Student model exceeds maximum size.'}, status_code=400)
 
-    supabase_url = getattr(ctx, 'SUPABASE_URL', '')
-    service_key  = getattr(ctx, 'SUPABASE_SERVICE_KEY', '')
-    session      = getattr(ctx, 'session', None)
+    supabase_client = getattr(ctx, 'supabase_client', None)
 
-    if not supabase_url or not service_key or not session:
+    if not supabase_client:
         return JSONResponse(
             {'error': 'Supabase not configured on this server.'},
             status_code=500,
         )
 
-    # Send the model as a native dict.  session.post(json=...) (requests
-    # library) serializes the dict to JSON and sets Content-Type to
-    # application/json automatically.  Because the column is now JSONB,
-    # Supabase's PostgREST parses the JSON body directly into JSONB — no
-    # intermediate TEXT step or json.dumps() on our side is required.
     payload = {
         'user_id':               verified_user_id,
         'student_knowledge_model': model,
     }
 
     try:
-        resp = session.post(
-            f'{supabase_url}/rest/v1/user_settings',
+        resp = await supabase_client.post(
+            '/rest/v1/user_settings',
             json=payload,
             headers={
-                'Authorization': f'Bearer {service_key}',
-                'apikey':        service_key,
-                'Content-Type':  'application/json',
-                'Prefer':        'resolution=merge-duplicates,return=minimal',
+                'Content-Type': 'application/json',
+                'Prefer':       'resolution=merge-duplicates,return=minimal',
             },
             timeout=10,
         )
         if resp.status_code not in (200, 201, 204):
-            logger.error(
-                f'[tutor/save-model] Supabase upsert failed: '
-                f'status={resp.status_code} body={resp.text[:200]}'
-            )
+            logger.error('[tutor/save-model] Supabase upsert failed: status=%d body=%s',
+                         resp.status_code, resp.text[:200])
             return JSONResponse(
                 {'error': f'Supabase returned {resp.status_code}'},
                 status_code=502,
             )
-        return {'success': True}
     except Exception:
         logger.exception('[tutor/save-model] unexpected error')
         return JSONResponse({'error': 'Internal server error'}, status_code=500)
+
+    # ── Write to Redis cache ─────────────────────────────────────────────────
+    _redis = getattr(ctx, 'redis', None)
+    if _redis:
+        try:
+            _redis.setex(
+                _student_model_redis_key(verified_user_id, body.book_id or None),
+                _STUDENT_MODEL_TTL,
+                json.dumps(model),
+            )
+        except Exception as exc:
+            logger.debug('[tutor/save-model] Redis write error: %s', exc)
+
+    return {'success': True}
 
 
 # ── GET /tutor/paev-status ────────────────────────────────────────────────────
@@ -453,7 +540,7 @@ def paev_status(request: Request, book_id: str):  # request required by @limiter
     redis = getattr(ctx, 'redis', None)
     if redis is not None:
         try:
-            val = redis.get(f'paev_ready:{book_id}')
+            val = redis.get(f'{_KEY_NS_PREFIX}paev_ready:{book_id}')
             if val == '1' or val == b'1':
                 return {'ready': True}
         except Exception:

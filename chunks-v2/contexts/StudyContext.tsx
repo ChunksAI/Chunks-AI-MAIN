@@ -46,8 +46,8 @@ import type {
 import { useChatContext, type ChatState, type ChatAction } from '@/contexts/ChatContext';
 import { useQuizContext, type QuizState, type QuizAction, calcWeakAreas } from '@/contexts/QuizContext';
 import { useNotesContext, type NotesState, type NotesAction } from '@/contexts/NotesContext';
-import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus } from '@/lib/studyApi';
-import { buildStudentProfile } from '@/hooks/useTutorBrain';
+import { useViewerContext, buildViewerState } from '@/contexts/ViewerContext';
+import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus, getStreamBuffer } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
 import {
@@ -901,6 +901,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // ── Notes slice from NotesContext ─────────────────────────────────────────
   const { notesState, notesDispatch } = useNotesContext();
 
+  // ── Viewer dispatch from ViewerContext ────────────────────────────────────
+  const { viewerState, viewerDispatch } = useViewerContext();
+
   // ── Merged dispatch — routes to the correct underlying dispatcher ──────────
   // • RESTORE_SESSION: dispatches to study + chat + quiz + notes dispatchers.
   // • QUIZ_COMPLETED: dispatches to BOTH quiz (state) and study (workspace).
@@ -955,7 +958,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [dispatch, chatDispatch, quizDispatch, notesDispatch],
+    [dispatch, chatDispatch, quizDispatch, notesDispatch, viewerDispatch],
   );
 
   // Keep a ref so stable callbacks can always read the latest merged state
@@ -964,6 +967,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     stateRef.current = { ...state, ...chatState, ...quizState, ...notesState };
   }, [state, chatState, quizState, notesState]);
+
+  // Keep a ref so stable callbacks can always read the latest viewer state
+  const viewerStateRef = useRef(viewerState);
+  useEffect(() => {
+    viewerStateRef.current = viewerState;
+  }, [viewerState]);
 
   // ── Initialise browser-only state after mount (avoids SSR/client mismatch) ─
   useEffect(() => {
@@ -1041,6 +1050,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // Track the X-Request-Id of the current in-flight /ask request for server-side cancel
   const currentRequestIdRef = useRef<string | null>(null);
+
+  // Track the stream_id of the current SSE stream for best-effort recovery
+  const streamIdRef = useRef<string | null>(null);
 
   // Track in-flight generation requests to prevent double-triggering
   const flashcardsInFlightRef = useRef(false);
@@ -1178,6 +1190,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     async (text: string, opts: { selectedText?: string; docContext?: string } = {}) => {
       abortRef.current?.abort();
       abortRef.current = new AbortController();
+      streamIdRef.current = null;
 
       const userMsg: ChatMessage = { id: nextMsgId(), role: 'user', text };
       chatDispatch({ type: 'SEND_MESSAGE', payload: userMsg });
@@ -1248,7 +1261,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             doc_context: autoDocContext,
             mode: currentChatMode,
             bookId: stateRef.current.bookId ?? undefined,
-            student_profile: buildStudentProfile(),
+            viewer_state: buildViewerState(viewerStateRef.current),
           },
           (chunk: string) => {
             if (isStreamingMode) {
@@ -1270,9 +1283,19 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           },
           abortRef.current.signal,
           (reqId) => { currentRequestIdRef.current = reqId; },
+          (sid) => { streamIdRef.current = sid; },
         );
 
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
+
+        // Forward viewer_action to ViewerContext so the embedded player can seek
+        if (res.viewer_action) {
+          if (res.viewer_action.type === 'seek_youtube') {
+            viewerDispatch({ type: 'SEEK_YOUTUBE', timestamp: res.viewer_action.timestamp_seconds });
+          } else if (res.viewer_action.type === 'switch_to_research') {
+            viewerDispatch({ type: 'OPEN_RESEARCH', url: res.viewer_action.url });
+          }
+        }
 
         // Update message with memory/performance metadata if present
         if (res.topic || res.memory_recall || (res.performance_bars && res.performance_bars.length > 0)) {
@@ -1357,11 +1380,39 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           chatDispatch({ type: 'REMOVE_MESSAGE', payload: aiMsgId });
           return;
         }
+        // Best-effort stream recovery: if the backend completed the stream
+        // before the client lost connection, the full token list will be in
+        // Redis for up to 5 minutes.  Replay it instead of showing an error.
+        const capturedStreamId = streamIdRef.current;
+        if (capturedStreamId && isStreamingMode) {
+          try {
+            const buffer = await getStreamBuffer(capturedStreamId);
+            if (buffer?.complete && buffer.tokens.length > 0) {
+              const recoveredText = buffer.tokens.join('');
+              chatDispatch({
+                type: 'REPLACE_AI_MESSAGE',
+                payload: {
+                  id: aiMsgId,
+                  text: recoveredText,
+                  actions: [
+                    { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
+                    { label: '🎯 Quiz me on this', actionKey: 'quiz' },
+                  ],
+                },
+              });
+              chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
+              return;
+            }
+          } catch {
+            // Recovery failed — fall through to normal error handling
+          }
+        }
         const message =
           err instanceof Error ? err.message : 'Something went wrong. Please try again.';
         chatDispatch({ type: 'HANDLE_CHAT_ERROR', payload: { messageId: aiMsgId, error: message, originalQuestion: text } });
       } finally {
         currentRequestIdRef.current = null;
+        streamIdRef.current = null;
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1664,7 +1715,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         doc_context: docContext,
         mode: stateRef.current.chatMode,
         bookId: stateRef.current.bookId ?? undefined,
-        student_profile: buildStudentProfile(),
+        viewer_state: buildViewerState(viewerStateRef.current),
       });
 
       dispatch({ type: 'SET_REVIEW_EXPLANATION', payload: res.answer });

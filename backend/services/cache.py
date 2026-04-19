@@ -45,16 +45,31 @@ import hashlib
 import json
 import logging
 import math
+import os
 import re
-import threading
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 logger = logging.getLogger(__name__)
 
+# Optional environment prefix that isolates Redis keys per deployment
+# environment (e.g. REDIS_KEY_PREFIX=prod: or REDIS_KEY_PREFIX=staging:).
+# Defaults to '' so existing deployments are unaffected until the var is set.
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
+
 
 class CacheService:
-    """Single cache service covering ask, material, and semantic answer caches."""
+    """Single cache service covering ask, material, and semantic answer caches.
+
+    **Multi-worker note:** All persistent state goes through Redis, which is
+    shared across all Gunicorn/uvicorn workers.  The ``_sem_mem`` OrderedDict
+    is a *per-process in-memory fallback* used only when Redis is unavailable.
+    Entries stored there are not visible to other workers, so cache hit rates
+    will be degraded (approximately 1/N of normal with N workers) whenever the
+    Redis fallback is active.  This is an acceptable degraded mode; the warning
+    logged at startup and on first fallback write makes it observable.
+    """
 
     # Redis key prefix per namespace
     KEY_PREFIX: dict[str, str] = {
@@ -92,6 +107,11 @@ class CacheService:
         self._session = None
         self._supabase_url: str = ''
         self._supabase_service_key: str = ''
+        # ThreadPoolExecutor used for background Supabase writes.
+        # None means fall back to a private per-instance pool created lazily
+        # during the first write so tests without a server.py startup still work.
+        self._executor: ThreadPoolExecutor | None = None
+        self._own_executor: ThreadPoolExecutor | None = None
 
         # In-memory fallback for semantic cache when Redis is unavailable.
         # OrderedDict enables O(1) LRU eviction: most-recently used key is at
@@ -107,12 +127,21 @@ class CacheService:
         session=None,
         supabase_url: str = '',
         supabase_service_key: str = '',
+        executor: ThreadPoolExecutor | None = None,
     ) -> None:
         """Inject shared dependencies. Call once from server.py at startup."""
         self._redis = redis
         self._session = session
         self._supabase_url = supabase_url
         self._supabase_service_key = supabase_service_key
+        if executor is not None:
+            self._executor = executor
+        if self._redis is None:
+            logger.warning(
+                "CacheService: Redis is unavailable — semantic cache will use the "
+                "per-process in-memory fallback (_sem_mem). Entries are NOT shared "
+                "across workers; cache hit rates will be degraded."
+            )
         logger.info("Semantic cache: %d context hashes in memory", len(self._sem_mem))
 
     # ── Generic key-value interface ───────────────────────────────────────────
@@ -184,7 +213,7 @@ class CacheService:
             sp_hash    = hashlib.sha256(student_profile.strip().lower().encode()).hexdigest()[:12]
             canonical += f"|sp:{sp_hash}"
         digest = hashlib.sha256(canonical.encode()).hexdigest()[:16]
-        return f"ask:v1:{digest}"
+        return f"{_KEY_NS_PREFIX}ask:v1:{digest}"
 
     def ask_is_cacheable(
         self,
@@ -264,7 +293,7 @@ class CacheService:
     ) -> str:
         """Build a Redis key for study-material / flashcard cache entries."""
         norm = re.sub(r'[^a-z0-9]', '_', topic.lower().strip())[:60]
-        return f"{mtype}:{book_id}:{norm}:{count}"
+        return f"{_KEY_NS_PREFIX}{mtype}:{book_id}:{norm}:{count}"
 
     # ── Semantic / answer-cache helpers ───────────────────────────────────────
 
@@ -430,13 +459,22 @@ class CacheService:
             except Exception as exc:
                 logger.warning('cache._sb_cache_set error: %s', exc)
 
-        threading.Thread(target=_write, daemon=True, name='sb-cache-write').start()
-        logger.debug('cache._sb_cache_set dispatched to background thread for key=%s', key[:20])
+        executor = self._executor
+        if executor is None:
+            # Lazy fallback pool — only used when init() was called without an
+            # executor (e.g. in unit tests that don't go through server.py).
+            if self._own_executor is None:
+                self._own_executor = ThreadPoolExecutor(
+                    max_workers=4, thread_name_prefix='sb-write',
+                )
+            executor = self._own_executor
+        executor.submit(_write)
+        logger.debug('cache._sb_cache_set submitted to thread pool for key=%s', key[:20])
 
     # ── Semantic cache storage helpers ────────────────────────────────────────
 
     def _sem_redis_key(self, ctx_hash: str) -> str:
-        return self.KEY_PREFIX['answer'] + ctx_hash
+        return _KEY_NS_PREFIX + self.KEY_PREFIX['answer'] + ctx_hash
 
     def _sem_load(self, ctx_hash: str) -> list[dict]:
         if self._redis is not None:
@@ -474,6 +512,10 @@ class CacheService:
             except Exception as exc:
                 logger.warning('cache._sem_save redis error: %s', exc)
         else:
+            logger.warning(
+                "cache._sem_save: Redis unavailable — writing to per-process "
+                "_sem_mem fallback. Entry will NOT be visible to other workers."
+            )
             self._sem_mem_set(ctx_hash, entries)
 
     @staticmethod
@@ -498,6 +540,7 @@ def init(
     session=None,
     supabase_url: str = '',
     supabase_service_key: str = '',
+    executor: ThreadPoolExecutor | None = None,
 ) -> None:
     """Convenience wrapper around ``cache_svc.init()``.
 
@@ -511,4 +554,5 @@ def init(
         session=session,
         supabase_url=supabase_url,
         supabase_service_key=supabase_service_key,
+        executor=executor,
     )

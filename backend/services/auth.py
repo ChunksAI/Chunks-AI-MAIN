@@ -37,6 +37,9 @@ _redis = None
 FREE_TIER_DAILY_LIMIT = 20   # matches the 20-message client-side limit
 MAX_HISTORY_TURNS     = 10   # consistent conversation context window
 
+# Optional environment prefix for Redis key namespacing (e.g. 'prod:' / 'staging:')
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
+
 # ── JWKS cache ─────────────────────────────────────────────────────────────────
 _jwk_cache: dict = {}          # {kid: RSAPublicKey}
 _jwk_cache_loaded_at: float = 0
@@ -204,7 +207,7 @@ def _get_cached_user_info(user_id: str, redis_client) -> tuple[Tier, str] | None
     """Return (Tier, role) from Redis cache, or None on cache miss / error."""
     if not redis_client:
         return None
-    key = f"user_info:{user_id}"
+    key = f"{_KEY_NS_PREFIX}user_info:{user_id}"
     try:
         cached = redis_client.get(key)
         if cached:
@@ -221,7 +224,7 @@ def _set_cached_user_info(user_id: str, tier: Tier, role: str, redis_client) -> 
     """Write (Tier, role) into Redis with a TTL of USER_CACHE_TTL seconds."""
     if not redis_client:
         return
-    key = f"user_info:{user_id}"
+    key = f"{_KEY_NS_PREFIX}user_info:{user_id}"
     try:
         redis_client.setex(key, USER_CACHE_TTL, json.dumps({'tier': tier.value, 'role': role}))
     except Exception as exc:
@@ -236,7 +239,7 @@ def invalidate_user_cache(user_id: str, redis_client) -> None:
     """
     if not redis_client or not user_id:
         return
-    key = f"user_info:{user_id}"
+    key = f"{_KEY_NS_PREFIX}user_info:{user_id}"
     try:
         redis_client.delete(key)
         logger.debug("user_info cache invalidated for %s", user_id)
@@ -368,7 +371,7 @@ def _get_and_increment_daily_count(user_id: str, date_str: str) -> int:
       2. Supabase RPC — cross-deploy persistence; used to sync popular counts.
       3. In-memory dict — local dev / last resort; not shared across workers.
     """
-    key = f"freetier:{user_id}:{date_str}"
+    key = f"{_KEY_NS_PREFIX}freetier:{user_id}:{date_str}"
 
     # ── 1. Redis (production path) ────────────────────────────────────────────
     if _redis is not None:

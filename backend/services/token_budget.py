@@ -102,8 +102,9 @@ def max_tokens_for_endpoint(
 # until the next UTC day.  Default: 0 → unlimited.
 
 _BUDGET_ENV = 'DAILY_COST_BUDGET_USD'
-_REDIS_DAILY_KEY_PREFIX = 'token_budget:daily:'
-_REDIS_USER_MONTH_KEY_PREFIX = 'token_usage:user:'
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
+_REDIS_DAILY_KEY_PREFIX = f'{_KEY_NS_PREFIX}token_budget:daily:'
+_REDIS_USER_MONTH_KEY_PREFIX = f'{_KEY_NS_PREFIX}token_usage:user:'
 
 # In-memory fallback accumulators (lost on process restart).
 _mem_usage: dict[str, dict] = {}
@@ -178,6 +179,12 @@ def record_usage(
 
 
 def _mem_record(day: str, entry: dict) -> None:
+    logger.warning(
+        "token_budget: writing to per-process in-memory fallback for day=%s. "
+        "Cross-worker consistency is NOT guaranteed — usage totals will be "
+        "under-counted when multiple workers are running.",
+        day,
+    )
     _mem_usage.setdefault(day, {'entries': []})
     _mem_usage[day]['entries'].append(entry)
 
@@ -192,6 +199,11 @@ def _record_user_month(user_id: str, month: str, entry: dict) -> None:
             return
         except Exception:
             logger.debug("token_budget: Redis user-month write failed, memory fallback")
+    logger.warning(
+        "token_budget: writing user-month data to per-process in-memory fallback "
+        "(user=%s, month=%s). Cross-worker consistency is NOT guaranteed.",
+        user_id, month,
+    )
     _mem_user_usage.setdefault(f'{user_id}:{month}', []).append(entry)
 
 

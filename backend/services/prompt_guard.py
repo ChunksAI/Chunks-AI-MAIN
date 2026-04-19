@@ -30,10 +30,13 @@ import logging
 import os
 import re
 
+import httpx
+
 logger = logging.getLogger(__name__)
 
 # ── Module-level state ────────────────────────────────────────────────────────
 _session = None
+_async_client: httpx.AsyncClient | None = None
 _api_key: str = ''
 _OPENROUTER_URL: str = 'https://openrouter.ai/api/v1/chat/completions'
 
@@ -46,11 +49,14 @@ PROMPT_GUARD_MODEL: str = os.environ.get(
 _MAX_CLASSIFY_LEN: int = 800
 
 
-def init(session, openrouter_api_key: str) -> None:
+def init(session, openrouter_api_key: str,
+         async_client: httpx.AsyncClient | None = None) -> None:
     """Inject shared dependencies.  Call once from server.py at startup."""
-    global _session, _api_key
+    global _session, _api_key, _async_client
     _session = session
     _api_key = openrouter_api_key
+    if async_client is not None:
+        _async_client = async_client
 
 
 # ── Layer 1: Regex ────────────────────────────────────────────────────────────
@@ -173,6 +179,102 @@ def screen_prompt(text: str, user_id: str = '') -> tuple[bool, str]:
 
     # Layer 2 — LLM classifier (only when model is configured)
     if check_injection_llm(text):
+        logger.warning(
+            'prompt_guard FLAGGED (llm) | user=%s | preview=%r',
+            user_id or 'anonymous', text[:120],
+        )
+        return True, 'llm'
+
+    return False, 'clean'
+
+
+# ── Async variants ────────────────────────────────────────────────────────────
+
+async def check_injection_llm_async(text: str) -> bool:
+    """Async counterpart to check_injection_llm().
+
+    Returns ``True`` when the model flags the input.
+    Returns ``False`` on any error / timeout so legitimate traffic is never
+    blocked by a transient API failure.
+    """
+    if not PROMPT_GUARD_MODEL or not _api_key or _async_client is None:
+        return False
+
+    snippet = text[:_MAX_CLASSIFY_LEN]
+    try:
+        headers = {
+            'Authorization': f'Bearer {_api_key}',
+            'Content-Type':  'application/json',
+            'HTTP-Referer':  'https://chunks.online',
+            'X-Title':       'Chunks Prompt Guard',
+        }
+        payload = {
+            'model':       PROMPT_GUARD_MODEL,
+            'messages':    [
+                {'role': 'system', 'content': _CLASSIFIER_SYSTEM},
+                {'role': 'user',   'content': snippet},
+            ],
+            'temperature': 0.0,
+            'max_tokens':  20,
+        }
+        resp = await _async_client.post(
+            _OPENROUTER_URL,
+            headers=headers,
+            json=payload,
+            timeout=httpx.Timeout(connect=5.0, read=8.0, write=5.0, pool=5.0),
+        )
+        if resp.status_code != 200:
+            logger.warning(
+                'prompt_guard LLM check failed (HTTP %d) — falling back to clean',
+                resp.status_code,
+            )
+            return False
+
+        body    = resp.json()
+        choices = body.get('choices') or []
+        if not choices:
+            return False
+        content = (
+            choices[0]
+            .get('message', {})
+            .get('content', '')
+        )
+        cleaned = content.strip()
+        if cleaned.startswith('```'):
+            cleaned = re.sub(r'^```[a-z]*\n?', '', cleaned).rstrip('`').strip()
+        result = json.loads(cleaned)
+        return bool(result.get('flagged', False))
+
+    except (json.JSONDecodeError, KeyError, IndexError):
+        logger.warning(
+            'prompt_guard LLM (async) returned unparseable response — falling back to clean',
+        )
+        return False
+    except Exception:
+        logger.warning(
+            'prompt_guard LLM (async) check error — falling back to clean',
+            exc_info=True,
+        )
+        return False
+
+
+async def screen_prompt_async(text: str, user_id: str = '') -> tuple[bool, str]:
+    """Async counterpart to screen_prompt().
+
+    Returns
+    -------
+    (flagged, method)
+        *flagged* is ``True`` when injection is detected.
+        *method* is ``'regex'``, ``'llm'``, or ``'clean'``.
+    """
+    if check_injection_regex(text):
+        logger.warning(
+            'prompt_guard FLAGGED (regex) | user=%s | preview=%r',
+            user_id or 'anonymous', text[:120],
+        )
+        return True, 'regex'
+
+    if await check_injection_llm_async(text):
         logger.warning(
             'prompt_guard FLAGGED (llm) | user=%s | preview=%r',
             user_id or 'anonymous', text[:120],

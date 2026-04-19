@@ -8,6 +8,7 @@ import { NotesProvider } from '@/contexts/NotesContext';
 import { StudyProvider } from '@/contexts/StudyContext';
 import { FlashcardsProvider } from '@/contexts/FlashcardsContext';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { ViewerProvider } from '@/contexts/ViewerContext';
 import SettingsModal from '@/components/shared/SettingsModal';
 import ToastHost from '@/components/ToastHost';
 import type { ReactNode } from 'react';
@@ -21,7 +22,8 @@ import type { ReactNode } from 'react';
  *
  * Provider nesting order (outer → inner):
  *   ToastProvider → AuthProvider → SettingsProvider → ChatProvider →
- *   QuizProvider → NotesProvider → StudyProvider → FlashcardsProvider
+ *   QuizProvider → NotesProvider → ViewerProvider → StudyProvider →
+ *   FlashcardsProvider
  *
  * ToastProvider is outermost so any provider — including AuthProvider — can
  * fire toast notifications (e.g. on auth error or session expiry).
@@ -29,6 +31,9 @@ import type { ReactNode } from 'react';
  * ChatProvider, QuizProvider, and NotesProvider must all be ancestors of
  * StudyProvider because StudyProvider calls useChatContext(), useQuizContext(),
  * and useNotesContext() internally to read and write their slices of state.
+ *
+ * ViewerProvider must be an ancestor of StudyProvider so that StudyProvider
+ * can call useViewerContext() to dispatch viewer_action events.
  *
  * StudyProvider is global so state (book selection, messages, workspace)
  * persists as users navigate between Library, Research, Study, and Flashcards.
@@ -46,13 +51,15 @@ export default function Providers({ children }: { children: ReactNode }) {
           <ChatProvider>
             <QuizProvider>
               <NotesProvider>
-                <StudyProvider>
-                  <FlashcardsProvider>
-                    {children}
-                  </FlashcardsProvider>
-                  {/* Global modals — always available regardless of current route */}
-                  <SettingsModal />
-                </StudyProvider>
+                <ViewerProvider>
+                  <StudyProvider>
+                    <FlashcardsProvider>
+                      {children}
+                    </FlashcardsProvider>
+                    {/* Global modals — always available regardless of current route */}
+                    <SettingsModal />
+                  </StudyProvider>
+                </ViewerProvider>
               </NotesProvider>
             </QuizProvider>
           </ChatProvider>

@@ -55,6 +55,21 @@ class AskRequest(_LenientBase):
     user_memory: str = ""
     task_type: Optional[str] = None
     student_profile: str = ""
+    student_gaps: List[Any] = Field(default_factory=list)
+    viewer_state: Optional[Dict[str, Any]] = None
+    """Current viewer state for context-aware routing.
+
+    Expected shape::
+
+        {
+            "type": "youtube" | "pdf" | "research" | "none",
+            "video_id": str,                    # optional, YouTube only
+            "current_timestamp_seconds": float, # optional, YouTube only
+            "visible_segment": str,             # optional, visible transcript text
+            "pdf_page": int,                    # optional, PDF only
+            "pdf_visible_text": str,            # optional, PDF only
+        }
+    """
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗

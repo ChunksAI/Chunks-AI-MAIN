@@ -177,3 +177,74 @@ def test_reason_is_non_empty_string():
         d = _decide(intent=intent)
         assert isinstance(d.reason, str)
         assert len(d.reason) > 0
+
+
+# ── viewer_state → viewer_context route ───────────────────────────────────────
+
+def test_viewer_state_youtube_routes_to_viewer_context():
+    """Active YouTube viewer_state with is_viewer_reference → viewer_context route."""
+    from services.intent_classifier import ClassificationResult
+    clf = ClassificationResult(
+        primary_intent='concept',
+        secondary_intent=None,
+        confusion_level=0.0,
+        is_viewer_reference=True,
+        is_multi_intent=False,
+    )
+    vs = {'type': 'youtube', 'video_id': 'abc123', 'visible_segment': 'entropy increases'}
+    d = _decide(intent=clf, viewer_state=vs)
+    assert d.viewer_route is True
+    assert d.tool_type == 'youtube'
+
+
+def test_viewer_state_type_none_does_not_activate_viewer():
+    """viewer_state with type='none' must NOT activate the viewer_active signal."""
+    vs = {'type': 'none'}
+    d = _decide(viewer_state=vs)
+    assert d.viewer_route is False
+
+
+def test_viewer_state_null_type_does_not_activate_viewer():
+    """viewer_state with type=None must NOT activate the viewer_active signal."""
+    vs = {'type': None}
+    d = _decide(viewer_state=vs)
+    assert d.viewer_route is False
+
+
+def test_no_viewer_state_does_not_activate_viewer():
+    d = _decide(viewer_state=None)
+    assert d.viewer_route is False
+
+
+def test_viewer_active_without_viewer_reference_has_lower_score():
+    """viewer_active alone (2.0) is not enough to beat direct_chat when no is_viewer_reference."""
+    from services.intent_classifier import ClassificationResult
+    clf = ClassificationResult(
+        primary_intent='concept',
+        secondary_intent=None,
+        confusion_level=0.0,
+        is_viewer_reference=False,
+        is_multi_intent=False,
+    )
+    vs = {'type': 'youtube', 'visible_segment': 'something unrelated'}
+    d = _decide(intent=clf, viewer_state=vs)
+    # viewer_context score = 2.0 (viewer_active) + 0.0 (no reference)
+    # direct_chat score = 0.5 (base)
+    # viewer_context wins (2.0 > 0.5) even without is_viewer_reference
+    assert d.viewer_route is True
+
+
+def test_viewer_state_pdf_type_activates_viewer():
+    """PDF type is a real viewer type — should activate viewer_active signal."""
+    from services.intent_classifier import ClassificationResult
+    clf = ClassificationResult(
+        primary_intent='concept',
+        secondary_intent=None,
+        confusion_level=0.0,
+        is_viewer_reference=True,
+        is_multi_intent=False,
+    )
+    vs = {'type': 'pdf', 'pdf_visible_text': 'entropy explained here'}
+    d = _decide(intent=clf, viewer_state=vs)
+    assert d.viewer_route is True
+

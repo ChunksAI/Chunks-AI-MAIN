@@ -20,6 +20,8 @@ import {
   type GenerateStudyMaterialsResponse,
   type SlideItem,
   type UploadDocumentResponse,
+  type ViewerAction,
+  type ViewerStatePayload,
 } from '@/types/api';
 import { getAccessToken, getSupabaseClient } from './supabaseClient';
 
@@ -178,6 +180,26 @@ export function cancelAsk(requestId: string): void {
   }).catch(() => {});
 }
 
+/**
+ * Fetch the token buffer for a completed SSE stream.
+ * Returns the buffered tokens when the stream finished within the last 5 minutes,
+ * or null when the stream_id is unknown, still in-progress, or the TTL has expired.
+ * This is a best-effort recovery call — never throws.
+ */
+export async function getStreamBuffer(
+  streamId: string,
+  signal?: AbortSignal,
+): Promise<{ complete: boolean; tokens: string[] } | null> {
+  try {
+    return await apiGet<{ complete: boolean; tokens: string[] }>(
+      `/api/stream/${streamId}`,
+      signal,
+    );
+  } catch {
+    return null;
+  }
+}
+
 export async function sendMessage(params: SendMessageRequest): Promise<SendMessageResponse> {
   return apiPost<SendMessageResponse>('/ask', {
     question: params.question,
@@ -189,6 +211,7 @@ export async function sendMessage(params: SendMessageRequest): Promise<SendMessa
     user_memory: params.user_memory ?? '',
     ...(params.student_profile ? { student_profile: params.student_profile } : {}),
     ...(params.bookId ? { bookId: params.bookId } : {}),
+    ...(params.viewer_state != null ? { viewer_state: params.viewer_state } : {}),
   });
 }
 
@@ -297,6 +320,7 @@ export async function sendMessageStream(
   onChunk: (text: string) => void,
   signal?: AbortSignal,
   onRequestId?: (id: string) => void,
+  onStreamId?: (id: string) => void,
 ): Promise<SendMessageResponse> {
   const authHeaders = await getAuthHeaders();
   const reqId = makeReqId();
@@ -320,6 +344,7 @@ export async function sendMessageStream(
       user_memory: params.user_memory ?? '',
       bookId: params.bookId ?? '',
       ...(params.student_profile ? { student_profile: params.student_profile } : {}),
+      ...(params.viewer_state != null ? { viewer_state: params.viewer_state } : {}),
       stream: params.mode === 'snap',
     }),
     signal,
@@ -348,6 +373,7 @@ export async function sendMessageStream(
 
     const decoder = new TextDecoder();
     let fullText = '';
+    let streamViewerAction: ViewerAction | undefined;
 
     // RAF-based chunk batching: accumulate tokens and flush at most once per
     // animation frame so React re-renders at display rate instead of once per token.
@@ -392,10 +418,22 @@ export async function sendMessageStream(
             const data = line.slice(6).trim();
             if (data === '[DONE]') break outer; // exit both loops
             try {
-              const parsed = JSON.parse(data) as SseChunk & { error?: string };
+              const parsed = JSON.parse(data) as SseChunk & { error?: string; meta?: { viewer_action?: ViewerAction }; stream_id?: string };
               // Check for a server-sent error before treating the chunk as content
               if (parsed.error) {
                 throw new ApiError(parsed.error, 502);
+              }
+              // Capture stream_id emitted as the first SSE event for recovery.
+              if (parsed.stream_id) {
+                onStreamId?.(parsed.stream_id);
+                continue;
+              }
+              // Capture metadata event (e.g. viewer_action) — no text content
+              if (parsed.meta) {
+                if (parsed.meta.viewer_action) {
+                  streamViewerAction = parsed.meta.viewer_action;
+                }
+                continue;
               }
               const text = extractStreamText(parsed, data);
               fullText += text;
@@ -423,7 +461,13 @@ export async function sendMessageStream(
     if (!fullText.trim()) {
       throw new ApiError('No response received from AI. Please retry.', 502);
     }
-    return { success: true, answer: fullText, mode: params.mode ?? 'study', requestId: reqId };
+    return {
+      success: true,
+      answer: fullText,
+      mode: params.mode ?? 'study',
+      requestId: reqId,
+      ...(streamViewerAction ? { viewer_action: streamViewerAction } : {}),
+    };
   }
 
   // ── Fallback: full JSON response ──────────────────────────────────────────
@@ -572,20 +616,22 @@ export interface LoadTutorModelResponse {
   student_model: TutorStudentModel | null;
 }
 
-export async function loadTutorModel(userId: string): Promise<TutorStudentModel | null> {
-  const res = await apiGet<LoadTutorModelResponse>(
-    `/tutor/load-model?user_id=${encodeURIComponent(userId)}`,
-  );
+export async function loadTutorModel(userId: string, bookId?: string): Promise<TutorStudentModel | null> {
+  const params = new URLSearchParams({ user_id: userId });
+  if (bookId) params.set('book_id', bookId);
+  const res = await apiGet<LoadTutorModelResponse>(`/tutor/load-model?${params.toString()}`);
   return res.student_model;
 }
 
 export async function saveTutorModel(
   userId: string,
   studentModel: TutorStudentModel,
+  bookId?: string,
 ): Promise<void> {
   await apiPost<unknown>('/tutor/save-model', {
     user_id: userId,
     student_model: studentModel,
+    ...(bookId ? { book_id: bookId } : {}),
   });
 }
 
@@ -720,4 +766,60 @@ export async function checkPaevStatus(bookId: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// ─── Viewer session ───────────────────────────────────────────────────────────
+
+// ViewerStatePayload is imported from @/types/api
+
+/**
+ * Fire-and-forget: persist the student's current viewer state on the server
+ * so that /ask calls can be context-aware even when the frontend omits
+ * viewer_state from the request body.
+ *
+ * Never throws — failures are silently swallowed to avoid blocking the UI.
+ */
+export function setViewerState(viewerState: ViewerStatePayload): void {
+  void (async () => {
+    try {
+      await apiPost<unknown>('/api/viewer/set-state', { viewer_state: viewerState });
+    } catch {
+      // fire-and-forget: ignore errors
+    }
+  })();
+}
+
+/**
+ * Read back the viewer state the server has stored for the current user.
+ * Returns null when no state is stored or on any error.
+ */
+export async function getViewerState(): Promise<ViewerStatePayload | null> {
+  try {
+    const res = await apiGet<{ success: boolean; viewer_state: ViewerStatePayload | null }>(
+      '/api/viewer/get-state',
+    );
+    return res.viewer_state ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Research ingestion ───────────────────────────────────────────────────────
+
+export interface ResearchIngestResponse {
+  paper_id: string;
+  type: string;
+  title?: string;
+  authors?: string[];
+  year?: number;
+  abstract?: string;
+  source_url?: string;
+}
+
+/**
+ * Ingest a research paper by arXiv ID, DOI, or URL.
+ * Returns structured metadata (title, authors, year, abstract).
+ */
+export async function ingestResearch(url: string): Promise<ResearchIngestResponse> {
+  return apiPost<ResearchIngestResponse>('/api/research/ingest', { url });
 }

@@ -86,7 +86,8 @@ def _mock_usage(monkeypatch):
 
 
 def _mock_supabase(monkeypatch):
-    """Make the shared Supabase session return plausible responses."""
+    """Make the shared Supabase supabase_client return plausible responses."""
+    from unittest.mock import AsyncMock
     from routes import shared as shared_mod
     ctx = MagicMock()
     ctx.SUPABASE_URL = 'https://fake.supabase.co'
@@ -97,8 +98,8 @@ def _mock_supabase(monkeypatch):
     load_response.json.return_value = [
         {'student_knowledge_model': '{"mastered":[],"gaps":[],"quizHistory":[]}'}
     ]
-    ctx.session.get.return_value = load_response
-    ctx.session.post.return_value = MagicMock(status_code=204)
+    ctx.supabase_client.get = AsyncMock(return_value=load_response)
+    ctx.supabase_client.post = AsyncMock(return_value=MagicMock(status_code=204))
     monkeypatch.setattr(shared_mod, 'ctx', ctx)
     return ctx
 

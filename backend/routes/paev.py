@@ -140,6 +140,9 @@ except ImportError:
 # ── Redis client (injected by register_paev) ──────────────────────────────────
 _redis = None
 
+# Optional environment prefix for Redis key namespacing
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
+
 
 # ── Redis-backed PAEV cache helpers ───────────────────────────────────────────
 
@@ -175,7 +178,7 @@ def _paev_status_set(book_id, status_dict):
     if _redis is None:
         return
     try:
-        _redis.setex(f"paev_status:{book_id}", _PAEV_STATUS_TTL, json.dumps(status_dict))
+        _redis.setex(f"{_KEY_NS_PREFIX}paev_status:{book_id}", _PAEV_STATUS_TTL, json.dumps(status_dict))
     except Exception:
         pass
 
@@ -184,7 +187,7 @@ def _paev_status_get(book_id):
     if _redis is None:
         return None
     try:
-        raw = _redis.get(f"paev_status:{book_id}")
+        raw = _redis.get(f"{_KEY_NS_PREFIX}paev_status:{book_id}")
         if raw:
             return json.loads(raw)
     except Exception:
@@ -206,9 +209,9 @@ def _paev_cache_set(book_id, idx, fps, graph):
     if not _validate_book_id(book_id):
         logger.warning('[paev] Rejected invalid book_id in cache set: %r', book_id)
         return
-    _paev_pickle_set(f"paev_idx:{book_id}", idx)
-    _paev_pickle_set(f"paev_fp:{book_id}", fps)
-    _paev_pickle_set(f"paev_graph:{book_id}", graph)
+    _paev_pickle_set(f"{_KEY_NS_PREFIX}paev_idx:{book_id}", idx)
+    _paev_pickle_set(f"{_KEY_NS_PREFIX}paev_fp:{book_id}", fps)
+    _paev_pickle_set(f"{_KEY_NS_PREFIX}paev_graph:{book_id}", graph)
     if _redis is None:
         _paev_process_cache[book_id] = (idx, fps, graph)
 
@@ -218,9 +221,9 @@ def _paev_cache_get(book_id):
     if not _validate_book_id(book_id):
         logger.warning('[paev] Rejected invalid book_id in cache get: %r', book_id)
         return None, None, None
-    idx = _paev_pickle_get(f"paev_idx:{book_id}")
-    fps = _paev_pickle_get(f"paev_fp:{book_id}")
-    graph = _paev_pickle_get(f"paev_graph:{book_id}")
+    idx = _paev_pickle_get(f"{_KEY_NS_PREFIX}paev_idx:{book_id}")
+    fps = _paev_pickle_get(f"{_KEY_NS_PREFIX}paev_fp:{book_id}")
+    graph = _paev_pickle_get(f"{_KEY_NS_PREFIX}paev_graph:{book_id}")
     if all([idx, fps, graph]):
         return idx, fps, graph
     # Fallback: process-level cache (single-worker environments / Redis unavailable)

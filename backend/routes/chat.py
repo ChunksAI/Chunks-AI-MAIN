@@ -15,6 +15,7 @@ import logging
 import os
 import random
 import re
+import uuid
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -27,6 +28,9 @@ from services.auth import _extract_verified_user
 from services.cache import cache_svc as _cache_svc
 
 logger = logging.getLogger(__name__)
+
+# Optional environment prefix for Redis key namespacing (e.g. 'prod:' / 'staging:')
+_KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
 
 router = APIRouter()
 
@@ -139,6 +143,52 @@ _STRICT_JSON_SYSTEM_PROMPT = (
 )
 
 
+_TIMESTAMP_RE = re.compile(
+    r'\[(\d{1,2}):(\d{2})\]'          # [MM:SS]
+    r'|(?:^|[^\d])(\d{1,2}):(\d{2})(?=[^:\d]|$)',  # bare MM:SS not inside a larger number
+    re.MULTILINE,
+)
+
+
+def _build_viewer_action(
+    decision,
+    answer: str,
+    viewer_state: dict | None,
+) -> dict | None:
+    """Return a viewer_action dict if the response warrants a seek event.
+
+    A ``seek_youtube`` action is emitted when:
+      * The orchestrator chose the ``viewer_context`` route
+        (``decision.viewer_route is True``), AND
+      * The LLM answer contains at least one ``[MM:SS]`` or bare ``MM:SS``
+        timestamp pattern, AND
+      * The viewer_state carries a ``video_id``.
+
+    Returns ``None`` in all other cases so the field is simply omitted from
+    the response payload rather than being serialised as ``null``.
+    """
+    if not (decision.viewer_route and viewer_state):
+        return None
+
+    m = _TIMESTAMP_RE.search(answer)
+    if not m:
+        return None
+
+    # Groups: (1,2) for [MM:SS], (3,4) for bare MM:SS
+    mm = int(m.group(1) or m.group(3))
+    ss = int(m.group(2) or m.group(4))
+    ts = float(mm * 60 + ss)
+
+    viewer_type = viewer_state.get('type', '')
+    if viewer_type == 'youtube':
+        vid = viewer_state.get('video_id', '')
+        if not vid:
+            return None
+        return {'type': 'seek_youtube', 'video_id': vid, 'timestamp_seconds': ts}
+
+    return None
+
+
 def _strip_code_fences(text: str) -> str:
     """Remove markdown code fences the model may have emitted despite instructions.
 
@@ -167,6 +217,7 @@ def build_system_prompt(
     student_profile: str,
     paev_context: str,       # '[PAEV CONTEXT]\n...' or ''
     thinking_mode: str | None,
+    viewer_context: str = '',  # '[VIEWER CONTEXT]\n...' or ''
 ) -> str:
     """Assemble the system prompt in a guaranteed, deterministic order.
 
@@ -174,7 +225,8 @@ def build_system_prompt(
       1. Identity
       2. Role definition (relevant vs. general tutor)
       3. User memory
-      4. Student profile  (ALWAYS before PAEV context)
+      4. Student profile  (ALWAYS before viewer/PAEV context)
+      4.5 Viewer context  (visible transcript/PDF segment the student is viewing)
       5. PAEV prerequisite context + two-phase teaching protocol
       6. Response style + teaching prompt (teaching prompt excluded for deep mode)
       7. Thinking-mode chain-of-thought instructions (always last)
@@ -201,9 +253,13 @@ def build_system_prompt(
     if user_memory:
         parts.append(f"\n\nUSER PROFILE (remember this about the student):\n{user_memory}")
 
-    # 4. Student profile (ALWAYS before PAEV context)
+    # 4. Student profile (ALWAYS before viewer/PAEV context)
     if student_profile:
         parts.append(f"\n{student_profile}")
+
+    # 4.5 Viewer context (visible transcript or PDF segment)
+    if viewer_context:
+        parts.append(f"\n{viewer_context}")
 
     # 5. PAEV prerequisite context
     if paev_context:
@@ -257,15 +313,56 @@ def build_system_prompt(
     return "".join(parts)
 
 
+# ── Async context-fetch helpers ───────────────────────────────────────────────
+# Both are coroutines so they can be composed with asyncio.gather() when the
+# orchestrator decides both PAEV + textbook context are needed.
+
+async def _fetch_textbook_context(
+    searcher,
+    question: str,
+    top_k: int = 5,
+) -> tuple:
+    """Wrap the blocking TextbookSearch.smart_search() in a thread pool.
+
+    Returns the same 5-tuple as smart_search:
+        (context_str, similarity, is_relevant, source, all_sources)
+    """
+    return await asyncio.to_thread(searcher.smart_search, question, top_k=top_k)
+
+
+async def _fetch_paev_context(
+    gaps: list[dict],
+    prereq_limit: int,
+) -> str:
+    """Build a ``[PAEV CONTEXT]`` string from the student's failing gaps.
+
+    This is pure Python (no blocking I/O).  It is an async coroutine for API
+    consistency with ``_fetch_textbook_context`` so that both can be composed
+    with a single ``asyncio.gather()`` call on PAEV routes without wrapping.
+
+    Returns an empty string when there are no failing gaps.
+    """
+    if not gaps:
+        return ''
+    failing = [g for g in gaps if g.get('status') == 'failing']
+    if not failing:
+        return ''
+    concepts = [g['concept'] for g in failing[:prereq_limit] if g.get('concept')]
+    if not concepts:
+        return ''
+    prereq_lines = '\n'.join(f'- prerequisite: {c}' for c in concepts)
+    return f'[PAEV CONTEXT]\n{prereq_lines}'
+
+
 @router.post('/ask')
 @limiter.limit("10/minute")
-def ask(request: Request, body: AskRequest):
+async def ask(request: Request, body: AskRequest):
     try:
         from services.ai import (
-            call_ai, call_ai_stream, call_ai_web_search, sanitize_user_memory,
+            call_ai_async, call_ai_stream_async, call_ai_web_search_async, sanitize_user_memory,
             should_search_textbook, extract_thinking_content,
         )
-        from services.prompt_guard import screen_prompt
+        from services.prompt_guard import screen_prompt_async
         from services.books import BOOK_LIBRARY, TextbookSearch, get_book_index
         from services.ai_router import route, route_for_mode
         from services.mcq_parser import _parse_mcq
@@ -285,6 +382,8 @@ def ask(request: Request, body: AskRequest):
         user_memory     = sanitize_user_memory(data.get('user_memory', ''))
         task_type       = data.get('task_type', None)
         student_profile = data.get('student_profile', '')
+        student_gaps    = data.get('student_gaps', [])
+        viewer_state    = data.get('viewer_state') or None
 
         # ── Parse injected token flags (e.g. [WEB_SEARCH_ENABLED]) ───────────
         if question.startswith('['):
@@ -328,6 +427,32 @@ def ask(request: Request, body: AskRequest):
         except _UsageLimitExceeded as _ule:
             return _ule.response()
 
+        # ── Server-side student model (Redis-first) ───────────────────────────
+        # Prefer the authoritative server-side model over the request body field.
+        # Redis lookup is synchronous and sub-millisecond on cache hits.
+        if verified_user_id and book_id:
+            try:
+                from routes.tutor_brain import get_student_model_cached, _profile_from_model
+                _cached_model = get_student_model_cached(verified_user_id, book_id, ctx.redis)
+                if _cached_model:
+                    student_profile = _profile_from_model(_cached_model)
+                    # Prefer the server-side gap list over any stale client-sent list
+                    student_gaps = _cached_model.get('gaps', student_gaps)
+            except Exception as _smc_err:
+                logger.debug('[ask] student model cache lookup failed: %s', _smc_err)
+
+        # ── Server-side viewer state fallback (Redis) ─────────────────────────
+        # If the client omitted viewer_state, check Redis so the server always
+        # knows what the student is viewing (set via POST /api/viewer/set-state).
+        if viewer_state is None and verified_user_id and not verified_user_id.startswith('ip:'):
+            try:
+                import json as _json
+                _vs_raw = ctx.redis.get(f'{_KEY_NS_PREFIX}viewer_state:{verified_user_id}') if ctx.redis else None
+                if _vs_raw:
+                    viewer_state = _json.loads(_vs_raw)
+            except Exception as _vs_err:
+                logger.debug('[ask] viewer state cache lookup failed: %s', _vs_err)
+
         # ── Redis query cache ─────────────────────────────────────────────────
         _cache_eligible = _cache_svc.ask_is_cacheable(mode, history, web_search, thinking_mode)
         _cache_key_val  = _cache_svc.ask_key(book_id, task_type, mode, complexity, question,
@@ -343,8 +468,37 @@ def ask(request: Request, body: AskRequest):
 
         # ── Intent classification ─────────────────────────────────────────────
         from services.intent_classifier import classify as _classify_intent
-        intent = _classify_intent(question)
-        logger.debug('[intent] %s → %s', question[:60], intent)
+        _clf_result = _classify_intent(question, history=history, viewer_state=viewer_state)
+        intent = _clf_result.primary_intent
+        logger.debug('[intent] %s → %s (confusion=%.2f, multi=%s)',
+                     question[:60], intent, _clf_result.confusion_level,
+                     _clf_result.is_multi_intent)
+
+        # ── Orchestrator routing decision ─────────────────────────────────────
+        # Synchronous, <1ms — pure Python, no I/O.  Must happen before any
+        # context-fetch so we know which sources to prefetch in parallel.
+        from services.orchestrator import decide as _orch_decide
+        _paev_ready_flag = False
+        try:
+            _r = getattr(ctx, 'redis', None)
+            if _r is not None and book_id:
+                _paev_ready_flag = _r.get(f'{_KEY_NS_PREFIX}paev_ready:{book_id}') in ('1', b'1')
+        except Exception:
+            pass
+        _decision = _orch_decide(
+            intent=_clf_result,
+            student_gaps=student_gaps,
+            paev_ready=_paev_ready_flag,
+            has_doc_context=bool(doc_context),
+            mode=mode,
+            question=question,
+            student_profile=student_profile,
+            web_search_requested=web_search,
+            viewer_state=viewer_state,
+        )
+        logger.debug('[orchestrator] route=%s paev=%s viewer=%s escalated=%s',
+                     _decision.reason[:60], _decision.use_paev,
+                     _decision.viewer_route, _decision.confusion_escalated)
 
         # ── Model selection via ai_router ─────────────────────────────────────
         _mode_fallback: str | None = None
@@ -374,7 +528,7 @@ def ask(request: Request, body: AskRequest):
             try:
                 redis = getattr(ctx, 'redis', None)
                 if redis is not None:
-                    paev_ready = redis.get(f'paev_ready:{book_id}') in ('1', b'1')
+                    paev_ready = redis.get(f'{_KEY_NS_PREFIX}paev_ready:{book_id}') in ('1', b'1')
             except Exception:
                 pass
 
@@ -385,6 +539,7 @@ def ask(request: Request, body: AskRequest):
                 # searcher.smart_search() path below will populate them.
                 use_textbook = True
                 context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
+                paev_context = ''
                 logger.info(f"User doc PAEV active — switching to textbook mode for book {book_id}")
             else:
                 from services.tool_compressor import compress_tool_context as _compress
@@ -397,6 +552,7 @@ def ask(request: Request, body: AskRequest):
                 context, similarity, is_relevant, source, all_sources = doc_context, 1.0, True, None, []
                 searcher     = TextbookSearch()
                 use_textbook = False
+                paev_context = ''
                 logger.info(f"User doc mode — context length: {len(doc_context)}")
         else:
             if book_id:
@@ -407,11 +563,35 @@ def ask(request: Request, body: AskRequest):
             use_textbook = should_search_textbook(question, chunks_loaded=bool(searcher.chunks))
             logger.info(f"Search textbook: {use_textbook} | book: {book_id}")
 
-            if use_textbook:
-                context, similarity, is_relevant, source, all_sources = searcher.smart_search(question, top_k=5)
+            if use_textbook and _decision.use_paev:
+                # ── Parallel fetch: textbook + PAEV context ───────────────────
+                # Both calls are I/O-bound (or CPU-bound but blocking); run them
+                # concurrently to save the duration of the slower fetch.
+                (context, similarity, is_relevant, source, all_sources), paev_context = \
+                    await asyncio.gather(
+                        _fetch_textbook_context(searcher, question, top_k=5),
+                        _fetch_paev_context(student_gaps, _decision.paev_prereq_limit),
+                    )
+                logger.debug(
+                    'parallel fetch done: score=%.4f relevant=%s paev_ctx_len=%d',
+                    similarity, is_relevant, len(paev_context),
+                )
+            elif use_textbook:
+                # ── Single fetch: textbook only ───────────────────────────────
+                context, similarity, is_relevant, source, all_sources = \
+                    await _fetch_textbook_context(searcher, question, top_k=5)
+                paev_context = ''
                 logger.debug(f"Score: {similarity:.4f} | Relevant: {is_relevant}")
+            elif _decision.use_paev:
+                # ── Single fetch: PAEV only (no textbook) ────────────────────
+                context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
+                paev_context = await _fetch_paev_context(
+                    student_gaps, _decision.paev_prereq_limit
+                )
+                logger.info("PAEV-only route — no textbook search needed")
             else:
                 context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
+                paev_context = ''
                 logger.info("Chit-chat / no book loaded")
 
         # ── Semantic answer cache check ───────────────────────────────────────
@@ -511,6 +691,19 @@ def ask(request: Request, body: AskRequest):
         ]
         IDENTITY = _get_identity_for_user(verified_user_id, _identity_variants)
 
+        # Build viewer context block for system prompt injection
+        _viewer_context_str = ''
+        if viewer_state and viewer_state.get('type') not in ('none', None):
+            _vs = viewer_state
+            _visible = (
+                _vs.get('visible_segment')
+                or _vs.get('pdf_visible_text')
+                or _vs.get('visible_transcript_segment')
+                or ''
+            )
+            if _visible:
+                _viewer_context_str = f'[VIEWER CONTEXT]\n{_visible}'
+
         base_system = build_system_prompt(
             identity=IDENTITY,
             book_label=book_label,
@@ -520,8 +713,9 @@ def ask(request: Request, body: AskRequest):
             response_style=response_style_instruction,
             teaching_prompt=TEACHING_PROMPT,
             student_profile=student_profile,
-            paev_context='',  # TODO: wire in from decision.use_paev (Phase 2)
+            paev_context=paev_context,
             thinking_mode=thinking_mode,
+            viewer_context=_viewer_context_str,
         )
 
         # ── MODE: VISUAL_TUTOR ────────────────────────────────────────────────
@@ -652,8 +846,9 @@ def ask(request: Request, body: AskRequest):
                 "third 'amber' (use 'coral' only if a fourth item is somehow needed)\n"
                 "- The 'key_difference' must be one concise sentence (under 20 words)"
             )
-            answer = call_ai(question, system_prompt=vt_system, model=selected_model, history=history,
-                             endpoint='chat_visual', user_id=verified_user_id, timeout=_ai_timeout)
+            answer = await call_ai_async(question, system_prompt=vt_system, model=selected_model, history=history,
+                             endpoint='chat_visual', user_id=verified_user_id, timeout=_ai_timeout,
+                             fallback_model=_mode_fallback)
             answer, thinking_content = extract_thinking_content(answer)
             # Strip the internal visual_plan field from diagram responses so it is
             # never exposed to the client.  We parse, pop the key, then re-serialise;
@@ -774,8 +969,9 @@ Rules:
 - {latex_instruction}
 - Do NOT add any text before Q1 or after Q10's explanation"""
 
-            answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_exam', user_id=verified_user_id, timeout=_ai_timeout)
+            answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
+                             endpoint='chat_exam', user_id=verified_user_id, timeout=_ai_timeout,
+                             fallback_model=_mode_fallback)
             answer, thinking_content = extract_thinking_content(answer)
             questions = _parse_mcq(answer)
             return {
@@ -811,8 +1007,9 @@ Structure your response like this:
 
 {latex_instruction}"""
 
-            answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_practice', user_id=verified_user_id, timeout=_ai_timeout)
+            answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
+                             endpoint='chat_practice', user_id=verified_user_id, timeout=_ai_timeout,
+                             fallback_model=_mode_fallback)
             answer, thinking_content = extract_thinking_content(answer)
             return {
                 'success':        True,
@@ -845,8 +1042,9 @@ Include these sections:
 {latex_instruction}
 Keep the summary focused, clear, and easy to review before an exam."""
 
-            answer = call_ai(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_summary', user_id=verified_user_id, timeout=_ai_timeout)
+            answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
+                             endpoint='chat_summary', user_id=verified_user_id, timeout=_ai_timeout,
+                             fallback_model=_mode_fallback)
             answer, thinking_content = extract_thinking_content(answer)
             _resp = {
                 'success':        True,
@@ -903,7 +1101,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 _injection_flagged, _injection_method = False, 'clean'
             else:
                 _screen_text = question
-                _injection_flagged, _injection_method = screen_prompt(_screen_text, user_id=verified_user_id)
+                _injection_flagged, _injection_method = await screen_prompt_async(_screen_text, user_id=verified_user_id)
 
             if _injection_flagged:
                 logger.warning(
@@ -920,7 +1118,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
             logger.info("generate mode: prompt len=%d user=%s", len(question), verified_user_id)
 
             try:
-                raw_json = call_ai(
+                raw_json = await call_ai_async(
                     question,
                     system_prompt=(
                         'You are a structured JSON generator for an educational platform. '
@@ -938,7 +1136,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 )
             except RuntimeError as _ai_err:
                 logger.warning(
-                    "generate mode: call_ai failed (user %s): %s",
+                    "generate mode: call_ai_async failed (user %s): %s",
                     verified_user_id, _ai_err,
                 )
                 return JSONResponse({
@@ -979,14 +1177,14 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     "a source, include the full URL in the text so users can visit it. "
                     f"{response_style_instruction}"
                 )
-                answer, web_citations = call_ai_web_search(
+                answer, web_citations = await call_ai_web_search_async(
                     question, system_prompt=web_system, history=history,
                     user_id=verified_user_id,
                 )
                 if answer.startswith('Error:') or answer.startswith('Web search error:'):
                     logger.warning(f"Web search failed ({answer[:80]}), falling back to standard model")
                     fallback_prompt = f"STUDENT QUESTION: {question}\n\nAnswer helpfully and clearly."
-                    answer = call_ai(fallback_prompt, system_prompt=base_system, model=selected_model, history=history,
+                    answer = await call_ai_async(fallback_prompt, system_prompt=base_system, model=selected_model, history=history,
                                      endpoint='chat', user_id=verified_user_id, timeout=_ai_timeout,
                                      max_tokens_override=_MODE_MAX_TOKENS.get(thinking_mode, _MODE_MAX_TOKENS[None]))
                     answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
@@ -1059,127 +1257,131 @@ Answer helpfully and clearly."""
                 _stream_timeout   = _ai_timeout
 
                 async def _sse_generator():
-                    # Async generator so Starlette can cancel it (raise
-                    # CancelledError) when the client disconnects.  The
-                    # blocking call_ai_stream runs in a background daemon
-                    # thread; results are forwarded via an asyncio.Queue
-                    # using loop.call_soon_threadsafe so the bridge is
-                    # thread-safe without holding the GIL.
-                    import threading
+                    # Fully async generator — zero OS threads per connection.
+                    # call_ai_stream_async() is a native async generator backed
+                    # by httpx.AsyncClient.stream(), so the event loop is never
+                    # blocked.  CancelledError from Starlette (client disconnect)
+                    # propagates naturally through asyncio.wait_for(), closing
+                    # the httpx stream via its async context manager __aexit__.
+
+                    # Unique ID for this stream — used by the recovery buffer.
+                    stream_id = uuid.uuid4().hex  # full 32-char UUID hex
 
                     loop = asyncio.get_running_loop()
-                    _async_q: asyncio.Queue = asyncio.Queue()   # unbounded
-                    _stop = threading.Event()
 
-                    def _put(item) -> None:  # called from producer thread
-                        try:
-                            # call_soon_threadsafe forwards *item* as an arg
-                            # to put_nowait — no closure allocation per call.
-                            loop.call_soon_threadsafe(_async_q.put_nowait, item)
-                        except RuntimeError:
-                            # Event loop already closed — stream already ended.
-                            _stop.set()
-
-                    def _iter(model: str) -> None:
-                        for _tok in call_ai_stream(
-                            _stream_prompt,
-                            system_prompt=_stream_system,
-                            model=model,
-                            history=_stream_history,
-                            max_tokens_override=_stream_max_tok,
-                            endpoint=_stream_endpoint,
-                            user_id=_stream_user_id,
-                            timeout=_stream_timeout,
-                        ):
-                            if _stop.is_set():
-                                return
-                            _cancel_key = f'cancel:{_stream_req_id}'
-                            try:
-                                _redis = _cache_svc._redis
-                                if _redis and _redis.exists(_cancel_key):
-                                    _redis.delete(_cancel_key)
-                                    logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
-                                    return
-                            except Exception as _redis_err:
-                                logger.debug('[/ask] Redis cancel check error: %s', _redis_err)
-                            _put(('token', _tok))
-
-                    def _stream_to_queue() -> None:
-                        try:
-                            _iter(_stream_model)
-                            _put(('done', None))
-                        except Exception as _primary_err:
-                            if _stream_fallback:
-                                logger.warning(
-                                    "[/ask] snap stream primary failed (%s), retrying with fallback %s",
-                                    _primary_err, _stream_fallback,
-                                )
-                                try:
-                                    _iter(_stream_fallback)
-                                    _put(('done', None))
-                                    return
-                                except Exception as _fb_err:
-                                    logger.error("SSE fallback stream error: %s", _fb_err)
-                            else:
-                                logger.error("SSE stream error: %s", _primary_err)
-                            # Never expose internal exception details to the client.
-                            _put(('error', None))
-
-                    # Heartbeat / batching constants
+                    # Heartbeat / batching constants (unchanged behaviour)
                     _HEARTBEAT_SECS = 15.0   # SSE comment every N idle seconds
                     _FLUSH_SECS     = 0.05   # max age of a non-empty token buffer
                     _FLUSH_COUNT    = 3      # flush when this many tokens buffered
 
-                    _thread = threading.Thread(target=_stream_to_queue, daemon=True)
-                    _thread.start()
+                    _cancel_key = f'{_KEY_NS_PREFIX}cancel:{_stream_req_id}'
                     _tok_buf: list[str] = []
+                    _full_text: list[str] = []   # accumulate for viewer_action detection
                     _last_flush = loop.time()
-                    try:
-                        while True:
-                            # Wait at most _HEARTBEAT_SECS for the next queue item.
-                            # A TimeoutError means the model is slow / idle —
-                            # send a keepalive SSE comment so proxies don't close
-                            # the connection, then flush any buffered tokens.
-                            try:
-                                _kind, _value = await asyncio.wait_for(
-                                    _async_q.get(),
-                                    timeout=_HEARTBEAT_SECS,
-                                )
-                            except asyncio.TimeoutError:
-                                if _tok_buf:
-                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
-                                    _tok_buf = []
-                                    _last_flush = loop.time()
-                                yield ': heartbeat\n\n'
-                                continue
 
-                            if _kind == 'done':
-                                if _tok_buf:
-                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
-                                yield 'data: [DONE]\n\n'
-                                break
-                            elif _kind == 'error':
-                                if _tok_buf:
-                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
-                                yield f'data: {json.dumps({"error": "Streaming failed. Please retry.", "text": ""}, ensure_ascii=False)}\n\n'
-                                yield 'data: [DONE]\n\n'
-                                break
-                            else:
+                    # Emit stream_id as the very first SSE event so the client
+                    # can use it to recover a truncated stream via /api/stream/{stream_id}.
+                    yield f'data: {json.dumps({"stream_id": stream_id}, ensure_ascii=False)}\n\n'
+
+                    _models = [_stream_model] + ([_stream_fallback] if _stream_fallback else [])
+
+                    for _attempt, _model in enumerate(_models):
+                        try:
+                            _aiter = call_ai_stream_async(
+                                _stream_prompt,
+                                system_prompt=_stream_system,
+                                model=_model,
+                                history=_stream_history,
+                                max_tokens_override=_stream_max_tok,
+                                endpoint=_stream_endpoint,
+                                user_id=_stream_user_id,
+                                timeout=_stream_timeout,
+                            )
+                            while True:
+                                # Wait at most _HEARTBEAT_SECS for the next
+                                # token.  TimeoutError → keepalive heartbeat.
+                                try:
+                                    _tok = await asyncio.wait_for(
+                                        _aiter.__anext__(),
+                                        timeout=_HEARTBEAT_SECS,
+                                    )
+                                except StopAsyncIteration:
+                                    # Stream finished normally.
+                                    if _tok_buf:
+                                        yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                    _va = _build_viewer_action(
+                                        _decision, ''.join(_full_text), viewer_state
+                                    )
+                                    if _va:
+                                        yield f'data: {json.dumps({"meta": {"viewer_action": _va}}, ensure_ascii=False)}\n\n'
+                                    yield 'data: [DONE]\n\n'
+                                    # Persist the completed stream to Redis for
+                                    # best-effort client recovery (5-minute TTL).
+                                    # Skip if the buffer is unexpectedly large (> 1 MB)
+                                    # to avoid excessive Redis memory under high concurrency.
+                                    try:
+                                        _redis = _cache_svc._redis
+                                        if _redis:
+                                            _buf_json = json.dumps(_full_text)
+                                            if len(_buf_json) <= 1024 * 1024:
+                                                _redis.setex(
+                                                    f'{_KEY_NS_PREFIX}stream:{stream_id}',
+                                                    300,
+                                                    _buf_json,
+                                                )
+                                    except Exception as _buf_err:
+                                        logger.debug('[/ask] stream buffer write error: %s', _buf_err)
+                                    return
+                                except asyncio.TimeoutError:
+                                    if _tok_buf:
+                                        yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                        _tok_buf = []
+                                        _last_flush = loop.time()
+                                    yield ': heartbeat\n\n'
+                                    continue
+
+                                # Redis cancel check (sync redis.exists is a
+                                # single round-trip; acceptable per token).
+                                try:
+                                    _redis = _cache_svc._redis
+                                    if _redis and _redis.exists(_cancel_key):
+                                        _redis.delete(_cancel_key)
+                                        logger.info('[/ask] SSE cancelled by client req_id=%s', _stream_req_id)
+                                        await _aiter.aclose()
+                                        if _tok_buf:
+                                            yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                        yield 'data: [DONE]\n\n'
+                                        return
+                                except Exception as _redis_err:
+                                    logger.debug('[/ask] Redis cancel check error: %s', _redis_err)
+
                                 # Micro-batch: accumulate tokens and flush when
-                                # the buffer is large enough or 50 ms have passed.
-                                _tok_buf.append(_value)
+                                # buffer is large enough or 50 ms have passed.
+                                _tok_buf.append(_tok)
+                                _full_text.append(_tok)
                                 _now = loop.time()
                                 if len(_tok_buf) >= _FLUSH_COUNT or (_now - _last_flush) >= _FLUSH_SECS:
                                     yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
                                     _tok_buf = []
                                     _last_flush = _now
-                    except asyncio.CancelledError:
-                        # Client disconnected — Starlette cancels async generators.
-                        logger.info('[/ask] SSE client disconnected — stopping generation req_id=%s', _stream_req_id)
-                        _stop.set()
-                        raise
-                    finally:
-                        _stop.set()
+
+                        except asyncio.CancelledError:
+                            # Client disconnected — Starlette cancels the generator.
+                            logger.info('[/ask] SSE client disconnected — stopping generation req_id=%s', _stream_req_id)
+                            raise
+                        except Exception as _err:
+                            if _attempt < len(_models) - 1:
+                                logger.warning(
+                                    "[/ask] snap stream primary failed (%s), retrying with fallback %s",
+                                    _err, _stream_fallback,
+                                )
+                                continue
+                            logger.error("SSE stream error: %s", _err)
+                            if _tok_buf:
+                                yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                            yield f'data: {json.dumps({"error": "Streaming failed. Please retry.", "text": ""}, ensure_ascii=False)}\n\n'
+                            yield 'data: [DONE]\n\n'
+                            return
 
                 return StreamingResponse(
                     _sse_generator(),
@@ -1209,7 +1411,7 @@ Answer helpfully and clearly."""
 
             _timeout_fallback_note: str | None = None
             try:
-                answer = call_ai(prompt, system_prompt=_call_system, model=selected_model, history=history,
+                answer = await call_ai_async(prompt, system_prompt=_call_system, model=selected_model, history=history,
                                  endpoint='chat', user_id=verified_user_id, timeout=_ai_timeout,
                                  max_tokens_override=_max_tok, response_format=_response_format)
             except Exception as _primary_err:
@@ -1227,7 +1429,7 @@ Answer helpfully and clearly."""
                     else:
                         logger.warning("[/ask] primary model %s failed (%s), retrying with fallback %s",
                                        selected_model, _primary_err, _mode_fallback)
-                    answer = call_ai(prompt, system_prompt=_call_system, model=_mode_fallback,
+                    answer = await call_ai_async(prompt, system_prompt=_call_system, model=_mode_fallback,
                                      history=history, endpoint='chat', user_id=verified_user_id,
                                      timeout=_ai_timeout, max_tokens_override=_max_tok,
                                      response_format=_response_format)
@@ -1253,7 +1455,7 @@ Answer helpfully and clearly."""
                     # Retry with a stricter system prompt to coerce JSON output.
                     _retry_model = _mode_fallback or selected_model
                     try:
-                        _retry_answer = call_ai(
+                        _retry_answer = await call_ai_async(
                             prompt, system_prompt=_STRICT_JSON_SYSTEM_PROMPT, model=_retry_model,
                             history=history, endpoint='chat', user_id=verified_user_id,
                             timeout=_ai_timeout, max_tokens_override=_max_tok,
@@ -1317,6 +1519,7 @@ Answer helpfully and clearly."""
             if _topic_match:
                 _resp_topic = _topic_match.replace('-->', '').replace('<', '').replace('>', '')[:120]
 
+            _viewer_action = _build_viewer_action(_decision, answer, viewer_state)
             _resp = {
                 'success':        True,
                 'mode':           mode,
@@ -1333,6 +1536,7 @@ Answer helpfully and clearly."""
                 'search_mode':    'hybrid' if searcher.has_embeddings else 'tfidf',
                 'thinking_content': thinking_content,
                 'fallback_note':  _timeout_fallback_note,
+                **({'viewer_action': _viewer_action} if _viewer_action else {}),
             }
             if _cache_eligible and _cache_key_val:
                 _cache_svc.ask_set(_cache_key_val, _resp,
@@ -1368,8 +1572,33 @@ async def cancel_ask(request: Request) -> JSONResponse:
         try:
             _redis = _cache_svc._redis
             if _redis:
-                _redis.setex(f'cancel:{req_id}', 60, '1')
+                _redis.setex(f'{_KEY_NS_PREFIX}cancel:{req_id}', 60, '1')
         except Exception as exc:
             logger.warning('[/ask/cancel] Redis error: %s', exc)
         logger.info('[/ask/cancel] cancellation registered req_id=%s', req_id)
     return JSONResponse({'cancelled': bool(req_id)})
+
+
+@router.get('/api/stream/{stream_id}')
+async def get_stream_buffer(stream_id: str) -> JSONResponse:
+    """Retrieve the token buffer for a completed SSE stream.
+
+    Returns ``{"complete": true, "tokens": [...]}`` when the stream finished
+    and its buffer is still within the 5-minute TTL.  Returns HTTP 404 when
+    the ``stream_id`` is unknown or the TTL has expired.
+
+    This is a best-effort recovery endpoint — it only holds data for streams
+    that completed successfully within the last 5 minutes.
+    """
+    try:
+        _redis = _cache_svc._redis
+        if not _redis:
+            return JSONResponse({'detail': 'Stream not found.'}, status_code=404)
+        raw = _redis.get(f'{_KEY_NS_PREFIX}stream:{stream_id}')
+        if raw is None:
+            return JSONResponse({'detail': 'Stream not found or expired.'}, status_code=404)
+        tokens: list[str] = json.loads(raw)
+        return JSONResponse({'complete': True, 'tokens': tokens})
+    except Exception as exc:
+        logger.warning('[/api/stream] error fetching buffer stream_id=%s: %s', stream_id, exc)
+        return JSONResponse({'detail': 'Stream not found.'}, status_code=404)

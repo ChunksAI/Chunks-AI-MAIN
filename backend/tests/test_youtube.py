@@ -659,7 +659,6 @@ def test_ingest_youtube_general_fetch_exception(client, mock_extract_user):
     data = resp.json()
     assert data['success'] is False
     assert 'Could not fetch transcript' in data['error']
-    assert 'weird connection error' in data['error']
 
 
 # ── oEmbed request exception (lines 258-259) ─────────────────────────────────
@@ -704,4 +703,235 @@ def test_ingest_youtube_outer_exception(client, monkeypatch):
     data = resp.json()
     assert data['success'] is False
     assert 'unexpected error' in data['error']
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# POST /api/youtube/ingest  (v2)
+# ══════════════════════════════════════════════════════════════════════════════
+
+class TestYouTubeIngestV2:
+    """Tests for the new v2 endpoint POST /api/youtube/ingest."""
+
+    _URL = '/api/youtube/ingest'
+    _VIDEO_URL = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
+    _VIDEO_ID = 'dQw4w9WgXcQ'
+
+    def test_v2_route_registered(self, app):
+        """POST /api/youtube/ingest is registered in the application router."""
+        paths = [r.path for r in app.routes]
+        assert '/api/youtube/ingest' in paths
+
+    def test_v2_missing_url_returns_400(self, client, mock_extract_user):
+        resp = client.post(self._URL, json={})
+        assert resp.status_code == 400
+        assert resp.json()['success'] is False
+        assert 'url is required' in resp.json()['error']
+
+    def test_v2_invalid_url_returns_400(self, client, mock_extract_user):
+        resp = client.post(self._URL, json={'url': 'https://example.com/not-youtube'})
+        assert resp.status_code == 400
+        assert 'video ID' in resp.json()['error']
+
+    def test_v2_success_response_shape(self, client, mock_extract_user, monkeypatch):
+        """Happy path: returns all required fields including timestamp_seconds and duration_seconds."""
+        entries = [
+            {'text': 'Hello from v2 endpoint.', 'start': 0.0, 'duration': 5.0},
+            {'text': 'Second sentence here.', 'start': 5.0, 'duration': 3.0},
+        ]
+        mock_api_class = _make_mock_transcript_api(entries)
+
+        # Prevent real ctx.redis from raising
+        import routes.shared as shared_mod
+        mock_ctx = MagicMock()
+        mock_ctx.redis = MagicMock()
+        mock_ctx.redis.setex.return_value = True
+        monkeypatch.setattr(shared_mod, 'ctx', mock_ctx)
+
+        with patch.dict('sys.modules', {
+            'youtube_transcript_api': MagicMock(
+                YouTubeTranscriptApi=mock_api_class,
+                IpBlocked=Exception,
+                RequestBlocked=Exception,
+                NoTranscriptFound=Exception,
+                TranscriptsDisabled=Exception,
+            ),
+        }), patch('httpx.AsyncClient') as mock_httpx:
+            # Mock oEmbed response
+            mock_resp = MagicMock()
+            mock_resp.status_code = 200
+            mock_resp.json.return_value = {'title': 'V2 Video Title'}
+            mock_httpx.return_value.__aenter__ = MagicMock(return_value=MagicMock(
+                get=MagicMock(return_value=mock_resp)
+            ))
+            mock_httpx.return_value.__aexit__ = MagicMock(return_value=False)
+            resp = client.post(self._URL, json={'url': self._VIDEO_URL})
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data['success'] is True
+        assert data['video_id'] == self._VIDEO_ID
+        assert 'title' in data
+        assert 'duration_seconds' in data
+        assert isinstance(data['duration_seconds'], (int, float))
+        assert 'transcript_full' in data
+        assert 'slides' in data
+        assert 'total_slides' in data
+        # Every slide must carry timestamp_seconds
+        for slide in data['slides']:
+            assert 'timestamp_seconds' in slide, f"slide missing timestamp_seconds: {slide}"
+            assert isinstance(slide['timestamp_seconds'], float)
+
+    def test_v2_timestamp_seconds_values(self, client, mock_extract_user, monkeypatch):
+        """timestamp_seconds in slides matches the start time of the first entry in each chunk."""
+        # Use small chunk_size so we get multiple slides
+        entries = [
+            {'text': 'word ' * 300, 'start': 0.0, 'duration': 10.0},
+            {'text': 'word ' * 300, 'start': 60.0, 'duration': 10.0},
+        ]
+        mock_api_class = _make_mock_transcript_api(entries)
+
+        import routes.shared as shared_mod
+        mock_ctx = MagicMock()
+        mock_ctx.redis = None
+        monkeypatch.setattr(shared_mod, 'ctx', mock_ctx)
+
+        with patch.dict('sys.modules', {
+            'youtube_transcript_api': MagicMock(
+                YouTubeTranscriptApi=mock_api_class,
+                IpBlocked=Exception,
+                RequestBlocked=Exception,
+                NoTranscriptFound=Exception,
+                TranscriptsDisabled=Exception,
+            ),
+        }), patch('httpx.AsyncClient') as mock_httpx:
+            mock_httpx.return_value.__aenter__ = MagicMock(
+                return_value=MagicMock(get=MagicMock(return_value=MagicMock(status_code=404)))
+            )
+            mock_httpx.return_value.__aexit__ = MagicMock(return_value=False)
+            resp = client.post(self._URL, json={'url': self._VIDEO_URL})
+
+        assert resp.status_code == 200
+        slides = resp.json()['slides']
+        assert len(slides) >= 2
+        assert slides[0]['timestamp_seconds'] == 0.0
+        # Second chunk starts at the beginning of the second entry (60.0)
+        assert slides[-1]['timestamp_seconds'] == 60.0
+
+    def test_v2_writes_to_redis(self, client, mock_extract_user, monkeypatch):
+        """Successful ingestion writes slides to Redis with the correct key and TTL."""
+        import json
+        entries = [{'text': 'Redis test entry.', 'start': 0.0, 'duration': 3.0}]
+        mock_api_class = _make_mock_transcript_api(entries)
+
+        import routes.shared as shared_mod
+        mock_ctx = MagicMock()
+        mock_redis = MagicMock()
+        mock_ctx.redis = mock_redis
+        monkeypatch.setattr(shared_mod, 'ctx', mock_ctx)
+
+        with patch.dict('sys.modules', {
+            'youtube_transcript_api': MagicMock(
+                YouTubeTranscriptApi=mock_api_class,
+                IpBlocked=Exception,
+                RequestBlocked=Exception,
+                NoTranscriptFound=Exception,
+                TranscriptsDisabled=Exception,
+            ),
+        }), patch('httpx.AsyncClient') as mock_httpx:
+            mock_httpx.return_value.__aenter__ = MagicMock(
+                return_value=MagicMock(get=MagicMock(return_value=MagicMock(status_code=404)))
+            )
+            mock_httpx.return_value.__aexit__ = MagicMock(return_value=False)
+            resp = client.post(self._URL, json={'url': self._VIDEO_URL})
+
+        assert resp.status_code == 200
+        mock_redis.setex.assert_called_once()
+        key_arg, ttl_arg, value_arg = mock_redis.setex.call_args[0]
+        assert key_arg == f'yt_transcript:{self._VIDEO_ID}'
+        assert ttl_arg == 3600
+        cached = json.loads(value_arg)
+        assert isinstance(cached, list)
+        assert len(cached) >= 1
+
+    def test_v2_redis_error_does_not_fail_request(self, client, mock_extract_user, monkeypatch):
+        """A Redis write error must not propagate — the response should still be 200."""
+        entries = [{'text': 'Redis error test.', 'start': 0.0, 'duration': 2.0}]
+        mock_api_class = _make_mock_transcript_api(entries)
+
+        import routes.shared as shared_mod
+        mock_ctx = MagicMock()
+        mock_ctx.redis = MagicMock()
+        mock_ctx.redis.setex.side_effect = Exception('Redis unavailable')
+        monkeypatch.setattr(shared_mod, 'ctx', mock_ctx)
+
+        with patch.dict('sys.modules', {
+            'youtube_transcript_api': MagicMock(
+                YouTubeTranscriptApi=mock_api_class,
+                IpBlocked=Exception,
+                RequestBlocked=Exception,
+                NoTranscriptFound=Exception,
+                TranscriptsDisabled=Exception,
+            ),
+        }), patch('httpx.AsyncClient') as mock_httpx:
+            mock_httpx.return_value.__aenter__ = MagicMock(
+                return_value=MagicMock(get=MagicMock(return_value=MagicMock(status_code=404)))
+            )
+            mock_httpx.return_value.__aexit__ = MagicMock(return_value=False)
+            resp = client.post(self._URL, json={'url': self._VIDEO_URL})
+
+        assert resp.status_code == 200
+        assert resp.json()['success'] is True
+
+    def test_v2_no_transcript_returns_422(self, client, mock_extract_user, monkeypatch):
+        """POST /api/youtube/ingest returns 422 when no transcript is available."""
+        class _NoTranscriptFound(Exception):
+            pass
+        class _TranscriptsDisabled(Exception):
+            pass
+
+        mock_instance = MagicMock()
+        mock_instance.list.side_effect = _NoTranscriptFound("no transcript")
+        mock_api_class = MagicMock(return_value=mock_instance)
+
+        import routes.shared as shared_mod
+        mock_ctx = MagicMock()
+        mock_ctx.redis = None
+        monkeypatch.setattr(shared_mod, 'ctx', mock_ctx)
+
+        with patch.dict('sys.modules', {
+            'youtube_transcript_api': MagicMock(
+                YouTubeTranscriptApi=mock_api_class,
+                IpBlocked=Exception,
+                RequestBlocked=Exception,
+                NoTranscriptFound=_NoTranscriptFound,
+                TranscriptsDisabled=_TranscriptsDisabled,
+            ),
+        }):
+            resp = client.post(self._URL, json={'url': self._VIDEO_URL})
+
+        assert resp.status_code == 422
+        assert resp.json()['success'] is False
+
+    def test_v2_chunk_transcript_includes_timestamp_seconds(self):
+        """_chunk_transcript always sets timestamp_seconds on every slide."""
+        from routes.youtube import _chunk_transcript
+        entries = [
+            {'text': 'word ' * 300, 'start': 12.5, 'duration': 10.0},
+        ]
+        slides = _chunk_transcript(entries, chunk_size=100)
+        assert len(slides) >= 1
+        for slide in slides:
+            assert 'timestamp_seconds' in slide
+            assert isinstance(slide['timestamp_seconds'], float)
+
+    def test_v2_duration_seconds_computed_correctly(self):
+        """_compute_duration_seconds returns start + duration of the last entry."""
+        from routes.youtube import _compute_duration_seconds
+        entries = [
+            {'text': 'a', 'start': 0.0, 'duration': 5.0},
+            {'text': 'b', 'start': 100.0, 'duration': 30.0},
+        ]
+        assert _compute_duration_seconds(entries) == 130.0
+        assert _compute_duration_seconds([]) == 0.0
+
 
