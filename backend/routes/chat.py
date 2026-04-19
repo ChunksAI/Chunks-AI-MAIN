@@ -20,7 +20,7 @@ import uuid
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from routes.limiter import limiter
+from routes.limiter import limiter, _dynamic_ask_limit
 from routes.shared import ctx, TEACHING_PROMPT
 from routes.schemas import AskRequest
 from services.usage import enforce as _enforce_usage, UsageLimitExceeded as _UsageLimitExceeded
@@ -383,7 +383,7 @@ async def _fetch_paev_context(
 
 
 @router.post('/ask')
-@limiter.limit("10/minute")
+@limiter.limit(_dynamic_ask_limit)
 async def ask(request: Request, body: AskRequest):
     try:
         from services.ai import (
