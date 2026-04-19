@@ -803,3 +803,23 @@ export async function getViewerState(): Promise<ViewerStatePayload | null> {
     return null;
   }
 }
+
+// ─── Research ingestion ───────────────────────────────────────────────────────
+
+export interface ResearchIngestResponse {
+  paper_id: string;
+  type: string;
+  title?: string;
+  authors?: string[];
+  year?: number;
+  abstract?: string;
+  source_url?: string;
+}
+
+/**
+ * Ingest a research paper by arXiv ID, DOI, or URL.
+ * Returns structured metadata (title, authors, year, abstract).
+ */
+export async function ingestResearch(url: string): Promise<ResearchIngestResponse> {
+  return apiPost<ResearchIngestResponse>('/api/research/ingest', { url });
+}

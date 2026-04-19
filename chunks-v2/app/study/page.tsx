@@ -4,12 +4,14 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { useStudy, loadSnapshotByTitle } from '@/contexts/StudyContext';
+import { useViewerContext } from '@/contexts/ViewerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RecentItem } from '@/types';
 import Sidebar from '@/components/study/layout/Sidebar';
 import Topbar from '@/components/study/layout/Topbar';
 import ContentPanel from '@/components/study/panels/ContentPanel';
 import ChatPanel from '@/components/study/panels/ChatPanel';
+import ViewerPanel from '@/components/study/ViewerPanel';
 import Toast from '@/components/shared/Toast';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 import DiagnosticQuiz from '@/components/study/DiagnosticQuiz';
@@ -55,6 +57,7 @@ function StudyLayout() {
   const { state, dispatch, handleSendMessage, showToast, handleResetSession, handleRestoreDocument } = useStudy();
   const { user } = useAuth();
   const { activeTab, toast, docTitle, topic, recents, pdfBlobUrl, slides, uploadLoading } = state;
+  const { viewerState } = useViewerContext();
 
   // Sync student knowledge model with backend (load on mount, debounce-save on change,
   // regression check on mount). Pass bookId so save/load are scoped per book.
@@ -96,6 +99,9 @@ function StudyLayout() {
 
   // Show the split layout only when a document is present (or uploading)
   const hasDocument = !!(pdfBlobUrl || slides.length > 0 || uploadLoading);
+  // Viewer panel takes precedence over the document panel when open
+  const showViewerPanel = viewerState.isViewerOpen && viewerState.viewerType !== 'none';
+  const showLeftPanel = showViewerPanel || hasDocument;
   const { pct, containerRef, onMouseDown } = useResizable();
   const router = useRouter();
 
@@ -188,17 +194,21 @@ function StudyLayout() {
         />
 
         <div className="content-area">
-          {/* Chat tab — split layout when document loaded, full-width chat otherwise */}
+          {/* Chat tab — split layout when document/viewer loaded, full-width chat otherwise */}
           {activeTab === 'chat' && (
             <div className="workspace" ref={containerRef}>
-              {hasDocument && (
+              {showLeftPanel && (
                 <>
-                  <ContentPanel
-                    style={{ width: `${pct}%` }}
-                    onExplain={handleExplain}
-                    onQuiz={handleQuizFromContent}
-                    onSummarize={handleSummarize}
-                  />
+                  {showViewerPanel ? (
+                    <ViewerPanel style={{ width: `${pct}%` }} />
+                  ) : (
+                    <ContentPanel
+                      style={{ width: `${pct}%` }}
+                      onExplain={handleExplain}
+                      onQuiz={handleQuizFromContent}
+                      onSummarize={handleSummarize}
+                    />
+                  )}
                   <div className="resizer" onMouseDown={onMouseDown} />
                 </>
               )}
