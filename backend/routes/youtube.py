@@ -223,7 +223,11 @@ async def ingest_youtube_v2(request: Request, body: dict = Body(default={})):
 
         try:
             proxy_config = _build_proxy_config()
-            api = YouTubeTranscriptApi(proxy_config=proxy_config)
+            try:
+                api = YouTubeTranscriptApi(proxy_config=proxy_config)
+            except TypeError:
+                # Older installed version does not support proxy_config constructor arg
+                api = YouTubeTranscriptApi()
 
             entries: list = []
             for attempt in range(_MAX_RETRIES):

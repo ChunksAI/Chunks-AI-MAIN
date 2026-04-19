@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from routes.limiter import limiter, _dynamic_ask_limit
+from routes.limiter import limiter
 from routes.shared import ctx, TEACHING_PROMPT
 from routes.schemas import AskRequest
 from services.usage import enforce as _enforce_usage, UsageLimitExceeded as _UsageLimitExceeded
@@ -1119,7 +1119,7 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
 
 
 @router.post('/ask')
-@limiter.limit(_dynamic_ask_limit)
+@limiter.limit("60/minute")
 async def ask(request: Request, body: AskRequest):
     try:
         from services.ai import (

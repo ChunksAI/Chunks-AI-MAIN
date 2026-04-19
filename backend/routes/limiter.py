@@ -41,19 +41,6 @@ def _rate_limit_key(request: StarletteRequest) -> str:
     return get_remote_address(request)
 
 
-def _dynamic_ask_limit(request: StarletteRequest) -> str:
-    """
-    Return the per-minute rate limit for the /ask endpoint.
-
-    - Authenticated users (Bearer token present): 60 requests/minute.
-    - Anonymous users (no token): 15 requests/minute.
-    """
-    auth = request.headers.get("authorization", "") or request.headers.get("Authorization", "")
-    if auth.startswith("Bearer "):
-        return "60/minute"
-    return "15/minute"
-
-
 limiter = Limiter(
     key_func=_rate_limit_key,
     default_limits=["500/hour", "120/minute"],
