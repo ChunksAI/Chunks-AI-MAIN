@@ -191,7 +191,7 @@ if OPENROUTER_API_KEY == 'your-key-here':
 PORT               = int(os.environ.get('PORT', 5000))
 PRODUCTION         = os.environ.get('PRODUCTION', 'false').lower() == 'true'
 OPENROUTER_URL     = "https://openrouter.ai/api/v1/chat/completions"
-MODEL              = os.environ.get('MODEL', 'openai/gpt-oss-20b:nitro')
+MODEL              = os.environ.get('MODEL', 'openai/gpt-4.1-mini')
 
 SUPABASE_URL         = os.environ.get('SUPABASE_URL', '')
 SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
@@ -669,7 +669,7 @@ from routes.library          import router as library_router          # noqa: E4
 from routes.flashcards       import router as flashcards_router       # noqa: E402
 from routes.upload           import router as upload_router           # noqa: E402
 from routes.study            import router as study_router            # noqa: E402
-from routes.youtube          import router as youtube_router, router_v2 as youtube_v2_router  # noqa: E402
+from routes.youtube          import router_v2 as youtube_v2_router  # noqa: E402
 from routes.image            import router as image_router            # noqa: E402
 from routes.chat             import router as chat_router             # noqa: E402
 from routes.jobs             import router as jobs_router             # noqa: E402
@@ -688,7 +688,6 @@ app.include_router(image_router)
 app.include_router(chat_router)
 app.include_router(jobs_router)
 app.include_router(share_router)
-app.include_router(youtube_router)
 app.include_router(youtube_v2_router)
 app.include_router(tutor_router)
 app.include_router(research_ingest_router)

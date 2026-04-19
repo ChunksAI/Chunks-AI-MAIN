@@ -47,7 +47,7 @@ import { useChatContext, type ChatState, type ChatAction } from '@/contexts/Chat
 import { useQuizContext, type QuizState, type QuizAction, calcWeakAreas } from '@/contexts/QuizContext';
 import { useNotesContext, type NotesState, type NotesAction } from '@/contexts/NotesContext';
 import { useViewerContext, buildViewerState } from '@/contexts/ViewerContext';
-import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus, getStreamBuffer } from '@/lib/studyApi';
+import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus, getStreamBuffer, ingestYouTube, setViewerState } from '@/lib/studyApi';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
 import {
@@ -487,6 +487,11 @@ interface StudyContextValue {
   handleCompleteReviewQuiz: (score: number, correct: number, total: number) => void;
   /** Restore the slides and PDF blob URL for a previously-uploaded document. */
   handleRestoreDocument: (docTitle: string) => Promise<void>;
+  /**
+   * Ingest a YouTube video URL: calls /api/youtube/ingest, opens the viewer
+   * panel, stores slides as AI context, and fires a success chat bubble.
+   */
+  handleIngestYouTube: (url: string) => Promise<void>;
 }
 
 const StudyContext = createContext<StudyContextValue | null>(null);
@@ -974,6 +979,27 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     viewerStateRef.current = viewerState;
   }, [viewerState]);
 
+  // ── Sync visibleSegment with YouTube playback position ────────────────────
+  // Fires whenever the YouTube player advances (via the postMessage listener in
+  // ViewerPanel that dispatches SEEK_YOUTUBE).  Looks up the transcript slide
+  // whose timestamp bracket contains the current playback position and dispatches
+  // UPDATE_VISIBLE_SEGMENT so every subsequent /ask request is grounded in the
+  // content currently on screen.
+  useEffect(() => {
+    if (viewerState.viewerType !== 'youtube') return;
+    const ts = viewerState.currentTimestamp;
+    const slides = stateRef.current.slides;
+    const slide = slides.find((s, i) => {
+      // Slides returned by /api/youtube/ingest are in ascending timestamp order.
+      const next = slides[i + 1]?.timestamp_seconds ?? Infinity;
+      return ts >= (s.timestamp_seconds ?? 0) && ts < next;
+    });
+    if (slide?.content?.[0]) {
+      viewerDispatch({ type: 'UPDATE_VISIBLE_SEGMENT', segment: slide.content[0] });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewerState.currentTimestamp, viewerState.viewerType]);
+
   // ── Initialise browser-only state after mount (avoids SSR/client mismatch) ─
   useEffect(() => {
     const newSessionId = `session-${Date.now()}`;
@@ -1057,6 +1083,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // Track in-flight generation requests to prevent double-triggering
   const flashcardsInFlightRef = useRef(false);
   const quizInFlightRef = useRef(false);
+
+  // Prevent duplicate /ask calls on rapid clicks (e.g. double-submit)
+  const inflightRef = useRef(false);
 
   // Track in-flight generation abort controllers
   const flashcardsAbortRef = useRef<AbortController | null>(null);
@@ -1188,6 +1217,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // ── sendMessage ───────────────────────────────────────────────────────────
   const handleSendMessage = useCallback(
     async (text: string, opts: { selectedText?: string; docContext?: string } = {}) => {
+      // Prevent duplicate /ask calls on rapid clicks (e.g. double-submit).
+      // inflightRef is reset to false in the finally block below.
+      if (inflightRef.current) return;
+      inflightRef.current = true;
+
       abortRef.current?.abort();
       abortRef.current = new AbortController();
       streamIdRef.current = null;
@@ -1196,16 +1230,24 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       chatDispatch({ type: 'SEND_MESSAGE', payload: userMsg });
 
       // Build history from current messages (last MAX_HISTORY_ITEMS), stripping HTML tags.
-      // Filter out assistant messages that contain raw JSON (from chunk/master/research turns)
-      // to prevent JSON bleed when the user switches back to snap mode.
+      // Filter out AI messages from structured modes (chunk/master/research) to prevent
+      // JSON/Markdown bleed when the user switches back to snap mode.
+      // Primary signal: the mode field stamped when the message was created.
+      // Defensive fallback: also drop anything that parses as JSON (plain or code-fenced),
+      // which handles old messages that predate the mode field.
       const history: MessageHistoryItem[] = stateRef.current.messages
         .slice(-MAX_HISTORY_ITEMS)
         .filter((m) => {
-          if (m.role === 'ai') {
-            const trimmed = m.text.trim();
-            if (trimmed.startsWith('{')) {
-              try { JSON.parse(trimmed); return false; } catch { /* not JSON, keep */ }
-            }
+          if (m.role !== 'ai') return true;
+          // Primary: drop AI messages from structured modes
+          if (m.mode && m.mode !== 'snap') return false;
+          // Defensive: also drop anything that looks like a JSON blob (plain or code-fenced).
+          // Only strip code fences when both opening and closing are present.
+          const raw = m.text.trim();
+          const fenceMatch = raw.match(/^```(?:json)?\s*([\s\S]*?)```\s*$/);
+          const t = fenceMatch ? fenceMatch[1].trim() : raw;
+          if (t.startsWith('{') || t.startsWith('[')) {
+            try { JSON.parse(t); return false; } catch { /* not JSON, keep */ }
           }
           return true;
         })
@@ -1243,6 +1285,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         role: 'ai',
         text: isStreamingMode ? '' : (placeholderText[currentChatMode] ?? 'Thinking…'),
         isPlaceholder: !isStreamingMode,
+        mode: currentChatMode,
         actions: isStreamingMode
           ? [
               { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
@@ -1284,6 +1327,16 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           abortRef.current.signal,
           (reqId) => { currentRequestIdRef.current = reqId; },
           (sid) => { streamIdRef.current = sid; },
+          // Dispatch topic immediately when received via SSE meta event (snap mode)
+          // so useTutorBrain and weaknessEngine see it during streaming.
+          (meta) => {
+            if (meta.topic) {
+              chatDispatch({
+                type: 'UPDATE_MESSAGE_META',
+                payload: { id: aiMsgId, topic: meta.topic },
+              });
+            }
+          },
         );
 
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
@@ -1292,13 +1345,18 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         if (res.viewer_action) {
           if (res.viewer_action.type === 'seek_youtube') {
             viewerDispatch({ type: 'SEEK_YOUTUBE', timestamp: res.viewer_action.timestamp_seconds });
+          } else if (res.viewer_action.type === 'open_youtube') {
+            viewerDispatch({ type: 'OPEN_YOUTUBE', videoId: res.viewer_action.video_id });
+            if (res.viewer_action.start_seconds != null) {
+              viewerDispatch({ type: 'SEEK_YOUTUBE', timestamp: res.viewer_action.start_seconds });
+            }
           } else if (res.viewer_action.type === 'switch_to_research') {
             viewerDispatch({ type: 'OPEN_RESEARCH', url: res.viewer_action.url });
           }
         }
 
         // Update message with memory/performance metadata if present
-        if (res.topic || res.memory_recall || (res.performance_bars && res.performance_bars.length > 0)) {
+        if (res.topic || res.memory_recall || (res.performance_bars && res.performance_bars.length > 0) || res.structured || res.web_citations) {
           chatDispatch({
             type: 'UPDATE_MESSAGE_META',
             payload: {
@@ -1306,6 +1364,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
               ...(res.topic ? { topic: res.topic } : {}),
               memoryRecall: res.memory_recall,
               performanceBars: res.performance_bars ?? [],
+              ...(res.structured ? { structured: res.structured } : {}),
+              ...(res.web_citations ? { webCitations: res.web_citations } : {}),
             },
           });
         }
@@ -1411,6 +1471,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           err instanceof Error ? err.message : 'Something went wrong. Please try again.';
         chatDispatch({ type: 'HANDLE_CHAT_ERROR', payload: { messageId: aiMsgId, error: message, originalQuestion: text } });
       } finally {
+        inflightRef.current = false;
         currentRequestIdRef.current = null;
         streamIdRef.current = null;
       }
@@ -1423,6 +1484,67 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     sendMessageRef.current = handleSendMessage;
   }, [handleSendMessage]);
+
+  // ── ingestYouTube ─────────────────────────────────────────────────────────
+  /**
+   * Paste-to-ingest handler: called when the user types a YouTube URL into the
+   * chat box.  Calls /api/youtube/ingest, opens the viewer panel, stores the
+   * returned slides as AI context (so subsequent /ask calls are grounded in the
+   * transcript), and fires a success chat bubble.  Never throws — errors are
+   * surfaced as error-state chat bubbles.
+   */
+  const handleIngestYouTube = useCallback(async (url: string) => {
+    const userMsg: ChatMessage = { id: nextMsgId(), role: 'user', text: url };
+    chatDispatch({ type: 'SEND_MESSAGE', payload: userMsg });
+
+    const placeholderId = nextMsgId();
+    chatDispatch({
+      type: 'START_AI_MESSAGE',
+      payload: { id: placeholderId, role: 'ai', text: '🎬 Loading video transcript…', isPlaceholder: true },
+    });
+
+    try {
+      const res = await ingestYouTube(url);
+
+      // Open the viewer panel showing this video
+      viewerDispatch({ type: 'OPEN_YOUTUBE', videoId: res.video_id });
+
+      // Store slides as AI context so subsequent /ask calls are grounded in the transcript
+      dispatch({ type: 'SET_SLIDES', payload: { slides: res.slides, docTitle: res.title, bookId: null } });
+
+      // Push the first transcript chunk as visibleSegment for instant grounding
+      const firstSegment = res.slides[0]?.content?.[0] ?? '';
+      if (firstSegment) {
+        viewerDispatch({ type: 'UPDATE_VISIBLE_SEGMENT', segment: firstSegment });
+      }
+
+      // Persist viewer_state server-side so /ask is context-aware even on the
+      // very next request (fire-and-forget — failures are non-fatal).
+      setViewerState({
+        type: 'youtube',
+        video_id: res.video_id,
+        visible_segment: firstSegment,
+      });
+
+      chatDispatch({
+        type: 'REPLACE_AI_MESSAGE',
+        payload: {
+          id: placeholderId,
+          text: `📺 **${res.title}** loaded — ${res.total_slides} segment${res.total_slides === 1 ? '' : 's'}. Ask me anything about it.`,
+          actions: [
+            { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
+            { label: '🎯 Quiz me on this', actionKey: 'quiz' },
+          ],
+        },
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load video.';
+      chatDispatch({
+        type: 'HANDLE_CHAT_ERROR',
+        payload: { messageId: placeholderId, error: message, originalQuestion: url },
+      });
+    }
+  }, [chatDispatch, viewerDispatch, dispatch]);
 
   // ── generateFlashcards ────────────────────────────────────────────────────
   const handleGenerateFlashcards = useCallback(async (topic: string, count = DEFAULT_FLASHCARD_COUNT) => {
@@ -1851,6 +1973,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     handleAdvanceReviewStep,
     handleEndReviewSession,
     handleCompleteReviewQuiz,
+    handleIngestYouTube,
   };
 
   return <StudyContext.Provider value={value}>{children}</StudyContext.Provider>;

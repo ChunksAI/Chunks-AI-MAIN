@@ -14,16 +14,15 @@ Design goals
 Tier environment variables
 ──────────────────────────
   SMALL_MODEL   fast, cheap — definitions, simple recall, short answers
-                default: openai/gpt-4o-mini
+                default: openai/gpt-4.1-mini
   MODEL         medium — standard study questions, explanations, flashcards
-                default: openai/gpt-oss-20b:nitro  (or whatever
-                         server.py sets as MODEL)
+                default: openai/gpt-4.1-mini
   LARGE_MODEL   large — research layers, complex derivations, exam writing
-                default: openai/gpt-4o-mini  (or whatever is set)
-  THINK_MODEL   chain-of-thought — activated by [THINKING_MODE] token
-                default: openai/gpt-oss-20b:nitro
-  DEEP_MODEL    deep reasoning — activated by [DEEP_THINKING_MODE] token
                 default: google/gemini-2.5-flash
+  THINK_MODEL   chain-of-thought — activated by [THINKING_MODE] token
+                default: anthropic/claude-haiku-4.5
+  DEEP_MODEL    deep reasoning — activated by [DEEP_THINKING_MODE] token
+                default: anthropic/claude-sonnet-4.5
 
 Task-type registry
 ──────────────────
@@ -47,14 +46,14 @@ logger = logging.getLogger(__name__)
 # Evaluated at call-time so Railway env-var overrides take effect immediately.
 
 MODE_ENV_MODELS: dict[str, tuple[str, str]] = {
-    'snap':     (os.environ.get('SNAP_MODEL',        'google/gemini-flash-1.5'),
-                 os.environ.get('SNAP_FALLBACK',      'openai/gpt-4o-mini')),
+    'snap':     (os.environ.get('SNAP_MODEL',        'google/gemini-2.5-flash-lite'),
+                 os.environ.get('SNAP_FALLBACK',      'openai/gpt-4.1-mini')),
     'chunk':    (os.environ.get('CHUNK_MODEL',        'deepseek/deepseek-chat-v3-0324'),
-                 os.environ.get('CHUNK_FALLBACK',     'anthropic/claude-3-5-haiku')),
-    'master':   (os.environ.get('MASTER_MODEL',       'anthropic/claude-sonnet-4-6'),
+                 os.environ.get('CHUNK_FALLBACK',     'anthropic/claude-haiku-4.5')),
+    'master':   (os.environ.get('MASTER_MODEL',       'anthropic/claude-sonnet-4.5'),
                  os.environ.get('MASTER_FALLBACK',    'google/gemini-2.5-flash')),
-    'research': (os.environ.get('RESEARCH_MODEL',     'google/gemini-2.5-flash'),
-                 os.environ.get('RESEARCH_FALLBACK',  'google/gemini-2.0-flash-001')),
+    'research': (os.environ.get('RESEARCH_MODEL',     'perplexity/sonar'),
+                 os.environ.get('RESEARCH_FALLBACK',  'google/gemini-2.5-flash')),
 }
 
 # ── Tier resolution ────────────────────────────────────────────────────────────
@@ -66,13 +65,13 @@ def _get_models() -> dict:
     """
     # Import MODEL from server context — fall back to env directly if called
     # before server.py initialises the constant.
-    medium = os.environ.get('MODEL', 'openai/gpt-oss-20b:nitro')
+    medium = os.environ.get('MODEL', 'openai/gpt-4.1-mini')
     return {
-        'small':  os.environ.get('SMALL_MODEL',  'openai/gpt-4o-mini'),
+        'small':  os.environ.get('SMALL_MODEL',  'openai/gpt-4.1-mini'),
         'medium': medium,
         'large':  os.environ.get('LARGE_MODEL',  'google/gemini-2.5-flash'),
-        'think':  os.environ.get('THINK_MODEL',  'anthropic/claude-3-5-haiku'),
-        'deep':   os.environ.get('DEEP_MODEL',   'google/gemini-2.0-flash-001'),
+        'think':  os.environ.get('THINK_MODEL',  'anthropic/claude-haiku-4.5'),
+        'deep':   os.environ.get('DEEP_MODEL',   'anthropic/claude-sonnet-4.5'),
     }
 
 

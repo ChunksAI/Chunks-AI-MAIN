@@ -8,6 +8,8 @@ import type { ChatMessage } from '@/types';
 
 import MarkdownRenderer from '@/components/study/chat/MarkdownRenderer';
 import MessageActions from '@/components/study/chat/MessageActions';
+import ChunkCard from '@/components/study/ChunkCard';
+import ResearchCard from '@/components/study/ResearchCard';
 import { resolveStudyTopic, cleanTopic } from '@/lib/topicFallback';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
 import { useToast } from '@/contexts/ToastContext';
@@ -15,6 +17,14 @@ import { evaluateSocraticAnswer } from '@/lib/studyApi';
 import { extractTopicFromResponse } from '@/lib/extractTopic';
 
 const GAP_MARKER = 'Check your understanding →';
+
+/**
+ * Matches a YouTube video URL (standard watch, shorts, embed) including
+ * optional www./m. subdomain prefix.  Used to intercept paste-to-ingest.
+ * Keep in sync with _YT_URL_RE in backend/routes/chat.py.
+ */
+const YT_URL_RE =
+  /^https?:\/\/(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/i;
 
 /**
  * Splits markdown text at the "Check your understanding →" label so the
@@ -86,12 +96,27 @@ function MessageBubble({
   onActionClick,
   isStreaming,
   onRetry,
+  onCancel,
 }: {
   msg: ChatMessage;
   onActionClick: (key: string) => void;
   isStreaming?: boolean;
   onRetry?: () => void;
+  /** Called when the user clicks Cancel on a non-streaming placeholder bubble. */
+  onCancel?: () => void;
 }) {
+  // After 20 s, update the placeholder text to warn that the response is slow.
+  // Timer is started only for non-streaming placeholder messages and cleared
+  // automatically when the component re-renders with isPlaceholder = false.
+  const [slowWarning, setSlowWarning] = useState(false);
+  useEffect(() => {
+    if (!msg.isPlaceholder) {
+      setSlowWarning(false);
+      return;
+    }
+    const timer = setTimeout(() => setSlowWarning(true), 20_000);
+    return () => clearTimeout(timer);
+  }, [msg.isPlaceholder]);
   if (msg.role === 'user') {
     return (
       <div className="msg user">
@@ -107,8 +132,28 @@ function MessageBubble({
       <div className="msg-body">
         <div className="msg-bubble">
           {msg.isPlaceholder ? (
-            <span className="msg-placeholder">{msg.text}</span>
+            <>
+              <span className="msg-placeholder">
+                {slowWarning ? 'Still working… this is taking longer than usual.' : msg.text}
+              </span>
+              {onCancel && (
+                <button
+                  className="ai-action-btn"
+                  onClick={onCancel}
+                  style={{ marginTop: 8 }}
+                >
+                  ✕ Cancel
+                </button>
+              )}
+            </>
           ) : (() => {
+            // Structured modes: render rich cards instead of flat markdown.
+            if (msg.structured && typeof msg.structured === 'object') {
+              if ('summary' in msg.structured) {
+                return <ResearchCard structured={msg.structured} webCitations={msg.webCitations} />;
+              }
+              return <ChunkCard structured={msg.structured} />;
+            }
             const split = !isStreaming ? splitAtGapMarker(msg.text) : null;
             if (split) {
               return (
@@ -123,7 +168,7 @@ function MessageBubble({
             return <MarkdownRenderer content={msg.text} />;
           })()}
           {isStreaming && !msg.isPlaceholder && msg.text.trim() && <span className="streaming-dot" aria-hidden="true" />}
-          {!isStreaming && !msg.isPlaceholder && !msg.text.trim() && (
+          {!isStreaming && !msg.isPlaceholder && !msg.structured && !msg.text.trim() && (
             <span className="msg-empty-response">
               No response received — please retry.
             </span>
@@ -191,6 +236,7 @@ export default function ChatPanel() {
     handleGenerateQuiz,
     handleUploadDocument,
     handleStop,
+    handleIngestYouTube,
   } = useStudy();
   const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, chatMode, pdfBlobUrl, slides, uploadLoading, uploadError } = state;
 
@@ -355,6 +401,15 @@ export default function ChatPanel() {
   const handleSend = async () => {
     const val = inputValue.trim();
     if (!val || chatLoading) return;
+
+    // ── YouTube URL intercept — paste a video link to load it into the viewer ──
+    if (YT_URL_RE.test(val)) {
+      setInputValue('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      await handleIngestYouTube(val);
+      return;
+    }
+
     setInputValue('');
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
 
@@ -543,6 +598,7 @@ export default function ChatPanel() {
                   dispatch({ type: 'REMOVE_MESSAGE', payload: msg.id });
                   void handleSendMessage(msg.originalQuestion!);
                 } : undefined}
+                onCancel={msg.isPlaceholder ? handleStopClick : undefined}
               />
             );
           })}

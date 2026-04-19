@@ -262,8 +262,20 @@ function formatStructuredResponse(structured: Record<string, unknown>): string {
     if (structured.summary) lines.push(`## Summary\n${str(structured.summary)}`);
     const kf = listItems(structured.key_findings);
     if (kf) lines.push(`## Key Findings\n${kf}`);
-    const src = listItems(structured.sources);
-    if (src) lines.push(`## Sources\n${src}`);
+    // Sources may be objects {title, url, year, authors, note} or plain strings.
+    const srcArr = Array.isArray(structured.sources) ? structured.sources : [];
+    const srcLines = srcArr.map((s: unknown): string => {
+      if (typeof s === 'string') return `- ${s}`;
+      if (s && typeof s === 'object') {
+        const src = s as { title?: string; url?: string; year?: string; authors?: string; note?: string };
+        const label = [src.title, src.year ? `(${src.year})` : ''].filter(Boolean).join(' ');
+        const note = src.note ? ` — ${src.note}` : '';
+        if (src.url) return `- [${label || src.url}](${src.url})${note}`;
+        return `- ${label}${note}`;
+      }
+      return `- ${str(s)}`;
+    }).filter(Boolean);
+    if (srcLines.length) lines.push(`## Sources\n${srcLines.join('\n')}`);
     if (structured.simplified_explanation) lines.push(`## Simplified Explanation\n${str(structured.simplified_explanation)}`);
     return lines.join('\n\n');
   }
@@ -321,6 +333,7 @@ export async function sendMessageStream(
   signal?: AbortSignal,
   onRequestId?: (id: string) => void,
   onStreamId?: (id: string) => void,
+  onMeta?: (meta: { topic?: string }) => void,
 ): Promise<SendMessageResponse> {
   const authHeaders = await getAuthHeaders();
   const reqId = makeReqId();
@@ -374,6 +387,7 @@ export async function sendMessageStream(
     const decoder = new TextDecoder();
     let fullText = '';
     let streamViewerAction: ViewerAction | undefined;
+    let streamTopic: string | undefined;
 
     // RAF-based chunk batching: accumulate tokens and flush at most once per
     // animation frame so React re-renders at display rate instead of once per token.
@@ -418,7 +432,7 @@ export async function sendMessageStream(
             const data = line.slice(6).trim();
             if (data === '[DONE]') break outer; // exit both loops
             try {
-              const parsed = JSON.parse(data) as SseChunk & { error?: string; meta?: { viewer_action?: ViewerAction }; stream_id?: string };
+              const parsed = JSON.parse(data) as SseChunk & { error?: string; meta?: { viewer_action?: ViewerAction; topic?: string }; stream_id?: string };
               // Check for a server-sent error before treating the chunk as content
               if (parsed.error) {
                 throw new ApiError(parsed.error, 502);
@@ -428,10 +442,14 @@ export async function sendMessageStream(
                 onStreamId?.(parsed.stream_id);
                 continue;
               }
-              // Capture metadata event (e.g. viewer_action) — no text content
+              // Capture metadata event (e.g. viewer_action, topic) — no text content
               if (parsed.meta) {
                 if (parsed.meta.viewer_action) {
                   streamViewerAction = parsed.meta.viewer_action;
+                }
+                if (parsed.meta.topic) {
+                  streamTopic = parsed.meta.topic;
+                  onMeta?.({ topic: streamTopic });
                 }
                 continue;
               }
@@ -466,6 +484,7 @@ export async function sendMessageStream(
       answer: fullText,
       mode: params.mode ?? 'study',
       requestId: reqId,
+      ...(streamTopic ? { topic: streamTopic } : {}),
       ...(streamViewerAction ? { viewer_action: streamViewerAction } : {}),
     };
   }
@@ -493,7 +512,9 @@ export async function sendMessageStream(
   onChunk(answerText);
   return { ...data, answer: answerText, requestId: reqId };
   } catch (err) {
-    console.error('[req:%s] sendMessageStream error:', reqId, err);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[req:%s] sendMessageStream error:', reqId, err);
+    }
     throw err;
   }
 }
@@ -802,6 +823,26 @@ export async function getViewerState(): Promise<ViewerStatePayload | null> {
   } catch {
     return null;
   }
+}
+
+// ─── YouTube ingestion ────────────────────────────────────────────────────────
+
+export interface YouTubeIngestResponse {
+  success: boolean;
+  video_id: string;
+  title: string;
+  duration_seconds: number;
+  slides: SlideItem[];
+  transcript_full: string;
+  total_slides: number;
+}
+
+/**
+ * Ingest a YouTube video by URL.
+ * Returns structured slide/transcript data that can be used as AI context.
+ */
+export async function ingestYouTube(url: string): Promise<YouTubeIngestResponse> {
+  return apiPost<YouTubeIngestResponse>('/api/youtube/ingest', { url });
 }
 
 // ─── Research ingestion ───────────────────────────────────────────────────────

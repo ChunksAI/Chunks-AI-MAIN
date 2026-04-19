@@ -5,6 +5,8 @@ export interface SlideItem {
   slide_number?: number;
   content: string[];
   notes?: string;
+  /** Timestamp in seconds (YouTube slides only). */
+  timestamp_seconds?: number;
 }
 
 export interface MessageHistoryItem {
@@ -15,6 +17,7 @@ export interface MessageHistoryItem {
 // ─── Viewer action — emitted by the backend when the AI references a video ───
 
 export type ViewerAction =
+  | { type: 'open_youtube'; video_id: string; start_seconds?: number }
   | { type: 'seek_youtube'; video_id: string; timestamp_seconds: number }
   | { type: 'switch_to_research'; url: string };
 
@@ -85,6 +88,11 @@ export interface SendMessageResponse {
   requestId?: string;
   /** Parsed structured data returned by chunk / master / research modes. */
   structured?: Record<string, unknown> | null;
+  /**
+   * Live web citations returned by the research mode web-search pass.
+   * Each entry is a {url, title} object from Perplexity Sonar.
+   */
+  web_citations?: Array<{ url: string; title?: string }>;
   /**
    * Optional viewer action emitted when the AI references a video timestamp
    * while the viewer_context route is active.  The frontend should seek the

@@ -36,7 +36,7 @@ from services.paev_engine          import EpistemicVerifier
 
 # ── Config ────────────────────────────────────────────────────────────────────
 API_KEY       = os.environ.get('OPENROUTER_API_KEY', '')
-MODEL         = os.environ.get('MODEL', 'openai/gpt-4o-mini')
+MODEL         = os.environ.get('MODEL', 'openai/gpt-4.1-mini')
 R2_BUCKET_URL = os.environ.get('R2_BUCKET_URL', 'https://pub-xxxxx.r2.dev')
 INDEX_DIR     = os.environ.get('PAEV_INDEX_DIR', '/tmp/paev_indexes')
 os.makedirs(INDEX_DIR, exist_ok=True)

@@ -41,7 +41,7 @@ export type ChatAction =
   | { type: 'RECEIVE_MESSAGE'; payload: ChatMessage }
   | { type: 'START_AI_MESSAGE'; payload: ChatMessage }
   | { type: 'APPEND_MESSAGE_CHUNK'; payload: { id: string; chunk: string } }
-  | { type: 'UPDATE_MESSAGE_META'; payload: { id: string; memoryRecall?: string; performanceBars?: PerformanceBar[]; topic?: string } }
+  | { type: 'UPDATE_MESSAGE_META'; payload: { id: string; memoryRecall?: string; performanceBars?: PerformanceBar[]; topic?: string; structured?: Record<string, unknown> | null; webCitations?: Array<{ url: string; title?: string }> } }
   | { type: 'REMOVE_MESSAGE'; payload: string }
   | { type: 'MESSAGE_ERROR'; payload: string }
   | { type: 'HANDLE_CHAT_ERROR'; payload: { messageId: string; error: string; originalQuestion: string } }
@@ -121,6 +121,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 : {}),
               ...(action.payload.topic !== undefined
                 ? { topic: action.payload.topic }
+                : {}),
+              ...(action.payload.structured !== undefined
+                ? { structured: action.payload.structured }
+                : {}),
+              ...(action.payload.webCitations !== undefined
+                ? { webCitations: action.payload.webCitations }
                 : {}),
             }
           : m,

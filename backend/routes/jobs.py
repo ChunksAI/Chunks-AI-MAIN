@@ -82,9 +82,9 @@ def _run_ask_job(data: dict) -> dict:
 
     # ── Model selection via ai_router ─────────────────────────────────────
     if thinking_mode == 'deep':
-        selected_model = os.environ.get('DEEP_MODEL', 'google/gemini-2.5-flash')
+        selected_model = os.environ.get('DEEP_MODEL', 'anthropic/claude-sonnet-4.5')
     elif thinking_mode == 'thinking':
-        selected_model = os.environ.get('THINK_MODEL', 'openai/gpt-oss-20b:nitro')
+        selected_model = os.environ.get('THINK_MODEL', 'anthropic/claude-haiku-4.5')
     elif task_type:
         selected_model = route(task_type, complexity)
     else:

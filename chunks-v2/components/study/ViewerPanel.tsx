@@ -138,6 +138,32 @@ export default function ViewerPanel({ style }: ViewerPanelProps) {
     }
   }, [currentTimestamp, viewerType]);
 
+  // ── Receive playback-position updates from the YouTube IFrame API ──────────
+  // The YouTube embedded player emits `infoDelivery` postMessage events with
+  // `info.currentTime` while the video is playing.  We forward the timestamp
+  // to ViewerContext (SEEK_YOUTUBE) so StudyContext can derive the current
+  // visible transcript segment and ground subsequent /ask requests in it.
+  useEffect(() => {
+    if (viewerType !== 'youtube') return;
+    const handler = (e: MessageEvent) => {
+      if (typeof e.data !== 'string') return;
+      try {
+        const msg = JSON.parse(e.data) as { event?: string; info?: { currentTime?: number } };
+        if (msg.event === 'infoDelivery' && typeof msg.info?.currentTime === 'number') {
+          viewerDispatch({ type: 'SEEK_YOUTUBE', timestamp: msg.info.currentTime });
+        }
+      } catch { /* ignore non-JSON messages from other origins */ }
+    };
+    window.addEventListener('message', handler);
+    // Subscribe to IFrame API events once the iframe is ready
+    if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: 'listening', id: 1 }), '*',
+      );
+    }
+    return () => window.removeEventListener('message', handler);
+  }, [viewerType, viewerDispatch]);
+
   // ── Research metadata fetch ────────────────────────────────────────────────
   const [researchMeta, setResearchMeta] = useState<ResearchIngestResponse | null>(null);
   const [researchLoading, setResearchLoading] = useState(false);

@@ -23,10 +23,35 @@ def _is_rate_limit_disabled() -> bool:
 
 
 def _rate_limit_key(request: StarletteRequest) -> str:
-    """OPTIONS preflight must never be rate-limited."""
+    """
+    Return a rate-limit bucket key for the request.
+
+    - OPTIONS preflights are always exempt (one shared key).
+    - Authenticated requests (Bearer token present) are keyed by token so that
+      each user has an independent bucket.
+    - Anonymous requests fall back to the remote IP address.
+    """
     if request.method == "OPTIONS":
         return "options-preflight-exempt"
+    auth = request.headers.get("authorization", "") or request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        # Key on the token itself — this is opaque to the limiter and gives
+        # every authenticated user their own independent quota.
+        return f"bearer:{auth[7:60]}"  # cap to 60 chars (more than sufficient for a UUID JWT)
     return get_remote_address(request)
+
+
+def _dynamic_ask_limit(request: StarletteRequest) -> str:
+    """
+    Return the per-minute rate limit for the /ask endpoint.
+
+    - Authenticated users (Bearer token present): 60 requests/minute.
+    - Anonymous users (no token): 15 requests/minute.
+    """
+    auth = request.headers.get("authorization", "") or request.headers.get("Authorization", "")
+    if auth.startswith("Bearer "):
+        return "60/minute"
+    return "15/minute"
 
 
 limiter = Limiter(
