@@ -2,8 +2,9 @@
  * lib/youtubeTranscript.ts — YouTube transcript fetcher via InnerTube API.
  *
  * Fetches a video's caption track via YouTube's internal InnerTube API.
- * Can be called from the browser or server-side.  The InnerTube player
- * endpoint and caption XML URLs are CORS-accessible, so no proxy is required.
+ * This module is intended to be called **server-side only** (e.g. from a
+ * Next.js API route) — direct browser calls may fail on certain networks or
+ * regions due to CORS restrictions or YouTube policy changes.
  *
  * Call flow:
  *   fetchYouTubeTranscript(urlOrId)
@@ -115,8 +116,14 @@ const INNERTUBE_CONTEXT = {
 /**
  * Fetch and parse a YouTube video's transcript via the InnerTube API.
  *
+<<<<<<< HEAD
+ * This function should be called **server-side** (e.g. from a Next.js API
+ * route).  Calling it directly in the browser risks CORS failures on
+ * restricted networks, regions, or mobile browsers.
+=======
  * Can be called from the browser or server-side — the InnerTube player
  * endpoint and YouTube caption XML URLs support CORS.
+>>>>>>> origin/main
  *
  * @param urlOrId  A full YouTube URL or a bare 11-character video ID.
  * @returns        The parsed transcript entries along with the video title

@@ -97,16 +97,32 @@ function FindingCard({ text, index }: { text: string; index: number }) {
   );
 }
 
-function SourceChip({ src }: { src: SourceObj }) {
+function SourceChip({
+  src,
+  onCitationClick,
+}: {
+  src: SourceObj;
+  onCitationClick?: (url: string) => void;
+}) {
   const label = [src.title, src.year ? `(${src.year})` : ''].filter(Boolean).join(' ');
   if (src.url) {
+    const handleClick = onCitationClick
+      ? (e: React.MouseEvent) => {
+          // Open in viewer panel; keep middle-click / Ctrl+click as new tab
+          if (!e.ctrlKey && !e.metaKey && !e.shiftKey && e.button === 0) {
+            e.preventDefault();
+            onCitationClick(src.url!);
+          }
+        }
+      : undefined;
     return (
       <a
         href={src.url}
         target="_blank"
         rel="noopener noreferrer"
         className="rc-source-chip rc-source-chip--link"
-        title={[label, src.note].filter(Boolean).join(' — ')}
+        title={[label, src.note, onCitationClick ? 'Click to open in viewer' : ''].filter(Boolean).join(' — ')}
+        onClick={handleClick}
       >
         🔗 {label || src.url}
       </a>
@@ -125,9 +141,11 @@ export interface ResearchCardProps {
   structured: Record<string, unknown>;
   /** Live web citations from the backend's Perplexity Sonar pass (optional). */
   webCitations?: Array<{ url: string; title?: string }>;
+  /** When provided, left-clicking a source chip opens the URL in the viewer panel. */
+  onCitationClick?: (url: string) => void;
 }
 
-function ResearchCard({ structured, webCitations }: ResearchCardProps) {
+function ResearchCard({ structured, webCitations, onCitationClick }: ResearchCardProps) {
   const summary               = str(structured.summary);
   const findings              = toList(structured.key_findings);
   const structuredSources     = toSources(structured.sources);
@@ -180,7 +198,7 @@ function ResearchCard({ structured, webCitations }: ResearchCardProps) {
           <div className="rc-section-body">
             <div className="rc-sources">
               {sources.map((s, i) => (
-                <SourceChip key={i} src={s} />
+                <SourceChip key={i} src={s} onCitationClick={onCitationClick} />
               ))}
             </div>
           </div>

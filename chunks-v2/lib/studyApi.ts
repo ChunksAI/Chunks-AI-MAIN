@@ -24,7 +24,6 @@ import {
   type ViewerStatePayload,
 } from '@/types/api';
 import { getAccessToken, getSupabaseClient } from './supabaseClient';
-import type { FetchTranscriptResult } from './youtubeTranscript';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.chunks.online').replace(/\/$/, '');
 
@@ -841,25 +840,33 @@ export interface YouTubeIngestResponse {
 
 /**
  * Ingest a YouTube video by URL using a two-step approach:
- *   1. GET /api/youtube/transcript (Next.js proxy) fetches the transcript
- *      server-side, avoiding CSP and CORS restrictions on direct YouTube calls.
+ *   1. GET /api/youtube/transcript fetches the transcript via the Next.js
+ *      server-side proxy (InnerTube API, no browser CORS exposure).
  *   2. POST /api/youtube/process sends the pre-fetched entries to the backend
  *      for chunking and persistent caching (Redis + Supabase).
+ *
+ * Using the server proxy avoids CORS failures that can occur when browsers
+ * make direct cross-origin requests to YouTube on certain networks or regions.
  *
  * Returns structured slide/transcript data that can be used as AI context.
  */
 export async function ingestYouTube(url: string): Promise<YouTubeIngestResponse> {
-  const encodedUrl = encodeURIComponent(url);
-  const proxyRes = await fetch(`/api/youtube/transcript?url=${encodedUrl}`);
+  const proxyRes = await fetch(`/api/youtube/transcript?url=${encodeURIComponent(url)}`);
   if (!proxyRes.ok) {
-    let errMsg = `Transcript proxy returned HTTP ${proxyRes.status}`;
+    let message = `Failed to fetch transcript (${proxyRes.status})`;
     try {
-      const body = await proxyRes.json() as { error?: string };
-      if (body.error) errMsg = body.error;
-    } catch { /* ignore parse errors */ }
-    throw new Error(errMsg);
+      const err = (await proxyRes.json()) as { error?: string };
+      message = err.error ?? message;
+    } catch {
+      // ignore JSON parse errors
+    }
+    throw new ApiError(message, proxyRes.status);
   }
-  const { videoId, title, entries } = await proxyRes.json() as FetchTranscriptResult;
+  const { videoId, title, entries } = await proxyRes.json() as {
+    videoId: string;
+    title: string;
+    entries: { text: string; start: number; duration: number }[];
+  };
   return apiPost<YouTubeIngestResponse>('/api/youtube/process', {
     video_id: videoId,
     title,
