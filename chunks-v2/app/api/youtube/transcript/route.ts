@@ -18,7 +18,7 @@
  * browser-supplied entries, preventing cache-poisoning attacks.
  */
 
-import { createHmac } from 'crypto';
+import { createHash, createHmac } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchYouTubeTranscript, YouTubeApiError } from '@/lib/youtubeTranscript';
 
@@ -39,10 +39,10 @@ function _isRateLimited(request: NextRequest): boolean {
     request.headers.get('x-real-ip') ??
     'unknown';
   const auth = request.headers.get('authorization') ?? '';
-  // Use only a short prefix of the auth header as a discriminator — full token
-  // is never stored; collision risk across users is acceptable here because the
-  // sliding-window state is server-local and resets on deploy/restart.
-  const bucketKey = `${ip}:${auth.slice(0, 24)}`;
+  // Hash the full Authorization header so each user gets their own independent
+  // bucket, matching the per-user isolation approach used in the backend limiter.
+  const authDigest = auth ? createHash('sha256').update(auth).digest('hex').slice(0, 16) : '';
+  const bucketKey = `${ip}:${authDigest}`;
   const now = Date.now();
   const cutoff = now - _RL_WINDOW_MS;
   const timestamps = (_rlBuckets.get(bucketKey) ?? []).filter((t) => t > cutoff);
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Emit a structured log entry so log-aggregation pipelines (Datadog,
     // CloudWatch, Loki, etc.) can alert on YouTube API failures.  The
     // `yt_status` field can be used as an alert tag / filter dimension.
-    // When `all_versions_exhausted` is true, check INNERTUBE_CLIENT_VERSIONS
+    // When `is_version_error` is true, check INNERTUBE_CLIENT_VERSIONS
     // in lib/youtubeTranscript.ts — YouTube may have rotated its client API.
     // See docs/YOUTUBE_CLIENT_VERSION_RUNBOOK.md for the update procedure.
     console.error(
