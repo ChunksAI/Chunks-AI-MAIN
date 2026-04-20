@@ -13,6 +13,8 @@ POST /api/youtube/process
 """
 from __future__ import annotations
 
+import hashlib
+import hmac as _hmac_mod
 import logging
 import json
 import os
@@ -21,10 +23,42 @@ import re
 from fastapi import APIRouter, Request, Body
 from fastapi.responses import JSONResponse
 
+from routes.limiter import limiter
+
 logger = logging.getLogger(__name__)
 
 # Optional environment prefix for Redis key namespacing
 _KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
+
+# HMAC secret shared with the Next.js /api/youtube/transcript proxy.
+# When set, every POST to /api/youtube/process must include a valid ``sig``
+# field produced by the proxy to prevent cache-poisoning attacks.
+_TRANSCRIPT_HMAC_SECRET: str = os.environ.get('TRANSCRIPT_HMAC_SECRET', '')
+if not _TRANSCRIPT_HMAC_SECRET:
+    logger.warning(
+        '[youtube/process] TRANSCRIPT_HMAC_SECRET is not set — '
+        'transcript signature verification is DISABLED.  '
+        'Set this environment variable in production to prevent cache poisoning.'
+    )
+
+
+def _verify_transcript_sig(video_id: str, entries: list, sig: str) -> bool:
+    """Return True iff *sig* is a valid HMAC-SHA256 over the transcript content.
+
+    The message is ``"video_id:<entry_texts_joined_by_newline>"`` encoded as
+    UTF-8, matching the computation in ``app/api/youtube/transcript/route.ts``.
+    Uses :func:`hmac.compare_digest` for timing-safe comparison.
+    """
+    text_blob = '\n'.join(
+        (e.get('text', '') if isinstance(e, dict) else getattr(e, 'text', ''))
+        for e in entries
+    )
+    msg = f"{video_id}:{text_blob}".encode('utf-8')
+    expected = _hmac_mod.new(
+        _TRANSCRIPT_HMAC_SECRET.encode(), msg, hashlib.sha256
+    ).hexdigest()
+    return _hmac_mod.compare_digest(expected, sig)
+
 
 # Maximum characters of transcript to return (~120k matches the IndexedDB cap)
 _MAX_TRANSCRIPT_CHARS = 120_000
@@ -33,6 +67,11 @@ _CHUNK_SIZE = 1_200
 
 # Valid YouTube video ID: exactly 11 URL-safe characters
 _VIDEO_ID_RE = re.compile(r'^[A-Za-z0-9_-]{11}$')
+
+# Payload size limits for /api/youtube/process (DoS / OOM prevention)
+_MAX_ENTRIES = 10_000        # maximum number of transcript entries
+_MAX_ENTRY_CHARS = 5_000     # maximum characters in a single entry's text
+_MAX_TOTAL_CHARS = 500_000   # maximum total characters across all entries
 
 
 def _chunk_transcript(entries: list[dict], chunk_size: int = _CHUNK_SIZE) -> list[dict]:
@@ -124,6 +163,7 @@ _YT_TRANSCRIPT_TTL = 3_600  # 1 hour
 
 
 @router_v2.post('/process')
+@limiter.limit("10/minute")
 async def process_youtube(request: Request, body: dict = Body(default={})):
     """POST /api/youtube/process — process a pre-fetched YouTube transcript.
 
@@ -177,6 +217,58 @@ async def process_youtube(request: Request, body: dict = Body(default={})):
                 {'success': False, 'error': 'entries must be an array'},
                 status_code=400,
             )
+
+        # ── Payload size guards (DoS / OOM prevention) ────────────────────────
+        if len(entries) > _MAX_ENTRIES:
+            return JSONResponse(
+                {'success': False, 'error': f'entries exceeds maximum of {_MAX_ENTRIES}'},
+                status_code=400,
+            )
+
+        total_chars = 0
+        for entry in entries:
+            if not isinstance(entry, dict):
+                return JSONResponse(
+                    {'success': False, 'error': 'each entry must be an object'},
+                    status_code=400,
+                )
+            text = entry.get('text')
+            if text is None:
+                text = ''
+            if not isinstance(text, str):
+                return JSONResponse(
+                    {'success': False, 'error': 'each entry text must be a string'},
+                    status_code=400,
+                )
+            if len(text) > _MAX_ENTRY_CHARS:
+                return JSONResponse(
+                    {'success': False, 'error': f'a single entry text exceeds maximum of {_MAX_ENTRY_CHARS} characters'},
+                    status_code=400,
+                )
+            total_chars += len(text)
+
+        if total_chars > _MAX_TOTAL_CHARS:
+            return JSONResponse(
+                {'success': False, 'error': f'total transcript text exceeds maximum of {_MAX_TOTAL_CHARS} characters'},
+                status_code=400,
+            )
+
+        # ── HMAC signature verification (anti-cache-poisoning) ────────────────
+        # The Next.js proxy signs (video_id + ":" + all entry texts) with
+        # TRANSCRIPT_HMAC_SECRET.  Reject any request that cannot prove its
+        # entries actually came from the trusted proxy.
+        if _TRANSCRIPT_HMAC_SECRET:
+            sig = (body.get('sig') or '').strip()
+            if not sig:
+                return JSONResponse(
+                    {'success': False, 'error': 'Missing transcript signature'},
+                    status_code=403,
+                )
+            if not _verify_transcript_sig(video_id, entries, sig):
+                return JSONResponse(
+                    {'success': False, 'error': 'Invalid transcript signature'},
+                    status_code=403,
+                )
 
         redis_key = f"{_KEY_NS_PREFIX}yt_transcript:{video_id}"
 
@@ -266,7 +358,7 @@ async def process_youtube(request: Request, body: dict = Body(default={})):
                         'duration_seconds': duration_seconds,
                         'slides':           slides,
                     },
-                    headers={'Prefer': 'resolution=merge-duplicates'},
+                    headers={'Prefer': 'resolution=ignore-duplicates'},
                 )
             except Exception as exc:
                 logger.debug('[youtube/process] Supabase write error: %s', exc)

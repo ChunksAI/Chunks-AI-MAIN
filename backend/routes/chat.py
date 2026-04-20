@@ -1321,6 +1321,9 @@ async def ask(request: Request, body: AskRequest):
         else:
             if book_id:
                 searcher     = get_book_index(book_id)
+                if searcher is None:
+                    logger.info("Book %s not indexed yet — falling back to empty searcher", book_id)
+                    searcher = TextbookSearch()
             else:
                 logger.info("No bookId provided — answering from general knowledge")
                 searcher = TextbookSearch()

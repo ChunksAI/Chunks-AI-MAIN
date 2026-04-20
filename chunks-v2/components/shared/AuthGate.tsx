@@ -6,7 +6,8 @@
  * The app uses @supabase/supabase-js which stores sessions in localStorage,
  * not cookies, so the Edge middleware cannot verify auth state.
  * This component reads from AuthContext (which bootstraps from Supabase /
- * localStorage on mount) and redirects unauthenticated visitors to /login.
+ * localStorage on mount) and automatically enters guest mode for unauthenticated
+ * visitors — allowing them to use the app immediately without a login redirect.
  *
  * Guest users (user.isGuest === true) are allowed through — they have a non-null
  * user object provided by AuthContext after enterGuestMode() is called.
@@ -18,20 +19,19 @@
  */
 
 import { useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function AuthGate({ children }: { children: React.ReactNode }) {
-  const { user, isLoading } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
+  const { user, isLoading, enterGuestMode } = useAuth();
 
+  // Auto-enter guest mode so users land directly in the app without a
+  // login redirect.  They can sign in via the modal in the sidebar.
   useEffect(() => {
     if (isLoading) return;
     if (!user) {
-      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
+      enterGuestMode();
     }
-  }, [user, isLoading, router, pathname]);
+  }, [user, isLoading, enterGuestMode]);
 
   if (isLoading) {
     return (

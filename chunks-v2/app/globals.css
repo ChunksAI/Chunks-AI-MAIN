@@ -2284,6 +2284,43 @@ body {
   flex-shrink: 0;
 }
 
+/* ─── Login Modal ─────────────────────────────────────────────────────────────── */
+.login-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeOverlay 0.2s ease;
+}
+
+.login-modal-card {
+  position: relative;
+  animation: fadeUp 0.2s ease;
+}
+
+.login-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text3);
+  transition: background var(--transition), color var(--transition);
+}
+.login-modal-close:hover { background: var(--surface2); color: var(--text); }
+
 /* ─── Profile Dropdown ────────────────────────────────────────────────────────── */
 .pd-wrap { position: relative; }
 

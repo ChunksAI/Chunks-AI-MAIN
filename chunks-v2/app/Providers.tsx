@@ -10,6 +10,7 @@ import { FlashcardsProvider } from '@/contexts/FlashcardsContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { ViewerProvider } from '@/contexts/ViewerContext';
 import SettingsModal from '@/components/shared/SettingsModal';
+import LoginModal from '@/components/shared/LoginModal';
 import ToastHost from '@/components/ToastHost';
 import type { ReactNode } from 'react';
 
@@ -58,6 +59,7 @@ export default function Providers({ children }: { children: ReactNode }) {
                     </FlashcardsProvider>
                     {/* Global modals — always available regardless of current route */}
                     <SettingsModal />
+                    <LoginModal />
                   </StudyProvider>
                 </ViewerProvider>
               </NotesProvider>

@@ -1295,6 +1295,14 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       };
       chatDispatch({ type: 'START_AI_MESSAGE', payload: aiMsg });
 
+      // Safety belt: ensure inflightRef is always reset even if sendMessageStream
+      // hangs indefinitely (e.g. the initial fetch never resolves on a bad proxy).
+      // The 90 s inactivity timeout inside sendMessageStream handles the mid-stream
+      // hang case; this 120 s timer is the last-resort unlock so the chat stays usable.
+      const _inflightSafetyTimer = setTimeout(() => {
+        inflightRef.current = false;
+      }, 120_000);
+
       try {
         const res = await sendMessageStream(
           {
@@ -1471,6 +1479,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           err instanceof Error ? err.message : 'Something went wrong. Please try again.';
         chatDispatch({ type: 'HANDLE_CHAT_ERROR', payload: { messageId: aiMsgId, error: message, originalQuestion: text } });
       } finally {
+        clearTimeout(_inflightSafetyTimer);
         inflightRef.current = false;
         currentRequestIdRef.current = null;
         streamIdRef.current = null;

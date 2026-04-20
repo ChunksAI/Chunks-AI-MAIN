@@ -418,10 +418,26 @@ export async function sendMessageStream(
       }
     };
 
+    // Inactivity timeout: reset on every received chunk; if no chunk arrives
+    // within the window, cancel the reader and surface a timeout error.
+    // Prevents the chat from locking up when the server hangs mid-stream.
+    const INACTIVITY_TIMEOUT_MS = 90_000;
+    let inactivityTimer: ReturnType<typeof setTimeout> | null = null;
+    let streamTimedOut = false;
+    const resetInactivityTimer = () => {
+      if (inactivityTimer !== null) clearTimeout(inactivityTimer);
+      inactivityTimer = setTimeout(() => {
+        streamTimedOut = true;
+        reader.cancel();
+      }, INACTIVITY_TIMEOUT_MS);
+    };
+    resetInactivityTimer();
+
     try {
       outer: while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        resetInactivityTimer();
 
         const chunk = decoder.decode(value, { stream: true });
 
@@ -470,10 +486,15 @@ export async function sendMessageStream(
         }
       }
     } finally {
+      if (inactivityTimer !== null) clearTimeout(inactivityTimer);
       reader.releaseLock();
       // Cancel any pending RAF and flush remaining buffered text immediately.
       if (rafId !== null) cancelFlush(rafId);
       if (pendingChunks) onChunk(pendingChunks);
+    }
+
+    if (streamTimedOut) {
+      throw new ApiError('Connection timed out. Please check your network and try again.', 504);
     }
 
     if (!fullText.trim()) {
@@ -862,15 +883,17 @@ export async function ingestYouTube(url: string): Promise<YouTubeIngestResponse>
     }
     throw new ApiError(message, proxyRes.status);
   }
-  const { videoId, title, entries } = await proxyRes.json() as {
+  const { videoId, title, entries, sig } = await proxyRes.json() as {
     videoId: string;
     title: string;
     entries: { text: string; start: number; duration: number }[];
+    sig?: string;
   };
   return apiPost<YouTubeIngestResponse>('/api/youtube/process', {
     video_id: videoId,
     title,
     entries,
+    sig,
   });
 }
 
