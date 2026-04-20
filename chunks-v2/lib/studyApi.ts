@@ -24,7 +24,7 @@ import {
   type ViewerStatePayload,
 } from '@/types/api';
 import { getAccessToken, getSupabaseClient } from './supabaseClient';
-import type { FetchTranscriptResult } from './youtubeTranscript';
+import { fetchYouTubeTranscript } from './youtubeTranscript';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.chunks.online').replace(/\/$/, '');
 
@@ -841,25 +841,15 @@ export interface YouTubeIngestResponse {
 
 /**
  * Ingest a YouTube video by URL using a two-step approach:
- *   1. GET /api/youtube/transcript (Next.js proxy) fetches the transcript
- *      server-side, avoiding CSP and CORS restrictions on direct YouTube calls.
+ *   1. fetchYouTubeTranscript() fetches the transcript directly via the
+ *      InnerTube API (browser-compatible, no proxy required).
  *   2. POST /api/youtube/process sends the pre-fetched entries to the backend
  *      for chunking and persistent caching (Redis + Supabase).
  *
  * Returns structured slide/transcript data that can be used as AI context.
  */
 export async function ingestYouTube(url: string): Promise<YouTubeIngestResponse> {
-  const encodedUrl = encodeURIComponent(url);
-  const proxyRes = await fetch(`/api/youtube/transcript?url=${encodedUrl}`);
-  if (!proxyRes.ok) {
-    let errMsg = `Transcript proxy returned HTTP ${proxyRes.status}`;
-    try {
-      const body = await proxyRes.json() as { error?: string };
-      if (body.error) errMsg = body.error;
-    } catch { /* ignore parse errors */ }
-    throw new Error(errMsg);
-  }
-  const { videoId, title, entries } = await proxyRes.json() as FetchTranscriptResult;
+  const { videoId, title, entries } = await fetchYouTubeTranscript(url);
   return apiPost<YouTubeIngestResponse>('/api/youtube/process', {
     video_id: videoId,
     title,
