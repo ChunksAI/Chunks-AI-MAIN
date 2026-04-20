@@ -1,17 +1,16 @@
 /**
- * lib/youtubeTranscript.ts — Browser-side YouTube transcript fetcher.
+ * lib/youtubeTranscript.ts — YouTube transcript fetcher via InnerTube API.
  *
- * Fetches a video's caption track directly from YouTube without any server
- * involvement.  The browser parses the watch-page HTML to extract the
- * ytInitialPlayerResponse JSON, selects the best available English caption
- * track, fetches the caption XML, and returns an array of timed entries.
+ * Fetches a video's caption track via YouTube's internal InnerTube API.
+ * Can be called from the browser or server-side.  The InnerTube player
+ * endpoint and caption XML URLs are CORS-accessible, so no proxy is required.
  *
  * Call flow:
  *   fetchYouTubeTranscript(urlOrId)
- *     → fetch youtube.com/watch page
- *     → extract ytInitialPlayerResponse
+ *     → POST /youtubei/v1/player (InnerTube, ANDROID client context)
+ *     → extract captionTracks from JSON response
  *     → select best caption track
- *     → fetch caption XML
+ *     → fetch caption XML (baseUrl from player response)
  *     → parse <text> nodes
  *     → return { entries, title, videoId }
  */
@@ -88,18 +87,43 @@ function parseCaptionXml(xml: string): TranscriptEntry[] {
   return entries;
 }
 
+// ─── InnerTube API constants ───────────────────────────────────────────────────
+
+/**
+ * YouTube's internal InnerTube player endpoint.  No API key is required for
+ * public videos when using the ANDROID client context.
+ */
+const INNERTUBE_PLAYER_URL = 'https://www.youtube.com/youtubei/v1/player';
+
+/**
+ * Client context for the InnerTube ANDROID client.  This is the same context
+ * used by yt-dlp and youtube-dl.  It bypasses the HTML watch-page approach that
+ * fails when YouTube returns consent or bot-detection pages to server IPs.
+ */
+const INNERTUBE_CONTEXT = {
+  client: {
+    clientName: 'ANDROID',
+    clientVersion: '17.31.35',
+    androidSdkVersion: 30,
+    hl: 'en',
+    gl: 'US',
+  },
+} as const;
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
- * Fetch and parse a YouTube video's transcript in the browser (or in a
- * Next.js Server Component / Server Action where CORS does not apply).
+ * Fetch and parse a YouTube video's transcript via the InnerTube API.
+ *
+ * Can be called from the browser or server-side — the InnerTube player
+ * endpoint and YouTube caption XML URLs support CORS.
  *
  * @param urlOrId  A full YouTube URL or a bare 11-character video ID.
  * @returns        The parsed transcript entries along with the video title
  *                 and the canonical video ID.
  * @throws         An Error with a descriptive message if the video ID cannot
- *                 be extracted, the player data cannot be parsed, or no
- *                 caption tracks are available.
+ *                 be extracted, the player API call fails, or no caption tracks
+ *                 are available for the video.
  */
 export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTranscriptResult> {
   const videoId = extractVideoId(urlOrId);
@@ -107,39 +131,28 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
     throw new Error('Could not extract a video ID from that URL');
   }
 
-  // ── 1. Fetch the watch page ────────────────────────────────────────────────
-  const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-    headers: { 'Accept-Language': 'en-US,en;q=0.9' },
+  // ── 1. Fetch player data via InnerTube API ─────────────────────────────────
+  // POSTing to the InnerTube player endpoint returns the same structured JSON
+  // that YouTube sends to its Android app — no HTML scraping required.
+  const playerRes = await fetch(INNERTUBE_PLAYER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ context: INNERTUBE_CONTEXT, videoId }),
     signal: AbortSignal.timeout(10_000),
   });
 
-  if (!pageRes.ok) {
-    throw new Error(`YouTube watch page returned HTTP ${pageRes.status}`);
+  if (!playerRes.ok) {
+    throw new Error(`YouTube player API returned HTTP ${playerRes.status}`);
   }
 
-  const html = await pageRes.text();
+  const playerData = await playerRes.json() as Record<string, unknown>;
 
-  // YouTube encodes '<' as '\u003c' in JSON to avoid breaking script tag parsers,
-  // so [^<]* safely and efficiently captures the full JSON object without
-  // crossing into adjacent script tags.
-  const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*(\{[^<]*\});/);
-  if (!playerMatch) {
-    throw new Error('Could not parse YouTube player data — the page format may have changed');
-  }
-
-  let playerData: Record<string, unknown>;
-  try {
-    playerData = JSON.parse(playerMatch[1]) as Record<string, unknown>;
-  } catch {
-    throw new Error('Failed to parse ytInitialPlayerResponse JSON');
-  }
-
-  // ── 3. Extract video title ─────────────────────────────────────────────────
+  // ── 2. Extract video title ─────────────────────────────────────────────────
   const title: string =
     (playerData?.videoDetails as Record<string, unknown>)?.title as string ??
     `YouTube — ${videoId}`;
 
-  // ── 4. Select best caption track ──────────────────────────────────────────
+  // ── 3. Select best caption track ──────────────────────────────────────────
   type CaptionTrack = { baseUrl: string; languageCode: string; kind?: string };
   const captionTracks: CaptionTrack[] =
     (
@@ -157,7 +170,7 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
     captionTracks.find(t => t.languageCode?.startsWith('en')) ??
     captionTracks[0];
 
-  // ── 5. Fetch the caption XML ───────────────────────────────────────────────
+  // ── 4. Fetch the caption XML ───────────────────────────────────────────────
   const xmlRes = await fetch(track.baseUrl, {
     signal: AbortSignal.timeout(10_000),
   });
@@ -168,7 +181,7 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
 
   const xml = await xmlRes.text();
 
-  // ── 6. Parse and return ───────────────────────────────────────────────────
+  // ── 5. Parse and return ───────────────────────────────────────────────────
   const entries = parseCaptionXml(xml);
   return { entries, title, videoId };
 }
