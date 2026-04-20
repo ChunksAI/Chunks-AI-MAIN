@@ -41,7 +41,7 @@ function _isRateLimited(request: NextRequest): boolean {
   const auth = request.headers.get('authorization') ?? '';
   // Hash the full Authorization header so each user gets their own independent
   // bucket, matching the per-user isolation approach used in the backend limiter.
-  const authDigest = auth ? createHash('sha256').update(auth).digest('hex').slice(0, 16) : '';
+  const authDigest = auth ? createHash('sha256').update(auth).digest('hex').slice(0, 32) : '';
   const bucketKey = `${ip}:${authDigest}`;
   const now = Date.now();
   const cutoff = now - _RL_WINDOW_MS;
