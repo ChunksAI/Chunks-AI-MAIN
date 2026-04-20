@@ -719,6 +719,12 @@ app.include_router(upload_router)
 app.include_router(study_router)
 app.include_router(image_router)
 app.include_router(chat_router)
+# Back-compat: also serve the pre-prefix paths (/ask, /ask/cancel) so that
+# any existing clients that call the legacy /ask URL continue to work.
+# FastAPI deduplicates the underlying Starlette routes by (path, method), so
+# the handler function is only registered once per unique path; the second
+# include_router call simply adds the un-prefixed alias paths.
+app.include_router(chat_router, prefix='')
 app.include_router(jobs_router)
 app.include_router(share_router)
 app.include_router(youtube_v2_router)

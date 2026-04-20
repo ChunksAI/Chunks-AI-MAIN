@@ -106,23 +106,28 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Emit a structured log entry so log-aggregation pipelines (Datadog,
     // CloudWatch, Loki, etc.) can alert on YouTube API failures.  The
     // `yt_status` field can be used as an alert tag / filter dimension.
-    // When `is_version_error` is true, check INNERTUBE_CLIENT_VERSIONS
+    // When `is_version_error` is true, check INNERTUBE_CLIENTS
     // in lib/youtubeTranscript.ts — YouTube may have rotated its client API.
     // See docs/YOUTUBE_CLIENT_VERSION_RUNBOOK.md for the update procedure.
     console.error(
       JSON.stringify({
         event: 'youtube_transcript_fetch_failed',
         yt_status: ytStatus ?? null,
-        // true only when every entry in INNERTUBE_CLIENT_VERSIONS was tried and rejected
+        // true only when every entry in INNERTUBE_CLIENTS was tried and rejected
         is_version_error: isYtApiError,
         error: message,
         ts: new Date().toISOString(),
       }),
     );
 
+    // Upstream YouTube failures are a bad-gateway problem (502), not an
+    // internal server error (500).  Using the correct status code prevents
+    // monitoring dashboards from firing "our server is down" alerts when
+    // YouTube is the party at fault.
+    const httpStatus = isYtApiError ? 502 : 500;
     return NextResponse.json(
       { error: message, ...(ytStatus !== undefined && { yt_status: ytStatus }) },
-      { status: 500 },
+      { status: httpStatus },
     );
   }
 }
