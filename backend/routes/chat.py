@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 # Optional environment prefix for Redis key namespacing (e.g. 'prod:' / 'staging:')
 _KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
 
-router = APIRouter(prefix='/api')
+router = APIRouter()
 
 
 def _get_identity_for_user(user_id: str, variants: list[str]) -> str:
