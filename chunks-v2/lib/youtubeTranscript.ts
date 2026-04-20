@@ -116,14 +116,8 @@ const INNERTUBE_CONTEXT = {
 /**
  * Fetch and parse a YouTube video's transcript via the InnerTube API.
  *
-<<<<<<< HEAD
- * This function should be called **server-side** (e.g. from a Next.js API
- * route).  Calling it directly in the browser risks CORS failures on
- * restricted networks, regions, or mobile browsers.
-=======
  * Can be called from the browser or server-side — the InnerTube player
  * endpoint and YouTube caption XML URLs support CORS.
->>>>>>> origin/main
  *
  * @param urlOrId  A full YouTube URL or a bare 11-character video ID.
  * @returns        The parsed transcript entries along with the video title
