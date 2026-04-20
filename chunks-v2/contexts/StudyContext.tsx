@@ -1488,10 +1488,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   // ── ingestYouTube ─────────────────────────────────────────────────────────
   /**
    * Paste-to-ingest handler: called when the user types a YouTube URL into the
-   * chat box.  Calls /api/youtube/ingest, opens the viewer panel, stores the
-   * returned slides as AI context (so subsequent /ask calls are grounded in the
-   * transcript), and fires a success chat bubble.  Never throws — errors are
-   * surfaced as error-state chat bubbles.
+   * chat box.  Calls fetchYouTubeTranscript() in the browser then POSTs entries
+   * to /api/youtube/process, opens the viewer panel, stores the returned slides
+   * as AI context (so subsequent /ask calls are grounded in the transcript), and
+   * fires a success chat bubble.  Never throws — errors are surfaced as
+   * error-state chat bubbles.
    */
   const handleIngestYouTube = useCallback(async (url: string) => {
     const userMsg: ChatMessage = { id: nextMsgId(), role: 'user', text: url };

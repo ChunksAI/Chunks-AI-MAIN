@@ -24,6 +24,7 @@ import {
   type ViewerStatePayload,
 } from '@/types/api';
 import { getAccessToken, getSupabaseClient } from './supabaseClient';
+import { fetchYouTubeTranscript } from './youtubeTranscript';
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.chunks.online').replace(/\/$/, '');
 
@@ -835,14 +836,24 @@ export interface YouTubeIngestResponse {
   slides: SlideItem[];
   transcript_full: string;
   total_slides: number;
+  cached?: boolean;
 }
 
 /**
- * Ingest a YouTube video by URL.
+ * Ingest a YouTube video by URL using the two-step browser-first approach:
+ *   1. Browser fetches the transcript directly from YouTube (no server proxy).
+ *   2. POST /api/youtube/process sends the pre-fetched entries to the backend
+ *      for chunking and persistent caching (Redis + Supabase).
+ *
  * Returns structured slide/transcript data that can be used as AI context.
  */
 export async function ingestYouTube(url: string): Promise<YouTubeIngestResponse> {
-  return apiPost<YouTubeIngestResponse>('/api/youtube/ingest', { url });
+  const { videoId, title, entries } = await fetchYouTubeTranscript(url);
+  return apiPost<YouTubeIngestResponse>('/api/youtube/process', {
+    video_id: videoId,
+    title,
+    entries,
+  });
 }
 
 // ─── Research ingestion ───────────────────────────────────────────────────────
