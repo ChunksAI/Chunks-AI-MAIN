@@ -9,12 +9,36 @@
  *
  * GET /api/youtube/transcript?url=<YouTube URL or 11-char video ID>
  *
- * Response shape: FetchTranscriptResult
- *   { entries: TranscriptEntry[], title: string, videoId: string }
+ * Response shape: FetchTranscriptResult + sig
+ *   { entries: TranscriptEntry[], title: string, videoId: string, sig: string }
+ *
+ * `sig` is an HMAC-SHA256 over "videoId:entry_texts_joined_by_newline" using
+ * the server-only TRANSCRIPT_HMAC_SECRET environment variable.  The backend
+ * /api/youtube/process endpoint verifies this signature before trusting the
+ * browser-supplied entries, preventing cache-poisoning attacks.
  */
 
+import { createHmac } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchYouTubeTranscript } from '@/lib/youtubeTranscript';
+
+const _HMAC_SECRET = process.env.TRANSCRIPT_HMAC_SECRET ?? '';
+
+/**
+ * Compute an HMAC-SHA256 signature over the transcript content.
+ * The message is "videoId:<all entry texts joined by newline>" encoded as UTF-8.
+ * Returns an empty string when the secret is not configured (dev/test mode).
+ */
+function _signTranscript(
+  videoId: string,
+  entries: { text: string; start: number; duration: number }[],
+): string {
+  if (!_HMAC_SECRET) return '';
+  const textBlob = entries.map((e) => e.text).join('\n');
+  return createHmac('sha256', _HMAC_SECRET)
+    .update(`${videoId}:${textBlob}`, 'utf8')
+    .digest('hex');
+}
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   const url = request.nextUrl.searchParams.get('url');
@@ -24,7 +48,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   try {
     const result = await fetchYouTubeTranscript(url);
-    return NextResponse.json(result);
+    const sig = _signTranscript(result.videoId, result.entries);
+    return NextResponse.json({ ...result, sig });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to fetch transcript';
     return NextResponse.json({ error: message }, { status: 500 });

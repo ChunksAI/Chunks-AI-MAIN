@@ -883,15 +883,17 @@ export async function ingestYouTube(url: string): Promise<YouTubeIngestResponse>
     }
     throw new ApiError(message, proxyRes.status);
   }
-  const { videoId, title, entries } = await proxyRes.json() as {
+  const { videoId, title, entries, sig } = await proxyRes.json() as {
     videoId: string;
     title: string;
     entries: { text: string; start: number; duration: number }[];
+    sig?: string;
   };
   return apiPost<YouTubeIngestResponse>('/api/youtube/process', {
     video_id: videoId,
     title,
     entries,
+    sig,
   });
 }
 

@@ -13,6 +13,8 @@ POST /api/youtube/process
 """
 from __future__ import annotations
 
+import hashlib
+import hmac as _hmac_mod
 import logging
 import json
 import os
@@ -25,6 +27,30 @@ logger = logging.getLogger(__name__)
 
 # Optional environment prefix for Redis key namespacing
 _KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
+
+# HMAC secret shared with the Next.js /api/youtube/transcript proxy.
+# When set, every POST to /api/youtube/process must include a valid ``sig``
+# field produced by the proxy to prevent cache-poisoning attacks.
+_TRANSCRIPT_HMAC_SECRET: str = os.environ.get('TRANSCRIPT_HMAC_SECRET', '')
+
+
+def _verify_transcript_sig(video_id: str, entries: list, sig: str) -> bool:
+    """Return True iff *sig* is a valid HMAC-SHA256 over the transcript content.
+
+    The message is ``"video_id:<entry_texts_joined_by_newline>"`` encoded as
+    UTF-8, matching the computation in ``app/api/youtube/transcript/route.ts``.
+    Uses :func:`hmac.compare_digest` for timing-safe comparison.
+    """
+    text_blob = '\n'.join(
+        (e.get('text', '') if isinstance(e, dict) else getattr(e, 'text', ''))
+        for e in entries
+    )
+    msg = f"{video_id}:{text_blob}".encode('utf-8')
+    expected = _hmac_mod.new(
+        _TRANSCRIPT_HMAC_SECRET.encode(), msg, hashlib.sha256
+    ).hexdigest()
+    return _hmac_mod.compare_digest(expected, sig)
+
 
 # Maximum characters of transcript to return (~120k matches the IndexedDB cap)
 _MAX_TRANSCRIPT_CHARS = 120_000
@@ -218,6 +244,23 @@ async def process_youtube(request: Request, body: dict = Body(default={})):
                 status_code=400,
             )
 
+        # ── HMAC signature verification (anti-cache-poisoning) ────────────────
+        # The Next.js proxy signs (video_id + ":" + all entry texts) with
+        # TRANSCRIPT_HMAC_SECRET.  Reject any request that cannot prove its
+        # entries actually came from the trusted proxy.
+        if _TRANSCRIPT_HMAC_SECRET:
+            sig = (body.get('sig') or '').strip()
+            if not sig:
+                return JSONResponse(
+                    {'success': False, 'error': 'Missing transcript signature'},
+                    status_code=403,
+                )
+            if not _verify_transcript_sig(video_id, entries, sig):
+                return JSONResponse(
+                    {'success': False, 'error': 'Invalid transcript signature'},
+                    status_code=403,
+                )
+
         redis_key = f"{_KEY_NS_PREFIX}yt_transcript:{video_id}"
 
         # ── 1. Redis cache ────────────────────────────────────────────────────
@@ -306,7 +349,7 @@ async def process_youtube(request: Request, body: dict = Body(default={})):
                         'duration_seconds': duration_seconds,
                         'slides':           slides,
                     },
-                    headers={'Prefer': 'resolution=merge-duplicates'},
+                    headers={'Prefer': 'resolution=ignore-duplicates'},
                 )
             except Exception as exc:
                 logger.debug('[youtube/process] Supabase write error: %s', exc)
