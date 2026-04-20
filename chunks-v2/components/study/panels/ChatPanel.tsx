@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useStudy } from '@/contexts/StudyContext';
+import { useViewerContext } from '@/contexts/ViewerContext';
 import { useAutoScroll } from '@/hooks/useAutoScroll';
 import type { ChatMessage } from '@/types';
 
@@ -97,6 +98,7 @@ function MessageBubble({
   isStreaming,
   onRetry,
   onCancel,
+  onCitationClick,
 }: {
   msg: ChatMessage;
   onActionClick: (key: string) => void;
@@ -104,6 +106,8 @@ function MessageBubble({
   onRetry?: () => void;
   /** Called when the user clicks Cancel on a non-streaming placeholder bubble. */
   onCancel?: () => void;
+  /** When provided, clicking a source citation chip opens it in the viewer panel. */
+  onCitationClick?: (url: string) => void;
 }) {
   // After 20 s, update the placeholder text to warn that the response is slow.
   // Timer is started only for non-streaming placeholder messages and cleared
@@ -150,7 +154,7 @@ function MessageBubble({
             // Structured modes: render rich cards instead of flat markdown.
             if (msg.structured && typeof msg.structured === 'object') {
               if ('summary' in msg.structured) {
-                return <ResearchCard structured={msg.structured} webCitations={msg.webCitations} />;
+                return <ResearchCard structured={msg.structured} webCitations={msg.webCitations} onCitationClick={onCitationClick} />;
               }
               return <ChunkCard structured={msg.structured} />;
             }
@@ -238,6 +242,7 @@ export default function ChatPanel() {
     handleStop,
     handleIngestYouTube,
   } = useStudy();
+  const { viewerDispatch } = useViewerContext();
   const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, chatMode, pdfBlobUrl, slides, uploadLoading, uploadError } = state;
 
   // Banner is shown when no document is present and not in the middle of uploading
@@ -247,6 +252,57 @@ export default function ChatPanel() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useAutoScroll([messages, chatLoading]);
+
+  // ── YouTube launcher modal ────────────────────────────────────────────────
+  const [ytModalOpen, setYtModalOpen] = useState(false);
+  const [ytModalUrl, setYtModalUrl] = useState('');
+  const [ytModalError, setYtModalError] = useState('');
+  const ytModalInputRef = useRef<HTMLInputElement>(null);
+
+  const openYtModal = () => {
+    setYtModalUrl('');
+    setYtModalError('');
+    setYtModalOpen(true);
+  };
+
+  const handleYtModalSubmit = async () => {
+    const val = ytModalUrl.trim();
+    if (!YT_URL_RE.test(val)) {
+      setYtModalError('Please enter a valid YouTube URL');
+      return;
+    }
+    setYtModalOpen(false);
+    setYtModalUrl('');
+    setYtModalError('');
+    await handleIngestYouTube(val);
+  };
+
+  // ── Research launcher modal ───────────────────────────────────────────────
+  const [researchModalOpen, setResearchModalOpen] = useState(false);
+  const [researchModalUrl, setResearchModalUrl] = useState('');
+  const researchModalInputRef = useRef<HTMLInputElement>(null);
+
+  const openResearchModal = () => {
+    setResearchModalUrl('');
+    setResearchModalOpen(true);
+  };
+
+  const handleResearchModalSubmit = () => {
+    const val = researchModalUrl.trim();
+    if (!val) return;
+    viewerDispatch({ type: 'OPEN_RESEARCH', url: val });
+    setResearchModalOpen(false);
+    setResearchModalUrl('');
+  };
+
+  // ── Citation click handler (opens URL in left viewer panel) ───────────────
+  const handleCitationClick = useCallback((url: string) => {
+    if (YT_URL_RE.test(url)) {
+      void handleIngestYouTube(url);
+    } else {
+      viewerDispatch({ type: 'OPEN_RESEARCH', url });
+    }
+  }, [handleIngestYouTube, viewerDispatch]);
 
   // ── Socratic response tracking ──────────────────────────────────────────────
   // When the last AI message contains the "Check your understanding →" marker
@@ -267,6 +323,19 @@ export default function ChatPanel() {
       try { recognitionRef.current?.stop(); } catch { /* ignore stop() errors on unmount */ }
     };
   }, []);
+
+  // Auto-focus the URL input when either launcher modal opens
+  useEffect(() => {
+    if (ytModalOpen) {
+      setTimeout(() => ytModalInputRef.current?.focus(), 0);
+    }
+  }, [ytModalOpen]);
+
+  useEffect(() => {
+    if (researchModalOpen) {
+      setTimeout(() => researchModalInputRef.current?.focus(), 0);
+    }
+  }, [researchModalOpen]);
 
   const handleVoice = () => {
     if (!('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
@@ -599,6 +668,7 @@ export default function ChatPanel() {
                   void handleSendMessage(msg.originalQuestion!);
                 } : undefined}
                 onCancel={msg.isPlaceholder ? handleStopClick : undefined}
+                onCitationClick={handleCitationClick}
               />
             );
           })}
@@ -702,6 +772,27 @@ export default function ChatPanel() {
               </svg>
               {isListening ? 'Listening…' : 'Voice'}
             </button>
+            <button
+              className="input-tool-btn"
+              onClick={openYtModal}
+              title="Load a YouTube video into the viewer"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#ff0000' }}>
+                <path d="M23.5 6.2a3.01 3.01 0 0 0-2.12-2.13C19.54 3.62 12 3.62 12 3.62s-7.54 0-9.38.45A3.01 3.01 0 0 0 .5 6.2C.06 8.06 0 12 0 12s.06 3.94.5 5.8a3.01 3.01 0 0 0 2.12 2.13C4.46 20.38 12 20.38 12 20.38s7.54 0 9.38-.45a3.01 3.01 0 0 0 2.12-2.13C23.94 15.94 24 12 24 12s-.06-3.94-.5-5.8zM9.75 15.5V8.5L16 12l-6.25 3.5z"/>
+              </svg>
+              YouTube
+            </button>
+            <button
+              className="input-tool-btn"
+              onClick={openResearchModal}
+              title="Load a research paper or URL into the viewer"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+              </svg>
+              Research
+            </button>
             <div className="mode-dropdown-wrap" ref={modeWrapRef}>
               <button
                 ref={modeBtnRef}
@@ -760,6 +851,96 @@ export default function ChatPanel() {
         </div>
         </div>
       </div>
+
+      {/* ── YouTube launcher modal ── */}
+      {ytModalOpen && ReactDOM.createPortal(
+        <div
+          className="viewer-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Load YouTube video"
+          onClick={(e) => { if (e.target === e.currentTarget) setYtModalOpen(false); }}
+        >
+          <div className="viewer-modal">
+            <div className="viewer-modal-header">
+              <span className="viewer-modal-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ color: '#ff0000', marginRight: 6 }}>
+                  <path d="M23.5 6.2a3.01 3.01 0 0 0-2.12-2.13C19.54 3.62 12 3.62 12 3.62s-7.54 0-9.38.45A3.01 3.01 0 0 0 .5 6.2C.06 8.06 0 12 0 12s.06 3.94.5 5.8a3.01 3.01 0 0 0 2.12 2.13C4.46 20.38 12 20.38 12 20.38s7.54 0 9.38-.45a3.01 3.01 0 0 0 2.12-2.13C23.94 15.94 24 12 24 12s-.06-3.94-.5-5.8zM9.75 15.5V8.5L16 12l-6.25 3.5z"/>
+                </svg>
+                Load YouTube Video
+              </span>
+              <button
+                className="viewer-modal-close"
+                onClick={() => setYtModalOpen(false)}
+                aria-label="Close"
+              >✕</button>
+            </div>
+            <p className="viewer-modal-hint">Paste a YouTube URL to load the video and transcript into the viewer panel.</p>
+            <input
+              ref={ytModalInputRef}
+              className="viewer-modal-input"
+              type="url"
+              placeholder="https://www.youtube.com/watch?v=..."
+              value={ytModalUrl}
+              onChange={(e) => { setYtModalUrl(e.target.value); setYtModalError(''); }}
+              onKeyDown={(e) => { if (e.key === 'Enter') void handleYtModalSubmit(); if (e.key === 'Escape') setYtModalOpen(false); }}
+            />
+            {ytModalError && <p className="viewer-modal-error">{ytModalError}</p>}
+            <div className="viewer-modal-actions">
+              <button className="viewer-modal-btn viewer-modal-btn--cancel" onClick={() => setYtModalOpen(false)}>Cancel</button>
+              <button className="viewer-modal-btn viewer-modal-btn--submit" onClick={() => void handleYtModalSubmit()}>Load Video</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* ── Research launcher modal ── */}
+      {researchModalOpen && ReactDOM.createPortal(
+        <div
+          className="viewer-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Load research paper"
+          onClick={(e) => { if (e.target === e.currentTarget) setResearchModalOpen(false); }}
+        >
+          <div className="viewer-modal">
+            <div className="viewer-modal-header">
+              <span className="viewer-modal-title">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: 6 }}>
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                </svg>
+                Load Research Paper
+              </span>
+              <button
+                className="viewer-modal-close"
+                onClick={() => setResearchModalOpen(false)}
+                aria-label="Close"
+              >✕</button>
+            </div>
+            <p className="viewer-modal-hint">Paste an arXiv, DOI, or any research paper URL to open it in the viewer panel.</p>
+            <input
+              ref={researchModalInputRef}
+              className="viewer-modal-input"
+              type="url"
+              placeholder="https://arxiv.org/abs/... or DOI URL"
+              value={researchModalUrl}
+              onChange={(e) => setResearchModalUrl(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleResearchModalSubmit(); if (e.key === 'Escape') setResearchModalOpen(false); }}
+            />
+            <div className="viewer-modal-actions">
+              <button className="viewer-modal-btn viewer-modal-btn--cancel" onClick={() => setResearchModalOpen(false)}>Cancel</button>
+              <button
+                className="viewer-modal-btn viewer-modal-btn--submit"
+                onClick={handleResearchModalSubmit}
+                disabled={!researchModalUrl.trim()}
+              >Open in Viewer</button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
