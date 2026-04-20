@@ -100,12 +100,19 @@ const INNERTUBE_PLAYER_URL = 'https://www.youtube.com/youtubei/v1/player';
  * Client context for the InnerTube ANDROID client.  This is the same context
  * used by yt-dlp and youtube-dl.  It bypasses the HTML watch-page approach that
  * fails when YouTube returns consent or bot-detection pages to server IPs.
+ *
+ * The clientVersion must be kept reasonably current — YouTube returns HTTP 400
+ * for clients it considers too old.  Update this value when the InnerTube API
+ * starts rejecting requests.
  */
+const INNERTUBE_CLIENT_VERSION = '19.09.37';
+
 const INNERTUBE_CONTEXT = {
   client: {
     clientName: 'ANDROID',
-    clientVersion: '17.31.35',
+    clientVersion: INNERTUBE_CLIENT_VERSION,
     androidSdkVersion: 30,
+    userAgent: `com.google.android.youtube/${INNERTUBE_CLIENT_VERSION} (Linux; U; Android 11) gzip`,
     hl: 'en',
     gl: 'US',
   },
@@ -116,14 +123,9 @@ const INNERTUBE_CONTEXT = {
 /**
  * Fetch and parse a YouTube video's transcript via the InnerTube API.
  *
-<<<<<<< HEAD
  * This function should be called **server-side** (e.g. from a Next.js API
  * route).  Calling it directly in the browser risks CORS failures on
  * restricted networks, regions, or mobile browsers.
-=======
- * Can be called from the browser or server-side — the InnerTube player
- * endpoint and YouTube caption XML URLs support CORS.
->>>>>>> origin/main
  *
  * @param urlOrId  A full YouTube URL or a bare 11-character video ID.
  * @returns        The parsed transcript entries along with the video title
@@ -143,7 +145,10 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
   // that YouTube sends to its Android app — no HTML scraping required.
   const playerRes = await fetch(INNERTUBE_PLAYER_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'User-Agent': INNERTUBE_CONTEXT.client.userAgent,
+    },
     body: JSON.stringify({ context: INNERTUBE_CONTEXT, videoId }),
     signal: AbortSignal.timeout(10_000),
   });
