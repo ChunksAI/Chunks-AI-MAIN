@@ -22,6 +22,39 @@ import { createHmac } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchYouTubeTranscript, YouTubeApiError } from '@/lib/youtubeTranscript';
 
+// ---------------------------------------------------------------------------
+// Lightweight in-memory sliding-window rate limiter
+// Keyed by (IP + first 16 chars of Authorization header hash) so every caller
+// gets an independent bucket without storing the raw token.
+// Limit: 10 requests per 60-second window.
+// ---------------------------------------------------------------------------
+const _RL_MAX = 10;
+const _RL_WINDOW_MS = 60_000;
+// Map<bucketKey, timestamps[]>
+const _rlBuckets = new Map<string, number[]>();
+
+function _isRateLimited(request: NextRequest): boolean {
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
+    request.headers.get('x-real-ip') ??
+    'unknown';
+  const auth = request.headers.get('authorization') ?? '';
+  // Use only a short prefix of the auth header as a discriminator — full token
+  // is never stored; collision risk across users is acceptable here because the
+  // sliding-window state is server-local and resets on deploy/restart.
+  const bucketKey = `${ip}:${auth.slice(0, 24)}`;
+  const now = Date.now();
+  const cutoff = now - _RL_WINDOW_MS;
+  const timestamps = (_rlBuckets.get(bucketKey) ?? []).filter((t) => t > cutoff);
+  if (timestamps.length >= _RL_MAX) {
+    _rlBuckets.set(bucketKey, timestamps);
+    return true;
+  }
+  timestamps.push(now);
+  _rlBuckets.set(bucketKey, timestamps);
+  return false;
+}
+
 const _HMAC_SECRET = process.env.TRANSCRIPT_HMAC_SECRET ?? '';
 if (!_HMAC_SECRET) {
   // Log once at module load time so the missing secret is visible in server logs.
@@ -49,6 +82,13 @@ function _signTranscript(
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
+  if (_isRateLimited(request)) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please wait a moment before trying again.' },
+      { status: 429 },
+    );
+  }
+
   const url = request.nextUrl.searchParams.get('url');
   if (!url) {
     return NextResponse.json({ error: 'Missing required parameter: url' }, { status: 400 });

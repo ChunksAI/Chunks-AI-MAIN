@@ -23,6 +23,8 @@ import re
 from fastapi import APIRouter, Request, Body
 from fastapi.responses import JSONResponse
 
+from routes.limiter import limiter
+
 logger = logging.getLogger(__name__)
 
 # Optional environment prefix for Redis key namespacing
@@ -161,6 +163,7 @@ _YT_TRANSCRIPT_TTL = 3_600  # 1 hour
 
 
 @router_v2.post('/process')
+@limiter.limit("10/minute")
 async def process_youtube(request: Request, body: dict = Body(default={})):
     """POST /api/youtube/process — process a pre-fetched YouTube transcript.
 
