@@ -32,6 +32,12 @@ _KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
 # When set, every POST to /api/youtube/process must include a valid ``sig``
 # field produced by the proxy to prevent cache-poisoning attacks.
 _TRANSCRIPT_HMAC_SECRET: str = os.environ.get('TRANSCRIPT_HMAC_SECRET', '')
+if not _TRANSCRIPT_HMAC_SECRET:
+    logger.warning(
+        '[youtube/process] TRANSCRIPT_HMAC_SECRET is not set — '
+        'transcript signature verification is DISABLED.  '
+        'Set this environment variable in production to prevent cache poisoning.'
+    )
 
 
 def _verify_transcript_sig(video_id: str, entries: list, sig: str) -> bool:

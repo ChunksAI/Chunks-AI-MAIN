@@ -23,6 +23,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchYouTubeTranscript } from '@/lib/youtubeTranscript';
 
 const _HMAC_SECRET = process.env.TRANSCRIPT_HMAC_SECRET ?? '';
+if (!_HMAC_SECRET) {
+  // Log once at module load time so the missing secret is visible in server logs.
+  console.warn(
+    '[youtube/transcript] TRANSCRIPT_HMAC_SECRET is not set — ' +
+      'transcript signature verification is DISABLED. ' +
+      'Set this environment variable in production to prevent cache poisoning.',
+  );
+}
 
 /**
  * Compute an HMAC-SHA256 signature over the transcript content.
