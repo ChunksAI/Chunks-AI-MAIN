@@ -850,7 +850,7 @@ export interface YouTubeIngestResponse {
  */
 export async function ingestYouTube(url: string): Promise<YouTubeIngestResponse> {
   const encodedUrl = encodeURIComponent(url);
-  const proxyRes = await fetch(`/api/youtube/transcript?videoId=${encodedUrl}`);
+  const proxyRes = await fetch(`/api/youtube/transcript?url=${encodedUrl}`);
   if (!proxyRes.ok) {
     let errMsg = `Transcript proxy returned HTTP ${proxyRes.status}`;
     try {
