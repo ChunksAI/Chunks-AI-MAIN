@@ -718,6 +718,10 @@ app.include_router(flashcards_router)
 app.include_router(upload_router)
 app.include_router(study_router)
 app.include_router(image_router)
+app.include_router(chat_router, prefix='/api')  # canonical: /api/ask, /api/ask/cancel
+# Back-compat: also serve the legacy /ask and /ask/cancel paths so that existing
+# clients (and backend tests) that call the un-prefixed URLs continue to work.
+# The router has no prefix of its own (APIRouter()), so this include produces /ask.
 app.include_router(chat_router)
 app.include_router(jobs_router)
 app.include_router(share_router)

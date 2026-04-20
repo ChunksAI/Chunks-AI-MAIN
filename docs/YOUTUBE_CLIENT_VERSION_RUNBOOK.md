@@ -1,8 +1,8 @@
 # YouTube InnerTube Client Version — 5-Minute Runbook
 
-YouTube's InnerTube API silently rejects stale ANDROID client versions with
+YouTube's InnerTube API silently rejects stale client versions with
 HTTP **400** or **403**.  When this happens every YouTube ingestion in the
-product fails until the version list is updated.
+product fails until the client list is updated.
 
 ---
 
@@ -27,26 +27,37 @@ Create an alert on **`event = youtube_transcript_fetch_failed` AND
 `is_version_error = true`** in your log pipeline (Datadog, CloudWatch
 Logs Insights, Loki, etc.).
 
+When `is_version_error` is `true` and `yt_status` is `400` or `403`, the
+IOS primary client version needs to be bumped (or a new primary added).
+
 ### Manual check
 
 ```bash
-# Quick smoke-test from a server that can reach YouTube:
+# Quick smoke-test from a server that can reach YouTube (IOS client):
 curl -s -o /dev/null -w "%{http_code}" \
   -X POST https://www.youtube.com/youtubei/v1/player \
   -H 'Content-Type: application/json' \
+  -H 'X-YouTube-Client-Name: 5' \
+  -H 'X-YouTube-Client-Version: 19.45.4' \
+  -H 'User-Agent: com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X)' \
   -d '{
     "context": {
       "client": {
-        "clientName": "ANDROID",
-        "clientVersion": "19.09.37",
-        "androidSdkVersion": 30,
+        "clientName": "IOS",
+        "clientVersion": "19.45.4",
+        "deviceMake": "Apple",
+        "deviceModel": "iPhone16,2",
+        "osName": "iPhone",
+        "osVersion": "17.5.1.21F90",
         "hl": "en",
         "gl": "US"
       }
     },
-    "videoId": "dQw4w9WgXcQ"
+    "videoId": "dQw4w9WgXcQ",
+    "contentCheckOk": true,
+    "racyCheckOk": true
   }'
-# Expected: 200.  If you see 400 / 403, the version is stale.
+# Expected: 200.  If you see 400 / 403, the IOS version is stale.
 ```
 
 ---
@@ -58,33 +69,39 @@ curl -s -o /dev/null -w "%{http_code}" \
 Check the current accepted versions from one of these sources:
 
 - **yt-dlp source**: <https://github.com/yt-dlp/yt-dlp/blob/master/yt_dlp/extractor/youtube.py>
-  (search for `_ANDROID_CLIENT` or `ANDROID_CLIENT_VERSION`)
+  (search for `_IOS_CLIENT` or `IOS_CLIENT_VERSION`)
 - **youtube-dl**: <https://github.com/ytdl-org/youtube-dl/blob/master/youtube_dl/extractor/youtube.py>
 
-The version string looks like `'19.09.37'` (major.minor.patch).
+The version string looks like `'19.45.4'` (major.minor.patch).
 
-### Step 2 — Update the version array
+### Step 2 — Update the client array
 
 Edit `chunks-v2/lib/youtubeTranscript.ts` — the constant is near the top of
 the "InnerTube API constants" section:
 
 ```typescript
-export const INNERTUBE_CLIENT_VERSIONS: readonly string[] = [
-  '19.09.37',   // ← prepend the NEW version here
-  '17.31.35',   // keep old versions as fallback for ~30 days, then remove
+export const INNERTUBE_CLIENTS: readonly { ... }[] = [
+  {
+    clientName:    'IOS',
+    clientNameId:  5,
+    clientVersion: '19.45.4',   // ← update to the NEW version here
+    userAgent:     'com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X)',
+    extra: { deviceMake: 'Apple', deviceModel: 'iPhone16,2', osName: 'iPhone', osVersion: '17.5.1.21F90' },
+  },
+  // ANDROID kept as fallback — update clientVersion and userAgent similarly if needed
+  ...
 ];
 ```
 
-**Always prepend** the new version so it is tried first.  Keep at least one
-older version as a fallback.  Remove versions that have been consistently
-failing for more than 30 days.
+**Always keep at least two entries** (IOS primary + ANDROID fallback).
+Update both `clientVersion` and the matching `userAgent` string together.
 
 ### Step 3 — Deploy
 
 ```bash
 # No backend restart needed — this is a Next.js client library change.
 git add chunks-v2/lib/youtubeTranscript.ts
-git commit -m "fix: bump InnerTube clientVersion to <new version>"
+git commit -m "fix: bump InnerTube IOS clientVersion to <new version>"
 git push
 # Trigger your normal frontend deploy pipeline.
 ```
@@ -99,10 +116,12 @@ YouTube ingestion via the product UI and confirm the viewer opens successfully.
 ## Why this happens
 
 YouTube's InnerTube API is internal.  Google occasionally rotates the set of
-ANDROID client versions it accepts without any public announcement.  The
-`INNERTUBE_CLIENT_VERSIONS` array in `youtubeTranscript.ts` is the single
-source of truth; keeping multiple versions means a silent rotation only causes
-a brief bump (one extra HTTP round-trip) rather than a total outage.
+client versions it accepts without any public announcement.  The IOS client
+is preferred as the primary because it does not currently require a
+`poToken`/`visitorData` on public videos.  The `INNERTUBE_CLIENTS` array in
+`youtubeTranscript.ts` is the single source of truth; keeping multiple clients
+means a silent rotation only causes a brief bump (one extra HTTP round-trip)
+rather than a total outage.
 
 ---
 
@@ -110,6 +129,6 @@ a brief bump (one extra HTTP round-trip) rather than a total outage.
 
 | File | Purpose |
 |---|---|
-| `chunks-v2/lib/youtubeTranscript.ts` | `INNERTUBE_CLIENT_VERSIONS` array + retry logic |
-| `chunks-v2/app/api/youtube/transcript/route.ts` | Next.js proxy; emits structured error logs |
+| `chunks-v2/lib/youtubeTranscript.ts` | `INNERTUBE_CLIENTS` array + retry logic |
+| `chunks-v2/app/api/youtube/transcript/route.ts` | Next.js proxy; emits structured error logs; returns 502 on YouTube API errors |
 | `backend/routes/youtube.py` | Chunking + caching; does not call YouTube |

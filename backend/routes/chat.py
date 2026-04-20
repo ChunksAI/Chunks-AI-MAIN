@@ -1477,22 +1477,27 @@ async def ask(request: Request, body: AskRequest):
                         f'{_KEY_NS_PREFIX}yt_transcript:{_vs["video_id"]}'
                     ) if ctx.redis else None
                     if _yt_raw:
-                        _slides = json.loads(_yt_raw)
-                        # Concatenate all slide texts; cap at ~8 000 chars
-                        # (≈2 000 tokens) to avoid bloating the prompt on
-                        # long videos while still covering the full topic.
-                        _all_text = ' '.join(
-                            ' '.join(s.get('content', [])) for s in _slides
-                        )[:8000]
-                        _ts = _vs.get('current_timestamp_seconds')
-                        if _ts is not None:
-                            _viewer_context_str = (
-                                f'[VIDEO TRANSCRIPT — viewer at {int(_ts)}s]\n{_all_text}'
-                            )
-                        else:
-                            _viewer_context_str = f'[VIDEO TRANSCRIPT]\n{_all_text}'
+                        try:
+                            _slides = json.loads(_yt_raw)
+                        except (TypeError, ValueError):
+                            _slides = None
+                        if isinstance(_slides, list):
+                            # Concatenate all slide texts; cap at ~8 000 chars
+                            # (≈2 000 tokens) to avoid bloating the prompt on
+                            # long videos while still covering the full topic.
+                            _all_text = ' '.join(
+                                ' '.join(s.get('content', [])) for s in _slides
+                            )[:8000]
+                            _ts = _vs.get('current_timestamp_seconds')
+                            if _ts is not None:
+                                _viewer_context_str = (
+                                    f'[VIDEO TRANSCRIPT — viewer at {int(_ts)}s]\n{_all_text}'
+                                )
+                            else:
+                                _viewer_context_str = f'[VIDEO TRANSCRIPT]\n{_all_text}'
                 except Exception as _yt_err:
                     logger.debug('[ask] yt transcript fallback failed: %s', _yt_err)
+                    _viewer_context_str = _viewer_context_str or ''
 
             if _visible and not _viewer_context_str:
                 _viewer_context_str = f'[VIEWER CONTEXT]\n{_visible}'
@@ -2019,13 +2024,15 @@ Keep the summary focused, clear, and easy to review before an exam."""
 
     except Exception as e:
         import traceback
+        req_id = request.headers.get('X-Request-Id', '-')
         logger.error(
-            "[/ask] UNHANDLED EXCEPTION type=%s msg=%s\ntraceback=%s",
-            type(e).__name__, str(e), traceback.format_exc()
+            "[/ask] UNHANDLED EXCEPTION req_id=%s type=%s msg=%s\ntraceback=%s",
+            req_id, type(e).__name__, str(e), traceback.format_exc()
         )
         return JSONResponse({
             'success': False,
             'error': 'An unexpected error occurred. Please try again.',
+            'request_id': req_id,
         }, status_code=500)
 
 

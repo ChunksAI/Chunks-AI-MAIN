@@ -97,25 +97,55 @@ function parseCaptionXml(xml: string): TranscriptEntry[] {
 const INNERTUBE_PLAYER_URL = 'https://www.youtube.com/youtubei/v1/player';
 
 /**
- * InnerTube ANDROID client versions tried in order.
+ * InnerTube client descriptors tried in order.
  *
- * YouTube silently rejects stale client versions with HTTP 400 or 403.
- * Keeping multiple versions lets the library automatically fall back while the
- * primary entry is updated.
+ * YouTube silently rejects stale client versions with HTTP 400 or 403 and
+ * increasingly requires a `poToken`/`visitorData` for the ANDROID client on
+ * many videos.  The IOS client currently works without a poToken and is
+ * therefore the preferred primary.  ANDROID is kept as a fallback.
  *
- * To bump the version (see docs/YOUTUBE_CLIENT_VERSION_RUNBOOK.md):
- *   1. Prepend the new version string to this array.
- *   2. Remove versions that have been consistently rejected for > 30 days.
- *   3. Update the matching User-Agent string if it embeds a version number.
+ * Both `X-YouTube-Client-Name` and `X-YouTube-Client-Version` request headers
+ * are required by the current InnerTube backend in addition to the matching
+ * fields in the JSON body.
+ *
+ * To update versions (see docs/YOUTUBE_CLIENT_VERSION_RUNBOOK.md):
+ *   1. Prepend a new entry to this array (or update an existing version).
+ *   2. Remove entries that have been consistently rejected for > 30 days.
+ *   3. Keep `clientVersion` and `userAgent` version strings in sync.
  */
-export const INNERTUBE_CLIENT_VERSIONS: readonly string[] = [
-  '19.09.37',
-  '17.31.35',
+export const INNERTUBE_CLIENTS: readonly {
+  clientName: 'IOS' | 'ANDROID' | 'WEB';
+  /**
+   * Numeric client-name sent as the X-YouTube-Client-Name header.
+   * IOS=5, ANDROID=3, WEB=1.  WEB is included in the type union for
+   * forward-compatibility but no WEB entry is currently defined because WEB
+   * requires a Proof-of-Origin token (poToken) for most videos.
+   */
+  clientNameId: 5 | 3 | 1;
+  clientVersion: string;
+  userAgent: string;
+  /** Extra fields merged into the InnerTube context.client object. */
+  extra?: Record<string, unknown>;
+}[] = [
+  {
+    clientName:    'IOS',
+    clientNameId:  5,
+    clientVersion: '19.45.4',
+    userAgent:     'com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 17_5_1 like Mac OS X)',
+    extra: { deviceMake: 'Apple', deviceModel: 'iPhone16,2', osName: 'iPhone', osVersion: '17.5.1.21F90' },
+  },
+  {
+    clientName:    'ANDROID',
+    clientNameId:  3,
+    clientVersion: '19.44.38',
+    userAgent:     'com.google.android.youtube/19.44.38 (Linux; U; Android 14) gzip',
+    extra: { androidSdkVersion: 34, osName: 'Android', osVersion: '14' },
+  },
 ];
 
 /**
  * A custom error thrown when the InnerTube player API rejects every client
- * version in {@link INNERTUBE_CLIENT_VERSIONS}.  The `ytStatus` property
+ * version in {@link INNERTUBE_CLIENTS}.  The `ytStatus` property
  * carries the last HTTP status code returned by YouTube so callers can log
  * structured alerts (e.g. tag the status code in Sentry / a log pipeline).
  */
@@ -128,20 +158,6 @@ export class YouTubeApiError extends Error {
     this.name = 'YouTubeApiError';
     this.ytStatus = ytStatus;
   }
-}
-
-/** Build an InnerTube ANDROID client context object for the given version. */
-function _buildInnerTubeContext(clientVersion: string) {
-  return {
-    client: {
-      clientName: 'ANDROID',
-      clientVersion,
-      androidSdkVersion: 30,
-      userAgent: `com.google.android.youtube/${clientVersion} (Linux; U; Android 11) gzip`,
-      hl: 'en',
-      gl: 'US',
-    },
-  };
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -166,24 +182,43 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
     throw new Error('Could not extract a video ID from that URL');
   }
 
-  // ── 1. Fetch player data via InnerTube API (with client-version rotation) ───
+  // ── 1. Fetch player data via InnerTube API (with client rotation) ────────────
   //
   // YouTube silently rotates the set of accepted client versions.  On HTTP 400
-  // or 403 we try the next version in INNERTUBE_CLIENT_VERSIONS.  Any other
-  // non-2xx status code is treated as a non-version-related failure and the
-  // loop is broken immediately.
+  // or 403 we try the next entry in INNERTUBE_CLIENTS.  Any other non-2xx
+  // status code is treated as a non-version-related failure and the loop is
+  // broken immediately.
   let playerData: Record<string, unknown> | null = null;
   let lastStatus = 0;
 
-  for (const version of INNERTUBE_CLIENT_VERSIONS) {
-    const context = _buildInnerTubeContext(version);
+  for (const c of INNERTUBE_CLIENTS) {
     const playerRes = await fetch(INNERTUBE_PLAYER_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': context.client.userAgent,
+        'Content-Type':             'application/json',
+        'User-Agent':               c.userAgent,
+        // X-YouTube-Client-Name and X-YouTube-Client-Version are required by
+        // the current InnerTube backend in addition to the JSON body fields.
+        'X-YouTube-Client-Name':    String(c.clientNameId),
+        'X-YouTube-Client-Version': c.clientVersion,
+        'Origin':                   'https://www.youtube.com',
       },
-      body: JSON.stringify({ context, videoId }),
+      body: JSON.stringify({
+        context: {
+          client: {
+            clientName:    c.clientName,
+            clientVersion: c.clientVersion,
+            hl: 'en',
+            gl: 'US',
+            ...c.extra,
+          },
+        },
+        videoId,
+        // Unlocks captions for age-gated / region-restricted videos on
+        // mobile clients (IOS and ANDROID).
+        contentCheckOk: true,
+        racyCheckOk:    true,
+      }),
       signal: AbortSignal.timeout(10_000),
     });
 
@@ -200,7 +235,7 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
 
   if (!playerData) {
     throw new YouTubeApiError(
-      `YouTube player API returned HTTP ${lastStatus} for all ${INNERTUBE_CLIENT_VERSIONS.length} client version(s) tried`,
+      `YouTube player API returned HTTP ${lastStatus} for all ${INNERTUBE_CLIENTS.length} client version(s) tried`,
       lastStatus,
     );
   }
