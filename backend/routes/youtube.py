@@ -34,6 +34,11 @@ _CHUNK_SIZE = 1_200
 # Valid YouTube video ID: exactly 11 URL-safe characters
 _VIDEO_ID_RE = re.compile(r'^[A-Za-z0-9_-]{11}$')
 
+# Payload size limits for /api/youtube/process (DoS / OOM prevention)
+_MAX_ENTRIES = 10_000        # maximum number of transcript entries
+_MAX_ENTRY_CHARS = 5_000     # maximum characters in a single entry's text
+_MAX_TOTAL_CHARS = 500_000   # maximum total characters across all entries
+
 
 def _chunk_transcript(entries: list[dict], chunk_size: int = _CHUNK_SIZE) -> list[dict]:
     """
@@ -175,6 +180,34 @@ async def process_youtube(request: Request, body: dict = Body(default={})):
         if not isinstance(entries, list):
             return JSONResponse(
                 {'success': False, 'error': 'entries must be an array'},
+                status_code=400,
+            )
+
+        # ── Payload size guards (DoS / OOM prevention) ────────────────────────
+        if len(entries) > _MAX_ENTRIES:
+            return JSONResponse(
+                {'success': False, 'error': f'entries exceeds maximum of {_MAX_ENTRIES}'},
+                status_code=400,
+            )
+
+        total_chars = 0
+        for entry in entries:
+            if not isinstance(entry, dict):
+                return JSONResponse(
+                    {'success': False, 'error': 'each entry must be an object'},
+                    status_code=400,
+                )
+            text = entry.get('text') or ''
+            if len(text) > _MAX_ENTRY_CHARS:
+                return JSONResponse(
+                    {'success': False, 'error': f'a single entry text exceeds maximum of {_MAX_ENTRY_CHARS} characters'},
+                    status_code=400,
+                )
+            total_chars += len(text)
+
+        if total_chars > _MAX_TOTAL_CHARS:
+            return JSONResponse(
+                {'success': False, 'error': f'total transcript text exceeds maximum of {_MAX_TOTAL_CHARS} characters'},
                 status_code=400,
             )
 
