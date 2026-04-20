@@ -197,7 +197,14 @@ async def process_youtube(request: Request, body: dict = Body(default={})):
                     {'success': False, 'error': 'each entry must be an object'},
                     status_code=400,
                 )
-            text = entry.get('text') or ''
+            text = entry.get('text')
+            if text is None:
+                text = ''
+            if not isinstance(text, str):
+                return JSONResponse(
+                    {'success': False, 'error': 'each entry text must be a string'},
+                    status_code=400,
+                )
             if len(text) > _MAX_ENTRY_CHARS:
                 return JSONResponse(
                     {'success': False, 'error': f'a single entry text exceeds maximum of {_MAX_ENTRY_CHARS} characters'},

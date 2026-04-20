@@ -498,6 +498,40 @@ async def request_id_middleware(request: Request, call_next):
     return response
 
 
+# ── Request body size cap ─────────────────────────────────────────────────────
+# Rejects requests whose Content-Length header exceeds the per-path limit before
+# the body is read, preventing trivial DoS / OOM from large payloads.
+_BODY_SIZE_LIMITS: dict[str, int] = {
+    '/ask':        64 * 1024,        # 64 KB — question + context fields
+    '/ask-async':  64 * 1024,        # 64 KB
+}
+_DEFAULT_BODY_SIZE_LIMIT = 32 * 1024 * 1024  # 32 MB for uploads etc.
+
+
+@app.middleware("http")
+async def body_size_limit(request: Request, call_next):
+    """Reject requests that advertise a body larger than the per-path cap."""
+    content_length = request.headers.get('content-length')
+    if content_length is not None:
+        try:
+            cl = int(content_length)
+        except ValueError:
+            return JSONResponse(
+                {'success': False, 'error': 'Invalid Content-Length header.'},
+                status_code=400,
+            )
+        limit = _BODY_SIZE_LIMITS.get(request.url.path, _DEFAULT_BODY_SIZE_LIMIT)
+        if cl > limit:
+            if limit >= 1024 * 1024:
+                limit_label = f'{limit // (1024 * 1024)} MB'
+            else:
+                limit_label = f'{limit // 1024} KB'
+            return JSONResponse(
+                {'success': False, 'error': f'Request body too large (max {limit_label}).'},
+                status_code=413,
+            )
+    return await call_next(request)
+
 
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
@@ -508,7 +542,6 @@ async def security_headers(request: Request, call_next):
         return RedirectResponse(url=https_url, status_code=301)
 
     response = await call_next(request)
-
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['X-Frame-Options'] = 'DENY'
     response.headers['X-XSS-Protection'] = '1; mode=block'

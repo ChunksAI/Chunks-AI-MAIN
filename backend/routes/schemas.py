@@ -42,7 +42,7 @@ _AskMode = Literal[
 
 
 class AskRequest(_LenientBase):
-    question: str = ""
+    question: str = Field(default="", max_length=8000)
     complexity: int = Field(default=3, ge=1, le=10)
     mode: _AskMode = 'snap'
     bookId: Optional[str] = None
@@ -78,7 +78,7 @@ class AskRequest(_LenientBase):
 
 class AskAsyncRequest(_LenientBase):
     """Identical to AskRequest — used for the async /ask-async endpoint."""
-    question: str = ""
+    question: str = Field(default="", max_length=8000)
     complexity: int = Field(default=3, ge=1, le=10)
     mode: _AskMode = 'snap'
     bookId: Optional[str] = None
