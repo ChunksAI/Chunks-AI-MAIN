@@ -17,14 +17,14 @@ line on every YouTube API failure:
 {
   "event": "youtube_transcript_fetch_failed",
   "yt_status": 400,
-  "all_versions_exhausted": true,
+  "is_version_error": true,
   "error": "YouTube player API returned HTTP 400 for all 2 client version(s) tried",
   "ts": "2026-04-20T21:00:00.000Z"
 }
 ```
 
 Create an alert on **`event = youtube_transcript_fetch_failed` AND
-`all_versions_exhausted = true`** in your log pipeline (Datadog, CloudWatch
+`is_version_error = true`** in your log pipeline (Datadog, CloudWatch
 Logs Insights, Loki, etc.).
 
 ### Manual check

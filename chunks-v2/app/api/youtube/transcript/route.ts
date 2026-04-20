@@ -73,7 +73,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       JSON.stringify({
         event: 'youtube_transcript_fetch_failed',
         yt_status: ytStatus ?? null,
-        all_versions_exhausted: isYtApiError,
+        // true only when every entry in INNERTUBE_CLIENT_VERSIONS was tried and rejected
+        is_version_error: isYtApiError,
         error: message,
         ts: new Date().toISOString(),
       }),

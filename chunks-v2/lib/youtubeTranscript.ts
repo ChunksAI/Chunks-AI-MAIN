@@ -148,8 +148,9 @@ function _buildInnerTubeContext(clientVersion: string) {
 /**
  * Fetch and parse a YouTube video's transcript via the InnerTube API.
  *
- * Can be called from the browser or server-side — the InnerTube player
- * endpoint and YouTube caption XML URLs support CORS.
+ * This function is intended to be called **server-side only** (e.g. from a
+ * Next.js API route).  Direct browser calls may fail on certain networks or
+ * regions due to CORS restrictions or YouTube policy changes.
  *
  * @param urlOrId  A full YouTube URL or a bare 11-character video ID.
  * @returns        The parsed transcript entries along with the video title
