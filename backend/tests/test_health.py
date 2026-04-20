@@ -285,7 +285,10 @@ def test_rate_limit_key_returns_remote_address():
 
 
 def test_rate_limit_key_bearer_keyed_by_token():
-    """_rate_limit_key returns a bearer-prefixed key for authenticated requests."""
+    """_rate_limit_key returns a bearer-prefixed key for authenticated requests.
+    The token is hashed (SHA-256) so the raw token value must NOT appear in the
+    result — only the 'bearer:' prefix is guaranteed.
+    """
     from routes.limiter import _rate_limit_key
     req = MagicMock()
     req.method = "POST"
@@ -297,7 +300,12 @@ def test_rate_limit_key_bearer_keyed_by_token():
     )
     result = _rate_limit_key(req)
     assert result.startswith("bearer:")
-    assert "mytoken123" in result
+    # Token is SHA-256 hashed — raw value must not appear in the key
+    assert "mytoken123" not in result
+    # Key suffix should be a hex digest (alphanumeric, at least 16 chars)
+    suffix = result[len("bearer:"):]
+    assert len(suffix) >= 16
+    assert suffix.isalnum()
 
 
 def test_dynamic_ask_limit_authenticated():

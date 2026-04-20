@@ -502,8 +502,8 @@ async def request_id_middleware(request: Request, call_next):
 # Rejects requests whose Content-Length header exceeds the per-path limit before
 # the body is read, preventing trivial DoS / OOM from large payloads.
 _BODY_SIZE_LIMITS: dict[str, int] = {
-    '/ask':        64 * 1024,        # 64 KB — question + context fields
-    '/ask-async':  64 * 1024,        # 64 KB
+    '/ask':        256 * 1024,       # 256 KB — allows generate/exam mode (up to 120k chars)
+    '/ask-async':  256 * 1024,       # 256 KB
 }
 _DEFAULT_BODY_SIZE_LIMIT = 32 * 1024 * 1024  # 32 MB for uploads etc.
 
