@@ -23,7 +23,6 @@ import {
   useCallback,
   type ReactNode,
 } from 'react';
-import { useRouter } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 
@@ -50,6 +49,9 @@ interface AuthContextValue extends AuthState {
   signOut: () => Promise<void>;
   enterGuestMode: () => void;
   exitGuestMode: () => void;
+  isLoginModalOpen: boolean;
+  openLoginModal: () => void;
+  closeLoginModal: () => void;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -200,7 +202,6 @@ function guestCookieSecureFlag(): string {
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const [state, setState] = useState<AuthState>({
     user: null,
     session: null,
@@ -210,6 +211,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Guest mode flag — stored in sessionStorage so it resets when the tab closes
   // Initialized to false to match SSR; real value loaded in useEffect to avoid hydration mismatch
   const [guestMode, setGuestMode] = useState<boolean>(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
 
   const [apiBase] = useState<string>(() => {
     if (typeof window !== 'undefined') {
@@ -328,10 +330,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // ── Clear guest cookie ────────────────────────────────────────────────────
     try { document.cookie = `chunks_guest=; path=/; max-age=0; SameSite=Lax${guestCookieSecureFlag()}`; } catch { /* ignore */ }
 
-    // ── Sign out from Supabase, then redirect ─────────────────────────────────
+    // ── Sign out from Supabase — AuthGate will auto-enter guest mode ────────
     await sb.auth.signOut();
-    router.replace('/login');
-  }, [router]);
+  }, []);
 
   const enterGuestMode = useCallback(() => {
     try { sessionStorage.setItem('chunks_guest_mode', '1'); } catch { /* ignore */ }
@@ -345,12 +346,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setGuestMode(false);
   }, []);
 
+  const openLoginModal = useCallback(() => setIsLoginModalOpen(true), []);
+  const closeLoginModal = useCallback(() => setIsLoginModalOpen(false), []);
+
   // Resolved user: authenticated > guest > null
   const resolvedUser = state.user ?? (guestMode ? GUEST_USER : null);
 
   return (
     <AuthContext.Provider
-      value={{ ...state, user: resolvedUser, signOut, enterGuestMode, exitGuestMode }}
+      value={{ ...state, user: resolvedUser, signOut, enterGuestMode, exitGuestMode, isLoginModalOpen, openLoginModal, closeLoginModal }}
     >
       {children}
     </AuthContext.Provider>
