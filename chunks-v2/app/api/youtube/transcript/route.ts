@@ -20,7 +20,7 @@
 
 import { createHmac } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchYouTubeTranscript } from '@/lib/youtubeTranscript';
+import { fetchYouTubeTranscript, YouTubeApiError } from '@/lib/youtubeTranscript';
 
 const _HMAC_SECRET = process.env.TRANSCRIPT_HMAC_SECRET ?? '';
 if (!_HMAC_SECRET) {
@@ -59,7 +59,29 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const sig = _signTranscript(result.videoId, result.entries);
     return NextResponse.json({ ...result, sig });
   } catch (err) {
+    const isYtApiError = err instanceof YouTubeApiError;
+    const ytStatus = isYtApiError ? err.ytStatus : undefined;
     const message = err instanceof Error ? err.message : 'Failed to fetch transcript';
-    return NextResponse.json({ error: message }, { status: 500 });
+
+    // Emit a structured log entry so log-aggregation pipelines (Datadog,
+    // CloudWatch, Loki, etc.) can alert on YouTube API failures.  The
+    // `yt_status` field can be used as an alert tag / filter dimension.
+    // When `all_versions_exhausted` is true, check INNERTUBE_CLIENT_VERSIONS
+    // in lib/youtubeTranscript.ts — YouTube may have rotated its client API.
+    // See docs/YOUTUBE_CLIENT_VERSION_RUNBOOK.md for the update procedure.
+    console.error(
+      JSON.stringify({
+        event: 'youtube_transcript_fetch_failed',
+        yt_status: ytStatus ?? null,
+        all_versions_exhausted: isYtApiError,
+        error: message,
+        ts: new Date().toISOString(),
+      }),
+    );
+
+    return NextResponse.json(
+      { error: message, ...(ytStatus !== undefined && { yt_status: ytStatus }) },
+      { status: 500 },
+    );
   }
 }

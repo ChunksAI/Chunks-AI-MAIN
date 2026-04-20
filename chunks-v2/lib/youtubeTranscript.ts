@@ -97,19 +97,51 @@ function parseCaptionXml(xml: string): TranscriptEntry[] {
 const INNERTUBE_PLAYER_URL = 'https://www.youtube.com/youtubei/v1/player';
 
 /**
- * Client context for the InnerTube ANDROID client.  This is the same context
- * used by yt-dlp and youtube-dl.  It bypasses the HTML watch-page approach that
- * fails when YouTube returns consent or bot-detection pages to server IPs.
+ * InnerTube ANDROID client versions tried in order.
+ *
+ * YouTube silently rejects stale client versions with HTTP 400 or 403.
+ * Keeping multiple versions lets the library automatically fall back while the
+ * primary entry is updated.
+ *
+ * To bump the version (see docs/YOUTUBE_CLIENT_VERSION_RUNBOOK.md):
+ *   1. Prepend the new version string to this array.
+ *   2. Remove versions that have been consistently rejected for > 30 days.
+ *   3. Update the matching User-Agent string if it embeds a version number.
  */
-const INNERTUBE_CONTEXT = {
-  client: {
-    clientName: 'ANDROID',
-    clientVersion: '17.31.35',
-    androidSdkVersion: 30,
-    hl: 'en',
-    gl: 'US',
-  },
-} as const;
+export const INNERTUBE_CLIENT_VERSIONS: readonly string[] = [
+  '19.09.37',
+  '17.31.35',
+];
+
+/**
+ * A custom error thrown when the InnerTube player API rejects every client
+ * version in {@link INNERTUBE_CLIENT_VERSIONS}.  The `ytStatus` property
+ * carries the last HTTP status code returned by YouTube so callers can log
+ * structured alerts (e.g. tag the status code in Sentry / a log pipeline).
+ */
+export class YouTubeApiError extends Error {
+  /** The last HTTP status code returned by the YouTube InnerTube API. */
+  readonly ytStatus: number;
+
+  constructor(message: string, ytStatus: number) {
+    super(message);
+    this.name = 'YouTubeApiError';
+    this.ytStatus = ytStatus;
+  }
+}
+
+/** Build an InnerTube ANDROID client context object for the given version. */
+function _buildInnerTubeContext(clientVersion: string) {
+  return {
+    client: {
+      clientName: 'ANDROID',
+      clientVersion,
+      androidSdkVersion: 30,
+      hl: 'en',
+      gl: 'US',
+    },
+  };
+}
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
@@ -132,21 +164,40 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
     throw new Error('Could not extract a video ID from that URL');
   }
 
-  // ── 1. Fetch player data via InnerTube API ─────────────────────────────────
-  // POSTing to the InnerTube player endpoint returns the same structured JSON
-  // that YouTube sends to its Android app — no HTML scraping required.
-  const playerRes = await fetch(INNERTUBE_PLAYER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ context: INNERTUBE_CONTEXT, videoId }),
-    signal: AbortSignal.timeout(10_000),
-  });
+  // ── 1. Fetch player data via InnerTube API (with client-version rotation) ───
+  //
+  // YouTube silently rotates the set of accepted client versions.  On HTTP 400
+  // or 403 we try the next version in INNERTUBE_CLIENT_VERSIONS.  Any other
+  // non-2xx status code is treated as a non-version-related failure and the
+  // loop is broken immediately.
+  let playerData: Record<string, unknown> | null = null;
+  let lastStatus = 0;
 
-  if (!playerRes.ok) {
-    throw new Error(`YouTube player API returned HTTP ${playerRes.status}`);
+  for (const version of INNERTUBE_CLIENT_VERSIONS) {
+    const playerRes = await fetch(INNERTUBE_PLAYER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ context: _buildInnerTubeContext(version), videoId }),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (playerRes.ok) {
+      playerData = await playerRes.json() as Record<string, unknown>;
+      break;
+    }
+
+    lastStatus = playerRes.status;
+    // Only retry on version-rejection codes (400, 403).
+    // 429 (rate-limit), 5xx (server error), etc. are not version problems.
+    if (playerRes.status !== 400 && playerRes.status !== 403) break;
   }
 
-  const playerData = await playerRes.json() as Record<string, unknown>;
+  if (!playerData) {
+    throw new YouTubeApiError(
+      `YouTube player API returned HTTP ${lastStatus} for all ${INNERTUBE_CLIENT_VERSIONS.length} client version(s) tried`,
+      lastStatus,
+    );
+  }
 
   // ── 2. Extract video title ─────────────────────────────────────────────────
   const title: string =
