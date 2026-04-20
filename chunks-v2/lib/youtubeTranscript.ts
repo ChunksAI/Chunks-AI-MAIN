@@ -137,6 +137,7 @@ function _buildInnerTubeContext(clientVersion: string) {
       clientName: 'ANDROID',
       clientVersion,
       androidSdkVersion: 30,
+      userAgent: `com.google.android.youtube/${clientVersion} (Linux; U; Android 11) gzip`,
       hl: 'en',
       gl: 'US',
     },
@@ -175,10 +176,14 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
   let lastStatus = 0;
 
   for (const version of INNERTUBE_CLIENT_VERSIONS) {
+    const context = _buildInnerTubeContext(version);
     const playerRes = await fetch(INNERTUBE_PLAYER_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ context: _buildInnerTubeContext(version), videoId }),
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': context.client.userAgent,
+      },
+      body: JSON.stringify({ context, videoId }),
       signal: AbortSignal.timeout(10_000),
     });
 
