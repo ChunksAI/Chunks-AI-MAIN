@@ -747,9 +747,16 @@ async def _handle_snap(actx: AskContext, request: Request):
             loop = asyncio.get_running_loop()
 
             # Heartbeat / batching constants (unchanged behaviour)
-            _HEARTBEAT_SECS = 15.0   # SSE comment every N idle seconds
-            _FLUSH_SECS     = 0.05   # max age of a non-empty token buffer
-            _FLUSH_COUNT    = 3      # flush when this many tokens buffered
+            _HEARTBEAT_SECS  = 15.0   # SSE comment every N idle seconds
+            _FLUSH_SECS      = 0.05   # max age of a non-empty token buffer
+            _FLUSH_COUNT     = 3      # flush when this many tokens buffered
+            # Hard wall-clock cap for the entire stream (all attempts combined).
+            # When a heartbeat fires and the elapsed time exceeds this value the
+            # upstream async generator is explicitly closed (releases the httpx
+            # connection to the AI provider) and a timed-out error is returned to
+            # the client.  Without this cap a stalled upstream model would hold a
+            # worker open indefinitely, emitting keepalive comments forever.
+            _MAX_STREAM_SECS = 120.0  # seconds
 
             _cancel_key = f'{_KEY_NS_PREFIX}cancel:{_stream_req_id}'
             _tok_buf: list[str] = []
@@ -761,6 +768,10 @@ async def _handle_snap(actx: AskContext, request: Request):
             yield f'data: {json.dumps({"stream_id": stream_id}, ensure_ascii=False)}\n\n'
 
             _models = list(dict.fromkeys(m for m in [_stream_model, _stream_fallback] if m))
+
+            # Wall-clock start time shared across all model attempts so the cap
+            # covers the entire lifetime of this SSE response, not just one attempt.
+            _stream_start = loop.time()
 
             for _attempt, _model in enumerate(_models):
                 _full_text = []
@@ -829,6 +840,21 @@ async def _handle_snap(actx: AskContext, request: Request):
                                 _tok_buf = []
                                 _last_flush = loop.time()
                             yield ': heartbeat\n\n'
+                            # Hard stream-duration cap: if the upstream has been
+                            # silent long enough to push us past _MAX_STREAM_SECS
+                            # total, close the httpx stream and tell the client.
+                            if loop.time() - _stream_start >= _MAX_STREAM_SECS:
+                                logger.warning(
+                                    '[/ask] SSE stream exceeded %ss cap — closing upstream '
+                                    'req_id=%s model=%s',
+                                    _MAX_STREAM_SECS, _stream_req_id, _model,
+                                )
+                                await _aiter.aclose()
+                                yield (
+                                    f'data: {json.dumps({"error": "Generation timed out. Please retry."}, ensure_ascii=False)}\n\n'
+                                )
+                                yield 'data: [DONE]\n\n'
+                                return
                             continue
 
                         # Redis cancel check (sync redis.exists is a
