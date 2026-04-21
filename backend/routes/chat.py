@@ -756,7 +756,11 @@ async def _handle_snap(actx: AskContext, request: Request):
             # connection to the AI provider) and a timed-out error is returned to
             # the client.  Without this cap a stalled upstream model would hold a
             # worker open indefinitely, emitting keepalive comments forever.
-            _MAX_STREAM_SECS = 120.0  # seconds
+            # Per-mode overrides allow tuning without changing the default.
+            _MAX_STREAM_SECS_BY_MODE: dict[str, float] = {
+                # 'snap': 120.0,  # default; override here as needed
+            }
+            _MAX_STREAM_SECS: float = _MAX_STREAM_SECS_BY_MODE.get(actx.mode, 120.0)
 
             _cancel_key = f'{_KEY_NS_PREFIX}cancel:{_stream_req_id}'
             _tok_buf: list[str] = []
