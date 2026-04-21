@@ -41,6 +41,7 @@ export type ChatAction =
   | { type: 'RECEIVE_MESSAGE'; payload: ChatMessage }
   | { type: 'START_AI_MESSAGE'; payload: ChatMessage }
   | { type: 'APPEND_MESSAGE_CHUNK'; payload: { id: string; chunk: string } }
+  | { type: 'RESET_AI_MESSAGE_TEXT'; payload: { id: string } }
   | { type: 'UPDATE_MESSAGE_META'; payload: { id: string; memoryRecall?: string; performanceBars?: PerformanceBar[]; topic?: string; structured?: Record<string, unknown> | null; webCitations?: Array<{ url: string; title?: string }> } }
   | { type: 'REMOVE_MESSAGE'; payload: string }
   | { type: 'MESSAGE_ERROR'; payload: string }
@@ -104,6 +105,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         m.id === action.payload.id
           ? { ...m, text: m.text + action.payload.chunk }
           : m,
+      );
+      return { ...state, messages };
+    }
+
+    case 'RESET_AI_MESSAGE_TEXT': {
+      const messages = state.messages.map((m) =>
+        m.id === action.payload.id ? { ...m, text: '' } : m,
       );
       return { ...state, messages };
     }

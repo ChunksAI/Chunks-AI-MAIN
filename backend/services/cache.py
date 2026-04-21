@@ -200,6 +200,8 @@ class CacheService:
         question: str,
         doc_context: str = '',
         student_profile: str = '',
+        viewer_state: dict | None = None,
+        selected_text: str = '',
     ) -> str:
         """Build a stable Redis key for an /ask request."""
         canonical = (
@@ -212,6 +214,12 @@ class CacheService:
         if student_profile:
             sp_hash    = hashlib.sha256(student_profile.strip().lower().encode()).hexdigest()[:12]
             canonical += f"|sp:{sp_hash}"
+        if viewer_state:
+            vs_hash    = hashlib.sha256(json.dumps(viewer_state, sort_keys=True, separators=(',', ':')).encode()).hexdigest()[:12]
+            canonical += f"|vs:{vs_hash}"
+        if selected_text.strip():
+            st_hash    = hashlib.sha256(selected_text.strip().encode()).hexdigest()[:12]
+            canonical += f"|st:{st_hash}"
         digest = hashlib.sha256(canonical.encode()).hexdigest()[:16]
         return f"{_KEY_NS_PREFIX}ask:v1:{digest}"
 

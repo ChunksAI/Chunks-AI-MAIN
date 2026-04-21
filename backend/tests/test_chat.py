@@ -1542,3 +1542,241 @@ class TestParallelContextFetching:
             ],
         })
         assert resp.status_code == 200
+
+
+# ── AI error status-code mapping tests ───────────────────────────────────────
+
+class TestAiErrorStatusCodes:
+    """Verify that RuntimeError from call_ai_async is mapped to correct HTTP codes."""
+
+    def test_llm_timeout_returns_504(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """RuntimeError('LLM_TIMEOUT') → 504 Gateway Timeout."""
+        import services.ai as ai_svc
+        import services.books as books_svc
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(side_effect=RuntimeError('LLM_TIMEOUT')))
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+        mock_searcher = MagicMock()
+        mock_searcher.chunks = []
+        mock_searcher.has_embeddings = False
+        monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+        resp = client.post('/ask', json={
+            'question': 'What is entropy?',
+            'mode': 'snap',
+            'complexity': 3,
+        })
+        assert resp.status_code == 504
+        body = resp.json()
+        assert body['success'] is False
+        assert 'timed out' in body['error'].lower()
+
+    def test_upstream_503_returns_502(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """RuntimeError('Upstream API returned 503: ...') → 502 Bad Gateway."""
+        import services.ai as ai_svc
+        import services.books as books_svc
+
+        monkeypatch.setattr(
+            ai_svc, 'call_ai_async',
+            AsyncMock(side_effect=RuntimeError('Upstream API returned 503: service unavailable')),
+        )
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+        mock_searcher = MagicMock()
+        mock_searcher.chunks = []
+        mock_searcher.has_embeddings = False
+        monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+        resp = client.post('/ask', json={
+            'question': 'What is entropy?',
+            'mode': 'snap',
+            'complexity': 3,
+        })
+        assert resp.status_code == 502
+        body = resp.json()
+        assert body['success'] is False
+
+    def test_http_exception_propagated(self, client, monkeypatch, mock_guest_gate):
+        """HTTPException raised inside ask() is propagated as-is (not collapsed to 500)."""
+        from fastapi import HTTPException
+        import routes.chat as chat_mod
+
+        # Raise a 401 during user extraction — before any AI call
+        monkeypatch.setattr(
+            chat_mod,
+            '_extract_verified_user',
+            MagicMock(side_effect=HTTPException(status_code=401, detail='Unauthorized')),
+        )
+
+        resp = client.post('/ask', json={
+            'question': 'test',
+            'mode': 'snap',
+            'complexity': 3,
+        })
+        assert resp.status_code == 401
+
+    def test_exam_llm_timeout_returns_504(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """RuntimeError('LLM_TIMEOUT') in exam mode → 504."""
+        import services.ai as ai_svc
+        import services.books as books_svc
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(side_effect=RuntimeError('LLM_TIMEOUT')))
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+        mock_searcher = MagicMock()
+        mock_searcher.chunks = []
+        mock_searcher.has_embeddings = False
+        monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+        resp = client.post('/ask', json={
+            'question': 'What is entropy?',
+            'mode': 'exam',
+            'complexity': 3,
+        })
+        assert resp.status_code == 504
+        body = resp.json()
+        assert body['success'] is False
+
+    def test_practice_llm_timeout_returns_504(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """RuntimeError('LLM_TIMEOUT') in practice mode → 504."""
+        import services.ai as ai_svc
+        import services.books as books_svc
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(side_effect=RuntimeError('LLM_TIMEOUT')))
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+        mock_searcher = MagicMock()
+        mock_searcher.chunks = []
+        mock_searcher.has_embeddings = False
+        monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+        resp = client.post('/ask', json={
+            'question': 'Solve for x',
+            'mode': 'practice',
+            'complexity': 3,
+        })
+        assert resp.status_code == 504
+        body = resp.json()
+        assert body['success'] is False
+
+    def test_summary_llm_timeout_returns_504(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """RuntimeError('LLM_TIMEOUT') in summary mode → 504."""
+        import services.ai as ai_svc
+        import services.books as books_svc
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(side_effect=RuntimeError('LLM_TIMEOUT')))
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+        mock_searcher = MagicMock()
+        mock_searcher.chunks = []
+        mock_searcher.has_embeddings = False
+        monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+        resp = client.post('/ask', json={
+            'question': 'Summarize thermodynamics',
+            'mode': 'summary',
+            'complexity': 3,
+        })
+        assert resp.status_code == 504
+        body = resp.json()
+        assert body['success'] is False
+
+    def test_visual_tutor_llm_timeout_returns_504(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """RuntimeError('LLM_TIMEOUT') in visual_tutor mode → 504."""
+        import services.ai as ai_svc
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(side_effect=RuntimeError('LLM_TIMEOUT')))
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+
+        resp = client.post('/ask', json={
+            'question': '{"type": "diagram", "topic": "entropy"}',
+            'mode': 'visual_tutor',
+            'complexity': 3,
+        })
+        assert resp.status_code == 504
+        body = resp.json()
+        assert body['success'] is False
+
+    def test_exam_upstream_error_returns_502(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """RuntimeError('Upstream API returned 503: ...') in exam mode → 502."""
+        import services.ai as ai_svc
+        import services.books as books_svc
+
+        monkeypatch.setattr(
+            ai_svc, 'call_ai_async',
+            AsyncMock(side_effect=RuntimeError('Upstream API returned 503: overloaded')),
+        )
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+        mock_searcher = MagicMock()
+        mock_searcher.chunks = []
+        mock_searcher.has_embeddings = False
+        monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+        resp = client.post('/ask', json={
+            'question': 'What is entropy?',
+            'mode': 'exam',
+            'complexity': 3,
+        })
+        assert resp.status_code == 502
+        body = resp.json()
+        assert body['success'] is False
+
+    def test_chunk_llm_timeout_returns_504(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """RuntimeError('LLM_TIMEOUT') in chunk mode → 504."""
+        import services.ai as ai_svc
+        import services.books as books_svc
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(side_effect=RuntimeError('LLM_TIMEOUT')))
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+        mock_searcher = MagicMock()
+        mock_searcher.chunks = []
+        mock_searcher.has_embeddings = False
+        monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+        resp = client.post('/ask', json={
+            'question': 'What is entropy?',
+            'mode': 'chunk',
+            'complexity': 3,
+        })
+        assert resp.status_code == 504
+        body = resp.json()
+        assert body['success'] is False
+
+    def test_master_llm_timeout_returns_504(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """RuntimeError('LLM_TIMEOUT') in master mode → 504."""
+        import services.ai as ai_svc
+        import services.books as books_svc
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(side_effect=RuntimeError('LLM_TIMEOUT')))
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+        mock_searcher = MagicMock()
+        mock_searcher.chunks = []
+        mock_searcher.has_embeddings = False
+        monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+        resp = client.post('/ask', json={
+            'question': 'Explain thermodynamics',
+            'mode': 'master',
+            'complexity': 3,
+        })
+        assert resp.status_code == 504
+        body = resp.json()
+        assert body['success'] is False
+
+    def test_research_llm_timeout_returns_504(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """RuntimeError('LLM_TIMEOUT') in research mode → 504."""
+        import services.ai as ai_svc
+        import services.books as books_svc
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(side_effect=RuntimeError('LLM_TIMEOUT')))
+        monkeypatch.setattr(ai_svc, 'call_ai_web_search_async', AsyncMock(side_effect=RuntimeError('LLM_TIMEOUT')))
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+        mock_searcher = MagicMock()
+        mock_searcher.chunks = []
+        mock_searcher.has_embeddings = False
+        monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+        resp = client.post('/ask', json={
+            'question': 'Research quantum computing',
+            'mode': 'research',
+            'complexity': 3,
+        })
+        assert resp.status_code == 504
+        body = resp.json()
+        assert body['success'] is False
