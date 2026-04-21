@@ -299,3 +299,28 @@ class TestAskCacheKey:
         k_filled = _ackey(**_KEY_DEFAULTS, student_profile='{"status":"failing"}')
         assert k_empty != k_filled
 
+
+class TestAskKeyViewerStateSelectedText:
+    def test_same_inputs_same_key(self):
+        vs = {"type": "youtube", "video_id": "abc123"}
+        k1 = _ackey(**_KEY_DEFAULTS, viewer_state=vs, selected_text="some text")
+        k2 = _ackey(**_KEY_DEFAULTS, viewer_state=vs, selected_text="some text")
+        assert k1 == k2
+
+    def test_different_viewer_state_different_key(self):
+        k1 = _ackey(**_KEY_DEFAULTS, viewer_state={"video_id": "aaa"})
+        k2 = _ackey(**_KEY_DEFAULTS, viewer_state={"video_id": "bbb"})
+        assert k1 != k2
+
+    def test_different_selected_text_different_key(self):
+        k1 = _ackey(**_KEY_DEFAULTS, selected_text="paragraph one")
+        k2 = _ackey(**_KEY_DEFAULTS, selected_text="paragraph two")
+        assert k1 != k2
+
+    def test_empty_viewer_state_and_selected_text_back_compat(self):
+        legacy = _ackey(**_KEY_DEFAULTS)
+        k_empty_vs = _ackey(**_KEY_DEFAULTS, viewer_state=None, selected_text='')
+        k_empty_dict = _ackey(**_KEY_DEFAULTS, viewer_state={}, selected_text='   ')
+        assert legacy == k_empty_vs
+        assert legacy == k_empty_dict
+

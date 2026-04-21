@@ -1252,7 +1252,8 @@ async def ask(request: Request, body: AskRequest):
         # ── Redis query cache ─────────────────────────────────────────────────
         _cache_eligible = _cache_svc.ask_is_cacheable(mode, history, web_search, thinking_mode)
         _cache_key_val  = _cache_svc.ask_key(book_id, task_type, mode, complexity, question,
-                                             doc_context, student_profile=student_profile) \
+                                             doc_context, student_profile=student_profile,
+                                             viewer_state=viewer_state, selected_text=selected_text) \
                           if _cache_eligible else None
         if _cache_eligible:
             cached_payload = _cache_svc.ask_get(_cache_key_val)

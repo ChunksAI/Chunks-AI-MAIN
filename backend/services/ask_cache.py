@@ -45,6 +45,8 @@ def _ask_cache_key(
     question: str,
     doc_context: str = '',
     student_profile: str = '',   # ADD THIS PARAMETER
+    viewer_state: dict | None = None,
+    selected_text: str = '',
 ) -> str:
     canonical = f"{book_id}|{task_type or mode}|{complexity}|{question.strip().lower()}"
     if doc_context:
@@ -53,6 +55,12 @@ def _ask_cache_key(
     if student_profile:
         sp_hash   = hashlib.sha256(student_profile.strip().lower().encode()).hexdigest()[:12]
         canonical += f"|sp:{sp_hash}"
+    if viewer_state:
+        vs_hash   = hashlib.sha256(json.dumps(viewer_state, sort_keys=True, separators=(',', ':')).encode()).hexdigest()[:12]
+        canonical += f"|vs:{vs_hash}"
+    if selected_text.strip():
+        st_hash   = hashlib.sha256(selected_text.strip().encode()).hexdigest()[:12]
+        canonical += f"|st:{st_hash}"
     digest = hashlib.sha256(canonical.encode()).hexdigest()[:16]
     return f"ask:v1:{digest}"
 
