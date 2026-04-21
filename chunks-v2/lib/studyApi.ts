@@ -334,6 +334,7 @@ export async function sendMessageStream(
   onRequestId?: (id: string) => void,
   onStreamId?: (id: string) => void,
   onMeta?: (meta: { topic?: string }) => void,
+  onReset?: () => void,
 ): Promise<SendMessageResponse> {
   const authHeaders = await getAuthHeaders();
   const reqId = makeReqId();
@@ -448,7 +449,7 @@ export async function sendMessageStream(
             const data = line.slice(6).trim();
             if (data === '[DONE]') break outer; // exit both loops
             try {
-              const parsed = JSON.parse(data) as SseChunk & { error?: string; meta?: { viewer_action?: ViewerAction; topic?: string }; stream_id?: string };
+              const parsed = JSON.parse(data) as SseChunk & { error?: string; meta?: { viewer_action?: ViewerAction; topic?: string; reset?: boolean }; stream_id?: string };
               // Check for a server-sent error before treating the chunk as content
               if (parsed.error) {
                 throw new ApiError(parsed.error, 502);
@@ -458,8 +459,14 @@ export async function sendMessageStream(
                 onStreamId?.(parsed.stream_id);
                 continue;
               }
-              // Capture metadata event (e.g. viewer_action, topic) — no text content
+              // Capture metadata event (e.g. viewer_action, topic, reset) — no text content
               if (parsed.meta) {
+                if (parsed.meta.reset === true) {
+                  fullText = '';
+                  pendingChunks = '';
+                  if (rafId !== null) { cancelFlush(rafId); rafId = null; }
+                  onReset?.();
+                }
                 if (parsed.meta.viewer_action) {
                   streamViewerAction = parsed.meta.viewer_action;
                 }

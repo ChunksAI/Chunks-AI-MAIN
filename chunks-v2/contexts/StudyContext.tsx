@@ -1345,6 +1345,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
               });
             }
           },
+          // Reset displayed text when the fallback model takes over (snap streaming).
+          () => {
+            chatDispatch({ type: 'RESET_AI_MESSAGE_TEXT', payload: { id: aiMsgId } });
+          },
         );
 
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });

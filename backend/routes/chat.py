@@ -780,6 +780,8 @@ async def _handle_snap(actx: AskContext, request: Request):
             for _attempt, _model in enumerate(_models):
                 _full_text = []
                 _tok_buf = []
+                if _attempt > 0:
+                    yield f'data: {json.dumps({"meta": {"reset": True}}, ensure_ascii=False)}\n\n'
                 try:
                     _aiter = call_ai_stream_async(
                         _stream_prompt,
