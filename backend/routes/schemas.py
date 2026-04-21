@@ -41,6 +41,19 @@ _AskMode = Literal[
 ]
 
 
+class ViewerState(BaseModel):
+    """Strict, bounded model for the viewer_state field in AskRequest."""
+    model_config = {"extra": "forbid"}
+    type: Literal['youtube', 'pdf', 'research', 'none'] = 'none'
+    video_id: Optional[str] = Field(default=None, max_length=32, pattern=r'^[A-Za-z0-9_-]{0,32}$')
+    current_timestamp_seconds: Optional[float] = Field(default=None, ge=0, le=36000)
+    visible_segment: Optional[str] = Field(default=None, max_length=8000)
+    visible_transcript_segment: Optional[str] = Field(default=None, max_length=8000)
+    pdf_visible_text: Optional[str] = Field(default=None, max_length=8000)
+    pdf_page: Optional[int] = Field(default=None, ge=0, le=100000)
+    url: Optional[str] = Field(default=None, max_length=2000)
+
+
 class AskRequest(_LenientBase):
     question: str = Field(default="", max_length=200_000)
     complexity: int = Field(default=3, ge=1, le=10)
@@ -56,7 +69,7 @@ class AskRequest(_LenientBase):
     task_type: Optional[str] = None
     student_profile: str = ""
     student_gaps: List[Any] = Field(default_factory=list)
-    viewer_state: Optional[Dict[str, Any]] = None
+    viewer_state: Optional[ViewerState] = None
     """Current viewer state for context-aware routing.
 
     Expected shape::
