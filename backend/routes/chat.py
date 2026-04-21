@@ -36,6 +36,21 @@ _KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
 router = APIRouter()
 
 
+def _map_ai_error(exc: Exception) -> tuple[int, str]:
+    """Map a RuntimeError from call_ai_async to an HTTP status + user message."""
+    msg = str(exc)
+    if 'LLM_TIMEOUT' in msg:
+        return 504, 'AI model timed out. Please retry.'
+    m = re.search(r'Upstream API returned (\d{3})', msg)
+    if m:
+        code = int(m.group(1))
+        if 500 <= code < 600:
+            return 502, 'AI provider error. Please retry.'
+        if code == 429:
+            return 429, 'Upstream rate-limited. Please retry shortly.'
+    return 500, 'AI request failed. Please retry.'
+
+
 def _get_identity_for_user(user_id: str, variants: list[str]) -> str:
     """Deterministically pick an identity variant based on user_id hash.
 
@@ -698,27 +713,35 @@ async def _handle_snap(actx: AskContext, request: Request):
             "a source, include the full URL in the text so users can visit it. "
             f"{actx.response_style_instruction}"
         )
-        answer, web_citations = await call_ai_web_search_async(
-            actx.question,
-            system_prompt=web_system,
-            history=actx.history,
-            user_id=actx.verified_user_id,
-        )
-        if answer.startswith('Error:') or answer.startswith('Web search error:'):
-            logger.warning(f"Web search failed ({answer[:80]}), falling back to standard model")
-            fallback_prompt = f"STUDENT QUESTION: {actx.question}\n\nAnswer helpfully and clearly."
-            answer = await call_ai_async(
-                fallback_prompt,
-                system_prompt=actx.base_system,
-                model=actx.selected_model,
+        try:
+            answer, web_citations = await call_ai_web_search_async(
+                actx.question,
+                system_prompt=web_system,
                 history=actx.history,
-                endpoint='chat',
                 user_id=actx.verified_user_id,
-                timeout=actx.ai_timeout,
-                max_tokens_override=_MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None]),
             )
-            answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
-            web_citations = []
+            if answer.startswith('Error:') or answer.startswith('Web search error:'):
+                logger.warning(f"Web search failed ({answer[:80]}), falling back to standard model")
+                fallback_prompt = f"STUDENT QUESTION: {actx.question}\n\nAnswer helpfully and clearly."
+                answer = await call_ai_async(
+                    fallback_prompt,
+                    system_prompt=actx.base_system,
+                    model=actx.selected_model,
+                    history=actx.history,
+                    endpoint='chat',
+                    user_id=actx.verified_user_id,
+                    timeout=actx.ai_timeout,
+                    max_tokens_override=_MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None]),
+                )
+                answer = "*(Web search unavailable — answering from general knowledge)*\n\n" + answer
+                web_citations = []
+        except RuntimeError as _ai_err:
+            _status, _msg = _map_ai_error(_ai_err)
+            logger.warning('[/ask] snap web_search AI call failed: %s', _ai_err)
+            return JSONResponse(
+                {'success': False, 'error': _msg, 'request_id': getattr(request.state, 'request_id', '-')},
+                status_code=_status,
+            )
         answer, thinking_content = extract_thinking_content(answer)
         return {
             'success':        True,
@@ -938,41 +961,49 @@ async def _handle_snap(actx: AskContext, request: Request):
     _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
     _timeout_fallback_note: str | None = None
     try:
-        answer = await call_ai_async(
-            prompt,
-            system_prompt=actx.base_system,
-            model=actx.selected_model,
-            history=actx.history,
-            endpoint='chat',
-            user_id=actx.verified_user_id,
-            timeout=actx.ai_timeout,
-            max_tokens_override=_max_tok,
-        )
-    except Exception as _primary_err:
-        if actx.mode_fallback:
-            _is_timeout = 'timed out' in str(_primary_err).lower()
-            if _is_timeout:
-                logger.warning(
-                    "[/ask] mode=%s primary model %s timed out — switching to fallback %s",
-                    actx.mode, actx.selected_model, actx.mode_fallback,
-                )
-            else:
-                logger.warning(
-                    "[/ask] primary model %s failed (%s), retrying with fallback %s",
-                    actx.selected_model, _primary_err, actx.mode_fallback,
-                )
+        try:
             answer = await call_ai_async(
                 prompt,
                 system_prompt=actx.base_system,
-                model=actx.mode_fallback,
+                model=actx.selected_model,
                 history=actx.history,
                 endpoint='chat',
                 user_id=actx.verified_user_id,
                 timeout=actx.ai_timeout,
                 max_tokens_override=_max_tok,
             )
-        else:
-            raise
+        except Exception as _primary_err:
+            if actx.mode_fallback:
+                _is_timeout = 'timed out' in str(_primary_err).lower()
+                if _is_timeout:
+                    logger.warning(
+                        "[/ask] mode=%s primary model %s timed out — switching to fallback %s",
+                        actx.mode, actx.selected_model, actx.mode_fallback,
+                    )
+                else:
+                    logger.warning(
+                        "[/ask] primary model %s failed (%s), retrying with fallback %s",
+                        actx.selected_model, _primary_err, actx.mode_fallback,
+                    )
+                answer = await call_ai_async(
+                    prompt,
+                    system_prompt=actx.base_system,
+                    model=actx.mode_fallback,
+                    history=actx.history,
+                    endpoint='chat',
+                    user_id=actx.verified_user_id,
+                    timeout=actx.ai_timeout,
+                    max_tokens_override=_max_tok,
+                )
+            else:
+                raise
+    except RuntimeError as _ai_err:
+        _status, _msg = _map_ai_error(_ai_err)
+        logger.warning('[/ask] snap AI call failed: %s', _ai_err)
+        return JSONResponse(
+            {'success': False, 'error': _msg, 'request_id': getattr(request.state, 'request_id', '-')},
+            status_code=_status,
+        )
     answer, thinking_content = extract_thinking_content(answer)
 
     _resp_topic = _extract_topic(actx.mode, None, answer)
@@ -1007,9 +1038,14 @@ async def _handle_chunk(actx: AskContext) -> dict | JSONResponse:
     _response_format: dict = {"type": "json_object"}
     _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
 
-    answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
-        prompt, _call_system, actx, _response_format, _max_tok,
-    )
+    try:
+        answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
+            prompt, _call_system, actx, _response_format, _max_tok,
+        )
+    except RuntimeError as _ai_err:
+        _status, _msg = _map_ai_error(_ai_err)
+        logger.warning('[/ask] chunk AI call failed: %s', _ai_err)
+        return JSONResponse({'success': False, 'error': _msg, 'request_id': actx.request_id}, status_code=_status)
 
     if structured is None:
         return JSONResponse(
@@ -1053,9 +1089,14 @@ async def _handle_master(actx: AskContext) -> dict | JSONResponse:
     _response_format: dict = {"type": "json_object"}
     _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
 
-    answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
-        prompt, _call_system, actx, _response_format, _max_tok,
-    )
+    try:
+        answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
+            prompt, _call_system, actx, _response_format, _max_tok,
+        )
+    except RuntimeError as _ai_err:
+        _status, _msg = _map_ai_error(_ai_err)
+        logger.warning('[/ask] master AI call failed: %s', _ai_err)
+        return JSONResponse({'success': False, 'error': _msg, 'request_id': actx.request_id}, status_code=_status)
 
     if structured is None:
         return JSONResponse(
@@ -1130,9 +1171,14 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
     _response_format: dict = {"type": "json_object"}
     _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
 
-    answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
-        prompt, _call_system, actx, _response_format, _max_tok,
-    )
+    try:
+        answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
+            prompt, _call_system, actx, _response_format, _max_tok,
+        )
+    except RuntimeError as _ai_err:
+        _status, _msg = _map_ai_error(_ai_err)
+        logger.warning('[/ask] research AI call failed: %s', _ai_err)
+        return JSONResponse({'success': False, 'error': _msg, 'request_id': actx.request_id}, status_code=_status)
 
     if structured is None:
         return JSONResponse(
@@ -1752,9 +1798,17 @@ async def ask(request: Request, body: AskRequest):
                 "third 'amber' (use 'coral' only if a fourth item is somehow needed)\n"
                 "- The 'key_difference' must be one concise sentence (under 20 words)"
             )
-            answer = await call_ai_async(question, system_prompt=vt_system, model=selected_model, history=history,
-                             endpoint='chat_visual', user_id=verified_user_id, timeout=_ai_timeout,
-                             fallback_model=_mode_fallback)
+            try:
+                answer = await call_ai_async(question, system_prompt=vt_system, model=selected_model, history=history,
+                                 endpoint='chat_visual', user_id=verified_user_id, timeout=_ai_timeout,
+                                 fallback_model=_mode_fallback)
+            except RuntimeError as _ai_err:
+                _status, _msg = _map_ai_error(_ai_err)
+                logger.warning('[/ask] visual_tutor AI call failed: %s', _ai_err)
+                return JSONResponse(
+                    {'success': False, 'error': _msg, 'request_id': getattr(request.state, 'request_id', '-')},
+                    status_code=_status,
+                )
             answer, thinking_content = extract_thinking_content(answer)
             # Strip the internal visual_plan field from diagram responses so it is
             # never exposed to the client.  We parse, pop the key, then re-serialise;
@@ -1875,9 +1929,17 @@ Rules:
 - {latex_instruction}
 - Do NOT add any text before Q1 or after Q10's explanation"""
 
-            answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_exam', user_id=verified_user_id, timeout=_ai_timeout,
-                             fallback_model=_mode_fallback)
+            try:
+                answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
+                                 endpoint='chat_exam', user_id=verified_user_id, timeout=_ai_timeout,
+                                 fallback_model=_mode_fallback)
+            except RuntimeError as _ai_err:
+                _status, _msg = _map_ai_error(_ai_err)
+                logger.warning('[/ask] exam AI call failed: %s', _ai_err)
+                return JSONResponse(
+                    {'success': False, 'error': _msg, 'request_id': getattr(request.state, 'request_id', '-')},
+                    status_code=_status,
+                )
             answer, thinking_content = extract_thinking_content(answer)
             questions = _parse_mcq(answer)
             return {
@@ -1913,9 +1975,17 @@ Structure your response like this:
 
 {latex_instruction}"""
 
-            answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_practice', user_id=verified_user_id, timeout=_ai_timeout,
-                             fallback_model=_mode_fallback)
+            try:
+                answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
+                                 endpoint='chat_practice', user_id=verified_user_id, timeout=_ai_timeout,
+                                 fallback_model=_mode_fallback)
+            except RuntimeError as _ai_err:
+                _status, _msg = _map_ai_error(_ai_err)
+                logger.warning('[/ask] practice AI call failed: %s', _ai_err)
+                return JSONResponse(
+                    {'success': False, 'error': _msg, 'request_id': getattr(request.state, 'request_id', '-')},
+                    status_code=_status,
+                )
             answer, thinking_content = extract_thinking_content(answer)
             return {
                 'success':        True,
@@ -1948,9 +2018,17 @@ Include these sections:
 {latex_instruction}
 Keep the summary focused, clear, and easy to review before an exam."""
 
-            answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
-                             endpoint='chat_summary', user_id=verified_user_id, timeout=_ai_timeout,
-                             fallback_model=_mode_fallback)
+            try:
+                answer = await call_ai_async(prompt, system_prompt=base_system, model=selected_model, history=history,
+                                 endpoint='chat_summary', user_id=verified_user_id, timeout=_ai_timeout,
+                                 fallback_model=_mode_fallback)
+            except RuntimeError as _ai_err:
+                _status, _msg = _map_ai_error(_ai_err)
+                logger.warning('[/ask] summary AI call failed: %s', _ai_err)
+                return JSONResponse(
+                    {'success': False, 'error': _msg, 'request_id': getattr(request.state, 'request_id', '-')},
+                    status_code=_status,
+                )
             answer, thinking_content = extract_thinking_content(answer)
             _resp = {
                 'success':        True,
