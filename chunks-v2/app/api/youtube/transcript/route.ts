@@ -65,6 +65,50 @@ if (!_HMAC_SECRET) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Version-error threshold alerting
+// Counts is_version_error events in a 10-min rolling window and emits a
+// structured alert log (and optional Sentry capture) when >= 5 occur.
+// The alert is rate-limited to once per 10-min window to avoid log spam.
+// ---------------------------------------------------------------------------
+const _VE_WINDOW_MS = 10 * 60 * 1_000; // 10 minutes
+const _VE_THRESHOLD = 5;
+const _veTimestamps: number[] = [];
+let _veLastAlertAt = 0;
+
+function _recordVersionError(): void {
+  const now = Date.now();
+  const cutoff = now - _VE_WINDOW_MS;
+  // Purge timestamps outside the window (oldest are at the front).
+  while (_veTimestamps.length > 0 && _veTimestamps[0] < cutoff) _veTimestamps.shift();
+  _veTimestamps.push(now);
+  if (_veTimestamps.length >= _VE_THRESHOLD && now - _veLastAlertAt >= _VE_WINDOW_MS) {
+    _veLastAlertAt = now;
+    const payload = { event: 'youtube_version_error_threshold', count: _veTimestamps.length, window_secs: 600 };
+    console.error(JSON.stringify(payload));
+    // Optionally forward to Sentry if the DSN is configured and the package is
+    // available (it is NOT a required dependency — the import is best-effort).
+    if (process.env.SENTRY_DSN) {
+      // Use a variable to prevent TypeScript from statically resolving the
+      // optional package, which may not be installed.
+      const sentryPkg = '@sentry/nextjs';
+      void import(
+        /* webpackIgnore: true */
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        sentryPkg,
+      )
+        .then((Sentry: { captureMessage: (msg: string, opts: object) => void }) => {
+          Sentry.captureMessage('youtube_version_error_threshold', {
+            level: 'error',
+            tags: payload,
+          });
+        })
+        .catch(() => { /* Sentry not installed — skip */ });
+    }
+  }
+}
+
 /**
  * Compute an HMAC-SHA256 signature over the transcript content.
  * The message is "videoId:<all entry texts joined by newline>" encoded as UTF-8.
@@ -119,6 +163,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         ts: new Date().toISOString(),
       }),
     );
+
+    if (isYtApiError) {
+      _recordVersionError();
+    }
 
     // Upstream YouTube failures are a bad-gateway problem (502), not an
     // internal server error (500).  Using the correct status code prevents

@@ -97,12 +97,16 @@ function parseCaptionXml(xml: string): TranscriptEntry[] {
 const INNERTUBE_PLAYER_URL = 'https://www.youtube.com/youtubei/v1/player';
 
 /**
- * InnerTube client descriptors tried in order.
+ * InnerTube client descriptors tried in order.  This is the built-in default
+ * fallback used when no remote client list is configured or when the remote
+ * fetch fails.
  *
  * YouTube silently rejects stale client versions with HTTP 400 or 403 and
  * increasingly requires a `poToken`/`visitorData` for the ANDROID client on
  * many videos.  The IOS client currently works without a poToken and is
- * therefore the preferred primary.  ANDROID is kept as a fallback.
+ * therefore the preferred primary.  ANDROID is kept as a fallback.  WEB is
+ * tried last; it requires `visitorData` which is fetched lazily via
+ * {@link _getVisitorData}.
  *
  * Both `X-YouTube-Client-Name` and `X-YouTube-Client-Version` request headers
  * are required by the current InnerTube backend in addition to the matching
@@ -117,9 +121,7 @@ export const INNERTUBE_CLIENTS: readonly {
   clientName: 'IOS' | 'ANDROID' | 'WEB';
   /**
    * Numeric client-name sent as the X-YouTube-Client-Name header.
-   * IOS=5, ANDROID=3, WEB=1.  WEB is included in the type union for
-   * forward-compatibility but no WEB entry is currently defined because WEB
-   * requires a Proof-of-Origin token (poToken) for most videos.
+   * IOS=5, ANDROID=3, WEB=1.
    */
   clientNameId: 5 | 3 | 1;
   clientVersion: string;
@@ -141,7 +143,123 @@ export const INNERTUBE_CLIENTS: readonly {
     userAgent:     'com.google.android.youtube/19.44.38 (Linux; U; Android 14) gzip',
     extra: { androidSdkVersion: 34, osName: 'Android', osVersion: '14' },
   },
+  {
+    // WEB client.  Requires visitorData — fetched lazily by _getVisitorData()
+    // and injected at request time by fetchYouTubeTranscript().
+    clientName:    'WEB',
+    clientNameId:  1,
+    clientVersion: '2.20240709.00.00',
+    userAgent:     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+  },
 ];
+
+// ─── visitorData (required by WEB client) ────────────────────────────────────
+
+const _VD_TTL_MS = 6 * 60 * 60 * 1_000; // 6 hours
+let _vdCache: { data: string; fetchedAt: number } | null = null;
+
+/**
+ * Fetch a YouTube visitor-data token, required for WEB-client requests.
+ * Cached for 6 h; returns null on any failure.
+ */
+async function _getVisitorData(): Promise<string | null> {
+  const now = Date.now();
+  if (_vdCache && now - _vdCache.fetchedAt < _VD_TTL_MS) return _vdCache.data;
+  try {
+    const res = await fetch('https://www.youtube.com/youtubei/v1/visitor_id', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        context: { client: { clientName: 'WEB', clientVersion: '2.20240709.00.00', hl: 'en', gl: 'US' } },
+      }),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) return null;
+    const json = await res.json() as Record<string, unknown>;
+    const vd =
+      ((json?.responseContext as Record<string, unknown>)?.visitorData as string | undefined) ?? null;
+    if (vd) _vdCache = { data: vd, fetchedAt: now };
+    return vd;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Remote client-list config (INNERTUBE_CLIENTS_URL) ───────────────────────
+
+/** A single InnerTube client descriptor (possibly from remote config). */
+type ClientDescriptor = {
+  clientName: string;
+  clientNameId: number;
+  clientVersion: string;
+  userAgent: string;
+  extra?: Record<string, unknown>;
+};
+
+const _CL_TTL_MS = 6 * 60 * 60 * 1_000; // 6 hours
+let _clCache: { data: ClientDescriptor[]; fetchedAt: number } | null = null;
+
+function _isValidClientList(val: unknown): val is ClientDescriptor[] {
+  return (
+    Array.isArray(val) &&
+    val.length > 0 &&
+    val.every(
+      (c) =>
+        c !== null &&
+        typeof c === 'object' &&
+        typeof (c as Record<string, unknown>).clientName === 'string' &&
+        typeof (c as Record<string, unknown>).clientNameId === 'number' &&
+        typeof (c as Record<string, unknown>).clientVersion === 'string' &&
+        typeof (c as Record<string, unknown>).userAgent === 'string',
+    )
+  );
+}
+
+async function _fetchRemoteClients(): Promise<ClientDescriptor[] | null> {
+  const url = process.env.INNERTUBE_CLIENTS_URL;
+  if (!url) return null;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(5_000) });
+    if (!res.ok) {
+      console.warn(`[youtubeTranscript] INNERTUBE_CLIENTS_URL fetch failed: HTTP ${res.status}`);
+      return null;
+    }
+    const json: unknown = await res.json();
+    if (!_isValidClientList(json)) {
+      console.warn('[youtubeTranscript] INNERTUBE_CLIENTS_URL response has invalid shape; using built-in defaults');
+      return null;
+    }
+    return json;
+  } catch (err) {
+    console.warn('[youtubeTranscript] INNERTUBE_CLIENTS_URL fetch error; using built-in defaults:', err);
+    return null;
+  }
+}
+
+/**
+ * Returns the current InnerTube client list.
+ *
+ * If `INNERTUBE_CLIENTS_URL` is set and the cached copy is fresh (≤ 6 h),
+ * the remote list is returned.  Otherwise the request is re-fetched and the
+ * result cached.  On any fetch or parse failure the built-in
+ * {@link INNERTUBE_CLIENTS} array is returned and a warning is logged.
+ */
+export async function getInnerTubeClients(): Promise<readonly ClientDescriptor[]> {
+  const now = Date.now();
+  if (_clCache && now - _clCache.fetchedAt < _CL_TTL_MS) return _clCache.data;
+  const remote = await _fetchRemoteClients();
+  if (remote) {
+    _clCache = { data: remote, fetchedAt: now };
+    return remote;
+  }
+  return INNERTUBE_CLIENTS;
+}
+
+// Fire-and-forget initial fetch at module load so the first real request hits
+// the cache rather than waiting for a network round-trip.
+void _fetchRemoteClients().then((data) => {
+  if (data) _clCache = { data, fetchedAt: Date.now() };
+});
 
 /**
  * A custom error thrown when the InnerTube player API rejects every client
@@ -185,13 +303,19 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
   // ── 1. Fetch player data via InnerTube API (with client rotation) ────────────
   //
   // YouTube silently rotates the set of accepted client versions.  On HTTP 400
-  // or 403 we try the next entry in INNERTUBE_CLIENTS.  Any other non-2xx
+  // or 403 we try the next entry in the client list.  Any other non-2xx
   // status code is treated as a non-version-related failure and the loop is
   // broken immediately.
   let playerData: Record<string, unknown> | null = null;
   let lastStatus = 0;
 
-  for (const c of INNERTUBE_CLIENTS) {
+  const clients = await getInnerTubeClients();
+
+  for (const c of clients) {
+    // WEB client requires visitorData for most videos.  Fetch it lazily and
+    // include it in the request context and the X-Goog-Visitor-Id header.
+    const visitorData = c.clientName === 'WEB' ? await _getVisitorData() : null;
+
     const playerRes = await fetch(INNERTUBE_PLAYER_URL, {
       method: 'POST',
       headers: {
@@ -202,6 +326,7 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
         'X-YouTube-Client-Name':    String(c.clientNameId),
         'X-YouTube-Client-Version': c.clientVersion,
         'Origin':                   'https://www.youtube.com',
+        ...(visitorData ? { 'X-Goog-Visitor-Id': visitorData } : {}),
       },
       body: JSON.stringify({
         context: {
@@ -210,6 +335,7 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
             clientVersion: c.clientVersion,
             hl: 'en',
             gl: 'US',
+            ...(visitorData ? { visitorData } : {}),
             ...c.extra,
           },
         },
@@ -235,7 +361,7 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
 
   if (!playerData) {
     throw new YouTubeApiError(
-      `YouTube player API returned HTTP ${lastStatus} for all ${INNERTUBE_CLIENTS.length} client version(s) tried`,
+      `YouTube player API returned HTTP ${lastStatus} for all ${clients.length} client version(s) tried`,
       lastStatus,
     );
   }
