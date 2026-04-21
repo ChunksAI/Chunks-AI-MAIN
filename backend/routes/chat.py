@@ -18,7 +18,7 @@ import re
 import uuid
 from dataclasses import dataclass
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
 from routes.limiter import limiter, _dynamic_ask_limit
@@ -1290,7 +1290,12 @@ async def ask(request: Request, body: AskRequest):
 
         # ── Intent classification ─────────────────────────────────────────────
         from services.intent_classifier import classify as _classify_intent
-        _clf_result = _classify_intent(question, history=history, viewer_state=viewer_state)
+        try:
+            _clf_result = _classify_intent(question, history=history, viewer_state=viewer_state)
+        except Exception as _clf_err:
+            logger.warning('[/ask] _classify_intent failed: %s', _clf_err, exc_info=True)
+            from services.intent_classifier import ClassificationResult as _ClassificationResult
+            _clf_result = _ClassificationResult(primary_intent='general', secondary_intent=None, confusion_level=0.0, is_viewer_reference=False, is_multi_intent=False)
         intent = _clf_result.primary_intent
         logger.debug('[intent] %s → %s (confusion=%.2f, multi=%s)',
                      question[:60], intent, _clf_result.confusion_level,
@@ -1307,17 +1312,29 @@ async def ask(request: Request, body: AskRequest):
                 _paev_ready_flag = _r.get(f'{_KEY_NS_PREFIX}paev_ready:{book_id}') in ('1', b'1')
         except Exception:
             pass
-        _decision = _orch_decide(
-            intent=_clf_result,
-            student_gaps=student_gaps,
-            paev_ready=_paev_ready_flag,
-            has_doc_context=bool(doc_context),
-            mode=mode,
-            question=question,
-            student_profile=student_profile,
-            web_search_requested=web_search,
-            viewer_state=viewer_state,
-        )
+        try:
+            _decision = _orch_decide(
+                intent=_clf_result,
+                student_gaps=student_gaps,
+                paev_ready=_paev_ready_flag,
+                has_doc_context=bool(doc_context),
+                mode=mode,
+                question=question,
+                student_profile=student_profile,
+                web_search_requested=web_search,
+                viewer_state=viewer_state,
+            )
+        except Exception as _orch_err:
+            logger.warning('[/ask] _orch_decide failed: %s', _orch_err, exc_info=True)
+            from services.orchestrator import OrchestratorDecision as _OrchestratorDecision
+            _decision = _OrchestratorDecision(
+                use_paev=False, use_tool=False, tool_type='none',
+                paev_prereq_limit=0, tool_token_budget=0,
+                cache_eligible=True,
+                reason='orch_failed',
+                viewer_route=False,
+                confusion_escalated=False,
+            )
         logger.debug('[orchestrator] route=%s paev=%s viewer=%s escalated=%s',
                      _decision.reason[:60], _decision.use_paev,
                      _decision.viewer_route, _decision.confusion_escalated)
@@ -1392,27 +1409,46 @@ async def ask(request: Request, body: AskRequest):
                 # ── Parallel fetch: textbook + PAEV context ───────────────────
                 # Both calls are I/O-bound (or CPU-bound but blocking); run them
                 # concurrently to save the duration of the slower fetch.
-                (context, similarity, is_relevant, source, all_sources), paev_context = \
-                    await asyncio.gather(
-                        _fetch_textbook_context(searcher, question, top_k=5),
-                        _fetch_paev_context(student_gaps, _decision.paev_prereq_limit),
-                    )
+                _gather_results = await asyncio.gather(
+                    _fetch_textbook_context(searcher, question, top_k=5),
+                    _fetch_paev_context(student_gaps, _decision.paev_prereq_limit),
+                    return_exceptions=True,
+                )
+                _tb_result, _pv_result = _gather_results
+                if isinstance(_tb_result, Exception):
+                    logger.warning('[/ask] _fetch_textbook_context failed: %s', _tb_result, exc_info=False)
+                    context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
+                else:
+                    context, similarity, is_relevant, source, all_sources = _tb_result
+                if isinstance(_pv_result, Exception):
+                    logger.warning('[/ask] _fetch_paev_context failed: %s', _pv_result, exc_info=False)
+                    paev_context = ''
+                else:
+                    paev_context = _pv_result
                 logger.debug(
                     'parallel fetch done: score=%.4f relevant=%s paev_ctx_len=%d',
                     similarity, is_relevant, len(paev_context),
                 )
             elif use_textbook:
                 # ── Single fetch: textbook only ───────────────────────────────
-                context, similarity, is_relevant, source, all_sources = \
-                    await _fetch_textbook_context(searcher, question, top_k=5)
+                try:
+                    context, similarity, is_relevant, source, all_sources = \
+                        await _fetch_textbook_context(searcher, question, top_k=5)
+                except Exception as _tb_err:
+                    logger.warning('[/ask] _fetch_textbook_context failed: %s', _tb_err, exc_info=True)
+                    context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
                 paev_context = ''
                 logger.debug(f"Score: {similarity:.4f} | Relevant: {is_relevant}")
             elif _decision.use_paev:
                 # ── Single fetch: PAEV only (no textbook) ────────────────────
                 context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
-                paev_context = await _fetch_paev_context(
-                    student_gaps, _decision.paev_prereq_limit
-                )
+                try:
+                    paev_context = await _fetch_paev_context(
+                        student_gaps, _decision.paev_prereq_limit
+                    )
+                except Exception as _pv_err:
+                    logger.warning('[/ask] _fetch_paev_context failed: %s', _pv_err, exc_info=True)
+                    paev_context = ''
                 logger.info("PAEV-only route — no textbook search needed")
             else:
                 context, similarity, is_relevant, source, all_sources = "", 0.0, False, None, []
@@ -2085,18 +2121,29 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 query_emb_list=_query_emb_list,
                 request_id=getattr(request.state, 'request_id', ''),
             )
-            if mode == 'chunk':
-                return await _handle_chunk(actx)
-            elif mode == 'master':
-                return await _handle_master(actx)
-            elif mode == 'research':
-                return await _handle_research(actx)
-            else:
-                return await _handle_snap(actx, request)
+            _req_id = getattr(request.state, 'request_id', request.headers.get('X-Request-Id', '-'))
+            try:
+                if mode == 'chunk':
+                    return await _handle_chunk(actx)
+                elif mode == 'master':
+                    return await _handle_master(actx)
+                elif mode == 'research':
+                    return await _handle_research(actx)
+                else:
+                    return await _handle_snap(actx, request)
+            except Exception as _handler_err:
+                logger.warning('[/ask] %s handler failed: %s', mode, _handler_err, exc_info=True)
+                return JSONResponse({
+                    'success': False,
+                    'error': 'An unexpected error occurred. Please try again.',
+                    'request_id': _req_id,
+                }, status_code=500)
 
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
-        req_id = request.headers.get('X-Request-Id', '-')
+        req_id = getattr(request.state, 'request_id', request.headers.get('X-Request-Id', '-'))
         logger.error(
             "[/ask] UNHANDLED EXCEPTION req_id=%s type=%s msg=%s\ntraceback=%s",
             req_id, type(e).__name__, str(e), traceback.format_exc()
