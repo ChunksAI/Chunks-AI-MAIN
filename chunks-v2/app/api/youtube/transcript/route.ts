@@ -226,6 +226,22 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
             sig,
           });
         }
+      } else {
+        // Log a specific warning for 405 — this usually means the backend
+        // hasn't been deployed with the GET /api/youtube/transcript endpoint yet.
+        if (backendRes.status === 405) {
+          console.warn(
+            JSON.stringify({
+              event: 'youtube_transcript_backend_endpoint_missing',
+              status: 405,
+              message:
+                'Backend returned 405 for GET /api/youtube/transcript — ' +
+                'ensure the backend is deployed with the new endpoint.',
+              video_id: videoId,
+              ts: new Date().toISOString(),
+            }),
+          );
+        }
       }
     } catch (backendErr) {
       console.warn('[youtube/transcript] Backend fallback also failed:', backendErr);
@@ -247,7 +263,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // internal server error (500).  Using the correct status code prevents
   // monitoring dashboards from firing "our server is down" alerts when
   // YouTube is the party at fault.
-  const httpStatus = innerTubeIsYtApiErr ? 502 : 500;
+  // "No transcript available" is a 404 (content not found) — the server
+  // itself is functioning correctly, there just aren't any captions for
+  // this video.
+  const noTranscript =
+    !innerTubeIsYtApiErr &&
+    (innerTubeErr?.message ?? '').toLowerCase().includes('no transcript');
+  const httpStatus = innerTubeIsYtApiErr ? 502 : noTranscript ? 404 : 500;
   return NextResponse.json(
     {
       error: innerTubeErr?.message ?? 'Failed to fetch transcript',

@@ -32,7 +32,12 @@ export interface FetchTranscriptResult {
 
 const VIDEO_ID_RE = /(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/;
 
-function extractVideoId(urlOrId: string): string | null {
+/**
+ * Extract a YouTube video ID from a URL or return the bare ID unchanged.
+ * Accepts youtu.be short links, youtube.com watch URLs, embed URLs, Shorts
+ * URLs, and bare 11-character video IDs.
+ */
+export function extractVideoId(urlOrId: string): string | null {
   const trimmed = urlOrId.trim();
   // Accept a bare 11-character video ID directly
   if (/^[A-Za-z0-9_-]{11}$/.test(trimmed)) return trimmed;

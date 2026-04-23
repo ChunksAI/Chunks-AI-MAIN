@@ -51,6 +51,10 @@ class ViewerState(BaseModel):
     visible_transcript_segment: Optional[str] = Field(default=None, max_length=8000)
     pdf_visible_text: Optional[str] = Field(default=None, max_length=8000)
     pdf_page: Optional[int] = Field(default=None, ge=0, le=100000)
+    # `research_url` is sent by the TypeScript frontend (ViewerStatePayload.research_url).
+    # `url` is the legacy alias kept for backward compatibility with any existing
+    # server-side viewer state stored in Redis under the old field name.
+    research_url: Optional[str] = Field(default=None, max_length=2000)
     url: Optional[str] = Field(default=None, max_length=2000)
 
 
