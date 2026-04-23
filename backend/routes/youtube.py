@@ -226,6 +226,12 @@ async def fetch_youtube_transcript_py(request: Request):
     try:
         api = YouTubeTranscriptApi()
 
+        # youtube-transcript-api >= 1.0 uses an instance-based API:
+        #   api = YouTubeTranscriptApi()
+        #   api.fetch(video_id, languages=[...])  → FetchedTranscript
+        #   api.list(video_id)                    → TranscriptList
+        # (The 0.6.x static-method API is not supported by this endpoint.)
+
         # Attempt 1: fetch English transcript directly.
         fetched = None
         fetch_error = None

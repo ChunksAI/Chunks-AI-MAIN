@@ -189,7 +189,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   if (videoId) {
     try {
-      const backendBase = (process.env.NEXT_PUBLIC_API_URL ?? 'https://api.chunks.online').replace(/\/$/, '');
+      const backendBase = (process.env.BACKEND_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'https://api.chunks.online').replace(/\/$/, '');
       const authHeader = request.headers.get('authorization');
       const backendRes = await fetch(
         `${backendBase}/api/youtube/transcript?video_id=${encodeURIComponent(videoId)}`,

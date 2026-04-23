@@ -78,13 +78,8 @@ class TestYouTubeTranscriptGet:
 
     def _make_snippet(self, text, start=0.0, duration=3.0):
         """Create a minimal FetchedTranscriptSnippet-like object."""
-        class _Snippet:
-            pass
-        s = _Snippet()
-        s.text = text
-        s.start = start
-        s.duration = duration
-        return s
+        from types import SimpleNamespace
+        return SimpleNamespace(text=text, start=start, duration=duration)
 
     def test_transcript_route_registered(self, app):
         """GET /api/youtube/transcript is registered in the application router."""
@@ -104,21 +99,20 @@ class TestYouTubeTranscriptGet:
     def test_success_returns_entries(self, client, mock_extract_user):
         """When youtube-transcript-api returns entries, the endpoint returns 200."""
         snippet = self._make_snippet('Hello world', 0.0, 3.0)
-
         mock_fetched = [snippet]
         mock_api = MagicMock()
         mock_api.fetch.return_value = mock_fetched
-        mock_api_cls = MagicMock(return_value=mock_api)
 
-        with patch.dict('sys.modules', {'youtube_transcript_api': MagicMock(
-            YouTubeTranscriptApi=mock_api_cls,
-        )}):
-            with patch('routes.youtube.YouTubeTranscriptApi', mock_api_cls, create=True):
-                resp = client.get(f'{self._URL}?video_id={self._VIDEO_ID}')
+        with patch('routes.youtube.YouTubeTranscriptApi', return_value=mock_api):
+            resp = client.get(f'{self._URL}?video_id={self._VIDEO_ID}')
 
-        # The actual test may not fully mock all imports, so just check it
-        # doesn't crash with a 500 if the library is available.
-        assert resp.status_code in (200, 404, 503)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data['success'] is True
+        assert data['video_id'] == self._VIDEO_ID
+        assert len(data['entries']) == 1
+        assert data['entries'][0]['text'] == 'Hello world'
+        assert data['entries'][0]['start'] == 0.0
 
     def test_no_transcript_returns_404(self, client, mock_extract_user):
         """When no transcript is available, return 404."""
