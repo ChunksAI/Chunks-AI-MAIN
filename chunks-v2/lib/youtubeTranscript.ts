@@ -32,7 +32,12 @@ export interface FetchTranscriptResult {
 
 const VIDEO_ID_RE = /(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/;
 
-function extractVideoId(urlOrId: string): string | null {
+/**
+ * Extract a YouTube video ID from a URL or return the bare ID unchanged.
+ * Accepts youtu.be short links, youtube.com watch URLs, embed URLs, Shorts
+ * URLs, and bare 11-character video IDs.
+ */
+export function extractVideoId(urlOrId: string): string | null {
   const trimmed = urlOrId.trim();
   // Accept a bare 11-character video ID directly
   if (/^[A-Za-z0-9_-]{11}$/.test(trimmed)) return trimmed;
@@ -380,6 +385,28 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
     )?.captionTracks as CaptionTrack[] ?? [];
 
   if (!captionTracks.length) {
+    // No caption tracks returned by InnerTube — try the video description as a
+    // last-resort context source.  The description is often a concise summary of
+    // the video's content and lets the AI answer basic questions even without a
+    // spoken transcript.  Entries are prefixed so the AI (and any logging) can
+    // distinguish description-based context from a real transcript.
+    const shortDescription: string =
+      ((playerData?.videoDetails as Record<string, unknown>)?.shortDescription as string | undefined) ?? '';
+    if (shortDescription.trim()) {
+      // Split by paragraph breaks; each paragraph becomes one entry.
+      const paragraphs = shortDescription
+        .split(/\n\n+/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+      const descEntries: TranscriptEntry[] =
+        paragraphs.length > 0
+          ? [
+              { text: '[Video description — no captions available]', start: 0, duration: 1 },
+              ...paragraphs.map((p, i) => ({ text: p, start: i + 1, duration: 1 })),
+            ]
+          : [{ text: `[Video description — no captions available] ${shortDescription.trim()}`, start: 0, duration: 1 }];
+      return { entries: descEntries, title, videoId };
+    }
     throw new Error('No transcript available for this video');
   }
 

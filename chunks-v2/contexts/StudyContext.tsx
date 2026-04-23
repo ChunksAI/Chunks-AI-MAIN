@@ -48,6 +48,7 @@ import { useQuizContext, type QuizState, type QuizAction, calcWeakAreas } from '
 import { useNotesContext, type NotesState, type NotesAction } from '@/contexts/NotesContext';
 import { useViewerContext, buildViewerState } from '@/contexts/ViewerContext';
 import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus, getStreamBuffer, ingestYouTube, setViewerState } from '@/lib/studyApi';
+import { extractVideoId } from '@/lib/youtubeTranscript';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
 import {
@@ -1517,6 +1518,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       payload: { id: placeholderId, role: 'ai', text: '🎬 Loading video transcript…', isPlaceholder: true },
     });
 
+    // Extract the video ID early so we can open the viewer panel even when
+    // transcript fetching fails (the user can still watch the video).
+    const videoId = extractVideoId(url);
+
     try {
       const res = await ingestYouTube(url);
 
@@ -1552,10 +1557,26 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         },
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to load video.';
+      // Open the viewer for the video even though the transcript failed —
+      // the user can still watch it and the AI can answer general questions.
+      if (videoId) {
+        viewerDispatch({ type: 'OPEN_YOUTUBE', videoId });
+        // Persist a minimal viewer state so the backend knows which video is open.
+        setViewerState({ type: 'youtube', video_id: videoId, visible_segment: '' });
+      }
+
+      const isNoTranscript =
+        err instanceof Error &&
+        (err.message.toLowerCase().includes('no transcript') ||
+          err.message.toLowerCase().includes('transcript available'));
+
+      const message = isNoTranscript
+        ? `📺 Video opened — no transcript available, so AI context is limited. You can still ask questions!`
+        : (err instanceof Error ? err.message : 'Failed to load video.');
+
       chatDispatch({
-        type: 'HANDLE_CHAT_ERROR',
-        payload: { messageId: placeholderId, error: message, originalQuestion: url },
+        type: 'REPLACE_AI_MESSAGE',
+        payload: { id: placeholderId, text: message },
       });
     }
   }, [chatDispatch, viewerDispatch, dispatch]);

@@ -161,6 +161,149 @@ router_v2 = APIRouter(prefix='/api/youtube')
 # TTL for transcript segments cached in Redis
 _YT_TRANSCRIPT_TTL = 3_600  # 1 hour
 
+# Exceptions that mean "no transcript exists" (vs a transient/server error).
+# Caught at the top of fetch_youtube_transcript to return HTTP 404.
+_NO_TRANSCRIPT_EXCEPTIONS: tuple[type, ...] = ()
+YouTubeTranscriptApi = None  # set below if the package is available
+
+try:
+    from youtube_transcript_api import (  # type: ignore[import-untyped]
+        YouTubeTranscriptApi,
+        TranscriptsDisabled,
+        VideoUnavailable,
+        NoTranscriptFound,
+    )
+    _NO_TRANSCRIPT_EXCEPTIONS = (TranscriptsDisabled, VideoUnavailable, NoTranscriptFound)
+except ImportError:
+    pass
+
+
+@router_v2.get('/transcript')
+@limiter.limit("10/minute")
+async def fetch_youtube_transcript_py(request: Request):
+    """GET /api/youtube/transcript?video_id=<11-char-id>
+
+    Fetch a YouTube transcript using the ``youtube-transcript-api`` library.
+    This endpoint acts as a fallback for the Next.js InnerTube proxy when
+    InnerTube returns no caption tracks (e.g. for videos where the mobile
+    client context is rejected or where poToken is required).
+
+    The library fetches the video's watch-page HTML and extracts transcript
+    URLs from the embedded player config, which is a different code path from
+    the InnerTube API and succeeds for a wider range of videos.
+
+    Response (success)::
+
+        {
+          "success":  true,
+          "video_id": "dQw4w9WgXcQ",
+          "title":    "...",
+          "entries":  [{"text": "...", "start": 0.5, "duration": 2.3}, ...]
+        }
+
+    Response (no transcript)::
+
+        {"success": false, "error": "No transcript available for this video"}
+        HTTP 404
+    """
+    from services.auth import _extract_verified_user
+    _extract_verified_user(request)
+
+    video_id = (request.query_params.get('video_id') or '').strip()
+    if not video_id or not _VIDEO_ID_RE.match(video_id):
+        return JSONResponse(
+            {'success': False, 'error': 'video_id must be an 11-character YouTube video ID'},
+            status_code=400,
+        )
+
+    if YouTubeTranscriptApi is None:
+        logger.error('[youtube/transcript] youtube-transcript-api is not installed')
+        return JSONResponse(
+            {'success': False, 'error': 'Transcript backend unavailable'},
+            status_code=503,
+        )
+
+    try:
+        api = YouTubeTranscriptApi()
+
+        # youtube-transcript-api >= 1.0 uses an instance-based API:
+        #   api = YouTubeTranscriptApi()
+        #   api.fetch(video_id, languages=[...])  → FetchedTranscript
+        #   api.list(video_id)                    → TranscriptList
+        # (The 0.6.x static-method API is not supported by this endpoint.)
+
+        # Attempt 1: fetch English transcript directly.
+        fetched = None
+        fetch_error = None
+        try:
+            fetched = api.fetch(video_id, languages=['en'])
+        except _NO_TRANSCRIPT_EXCEPTIONS:
+            # No English transcript — fall through to attempt 2.
+            pass
+        except Exception as exc:
+            fetch_error = exc
+
+        # Attempt 2: list all transcripts and pick the best available one.
+        if fetched is None and fetch_error is None:
+            try:
+                transcript_list = api.list(video_id)
+                all_transcripts = list(transcript_list)
+                if not all_transcripts:
+                    return JSONResponse(
+                        {'success': False, 'error': 'No transcript available for this video'},
+                        status_code=404,
+                    )
+                # Prefer a manually-created transcript; fall back to auto-generated.
+                manual = [t for t in all_transcripts if not getattr(t, 'is_generated', True)]
+                chosen = manual[0] if manual else all_transcripts[0]
+                fetched = chosen.fetch()
+            except _NO_TRANSCRIPT_EXCEPTIONS:
+                return JSONResponse(
+                    {'success': False, 'error': 'No transcript available for this video'},
+                    status_code=404,
+                )
+
+        if fetch_error is not None:
+            raise fetch_error
+
+        if fetched is None:
+            return JSONResponse(
+                {'success': False, 'error': 'No transcript available for this video'},
+                status_code=404,
+            )
+
+        entries = [
+            {
+                'text':     snippet.text.strip(),
+                'start':    float(snippet.start),
+                'duration': float(snippet.duration),
+            }
+            for snippet in fetched
+            if snippet.text.strip()
+        ]
+
+        if not entries:
+            return JSONResponse(
+                {'success': False, 'error': 'No transcript available for this video'},
+                status_code=404,
+            )
+
+        return JSONResponse({'success': True, 'video_id': video_id, 'entries': entries})
+
+    except _NO_TRANSCRIPT_EXCEPTIONS:
+        return JSONResponse(
+            {'success': False, 'error': 'No transcript available for this video'},
+            status_code=404,
+        )
+    except Exception:
+        logger.exception(
+            '[youtube/transcript] Unexpected error fetching transcript for video %s', video_id
+        )
+        return JSONResponse(
+            {'success': False, 'error': 'Failed to fetch transcript'},
+            status_code=500,
+        )
+
 
 @router_v2.post('/process')
 @limiter.limit("10/minute")

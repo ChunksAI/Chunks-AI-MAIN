@@ -138,14 +138,19 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Missing required parameter: url' }, { status: 400 });
   }
 
+  // ── Step 1: Try InnerTube API ───────────────────────────────────────────────
+  let innerTubeErr: Error | null = null;
+  let innerTubeIsYtApiErr = false;
+  let innerTubeYtStatus: number | undefined;
+
   try {
     const result = await fetchYouTubeTranscript(url);
     const sig = _signTranscript(result.videoId, result.entries);
     return NextResponse.json({ ...result, sig });
   } catch (err) {
-    const isYtApiError = err instanceof YouTubeApiError;
-    const ytStatus = isYtApiError ? err.ytStatus : undefined;
-    const message = err instanceof Error ? err.message : 'Failed to fetch transcript';
+    innerTubeErr = err instanceof Error ? err : new Error('Failed to fetch transcript');
+    innerTubeIsYtApiErr = err instanceof YouTubeApiError;
+    innerTubeYtStatus = innerTubeIsYtApiErr ? (err as YouTubeApiError).ytStatus : undefined;
 
     // Emit a structured log entry so log-aggregation pipelines (Datadog,
     // CloudWatch, Loki, etc.) can alert on YouTube API failures.  The
@@ -153,29 +158,123 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // When `is_version_error` is true, check INNERTUBE_CLIENTS
     // in lib/youtubeTranscript.ts — YouTube may have rotated its client API.
     // See docs/YOUTUBE_CLIENT_VERSION_RUNBOOK.md for the update procedure.
-    console.error(
+    console.warn(
       JSON.stringify({
-        event: 'youtube_transcript_fetch_failed',
-        yt_status: ytStatus ?? null,
+        event: 'youtube_transcript_innertube_failed',
+        yt_status: innerTubeYtStatus ?? null,
         // true only when every entry in INNERTUBE_CLIENTS was tried and rejected
-        is_version_error: isYtApiError,
-        error: message,
+        is_version_error: innerTubeIsYtApiErr,
+        error: innerTubeErr.message,
         ts: new Date().toISOString(),
       }),
     );
 
-    if (isYtApiError) {
+    if (innerTubeIsYtApiErr) {
       _recordVersionError();
     }
-
-    // Upstream YouTube failures are a bad-gateway problem (502), not an
-    // internal server error (500).  Using the correct status code prevents
-    // monitoring dashboards from firing "our server is down" alerts when
-    // YouTube is the party at fault.
-    const httpStatus = isYtApiError ? 502 : 500;
-    return NextResponse.json(
-      { error: message, ...(ytStatus !== undefined && { yt_status: ytStatus }) },
-      { status: httpStatus },
-    );
   }
+
+  // ── Step 2: Fall back to the Python backend (youtube-transcript-api) ────────
+  // The backend uses a different fetching mechanism (page-HTML scraping) that
+  // may succeed for videos where the InnerTube mobile-client approach fails
+  // (e.g. certain region restrictions, client-version rejections, or videos
+  // that require a poToken).
+  //
+  // We extract the video ID from the URL first so we can call the backend
+  // even when InnerTube returned an HTTP error and we never had playerData.
+  const videoIdMatch =
+    url.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([A-Za-z0-9_-]{11})/) ??
+    (/^[A-Za-z0-9_-]{11}$/.test(url.trim()) ? [null, url.trim()] : null);
+  const videoId = videoIdMatch?.[1] ?? null;
+
+  if (videoId) {
+    try {
+      const backendBase = (process.env.BACKEND_API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? 'https://api.chunks.online').replace(/\/$/, '');
+      const authHeader = request.headers.get('authorization');
+      const backendRes = await fetch(
+        `${backendBase}/api/youtube/transcript?video_id=${encodeURIComponent(videoId)}`,
+        {
+          headers: {
+            ...(authHeader ? { Authorization: authHeader } : {}),
+          },
+          signal: AbortSignal.timeout(20_000),
+        },
+      );
+
+      if (backendRes.ok) {
+        const backendData = (await backendRes.json()) as {
+          success: boolean;
+          video_id: string;
+          title?: string;
+          entries: { text: string; start: number; duration: number }[];
+        };
+
+        if (backendData.success && Array.isArray(backendData.entries) && backendData.entries.length > 0) {
+          console.log(
+            JSON.stringify({
+              event: 'youtube_transcript_backend_fallback_success',
+              video_id: videoId,
+              entries: backendData.entries.length,
+              ts: new Date().toISOString(),
+            }),
+          );
+          const sig = _signTranscript(videoId, backendData.entries);
+          return NextResponse.json({
+            entries: backendData.entries,
+            title: backendData.title ?? `YouTube \u2014 ${videoId}`,
+            videoId,
+            sig,
+          });
+        }
+      } else {
+        // Log a specific warning for 405 — this usually means the backend
+        // hasn't been deployed with the GET /api/youtube/transcript endpoint yet.
+        if (backendRes.status === 405) {
+          console.warn(
+            JSON.stringify({
+              event: 'youtube_transcript_backend_endpoint_missing',
+              status: 405,
+              message:
+                'Backend returned 405 for GET /api/youtube/transcript — ' +
+                'ensure the backend is deployed with the new endpoint.',
+              video_id: videoId,
+              ts: new Date().toISOString(),
+            }),
+          );
+        }
+      }
+    } catch (backendErr) {
+      console.warn('[youtube/transcript] Backend fallback also failed:', backendErr);
+    }
+  }
+
+  // ── Step 3: Both methods failed — return the original error ─────────────────
+  console.error(
+    JSON.stringify({
+      event: 'youtube_transcript_fetch_failed',
+      yt_status: innerTubeYtStatus ?? null,
+      is_version_error: innerTubeIsYtApiErr,
+      error: innerTubeErr?.message ?? 'Failed to fetch transcript',
+      ts: new Date().toISOString(),
+    }),
+  );
+
+  // Upstream YouTube failures are a bad-gateway problem (502), not an
+  // internal server error (500).  Using the correct status code prevents
+  // monitoring dashboards from firing "our server is down" alerts when
+  // YouTube is the party at fault.
+  // "No transcript available" is a 404 (content not found) — the server
+  // itself is functioning correctly, there just aren't any captions for
+  // this video.
+  const noTranscript =
+    !innerTubeIsYtApiErr &&
+    (innerTubeErr?.message ?? '').toLowerCase().includes('no transcript');
+  const httpStatus = innerTubeIsYtApiErr ? 502 : noTranscript ? 404 : 500;
+  return NextResponse.json(
+    {
+      error: innerTubeErr?.message ?? 'Failed to fetch transcript',
+      ...(innerTubeYtStatus !== undefined && { yt_status: innerTubeYtStatus }),
+    },
+    { status: httpStatus },
+  );
 }
