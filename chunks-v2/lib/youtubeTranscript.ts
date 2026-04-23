@@ -380,6 +380,28 @@ export async function fetchYouTubeTranscript(urlOrId: string): Promise<FetchTran
     )?.captionTracks as CaptionTrack[] ?? [];
 
   if (!captionTracks.length) {
+    // No caption tracks returned by InnerTube — try the video description as a
+    // last-resort context source.  The description is often a concise summary of
+    // the video's content and lets the AI answer basic questions even without a
+    // spoken transcript.  Entries are prefixed so the AI (and any logging) can
+    // distinguish description-based context from a real transcript.
+    const shortDescription: string =
+      ((playerData?.videoDetails as Record<string, unknown>)?.shortDescription as string | undefined) ?? '';
+    if (shortDescription.trim()) {
+      // Split by paragraph breaks; each paragraph becomes one entry.
+      const paragraphs = shortDescription
+        .split(/\n\n+/)
+        .map((p) => p.trim())
+        .filter(Boolean);
+      const descEntries: TranscriptEntry[] =
+        paragraphs.length > 0
+          ? [
+              { text: '[Video description — no captions available]', start: 0, duration: 1 },
+              ...paragraphs.map((p, i) => ({ text: p, start: i + 1, duration: 1 })),
+            ]
+          : [{ text: `[Video description — no captions available] ${shortDescription.trim()}`, start: 0, duration: 1 }];
+      return { entries: descEntries, title, videoId };
+    }
     throw new Error('No transcript available for this video');
   }
 
