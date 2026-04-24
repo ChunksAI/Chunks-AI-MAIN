@@ -65,6 +65,15 @@ import {
 } from '@/lib/constants';
 import { CURRENT_STORAGE_VERSION, migrateSnapshotIfNeeded, type VersionedSnapshot } from '@/lib/storageVersion';
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/**
+ * Chat modes for which a Free Body Diagram is meaningful.
+ * Research mode is excluded because it produces web-sourced prose, not
+ * physics explanations.  Defined at module scope to avoid re-allocation.
+ */
+const FBD_MODES = new Set<string>(['snap', 'chunk', 'master']);
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Strip HTML tags from a string using DOMParser (browser) for accuracy. */
@@ -1370,9 +1379,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
 
         // Physics FBD — fire-and-forget when the question or AI response
-        // contains ≥ 2 physics keywords.  Never blocks the chat flow.
-        if (detectPhysicsProblem(text) || detectPhysicsProblem(fbdAccumulatedText)) {
-          void generateFBD(text, fbdAccumulatedText);
+        // contains ≥ 2 physics keywords.  Only runs for modes where a FBD
+        // is meaningful (snap / chunk / master).  Research mode is skipped
+        // because it produces web-sourced prose, not physics explanations.
+        // Never blocks the chat flow.
+        if (FBD_MODES.has(currentChatMode) && (detectPhysicsProblem(text) || detectPhysicsProblem(fbdAccumulatedText))) {
+          void generateFBD(text, fbdAccumulatedText, currentChatMode);
         }
 
         // Forward viewer_action to ViewerContext so the embedded player can seek
@@ -1677,12 +1689,23 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // ── generateFBD ───────────────────────────────────────────────────────────
   /**
-   * Fire-and-forget: calls /api/ai with anthropic/claude-haiku-4.5 (via OpenRouter) to generate
-   * a Free Body Diagram JSON for a detected physics question, then dispatches
-   * OPEN_FBD to ViewerContext.  Never throws — all errors are silently ignored
-   * so a FBD failure never disrupts the main chat flow.
+   * Fire-and-forget: calls /api/ai (via OpenRouter) to generate a Free Body
+   * Diagram JSON for a detected physics question, then dispatches OPEN_FBD to
+   * ViewerContext.  Never throws — all errors are silently ignored so a FBD
+   * failure never disrupts the main chat flow.
+   *
+   * Model selection is mode-aware:
+   *   - master → anthropic/claude-sonnet-4.5  (matches the quality tier)
+   *   - snap / chunk → anthropic/claude-haiku-4.5  (fast, sufficient for JSON)
    */
-  const generateFBD = useCallback(async (question: string, aiText: string): Promise<void> => {
+  const generateFBD = useCallback(async (question: string, aiText: string, mode: string): Promise<void> => {
+    // Select model based on the active chat mode so FBD quality matches the
+    // tier the user has chosen.  master uses a stronger model; snap and chunk
+    // use the cheaper haiku which is fully capable for structured JSON output.
+    const fbdModel = mode === 'master'
+      ? 'anthropic/claude-sonnet-4.5'
+      : 'anthropic/claude-haiku-4.5';
+
     try {
       const prompt =
         `You are a physics diagram generator. Analyze the physics problem below and output ONLY a valid JSON object for a Free Body Diagram. Do NOT include any explanation or markdown fences — output raw JSON only.\n\n` +
@@ -1707,7 +1730,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'anthropic/claude-haiku-4.5',
+          model: fbdModel,
           max_tokens: 500,
           messages: [{ role: 'user', content: prompt }],
         }),
