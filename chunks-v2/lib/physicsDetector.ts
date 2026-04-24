@@ -33,21 +33,6 @@ export function detectPhysicsProblem(text: string): boolean {
 
   // Single-word physics terms matched with whole-word boundaries so that
   // inflected forms ('forces', 'inclined') do not trigger a match.
-  const singleWords = [
-    'friction', 'tension', 'acceleration', 'gravity',
-    'newton', 'incline', 'pulley', 'torque',
-    'momentum', 'ramp', 'kg', 'newtons',
-    'force', 'equilibrium', 'resultant',
-  ];
-
-export function detectPhysicsProblem(text: string): boolean {
-  const lower = text.toLowerCase();
-
-  // Multi-word phrases are specific enough to count on substring presence.
-  const phrases = ['normal force', 'free body', 'free-body', 'fbd', 'net force'];
-
-  // Single-word physics terms matched with whole-word boundaries so that
-  // inflected forms ('forces', 'inclined') do not trigger a match.
   // Patterns are pre-compiled once per call (not inside an inner loop).
   const singleWordPatterns = [
     'friction', 'tension', 'acceleration', 'gravity',
