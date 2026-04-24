@@ -924,6 +924,9 @@ export interface ResearchIngestResponse {
   year?: number;
   abstract?: string;
   source_url?: string;
+  journal?: string;
+  doi?: string;
+  pages?: string;
 }
 
 /**
