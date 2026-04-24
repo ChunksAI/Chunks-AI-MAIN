@@ -299,7 +299,9 @@ function studyReducer(state: StudyState, action: StudyAction): StudyState {
       return { ...state, uploadError: null };
 
     case 'ADD_RECENT': {
-      const filtered = state.recents.filter((r) => r.title !== action.payload.title);
+      const filtered = state.recents.filter(
+        (r) => r.id !== action.payload.id && r.title !== action.payload.title,
+      );
       return { ...state, recents: [action.payload, ...filtered].slice(0, 5) };
     }
 
@@ -1416,6 +1418,29 @@ export function StudyProvider({ children }: { children: ReactNode }) {
               performanceBars: res.performance_bars ?? [],
               ...(res.structured ? { structured: res.structured } : {}),
               ...(res.web_citations ? { webCitations: res.web_citations } : {}),
+            },
+          });
+        }
+
+        // Add / update the Recents entry for this chat session.
+        // We use the topic returned by the AI (if any), the uploaded doc title,
+        // the session topic, or the first 60 chars of the user question as a
+        // fallback — whichever is most specific.
+        // We dispatch on every completed message so the title stays current
+        // (ADD_RECENT deduplicates by title so there is at most one entry per
+        // topic, and it moves to the top of the list on each update).
+        const recentLabel =
+          res.topic ||
+          stateRef.current.docTitle ||
+          stateRef.current.topic ||
+          text.trim().slice(0, 60);
+        if (recentLabel) {
+          dispatch({
+            type: 'ADD_RECENT',
+            payload: {
+              id: stateRef.current.sessionId || `session-${Date.now()}`,
+              title: recentLabel,
+              color: pickColor(recentLabel),
             },
           });
         }
