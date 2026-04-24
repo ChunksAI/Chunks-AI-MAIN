@@ -34,7 +34,7 @@ const nextConfig = {
               // Connections: self + Supabase + our backend API + AI APIs
               "connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://api.chunks.online https://api.anthropic.com https://api.openai.com",
               // Frames: Google OAuth
-              "frame-src https://accounts.google.com blob:",
+              "frame-src https://accounts.google.com https://www.youtube.com blob:",
               // Workers: self (service worker, if added later)
               "worker-src 'self'",
               "base-uri 'self'",

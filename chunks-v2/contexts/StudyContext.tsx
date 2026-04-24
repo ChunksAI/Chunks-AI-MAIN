@@ -1556,6 +1556,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           ],
         },
       });
+      chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
     } catch (err) {
       // Open the viewer for the video even though the transcript failed —
       // the user can still watch it and the AI can answer general questions.
@@ -1578,6 +1579,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         type: 'REPLACE_AI_MESSAGE',
         payload: { id: placeholderId, text: message },
       });
+      chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
     }
   }, [chatDispatch, viewerDispatch, dispatch]);
 
