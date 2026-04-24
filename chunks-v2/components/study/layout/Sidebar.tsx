@@ -30,9 +30,6 @@ interface SidebarProps {
 const NAV_ITEMS: NavItem[] = [
   { id: 'study',       label: 'Study',        icon: 'home' },
   { id: 'library',     label: 'Library',      icon: 'book' },
-  { id: 'flashcards',  label: 'Flashcards',   icon: 'layers' },
-  { id: 'study-plan',  label: 'Study Plan',   icon: 'calendar' },
-  { id: 'research',    label: 'Research',     icon: 'search' },
   { id: 'exam',        label: 'Exam Mode',    icon: 'check',    badge: { text: 'Pro', variant: 'pro' } },
 ];
 
@@ -88,9 +85,6 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
   const menuRef = useRef<HTMLDivElement>(null);
   const [progressOpen, setProgressOpen] = useState(true);
 
-  // Study Plan "coming soon" modal state
-  const [showStudyPlanModal, setShowStudyPlanModal] = useState(false);
-
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -115,15 +109,6 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
         break;
       case 'library':
         router.push('/library');
-        break;
-      case 'flashcards':
-        router.push('/flashcards');
-        break;
-      case 'research':
-        router.push('/research');
-        break;
-      case 'study-plan':
-        setShowStudyPlanModal(true);
         break;
       default:
         onNavChange(id);
@@ -172,51 +157,6 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
 
   return (
     <aside className={`sidebar${collapsed ? ' collapsed' : ''}${menuOpen ? ' menu-open' : ''}`}>
-      {/* ── Study Plan "coming soon" modal ── */}
-      {showStudyPlanModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.45)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-          onClick={() => setShowStudyPlanModal(false)}
-        >
-          <div
-            style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)',
-              padding: '28px 32px',
-              maxWidth: 380,
-              width: '90%',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ fontSize: 28, marginBottom: 12 }}>📅</div>
-            <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 600, marginBottom: 8 }}>
-              Study Plan
-            </div>
-            <p style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 20, lineHeight: 1.6 }}>
-              The full Study Plan page is coming soon. For now, use the{' '}
-              <strong>📋 Study plan</strong> quick action in the Chat tab to generate a
-              personalised study schedule.
-            </p>
-            <button
-              className="ws-add-btn"
-              style={{ width: '100%' }}
-              onClick={() => setShowStudyPlanModal(false)}
-            >
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
       {/* ── Header ── */}
       <div className="sidebar-header">
         <div className="logo">
