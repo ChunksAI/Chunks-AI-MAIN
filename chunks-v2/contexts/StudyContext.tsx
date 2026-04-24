@@ -1677,7 +1677,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // ── generateFBD ───────────────────────────────────────────────────────────
   /**
-   * Fire-and-forget: calls /api/ai with claude-haiku-4-5-20251001 to generate
+   * Fire-and-forget: calls /api/ai with anthropic/claude-haiku-4.5 (via OpenRouter) to generate
    * a Free Body Diagram JSON for a detected physics question, then dispatches
    * OPEN_FBD to ViewerContext.  Never throws — all errors are silently ignored
    * so a FBD failure never disrupts the main chat flow.
@@ -1707,7 +1707,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: 'anthropic/claude-haiku-4.5',
           max_tokens: 500,
           messages: [{ role: 'user', content: prompt }],
         }),
