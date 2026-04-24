@@ -51,6 +51,8 @@ import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generate
 import { extractVideoId } from '@/lib/youtubeTranscript';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
+import { detectPhysicsProblem } from '@/lib/physicsDetector';
+import { parseFBDFromJSON } from '@/lib/fbdParser';
 import {
   MAX_HISTORY_ITEMS,
   MAX_DOC_CONTEXT_CHARS,
@@ -1313,6 +1315,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         inflightRef.current = false;
       }, 120_000);
 
+      // Accumulate AI response text for physics / FBD detection (all modes).
+      let fbdAccumulatedText = '';
+
       try {
         const res = await sendMessageStream(
           {
@@ -1325,6 +1330,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             viewer_state: buildViewerState(viewerStateRef.current),
           },
           (chunk: string) => {
+            fbdAccumulatedText += chunk;
             if (isStreamingMode) {
               chatDispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
             } else {
@@ -1362,6 +1368,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         );
 
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
+
+        // Physics FBD — fire-and-forget when the question or AI response
+        // contains ≥ 2 physics keywords.  Never blocks the chat flow.
+        if (detectPhysicsProblem(text) || detectPhysicsProblem(fbdAccumulatedText)) {
+          void generateFBD(text, fbdAccumulatedText);
+        }
 
         // Forward viewer_action to ViewerContext so the embedded player can seek
         if (res.viewer_action) {
@@ -1662,6 +1674,57 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     },
     [chatDispatch],
   );
+
+  // ── generateFBD ───────────────────────────────────────────────────────────
+  /**
+   * Fire-and-forget: calls /api/ai with claude-haiku-4-5-20251001 to generate
+   * a Free Body Diagram JSON for a detected physics question, then dispatches
+   * OPEN_FBD to ViewerContext.  Never throws — all errors are silently ignored
+   * so a FBD failure never disrupts the main chat flow.
+   */
+  const generateFBD = useCallback(async (question: string, aiText: string): Promise<void> => {
+    try {
+      const prompt =
+        `You are a physics diagram generator. Analyze the physics problem below and output ONLY a valid JSON object for a Free Body Diagram. Do NOT include any explanation or markdown fences — output raw JSON only.\n\n` +
+        `Schema:\n` +
+        `{\n` +
+        `  "object": "box" | "ball" | "hanging_mass",\n` +
+        `  "surface": "flat" | "incline" (optional),\n` +
+        `  "inclineAngle": number (optional, 0–90 degrees),\n` +
+        `  "forces": [\n` +
+        `    { "label": string, "magnitude": number (Newtons), "angle": number (0=right 90=up 180=left 270=down), "color": "#hex" (optional) }\n` +
+        `  ]\n` +
+        `}\n\n` +
+        `Rules:\n` +
+        `- Always include Weight (angle=270) and Normal force (angle=90 for flat surface).\n` +
+        `- Add Friction (angle=0 or 180), Tension, or Applied Force when mentioned.\n` +
+        `- Estimate realistic magnitudes in Newtons if not explicitly given (Weight=100 for typical objects).\n` +
+        `- Output ONLY the JSON object.\n\n` +
+        `Physics problem:\n${question.slice(0, 600)}\n\n` +
+        `AI explanation (context):\n${aiText.slice(0, 1400)}`;
+
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 500,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json() as { content?: Array<{ text?: string }> };
+      const raw = data.content?.[0]?.text;
+      if (!raw) return;
+      const fbdData = parseFBDFromJSON(raw);
+      if (fbdData) {
+        viewerDispatch({ type: 'OPEN_FBD', fbdData });
+      }
+    } catch {
+      // Silently ignore — FBD is a best-effort enhancement
+    }
+  }, [viewerDispatch]);
+
   const handleGenerateFlashcards = useCallback(async (topic: string, count = DEFAULT_FLASHCARD_COUNT) => {
     if (flashcardsInFlightRef.current) return;
     flashcardsInFlightRef.current = true;
