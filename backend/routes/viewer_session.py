@@ -9,12 +9,16 @@ POST /api/viewer/set-state
     Writes Redis key ``viewer_state:{user_id}`` with a 1-hour TTL so that
     chat.py can fall back to it when the frontend omits ``viewer_state`` from
     an /ask request.
+    Guest / unauthenticated callers receive a silent 200 no-op so that the
+    fire-and-forget client call never triggers a session-expired redirect.
 
 GET /api/viewer/get-state
     Read back the persisted viewer state for the authenticated user.
     Returns ``{ success: true, viewer_state: dict | null }``.
+    Guest callers always receive ``viewer_state: null``.
 
-Both endpoints require a valid Supabase JWT (Authorization: Bearer …).
+A valid Supabase JWT (Authorization: Bearer …) is required to actually persist
+or retrieve state; unauthenticated callers are handled gracefully (see above).
 """
 from __future__ import annotations
 
@@ -47,7 +51,9 @@ async def set_viewer_state(request: Request):
     from services.auth import _extract_verified_user
     user_id, _tier, _exempt = _extract_verified_user(request)
     if not user_id or user_id.startswith('ip:'):
-        return JSONResponse({'success': False, 'error': 'Authentication required'}, status_code=401)
+        # Guest / unauthenticated — silently no-op so the fire-and-forget
+        # client call never receives a 401 that would trigger a login redirect.
+        return JSONResponse({'success': True})
 
     try:
         body = await request.json()
@@ -83,7 +89,9 @@ async def get_viewer_state(request: Request):
     from services.auth import _extract_verified_user
     user_id, _tier, _exempt = _extract_verified_user(request)
     if not user_id or user_id.startswith('ip:'):
-        return JSONResponse({'success': False, 'error': 'Authentication required'}, status_code=401)
+        # Guest / unauthenticated — return null state instead of 401 so callers
+        # are never redirected to the login page unexpectedly.
+        return JSONResponse({'success': True, 'viewer_state': None})
 
     redis = getattr(ctx, 'redis', None)
     if redis is None:

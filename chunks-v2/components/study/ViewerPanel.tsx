@@ -14,6 +14,30 @@ import { useEffect, useRef, useState } from 'react';
 import { useViewerContext } from '@/contexts/ViewerContext';
 import { ingestResearch, type ResearchIngestResponse } from '@/lib/studyApi';
 
+// ─── AI summary helpers ───────────────────────────────────────────────────────
+
+async function fetchAiSummary(title: string, abstract: string): Promise<string> {
+  const res = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 300,
+      messages: [
+        {
+          role: 'user',
+          content: `You are a research assistant. In 3–4 sentences, summarize the key findings and contributions of this paper for a student.\n\nTitle: ${title}\n\nAbstract: ${abstract}`,
+        },
+      ],
+    }),
+  });
+  if (!res.ok) throw new Error('AI summary request failed');
+  const data = await res.json() as { content?: Array<{ text?: string }> };
+  const text = data.content?.[0]?.text;
+  if (!text) throw new Error('Empty AI summary response');
+  return text;
+}
+
 // ─── YouTube helpers ──────────────────────────────────────────────────────────
 
 function buildYouTubeSrc(videoId: string, startSeconds: number): string {
@@ -36,6 +60,27 @@ function seekYouTube(iframe: HTMLIFrameElement, seconds: number): void {
 
 // ─── Research card ────────────────────────────────────────────────────────────
 
+function SummaryShimmer() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {[100, 85, 72].map((w) => (
+        <div
+          key={w}
+          style={{
+            height: 12,
+            width: `${w}%`,
+            borderRadius: 4,
+            background: 'linear-gradient(90deg, var(--border) 25%, var(--surface2, #f0f0f0) 50%, var(--border) 75%)',
+            backgroundSize: '200% 100%',
+            animation: 'shimmer 1.4s infinite',
+          }}
+        />
+      ))}
+      <style>{`@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
+    </div>
+  );
+}
+
 function ResearchCard({
   meta,
   url,
@@ -45,6 +90,23 @@ function ResearchCard({
 }) {
   const displayTitle = meta.title ?? 'Research Paper';
   const authorList = meta.authors?.join(', ') ?? '';
+
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const fetchedKeyRef = useRef<string | null>(null);
+
+  // Fetch AI summary once per unique title+abstract combination
+  useEffect(() => {
+    if (!meta.title || !meta.abstract) return;
+    const key = `${meta.title}\x00${meta.abstract}`;
+    if (fetchedKeyRef.current === key) return;
+    fetchedKeyRef.current = key;
+    setSummaryLoading(true);
+    fetchAiSummary(meta.title, meta.abstract)
+      .then(setAiSummary)
+      .catch(() => { /* silently hide on error */ })
+      .finally(() => setSummaryLoading(false));
+  }, [meta.title, meta.abstract]);
 
   return (
     <div style={{
@@ -67,19 +129,62 @@ function ResearchCard({
         </div>
       )}
 
+      {/* Metadata pills */}
+      {(meta.journal || meta.doi || meta.pages) && (
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {meta.journal && (
+            <span style={pillStyle}>{meta.journal}</span>
+          )}
+          {meta.doi && (
+            <a
+              href={`https://doi.org/${meta.doi}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ ...pillStyle, color: 'var(--accent)', textDecoration: 'none' }}
+            >
+              DOI: {meta.doi}
+            </a>
+          )}
+          {meta.pages && (
+            <span style={pillStyle}>{meta.pages} pages</span>
+          )}
+        </div>
+      )}
+
+      {/* Full abstract — no line clamp */}
       {meta.abstract && (
         <p style={{
           margin: 0,
           fontSize: 13,
           color: 'var(--text2)',
           lineHeight: 1.65,
-          display: '-webkit-box',
-          WebkitLineClamp: 8,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
         }}>
           {meta.abstract}
         </p>
+      )}
+
+      {/* AI Summary section */}
+      {(summaryLoading || aiSummary) && (
+        <div style={{
+          background: 'var(--surface2, #f7f7fb)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          padding: '12px 14px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            ✦ AI Summary
+          </span>
+          {summaryLoading ? (
+            <SummaryShimmer />
+          ) : (
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text2)', lineHeight: 1.65 }}>
+              {aiSummary}
+            </p>
+          )}
+        </div>
       )}
 
       <a
@@ -93,6 +198,17 @@ function ResearchCard({
     </div>
   );
 }
+
+const pillStyle: React.CSSProperties = {
+  display: 'inline-block',
+  padding: '2px 8px',
+  borderRadius: 12,
+  fontSize: 11,
+  background: 'var(--surface2, #f0f0f5)',
+  border: '1px solid var(--border)',
+  color: 'var(--text2)',
+  whiteSpace: 'nowrap',
+};
 
 // ─── Panel icons ──────────────────────────────────────────────────────────────
 

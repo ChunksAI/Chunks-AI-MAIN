@@ -41,11 +41,11 @@ def test_viewer_get_state_route_registered(app):
 
 # ── set-state: unauthenticated ────────────────────────────────────────────────
 
-def test_set_state_unauthenticated_returns_401(client):
+def test_set_state_unauthenticated_returns_200_noop(client):
     with patch('services.auth._extract_verified_user', return_value=('ip:1.2.3.4', 'guest', False)):
         resp = client.post('/api/viewer/set-state', json={'viewer_state': _SAMPLE_STATE})
-    assert resp.status_code == 401
-    assert resp.json()['success'] is False
+    assert resp.status_code == 200
+    assert resp.json()['success'] is True
 
 
 # ── set-state: input validation ───────────────────────────────────────────────
@@ -107,11 +107,13 @@ def test_set_state_redis_failure_returns_503(client, monkeypatch):
 
 # ── get-state: unauthenticated ────────────────────────────────────────────────
 
-def test_get_state_unauthenticated_returns_401(client):
+def test_get_state_unauthenticated_returns_200_null(client):
     with patch('services.auth._extract_verified_user', return_value=('ip:1.2.3.4', 'guest', False)):
         resp = client.get('/api/viewer/get-state')
-    assert resp.status_code == 401
-    assert resp.json()['success'] is False
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data['success'] is True
+    assert data['viewer_state'] is None
 
 
 # ── get-state: cache miss ─────────────────────────────────────────────────────
