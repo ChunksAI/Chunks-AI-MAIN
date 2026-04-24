@@ -65,6 +65,15 @@ import {
 } from '@/lib/constants';
 import { CURRENT_STORAGE_VERSION, migrateSnapshotIfNeeded, type VersionedSnapshot } from '@/lib/storageVersion';
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+/**
+ * Chat modes for which a Free Body Diagram is meaningful.
+ * Research mode is excluded because it produces web-sourced prose, not
+ * physics explanations.  Defined at module scope to avoid re-allocation.
+ */
+const FBD_MODES = new Set<string>(['snap', 'chunk', 'master']);
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Strip HTML tags from a string using DOMParser (browser) for accuracy. */
@@ -1369,9 +1378,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
 
-        // Physics FBD — fire-and-forget when the question or AI response
-        // contains ≥ 2 physics keywords.  Never blocks the chat flow.
-        if (detectPhysicsProblem(text) || detectPhysicsProblem(fbdAccumulatedText)) {
+        // Physics FBD — fire-and-forget when the *user question* contains
+        // physics keywords.  Only runs for modes where a FBD is meaningful
+        // (snap / chunk / master).  The AI answer text is passed as context
+        // only; it must NOT decide whether FBD opens.
+        // Never blocks the chat flow.
+        if (FBD_MODES.has(currentChatMode) && detectPhysicsProblem(text)) {
           void generateFBD(text, fbdAccumulatedText);
         }
 
@@ -1677,39 +1689,47 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // ── generateFBD ───────────────────────────────────────────────────────────
   /**
-   * Fire-and-forget: calls /api/ai with anthropic/claude-haiku-4.5 (via OpenRouter) to generate
-   * a Free Body Diagram JSON for a detected physics question, then dispatches
-   * OPEN_FBD to ViewerContext.  Never throws — all errors are silently ignored
-   * so a FBD failure never disrupts the main chat flow.
+   * Fire-and-forget: calls /api/ai with task="fbd" to generate a Free Body
+   * Diagram JSON for a detected physics question, then dispatches OPEN_FBD to
+   * ViewerContext.  Never throws — all errors are silently ignored so a FBD
+   * failure never disrupts the main chat flow.
+   *
+   * Model selection is entirely server-side (FBD_MODEL env var).
+   * The frontend sends only { task, question, aiText } — no model, messages,
+   * or max_tokens.
+   *
+   * Dedup / throttle:
+   *   - Skips if the same (normalised) question was processed in the last 30 s.
+   *   - Skips if a FBD call is still in-flight.
    */
-  const generateFBD = useCallback(async (question: string, aiText: string): Promise<void> => {
-    try {
-      const prompt =
-        `You are a physics diagram generator. Analyze the physics problem below and output ONLY a valid JSON object for a Free Body Diagram. Do NOT include any explanation or markdown fences — output raw JSON only.\n\n` +
-        `Schema:\n` +
-        `{\n` +
-        `  "object": "box" | "ball" | "hanging_mass",\n` +
-        `  "surface": "flat" | "incline" (optional),\n` +
-        `  "inclineAngle": number (optional, 0–90 degrees),\n` +
-        `  "forces": [\n` +
-        `    { "label": string, "magnitude": number (Newtons), "angle": number (0=right 90=up 180=left 270=down), "color": "#hex" (optional) }\n` +
-        `  ]\n` +
-        `}\n\n` +
-        `Rules:\n` +
-        `- Always include Weight (angle=270) and Normal force (angle=90 for flat surface).\n` +
-        `- Add Friction (angle=0 or 180), Tension, or Applied Force when mentioned.\n` +
-        `- Estimate realistic magnitudes in Newtons if not explicitly given (Weight=100 for typical objects).\n` +
-        `- Output ONLY the JSON object.\n\n` +
-        `Physics problem:\n${question.slice(0, 600)}\n\n` +
-        `AI explanation (context):\n${aiText.slice(0, 1400)}`;
+  const _fbdLastQuestionRef = useRef<string>('');
+  const _fbdLastAtRef = useRef<number>(0);
+  const _fbdInFlightRef = useRef<boolean>(false);
 
+  const generateFBD = useCallback(async (question: string, aiText: string): Promise<void> => {
+    const normalised = question.trim().toLowerCase().slice(0, 1000);
+    const now = Date.now();
+
+    // Dedup: same question within 30 s
+    if (
+      _fbdInFlightRef.current ||
+      (normalised === _fbdLastQuestionRef.current && now - _fbdLastAtRef.current < 30_000)
+    ) {
+      return;
+    }
+
+    _fbdInFlightRef.current = true;
+    _fbdLastQuestionRef.current = normalised;
+    _fbdLastAtRef.current = now;
+
+    try {
       const res = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'anthropic/claude-haiku-4.5',
-          max_tokens: 500,
-          messages: [{ role: 'user', content: prompt }],
+          task: 'fbd',
+          question: question.trim().slice(0, 1000),
+          aiText: aiText.trim().slice(0, 2500),
         }),
       });
       if (!res.ok) return;
@@ -1722,6 +1742,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       }
     } catch {
       // Silently ignore — FBD is a best-effort enhancement
+    } finally {
+      _fbdInFlightRef.current = false;
     }
   }, [viewerDispatch]);
 
