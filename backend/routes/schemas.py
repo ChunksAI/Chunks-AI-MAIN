@@ -156,7 +156,7 @@ class ImageRequest(_LenientBase):
     image_b64: str = ""
     image_type: str = "image/jpeg"
     complexity: int = Field(default=5, ge=1, le=10)
-    question: str = "Describe what you see and explain any chemistry concepts visible."
+    question: str = "Describe what you see and explain the concepts visible."
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗

@@ -47,7 +47,7 @@ import { useChatContext, type ChatState, type ChatAction } from '@/contexts/Chat
 import { useQuizContext, type QuizState, type QuizAction, calcWeakAreas } from '@/contexts/QuizContext';
 import { useNotesContext, type NotesState, type NotesAction } from '@/contexts/NotesContext';
 import { useViewerContext, buildViewerState } from '@/contexts/ViewerContext';
-import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus, getStreamBuffer, ingestYouTube, setViewerState } from '@/lib/studyApi';
+import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus, getStreamBuffer, ingestYouTube, setViewerState, sendImageMessage } from '@/lib/studyApi';
 import { extractVideoId } from '@/lib/youtubeTranscript';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
@@ -493,6 +493,15 @@ interface StudyContextValue {
    * panel, stores slides as AI context, and fires a success chat bubble.
    */
   handleIngestYouTube: (url: string) => Promise<void>;
+  /**
+   * Send an image (data URL + question) to the vision endpoint.
+   * Dispatches a user message with thumbnail and an AI response into the chat.
+   */
+  handleSendImageMessage: (
+    imageDataUrl: string,
+    mimeType: string,
+    question: string,
+  ) => Promise<void>;
 }
 
 const StudyContext = createContext<StudyContextValue | null>(null);
@@ -1583,7 +1592,76 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     }
   }, [chatDispatch, viewerDispatch, dispatch]);
 
-  // ── generateFlashcards ────────────────────────────────────────────────────
+  // ── sendImageMessage ──────────────────────────────────────────────────────
+  /**
+   * Sends an image (data URL) + question to the /ask-image vision endpoint.
+   * Dispatches a user message bubble with an image thumbnail, then an AI
+   * response bubble with the vision model's answer (rendered as Markdown).
+   */
+  const handleSendImageMessage = useCallback(
+    async (imageDataUrl: string, mimeType: string, question: string) => {
+      // Extract raw base64 from the data URL (strip "data:<type>;base64,")
+      const commaIdx = imageDataUrl.indexOf(',');
+      const image_b64 = commaIdx >= 0 ? imageDataUrl.slice(commaIdx + 1) : imageDataUrl;
+
+      const userMsg: ChatMessage = {
+        id: nextMsgId(),
+        role: 'user',
+        text: question || 'Explain this image.',
+        imageDataUrl,
+      };
+      chatDispatch({ type: 'SEND_MESSAGE', payload: userMsg });
+
+      const aiMsgId = nextMsgId();
+      chatDispatch({
+        type: 'START_AI_MESSAGE',
+        payload: { id: aiMsgId, role: 'ai', text: '🔍 Analyzing image…', isPlaceholder: true },
+      });
+
+      try {
+        const res = await sendImageMessage({
+          image_b64,
+          image_type: mimeType,
+          question: question || 'Explain this image.',
+          complexity: 5,
+        });
+
+        if (!res.success) {
+          chatDispatch({
+            type: 'HANDLE_CHAT_ERROR',
+            payload: {
+              messageId: aiMsgId,
+              error: res.answer || 'Image analysis failed.',
+              originalQuestion: question,
+            },
+          });
+        } else {
+          chatDispatch({
+            type: 'REPLACE_AI_MESSAGE',
+            payload: {
+              id: aiMsgId,
+              text: res.answer,
+              actions: [
+                { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
+                { label: '🎯 Quiz me on this', actionKey: 'quiz' },
+              ],
+            },
+          });
+          chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
+        }
+      } catch (err) {
+        chatDispatch({
+          type: 'HANDLE_CHAT_ERROR',
+          payload: {
+            messageId: aiMsgId,
+            error: err instanceof Error ? err.message : 'Image analysis failed.',
+            originalQuestion: question,
+          },
+        });
+      }
+    },
+    [chatDispatch],
+  );
   const handleGenerateFlashcards = useCallback(async (topic: string, count = DEFAULT_FLASHCARD_COUNT) => {
     if (flashcardsInFlightRef.current) return;
     flashcardsInFlightRef.current = true;
@@ -2011,6 +2089,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     handleEndReviewSession,
     handleCompleteReviewQuiz,
     handleIngestYouTube,
+    handleSendImageMessage,
   };
 
   return <StudyContext.Provider value={value}>{children}</StudyContext.Provider>;

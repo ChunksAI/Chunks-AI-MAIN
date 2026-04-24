@@ -225,6 +225,40 @@ export async function sendMessage(params: SendMessageRequest): Promise<SendMessa
   });
 }
 
+// ─── Image message ────────────────────────────────────────────────────────────
+
+export interface SendImageMessageParams {
+  /** Base64-encoded image data (no data URL prefix). */
+  image_b64: string;
+  /** MIME type e.g. "image/jpeg" */
+  image_type: string;
+  /** User's question about the image. */
+  question: string;
+  /** Complexity level 1-10 (default 5). */
+  complexity?: number;
+}
+
+export interface SendImageMessageResponse {
+  success: boolean;
+  answer: string;
+  model?: string;
+}
+
+/**
+ * Send a user's image (base64) plus question to the /ask-image vision endpoint.
+ * Uses Gemini 2.5 Flash by default (server-side model selection).
+ */
+export async function sendImageMessage(
+  params: SendImageMessageParams,
+): Promise<SendImageMessageResponse> {
+  return apiPost<SendImageMessageResponse>('/ask-image', {
+    image_b64: params.image_b64,
+    image_type: params.image_type,
+    question: params.question,
+    complexity: params.complexity ?? 5,
+  });
+}
+
 // ─── Structured-mode formatter ───────────────────────────────────────────────
 
 /**

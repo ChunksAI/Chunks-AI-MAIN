@@ -125,6 +125,13 @@ function MessageBubble({
     return (
       <div className="msg user">
         <div className="msg-body">
+          {msg.imageDataUrl && (
+            <img
+              src={msg.imageDataUrl}
+              alt="Attached image"
+              className="msg-image-thumb"
+            />
+          )}
           <div className="msg-bubble">{msg.text}</div>
         </div>
       </div>
@@ -241,6 +248,7 @@ export default function ChatPanel() {
     handleUploadDocument,
     handleStop,
     handleIngestYouTube,
+    handleSendImageMessage,
   } = useStudy();
   const { viewerDispatch } = useViewerContext();
   const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, chatMode, pdfBlobUrl, slides, uploadLoading, uploadError } = state;
@@ -251,7 +259,11 @@ export default function ChatPanel() {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useAutoScroll([messages, chatLoading]);
+
+  // ── Image attachment state ────────────────────────────────────────────────
+  const [imageAttachment, setImageAttachment] = useState<{ dataUrl: string; mimeType: string } | null>(null);
 
   // ── YouTube launcher modal ────────────────────────────────────────────────
   const [ytModalOpen, setYtModalOpen] = useState(false);
@@ -469,6 +481,18 @@ export default function ChatPanel() {
 
   const handleSend = async () => {
     const val = inputValue.trim();
+
+    // If there's an image attachment, send as image message
+    if (imageAttachment) {
+      if (chatLoading) return;
+      setInputValue('');
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      const attachment = imageAttachment;
+      setImageAttachment(null);
+      await handleSendImageMessage(attachment.dataUrl, attachment.mimeType, val || 'Explain this image.');
+      return;
+    }
+
     if (!val || chatLoading) return;
 
     // ── YouTube URL intercept — paste a video link to load it into the viewer ──
@@ -557,6 +581,28 @@ export default function ChatPanel() {
     e.target.value = '';
   };
 
+  const handleImageAttach = () => {
+    imageInputRef.current?.click();
+  };
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      if (dataUrl) {
+        setImageAttachment({ dataUrl, mimeType: file.type || 'image/jpeg' });
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleRemoveImage = () => {
+    setImageAttachment(null);
+  };
+
   // Action chip handler — generates real content via context
   const handleActionClick = (key: string) => {
     const currentTopic = resolveStudyTopic(topic, docTitle, messages);
@@ -606,6 +652,14 @@ export default function ChatPanel() {
         accept=".pdf"
         style={{ display: 'none' }}
         onChange={handleFileChange}
+      />
+      {/* Hidden file input for image attachment */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp"
+        style={{ display: 'none' }}
+        onChange={handleImageFileChange}
       />
 
       {/* ── Document upload banner (only when no document is loaded) ── */}
@@ -695,11 +749,20 @@ export default function ChatPanel() {
               </button>
             ))}
           </div>
+          {/* Image attachment preview */}
+          {imageAttachment && (
+            <div className="image-preview-bar">
+              <img src={imageAttachment.dataUrl} alt="Attachment preview" className="image-preview-thumb" />
+              <button className="image-preview-remove" onClick={handleRemoveImage} title="Remove image" aria-label="Remove image">
+                ✕
+              </button>
+            </div>
+          )}
           <div className="text-input-row">
             <textarea
               ref={textareaRef}
               className="chat-textarea"
-              placeholder="Ask a follow-up about your study material…"
+              placeholder={imageAttachment ? 'Ask something about this image… (or send as-is)' : 'Ask a follow-up about your study material…'}
               rows={1}
               value={inputValue}
               onChange={handleInputChange}
@@ -721,7 +784,7 @@ export default function ChatPanel() {
               <button
                 className="send-btn"
                 onClick={() => void handleSend()}
-                disabled={!inputValue.trim()}
+                disabled={!inputValue.trim() && !imageAttachment}
                 aria-label="Send message"
               >
                 <svg
@@ -751,6 +814,18 @@ export default function ChatPanel() {
                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
               </svg>
               Attach
+            </button>
+            <button
+              className={`input-tool-btn${imageAttachment ? ' active' : ''}`}
+              onClick={handleImageAttach}
+              title="Attach an image (textbook page, diagram, handwritten notes)"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              Photo
             </button>
             <button
               className={`input-tool-btn${isListening ? ' active' : ''}`}
