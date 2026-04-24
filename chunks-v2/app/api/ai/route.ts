@@ -222,9 +222,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       signal: AbortSignal.timeout(FBD_TIMEOUT_MS),
     });
   } catch (err: unknown) {
-    // AbortError means AbortSignal.timeout fired → 504 Gateway Timeout.
-    // Any other network-level error → 502 Bad Gateway.
-    if (err instanceof Error && err.name === 'AbortError') {
+    // AbortSignal.timeout() throws a DOMException with name 'TimeoutError' in
+    // modern runtimes (Node ≥ 18) and 'AbortError' in some older environments.
+    // Check both names so the 504 is returned reliably.
+    if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
       return NextResponse.json({ error: 'AI service timed out' }, { status: 504 });
     }
     return NextResponse.json({ error: 'Failed to reach AI service' }, { status: 502 });
