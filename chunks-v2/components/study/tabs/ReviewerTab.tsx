@@ -2,6 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useStudy } from '@/contexts/StudyContext';
+import { useTutorBrain } from '@/hooks/useTutorBrain';
+import type { ConceptStatus } from '@/hooks/useTutorBrain';
 import Badge from '@/components/shared/Badge';
 import Card from '@/components/shared/Card';
 import type { TopicChip } from '@/types';
@@ -15,6 +17,18 @@ export default function ReviewerTab() {
   const router = useRouter();
   const { state, handleStartReview, handleStartReviewSession } = useStudy();
   const { weakAreas, performanceHistory, quizResults } = state;
+  const { model } = useTutorBrain();
+
+  // CSS class for each gap pill status
+  function gapPillClass(status: ConceptStatus): string {
+    switch (status) {
+      case 'failing':   return 'gap-pill gap-pill--failing';
+      case 'reviewing': return 'gap-pill gap-pill--reviewing';
+      case 'recovering': return 'gap-pill gap-pill--recovering';
+      case 'regressed': return 'gap-pill gap-pill--regressed';
+      default:          return 'gap-pill gap-pill--regressed';
+    }
+  }
 
   // Build topic chips from real data
   const topicChips: TopicChip[] = [
@@ -38,6 +52,46 @@ export default function ReviewerTab() {
       ? new Date(quizResults[quizResults.length - 1].completedAt).toLocaleTimeString()
       : 'No sessions yet';
 
+  // ── Knowledge Map card (shown whenever tutor brain has data) ──────────────
+  const hasKnowledgeData = model.mastered.length > 0 || model.gaps.length > 0;
+  const KnowledgeMapCard = hasKnowledgeData ? (
+    <div className="review-card" style={{ marginBottom: 16 }}>
+      <div className="review-card-header">
+        <div className="review-card-title">🧠 Knowledge Map</div>
+        <span
+          className="review-card-badge"
+          style={{ background: 'var(--accent2-light)', color: 'var(--accent2)' }}
+        >
+          {model.mastered.length} mastered · {model.gaps.length} to review
+        </span>
+      </div>
+      {model.mastered.length > 0 && (
+        <div style={{ marginBottom: model.gaps.length > 0 ? 10 : 0 }}>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 500 }}>MASTERED</div>
+          <div className="progress-pills-row">
+            {model.mastered.map((concept) => (
+              <span key={concept} className="gap-pill gap-pill--mastered">
+                ✓ {concept}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {model.gaps.length > 0 && (
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, fontWeight: 500 }}>NEEDS REVIEW</div>
+          <div className="progress-pills-row">
+            {model.gaps.map((gap) => (
+              <span key={gap.concept} className={gapPillClass(gap.status)}>
+                {gap.concept}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  ) : null;
+
   // ── Empty state ────────────────────────────────────────────────────────────
   if (quizResults.length === 0 && weakAreas.length === 0) {
     return (
@@ -48,9 +102,10 @@ export default function ReviewerTab() {
             <div className="ws-meta">Complete a quiz to see your performance insights</div>
           </div>
         </div>
-        <div className="ws-empty" style={{ marginTop: 48 }}>
+        {KnowledgeMapCard}
+        <div className="ws-empty" style={{ marginTop: hasKnowledgeData ? 24 : 48 }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>📊</div>
-          <div style={{ fontWeight: 500, marginBottom: 6, fontSize: 15 }}>No review data yet</div>
+          <div style={{ fontWeight: 500, marginBottom: 6, fontSize: 15 }}>No quiz data yet</div>
           <div style={{ color: 'var(--text3)', fontSize: 13 }}>
             Take a quiz in the Workspace tab to see your weak areas and insights here.
           </div>
@@ -84,6 +139,13 @@ export default function ReviewerTab() {
 
       {/* ── 2-col grid ── */}
       <div className="review-grid">
+        {/* Knowledge Map */}
+        {hasKnowledgeData && (
+          <div style={{ gridColumn: '1 / -1' }}>
+            {KnowledgeMapCard}
+          </div>
+        )}
+
         {/* Topics studied */}
         {topicChips.length > 0 && (
           <Card>
