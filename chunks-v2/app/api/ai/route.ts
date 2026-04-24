@@ -13,12 +13,21 @@
  * POST /api/ai  { task: "fbd", question: string, aiText: string }
  *   → { content: [{ text: string }] }
  *
+ * POST /api/ai  { task: "research-summary", title: string, abstract: string }
+ *   → { content: [{ text: string }] }
+ *
  * Validation rules (fbd task)
  * ───────────────────────────
  * - question: required, 1–1000 chars (trimmed)
  * - aiText:   optional, 0–2500 chars (trimmed)
  * - FBD_MODEL env var must be set; returns 503 otherwise (silently ignored
  *   by the frontend so chat is never disrupted).
+ *
+ * Error status codes
+ * ──────────────────
+ * - 503  OPENROUTER_API_KEY or task model env var missing
+ * - 504  OpenRouter call timed out (AbortError)
+ * - 502  OpenRouter unreachable (other network error)
  *
  * Adding a new task
  * ─────────────────
@@ -30,6 +39,59 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const FBD_TIMEOUT_MS = 15_000;
+
+/**
+ * Build the OpenRouter request for the "research-summary" task.
+ * Produces a 3–4 sentence student-friendly summary of a paper.
+ * Model: RESEARCH_SUMMARY_MODEL env var, falling back to FBD_MODEL.
+ */
+function buildResearchSummaryRequest(
+  body: Record<string, unknown>,
+): { ok: true; req: OpenRouterRequest } | { ok: false; res: NextResponse } {
+  const model = process.env.RESEARCH_SUMMARY_MODEL ?? process.env.FBD_MODEL;
+  if (!model) {
+    return {
+      ok: false,
+      res: NextResponse.json({ error: 'Research summary model not configured' }, { status: 503 }),
+    };
+  }
+
+  const title = typeof body.title === 'string' ? body.title.trim() : '';
+  const abstract = typeof body.abstract === 'string' ? body.abstract.trim() : '';
+
+  if (!title && !abstract) {
+    return {
+      ok: false,
+      res: NextResponse.json({ error: 'title or abstract is required' }, { status: 400 }),
+    };
+  }
+  if (title.length > 500) {
+    return {
+      ok: false,
+      res: NextResponse.json({ error: 'title exceeds 500 character limit' }, { status: 400 }),
+    };
+  }
+  if (abstract.length > 4000) {
+    return {
+      ok: false,
+      res: NextResponse.json({ error: 'abstract exceeds 4000 character limit' }, { status: 400 }),
+    };
+  }
+
+  const prompt =
+    `You are a research assistant. In 3–4 sentences, summarize the key findings and contributions of this paper for a student.\n\n` +
+    (title ? `Title: ${title}\n\n` : '') +
+    (abstract ? `Abstract: ${abstract}` : '');
+
+  return {
+    ok: true,
+    req: {
+      model,
+      max_tokens: 300,
+      messages: [{ role: 'user', content: prompt }],
+    },
+  };
+}
 
 // ─── Task handlers ────────────────────────────────────────────────────────────
 
@@ -138,6 +200,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       orRequest = result.req;
       break;
     }
+    case 'research-summary': {
+      const result = buildResearchSummaryRequest(body);
+      if (!result.ok) return result.res;
+      orRequest = result.req;
+      break;
+    }
     default:
       return NextResponse.json({ error: `Unknown task: ${task}` }, { status: 400 });
   }
@@ -153,7 +221,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       body: JSON.stringify(orRequest),
       signal: AbortSignal.timeout(FBD_TIMEOUT_MS),
     });
-  } catch {
+  } catch (err: unknown) {
+    // AbortSignal.timeout() throws a DOMException with name 'TimeoutError' in
+    // modern runtimes (Node ≥ 18) and 'AbortError' in some older environments.
+    // Check both names so the 504 is returned reliably.
+    if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+      return NextResponse.json({ error: 'AI service timed out' }, { status: 504 });
+    }
     return NextResponse.json({ error: 'Failed to reach AI service' }, { status: 502 });
   }
 
