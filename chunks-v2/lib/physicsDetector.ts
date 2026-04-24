@@ -28,6 +28,13 @@
 export function detectPhysicsProblem(text: string): boolean {
   const lower = text.toLowerCase();
 
+  // Explicit FBD requests always warrant a diagram regardless of other keyword
+  // count.  These phrases are unambiguous in a study context.
+  const EXPLICIT_FBD = ['free body diagram', 'free-body diagram', 'free body'];
+  for (const p of EXPLICIT_FBD) {
+    if (lower.includes(p)) return true;
+  }
+
   // Multi-word phrases are specific enough to count on substring presence.
   const phrases = ['normal force', 'free body', 'free-body', 'fbd', 'net force'];
 

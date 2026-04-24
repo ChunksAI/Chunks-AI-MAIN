@@ -56,6 +56,31 @@ const STRUGGLE_PHRASES = [
   "can you simplify",
 ];
 
+// Phrases that signal the student has grasped the current topic.
+// When detected, the topic is moved to "mastered" in the tutor brain.
+const UNDERSTANDING_PHRASES = [
+  "i understand",
+  "i get it",
+  "i got it",
+  "i get this",
+  "i got this",
+  "got it",
+  "that makes sense",
+  "makes sense now",
+  "now i understand",
+  "i understand now",
+  "that's clear",
+  "that is clear",
+  "clear now",
+  "understood",
+  "i'm good",
+  "i am good",
+  "i know this",
+  "i know it now",
+  "thank you, i understand",
+  "thank you i understand",
+];
+
 const QUICK_ACTIONS = [
   '✦ Explain simply',
   '📋 Study plan',
@@ -461,7 +486,7 @@ export default function ChatPanel() {
       ? `AI remembers: You struggled with ${cleanTopic(weakAreas[0].topic)} (${weakAreas[0].score}%). Let's revisit it.`
       : 'AI remembers: Keep asking questions — I track your weak areas over time.';
 
-  const { tbRecordGap, tbRecordStudying, tbRecordSocraticPass } = useTutorBrain();
+  const { tbRecordGap, tbRecordStudying, tbRecordSocraticPass, tbRecordMastery } = useTutorBrain();
 
   // Derive the topic of the most recent AI response. Prefer the `topic` field
   // stored on the message (populated from the backend's structured extraction)
@@ -511,6 +536,11 @@ export default function ChatPanel() {
     if (lastTopic && STRUGGLE_PHRASES.some((p) => lower.includes(p))) {
       tbRecordGap(lastTopic);
       tbRecordStudying(lastTopic);
+    }
+
+    // Detect understanding / mastery phrases and mark topic as mastered
+    if (lastTopic && UNDERSTANDING_PHRASES.some((p) => lower.includes(p))) {
+      tbRecordMastery(lastTopic);
     }
 
     // If the last AI message had a Socratic question, mark this as the student's answer
