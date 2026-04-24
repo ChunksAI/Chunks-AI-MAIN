@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import 'katex/dist/katex.min.css';
+import 'highlight.js/styles/github-dark-dimmed.css';
 import Providers from './Providers';
 import ErrorBoundary from '@/components/shared/ErrorBoundary';
 
