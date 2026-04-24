@@ -29,10 +29,21 @@ export interface FBDData {
 export function parseFBDFromJSON(raw: string): FBDData | null {
   try {
     // Strip markdown fences
-    const cleaned = raw
+    let cleaned = raw
       .replace(/^```(?:json|fbd)?\s*/i, '')
       .replace(/\s*```\s*$/, '')
       .trim();
+
+    // If the cleaned text is not a bare JSON object, extract the first {...} block.
+    // This handles responses where the AI adds explanatory text before or after
+    // the JSON (e.g. "Here is the JSON: {...}").
+    if (!cleaned.startsWith('{')) {
+      const start = cleaned.indexOf('{');
+      const end = cleaned.lastIndexOf('}');
+      if (start !== -1 && end > start) {
+        cleaned = cleaned.slice(start, end + 1);
+      }
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const parsed = JSON.parse(cleaned) as any;
