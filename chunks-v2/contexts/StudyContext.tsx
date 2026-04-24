@@ -1383,7 +1383,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         // (snap / chunk / master).  The AI answer text is passed as context
         // only; it must NOT decide whether FBD opens.
         // Never blocks the chat flow.
-        if (FBD_MODES.has(currentChatMode) && detectPhysicsProblem(text)) {
+        const _fbdPhysicsDetected = detectPhysicsProblem(text);
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[FBD] mode:', currentChatMode, '| physics detected:', _fbdPhysicsDetected);
+        }
+        if (FBD_MODES.has(currentChatMode) && _fbdPhysicsDetected) {
           void generateFBD(text, fbdAccumulatedText);
         }
 
@@ -1707,6 +1711,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   const _fbdInFlightRef = useRef<boolean>(false);
 
   const generateFBD = useCallback(async (question: string, aiText: string): Promise<void> => {
+    const dev = process.env.NODE_ENV === 'development';
     const normalised = question.trim().toLowerCase().slice(0, 1000);
     const now = Date.now();
 
@@ -1715,12 +1720,15 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       _fbdInFlightRef.current ||
       (normalised === _fbdLastQuestionRef.current && now - _fbdLastAtRef.current < 30_000)
     ) {
+      if (dev) console.debug('[FBD] skipped: in-flight or recent duplicate');
       return;
     }
 
     _fbdInFlightRef.current = true;
     _fbdLastQuestionRef.current = normalised;
     _fbdLastAtRef.current = now;
+
+    if (dev) console.debug('[FBD] generateFBD start, question length:', question.trim().length);
 
     try {
       const res = await fetch('/api/ai', {
@@ -1732,15 +1740,25 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           aiText: aiText.trim().slice(0, 2500),
         }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (dev) console.warn('[FBD] /api/ai returned non-OK status:', res.status);
+        return;
+      }
       const data = await res.json() as { content?: Array<{ text?: string }> };
       const raw = data.content?.[0]?.text;
-      if (!raw) return;
-      const fbdData = parseFBDFromJSON(raw);
-      if (fbdData) {
-        viewerDispatch({ type: 'OPEN_FBD', fbdData });
+      if (!raw) {
+        if (dev) console.warn('[FBD] raw FBD text is empty');
+        return;
       }
-    } catch {
+      const fbdData = parseFBDFromJSON(raw);
+      if (!fbdData) {
+        if (dev) console.warn('[FBD] parseFBDFromJSON returned null');
+        return;
+      }
+      if (dev) console.debug('[FBD] dispatching OPEN_FBD, forces:', fbdData.forces.length);
+      viewerDispatch({ type: 'OPEN_FBD', fbdData });
+    } catch (err: unknown) {
+      if (dev) console.warn('[FBD] fetch error:', err instanceof Error ? err.message : err);
       // Silently ignore — FBD is a best-effort enhancement
     } finally {
       _fbdInFlightRef.current = false;

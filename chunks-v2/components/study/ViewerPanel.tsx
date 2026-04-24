@@ -22,14 +22,9 @@ async function fetchAiSummary(title: string, abstract: string): Promise<string> 
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 300,
-      messages: [
-        {
-          role: 'user',
-          content: `You are a research assistant. In 3–4 sentences, summarize the key findings and contributions of this paper for a student.\n\nTitle: ${title}\n\nAbstract: ${abstract}`,
-        },
-      ],
+      task: 'research-summary',
+      title,
+      abstract,
     }),
   });
   if (!res.ok) throw new Error('AI summary request failed');
