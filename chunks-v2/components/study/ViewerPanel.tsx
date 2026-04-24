@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useViewerContext } from '@/contexts/ViewerContext';
 import { ingestResearch, type ResearchIngestResponse } from '@/lib/studyApi';
+import FBDViewer from '@/components/study/FBDViewer';
 
 // ─── AI summary helpers ───────────────────────────────────────────────────────
 
@@ -231,6 +232,17 @@ function ResearchIcon() {
   );
 }
 
+function PhysicsIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text3)', flexShrink: 0 }}>
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="8" x2="12" y2="12"/>
+      <line x1="12" y1="12" x2="15" y2="15"/>
+      <circle cx="12" cy="12" r="1" fill="currentColor"/>
+    </svg>
+  );
+}
+
 // ─── ViewerPanel ──────────────────────────────────────────────────────────────
 
 interface ViewerPanelProps {
@@ -239,7 +251,7 @@ interface ViewerPanelProps {
 
 export default function ViewerPanel({ style }: ViewerPanelProps) {
   const { viewerState, viewerDispatch } = useViewerContext();
-  const { viewerType, videoId, currentTimestamp, researchUrl, isViewerOpen } = viewerState;
+  const { viewerType, videoId, currentTimestamp, researchUrl, isViewerOpen, fbdData } = viewerState;
 
   // ── YouTube seek via IFrame postMessage ────────────────────────────────────
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -310,13 +322,15 @@ export default function ViewerPanel({ style }: ViewerPanelProps) {
   const panelTitle =
     viewerType === 'youtube'
       ? 'Video'
-      : researchMeta?.title ?? 'Research Paper';
+      : viewerType === 'fbd'
+        ? 'Physics Diagram'
+        : researchMeta?.title ?? 'Research Paper';
 
   return (
     <div className="content-panel" style={style}>
       {/* ── Header ── */}
       <div className="panel-header">
-        {viewerType === 'youtube' ? <YouTubeIcon /> : <ResearchIcon />}
+        {viewerType === 'youtube' ? <YouTubeIcon /> : viewerType === 'fbd' ? <PhysicsIcon /> : <ResearchIcon />}
         <span className="panel-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {panelTitle}
         </span>
@@ -347,6 +361,19 @@ export default function ViewerPanel({ style }: ViewerPanelProps) {
       {viewerType === 'youtube' && !videoId && (
         <div className="pdf-viewer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text3)', fontSize: 13 }}>
           No video loaded
+        </div>
+      )}
+
+      {/* ── Free Body Diagram ── */}
+      {viewerType === 'fbd' && fbdData && (
+        <div className="pdf-viewer" style={{ padding: 16, overflowY: 'auto' }}>
+          <FBDViewer data={fbdData} />
+        </div>
+      )}
+
+      {viewerType === 'fbd' && !fbdData && (
+        <div className="pdf-viewer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: 'var(--text3)', fontSize: 13 }}>
+          Generating diagram…
         </div>
       )}
 

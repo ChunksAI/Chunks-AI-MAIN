@@ -241,8 +241,8 @@ function MarkdownRenderer({ content }: MarkdownRendererProps) {
       <Markdown
         remarkPlugins={[remarkMath]}
         rehypePlugins={[
-          [rehypeKatex, { trust: true, strict: false }],
           [rehypeSanitize, sanitizeSchema],
+          [rehypeKatex, { trust: true, strict: false }],
           rehypeHighlight,
         ]}
         components={components}

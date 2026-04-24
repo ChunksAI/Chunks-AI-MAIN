@@ -31,8 +31,6 @@ def ask_image(request: Request, body: ImageRequest):
         'image/gif',  'image/webp', 'image/bmp',
     }
 
-    logger.warning("DEPRECATED: /ask-image is only called by the legacy /src frontend. Migrate callers to chunks-v2 before removing.")
-
     try:
         from services.auth import _extract_verified_user
         from services.ai import sanitize_text
@@ -96,14 +94,14 @@ def ask_image(request: Request, body: ImageRequest):
                 'error': 'Daily AI cost budget exceeded. Please try again after midnight UTC.',
             }, status_code=503)
 
-        vision_model = os.environ.get('VISION_MODEL', 'nvidia/nemotron-nano-12b-v2-vl:free')
+        vision_model = os.environ.get('VISION_MODEL', 'google/gemini-2.5-flash')
         effective_max_tokens = token_budget.max_tokens_for_endpoint('image')
 
         headers = {
             "Authorization": f"Bearer {ctx.OPENROUTER_API_KEY}",
             "Content-Type":  "application/json",
             "HTTP-Referer":  "https://chunks.online",
-            "X-Title":       "Chunks Chemistry"
+            "X-Title":       "Chunks"
         }
 
         complexity_levels = {
@@ -121,11 +119,13 @@ def ask_image(request: Request, body: ImageRequest):
         level_desc = complexity_levels.get(max(1, min(10, int(complexity))), "university level")
 
         system_prompt = (
-            f"You are an expert chemistry tutor with vision capabilities. "
-            f"Analyze the image carefully and explain any chemistry concepts, "
-            f"diagrams, equations, molecules, lab setups, or periodic table elements visible. "
+            f"You are an expert STEM tutor with vision capabilities. "
+            f"Analyze the image carefully and explain any concepts, diagrams, equations, "
+            f"graphs, tables, lab setups, molecules, circuit diagrams, mathematical notation, "
+            f"or other content visible in the image. "
             f"Explain at {level_desc}. "
-            f"Use LaTeX for equations: inline $...$ and display $$...$$."
+            f"Use LaTeX for equations: inline $...$ and display $$...$$. "
+            f"If the image contains handwritten notes or textbook pages, transcribe and explain the key content."
         )
 
         payload = {

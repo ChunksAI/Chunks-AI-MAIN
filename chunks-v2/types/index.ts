@@ -57,6 +57,11 @@ export type ChatMessage = {
   structured?: Record<string, unknown> | null;
   /** Live web citations returned by the research mode Perplexity Sonar pass. */
   webCitations?: Array<{ url: string; title?: string }>;
+  /**
+   * Base64 data URL of an image attached to a user message.
+   * Displayed as a thumbnail in the user bubble and sent to /ask-image.
+   */
+  imageDataUrl?: string;
 };
 
 // ─── Workspace ────────────────────────────────────────────────────────────────

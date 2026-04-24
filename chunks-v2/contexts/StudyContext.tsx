@@ -47,10 +47,12 @@ import { useChatContext, type ChatState, type ChatAction } from '@/contexts/Chat
 import { useQuizContext, type QuizState, type QuizAction, calcWeakAreas } from '@/contexts/QuizContext';
 import { useNotesContext, type NotesState, type NotesAction } from '@/contexts/NotesContext';
 import { useViewerContext, buildViewerState } from '@/contexts/ViewerContext';
-import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus, getStreamBuffer, ingestYouTube, setViewerState } from '@/lib/studyApi';
+import { sendMessage, sendMessageStream, cancelAsk, generateFlashcards, generateQuiz, uploadDocument, topicToSlides, checkPaevStatus, getStreamBuffer, ingestYouTube, setViewerState, sendImageMessage } from '@/lib/studyApi';
 import { extractVideoId } from '@/lib/youtubeTranscript';
 import { useStudySession } from '@/hooks/useStudySession';
 import type { MessageHistoryItem, SlideItem } from '@/types/api';
+import { detectPhysicsProblem } from '@/lib/physicsDetector';
+import { parseFBDFromJSON } from '@/lib/fbdParser';
 import {
   MAX_HISTORY_ITEMS,
   MAX_DOC_CONTEXT_CHARS,
@@ -493,6 +495,15 @@ interface StudyContextValue {
    * panel, stores slides as AI context, and fires a success chat bubble.
    */
   handleIngestYouTube: (url: string) => Promise<void>;
+  /**
+   * Send an image (data URL + question) to the vision endpoint.
+   * Dispatches a user message with thumbnail and an AI response into the chat.
+   */
+  handleSendImageMessage: (
+    imageDataUrl: string,
+    mimeType: string,
+    question: string,
+  ) => Promise<void>;
 }
 
 const StudyContext = createContext<StudyContextValue | null>(null);
@@ -1304,6 +1315,9 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         inflightRef.current = false;
       }, 120_000);
 
+      // Accumulate AI response text for physics / FBD detection (all modes).
+      let fbdAccumulatedText = '';
+
       try {
         const res = await sendMessageStream(
           {
@@ -1316,6 +1330,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             viewer_state: buildViewerState(viewerStateRef.current),
           },
           (chunk: string) => {
+            fbdAccumulatedText += chunk;
             if (isStreamingMode) {
               chatDispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
             } else {
@@ -1353,6 +1368,12 @@ export function StudyProvider({ children }: { children: ReactNode }) {
         );
 
         chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
+
+        // Physics FBD — fire-and-forget when the question or AI response
+        // contains ≥ 2 physics keywords.  Never blocks the chat flow.
+        if (detectPhysicsProblem(text) || detectPhysicsProblem(fbdAccumulatedText)) {
+          void generateFBD(text, fbdAccumulatedText);
+        }
 
         // Forward viewer_action to ViewerContext so the embedded player can seek
         if (res.viewer_action) {
@@ -1583,7 +1604,127 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     }
   }, [chatDispatch, viewerDispatch, dispatch]);
 
-  // ── generateFlashcards ────────────────────────────────────────────────────
+  // ── sendImageMessage ──────────────────────────────────────────────────────
+  /**
+   * Sends an image (data URL) + question to the /ask-image vision endpoint.
+   * Dispatches a user message bubble with an image thumbnail, then an AI
+   * response bubble with the vision model's answer (rendered as Markdown).
+   */
+  const handleSendImageMessage = useCallback(
+    async (imageDataUrl: string, mimeType: string, question: string) => {
+      // Extract raw base64 from the data URL (strip "data:<type>;base64,")
+      const commaIdx = imageDataUrl.indexOf(',');
+      const image_b64 = commaIdx >= 0 ? imageDataUrl.slice(commaIdx + 1) : imageDataUrl;
+
+      const userMsg: ChatMessage = {
+        id: nextMsgId(),
+        role: 'user',
+        text: question || 'Explain this image.',
+        imageDataUrl,
+      };
+      chatDispatch({ type: 'SEND_MESSAGE', payload: userMsg });
+
+      const aiMsgId = nextMsgId();
+      chatDispatch({
+        type: 'START_AI_MESSAGE',
+        payload: { id: aiMsgId, role: 'ai', text: '🔍 Analyzing image…', isPlaceholder: true },
+      });
+
+      try {
+        const res = await sendImageMessage({
+          image_b64,
+          image_type: mimeType,
+          question: question || 'Explain this image.',
+          complexity: 5,
+        });
+
+        if (!res.success) {
+          chatDispatch({
+            type: 'HANDLE_CHAT_ERROR',
+            payload: {
+              messageId: aiMsgId,
+              error: res.answer || 'Image analysis failed.',
+              originalQuestion: question,
+            },
+          });
+        } else {
+          chatDispatch({
+            type: 'REPLACE_AI_MESSAGE',
+            payload: {
+              id: aiMsgId,
+              text: res.answer,
+              actions: [
+                { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
+                { label: '🎯 Quiz me on this', actionKey: 'quiz' },
+              ],
+            },
+          });
+          chatDispatch({ type: 'SET_CHAT_LOADING', payload: false });
+        }
+      } catch (err) {
+        chatDispatch({
+          type: 'HANDLE_CHAT_ERROR',
+          payload: {
+            messageId: aiMsgId,
+            error: err instanceof Error ? err.message : 'Image analysis failed.',
+            originalQuestion: question,
+          },
+        });
+      }
+    },
+    [chatDispatch],
+  );
+
+  // ── generateFBD ───────────────────────────────────────────────────────────
+  /**
+   * Fire-and-forget: calls /api/ai with anthropic/claude-haiku-4.5 (via OpenRouter) to generate
+   * a Free Body Diagram JSON for a detected physics question, then dispatches
+   * OPEN_FBD to ViewerContext.  Never throws — all errors are silently ignored
+   * so a FBD failure never disrupts the main chat flow.
+   */
+  const generateFBD = useCallback(async (question: string, aiText: string): Promise<void> => {
+    try {
+      const prompt =
+        `You are a physics diagram generator. Analyze the physics problem below and output ONLY a valid JSON object for a Free Body Diagram. Do NOT include any explanation or markdown fences — output raw JSON only.\n\n` +
+        `Schema:\n` +
+        `{\n` +
+        `  "object": "box" | "ball" | "hanging_mass",\n` +
+        `  "surface": "flat" | "incline" (optional),\n` +
+        `  "inclineAngle": number (optional, 0–90 degrees),\n` +
+        `  "forces": [\n` +
+        `    { "label": string, "magnitude": number (Newtons), "angle": number (0=right 90=up 180=left 270=down), "color": "#hex" (optional) }\n` +
+        `  ]\n` +
+        `}\n\n` +
+        `Rules:\n` +
+        `- Always include Weight (angle=270) and Normal force (angle=90 for flat surface).\n` +
+        `- Add Friction (angle=0 or 180), Tension, or Applied Force when mentioned.\n` +
+        `- Estimate realistic magnitudes in Newtons if not explicitly given (Weight=100 for typical objects).\n` +
+        `- Output ONLY the JSON object.\n\n` +
+        `Physics problem:\n${question.slice(0, 600)}\n\n` +
+        `AI explanation (context):\n${aiText.slice(0, 1400)}`;
+
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'anthropic/claude-haiku-4.5',
+          max_tokens: 500,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      if (!res.ok) return;
+      const data = await res.json() as { content?: Array<{ text?: string }> };
+      const raw = data.content?.[0]?.text;
+      if (!raw) return;
+      const fbdData = parseFBDFromJSON(raw);
+      if (fbdData) {
+        viewerDispatch({ type: 'OPEN_FBD', fbdData });
+      }
+    } catch {
+      // Silently ignore — FBD is a best-effort enhancement
+    }
+  }, [viewerDispatch]);
+
   const handleGenerateFlashcards = useCallback(async (topic: string, count = DEFAULT_FLASHCARD_COUNT) => {
     if (flashcardsInFlightRef.current) return;
     flashcardsInFlightRef.current = true;
@@ -2011,6 +2152,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     handleEndReviewSession,
     handleCompleteReviewQuiz,
     handleIngestYouTube,
+    handleSendImageMessage,
   };
 
   return <StudyContext.Provider value={value}>{children}</StudyContext.Provider>;

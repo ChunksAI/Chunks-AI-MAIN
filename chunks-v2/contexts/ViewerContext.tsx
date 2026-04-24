@@ -27,10 +27,11 @@ import {
   type Dispatch,
 } from 'react';
 import type { ViewerAction, ViewerStatePayload } from '@/types/api';
+import type { FBDData } from '@/lib/fbdParser';
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
-export type ViewerType = 'none' | 'youtube' | 'pdf' | 'research';
+export type ViewerType = 'none' | 'youtube' | 'pdf' | 'research' | 'fbd';
 
 export interface ViewerState {
   /** Which kind of content is loaded in the left panel. */
@@ -51,6 +52,9 @@ export interface ViewerState {
   // Panel open/close
   isViewerOpen: boolean;
 
+  /** FBD data when viewerType === 'fbd'. */
+  fbdData: FBDData | null;
+
   /** The most recently received viewer action, cleared after consumption.
    *  Preserved from the P1-7 stub for backward compatibility. */
   pendingAction: ViewerAction | null;
@@ -68,6 +72,7 @@ export type ViewerContextAction =
   | { type: 'OPEN_YOUTUBE'; videoId: string }
   | { type: 'SEEK_YOUTUBE'; timestamp: number }
   | { type: 'OPEN_RESEARCH'; url: string }
+  | { type: 'OPEN_FBD'; fbdData: FBDData }
   | { type: 'CLOSE_VIEWER' }
   | { type: 'UPDATE_VISIBLE_SEGMENT'; segment: string }
   /** Legacy — dispatched by StudyContext when the backend emits viewer_action. */
@@ -85,6 +90,7 @@ const INITIAL_STATE: ViewerState = {
   pdfVisibleText: '',
   researchUrl: null,
   isViewerOpen: false,
+  fbdData: null,
   pendingAction: null,
 };
 
@@ -108,6 +114,14 @@ function viewerReducer(state: ViewerState, action: ViewerContextAction): ViewerS
         ...state,
         viewerType: 'research',
         researchUrl: action.url,
+        isViewerOpen: true,
+      };
+
+    case 'OPEN_FBD':
+      return {
+        ...state,
+        viewerType: 'fbd',
+        fbdData: action.fbdData,
         isViewerOpen: true,
       };
 
@@ -142,6 +156,11 @@ function viewerReducer(state: ViewerState, action: ViewerContextAction): ViewerS
  */
 export function buildViewerState(viewerCtx: ViewerState): ViewerStatePayload | null {
   if (viewerCtx.viewerType === 'none' || !viewerCtx.isViewerOpen) {
+    return null;
+  }
+
+  // FBD is a client-only viewer type — no server-side state to forward.
+  if (viewerCtx.viewerType === 'fbd') {
     return null;
   }
 
