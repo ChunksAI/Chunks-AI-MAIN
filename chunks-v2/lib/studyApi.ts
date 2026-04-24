@@ -65,6 +65,16 @@ async function fetchWithAuth(url: string, options: RequestInit): Promise<Respons
   // ── First 401: try to refresh the session ────────────────────────────────
   try {
     const sb = await getSupabaseClient();
+
+    // If there is no existing session the user is a guest — there is nothing
+    // to refresh.  Return the raw 401 so the caller can handle it gracefully
+    // without triggering a login redirect (which would incorrectly kick guests
+    // out of the app mid-session).
+    const {
+      data: { session: existingSession },
+    } = await sb.auth.getSession();
+    if (!existingSession) return res;
+
     const { error: refreshError } = await sb.auth.refreshSession();
 
     if (refreshError) {
