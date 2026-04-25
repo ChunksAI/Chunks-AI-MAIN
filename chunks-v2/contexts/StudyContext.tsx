@@ -64,6 +64,7 @@ import {
   SESSION_STORAGE_KEY,
 } from '@/lib/constants';
 import { CURRENT_STORAGE_VERSION, migrateSnapshotIfNeeded, type VersionedSnapshot } from '@/lib/storageVersion';
+import { getAccessToken } from '@/lib/supabaseClient';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -1777,9 +1778,13 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     if (dev) console.debug('[FBD] generateFBD start, question length:', question.trim().length);
 
     try {
+      const token = await getAccessToken();
       const res = await fetch('/api/ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           task: 'fbd',
           question: question.trim().slice(0, 1000),

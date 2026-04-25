@@ -14,13 +14,18 @@ import { useEffect, useRef, useState } from 'react';
 import { useViewerContext } from '@/contexts/ViewerContext';
 import { ingestResearch, type ResearchIngestResponse } from '@/lib/studyApi';
 import FBDViewer from '@/components/study/FBDViewer';
+import { getAccessToken } from '@/lib/supabaseClient';
 
 // ─── AI summary helpers ───────────────────────────────────────────────────────
 
 async function fetchAiSummary(title: string, abstract: string, authors?: string[], year?: number): Promise<string> {
+  const token = await getAccessToken();
   const res = await fetch('/api/ai', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: JSON.stringify({
       task: 'research-summary',
       title,
