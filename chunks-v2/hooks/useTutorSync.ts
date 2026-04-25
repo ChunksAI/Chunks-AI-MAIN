@@ -4,10 +4,13 @@
  * useTutorSync — database persistence layer for the student knowledge model.
  *
  * Responsibilities:
- *  1. On mount: load the model from the server and merge with localStorage.
+ *  1. On scope change (user or bookId): load the model from the server and
+ *     merge with localStorage for the new scoped key.
  *  2. Debounce-save to /tutor/save-model on every 'chunks:model-changed' event.
- *  3. Run tbCheckRegression() on mount to promote stale mastered concepts to "regressed".
- *  4. Return the list of newly-regressed concept names so the caller can surface alerts.
+ *  3. Run regression check on each scope load to promote stale mastered
+ *     concepts to "regressed".
+ *  4. Return the list of newly-regressed concept names so the caller can
+ *     surface alerts.
  *
  * Only one instance of this hook should exist at a time (call it from the
  * study page or StudyContext — not from individual leaf components).
@@ -140,16 +143,36 @@ export function useTutorSync(bookId?: string): UseTutorSyncResult {
   const [regressions, setRegressions] = useState<string[]>([]);
   const [syncReady, setSyncReady] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasMounted = useRef(false);
 
   // Compute the scoped key using the same helper as useTutorBrain
   const userId = user?.isGuest ? undefined : user?.id;
   const storageKey = getStorageKey(userId, bookId);
 
-  // ── On mount: regression check + server load ────────────────────────────────
+  // Tracks the last scope we successfully initiated a load for.
+  // Replaces the old boolean `hasMounted` guard: unlike a boolean, this lets
+  // us re-run the load when the user or book changes after the initial mount.
+  const lastLoadedScopeRef = useRef<string | null>(null);
+
+  // A stable string that changes whenever user or bookId changes.
+  const scopeKey = `${userId ?? 'guest'}:${bookId ?? ''}`;
+
+  // ── On scope change: regression check + server load ─────────────────────────
   useEffect(() => {
-    if (hasMounted.current) return;
-    hasMounted.current = true;
+    // Skip if we already loaded for this exact user+book combination.
+    // This prevents double-firing in React Strict Mode without blocking
+    // subsequent scope changes.
+    if (lastLoadedScopeRef.current === scopeKey) return;
+    lastLoadedScopeRef.current = scopeKey;
+
+    // Reset sync state for the new scope so consumers know loading is in progress
+    setSyncReady(false);
+    setRegressions([]);
+
+    // Capture the storageKey for this scope — used inside the async block so
+    // a stale response from a previous book never overwrites the new scope.
+    const scopedStorageKey = storageKey;
+    const scopedBookId = bookId;
+    const scopedUser = user;
 
     // 1. Run regression check — prefer Web Worker (non-blocking); fall back to
     //    synchronous execution on SSR or browsers that don't support Worker.
@@ -158,13 +181,15 @@ export function useTutorSync(bookId?: string): UseTutorSyncResult {
         new URL('../workers/regressionWorker.ts', import.meta.url),
         { type: 'module' },
       );
-      const current = _loadModel(storageKey);
+      const current = _loadModel(scopedStorageKey);
       worker.postMessage({ mastered: current.mastered, quizHistory: current.quizHistory });
       worker.onmessage = (e: MessageEvent<{ regressed: string[] }>) => {
         const { regressed } = e.data;
         worker.terminate();
+        // Only apply if we are still on the same scope (guard against stale worker)
+        if (lastLoadedScopeRef.current !== scopeKey) return;
         if (regressed.length > 0) {
-          const model = _loadModel(storageKey);
+          const model = _loadModel(scopedStorageKey);
           const nowIso = new Date().toISOString();
           const next: StudentModel = {
             ...model,
@@ -180,7 +205,7 @@ export function useTutorSync(bookId?: string): UseTutorSyncResult {
               })),
             ],
           };
-          _saveModel(storageKey, next);
+          _saveModel(scopedStorageKey, next);
           window.dispatchEvent(new CustomEvent('chunks:model-changed'));
           setRegressions(regressed);
         }
@@ -188,32 +213,41 @@ export function useTutorSync(bookId?: string): UseTutorSyncResult {
       worker.onerror = () => worker.terminate(); // fail silently
     } else {
       // Synchronous fallback: SSR or browsers without Web Worker support
-      const regressed = checkRegressionLocal(storageKey);
+      const regressed = checkRegressionLocal(scopedStorageKey);
       if (regressed.length > 0) setRegressions(regressed);
     }
 
     // 2. If authenticated, fetch server model and merge
-    if (!user || user.isGuest) {
+    if (!scopedUser || scopedUser.isGuest) {
       setSyncReady(true);
       return;
     }
 
     (async () => {
       try {
-        const serverModel = await loadTutorModel(user.id, bookId);
+        const serverModel = await loadTutorModel(scopedUser.id, scopedBookId);
+        // Guard: discard the response if the user has switched scope since we
+        // initiated this fetch (e.g. rapidly switched books)
+        if (lastLoadedScopeRef.current !== scopeKey) return;
         if (serverModel) {
-          const local = _loadModel(storageKey);
+          const local = _loadModel(scopedStorageKey);
           const merged = mergeModels(local, serverModel);
-          _saveModel(storageKey, merged);
+          _saveModel(scopedStorageKey, merged);
           window.dispatchEvent(new CustomEvent('chunks:model-changed'));
         }
       } catch {
         // Server unavailable — continue with localStorage only
       } finally {
-        setSyncReady(true);
+        // Only mark ready if we are still on this scope
+        if (lastLoadedScopeRef.current === scopeKey) {
+          setSyncReady(true);
+        }
       }
     })();
-  }, [user]);
+  // scopeKey already encodes user+bookId; storageKey is derived from the same
+  // inputs, so listing both is not redundant — but scopeKey is the trigger.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKey]);
 
   // ── Debounced save on every model change ─────────────────────────────────────
   const scheduleSave = useCallback(() => {
