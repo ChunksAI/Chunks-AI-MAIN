@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { openRecoveryWindow, closeRecoveryWindow } from '@/lib/recoveryAnalytics';
+import { getStorageKey, loadModel as _loadModel, saveModel as _saveModel, emptyModel } from '@/lib/tutorStorage';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,42 +27,6 @@ export interface StudentModel {
   mastered: string[];
   gaps: GapEntry[];
   quizHistory: QuizHistoryEntry[];
-}
-
-// ─── Storage helpers ──────────────────────────────────────────────────────────
-
-const STORAGE_KEY = 'chunks_student_model';
-
-function loadModel(): StudentModel {
-  if (typeof window === 'undefined') return { mastered: [], gaps: [], quizHistory: [] };
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { mastered: [], gaps: [], quizHistory: [] };
-    const parsed = JSON.parse(raw) as unknown;
-    if (
-      parsed !== null &&
-      typeof parsed === 'object' &&
-      Array.isArray((parsed as StudentModel).mastered) &&
-      Array.isArray((parsed as StudentModel).gaps) &&
-      Array.isArray((parsed as StudentModel).quizHistory)
-    ) {
-      return parsed as StudentModel;
-    }
-    return { mastered: [], gaps: [], quizHistory: [] };
-  } catch {
-    return { mastered: [], gaps: [], quizHistory: [] };
-  }
-}
-
-function saveModel(model: StudentModel): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(model));
-    // Notify any listeners (e.g. useTutorSync) that the model has changed
-    window.dispatchEvent(new CustomEvent('chunks:model-changed'));
-  } catch {
-    // Ignore quota errors — persistence is best-effort
-  }
 }
 
 // ─── Ranking helpers ──────────────────────────────────────────────────────────
@@ -106,31 +71,12 @@ function trimModel(model: StudentModel): StudentModel {
  *   Low quiz scores: topic (40%)
  *
  * Safe to call outside React (e.g. inside useCallback / event handlers).
+ *
+ * @deprecated Prefer importing `buildStudentProfile` from `@/lib/tutorStorage`
+ * and passing `userId` + `bookId` explicitly for proper per-user/per-book scoping.
+ * This overload is kept for backwards compatibility; it reads from the global key.
  */
-export function buildStudentProfile(): string {
-  const m = trimModel(loadModel());
-
-  const gapsPart =
-    m.gaps.length > 0
-      ? m.gaps.map((g) => `${g.concept} (${g.status})`).join(', ')
-      : 'none';
-
-  const masteredPart = m.mastered.length > 0 ? m.mastered.join(', ') : 'none';
-
-  // Collect most-recent score per topic from quiz history; show only those < 80%
-  const latestByTopic = new Map<string, number>();
-  for (const entry of m.quizHistory) {
-    // Iterating forward means later entries overwrite earlier ones → most recent wins
-    latestByTopic.set(entry.topic, entry.score);
-  }
-  const lowScores = [...latestByTopic.entries()]
-    .filter(([, score]) => score < 80)
-    .map(([topic, score]) => `${topic} (${score}%)`)
-    .join(', ');
-  const lowScoresPart = lowScores || 'none';
-
-  return `[STUDENT PROFILE]\nGaps: ${gapsPart}\nMastered: ${masteredPart}\nLow quiz scores: ${lowScoresPart}`;
-}
+export { buildStudentProfile } from '@/lib/tutorStorage';
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
@@ -146,18 +92,33 @@ export interface UseTutorBrainResult {
   tbGetModel: () => StudentModel;
 }
 
-export function useTutorBrain(): UseTutorBrainResult {
-  const [model, setModel] = useState<StudentModel>({ mastered: [], gaps: [], quizHistory: [] });
+/**
+ * @param userId  - The authenticated user's ID, or undefined/null for guests.
+ * @param bookId  - The current book's ID, or undefined/null when no book is loaded.
+ *
+ * Both are used to scope the localStorage key so that models never bleed across
+ * users, books, or guest sessions.
+ */
+export function useTutorBrain(userId?: string | null, bookId?: string | null): UseTutorBrainResult {
+  const storageKey = getStorageKey(userId, bookId);
+
+  const [model, setModel] = useState<StudentModel>(emptyModel());
 
   // Load from localStorage after mount to avoid SSR mismatch
   useEffect(() => {
-    setModel(loadModel());
-  }, []);
+    setModel(_loadModel(storageKey));
+  // Re-load when the scoped key changes (e.g. user signs in or book changes)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageKey]);
 
   const persist = useCallback((next: StudentModel) => {
     setModel(next);
-    saveModel(next);
-  }, []);
+    _saveModel(storageKey, next);
+    // Notify any listeners (e.g. useTutorSync) that the model has changed
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('chunks:model-changed'));
+    }
+  }, [storageKey]);
 
   /**
    * Adds a concept to gaps with status "failing".
@@ -165,7 +126,7 @@ export function useTutorBrain(): UseTutorBrainResult {
    */
   const tbRecordGap = useCallback(
     (topic: string) => {
-      const current = loadModel();
+      const current = _loadModel(storageKey);
       const exists = current.gaps.some((g) => g.concept === topic);
       if (exists) return;
       const now = new Date().toISOString();
@@ -178,7 +139,7 @@ export function useTutorBrain(): UseTutorBrainResult {
       };
       persist(next);
     },
-    [persist],
+    [storageKey, persist],
   );
 
   /**
@@ -194,7 +155,7 @@ export function useTutorBrain(): UseTutorBrainResult {
    */
   const tbRecordStudying = useCallback(
     (topic: string, advance: boolean = false) => {
-      const current = loadModel();
+      const current = _loadModel(storageKey);
       // If concept is not tracked in gaps at all, do nothing (prevents phantom entries)
       const gap = current.gaps.find((g) => g.concept === topic);
       if (!gap) return;
@@ -223,7 +184,7 @@ export function useTutorBrain(): UseTutorBrainResult {
       };
       persist(next);
     },
-    [persist],
+    [storageKey, persist],
   );
 
   /**
@@ -233,7 +194,7 @@ export function useTutorBrain(): UseTutorBrainResult {
    */
   const tbRecordMastery = useCallback(
     (topic: string) => {
-      const current = loadModel();
+      const current = _loadModel(storageKey);
       const next: StudentModel = {
         ...current,
         mastered: current.mastered.includes(topic)
@@ -243,12 +204,12 @@ export function useTutorBrain(): UseTutorBrainResult {
       };
       persist(next);
     },
-    [persist],
+    [storageKey, persist],
   );
 
   const tbRecordQuizResult = useCallback(
     (topic: string, score: number, wrongAnswers: string[]) => {
-      const current = loadModel();
+      const current = _loadModel(storageKey);
       const now = new Date().toISOString();
 
       // Push to quiz history
@@ -292,7 +253,7 @@ export function useTutorBrain(): UseTutorBrainResult {
       // and allows computeRecoveryStats() to measure the AI's intervention rate.
       closeRecoveryWindow(topic, score);
     },
-    [persist],
+    [storageKey, persist],
   );
 
   /**
@@ -304,7 +265,7 @@ export function useTutorBrain(): UseTutorBrainResult {
    */
   const tbRecordSocraticPass = useCallback(
     (topic: string) => {
-      const current = loadModel();
+      const current = _loadModel(storageKey);
       const now = new Date().toISOString();
       const next: StudentModel = {
         ...current,
@@ -333,7 +294,7 @@ export function useTutorBrain(): UseTutorBrainResult {
       }
       persist(next);
     },
-    [persist, tbRecordMastery],
+    [storageKey, persist, tbRecordMastery],
   );
 
   /**
@@ -341,7 +302,7 @@ export function useTutorBrain(): UseTutorBrainResult {
    * back into gaps with status "regressed".
    */
   const tbCheckRegression = useCallback(() => {
-    const current = loadModel();
+    const current = _loadModel(storageKey);
     const now = Date.now();
     const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
 
@@ -379,15 +340,15 @@ export function useTutorBrain(): UseTutorBrainResult {
       ],
     };
     persist(next);
-  }, [persist]);
+  }, [storageKey, persist]);
 
   /**
    * Returns a trimmed view of the model:
    * 8 most urgent gaps + 10 most recently mastered concepts.
    */
   const tbGetModel = useCallback((): StudentModel => {
-    return trimModel(loadModel());
-  }, []);
+    return trimModel(_loadModel(storageKey));
+  }, [storageKey]);
 
   return {
     model: trimModel(model),

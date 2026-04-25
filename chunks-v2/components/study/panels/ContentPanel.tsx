@@ -1,7 +1,9 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { useStudy } from '@/contexts/StudyContext';
+import { useViewerContext } from '@/contexts/ViewerContext';
+import type { SlideItem } from '@/types/api';
 
 interface ContentPanelProps {
   style?: React.CSSProperties;
@@ -13,9 +15,11 @@ interface ContentPanelProps {
 export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: ContentPanelProps) {
   const { state, handleUploadDocument } = useStudy();
   const { slides, docTitle, pdfBlobUrl, uploadLoading, uploadError } = state;
+  const { viewerDispatch } = useViewerContext();
 
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const slidesContainerRef = useRef<HTMLDivElement>(null);
 
   const showTooltip = (id: string) => {
     setActiveTooltip(id);
@@ -28,6 +32,74 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
     // reset so the same file can be re-uploaded if needed
     e.target.value = '';
   };
+
+  // ── OPEN_PDF / CLOSE_PDF ─────────────────────────────────────────────────
+  // Notify ViewerContext whenever a document is loaded or cleared so the AI
+  // receives the current PDF page in every /ask request.
+  useEffect(() => {
+    const hasDoc = !!pdfBlobUrl || slides.length > 0;
+    if (hasDoc) {
+      viewerDispatch({ type: 'OPEN_PDF', initialPage: 1 });
+    } else {
+      viewerDispatch({ type: 'CLOSE_PDF' });
+    }
+  }, [pdfBlobUrl, slides.length, viewerDispatch]);
+
+  // ── IntersectionObserver — track the most-visible slide (slides mode) ─────
+  // The iframe-based PDF viewer (pdfBlobUrl) uses the native browser viewer
+  // which does not expose page-change events, so tracking is only possible
+  // when the document is rendered as individual slide divs.
+  const MAX_PDF_VISIBLE_TEXT_LENGTH = 500;
+  const buildSlideText = useCallback((slide: SlideItem): string =>
+    [slide.title, ...slide.content].filter(Boolean).join(' ').slice(0, MAX_PDF_VISIBLE_TEXT_LENGTH),
+  []);
+
+  useEffect(() => {
+    const container = slidesContainerRef.current;
+    if (!slides.length || !container) return;
+
+    // intersectionRatio per data-page attribute value
+    const ratios = new Map<number, number>();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          const raw = (entry.target as HTMLElement).dataset.page;
+          const page = raw ? parseInt(raw, 10) : NaN;
+          if (!isNaN(page)) {
+            if (entry.intersectionRatio > 0) {
+              ratios.set(page, entry.intersectionRatio);
+            } else {
+              ratios.delete(page);
+            }
+          }
+        });
+
+        // Find the slide with the highest intersection ratio
+        let bestPage = 1;
+        let bestRatio = 0;
+        ratios.forEach((ratio, page) => {
+          if (ratio > bestRatio) { bestRatio = ratio; bestPage = page; }
+        });
+
+        const slide = slides.find(
+          (s, idx) => (s.slide_number ?? idx + 1) === bestPage,
+        );
+        viewerDispatch({
+          type: 'UPDATE_PDF_VIEW',
+          page: bestPage,
+          visibleText: slide ? buildSlideText(slide) : '',
+        });
+      },
+      { root: container, threshold: [0, 0.25, 0.5, 0.75, 1.0] },
+    );
+
+    container.querySelectorAll<HTMLElement>('[data-page]').forEach(
+      (el) => observer.observe(el),
+    );
+
+    return () => observer.disconnect();
+  }, [slides, viewerDispatch, buildSlideText]);
 
   // ── Empty / upload state ──────────────────────────────────────────────────
   if (!pdfBlobUrl && slides.length === 0) {
@@ -121,13 +193,13 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
         />
       ) : (
         /* Fallback: no blob URL (e.g. after a page refresh — slides restored from sessionStorage) */
-        <div className="pdf-viewer">
+        <div className="pdf-viewer" ref={slidesContainerRef}>
           {slides.map((slide, idx) => {
             const pageNum = slide.slide_number ?? idx + 1;
             const tooltipId = `slide-${pageNum}`;
 
             return (
-              <div key={pageNum} className="pdf-page">
+              <div key={pageNum} className="pdf-page" data-page={pageNum}>
                 {slide.title && <div className="pdf-chapter">{slide.title}</div>}
                 <div className="pdf-body">
                   {slide.content.map((paragraph, pIdx) => {

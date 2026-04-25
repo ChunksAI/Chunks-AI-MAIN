@@ -64,6 +64,7 @@ import {
   SESSION_STORAGE_KEY,
 } from '@/lib/constants';
 import { CURRENT_STORAGE_VERSION, migrateSnapshotIfNeeded, type VersionedSnapshot } from '@/lib/storageVersion';
+import { getAccessToken } from '@/lib/supabaseClient';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -668,9 +669,11 @@ async function clearPdfFromIdb(): Promise<void> {
   if (typeof window === 'undefined') return;
   try {
     const db = await openPdfDb();
+    // Use clear() to remove all records (both the legacy IDB_PDF_KEY and every
+    // per-doc chunks_v2_pdf_doc_* key) in a single transaction.
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(IDB_STORE_NAME, 'readwrite');
-      const req = tx.objectStore(IDB_STORE_NAME).delete(IDB_PDF_KEY);
+      const req = tx.objectStore(IDB_STORE_NAME).clear();
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
@@ -1775,9 +1778,13 @@ export function StudyProvider({ children }: { children: ReactNode }) {
     if (dev) console.debug('[FBD] generateFBD start, question length:', question.trim().length);
 
     try {
+      const token = await getAccessToken();
       const res = await fetch('/api/ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           task: 'fbd',
           question: question.trim().slice(0, 1000),

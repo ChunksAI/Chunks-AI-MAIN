@@ -62,7 +62,7 @@ function StudyLayout() {
   // Sync student knowledge model with backend (load on mount, debounce-save on change,
   // regression check on mount). Pass bookId so save/load are scoped per book.
   const { regressions } = useTutorSync(state.bookId ?? undefined);
-  const { tbGetModel } = useTutorBrain();
+  const { tbGetModel } = useTutorBrain(user?.isGuest ? undefined : user?.id, state.bookId ?? undefined);
 
   // ── Diagnostic quiz gate ──────────────────────────────────────────────────────
   // Show when a new topic or document is detected and the student model has no

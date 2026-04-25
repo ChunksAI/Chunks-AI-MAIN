@@ -16,6 +16,7 @@ import { useTutorBrain } from '@/hooks/useTutorBrain';
 import { useToast } from '@/contexts/ToastContext';
 import { evaluateSocraticAnswer } from '@/lib/studyApi';
 import { extractTopicFromResponse } from '@/lib/extractTopic';
+import { useAuth } from '@/contexts/AuthContext';
 
 const GAP_MARKER = 'Check your understanding →';
 
@@ -275,6 +276,7 @@ export default function ChatPanel() {
     handleIngestYouTube,
     handleSendImageMessage,
   } = useStudy();
+  const { user } = useAuth();
   const { viewerDispatch } = useViewerContext();
   const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, chatMode, pdfBlobUrl, slides, uploadLoading, uploadError } = state;
 
@@ -486,7 +488,10 @@ export default function ChatPanel() {
       ? `AI remembers: You struggled with ${cleanTopic(weakAreas[0].topic)} (${weakAreas[0].score}%). Let's revisit it.`
       : 'AI remembers: Keep asking questions — I track your weak areas over time.';
 
-  const { tbRecordGap, tbRecordStudying, tbRecordSocraticPass, tbRecordMastery } = useTutorBrain();
+  const { tbRecordGap, tbRecordStudying, tbRecordSocraticPass, tbRecordMastery } = useTutorBrain(
+    user?.isGuest ? undefined : user?.id,
+    state.bookId ?? undefined,
+  );
 
   // Derive the topic of the most recent AI response. Prefer the `topic` field
   // stored on the message (populated from the backend's structured extraction)

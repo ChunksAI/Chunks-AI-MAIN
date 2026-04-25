@@ -8,6 +8,15 @@
  * Keeps OPENROUTER_API_KEY and FBD_MODEL server-only (never exposed to the
  * browser).
  *
+ * Security
+ * ────────
+ * - Rate-limited per IP + auth digest: 20 req/min (authenticated), 5 req/min (guest).
+ * - Origin check: in production, the Origin header must match APP_URL (or a
+ *   localhost origin) to reject cross-site drive-by calls.
+ * - Auth forwarding: callers should include `Authorization: Bearer <token>` so
+ *   authenticated users get the more generous rate-limit tier.
+ * - Structured request logging for every invocation.
+ *
  * Supported tasks
  * ───────────────
  * POST /api/ai  { task: "fbd", question: string, aiText: string }
@@ -25,6 +34,8 @@
  *
  * Error status codes
  * ──────────────────
+ * - 429  Rate limit exceeded
+ * - 403  Origin not allowed (production only)
  * - 503  OPENROUTER_API_KEY or task model env var missing
  * - 504  OpenRouter call timed out (AbortError)
  * - 502  OpenRouter unreachable (other network error)
@@ -35,10 +46,88 @@
  * body and returns { model, messages, max_tokens } for the OpenRouter call.
  */
 
+import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const FBD_TIMEOUT_MS = 15_000;
+
+// ---------------------------------------------------------------------------
+// Sliding-window rate limiter
+// Two tiers:
+//   • Authenticated (Authorization header present): 20 req/min
+//   • Guest (no Authorization header):              5 req/min
+// Keyed by IP + sha256(Authorization)[:32] — same pattern as youtube/transcript.
+// ---------------------------------------------------------------------------
+const _RL_WINDOW_MS = 60_000;
+const _RL_MAX_AUTH = 20;
+const _RL_MAX_GUEST = 5;
+const _rlBuckets = new Map<string, number[]>();
+
+function _isRateLimited(request: NextRequest): boolean {
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
+    request.headers.get('x-real-ip') ??
+    'unknown';
+  const auth = request.headers.get('authorization') ?? '';
+  const authDigest = auth ? createHash('sha256').update(auth).digest('hex').slice(0, 32) : '';
+  const bucketKey = `${ip}:${authDigest}`;
+  const limit = authDigest ? _RL_MAX_AUTH : _RL_MAX_GUEST;
+  const now = Date.now();
+  const cutoff = now - _RL_WINDOW_MS;
+  const timestamps = (_rlBuckets.get(bucketKey) ?? []).filter((t) => t > cutoff);
+  if (timestamps.length >= limit) {
+    _rlBuckets.set(bucketKey, timestamps);
+    return true;
+  }
+  timestamps.push(now);
+  _rlBuckets.set(bucketKey, timestamps);
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Origin check (production only)
+// Rejects requests whose Origin header doesn't match APP_URL.
+// Localhost origins are always allowed (dev / internal tooling).
+// ---------------------------------------------------------------------------
+const _APP_URL = (process.env.APP_URL ?? '').replace(/\/$/, '');
+
+function _isOriginAllowed(request: NextRequest): boolean {
+  // Only enforce in production when APP_URL is explicitly configured.
+  if (process.env.NODE_ENV !== 'production' || !_APP_URL) return true;
+  const origin = request.headers.get('origin') ?? '';
+  if (!origin) {
+    // No Origin header — allow server-to-server calls (e.g. internal proxies).
+    return true;
+  }
+  if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+    return true;
+  }
+  return origin === _APP_URL;
+}
+
+// ---------------------------------------------------------------------------
+// Structured request logging
+// ---------------------------------------------------------------------------
+function _logRequest(opts: {
+  task: string;
+  ip: string;
+  authenticated: boolean;
+  durationMs: number;
+  status: number;
+}): void {
+  console.log(
+    JSON.stringify({
+      event: 'ai_route_request',
+      task: opts.task,
+      ip: opts.ip,
+      authenticated: opts.authenticated,
+      duration_ms: opts.durationMs,
+      status: opts.status,
+      ts: new Date().toISOString(),
+    }),
+  );
+}
 
 /**
  * Build the OpenRouter request for the "research-summary" task.
@@ -171,6 +260,27 @@ function buildFbdRequest(
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const startMs = Date.now();
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
+    req.headers.get('x-real-ip') ??
+    'unknown';
+  const authenticated = Boolean(req.headers.get('authorization'));
+
+  // ── Origin check ──────────────────────────────────────────────────────────
+  if (!_isOriginAllowed(req)) {
+    return NextResponse.json({ error: 'Origin not allowed' }, { status: 403 });
+  }
+
+  // ── Rate limit ────────────────────────────────────────────────────────────
+  if (_isRateLimited(req)) {
+    _logRequest({ task: 'unknown', ip, authenticated, durationMs: Date.now() - startMs, status: 429 });
+    return NextResponse.json(
+      { error: 'Too many requests. Please wait a moment before trying again.' },
+      { status: 429 },
+    );
+  }
+
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: 'AI service not configured' }, { status: 503 });
@@ -226,16 +336,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // modern runtimes (Node ≥ 18) and 'AbortError' in some older environments.
     // Check both names so the 504 is returned reliably.
     if (err instanceof Error && (err.name === 'TimeoutError' || err.name === 'AbortError')) {
+      _logRequest({ task, ip, authenticated, durationMs: Date.now() - startMs, status: 504 });
       return NextResponse.json({ error: 'AI service timed out' }, { status: 504 });
     }
+    _logRequest({ task, ip, authenticated, durationMs: Date.now() - startMs, status: 502 });
     return NextResponse.json({ error: 'Failed to reach AI service' }, { status: 502 });
   }
 
   if (!upstream.ok) {
+    _logRequest({ task, ip, authenticated, durationMs: Date.now() - startMs, status: upstream.status });
     return NextResponse.json({ error: 'AI service error' }, { status: upstream.status });
   }
 
   const data = (await upstream.json()) as { choices?: Array<{ message?: { content?: string } }> };
   const text = data.choices?.[0]?.message?.content ?? '';
+  _logRequest({ task, ip, authenticated, durationMs: Date.now() - startMs, status: 200 });
   return NextResponse.json({ content: [{ text }] });
 }

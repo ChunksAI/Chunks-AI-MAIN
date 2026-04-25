@@ -8,6 +8,7 @@ import type { QuizResult } from '@/types';
 import { PASS_THRESHOLD } from '@/lib/constants';
 import { analyzeGaps, fetchNextTopic } from '@/lib/studyApi';
 import type { NextTopicResponse } from '@/lib/studyApi';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface QuizResultsProps {
   result: QuizResult;
@@ -27,7 +28,11 @@ export default function QuizResults({ result, onRetry, onReview, onClose }: Quiz
   const { score, correctAnswers, totalQuestions, topic, wrongAnswers } = result;
   const router = useRouter();
   const { state, dispatch } = useStudy();
-  const { tbRecordQuizResult, tbRecordMastery, tbRecordGap, tbGetModel } = useTutorBrain();
+  const { user } = useAuth();
+  const { tbRecordQuizResult, tbRecordMastery, tbRecordGap, tbGetModel } = useTutorBrain(
+    user?.isGuest ? undefined : user?.id,
+    state.bookId ?? undefined,
+  );
   const [nextTopic, setNextTopic] = useState<NextTopicResponse | null>(null);
 
   // Record quiz result once when this component mounts (= quiz just finished)
