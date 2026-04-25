@@ -10,6 +10,7 @@ import { SIDEBAR_COMPACT_KEY } from '@/lib/constants';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
 import ChunksLogo from '@/components/shared/ChunksLogo';
 import type { ConceptStatus } from '@/hooks/useTutorBrain';
+import { useStudy } from '@/contexts/StudyContext';
 
 interface SidebarProps {
   activeNav: string;
@@ -51,11 +52,15 @@ export default function Sidebar({ activeNav, onNavChange, onNewSession, recents 
   const router = useRouter();
   const { user, signOut, openLoginModal } = useAuth();
   const { openSettings } = useSettings();
+  const { state: studyState } = useStudy();
 
   const [collapsed, setCollapsed] = useState<boolean>(false);
 
   // ── Tutor brain ────────────────────────────────────────────────────────────
-  const { model } = useTutorBrain();
+  const { model } = useTutorBrain(
+    user?.isGuest ? undefined : user?.id,
+    studyState.bookId ?? undefined,
+  );
   const [, setModelTick] = useState(0);
 
   useEffect(() => {

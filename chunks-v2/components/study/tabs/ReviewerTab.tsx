@@ -7,6 +7,7 @@ import type { ConceptStatus } from '@/hooks/useTutorBrain';
 import Badge from '@/components/shared/Badge';
 import Card from '@/components/shared/Card';
 import type { TopicChip } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 /**
  * ReviewerTab — displays real performance data from StudyContext.
@@ -16,8 +17,12 @@ import type { TopicChip } from '@/types';
 export default function ReviewerTab() {
   const router = useRouter();
   const { state, handleStartReview, handleStartReviewSession } = useStudy();
+  const { user } = useAuth();
   const { weakAreas, performanceHistory, quizResults } = state;
-  const { model } = useTutorBrain();
+  const { model } = useTutorBrain(
+    user?.isGuest ? undefined : user?.id,
+    state.bookId ?? undefined,
+  );
 
   // CSS class for each gap pill status
   function gapPillClass(status: ConceptStatus): string {

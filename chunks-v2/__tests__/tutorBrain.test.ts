@@ -6,11 +6,15 @@
 import { renderHook, act } from '@testing-library/react';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
 import type { StudentModel } from '@/hooks/useTutorBrain';
+import { getStorageKey } from '@/lib/tutorStorage';
 import { extractTopicFromResponse } from '@/lib/extractTopic';
 
 // ── localStorage helpers ───────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'chunks_student_model';
+// Test with a fixed user+book scope so the key matches what the hook uses
+const TEST_USER_ID = 'test-user-1';
+const TEST_BOOK_ID = 'test-book-1';
+const STORAGE_KEY = getStorageKey(TEST_USER_ID, TEST_BOOK_ID);
 
 function seedModel(model: StudentModel) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(model));
@@ -35,7 +39,7 @@ describe('tbRecordSocraticPass', () => {
       quizHistory: [],
     });
 
-    const { result } = renderHook(() => useTutorBrain());
+    const { result } = renderHook(() => useTutorBrain(TEST_USER_ID, TEST_BOOK_ID));
 
     act(() => {
       result.current.tbRecordSocraticPass('Entropy');
@@ -55,7 +59,7 @@ describe('tbRecordSocraticPass', () => {
       quizHistory: [],
     });
 
-    const { result } = renderHook(() => useTutorBrain());
+    const { result } = renderHook(() => useTutorBrain(TEST_USER_ID, TEST_BOOK_ID));
 
     act(() => {
       result.current.tbRecordSocraticPass('Entropy');
@@ -78,7 +82,7 @@ describe('tbRecordSocraticPass', () => {
       quizHistory: [],
     });
 
-    const { result } = renderHook(() => useTutorBrain());
+    const { result } = renderHook(() => useTutorBrain(TEST_USER_ID, TEST_BOOK_ID));
 
     act(() => {
       result.current.tbRecordSocraticPass('Entropy');

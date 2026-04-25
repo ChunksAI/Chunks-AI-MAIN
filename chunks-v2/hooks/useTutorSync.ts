@@ -22,6 +22,7 @@ import {
   type StudentModel,
   type ConceptStatus,
 } from '@/hooks/useTutorBrain';
+import { getStorageKey, loadModel as _loadModel, saveModel as _saveModel } from '@/lib/tutorStorage';
 
 // Re-export so callers only need one import
 export type { TutorStudentModel };
@@ -73,41 +74,6 @@ function mergeModels(local: StudentModel, server: TutorStudentModel): StudentMod
   };
 }
 
-// ─── Raw localStorage accessors (duplicated from useTutorBrain to avoid coupling) ──
-
-const STORAGE_KEY = 'chunks_student_model';
-
-function readLocalModel(): StudentModel {
-  if (typeof window === 'undefined') return { mastered: [], gaps: [], quizHistory: [] };
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { mastered: [], gaps: [], quizHistory: [] };
-    const parsed = JSON.parse(raw) as unknown;
-    if (
-      parsed !== null &&
-      typeof parsed === 'object' &&
-      Array.isArray((parsed as StudentModel).mastered) &&
-      Array.isArray((parsed as StudentModel).gaps) &&
-      Array.isArray((parsed as StudentModel).quizHistory)
-    ) {
-      return parsed as StudentModel;
-    }
-    return { mastered: [], gaps: [], quizHistory: [] };
-  } catch {
-    return { mastered: [], gaps: [], quizHistory: [] };
-  }
-}
-
-function writeLocalModel(model: StudentModel): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(model));
-    // Avoid infinite loop: don't re-dispatch 'chunks:model-changed' here
-  } catch {
-    // ignore quota errors
-  }
-}
-
 // ─── Regression check (standalone, reads/writes localStorage directly) ────────
 
 /**
@@ -115,8 +81,8 @@ function writeLocalModel(model: StudentModel): void {
  * demotes them to "regressed" in localStorage.
  * Returns the list of concept names that were newly regressed.
  */
-function checkRegressionLocal(): string[] {
-  const current = readLocalModel();
+function checkRegressionLocal(storageKey: string): string[] {
+  const current = _loadModel(storageKey);
   const now = Date.now();
   const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
 
@@ -152,7 +118,7 @@ function checkRegressionLocal(): string[] {
     ],
   };
 
-  writeLocalModel(next);
+  _saveModel(storageKey, next);
   // Notify hook instances that model changed
   window.dispatchEvent(new CustomEvent('chunks:model-changed'));
   return regressedConcepts;
@@ -176,6 +142,10 @@ export function useTutorSync(bookId?: string): UseTutorSyncResult {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasMounted = useRef(false);
 
+  // Compute the scoped key using the same helper as useTutorBrain
+  const userId = user?.isGuest ? undefined : user?.id;
+  const storageKey = getStorageKey(userId, bookId);
+
   // ── On mount: regression check + server load ────────────────────────────────
   useEffect(() => {
     if (hasMounted.current) return;
@@ -188,13 +158,13 @@ export function useTutorSync(bookId?: string): UseTutorSyncResult {
         new URL('../workers/regressionWorker.ts', import.meta.url),
         { type: 'module' },
       );
-      const current = readLocalModel();
+      const current = _loadModel(storageKey);
       worker.postMessage({ mastered: current.mastered, quizHistory: current.quizHistory });
       worker.onmessage = (e: MessageEvent<{ regressed: string[] }>) => {
         const { regressed } = e.data;
         worker.terminate();
         if (regressed.length > 0) {
-          const model = readLocalModel();
+          const model = _loadModel(storageKey);
           const nowIso = new Date().toISOString();
           const next: StudentModel = {
             ...model,
@@ -210,7 +180,7 @@ export function useTutorSync(bookId?: string): UseTutorSyncResult {
               })),
             ],
           };
-          writeLocalModel(next);
+          _saveModel(storageKey, next);
           window.dispatchEvent(new CustomEvent('chunks:model-changed'));
           setRegressions(regressed);
         }
@@ -218,7 +188,7 @@ export function useTutorSync(bookId?: string): UseTutorSyncResult {
       worker.onerror = () => worker.terminate(); // fail silently
     } else {
       // Synchronous fallback: SSR or browsers without Web Worker support
-      const regressed = checkRegressionLocal();
+      const regressed = checkRegressionLocal(storageKey);
       if (regressed.length > 0) setRegressions(regressed);
     }
 
@@ -232,9 +202,9 @@ export function useTutorSync(bookId?: string): UseTutorSyncResult {
       try {
         const serverModel = await loadTutorModel(user.id, bookId);
         if (serverModel) {
-          const local = readLocalModel();
+          const local = _loadModel(storageKey);
           const merged = mergeModels(local, serverModel);
-          writeLocalModel(merged);
+          _saveModel(storageKey, merged);
           window.dispatchEvent(new CustomEvent('chunks:model-changed'));
         }
       } catch {
@@ -250,12 +220,12 @@ export function useTutorSync(bookId?: string): UseTutorSyncResult {
     if (!user || user.isGuest) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      const model = readLocalModel();
+      const model = _loadModel(storageKey);
       saveTutorModel(user.id, model, bookId).catch(() => {
         // Silently ignore — localStorage is the source of truth
       });
     }, SAVE_DEBOUNCE_MS);
-  }, [user, bookId]);
+  }, [user, bookId, storageKey]);
 
   useEffect(() => {
     window.addEventListener('chunks:model-changed', scheduleSave);

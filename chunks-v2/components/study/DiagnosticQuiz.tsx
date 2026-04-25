@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { generateQuiz, topicToSlides } from '@/lib/studyApi';
 import { useTutorBrain } from '@/hooks/useTutorBrain';
 import type { QuizQuestion } from '@/types/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { useStudy } from '@/contexts/StudyContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -38,7 +40,12 @@ type Phase = 'loading' | 'error' | 'quiz' | 'results';
  * the quiz is done (or skipped).
  */
 export default function DiagnosticQuiz({ topic, onComplete }: Props) {
-  const { tbRecordGap, tbRecordMastery, tbRecordQuizResult } = useTutorBrain();
+  const { user } = useAuth();
+  const { state } = useStudy();
+  const { tbRecordGap, tbRecordMastery, tbRecordQuizResult } = useTutorBrain(
+    user?.isGuest ? undefined : user?.id,
+    state.bookId ?? undefined,
+  );
 
   const [phase, setPhase] = useState<Phase>('loading');
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
