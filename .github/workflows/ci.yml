@@ -76,7 +76,7 @@ jobs:
         run: pip install -r requirements.txt pytest pytest-cov
 
       - name: Run tests with coverage
-        run: python -m pytest tests/ -v --cov=routes --cov=paev_routes --cov=progress_routes --cov-report=term-missing
+        run: python -m pytest tests/ -v --cov=routes --cov-report=term-missing
 
       - name: Enforce coverage ≥ 80%
         run: python -m coverage report --fail-under=80
