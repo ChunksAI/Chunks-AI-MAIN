@@ -49,8 +49,9 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
   // The iframe-based PDF viewer (pdfBlobUrl) uses the native browser viewer
   // which does not expose page-change events, so tracking is only possible
   // when the document is rendered as individual slide divs.
+  const MAX_PDF_VISIBLE_TEXT_LENGTH = 500;
   const buildSlideText = useCallback((slide: SlideItem): string =>
-    [slide.title, ...slide.content].filter(Boolean).join(' ').slice(0, 500),
+    [slide.title, ...slide.content].filter(Boolean).join(' ').slice(0, MAX_PDF_VISIBLE_TEXT_LENGTH),
   []);
 
   useEffect(() => {
