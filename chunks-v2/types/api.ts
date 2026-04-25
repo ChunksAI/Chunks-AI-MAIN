@@ -99,6 +99,12 @@ export interface SendMessageResponse {
    * embedded player to the specified position when this field is present.
    */
   viewer_action?: ViewerAction | null;
+  /** Model identifier used by the backend to fulfil the request. */
+  model_used?: string;
+  /** Alias for model_used — used in test mocks and some legacy response shapes. */
+  model?: string;
+  /** Token count consumed by the request (informational). */
+  tokens_used?: number;
 }
 
 export interface Flashcard {
