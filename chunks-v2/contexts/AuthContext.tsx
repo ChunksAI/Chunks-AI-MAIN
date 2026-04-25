@@ -13,6 +13,18 @@
  *  - Plan/tier lookup from backend /api/verify-access
  *  - Admin/owner detection (isAdmin, isOwner) via backend response
  *  - Default settings written to localStorage on first sign-in
+ *
+ * ⚠️  Security model — IMPORTANT for contributors
+ * ─────────────────────────────────────────────────
+ * The fields on AuthUser (isGuest, tier, isAdmin, isOwner) are cached in
+ * localStorage and resolved client-side.  They are suitable for UX decisions
+ * (what to show in the UI) but MUST NOT be used as a security enforcement point:
+ * a user can modify localStorage to claim any tier or role.
+ *
+ * All paid/admin/private actions must be authorised by the FastAPI backend:
+ *  • Include `Authorization: Bearer <session.access_token>` on every sensitive call.
+ *  • The backend verifies the JWT and checks tier/role via /api/verify-access.
+ *  • Never gate a backend operation solely on a client-side AuthUser field.
  */
 
 import {
