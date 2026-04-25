@@ -17,7 +17,7 @@ import FBDViewer from '@/components/study/FBDViewer';
 
 // ─── AI summary helpers ───────────────────────────────────────────────────────
 
-async function fetchAiSummary(title: string, abstract: string): Promise<string> {
+async function fetchAiSummary(title: string, abstract: string, authors?: string[], year?: number): Promise<string> {
   const res = await fetch('/api/ai', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -25,6 +25,8 @@ async function fetchAiSummary(title: string, abstract: string): Promise<string> 
       task: 'research-summary',
       title,
       abstract,
+      authors: authors?.join(', ') ?? '',
+      year: year ?? null,
     }),
   });
   if (!res.ok) throw new Error('AI summary request failed');
@@ -89,20 +91,24 @@ function ResearchCard({
 
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState(false);
   const fetchedKeyRef = useRef<string | null>(null);
 
-  // Fetch AI summary once per unique title+abstract combination
+  // Fetch AI summary whenever we have at least a title.
+  // Abstract is passed when available but is not required — when absent the
+  // AI generates a summary from the title and author metadata alone.
   useEffect(() => {
-    if (!meta.title || !meta.abstract) return;
-    const key = `${meta.title}\x00${meta.abstract}`;
+    if (!meta.title) return;
+    const key = `${meta.title}\x00${meta.abstract ?? ''}\x00${meta.authors?.join(',') ?? ''}`;
     if (fetchedKeyRef.current === key) return;
     fetchedKeyRef.current = key;
     setSummaryLoading(true);
-    fetchAiSummary(meta.title, meta.abstract)
+    setSummaryError(false);
+    fetchAiSummary(meta.title, meta.abstract ?? '', meta.authors, meta.year)
       .then(setAiSummary)
-      .catch(() => { /* silently hide on error */ })
+      .catch(() => setSummaryError(true))
       .finally(() => setSummaryLoading(false));
-  }, [meta.title, meta.abstract]);
+  }, [meta.title, meta.abstract, meta.authors, meta.year]);
 
   return (
     <div style={{
@@ -147,41 +153,58 @@ function ResearchCard({
         </div>
       )}
 
-      {/* Full abstract — no line clamp */}
-      {meta.abstract && (
-        <p style={{
-          margin: 0,
-          fontSize: 13,
-          color: 'var(--text2)',
-          lineHeight: 1.65,
-        }}>
-          {meta.abstract}
-        </p>
-      )}
-
-      {/* AI Summary section */}
-      {(summaryLoading || aiSummary) && (
-        <div style={{
-          background: 'var(--surface2, #f7f7fb)',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          padding: '12px 14px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-        }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-            ✦ AI Summary
-          </span>
-          {summaryLoading ? (
-            <SummaryShimmer />
-          ) : (
-            <p style={{ margin: 0, fontSize: 13, color: 'var(--text2)', lineHeight: 1.65 }}>
-              {aiSummary}
-            </p>
-          )}
+      {/* Abstract — always shown; falls back to a note when unavailable */}
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.04em', textTransform: 'uppercase', marginBottom: 6 }}>
+          Abstract
         </div>
-      )}
+        {meta.abstract ? (
+          <p style={{
+            margin: 0,
+            fontSize: 13,
+            color: 'var(--text2)',
+            lineHeight: 1.65,
+          }}>
+            {meta.abstract}
+          </p>
+        ) : (
+          <p style={{
+            margin: 0,
+            fontSize: 13,
+            color: 'var(--text3)',
+            lineHeight: 1.65,
+            fontStyle: 'italic',
+          }}>
+            Abstract not available from source. See the AI summary below.
+          </p>
+        )}
+      </div>
+
+      {/* AI Summary — always shown once title is known */}
+      <div style={{
+        background: 'var(--surface2, #f7f7fb)',
+        border: '1px solid var(--border)',
+        borderRadius: 8,
+        padding: '12px 14px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+      }}>
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+          ✦ AI Summary
+        </span>
+        {summaryLoading ? (
+          <SummaryShimmer />
+        ) : summaryError ? (
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text3)', fontStyle: 'italic' }}>
+            Summary unavailable — open the paper to read it directly.
+          </p>
+        ) : aiSummary ? (
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text2)', lineHeight: 1.65 }}>
+            {aiSummary}
+          </p>
+        ) : null}
+      </div>
 
       <a
         href={meta.source_url ?? url}
