@@ -835,6 +835,25 @@ export function loadSnapshotByTitle(title: string): VersionedSnapshot | null {
   }
 }
 
+/**
+ * Direct O(1) snapshot lookup by session ID.
+ * Preferred over loadSnapshotByTitle because item.id IS the session ID —
+ * the title-based lookup frequently misses due to topic string mismatches.
+ */
+export function loadSnapshotById(sessionId: string): VersionedSnapshot | null {
+  if (typeof window === 'undefined' || !sessionId) return null;
+  try {
+    const key = `${SESSION_STORAGE_KEY}_${sessionId}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const snap = migrateSnapshotIfNeeded(JSON.parse(raw) as unknown);
+    if (!snap || snap.expiresAt < Date.now()) return null;
+    return snap;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Smart doc_context extractor ─────────────────────────────────────────────
 
 /**
