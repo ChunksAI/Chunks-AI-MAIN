@@ -3,7 +3,7 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-import { useStudy, loadSnapshotByTitle } from '@/contexts/StudyContext';
+import { useStudy, loadSnapshotByTitle, loadSnapshotById } from '@/contexts/StudyContext';
 import { useViewerContext } from '@/contexts/ViewerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import type { RecentItem } from '@/types';
@@ -120,9 +120,17 @@ function StudyLayout() {
     showToast('📋 Summary added to Workspace!');
   };
 
-  // Restore a previous session when the user clicks a recent item in the sidebar
+  // Restore a previous session when the user clicks a recent item in the sidebar.
+  // Always clear messages first so stale content never remains after switching.
   const handleRecentClick = (item: RecentItem) => {
-    const snap = loadSnapshotByTitle(item.title);
+    // Prefer direct ID lookup (item.id === sessionId, snapshot key = SESSION_STORAGE_KEY_<id>).
+    // Fall back to title-based search for snapshots created before item.id was stored.
+    const snap = loadSnapshotById(item.id) ?? loadSnapshotByTitle(item.title);
+
+    // Clear existing chat messages immediately so we never show stale content
+    // from the previous session while the new one is loading.
+    dispatch({ type: 'RESET_CHAT' });
+
     if (snap) {
       dispatch({
         type: 'RESTORE_SESSION',
@@ -138,9 +146,13 @@ function StudyLayout() {
           bookId: snap.bookId,
         },
       });
+      // Switch the active session ID so subsequent saves target the correct slot.
+      dispatch({ type: 'SET_SESSION_ID', payload: item.id });
       // Also restore the correct slides + PDF for this document
       if (snap.docTitle) void handleRestoreDocument(snap.docTitle);
     } else {
+      // No snapshot found — show an empty session for the selected title
+      // rather than keeping the previous session's messages.
       dispatch({ type: 'SET_TOPIC', payload: item.title });
     }
   };
