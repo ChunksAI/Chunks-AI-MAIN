@@ -668,9 +668,11 @@ async function clearPdfFromIdb(): Promise<void> {
   if (typeof window === 'undefined') return;
   try {
     const db = await openPdfDb();
+    // Use clear() to remove all records (both the legacy IDB_PDF_KEY and every
+    // per-doc chunks_v2_pdf_doc_* key) in a single transaction.
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(IDB_STORE_NAME, 'readwrite');
-      const req = tx.objectStore(IDB_STORE_NAME).delete(IDB_PDF_KEY);
+      const req = tx.objectStore(IDB_STORE_NAME).clear();
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
