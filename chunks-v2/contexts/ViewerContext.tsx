@@ -43,6 +43,12 @@ export interface ViewerState {
   visibleSegment: string;
 
   // PDF fields
+  /**
+   * True when a PDF document is actively loaded in ContentPanel (centre panel).
+   * Decoupled from viewerType / isViewerOpen so the AI always receives the
+   * current PDF page even when the left-side viewer shows YouTube or Research.
+   */
+  pdfLoaded: boolean;
   pdfPage: number;
   pdfVisibleText: string;
 
@@ -75,6 +81,10 @@ export type ViewerContextAction =
   | { type: 'OPEN_FBD'; fbdData: FBDData }
   | { type: 'CLOSE_VIEWER' }
   | { type: 'UPDATE_VISIBLE_SEGMENT'; segment: string }
+  /** PDF (ContentPanel centre panel) — page tracking. */
+  | { type: 'OPEN_PDF'; initialPage?: number }
+  | { type: 'UPDATE_PDF_VIEW'; page: number; visibleText?: string }
+  | { type: 'CLOSE_PDF' }
   /** Legacy — dispatched by StudyContext when the backend emits viewer_action. */
   | { type: 'SET_VIEWER_ACTION'; payload: ViewerAction }
   | { type: 'CLEAR_VIEWER_ACTION' };
@@ -86,6 +96,7 @@ const INITIAL_STATE: ViewerState = {
   videoId: null,
   currentTimestamp: 0,
   visibleSegment: '',
+  pdfLoaded: false,
   pdfPage: 0,
   pdfVisibleText: '',
   researchUrl: null,
@@ -135,6 +146,29 @@ function viewerReducer(state: ViewerState, action: ViewerContextAction): ViewerS
     case 'UPDATE_VISIBLE_SEGMENT':
       return { ...state, visibleSegment: action.segment };
 
+    case 'OPEN_PDF':
+      return {
+        ...state,
+        pdfLoaded: true,
+        pdfPage: action.initialPage ?? 1,
+        pdfVisibleText: '',
+      };
+
+    case 'UPDATE_PDF_VIEW':
+      return {
+        ...state,
+        pdfPage: action.page,
+        pdfVisibleText: action.visibleText ?? state.pdfVisibleText,
+      };
+
+    case 'CLOSE_PDF':
+      return {
+        ...state,
+        pdfLoaded: false,
+        pdfPage: 0,
+        pdfVisibleText: '',
+      };
+
     case 'SET_VIEWER_ACTION':
       return { ...state, pendingAction: action.payload };
 
@@ -152,32 +186,46 @@ function viewerReducer(state: ViewerState, action: ViewerContextAction): ViewerS
  * Serialise ViewerContext state into the viewer_state dict shape expected
  * by the backend /ask schema (AskRequest.viewer_state).
  *
- * Returns null when no viewer is open so the backend treats it as absent.
+ * Priority:
+ *  1. Left-panel viewer (YouTube, Research) when isViewerOpen.
+ *  2. Centre-panel PDF (ContentPanel) when pdfLoaded — included even if the
+ *     left viewer is closed so the AI always knows what page the user is on.
+ *
+ * Returns null when neither applies.
  */
 export function buildViewerState(viewerCtx: ViewerState): ViewerStatePayload | null {
-  if (viewerCtx.viewerType === 'none' || !viewerCtx.isViewerOpen) {
-    return null;
+  // ── Left-panel viewer (YouTube, Research, or future PDF-in-viewer) ──────────
+  if (viewerCtx.isViewerOpen && viewerCtx.viewerType !== 'none') {
+    // FBD is a client-only viewer type — no server-side state to forward.
+    if (viewerCtx.viewerType === 'fbd') return null;
+
+    const payload: ViewerStatePayload = { type: viewerCtx.viewerType };
+
+    if (viewerCtx.viewerType === 'youtube') {
+      if (viewerCtx.videoId) payload.video_id = viewerCtx.videoId;
+      payload.current_timestamp_seconds = viewerCtx.currentTimestamp;
+      if (viewerCtx.visibleSegment) payload.visible_segment = viewerCtx.visibleSegment;
+    } else if (viewerCtx.viewerType === 'pdf') {
+      payload.pdf_page = viewerCtx.pdfPage;
+      if (viewerCtx.pdfVisibleText) payload.pdf_visible_text = viewerCtx.pdfVisibleText;
+    } else if (viewerCtx.viewerType === 'research') {
+      if (viewerCtx.researchUrl) payload.research_url = viewerCtx.researchUrl;
+    }
+
+    return payload;
   }
 
-  // FBD is a client-only viewer type — no server-side state to forward.
-  if (viewerCtx.viewerType === 'fbd') {
-    return null;
-  }
-
-  const payload: ViewerStatePayload = { type: viewerCtx.viewerType };
-
-  if (viewerCtx.viewerType === 'youtube') {
-    if (viewerCtx.videoId) payload.video_id = viewerCtx.videoId;
-    payload.current_timestamp_seconds = viewerCtx.currentTimestamp;
-    if (viewerCtx.visibleSegment) payload.visible_segment = viewerCtx.visibleSegment;
-  } else if (viewerCtx.viewerType === 'pdf') {
+  // ── Centre-panel PDF (ContentPanel) ────────────────────────────────────────
+  // Always forwarded when a document is loaded so the AI knows which page
+  // the user is reading, regardless of whether the left viewer is open.
+  if (viewerCtx.pdfLoaded) {
+    const payload: ViewerStatePayload = { type: 'pdf' };
     payload.pdf_page = viewerCtx.pdfPage;
     if (viewerCtx.pdfVisibleText) payload.pdf_visible_text = viewerCtx.pdfVisibleText;
-  } else if (viewerCtx.viewerType === 'research') {
-    if (viewerCtx.researchUrl) payload.research_url = viewerCtx.researchUrl;
+    return payload;
   }
 
-  return payload;
+  return null;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
