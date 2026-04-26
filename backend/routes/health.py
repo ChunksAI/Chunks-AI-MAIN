@@ -19,6 +19,8 @@ Probe semantics
 """
 from __future__ import annotations
 
+import os
+
 import requests as _requests
 
 from fastapi import APIRouter, Request
@@ -197,3 +199,53 @@ def verify_access(request: Request):
         'is_owner': db_role == 'owner',
         'is_admin': is_exempt,
     }
+
+
+# ── Debug: list registered routes (env-gated) ─────────────────────────────────
+# Diagnostic endpoint used to prove which routes the *deployed* binary actually
+# serves (e.g. when a 404 in production cannot be reproduced locally and the
+# suspicion is a stale Railway revision or a wrong-branch deploy).
+#
+# Disabled by default. Enable by setting environment variable DEBUG_ROUTES=true
+# on the running server, hit the endpoint, then unset the variable.
+#
+# Returns ONLY route metadata (path, methods, handler name). It deliberately
+# does not return env vars, secrets, code, or per-request data.
+
+
+def _debug_routes_enabled() -> bool:
+    return os.environ.get('DEBUG_ROUTES', '').lower() == 'true'
+
+
+@router.get('/api/debug/routes')
+def debug_routes(request: Request):
+    """List every registered route on the live FastAPI app.
+
+    Gated by ``DEBUG_ROUTES=true``. When disabled (the default), returns
+    404 with the standard ``Endpoint not found.`` envelope so its absence
+    is indistinguishable from any other unmapped path.
+    """
+    if not _debug_routes_enabled():
+        return JSONResponse(
+            {'success': False, 'error': 'Endpoint not found.'},
+            status_code=404,
+        )
+
+    app = request.app
+    out: list[dict] = []
+    for r in app.routes:
+        path = getattr(r, 'path', None)
+        if not path:
+            continue
+        methods = sorted(getattr(r, 'methods', None) or [])
+        # Filter out HEAD/OPTIONS noise — only the actionable verbs are useful.
+        methods = [m for m in methods if m not in ('HEAD', 'OPTIONS')]
+        if not methods:
+            continue
+        out.append({
+            'path':    path,
+            'methods': methods,
+            'name':    getattr(r, 'name', '') or '',
+        })
+    out.sort(key=lambda e: (e['path'], ','.join(e['methods'])))
+    return {'count': len(out), 'routes': out}

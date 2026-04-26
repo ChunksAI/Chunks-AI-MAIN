@@ -2776,6 +2776,31 @@ Keep the summary focused, clear, and easy to review before an exam."""
             "[/ask] UNHANDLED EXCEPTION req_id=%s type=%s msg=%s\ntraceback=%s",
             req_id, type(e).__name__, _safe_msg, traceback.format_exc()
         )
+        # Mirror the structured [ask:done] log emitted by the per-mode handler
+        # paths so failures that occur *before* a per-mode handler runs (e.g.
+        # validation in shared setup, orchestrator import, viewer-state cache,
+        # student-model lookup) are still searchable by req_id alongside the
+        # diagnostic context fields.
+        try:
+            _err_mode    = locals().get('mode', 'unknown')
+            _err_vs      = locals().get('viewer_state') or {}
+            _err_vt      = (_err_vs.get('type') if isinstance(_err_vs, dict) else 'none') or 'none'
+            _err_has_pdf = bool(
+                isinstance(_err_vs, dict) and (
+                    _err_vs.get('pdf_page') is not None
+                    or (_err_vs.get('pdf_visible_text') or '').strip()
+                )
+            )
+            _err_has_profile = bool(locals().get('student_profile', ''))
+            logger.info(
+                '[ask:done] req_id=%s mode=%s viewer_type=%s has_pdf=%s '
+                'has_profile=%s success=False error_type=%s',
+                req_id, _err_mode, _err_vt, _err_has_pdf,
+                _err_has_profile, type(e).__name__,
+            )
+        except Exception:
+            # Diagnostic logging must never raise.
+            pass
         return JSONResponse({
             'success': False,
             'error': 'An unexpected error occurred. Please try again.',
