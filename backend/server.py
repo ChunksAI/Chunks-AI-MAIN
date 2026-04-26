@@ -697,6 +697,7 @@ _ctx._init(
 
 # ── Router registration ───────────────────────────────────────────────────────
 from routes.admin            import router as admin_router            # noqa: E402
+from routes.ai_proxy         import router as ai_proxy_router         # noqa: E402
 from routes.health           import router as health_router           # noqa: E402
 from routes.library          import router as library_router          # noqa: E402
 from routes.flashcards       import router as flashcards_router       # noqa: E402
@@ -712,6 +713,7 @@ from routes.research_ingest  import router as research_ingest_router  # noqa: E4
 from routes.viewer_session   import router as viewer_session_router   # noqa: E402
 
 app.include_router(admin_router)
+app.include_router(ai_proxy_router)
 app.include_router(health_router)
 app.include_router(library_router)
 app.include_router(flashcards_router)
