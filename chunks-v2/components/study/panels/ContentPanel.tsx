@@ -4,6 +4,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { useStudy } from '@/contexts/StudyContext';
 import { useViewerContext } from '@/contexts/ViewerContext';
 import type { SlideItem } from '@/types/api';
+import PdfViewer from '@/components/study/PdfViewer';
 
 interface ContentPanelProps {
   style?: React.CSSProperties;
@@ -45,10 +46,18 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
     }
   }, [pdfBlobUrl, slides.length, viewerDispatch]);
 
+  // ── PdfViewer page-change callback ────────────────────────────────────────
+  // Fired by PdfViewer (pdf.js renderer) whenever the most-visible page
+  // changes. Dispatches UPDATE_PDF_VIEW so the AI always receives the real
+  // current page number and a sample of visible text.
+  const handlePdfPageChange = useCallback(
+    (page: number, visibleText: string) => {
+      viewerDispatch({ type: 'UPDATE_PDF_VIEW', page, visibleText });
+    },
+    [viewerDispatch],
+  );
+
   // ── IntersectionObserver — track the most-visible slide (slides mode) ─────
-  // The iframe-based PDF viewer (pdfBlobUrl) uses the native browser viewer
-  // which does not expose page-change events, so tracking is only possible
-  // when the document is rendered as individual slide divs.
   const MAX_PDF_VISIBLE_TEXT_LENGTH = 500;
   const buildSlideText = useCallback((slide: SlideItem): string =>
     [slide.title, ...slide.content].filter(Boolean).join(' ').slice(0, MAX_PDF_VISIBLE_TEXT_LENGTH),
@@ -179,18 +188,14 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
         </div>
       </div>
 
-      {/* ── PDF iframe ── */}
+      {/* ── PDF content ── */}
       {uploadLoading ? (
         <div className="pdf-viewer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: 16 }}>
           <div style={{ fontSize: 32 }}>⏳</div>
           <div style={{ fontWeight: 500 }}>Uploading &amp; parsing document…</div>
         </div>
       ) : pdfBlobUrl ? (
-        <iframe
-          src={pdfBlobUrl}
-          className="pdf-iframe"
-          title={docTitle || 'PDF document'}
-        />
+        <PdfViewer blobUrl={pdfBlobUrl} onPageChange={handlePdfPageChange} />
       ) : (
         /* Fallback: no blob URL (e.g. after a page refresh — slides restored from sessionStorage) */
         <div className="pdf-viewer" ref={slidesContainerRef}>

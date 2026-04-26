@@ -43,6 +43,15 @@ async function fetchAiSummary(title: string, abstract: string, authors?: string[
 
 // ─── YouTube helpers ──────────────────────────────────────────────────────────
 
+/**
+ * Trusted origins for the YouTube IFrame API.
+ * Messages from any other origin are silently dropped.
+ */
+const YOUTUBE_ORIGINS = new Set([
+  'https://www.youtube.com',
+  'https://www.youtube-nocookie.com',
+]);
+
 function buildYouTubeSrc(videoId: string, startSeconds: number): string {
   const params = new URLSearchParams({
     start: String(Math.floor(startSeconds)),
@@ -57,7 +66,7 @@ function buildYouTubeSrc(videoId: string, startSeconds: number): string {
 function seekYouTube(iframe: HTMLIFrameElement, seconds: number): void {
   iframe.contentWindow?.postMessage(
     JSON.stringify({ event: 'command', func: 'seekTo', args: [seconds, true] }),
-    '*',
+    'https://www.youtube.com',
   );
 }
 
@@ -297,19 +306,21 @@ export default function ViewerPanel({ style }: ViewerPanelProps) {
   useEffect(() => {
     if (viewerType !== 'youtube') return;
     const handler = (e: MessageEvent) => {
+      if (!YOUTUBE_ORIGINS.has(e.origin)) return;
+      if (e.source !== iframeRef.current?.contentWindow) return;
       if (typeof e.data !== 'string') return;
       try {
         const msg = JSON.parse(e.data) as { event?: string; info?: { currentTime?: number } };
         if (msg.event === 'infoDelivery' && typeof msg.info?.currentTime === 'number') {
           viewerDispatch({ type: 'SEEK_YOUTUBE', timestamp: msg.info.currentTime });
         }
-      } catch { /* ignore non-JSON messages from other origins */ }
+      } catch { /* ignore malformed messages */ }
     };
     window.addEventListener('message', handler);
     // Subscribe to IFrame API events once the iframe is ready
     if (iframeRef.current?.contentWindow) {
       iframeRef.current.contentWindow.postMessage(
-        JSON.stringify({ event: 'listening', id: 1 }), '*',
+        JSON.stringify({ event: 'listening', id: 1 }), 'https://www.youtube.com',
       );
     }
     return () => window.removeEventListener('message', handler);

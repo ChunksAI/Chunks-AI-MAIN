@@ -49,9 +49,9 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
  * All other non-2xx responses are returned as-is for the caller to inspect.
  */
 
-/** Generate a short 6-character alphanumeric request ID for tracing. */
+/** Generate a UUID v4 request ID, matching the hex/hyphen format the backend expects. */
 function makeReqId(): string {
-  return Math.random().toString(36).slice(2, 8);
+  return crypto.randomUUID();
 }
 
 async function fetchWithAuth(url: string, options: RequestInit): Promise<Response> {

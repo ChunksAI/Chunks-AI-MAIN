@@ -324,13 +324,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async () => {
     const sb = await getSupabaseClient();
 
-    // ── Purge auth-related localStorage keys ─────────────────────────────────
-    for (const key of ['chunks_user_tier', 'chunks_admin_email', 'chunks_owner_email', 'chunks_settings_initialized']) {
-      try { localStorage.removeItem(key); } catch { /* ignore */ }
-    }
-    // Remove all chunks_setting_* keys (user preferences written by SettingsContext)
+    // ── Purge all chunks_* localStorage keys ─────────────────────────────────
     try {
-      const keysToRemove = Object.keys(localStorage).filter((k) => k.startsWith('chunks_setting_'));
+      const keysToRemove = Object.keys(localStorage).filter(
+        (k) => k.startsWith('chunks_v2_') || k.startsWith('chunks_student_model:') || k.startsWith('chunks_setting_') ||
+               k === 'chunks_user_tier' || k === 'chunks_admin_email' || k === 'chunks_owner_email' || k === 'chunks_settings_initialized',
+      );
       for (const key of keysToRemove) {
         try { localStorage.removeItem(key); } catch { /* ignore */ }
       }
@@ -341,6 +340,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // ── Clear guest cookie ────────────────────────────────────────────────────
     try { document.cookie = `chunks_guest=; path=/; max-age=0; SameSite=Lax${guestCookieSecureFlag()}`; } catch { /* ignore */ }
+
+    // ── Delete IndexedDB chunks_v2 (cached PDF files) ────────────────────────
+    try {
+      if (typeof indexedDB !== 'undefined') {
+        indexedDB.deleteDatabase('chunks_v2');
+      }
+    } catch { /* ignore */ }
 
     // ── Sign out from Supabase — AuthGate will auto-enter guest mode ────────
     await sb.auth.signOut();

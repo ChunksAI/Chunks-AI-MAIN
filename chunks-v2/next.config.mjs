@@ -35,8 +35,8 @@ const nextConfig = {
               "connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://api.chunks.online https://api.anthropic.com https://api.openai.com",
               // Frames: Google OAuth
               "frame-src https://accounts.google.com https://www.youtube.com blob:",
-              // Workers: self (service worker, if added later)
-              "worker-src 'self'",
+              // Workers: self + blob: (pdf.js worker may be served as a blob URL)
+              "worker-src 'self' blob:",
               "base-uri 'self'",
               "form-action 'self'",
             ].join('; '),
