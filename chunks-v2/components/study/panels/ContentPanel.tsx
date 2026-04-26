@@ -37,12 +37,16 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
   // ── OPEN_PDF / CLOSE_PDF ─────────────────────────────────────────────────
   // Notify ViewerContext whenever a document is loaded or cleared so the AI
   // receives the current PDF page in every /ask request.
+  // Also close any stale reference viewer (YouTube/Research/FBD) so the
+  // document is always the primary context after upload, restore, or reset.
   useEffect(() => {
     const hasDoc = !!pdfBlobUrl || slides.length > 0;
     if (hasDoc) {
       viewerDispatch({ type: 'OPEN_PDF', initialPage: 1 });
+      viewerDispatch({ type: 'CLOSE_VIEWER' });
     } else {
       viewerDispatch({ type: 'CLOSE_PDF' });
+      viewerDispatch({ type: 'CLOSE_VIEWER' });
     }
   }, [pdfBlobUrl, slides.length, viewerDispatch]);
 

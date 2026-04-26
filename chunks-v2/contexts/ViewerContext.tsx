@@ -186,18 +186,33 @@ function viewerReducer(state: ViewerState, action: ViewerContextAction): ViewerS
  * Serialise ViewerContext state into the viewer_state dict shape expected
  * by the backend /ask schema (AskRequest.viewer_state).
  *
+ * When a PDF document is loaded alongside an open reference viewer (YouTube,
+ * Research) both the PDF context and the reference viewer fields are included
+ * so the backend can provide DOCUMENT CONTEXT + REFERENCE VIEWER sections.
+ *
  * Priority:
- *  1. Left-panel viewer (YouTube, Research) when isViewerOpen.
- *  2. Centre-panel PDF (ContentPanel) when pdfLoaded — included even if the
- *     left viewer is closed so the AI always knows what page the user is on.
+ *  1. Left-panel viewer (YouTube, Research) when isViewerOpen — always merged
+ *     with PDF context when pdfLoaded.
+ *  2. FBD viewer — client-only; falls back to PDF context when pdfLoaded.
+ *  3. Centre-panel PDF alone when pdfLoaded and no reference viewer is open.
  *
  * Returns null when neither applies.
  */
 export function buildViewerState(viewerCtx: ViewerState): ViewerStatePayload | null {
   // ── Left-panel viewer (YouTube, Research, or future PDF-in-viewer) ──────────
   if (viewerCtx.isViewerOpen && viewerCtx.viewerType !== 'none') {
-    // FBD is a client-only viewer type — no server-side state to forward.
-    if (viewerCtx.viewerType === 'fbd') return null;
+    // FBD is a client-only viewer type — no server-side reference state.
+    // Return the PDF document context if a document is loaded so the AI
+    // still knows which page the user is on while viewing the diagram.
+    if (viewerCtx.viewerType === 'fbd') {
+      if (viewerCtx.pdfLoaded) {
+        const payload: ViewerStatePayload = { type: 'pdf' };
+        payload.pdf_page = viewerCtx.pdfPage;
+        if (viewerCtx.pdfVisibleText) payload.pdf_visible_text = viewerCtx.pdfVisibleText;
+        return payload;
+      }
+      return null;
+    }
 
     const payload: ViewerStatePayload = { type: viewerCtx.viewerType };
 
@@ -210,6 +225,13 @@ export function buildViewerState(viewerCtx: ViewerState): ViewerStatePayload | n
       if (viewerCtx.pdfVisibleText) payload.pdf_visible_text = viewerCtx.pdfVisibleText;
     } else if (viewerCtx.viewerType === 'research') {
       if (viewerCtx.researchUrl) payload.research_url = viewerCtx.researchUrl;
+    }
+
+    // Always include the PDF document context alongside the reference viewer
+    // so the AI receives the current page even when YouTube/Research is open.
+    if (viewerCtx.pdfLoaded && viewerCtx.viewerType !== 'pdf') {
+      payload.pdf_page = viewerCtx.pdfPage;
+      if (viewerCtx.pdfVisibleText) payload.pdf_visible_text = viewerCtx.pdfVisibleText;
     }
 
     return payload;

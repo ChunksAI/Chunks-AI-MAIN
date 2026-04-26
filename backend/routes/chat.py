@@ -1604,49 +1604,94 @@ async def ask(request: Request, body: AskRequest):
         ]
         IDENTITY = _get_identity_for_user(verified_user_id, _identity_variants)
 
-        # Build viewer context block for system prompt injection
+        # Build viewer context block for system prompt injection.
+        # When the user has a PDF document loaded alongside a reference viewer
+        # (YouTube/Research), the payload carries both pdf_page/pdf_visible_text
+        # AND the reference fields.  Emit them as two labelled sections so the
+        # AI clearly distinguishes the primary document from the reference.
         _viewer_context_str = ''
         if viewer_state and viewer_state.get('type') not in ('none', None):
             _vs = viewer_state
-            _visible = _sanitize_untrusted(
-                _vs.get('visible_segment')
-                or _vs.get('pdf_visible_text')
-                or _vs.get('visible_transcript_segment')
-                or ''
-            )
-            # YouTube fallback — pull the cached transcript from Redis when no
-            # visible_segment was sent (e.g. the user just loaded the video and
-            # the IFrame API has not emitted its first infoDelivery event yet).
-            if not _visible and _vs.get('type') == 'youtube' and _vs.get('video_id'):
-                try:
-                    _yt_raw = ctx.redis.get(
-                        f'{_KEY_NS_PREFIX}yt_transcript:{_vs["video_id"]}'
-                    ) if ctx.redis else None
-                    if _yt_raw:
-                        try:
-                            _slides = json.loads(_yt_raw)
-                        except (TypeError, ValueError):
-                            _slides = None
-                        if isinstance(_slides, list):
-                            # Concatenate all slide texts; cap at ~8 000 chars
-                            # (≈2 000 tokens) to avoid bloating the prompt on
-                            # long videos while still covering the full topic.
-                            _all_text = _sanitize_untrusted(' '.join(
-                                ' '.join(s.get('content', [])) for s in _slides
-                            ))
-                            _ts = _vs.get('current_timestamp_seconds')
-                            if _ts is not None:
-                                _viewer_context_str = (
-                                    f'[VIDEO TRANSCRIPT — viewer at {int(_ts)}s]\n{_all_text}'
-                                )
-                            else:
-                                _viewer_context_str = f'[VIDEO TRANSCRIPT]\n{_all_text}'
-                except Exception as _yt_err:
-                    logger.debug('[ask] yt transcript fallback failed: %s', _yt_err)
-                    _viewer_context_str = _viewer_context_str or ''
+            _vs_type = _vs.get('type', '')
 
-            if _visible and not _viewer_context_str:
-                _viewer_context_str = f'[VIEWER CONTEXT]\n{_visible}'
+            # ── Document (PDF) context ──────────────────────────────────────
+            _pdf_page = _vs.get('pdf_page')
+            _pdf_text = _sanitize_untrusted(_vs.get('pdf_visible_text') or '')
+            _has_pdf = _pdf_page is not None or bool(_pdf_text)
+            _doc_block = ''
+            if _has_pdf:
+                _doc_block = '[DOCUMENT CONTEXT]'
+                if _pdf_page is not None:
+                    _doc_block += f'\nPage: {_pdf_page}'
+                if _pdf_text:
+                    _doc_block += f'\n{_pdf_text}'
+
+            # ── Reference viewer context (YouTube / Research) ───────────────
+            _ref_block = ''
+            if _vs_type == 'youtube':
+                _visible_seg = _sanitize_untrusted(
+                    _vs.get('visible_segment')
+                    or _vs.get('visible_transcript_segment')
+                    or ''
+                )
+                # YouTube fallback — pull the cached transcript from Redis when no
+                # visible_segment was sent (e.g. the user just loaded the video and
+                # the IFrame API has not emitted its first infoDelivery event yet).
+                if not _visible_seg and _vs.get('video_id'):
+                    try:
+                        _yt_raw = ctx.redis.get(
+                            f'{_KEY_NS_PREFIX}yt_transcript:{_vs["video_id"]}'
+                        ) if ctx.redis else None
+                        if _yt_raw:
+                            try:
+                                _slides = json.loads(_yt_raw)
+                            except (TypeError, ValueError):
+                                _slides = None
+                            if isinstance(_slides, list):
+                                # Concatenate all slide texts; cap at ~8 000 chars
+                                # (≈2 000 tokens) to avoid bloating the prompt on
+                                # long videos while still covering the full topic.
+                                _visible_seg = _sanitize_untrusted(' '.join(
+                                    ' '.join(s.get('content', [])) for s in _slides
+                                ))
+                    except Exception as _yt_err:
+                        logger.debug('[ask] yt transcript fallback failed: %s', _yt_err)
+                _ts = _vs.get('current_timestamp_seconds')
+                if _visible_seg:
+                    _ts_label = f' — viewer at {int(_ts)}s' if _ts is not None else ''
+                    _ref_block = f'[VIDEO TRANSCRIPT{_ts_label}]\n{_visible_seg}'
+                elif _vs.get('video_id'):
+                    _ref_block = f'[VIDEO REFERENCE]\nvideo_id: {_vs["video_id"]}'
+                    if _ts is not None:
+                        _ref_block += f' at {int(_ts)}s'
+
+            elif _vs_type == 'research':
+                _res_url = _sanitize_untrusted(
+                    _vs.get('research_url') or _vs.get('url') or ''
+                )
+                if _res_url:
+                    _ref_block = f'[RESEARCH REFERENCE]\n{_res_url}'
+
+            elif _vs_type == 'pdf':
+                # PDF-only — document block already covers this
+                pass
+
+            # ── Assemble ────────────────────────────────────────────────────
+            if _doc_block and _ref_block:
+                _viewer_context_str = _doc_block + '\n\n' + _ref_block
+            elif _doc_block:
+                _viewer_context_str = _doc_block
+            elif _ref_block:
+                _viewer_context_str = _ref_block
+            else:
+                # Legacy fallback for older payloads that only carry visible_segment
+                _visible = _sanitize_untrusted(
+                    _vs.get('visible_segment')
+                    or _vs.get('visible_transcript_segment')
+                    or ''
+                )
+                if _visible:
+                    _viewer_context_str = f'[VIEWER CONTEXT]\n{_visible}'
 
             if _viewer_context_str:
                 _viewer_context_str = (
