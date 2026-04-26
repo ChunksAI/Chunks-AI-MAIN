@@ -66,6 +66,32 @@ def _get_identity_for_user(user_id: str, variants: list[str]) -> str:
 # Cancellation is handled via Redis (key "cancel:{request_id}", TTL 60 s)
 # so that it works correctly across multiple gunicorn workers.
 
+
+class _AskCancelledError(Exception):
+    """Raised when a client-initiated cancellation is detected mid-request."""
+
+
+def _is_cancelled(request_id: str) -> bool:
+    """Return True if the client has registered a cancellation for *request_id*.
+
+    On a positive hit the Redis key is deleted immediately so the check is
+    idempotent — a second call for the same request_id will return False.
+    """
+    if not request_id:
+        return False
+    try:
+        _redis = _cache_svc._redis
+        if _redis:
+            _cancel_key = f'{_KEY_NS_PREFIX}cancel:{request_id}'
+            if _redis.exists(_cancel_key):
+                _redis.delete(_cancel_key)
+                logger.info('[/ask] cancellation detected req_id=%s', request_id)
+                return True
+    except Exception as _ce:
+        logger.debug('[/ask] _is_cancelled Redis error: %s', _ce)
+    return False
+
+
 # Per-mode response length/style instructions applied on every /ask request.
 # These control how long and how structured each mode's answer must be.
 
@@ -628,6 +654,10 @@ async def _call_structured_ai(
         )
     except Exception as _primary_err:
         if actx.mode_fallback:
+            # Check whether the client cancelled while the primary call was running.
+            # If so, abort now rather than wasting tokens on a fallback call.
+            if _is_cancelled(actx.request_id):
+                raise _AskCancelledError()
             _is_timeout = 'timed out' in str(_primary_err).lower()
             if _is_timeout:
                 logger.warning(
@@ -675,6 +705,9 @@ async def _call_structured_ai(
             '[/ask] mode=%s model=%s max_tokens=%d failed to parse JSON — retrying with stricter prompt',
             actx.mode, actx.selected_model, max_tok,
         )
+        # Don't waste tokens on a retry if the client already cancelled.
+        if _is_cancelled(actx.request_id):
+            raise _AskCancelledError()
         _retry_model = actx.mode_fallback or actx.selected_model
         try:
             _retry_answer = await call_ai_async(
@@ -1470,6 +1503,12 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
         if actx.thinking_mode is None
         else _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
     )
+
+    # Check cancellation after the web-search round-trip — no point synthesising
+    # a research card the client no longer wants.
+    if _is_cancelled(actx.request_id):
+        raise _AskCancelledError()
+
     logger.info(
         '[research] synthesis starting | model=%s | max_tokens=%d | citations_injected=%d | search_fallback=%s',
         actx.selected_model, _max_tok, len(_research_web_citations), _search_fallback_used,
@@ -1479,6 +1518,8 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
         answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
             prompt, _call_system, actx, _response_format, _max_tok,
         )
+    except _AskCancelledError:
+        raise
     except RuntimeError as _ai_err:
         _status, _msg = _map_ai_error(_ai_err)
         logger.warning('[research] synthesis AI call failed: %s', _ai_err)
@@ -2588,6 +2629,9 @@ Keep the summary focused, clear, and easy to review before an exam."""
                     return await _handle_research(actx)
                 else:
                     return await _handle_snap(actx, request)
+            except _AskCancelledError:
+                logger.info('[/ask] %s handler cancelled by client req_id=%s', mode, _req_id)
+                return JSONResponse({'success': False, 'cancelled': True, 'request_id': _req_id})
             except Exception as _handler_err:
                 logger.warning('[/ask] %s handler failed: %s', mode, _handler_err, exc_info=True)
                 return JSONResponse({

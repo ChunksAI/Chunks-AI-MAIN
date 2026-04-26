@@ -2215,6 +2215,13 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // ── resetSession ──────────────────────────────────────────────────────────
   const handleResetSession = useCallback(() => {    // Cancel any in-flight requests
+    // Signal the backend to stop any in-flight /ask call before aborting the
+    // fetch connection — prevents wasted fallback/retry tokens on the server.
+    const _resetReqId = currentRequestIdRef.current;
+    if (_resetReqId) {
+      cancelAsk(_resetReqId);
+      currentRequestIdRef.current = null;
+    }
     abortRef.current?.abort();
     flashcardsAbortRef.current?.abort();
     quizAbortRef.current?.abort();
