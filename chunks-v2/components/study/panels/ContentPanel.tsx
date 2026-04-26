@@ -4,6 +4,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { useStudy } from '@/contexts/StudyContext';
 import { useViewerContext } from '@/contexts/ViewerContext';
 import type { SlideItem } from '@/types/api';
+import type { ListenAction, ListenActionContext } from '@/types/api';
 import PdfViewer from '@/components/study/PdfViewer';
 
 interface ContentPanelProps {
@@ -15,7 +16,7 @@ interface ContentPanelProps {
 
 export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: ContentPanelProps) {
   const { state, handleUploadDocument } = useStudy();
-  const { slides, docTitle, pdfBlobUrl, uploadLoading, uploadError } = state;
+  const { slides, docTitle, pdfBlobUrl, uploadLoading, uploadError, bookId } = state;
   const { viewerDispatch } = useViewerContext();
 
   const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
@@ -59,6 +60,27 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
       viewerDispatch({ type: 'UPDATE_PDF_VIEW', page, visibleText });
     },
     [viewerDispatch],
+  );
+
+  // ── Professor Listen Mode — post-listen learning actions ─────────────────
+  // Translate PdfViewer's post-listen action intents into concrete chat prompts
+  // forwarded to the parent (StudyLayout / ChatPanel).
+  const handleListenAction = useCallback(
+    (action: ListenAction, ctx: ListenActionContext) => {
+      const pageRef = `page ${ctx.page}${ctx.docTitle ? ` of "${ctx.docTitle}"` : ''}`;
+      switch (action) {
+        case 'explain_slower':
+          onExplain?.(`Explain ${pageRef} more slowly and in much simpler terms`);
+          break;
+        case 'quiz_me':
+          onQuiz?.(`Quiz me on the key concepts from ${pageRef}`);
+          break;
+        case 'flashcards':
+          onSummarize?.();
+          break;
+      }
+    },
+    [onExplain, onQuiz, onSummarize],
   );
 
   // ── IntersectionObserver — track the most-visible slide (slides mode) ─────
@@ -199,7 +221,13 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
           <div style={{ fontWeight: 500 }}>Uploading &amp; parsing document…</div>
         </div>
       ) : pdfBlobUrl ? (
-        <PdfViewer blobUrl={pdfBlobUrl} onPageChange={handlePdfPageChange} fileName={docTitle || undefined} />
+        <PdfViewer
+            blobUrl={pdfBlobUrl}
+            onPageChange={handlePdfPageChange}
+            fileName={docTitle || undefined}
+            bookId={bookId ?? undefined}
+            onListenAction={handleListenAction}
+          />
       ) : (
         /* Fallback: no blob URL (e.g. after a page refresh — slides restored from sessionStorage) */
         <div className="pdf-viewer" ref={slidesContainerRef}>
