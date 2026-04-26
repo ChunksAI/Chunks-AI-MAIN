@@ -1806,10 +1806,15 @@ class TestStructuredModeTokenBudgets:
         return ai_svc
 
     def test_structured_mode_max_tokens_values(self):
-        """_STRUCTURED_MODE_MAX_TOKENS has the expected budgets."""
-        from routes.chat import _STRUCTURED_MODE_MAX_TOKENS
-        assert _STRUCTURED_MODE_MAX_TOKENS['chunk'] == 2000
-        assert _STRUCTURED_MODE_MAX_TOKENS['master'] == 4500
+        """_STRUCTURED_MODE_MAX_TOKENS has the expected budgets.
+
+        chunk was bumped to 2200 to accommodate the check_question field.
+        master is NOT in this dict — it uses _MASTER_STREAM_MAX_TOKENS via SSE.
+        """
+        from routes.chat import _STRUCTURED_MODE_MAX_TOKENS, _MASTER_STREAM_MAX_TOKENS
+        assert _STRUCTURED_MODE_MAX_TOKENS['chunk'] == 2200
+        assert 'master' not in _STRUCTURED_MODE_MAX_TOKENS  # master uses SSE streaming
+        assert _MASTER_STREAM_MAX_TOKENS == 5000
         assert _STRUCTURED_MODE_MAX_TOKENS['research'] == 4000
 
     def test_chunk_uses_structured_budget(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
@@ -1829,23 +1834,32 @@ class TestStructuredModeTokenBudgets:
         from routes.chat import _STRUCTURED_MODE_MAX_TOKENS
         assert captured_max_tok[0] == _STRUCTURED_MODE_MAX_TOKENS['chunk']
 
-    def test_master_uses_structured_budget(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
-        """master mode passes _STRUCTURED_MODE_MAX_TOKENS['master'] to call_ai_async."""
+    def test_master_uses_streaming_budget(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """master mode passes _MASTER_STREAM_MAX_TOKENS to call_ai_stream_async.
+
+        Master is SSE streaming (like snap), NOT structured JSON.  It uses
+        _MASTER_STREAM_MAX_TOKENS, which is intentionally absent from
+        _STRUCTURED_MODE_MAX_TOKENS.
+        """
         ai_svc = self._base_mocks(monkeypatch)
 
         captured_max_tok: list = []
 
-        async def _mock_ai_async(*args, **kwargs):
+        async def _mock_stream(*args, **kwargs):
             captured_max_tok.append(kwargs.get('max_tokens_override'))
-            return ('{"core_explanation":"ce","mechanism":"m","analysis":"a",'
-                    '"connections":"c","key_insight":"ki"}')
+            yield '## Overview\nThermodynamics explanation.'
 
-        monkeypatch.setattr(ai_svc, 'call_ai_async', _mock_ai_async)
+        monkeypatch.setattr(ai_svc, 'call_ai_stream_async', _mock_stream)
 
-        resp = client.post('/ask', json={'question': 'Explain thermodynamics', 'mode': 'master', 'complexity': 3})
+        resp = client.post('/ask', json={
+            'question': 'Explain thermodynamics',
+            'mode': 'master',
+            'stream': True,
+            'complexity': 3,
+        })
         assert resp.status_code == 200
-        from routes.chat import _STRUCTURED_MODE_MAX_TOKENS
-        assert captured_max_tok[0] == _STRUCTURED_MODE_MAX_TOKENS['master']
+        from routes.chat import _MASTER_STREAM_MAX_TOKENS
+        assert captured_max_tok[0] == _MASTER_STREAM_MAX_TOKENS
 
     def test_research_uses_structured_budget(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
         """research mode passes _STRUCTURED_MODE_MAX_TOKENS['research'] to call_ai_async."""
