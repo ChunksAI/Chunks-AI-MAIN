@@ -15,6 +15,7 @@ import logging
 import os
 import random
 import re
+import time
 import uuid
 from dataclasses import dataclass
 
@@ -2690,20 +2691,63 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 request_id=getattr(request.state, 'request_id', ''),
             )
             _req_id = getattr(request.state, 'request_id', request.headers.get('X-Request-Id', '-'))
+            # Observability helpers — hashed user identity (never raw email/token)
+            _uid_hash = hashlib.sha256(
+                (verified_user_id or '').encode(), usedforsecurity=False,
+            ).hexdigest()[:16]
+            _viewer_type = (viewer_state or {}).get('type', 'none') or 'none'
+            _has_pdf = bool(
+                doc_context
+                or (viewer_state and viewer_state.get('pdf_page') is not None)
+                or (viewer_state and (viewer_state.get('type') == 'pdf'))
+            )
+            _has_profile = bool(student_profile)
+            _t0_ask = time.monotonic()
             try:
+                from services.ai import get_last_finish_reason as _get_ask_fr
                 if mode == 'chunk':
-                    return await _handle_chunk(actx)
+                    _ask_result = await _handle_chunk(actx)
                 elif mode == 'master':
-                    return await _handle_master(actx, request)
+                    _ask_result = await _handle_master(actx, request)
                 elif mode == 'research':
-                    return await _handle_research(actx)
+                    _ask_result = await _handle_research(actx)
                 else:
-                    return await _handle_snap(actx, request)
+                    _ask_result = await _handle_snap(actx, request)
+                # For streaming responses the AI call runs in a background generator
+                # after we return, so finish_reason and latency_ms reflect dispatch
+                # time only (correct — do not fake values).
+                logger.info(
+                    '[ask:done] req_id=%s uid=%s mode=%s model=%s fallback=%s '
+                    'latency_ms=%d finish_reason=%s cache_hit=False viewer_type=%s '
+                    'has_pdf=%s has_profile=%s success=True',
+                    _req_id, _uid_hash, mode, selected_model, _mode_fallback or 'none',
+                    round((time.monotonic() - _t0_ask) * 1000),
+                    _get_ask_fr() or 'none',
+                    _viewer_type, _has_pdf, _has_profile,
+                )
+                return _ask_result
             except _AskCancelledError:
                 logger.info('[/ask] %s handler cancelled by client req_id=%s', mode, _req_id)
+                logger.info(
+                    '[ask:done] req_id=%s uid=%s mode=%s model=%s fallback=%s '
+                    'latency_ms=%d finish_reason=none cache_hit=False viewer_type=%s '
+                    'has_pdf=%s has_profile=%s success=False error=cancelled',
+                    _req_id, _uid_hash, mode, selected_model, _mode_fallback or 'none',
+                    round((time.monotonic() - _t0_ask) * 1000),
+                    _viewer_type, _has_pdf, _has_profile,
+                )
                 return JSONResponse({'success': False, 'cancelled': True, 'request_id': _req_id})
             except Exception as _handler_err:
                 logger.warning('[/ask] %s handler failed: %s', mode, _handler_err, exc_info=True)
+                logger.info(
+                    '[ask:done] req_id=%s uid=%s mode=%s model=%s fallback=%s '
+                    'latency_ms=%d finish_reason=none cache_hit=False viewer_type=%s '
+                    'has_pdf=%s has_profile=%s success=False error=%s',
+                    _req_id, _uid_hash, mode, selected_model, _mode_fallback or 'none',
+                    round((time.monotonic() - _t0_ask) * 1000),
+                    _viewer_type, _has_pdf, _has_profile,
+                    type(_handler_err).__name__,
+                )
                 return JSONResponse({
                     'success': False,
                     'error': 'An unexpected error occurred. Please try again.',
