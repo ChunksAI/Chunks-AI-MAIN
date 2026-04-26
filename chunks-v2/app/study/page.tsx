@@ -57,7 +57,7 @@ function StudyLayout() {
   const { state, dispatch, handleSendMessage, showToast, handleResetSession, handleRestoreDocument } = useStudy();
   const { user } = useAuth();
   const { activeTab, toast, docTitle, topic, recents, pdfBlobUrl, slides, uploadLoading } = state;
-  const { viewerState } = useViewerContext();
+  const { viewerState, viewerDispatch } = useViewerContext();
 
   // Sync student knowledge model with backend (load on mount, debounce-save on change,
   // regression check on mount). Pass bookId so save/load are scoped per book.
@@ -123,6 +123,10 @@ function StudyLayout() {
   // Restore a previous session when the user clicks a recent item in the sidebar.
   // Always clear messages first so stale content never remains after switching.
   const handleRecentClick = (item: RecentItem) => {
+    // Close any open temporary viewer (YouTube/Research/FBD) so a stale reference
+    // panel from the previous session is never shown alongside the new document.
+    viewerDispatch({ type: 'CLOSE_VIEWER' });
+
     // Prefer direct ID lookup (item.id === sessionId, snapshot key = SESSION_STORAGE_KEY_<id>).
     // Fall back to title-based search for snapshots created before item.id was stored.
     const snap = loadSnapshotById(item.id) ?? loadSnapshotByTitle(item.title);
@@ -181,7 +185,11 @@ function StudyLayout() {
         onNavChange={(id) => {
           if (id === 'library') router.push('/library');
         }}
-        onNewSession={handleResetSession}
+        onNewSession={() => {
+            // Close any stale YouTube/Research/FBD viewer before resetting the session.
+            viewerDispatch({ type: 'CLOSE_VIEWER' });
+            handleResetSession();
+          }}
         recents={recents}
         onRecentClick={handleRecentClick}
         onSendMessage={(text) => {
