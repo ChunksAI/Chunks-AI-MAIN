@@ -105,6 +105,11 @@ export interface SendMessageResponse {
   model?: string;
   /** Token count consumed by the request (informational). */
   tokens_used?: number;
+  /**
+   * True when the provider stopped the response due to reaching the max_tokens
+   * limit (finish_reason === "length").  The answer may be incomplete.
+   */
+  truncated?: boolean;
 }
 
 export interface Flashcard {

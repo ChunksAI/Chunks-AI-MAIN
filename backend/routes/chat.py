@@ -626,14 +626,16 @@ async def _call_structured_ai(
 ) -> tuple:
     """Primary AI call + fallback + JSON parse + retry for structured modes.
 
-    Returns ``(answer, thinking_content, structured, timeout_fallback_note)``
-    where ``structured`` is ``None`` when JSON parsing failed after retry.
+    Returns ``(answer, thinking_content, structured, timeout_fallback_note, truncated)``
+    where ``structured`` is ``None`` when JSON parsing failed after retry, and
+    ``truncated`` is ``True`` when the provider stopped due to max_tokens.
     """
-    from services.ai import call_ai_async, extract_thinking_content
+    from services.ai import call_ai_async, extract_thinking_content, get_last_finish_reason
 
     _timeout_fallback_note: str | None = None
     _parse_failed = False
     _retry_used = False
+    _truncated = False
 
     logger.debug(
         '[/ask] structured_ai start mode=%s model=%s max_tokens=%d',
@@ -652,6 +654,12 @@ async def _call_structured_ai(
             max_tokens_override=max_tok,
             response_format=response_format,
         )
+        if get_last_finish_reason() == 'length':
+            _truncated = True
+            logger.warning(
+                '[/ask] structured_ai truncated by max_tokens mode=%s model=%s max_tokens=%d',
+                actx.mode, actx.selected_model, max_tok,
+            )
     except Exception as _primary_err:
         if actx.mode_fallback:
             # Check whether the client cancelled while the primary call was running.
@@ -684,6 +692,12 @@ async def _call_structured_ai(
                 max_tokens_override=max_tok,
                 response_format=response_format,
             )
+            if get_last_finish_reason() == 'length':
+                _truncated = True
+                logger.warning(
+                    '[/ask] structured_ai fallback truncated by max_tokens mode=%s model=%s max_tokens=%d',
+                    actx.mode, actx.mode_fallback, max_tok,
+                )
         else:
             raise
 
@@ -721,6 +735,12 @@ async def _call_structured_ai(
                 max_tokens_override=max_tok,
                 response_format=response_format,
             )
+            if get_last_finish_reason() == 'length':
+                _truncated = True
+                logger.warning(
+                    '[/ask] structured_ai retry truncated by max_tokens mode=%s model=%s max_tokens=%d',
+                    actx.mode, _retry_model, max_tok,
+                )
             _retry_answer, _ = extract_thinking_content(_retry_answer)
             _retry_raw = _strip_code_fences(_retry_answer) if _retry_answer else ''
             structured = json.loads(_retry_raw)
@@ -739,10 +759,10 @@ async def _call_structured_ai(
             structured = None
 
     logger.info(
-        '[/ask] structured_ai done mode=%s model=%s max_tokens=%d parse_failed=%s retry_used=%s',
-        actx.mode, actx.selected_model, max_tok, _parse_failed, _retry_used,
+        '[/ask] structured_ai done mode=%s model=%s max_tokens=%d parse_failed=%s retry_used=%s truncated=%s',
+        actx.mode, actx.selected_model, max_tok, _parse_failed, _retry_used, _truncated,
     )
-    return answer, thinking_content, structured, _timeout_fallback_note
+    return answer, thinking_content, structured, _timeout_fallback_note, _truncated
 
 
 # ── Topic extraction helper ───────────────────────────────────────────────────
@@ -964,6 +984,14 @@ async def _handle_snap(actx: AskContext, request: Request):
                             )
                             if _va:
                                 yield f'data: {json.dumps({"meta": {"viewer_action": _va}}, ensure_ascii=False)}\n\n'
+                            # Emit truncated flag if the provider stopped due to max_tokens.
+                            from services.ai import get_last_finish_reason as _get_fr
+                            if _get_fr() == 'length':
+                                logger.warning(
+                                    '[/ask] SSE snap truncated by max_tokens req_id=%s model=%s',
+                                    _stream_req_id, _model,
+                                )
+                                yield f'data: {json.dumps({"meta": {"truncated": True}}, ensure_ascii=False)}\n\n'
                             yield 'data: [DONE]\n\n'
                             # Persist the completed stream to Redis for
                             # best-effort client recovery (5-minute TTL).
@@ -1058,8 +1086,10 @@ async def _handle_snap(actx: AskContext, request: Request):
         )
 
     # ── Non-streaming snap path ───────────────────────────────────────────────
+    from services.ai import get_last_finish_reason
     _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
     _timeout_fallback_note: str | None = None
+    _snap_truncated = False
     try:
         try:
             answer = await call_ai_async(
@@ -1072,6 +1102,12 @@ async def _handle_snap(actx: AskContext, request: Request):
                 timeout=actx.ai_timeout,
                 max_tokens_override=_max_tok,
             )
+            if get_last_finish_reason() == 'length':
+                _snap_truncated = True
+                logger.warning(
+                    '[/ask] snap truncated by max_tokens model=%s max_tokens=%d',
+                    actx.selected_model, _max_tok,
+                )
         except Exception as _primary_err:
             if actx.mode_fallback:
                 _is_timeout = 'timed out' in str(_primary_err).lower()
@@ -1095,6 +1131,12 @@ async def _handle_snap(actx: AskContext, request: Request):
                     timeout=actx.ai_timeout,
                     max_tokens_override=_max_tok,
                 )
+                if get_last_finish_reason() == 'length':
+                    _snap_truncated = True
+                    logger.warning(
+                        '[/ask] snap fallback truncated by max_tokens model=%s max_tokens=%d',
+                        actx.mode_fallback, _max_tok,
+                    )
             else:
                 raise
     except RuntimeError as _ai_err:
@@ -1124,6 +1166,7 @@ async def _handle_snap(actx: AskContext, request: Request):
         'search_mode':    'hybrid' if actx.searcher.has_embeddings else 'tfidf',
         'thinking_content': thinking_content,
         'fallback_note':  _timeout_fallback_note,
+        **({'truncated': True} if _snap_truncated else {}),
         **({'viewer_action': _viewer_action} if _viewer_action else {}),
     }
     _write_cache(actx, _resp)
@@ -1145,7 +1188,7 @@ async def _handle_chunk(actx: AskContext) -> dict | JSONResponse:
     )
 
     try:
-        answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
+        answer, thinking_content, structured, _timeout_fallback_note, _truncated = await _call_structured_ai(
             prompt, _call_system, actx, _response_format, _max_tok,
         )
     except RuntimeError as _ai_err:
@@ -1184,6 +1227,7 @@ async def _handle_chunk(actx: AskContext) -> dict | JSONResponse:
             'search_mode':      'hybrid' if actx.searcher.has_embeddings else 'tfidf',
             'thinking_content': thinking_content,
             'fallback_note':    'Structured card unavailable — showing plain-text answer.',
+            **({'truncated': True} if _truncated else {}),
             **({'viewer_action': _viewer_action} if _viewer_action else {}),
         }
 
@@ -1205,6 +1249,7 @@ async def _handle_chunk(actx: AskContext) -> dict | JSONResponse:
         'search_mode':    'hybrid' if actx.searcher.has_embeddings else 'tfidf',
         'thinking_content': thinking_content,
         'fallback_note':  _timeout_fallback_note,
+        **({'truncated': True} if _truncated else {}),
         **({'viewer_action': _viewer_action} if _viewer_action else {}),
     }
     _write_cache(actx, _resp)
@@ -1297,6 +1342,14 @@ async def _handle_master(actx: AskContext, request: Request):
                             _va = _build_viewer_action(_decision, _full_answer, viewer_state)
                             if _va:
                                 yield f'data: {json.dumps({"meta": {"viewer_action": _va}}, ensure_ascii=False)}\n\n'
+                            # Emit truncated flag if the provider stopped due to max_tokens.
+                            from services.ai import get_last_finish_reason as _get_fr
+                            if _get_fr() == 'length':
+                                logger.warning(
+                                    '[/ask] master SSE truncated by max_tokens req_id=%s model=%s',
+                                    _stream_req_id, _model,
+                                )
+                                yield f'data: {json.dumps({"meta": {"truncated": True}}, ensure_ascii=False)}\n\n'
                             yield 'data: [DONE]\n\n'
                             try:
                                 _redis = _cache_svc._redis
@@ -1376,7 +1429,9 @@ async def _handle_master(actx: AskContext, request: Request):
         )
 
     # ── Non-streaming fallback (thinking modes or stream not requested) ────────
+    from services.ai import get_last_finish_reason as _get_master_fr
     _timeout_fallback_note: str | None = None
+    _master_truncated = False
     try:
         try:
             answer = await call_ai_async(
@@ -1389,6 +1444,12 @@ async def _handle_master(actx: AskContext, request: Request):
                 timeout=actx.ai_timeout,
                 max_tokens_override=_max_tok,
             )
+            if _get_master_fr() == 'length':
+                _master_truncated = True
+                logger.warning(
+                    '[/ask] master non-streaming truncated by max_tokens model=%s max_tokens=%d',
+                    actx.selected_model, _max_tok,
+                )
         except Exception as _primary_err:
             if actx.mode_fallback:
                 _is_timeout = 'timed out' in str(_primary_err).lower()
@@ -1413,6 +1474,12 @@ async def _handle_master(actx: AskContext, request: Request):
                     timeout=actx.ai_timeout,
                     max_tokens_override=_max_tok,
                 )
+                if _get_master_fr() == 'length':
+                    _master_truncated = True
+                    logger.warning(
+                        '[/ask] master non-streaming fallback truncated by max_tokens model=%s max_tokens=%d',
+                        actx.mode_fallback, _max_tok,
+                    )
             else:
                 raise
     except RuntimeError as _ai_err:
@@ -1442,6 +1509,7 @@ async def _handle_master(actx: AskContext, request: Request):
         'search_mode':      'hybrid' if actx.searcher.has_embeddings else 'tfidf',
         'thinking_content': thinking_content,
         'fallback_note':    _timeout_fallback_note,
+        **({'truncated': True} if _master_truncated else {}),
         **({'viewer_action': _viewer_action} if _viewer_action else {}),
     }
     _write_cache(actx, _resp)
@@ -1515,7 +1583,7 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
     )
 
     try:
-        answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
+        answer, thinking_content, structured, _timeout_fallback_note, _truncated = await _call_structured_ai(
             prompt, _call_system, actx, _response_format, _max_tok,
         )
     except _AskCancelledError:
@@ -1555,6 +1623,7 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
             'thinking_content': thinking_content,
             'fallback_note':    'Structured card unavailable — showing plain-text answer.',
             'web_citations':    _research_web_citations,
+            **({'truncated': True} if _truncated else {}),
             **({'viewer_action': _viewer_action} if _viewer_action else {}),
         }
 
@@ -1584,6 +1653,7 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
         'thinking_content': thinking_content,
         'fallback_note':  _timeout_fallback_note,
         'web_citations':  _research_web_citations,
+        **({'truncated': True} if _truncated else {}),
         **({'viewer_action': _viewer_action} if _viewer_action else {}),
     }
     _write_cache(actx, _resp)

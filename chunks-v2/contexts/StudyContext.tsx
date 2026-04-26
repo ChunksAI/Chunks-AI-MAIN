@@ -1493,6 +1493,14 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           });
         }
 
+        // Show a non-blocking warning when the provider hit the token limit.
+        if (res.truncated) {
+          dispatch({
+            type: 'SHOW_TOAST',
+            payload: '✂️ Response may have been cut off. Retry for a longer answer.',
+          });
+        }
+
         // Add / update the Recents entry for this chat session.
         // We use the topic returned by the AI (if any), the uploaded doc title,
         // the session topic, or the first 60 chars of the user question as a
