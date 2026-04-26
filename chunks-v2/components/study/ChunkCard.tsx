@@ -5,17 +5,18 @@
  *
  * Rich structured renderer for chunk and master mode AI responses.
  *
- * Chunk mode fields:  overview · key_concepts · step_by_step · example
+ * Chunk mode fields:  overview · key_concepts · step_by_step · example · check_question
  * Master mode fields: core_explanation · mechanism · analysis · connections · key_insight
  *
  * Renders:
- *  - A collapsible overview / core-explanation section
+ *  - A collapsible overview / core-explanation section (via MarkdownRenderer)
  *  - A key-concepts tag cloud (chunk) or distinct sections (master)
  *  - A numbered step-by-step list (chunk) or mechanism/analysis/connections (master)
- *  - A highlighted example / key-insight block
+ *  - A highlighted example / key-insight block (via MarkdownRenderer)
  */
 
 import React, { memo, useState } from 'react';
+import MarkdownRenderer from './chat/MarkdownRenderer';
 
 // ─── Type helpers ─────────────────────────────────────────────────────────────
 
@@ -73,10 +74,11 @@ function CollapsibleSection({
 // ─── Chunk mode renderer ──────────────────────────────────────────────────────
 
 function ChunkModeCard({ data }: { data: StructuredData }) {
-  const overview   = str(data.overview);
-  const concepts   = toList(data.key_concepts);
-  const steps      = toList(data.step_by_step);
-  const example    = str(data.example);
+  const overview      = str(data.overview);
+  const concepts      = toList(data.key_concepts);
+  const steps         = toList(data.step_by_step);
+  const example       = str(data.example);
+  const checkQuestion = str(data.check_question);
 
   return (
     <div className="cc-card">
@@ -86,7 +88,7 @@ function ChunkModeCard({ data }: { data: StructuredData }) {
 
       {overview && (
         <CollapsibleSection icon="🗺" label="Overview">
-          <p className="cc-overview-text">{overview}</p>
+          <MarkdownRenderer content={overview} />
         </CollapsibleSection>
       )}
 
@@ -123,7 +125,18 @@ function ChunkModeCard({ data }: { data: StructuredData }) {
         <div className="cc-section">
           <SectionHeader icon="✨" label="Example" />
           <div className="cc-section-body">
-            <div className="cc-example-block">{example}</div>
+            <div className="cc-example-block">
+              <MarkdownRenderer content={example} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {checkQuestion && (
+        <div className="cc-section">
+          <SectionHeader icon="🤔" label="Check Your Understanding" />
+          <div className="cc-section-body">
+            <div className="cc-check-question">{checkQuestion}</div>
           </div>
         </div>
       )}
@@ -148,7 +161,7 @@ function MasterModeCard({ data }: { data: StructuredData }) {
 
       {coreExplanation && (
         <CollapsibleSection icon="📐" label="Core Explanation">
-          <p className="cc-overview-text">{coreExplanation}</p>
+          <MarkdownRenderer content={coreExplanation} />
         </CollapsibleSection>
       )}
 
@@ -156,7 +169,7 @@ function MasterModeCard({ data }: { data: StructuredData }) {
         <div className="cc-section">
           <SectionHeader icon="⚙️" label="Mechanism" />
           <div className="cc-section-body">
-            <p className="cc-body-text">{mechanism}</p>
+            <MarkdownRenderer content={mechanism} />
           </div>
         </div>
       )}
@@ -165,7 +178,7 @@ function MasterModeCard({ data }: { data: StructuredData }) {
         <div className="cc-section">
           <SectionHeader icon="🔍" label="Analysis" />
           <div className="cc-section-body">
-            <p className="cc-body-text">{analysis}</p>
+            <MarkdownRenderer content={analysis} />
           </div>
         </div>
       )}
@@ -174,7 +187,7 @@ function MasterModeCard({ data }: { data: StructuredData }) {
         <div className="cc-section">
           <SectionHeader icon="🔗" label="Connections" />
           <div className="cc-section-body">
-            <p className="cc-body-text">{connections}</p>
+            <MarkdownRenderer content={connections} />
           </div>
         </div>
       )}
@@ -183,7 +196,9 @@ function MasterModeCard({ data }: { data: StructuredData }) {
         <div className="cc-section">
           <SectionHeader icon="💡" label="Key Insight" />
           <div className="cc-section-body">
-            <div className="cc-insight-block">{keyInsight}</div>
+            <div className="cc-insight-block">
+              <MarkdownRenderer content={keyInsight} />
+            </div>
           </div>
         </div>
       )}

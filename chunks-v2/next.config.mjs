@@ -32,7 +32,7 @@ const nextConfig = {
               // Images: self + data URIs + Google user avatars
               "img-src 'self' data: https: blob:",
               // Connections: self + Supabase + our backend API + AI APIs
-              "connect-src 'self' https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://api.chunks.online https://api.anthropic.com https://api.openai.com",
+              "connect-src 'self' blob: https://*.supabase.co https://*.supabase.in wss://*.supabase.co https://api.chunks.online https://api.anthropic.com https://api.openai.com",
               // Frames: Google OAuth
               "frame-src https://accounts.google.com https://www.youtube.com blob:",
               // Workers: self + blob: (pdf.js worker may be served as a blob URL)

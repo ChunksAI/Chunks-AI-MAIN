@@ -15,6 +15,7 @@ import logging
 import os
 import re
 import time
+from contextvars import ContextVar
 from urllib.parse import urlparse
 
 import asyncio
@@ -23,6 +24,20 @@ import httpx
 import requests
 
 logger = logging.getLogger(__name__)
+
+# ── Per-request finish_reason side-channel ─────────────────────────────────────
+# Stores the finish_reason from the most recent non-streaming call in the
+# current asyncio task context.  Callers (e.g. _call_structured_ai in chat.py)
+# can read this immediately after awaiting call_ai_async() to detect truncation.
+# Using a ContextVar keeps concurrent requests fully isolated.
+_last_finish_reason: ContextVar[str | None] = ContextVar('last_finish_reason', default=None)
+
+
+def get_last_finish_reason() -> str | None:
+    """Return the finish_reason set by the most recent call_ai_async() / call_ai_stream_async()
+    invocation in the current asyncio task context, or ``None`` when unavailable."""
+    return _last_finish_reason.get()
+
 
 # ── Module-level state injected at startup ─────────────────────────────────────
 _session = None
@@ -495,6 +510,8 @@ async def call_ai_async(
             if choices:
                 _record_usage_from_response(resp_json, mdl, endpoint, user_id=user_id)
                 content = choices[0]['message']['content']
+                # Capture finish_reason so callers can detect truncation.
+                _last_finish_reason.set(choices[0].get('finish_reason'))
                 if not content or not content.strip():
                     raise RuntimeError("AI returned empty content. Please retry.")
                 return content
@@ -680,6 +697,7 @@ async def call_ai_stream_async(
     _total_cost       = 0.0
 
     logger.info("[call_ai_stream_async] START model=%s timeout=%ds", use_model, timeout)
+    _stream_finish_reason: str | None = None
     try:
         async with _async_client.stream(
             "POST",
@@ -721,13 +739,20 @@ async def call_ai_stream_async(
                 choices = chunk_json.get("choices") or []
                 if not choices:
                     continue
+                # Capture finish_reason from the terminal chunk (content is empty there).
+                _fr = choices[0].get("finish_reason")
+                if _fr:
+                    _stream_finish_reason = _fr
                 token = (choices[0].get("delta") or {}).get("content") or ""
                 if token:
                     yield token
     finally:
         logger.info(
-            "[call_ai_stream_async] END model=%s latency=%.1fs", use_model, time.time() - _t0,
+            "[call_ai_stream_async] END model=%s latency=%.1fs finish_reason=%s",
+            use_model, time.time() - _t0, _stream_finish_reason,
         )
+        # Expose finish_reason to callers via the per-task context var.
+        _last_finish_reason.set(_stream_finish_reason)
         if _prompt_tokens or _completion_tokens or _total_cost:
             _record_usage_from_response(
                 {

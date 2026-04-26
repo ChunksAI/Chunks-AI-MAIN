@@ -75,6 +75,38 @@ import { getAccessToken } from '@/lib/supabaseClient';
  */
 const FBD_MODES = new Set<string>(['snap', 'chunk', 'master']);
 
+/**
+ * Keywords that signal an analytically demanding question.
+ * When matched, complexity is bumped to the mode maximum so the backend
+ * can activate stronger model routing (e.g. DEEP_MODEL for master/research).
+ */
+const DEEP_QUESTION_RE =
+  /\b(deeply|mechanism|derive|deriv|analyz|analys|compar|research|sources?|latest)\b/i;
+
+/**
+ * Deterministically resolve a complexity score (1-10) from the chat mode and
+ * the user's question text.  No AI call is made.
+ *
+ * Base ranges (centre of the published routing bands):
+ *   snap     → 4  (small-tier model; minor bump keeps it responsive)
+ *   chunk    → 5  (medium-tier)
+ *   master   → 8  (large-tier; ≥9 activates DEEP_MODEL)
+ *   research → 8  (same)
+ *
+ * If the question contains deep-analysis keywords the score is raised to the
+ * mode maximum so master/research can cross the ≥9 threshold in ai_router.py.
+ */
+function resolveComplexity(mode: string, question: string): number {
+  const isDeep = DEEP_QUESTION_RE.test(question);
+  switch (mode) {
+    case 'snap':     return isDeep ? 5 : 4;
+    case 'chunk':    return isDeep ? 6 : 5;
+    case 'master':   return isDeep ? 9 : 8;
+    case 'research': return isDeep ? 9 : 8;
+    default:         return 5;
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Strip HTML tags from a string using DOMParser (browser) for accuracy. */
@@ -964,7 +996,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   const CHAT_ACTION_TYPES = new Set<string>([
     'SEND_MESSAGE', 'SET_LAST_USER_MESSAGE', 'SET_CHAT_LOADING',
     'RECEIVE_MESSAGE', 'START_AI_MESSAGE', 'APPEND_MESSAGE_CHUNK',
-    'UPDATE_MESSAGE_META', 'REMOVE_MESSAGE', 'MESSAGE_ERROR', 'HANDLE_CHAT_ERROR',
+    'UPDATE_MESSAGE_META', 'UPDATE_AI_MESSAGE_FULL', 'REMOVE_MESSAGE', 'MESSAGE_ERROR', 'HANDLE_CHAT_ERROR',
     'CLEAR_CHAT_ERROR', 'SET_CHAT_MODE', 'RESTORE_MESSAGES', 'RESET_CHAT',
   ]);
   const QUIZ_ACTION_TYPES = new Set<string>([
@@ -1275,17 +1307,19 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       chatDispatch({ type: 'SEND_MESSAGE', payload: userMsg });
 
       // Build history from current messages (last MAX_HISTORY_ITEMS), stripping HTML tags.
-      // Filter out AI messages from structured modes (chunk/master/research) to prevent
-      // JSON/Markdown bleed when the user switches back to snap mode.
+      // Filter out AI messages from structured modes (chunk/research) to prevent
+      // JSON bleed when the user switches back to snap/master mode.
+      // Master is now streaming markdown — safe to include in history.
       // Primary signal: the mode field stamped when the message was created.
       // Defensive fallback: also drop anything that parses as JSON (plain or code-fenced),
       // which handles old messages that predate the mode field.
+      const STRUCTURED_MODES = new Set(['chunk', 'research']);
       const history: MessageHistoryItem[] = stateRef.current.messages
         .slice(-MAX_HISTORY_ITEMS)
         .filter((m) => {
           if (m.role !== 'ai') return true;
-          // Primary: drop AI messages from structured modes
-          if (m.mode && m.mode !== 'snap') return false;
+          // Primary: drop AI messages from structured JSON modes
+          if (m.mode && STRUCTURED_MODES.has(m.mode)) return false;
           // Defensive: also drop anything that looks like a JSON blob (plain or code-fenced).
           // Only strip code fences when both opening and closing are present.
           const raw = m.text.trim();
@@ -1317,12 +1351,15 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       // For non-streaming modes (chunk/master/research), show a mode-specific
       // placeholder so the user sees meaningful feedback during the 5-15 s wait.
       const currentChatMode = stateRef.current.chatMode;
-      const isStreamingMode = currentChatMode === 'snap';
-      // 'snap' is intentionally omitted — it never reads this map (isStreamingMode === true).
+      const isStreamingMode = currentChatMode === 'snap' || currentChatMode === 'master';
+      const complexity = resolveComplexity(currentChatMode, text);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[complexity] mode:', currentChatMode, '| resolved:', complexity, '| question excerpt:', text.slice(0, 80));
+      }
+      // 'snap' and 'master' are intentionally omitted — they stream (isStreamingMode === true).
       const placeholderText: Record<string, string> = {
         chunk:    '📖 Analyzing in depth…',
-        master:   '🧠 Deep reasoning in progress…',
-        research: '🔬 Researching…',
+        research: '🔎 Searching sources…',
       };
       const aiMsgId = nextMsgId();
       const aiMsg: ChatMessage = {
@@ -1359,6 +1396,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             selected_text: opts.selectedText ?? '',
             doc_context: autoDocContext,
             mode: currentChatMode,
+            complexity,
             bookId: stateRef.current.bookId ?? undefined,
             viewer_state: buildViewerState(viewerStateRef.current),
           },
@@ -1366,20 +1404,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             fbdAccumulatedText += chunk;
             if (isStreamingMode) {
               chatDispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
-            } else {
-              // Non-streaming: single chunk contains the full answer — replace placeholder.
-              chatDispatch({
-                type: 'REPLACE_AI_MESSAGE',
-                payload: {
-                  id: aiMsgId,
-                  text: chunk,
-                  actions: [
-                    { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
-                    { label: '🎯 Quiz me on this', actionKey: 'quiz' },
-                  ],
-                },
-              });
             }
+            // Non-streaming (chunk/master/research): do NOT dispatch here.
+            // The full atomic update (text + structured + meta) is dispatched
+            // together after sendMessageStream resolves, avoiding a flash of
+            // raw JSON before the structured card renders.
           },
           abortRef.current.signal,
           (reqId) => { currentRequestIdRef.current = reqId; },
@@ -1429,8 +1458,28 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Update message with memory/performance metadata if present
-        if (res.topic || res.memory_recall || (res.performance_bars && res.performance_bars.length > 0) || res.structured || res.web_citations) {
+        if (!isStreamingMode) {
+          // Non-streaming (chunk/master/research): atomically set the answer text
+          // AND all structured metadata in one dispatch so the card renders in a
+          // single paint — no flash of raw JSON/markdown before the card appears.
+          chatDispatch({
+            type: 'UPDATE_AI_MESSAGE_FULL',
+            payload: {
+              id: aiMsgId,
+              text: res.answer,
+              actions: [
+                { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
+                { label: '🎯 Quiz me on this', actionKey: 'quiz' },
+              ],
+              ...(res.topic ? { topic: res.topic } : {}),
+              memoryRecall: res.memory_recall,
+              performanceBars: res.performance_bars ?? [],
+              ...(res.structured !== undefined ? { structured: res.structured } : {}),
+              ...(res.web_citations ? { webCitations: res.web_citations } : {}),
+            },
+          });
+        } else if (res.topic || res.memory_recall || (res.performance_bars && res.performance_bars.length > 0) || res.structured || res.web_citations) {
+          // Streaming (snap): supplemental metadata arrives after stream completes.
           chatDispatch({
             type: 'UPDATE_MESSAGE_META',
             payload: {
@@ -1441,6 +1490,14 @@ export function StudyProvider({ children }: { children: ReactNode }) {
               ...(res.structured ? { structured: res.structured } : {}),
               ...(res.web_citations ? { webCitations: res.web_citations } : {}),
             },
+          });
+        }
+
+        // Show a non-blocking warning when the provider hit the token limit.
+        if (res.truncated) {
+          dispatch({
+            type: 'SHOW_TOAST',
+            payload: '✂️ Response may have been cut off. Retry for a longer answer.',
           });
         }
 
@@ -2166,6 +2223,13 @@ export function StudyProvider({ children }: { children: ReactNode }) {
 
   // ── resetSession ──────────────────────────────────────────────────────────
   const handleResetSession = useCallback(() => {    // Cancel any in-flight requests
+    // Signal the backend to stop any in-flight /ask call before aborting the
+    // fetch connection — prevents wasted fallback/retry tokens on the server.
+    const _resetReqId = currentRequestIdRef.current;
+    if (_resetReqId) {
+      cancelAsk(_resetReqId);
+      currentRequestIdRef.current = null;
+    }
     abortRef.current?.abort();
     flashcardsAbortRef.current?.abort();
     quizAbortRef.current?.abort();

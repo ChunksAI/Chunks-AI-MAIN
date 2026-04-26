@@ -65,6 +65,16 @@ function getConfidence(sourceCount: number): ConfidenceLevel {
   return 'limited';
 }
 
+/** Map the model-provided research_confidence string to a ConfidenceLevel, or return null if unrecognised. */
+function parseModelConfidence(v: unknown): ConfidenceLevel | null {
+  if (typeof v !== 'string') return null;
+  const s = v.toLowerCase().trim();
+  if (s === 'high' || s === 'strong') return 'strong';
+  if (s === 'medium' || s === 'moderate') return 'moderate';
+  if (s === 'low' || s === 'limited') return 'limited';
+  return null;
+}
+
 const CONFIDENCE_LABELS: Record<ConfidenceLevel, string> = {
   strong:   '● Strong Evidence',
   moderate: '◑ Moderate Evidence',
@@ -149,6 +159,7 @@ function ResearchCard({ structured, webCitations, onCitationClick }: ResearchCar
   const summary               = str(structured.summary);
   const findings              = toList(structured.key_findings);
   const structuredSources     = toSources(structured.sources);
+  const openQuestions         = toList(structured.open_questions);
 
   // Merge web citations (from Perplexity Sonar) as additional sources, deduping by URL.
   const seenUrls = new Set(structuredSources.map((s) => s.url).filter(Boolean));
@@ -159,7 +170,8 @@ function ResearchCard({ structured, webCitations, onCitationClick }: ResearchCar
 
   const simplifiedExplanation = str(structured.simplified_explanation);
 
-  const confidence      = getConfidence(sources.length);
+  // Prefer model-provided research_confidence when available, fall back to source count.
+  const confidence      = parseModelConfidence(structured.research_confidence) ?? getConfidence(sources.length);
   const confidenceLabel = CONFIDENCE_LABELS[confidence];
   const confidenceClass = CONFIDENCE_CLASSES[confidence];
 
@@ -210,6 +222,19 @@ function ResearchCard({ structured, webCitations, onCitationClick }: ResearchCar
           <SectionHeader icon="💬" label="In Plain English" />
           <div className="rc-section-body">
             <div className="rc-simplified-block">{simplifiedExplanation}</div>
+          </div>
+        </div>
+      )}
+
+      {openQuestions.length > 0 && (
+        <div className="rc-section">
+          <SectionHeader icon="❓" label="Open Questions" />
+          <div className="rc-section-body">
+            <div className="rc-findings">
+              {openQuestions.map((q, i) => (
+                <FindingCard key={i} text={q} index={i} />
+              ))}
+            </div>
           </div>
         </div>
       )}

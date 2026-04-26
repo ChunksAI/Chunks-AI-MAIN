@@ -283,7 +283,7 @@ interface ViewerPanelProps {
 
 export default function ViewerPanel({ style }: ViewerPanelProps) {
   const { viewerState, viewerDispatch } = useViewerContext();
-  const { viewerType, videoId, currentTimestamp, researchUrl, isViewerOpen, fbdData } = viewerState;
+  const { viewerType, videoId, currentTimestamp, researchUrl, isViewerOpen, fbdData, pdfLoaded } = viewerState;
 
   // ── YouTube seek via IFrame postMessage ────────────────────────────────────
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -368,13 +368,25 @@ export default function ViewerPanel({ style }: ViewerPanelProps) {
         <span className="panel-title" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {panelTitle}
         </span>
+        <span style={{
+          fontSize: 10,
+          padding: '1px 7px',
+          borderRadius: 8,
+          background: 'var(--surface2, #f0f0f5)',
+          border: '1px solid var(--border)',
+          color: 'var(--text3)',
+          whiteSpace: 'nowrap',
+          flexShrink: 0,
+        }}>
+          {viewerType === 'youtube' ? 'Video reference' : viewerType === 'fbd' ? 'Visual aid' : 'Research reference'}
+        </span>
         <div className="panel-actions">
           <button
             className="panel-btn"
-            title="Close viewer"
+            title={pdfLoaded ? 'Return to document' : 'Close viewer'}
             onClick={() => viewerDispatch({ type: 'CLOSE_VIEWER' })}
           >
-            ✕ Close
+            {pdfLoaded ? '← Back to document' : '✕ Close'}
           </button>
         </div>
       </div>

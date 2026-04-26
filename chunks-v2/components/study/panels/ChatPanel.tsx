@@ -118,6 +118,16 @@ function TypingIndicator() {
   );
 }
 
+// Staged placeholder labels shown while Research mode is waiting for a response.
+// Timings (ms from placeholder appearing): 0 / 8 000 / 16 000 / 20 000 / 45 000.
+const RESEARCH_STAGES = [
+  '🔎 Searching sources…',
+  '📚 Reading evidence…',
+  '🧠 Synthesizing findings…',
+  'Still researching sources…',
+  'This is taking longer than usual.',
+] as const;
+
 function MessageBubble({
   msg,
   onActionClick,
@@ -135,18 +145,31 @@ function MessageBubble({
   /** When provided, clicking a source citation chip opens it in the viewer panel. */
   onCitationClick?: (url: string) => void;
 }) {
-  // After 20 s, update the placeholder text to warn that the response is slow.
-  // Timer is started only for non-streaming placeholder messages and cleared
-  // automatically when the component re-renders with isPlaceholder = false.
+  // For Research-mode placeholders, cycle through RESEARCH_STAGES to give the user
+  // a sense of progress. For other non-streaming modes, fall back to a simple 20 s
+  // slow-warning.  All timers are cleared once isPlaceholder becomes false.
   const [slowWarning, setSlowWarning] = useState(false);
+  const [researchStage, setResearchStage] = useState(0);
+  const isResearch = msg.mode === 'research';
   useEffect(() => {
     if (!msg.isPlaceholder) {
       setSlowWarning(false);
+      setResearchStage(0);
       return;
+    }
+    if (isResearch) {
+      // Stage timings: 8 s → evidence, 16 s → synthesizing, 20 s → still, 45 s → slow
+      const timers = [
+        setTimeout(() => setResearchStage(1), 8_000),
+        setTimeout(() => setResearchStage(2), 16_000),
+        setTimeout(() => setResearchStage(3), 20_000),
+        setTimeout(() => setResearchStage(4), 45_000),
+      ];
+      return () => timers.forEach(clearTimeout);
     }
     const timer = setTimeout(() => setSlowWarning(true), 20_000);
     return () => clearTimeout(timer);
-  }, [msg.isPlaceholder]);
+  }, [msg.isPlaceholder, isResearch]);
   if (msg.role === 'user') {
     return (
       <div className="msg user">
@@ -171,7 +194,9 @@ function MessageBubble({
           {msg.isPlaceholder ? (
             <>
               <span className="msg-placeholder">
-                {slowWarning ? 'Still working… this is taking longer than usual.' : msg.text}
+                {isResearch
+                  ? RESEARCH_STAGES[researchStage]
+                  : (slowWarning ? 'Still working… this is taking longer than usual.' : msg.text)}
               </span>
               {onCancel && (
                 <button
@@ -277,11 +302,31 @@ export default function ChatPanel() {
     handleSendImageMessage,
   } = useStudy();
   const { user } = useAuth();
-  const { viewerDispatch } = useViewerContext();
+  const { viewerState, viewerDispatch } = useViewerContext();
   const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, chatMode, pdfBlobUrl, slides, uploadLoading, uploadError } = state;
 
   // Banner is shown when no document is present and not in the middle of uploading
   const hasDocument = !!(pdfBlobUrl || slides.length > 0 || uploadLoading);
+
+  // ── Context chip — shows what the AI knows about ──────────────────────────
+  const fmtTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  const contextChip = (() => {
+    const { pdfLoaded, pdfPage, viewerType, isViewerOpen, currentTimestamp } = viewerState;
+    const hasPdf = pdfLoaded;
+    const hasYt  = isViewerOpen && viewerType === 'youtube';
+    const hasRes = isViewerOpen && viewerType === 'research';
+    if (!hasPdf && !hasYt && !hasRes) return null;
+    const parts: string[] = [];
+    if (hasPdf) parts.push(`PDF p.\u202f${pdfPage}`);
+    if (hasYt)  parts.push(`YouTube\u202f${fmtTime(currentTimestamp)}`);
+    if (hasRes) parts.push('Research paper');
+    return parts.join(' · ');
+  })();
 
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -668,12 +713,51 @@ export default function ChatPanel() {
       dispatch({ type: 'SET_ACTIVE_TAB', payload: 'workspace' });
       return;
     }
+
+    const { pdfLoaded, pdfPage, viewerType, isViewerOpen, currentTimestamp } = viewerState;
+    const hasPdf = pdfLoaded;
+    const hasYt  = isViewerOpen && viewerType === 'youtube';
+    const hasRes = isViewerOpen && viewerType === 'research';
+
+    // Build a short context suffix so prompts stay concise
+    const pdfRef  = hasPdf ? `PDF page ${pdfPage}` : '';
+    const ytRef   = hasYt  ? `the video segment at ${fmtTime(currentTimestamp)}` : '';
+    const resRef  = hasRes ? 'this research paper' : '';
+
     const map: Record<string, string> = {
-      '✦ Explain simply': 'Explain the current topic in simple terms.',
+      '✦ Explain simply': hasPdf && hasYt
+        ? `Explain the content on ${pdfRef} in simple terms, also referencing ${ytRef}.`
+        : hasPdf
+        ? `Explain the content on ${pdfRef} in simple terms.`
+        : hasYt
+        ? `Explain what's being discussed in ${ytRef} in simple terms.`
+        : hasRes
+        ? `Explain the main idea of ${resRef} in simple terms.`
+        : 'Explain the current topic in simple terms.',
+
       '📋 Study plan': `Create a structured study plan with a checklist for "${cleanTopic(resolveStudyTopic(topic, docTitle, messages))}". Format it as a numbered list of actionable tasks.`,
-      '🔑 Key concepts': 'What are the key concepts I need to remember?',
-      '↓ Summarize': 'Summarize the main points of this topic.',
+
+      '🔑 Key concepts': hasPdf && hasYt
+        ? `What are the key concepts on ${pdfRef}? Also reference ${ytRef} where relevant.`
+        : hasPdf
+        ? `What are the key concepts covered on ${pdfRef}?`
+        : hasYt
+        ? `What are the key concepts discussed in ${ytRef}?`
+        : hasRes
+        ? `What are the key concepts from ${resRef}?`
+        : 'What are the key concepts I need to remember?',
+
+      '↓ Summarize': hasPdf && hasYt
+        ? `Summarize the content on ${pdfRef} and relate it to ${ytRef}.`
+        : hasPdf
+        ? `Summarize the content on ${pdfRef}.`
+        : hasYt
+        ? `Summarize what's covered in ${ytRef}.`
+        : hasRes
+        ? `Summarize ${resRef} and connect it to my current study topic.`
+        : 'Summarize the main points of this topic.',
     };
+
     const text = map[label];
     if (text) void handleSendMessage(text);
   };
@@ -791,6 +875,12 @@ export default function ChatPanel() {
               <button className="image-preview-remove" onClick={handleRemoveImage} title="Remove image" aria-label="Remove image">
                 ✕
               </button>
+            </div>
+          )}
+          {contextChip && (
+            <div className="context-chip" aria-label={`AI context: ${contextChip}`}>
+              <span className="context-chip-dot" aria-hidden="true" />
+              {contextChip}
             </div>
           )}
           <div className="text-input-row">

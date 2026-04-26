@@ -48,6 +48,22 @@ export type ChatAction =
   | { type: 'HANDLE_CHAT_ERROR'; payload: { messageId: string; error: string; originalQuestion: string } }
   | { type: 'CLEAR_CHAT_ERROR' }
   | { type: 'REPLACE_AI_MESSAGE'; payload: { id: string; text: string; actions?: { label: string; actionKey: string }[] } }
+  /**
+   * Atomically replaces the placeholder AI message with the final answer *and*
+   * all structured metadata (structured card, webCitations, topic, etc.) in a
+   * single state update.  Used by non-streaming modes (chunk / master / research)
+   * to prevent a flash of raw JSON/markdown before the card renders.
+   */
+  | { type: 'UPDATE_AI_MESSAGE_FULL'; payload: {
+      id: string;
+      text: string;
+      actions?: { label: string; actionKey: string }[];
+      topic?: string;
+      structured?: Record<string, unknown> | null;
+      webCitations?: Array<{ url: string; title?: string }>;
+      memoryRecall?: string;
+      performanceBars?: PerformanceBar[];
+    } }
   | { type: 'SET_CHAT_MODE'; payload: ChatMode }
   /** Bulk-restore messages (e.g. from a session snapshot). */
   | { type: 'RESTORE_MESSAGES'; payload: ChatMessage[] }
@@ -176,6 +192,28 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               text: action.payload.text,
               isPlaceholder: false,
               ...(action.payload.actions !== undefined ? { actions: action.payload.actions } : {}),
+            }
+          : m,
+      );
+      return { ...state, messages };
+    }
+
+    case 'UPDATE_AI_MESSAGE_FULL': {
+      // Atomically replaces placeholder text + all structured metadata so that
+      // non-streaming modes (chunk/master/research) render the card in a single
+      // paint instead of flashing raw JSON first.
+      const messages = state.messages.map((m) =>
+        m.id === action.payload.id
+          ? {
+              ...m,
+              text: action.payload.text,
+              isPlaceholder: false,
+              ...(action.payload.actions !== undefined ? { actions: action.payload.actions } : {}),
+              ...(action.payload.topic !== undefined ? { topic: action.payload.topic } : {}),
+              ...(action.payload.structured !== undefined ? { structured: action.payload.structured } : {}),
+              ...(action.payload.webCitations !== undefined ? { webCitations: action.payload.webCitations } : {}),
+              ...(action.payload.memoryRecall !== undefined ? { memoryRecall: action.payload.memoryRecall } : {}),
+              ...(action.payload.performanceBars !== undefined ? { performanceBars: action.payload.performanceBars } : {}),
             }
           : m,
       );

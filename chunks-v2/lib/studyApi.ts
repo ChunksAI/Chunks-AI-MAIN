@@ -403,7 +403,7 @@ export async function sendMessageStream(
       bookId: params.bookId ?? '',
       ...(params.student_profile ? { student_profile: params.student_profile } : {}),
       ...(params.viewer_state != null ? { viewer_state: params.viewer_state } : {}),
-      stream: params.mode === 'snap',
+      stream: params.mode === 'snap' || params.mode === 'master',
     }),
     signal,
   });
@@ -433,6 +433,7 @@ export async function sendMessageStream(
     let fullText = '';
     let streamViewerAction: ViewerAction | undefined;
     let streamTopic: string | undefined;
+    let streamTruncated = false;
 
     // RAF-based chunk batching: accumulate tokens and flush at most once per
     // animation frame so React re-renders at display rate instead of once per token.
@@ -493,7 +494,7 @@ export async function sendMessageStream(
             const data = line.slice(6).trim();
             if (data === '[DONE]') break outer; // exit both loops
             try {
-              const parsed = JSON.parse(data) as SseChunk & { error?: string; meta?: { viewer_action?: ViewerAction; topic?: string; reset?: boolean }; stream_id?: string };
+              const parsed = JSON.parse(data) as SseChunk & { error?: string; meta?: { viewer_action?: ViewerAction; topic?: string; reset?: boolean; truncated?: boolean }; stream_id?: string };
               // Check for a server-sent error before treating the chunk as content
               if (parsed.error) {
                 throw new ApiError(parsed.error, 502);
@@ -503,7 +504,7 @@ export async function sendMessageStream(
                 onStreamId?.(parsed.stream_id);
                 continue;
               }
-              // Capture metadata event (e.g. viewer_action, topic, reset) — no text content
+              // Capture metadata event (e.g. viewer_action, topic, reset, truncated) — no text content
               if (parsed.meta) {
                 if (parsed.meta.reset === true) {
                   fullText = '';
@@ -517,6 +518,9 @@ export async function sendMessageStream(
                 if (parsed.meta.topic) {
                   streamTopic = parsed.meta.topic;
                   onMeta?.({ topic: streamTopic });
+                }
+                if (parsed.meta.truncated === true) {
+                  streamTruncated = true;
                 }
                 continue;
               }
@@ -558,6 +562,7 @@ export async function sendMessageStream(
       requestId: reqId,
       ...(streamTopic ? { topic: streamTopic } : {}),
       ...(streamViewerAction ? { viewer_action: streamViewerAction } : {}),
+      ...(streamTruncated ? { truncated: true } : {}),
     };
   }
 

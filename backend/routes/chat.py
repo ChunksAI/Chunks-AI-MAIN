@@ -15,6 +15,7 @@ import logging
 import os
 import random
 import re
+import time
 import uuid
 from dataclasses import dataclass
 
@@ -66,14 +67,44 @@ def _get_identity_for_user(user_id: str, variants: list[str]) -> str:
 # Cancellation is handled via Redis (key "cancel:{request_id}", TTL 60 s)
 # so that it works correctly across multiple gunicorn workers.
 
+
+class _AskCancelledError(Exception):
+    """Raised when a client-initiated cancellation is detected mid-request."""
+
+
+def _is_cancelled(request_id: str) -> bool:
+    """Return True if the client has registered a cancellation for *request_id*.
+
+    On a positive hit the Redis key is deleted immediately so the check is
+    idempotent — a second call for the same request_id will return False.
+    """
+    if not request_id:
+        return False
+    try:
+        _redis = _cache_svc._redis
+        if _redis:
+            _cancel_key = f'{_KEY_NS_PREFIX}cancel:{request_id}'
+            if _redis.exists(_cancel_key):
+                _redis.delete(_cancel_key)
+                logger.info('[/ask] cancellation detected req_id=%s', request_id)
+                return True
+    except Exception as _ce:
+        logger.debug('[/ask] _is_cancelled Redis error: %s', _ce)
+    return False
+
+
 # Per-mode response length/style instructions applied on every /ask request.
 # These control how long and how structured each mode's answer must be.
 
 NORMAL_MODE_PROMPT = (
     "Give a focused, complete answer to the student's question. "
     "Use as many paragraphs, headers, or bullets as the topic requires — never cut yourself off, never pad. "
-    "When [VIEWER CONTEXT], [VIDEO TRANSCRIPT], or [TEXTBOOK CONTEXT] is present, ground your answer in it explicitly: "
-    "quote a short fragment, cite the page (\U0001f4d6 Page N) or the timestamp ([MM:SS]) you are drawing from. "
+    "When [DOCUMENT CONTEXT], [VIDEO TRANSCRIPT], [RESEARCH REFERENCE], [VIEWER CONTEXT], or [TEXTBOOK CONTEXT] is present, "
+    "treat [DOCUMENT CONTEXT] as the student's PRIMARY study source and ground your answer in it first: "
+    "quote a short fragment and cite the page (\U0001f4d6 Page N). "
+    "[VIDEO TRANSCRIPT] and [RESEARCH REFERENCE] are SUPPORTING references only — use them to supplement, "
+    "not to replace, the document. If a supporting reference conflicts with [DOCUMENT CONTEXT], "
+    "acknowledge both and briefly explain the difference. "
     "If the loaded source does not actually answer the question, say so plainly in one sentence and then answer "
     "from general knowledge clearly labeled as such. "
     "End every conceptual answer with a single '> \U0001f4a1 Key takeaway:' blockquote."
@@ -107,10 +138,29 @@ _MODE_MAX_TOKENS = {
     None:        1500,  # normal / no thinking — full complete answer
 }
 
-# System-prompt overrides for structured-JSON modes (chunk / master / research).
+# Per-mode token budgets for structured (chunk/research) calls.
+# These supersede _MODE_MAX_TOKENS[None] for normal-mode structured calls
+# because the JSON schemas require substantially more output than a snap answer:
+#   chunk   : 5 required fields, ~400-500 tokens each            ≈ 2 200
+#   research: summary + findings array + sources array + simplified ≈ 4 000
+# Master mode now uses SSE streaming markdown — see _MASTER_STREAM_MAX_TOKENS.
+# Thinking-mode budgets (_MODE_MAX_TOKENS['deep'/'thinking']) are not
+# overridden here — thinking modes are intentionally capped lower because
+# their <think> block also consumes tokens from the same budget.
+_STRUCTURED_MODE_MAX_TOKENS: dict[str, int] = {
+    'chunk':    2200,
+    'research': 4000,
+}
+
+# Token budget for master-mode streaming markdown responses.
+# Higher than snap (1500) to allow thorough professor-level explanations
+# across 8+ markdown sections.  Kept ≤ 6 000 to respect upstream model caps.
+_MASTER_STREAM_MAX_TOKENS = 5000
+
+# System-prompt overrides for structured-JSON modes (chunk / research).
 # These replace the free-form "answer helpfully" instruction with a strict JSON
 # schema so the frontend can render rich, structured UI cards.
-# IMPORTANT: snap mode must NOT appear here — it uses SSE streaming.
+# IMPORTANT: snap and master must NOT appear here — they use SSE streaming.
 MODE_SYSTEM_PROMPTS: dict[str, str] = {
     'chunk': """You are a structured teaching assistant.
 Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
@@ -119,25 +169,12 @@ Required keys (all must be present):
   "overview": "one paragraph — what this topic is",
   "key_concepts": ["concept 1", "concept 2", ...],
   "step_by_step": ["step 1", "step 2", ...],
-  "example": "a concrete real-world example"
+  "example": "a concrete real-world example",
+  "check_question": "one short question to test the student's understanding of this topic"
 }
 Rules: Simple, clear, teaching-focused. No assumed prior knowledge.
-step_by_step must contain exactly 4–7 steps. Each step is one complete sentence describing a single action or sub-concept. Do not use sub-bullets or nested lists inside steps.""",
-
-    'master': """You are an advanced reasoning assistant.
-Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
-Required keys (all must be present):
-{
-  "core_explanation": "deep explanation of the concept",
-  "mechanism": "how/why it works at a fundamental level",
-  "analysis": "implications, edge cases, nuances",
-  "connections": "how this connects to related concepts",
-  "key_insight": "the single most important takeaway"
-}
-Rules: Analytical. Explain WHY and HOW. No fluff.
-Each field (core_explanation, mechanism, analysis, connections) must be 80–200 words.
-'connections' must reference at least 2 specific related concepts by name.
-'key_insight' must be a single sentence of under 30 words.""",
+step_by_step must contain exactly 4–7 steps. Each step is one complete sentence describing a single action or sub-concept. Do not use sub-bullets or nested lists inside steps.
+check_question must be a single question (not multiple questions, not a list). It should test one key concept from the topic.""",
 
     'research': """You are an evidence-based research assistant.
 Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
@@ -154,18 +191,60 @@ Required keys (all must be present):
       "note": "one-line description of what this source supports"
     }
   ],
-  "simplified_explanation": "plain-language explanation for a student"
+  "simplified_explanation": "plain-language explanation for a student",
+  "research_confidence": "high | medium | low — your confidence in the evidence quality",
+  "open_questions": ["unanswered question 1", "unanswered question 2"]
 }
 Rules:
 - Every source MUST include a real URL. If you cannot supply a URL, omit that source entirely.
 - Prefer primary literature, peer-reviewed journals, official institutional pages, .gov, .edu, .org.
-- Never fabricate URLs. If you have no verified sources, return an empty sources array and note in summary that web search is recommended.""",
+- ONLY use URLs that were provided to you in the [VERIFIED WEB SOURCES] block. Do NOT invent or guess any URL.
+- If no verified sources were provided, return sources: [] and explain in summary that web citations were unavailable.
+- research_confidence and open_questions are optional but strongly encouraged — omit only if genuinely irrelevant.""",
 }
+
+# System prompt for master mode — SSE streaming markdown, not structured JSON.
+# Instructs a professor-level explanation across eight standard sections.
+MASTER_MARKDOWN_PROMPT = """You are an expert professor and deep tutor. Write a thorough, professor-level explanation in clean Markdown.
+
+Structure your response with exactly these ## section headers (in order):
+
+## Core Idea
+A clear, precise statement of the central concept in 2-4 sentences.
+
+## Why It Works
+The fundamental principles, theory, or logic that explain this at a deep level.
+
+## Mechanism
+How it operates mechanistically — include equations (LaTeX), processes, or reactions where relevant.
+
+## Step-by-Step Reasoning
+Walk through the logic or derivation step by step, numbered.
+
+## Common Mistakes
+Three or more frequent misconceptions or errors students make, with brief corrections.
+
+## Related Concepts
+Two or more related ideas, laws, or topics with a sentence explaining each connection.
+
+## Example
+A concrete, fully worked example that illustrates the concept from start to finish.
+
+## Key Takeaway
+> 💡 Key takeaway: One sentence capturing the single most important insight.
+
+## Check Your Understanding
+One thoughtful exam-style question the student should now be able to answer.
+
+Rules:
+- Use $$ ... $$ for display equations and $ ... $ for inline math. Use \\ce{} for chemical formulas.
+- If [DOCUMENT CONTEXT], [VIDEO TRANSCRIPT], [RESEARCH REFERENCE], [TEXTBOOK CONTEXT], or [VIEWER CONTEXT] is present, treat [DOCUMENT CONTEXT] as the PRIMARY study source: quote a short fragment and cite the page (📖 Page N). Use [VIDEO TRANSCRIPT] and [RESEARCH REFERENCE] as supporting references only. If a supporting reference conflicts with [DOCUMENT CONTEXT], acknowledge both and briefly explain the difference.
+- Be thorough — never cut yourself off. This is a deep explanation.
+- Do NOT output JSON."""
 
 # Required JSON keys for each structured mode — used to warn on partial responses.
 _STRUCTURED_REQUIRED_KEYS: dict[str, set[str]] = {
-    'chunk':    {'overview', 'key_concepts', 'step_by_step', 'example'},
-    'master':   {'core_explanation', 'mechanism', 'analysis', 'connections', 'key_insight'},
+    'chunk':    {'overview', 'key_concepts', 'step_by_step', 'example', 'check_question'},
     'research': {'summary', 'key_findings', 'sources', 'simplified_explanation'},
 }
 
@@ -548,12 +627,22 @@ async def _call_structured_ai(
 ) -> tuple:
     """Primary AI call + fallback + JSON parse + retry for structured modes.
 
-    Returns ``(answer, thinking_content, structured, timeout_fallback_note)``
-    where ``structured`` is ``None`` when JSON parsing failed after retry.
+    Returns ``(answer, thinking_content, structured, timeout_fallback_note, truncated)``
+    where ``structured`` is ``None`` when JSON parsing failed after retry, and
+    ``truncated`` is ``True`` when the provider stopped due to max_tokens.
     """
-    from services.ai import call_ai_async, extract_thinking_content
+    from services.ai import call_ai_async, extract_thinking_content, get_last_finish_reason
 
     _timeout_fallback_note: str | None = None
+    _parse_failed = False
+    _retry_used = False
+    _truncated = False
+
+    logger.debug(
+        '[/ask] structured_ai start mode=%s model=%s max_tokens=%d',
+        actx.mode, actx.selected_model, max_tok,
+    )
+
     try:
         answer = await call_ai_async(
             prompt,
@@ -566,8 +655,18 @@ async def _call_structured_ai(
             max_tokens_override=max_tok,
             response_format=response_format,
         )
+        if get_last_finish_reason() == 'length':
+            _truncated = True
+            logger.warning(
+                '[/ask] structured_ai truncated by max_tokens mode=%s model=%s max_tokens=%d',
+                actx.mode, actx.selected_model, max_tok,
+            )
     except Exception as _primary_err:
         if actx.mode_fallback:
+            # Check whether the client cancelled while the primary call was running.
+            # If so, abort now rather than wasting tokens on a fallback call.
+            if _is_cancelled(actx.request_id):
+                raise _AskCancelledError()
             _is_timeout = 'timed out' in str(_primary_err).lower()
             if _is_timeout:
                 logger.warning(
@@ -594,6 +693,12 @@ async def _call_structured_ai(
                 max_tokens_override=max_tok,
                 response_format=response_format,
             )
+            if get_last_finish_reason() == 'length':
+                _truncated = True
+                logger.warning(
+                    '[/ask] structured_ai fallback truncated by max_tokens mode=%s model=%s max_tokens=%d',
+                    actx.mode, actx.mode_fallback, max_tok,
+                )
         else:
             raise
 
@@ -609,10 +714,15 @@ async def _call_structured_ai(
         if missing:
             logger.warning('[/ask] mode=%s missing structured keys: %s', actx.mode, missing)
     except (json.JSONDecodeError, TypeError):
+        _parse_failed = True
+        _retry_used = True
         logger.warning(
-            '[/ask] mode=%s model=%s failed to parse JSON response — retrying with stricter prompt',
-            actx.mode, actx.selected_model,
+            '[/ask] mode=%s model=%s max_tokens=%d failed to parse JSON — retrying with stricter prompt',
+            actx.mode, actx.selected_model, max_tok,
         )
+        # Don't waste tokens on a retry if the client already cancelled.
+        if _is_cancelled(actx.request_id):
+            raise _AskCancelledError()
         _retry_model = actx.mode_fallback or actx.selected_model
         try:
             _retry_answer = await call_ai_async(
@@ -626,13 +736,20 @@ async def _call_structured_ai(
                 max_tokens_override=max_tok,
                 response_format=response_format,
             )
+            if get_last_finish_reason() == 'length':
+                _truncated = True
+                logger.warning(
+                    '[/ask] structured_ai retry truncated by max_tokens mode=%s model=%s max_tokens=%d',
+                    actx.mode, _retry_model, max_tok,
+                )
             _retry_answer, _ = extract_thinking_content(_retry_answer)
             _retry_raw = _strip_code_fences(_retry_answer) if _retry_answer else ''
             structured = json.loads(_retry_raw)
+            _parse_failed = False  # retry succeeded
         except (json.JSONDecodeError, TypeError):
             logger.warning(
-                '[/ask] mode=%s model=%s (retry) still failed to parse JSON — returning 500',
-                actx.mode, _retry_model,
+                '[/ask] mode=%s model=%s max_tokens=%d (retry) still failed to parse JSON',
+                actx.mode, _retry_model, max_tok,
             )
             structured = None
         except Exception as _retry_err:
@@ -642,7 +759,11 @@ async def _call_structured_ai(
             )
             structured = None
 
-    return answer, thinking_content, structured, _timeout_fallback_note
+    logger.info(
+        '[/ask] structured_ai done mode=%s model=%s max_tokens=%d parse_failed=%s retry_used=%s truncated=%s',
+        actx.mode, actx.selected_model, max_tok, _parse_failed, _retry_used, _truncated,
+    )
+    return answer, thinking_content, structured, _timeout_fallback_note, _truncated
 
 
 # ── Topic extraction helper ───────────────────────────────────────────────────
@@ -864,6 +985,14 @@ async def _handle_snap(actx: AskContext, request: Request):
                             )
                             if _va:
                                 yield f'data: {json.dumps({"meta": {"viewer_action": _va}}, ensure_ascii=False)}\n\n'
+                            # Emit truncated flag if the provider stopped due to max_tokens.
+                            from services.ai import get_last_finish_reason as _get_fr
+                            if _get_fr() == 'length':
+                                logger.warning(
+                                    '[/ask] SSE snap truncated by max_tokens req_id=%s model=%s',
+                                    _stream_req_id, _model,
+                                )
+                                yield f'data: {json.dumps({"meta": {"truncated": True}}, ensure_ascii=False)}\n\n'
                             yield 'data: [DONE]\n\n'
                             # Persist the completed stream to Redis for
                             # best-effort client recovery (5-minute TTL).
@@ -958,8 +1087,10 @@ async def _handle_snap(actx: AskContext, request: Request):
         )
 
     # ── Non-streaming snap path ───────────────────────────────────────────────
+    from services.ai import get_last_finish_reason
     _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
     _timeout_fallback_note: str | None = None
+    _snap_truncated = False
     try:
         try:
             answer = await call_ai_async(
@@ -972,6 +1103,12 @@ async def _handle_snap(actx: AskContext, request: Request):
                 timeout=actx.ai_timeout,
                 max_tokens_override=_max_tok,
             )
+            if get_last_finish_reason() == 'length':
+                _snap_truncated = True
+                logger.warning(
+                    '[/ask] snap truncated by max_tokens model=%s max_tokens=%d',
+                    actx.selected_model, _max_tok,
+                )
         except Exception as _primary_err:
             if actx.mode_fallback:
                 _is_timeout = 'timed out' in str(_primary_err).lower()
@@ -995,6 +1132,12 @@ async def _handle_snap(actx: AskContext, request: Request):
                     timeout=actx.ai_timeout,
                     max_tokens_override=_max_tok,
                 )
+                if get_last_finish_reason() == 'length':
+                    _snap_truncated = True
+                    logger.warning(
+                        '[/ask] snap fallback truncated by max_tokens model=%s max_tokens=%d',
+                        actx.mode_fallback, _max_tok,
+                    )
             else:
                 raise
     except RuntimeError as _ai_err:
@@ -1024,6 +1167,7 @@ async def _handle_snap(actx: AskContext, request: Request):
         'search_mode':    'hybrid' if actx.searcher.has_embeddings else 'tfidf',
         'thinking_content': thinking_content,
         'fallback_note':  _timeout_fallback_note,
+        **({'truncated': True} if _snap_truncated else {}),
         **({'viewer_action': _viewer_action} if _viewer_action else {}),
     }
     _write_cache(actx, _resp)
@@ -1036,10 +1180,16 @@ async def _handle_chunk(actx: AskContext) -> dict | JSONResponse:
     _mode_instruction = MODE_SYSTEM_PROMPTS['chunk']
     _call_system = (actx.base_system + '\n\n' + _mode_instruction) if actx.base_system else _mode_instruction
     _response_format: dict = {"type": "json_object"}
-    _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+    # Use the structured-mode budget for normal calls; keep thinking-mode budgets
+    # for 'deep'/'thinking' since those also need headroom for the reasoning chain.
+    _max_tok = (
+        _STRUCTURED_MODE_MAX_TOKENS.get(actx.mode, _MODE_MAX_TOKENS[None])
+        if actx.thinking_mode is None
+        else _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+    )
 
     try:
-        answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
+        answer, thinking_content, structured, _timeout_fallback_note, _truncated = await _call_structured_ai(
             prompt, _call_system, actx, _response_format, _max_tok,
         )
     except RuntimeError as _ai_err:
@@ -1048,14 +1198,39 @@ async def _handle_chunk(actx: AskContext) -> dict | JSONResponse:
         return JSONResponse({'success': False, 'error': _msg, 'request_id': actx.request_id}, status_code=_status)
 
     if structured is None:
-        return JSONResponse(
-            {
-                'success': False,
-                'error': 'AI returned malformed JSON after retry. Please try again.',
-                'error_type': 'MalformedJSON',
-            },
-            status_code=500,
+        # JSON parse failed after retry.  If we have any answer text, return it
+        # as plain-text rather than a hard 500 so the user still gets a response.
+        logger.warning(
+            '[/ask] chunk model=%s JSON parse failed — degrading to plain-text fallback',
+            actx.selected_model,
         )
+        if not answer:
+            return JSONResponse(
+                {'success': False, 'error': 'AI returned no content. Please try again.',
+                 'error_type': 'EmptyResponse'},
+                status_code=500,
+            )
+        _resp_topic = _extract_topic('chunk', None, answer)
+        _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
+        return {
+            'success':          True,
+            'mode':             actx.mode,
+            'answer':           answer,
+            'structured':       None,
+            'topic':            _resp_topic,
+            'model_used':       actx.selected_model,
+            'context':          actx.context,
+            'similarity':       float(actx.similarity),
+            'is_relevant':      actx.is_relevant,
+            'source':           actx.source,
+            'sources':          actx.all_sources,
+            'complexity_used':  actx.complexity,
+            'search_mode':      'hybrid' if actx.searcher.has_embeddings else 'tfidf',
+            'thinking_content': thinking_content,
+            'fallback_note':    'Structured card unavailable — showing plain-text answer.',
+            **({'truncated': True} if _truncated else {}),
+            **({'viewer_action': _viewer_action} if _viewer_action else {}),
+        }
 
     _resp_topic = _extract_topic('chunk', structured, answer)
     _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
@@ -1075,57 +1250,267 @@ async def _handle_chunk(actx: AskContext) -> dict | JSONResponse:
         'search_mode':    'hybrid' if actx.searcher.has_embeddings else 'tfidf',
         'thinking_content': thinking_content,
         'fallback_note':  _timeout_fallback_note,
+        **({'truncated': True} if _truncated else {}),
         **({'viewer_action': _viewer_action} if _viewer_action else {}),
     }
     _write_cache(actx, _resp)
     return _resp
 
 
-async def _handle_master(actx: AskContext) -> dict | JSONResponse:
-    """Handle master mode: deep structured JSON analysis card."""
-    prompt = _build_study_prompt(actx)
-    _mode_instruction = MODE_SYSTEM_PROMPTS['master']
-    _call_system = (actx.base_system + '\n\n' + _mode_instruction) if actx.base_system else _mode_instruction
-    _response_format: dict = {"type": "json_object"}
-    _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+async def _handle_master(actx: AskContext, request: Request):
+    """Handle master mode: streaming Markdown deep-tutor explanation.
 
-    try:
-        answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
-            prompt, _call_system, actx, _response_format, _max_tok,
+    Master uses the same SSE streaming path as snap but with a higher token
+    budget and a richer professor-style system prompt (MASTER_MARKDOWN_PROMPT).
+    No JSON schema is enforced — the response is plain Markdown.
+    """
+    from services.ai import call_ai_stream_async, call_ai_async, extract_thinking_content
+
+    prompt = _build_study_prompt(actx)
+    _master_system = (
+        (actx.base_system + '\n\n' + MASTER_MARKDOWN_PROMPT)
+        if actx.base_system
+        else MASTER_MARKDOWN_PROMPT
+    )
+    _max_tok = (
+        _MASTER_STREAM_MAX_TOKENS
+        if actx.thinking_mode is None
+        else _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+    )
+
+    # ── Non-thinking streaming path ───────────────────────────────────────────
+    if actx.stream_requested and actx.thinking_mode is None:
+        _stream_model    = actx.selected_model
+        _stream_fallback = actx.mode_fallback
+        _stream_req_id   = actx.request_id
+        _stream_timeout  = actx.ai_timeout
+        _decision        = actx.decision
+        viewer_state     = actx.viewer_state
+
+        async def _master_sse_generator():
+            stream_id = uuid.uuid4().hex
+            loop = asyncio.get_running_loop()
+
+            _HEARTBEAT_SECS = 15.0
+            _FLUSH_SECS     = 0.05
+            _FLUSH_COUNT    = 3
+            _MAX_STREAM_SECS = 180.0   # master answers are longer than snap
+
+            _cancel_key = f'{_KEY_NS_PREFIX}cancel:{_stream_req_id}'
+            _tok_buf:   list[str] = []
+            _full_text: list[str] = []
+            _last_flush = loop.time()
+
+            yield f'data: {json.dumps({"stream_id": stream_id}, ensure_ascii=False)}\n\n'
+
+            _models = list(dict.fromkeys(m for m in [_stream_model, _stream_fallback] if m))
+            _stream_start = loop.time()
+
+            for _attempt, _model in enumerate(_models):
+                _full_text = []
+                _tok_buf = []
+                if _attempt > 0:
+                    yield f'data: {json.dumps({"meta": {"reset": True}}, ensure_ascii=False)}\n\n'
+                try:
+                    _aiter = call_ai_stream_async(
+                        prompt,
+                        system_prompt=_master_system,
+                        model=_model,
+                        history=actx.history,
+                        max_tokens_override=_max_tok,
+                        endpoint='chat',
+                        user_id=actx.verified_user_id,
+                        timeout=_stream_timeout,
+                    )
+                    while True:
+                        try:
+                            _tok = await asyncio.wait_for(
+                                _aiter.__anext__(),
+                                timeout=_HEARTBEAT_SECS,
+                            )
+                        except StopAsyncIteration:
+                            if _tok_buf:
+                                yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                            _full_answer = ''.join(_full_text)
+                            _sse_topic: str | None = None
+                            for _line in _full_answer.split('\n'):
+                                _ls = _line.strip()
+                                if _ls.startswith('##'):
+                                    _sse_topic = _ls.lstrip('#').strip()[:120]
+                                    break
+                            if _sse_topic:
+                                yield f'data: {json.dumps({"meta": {"topic": _sse_topic}}, ensure_ascii=False)}\n\n'
+                            _va = _build_viewer_action(_decision, _full_answer, viewer_state)
+                            if _va:
+                                yield f'data: {json.dumps({"meta": {"viewer_action": _va}}, ensure_ascii=False)}\n\n'
+                            # Emit truncated flag if the provider stopped due to max_tokens.
+                            from services.ai import get_last_finish_reason as _get_fr
+                            if _get_fr() == 'length':
+                                logger.warning(
+                                    '[/ask] master SSE truncated by max_tokens req_id=%s model=%s',
+                                    _stream_req_id, _model,
+                                )
+                                yield f'data: {json.dumps({"meta": {"truncated": True}}, ensure_ascii=False)}\n\n'
+                            yield 'data: [DONE]\n\n'
+                            try:
+                                _redis = _cache_svc._redis
+                                if _redis:
+                                    _buf_json = json.dumps(_full_text)
+                                    if len(_buf_json) <= 1024 * 1024:
+                                        _redis.setex(
+                                            f'{_KEY_NS_PREFIX}stream:{stream_id}',
+                                            300,
+                                            _buf_json,
+                                        )
+                            except Exception as _buf_err:
+                                logger.debug('[/ask] master stream buffer write error: %s', _buf_err)
+                            return
+                        except asyncio.TimeoutError:
+                            if _tok_buf:
+                                yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                _tok_buf = []
+                                _last_flush = loop.time()
+                            yield ': heartbeat\n\n'
+                            if loop.time() - _stream_start >= _MAX_STREAM_SECS:
+                                logger.warning(
+                                    '[/ask] master SSE stream exceeded %ss — closing req_id=%s model=%s',
+                                    _MAX_STREAM_SECS, _stream_req_id, _model,
+                                )
+                                await _aiter.aclose()
+                                yield f'data: {json.dumps({"error": "Generation timed out. Please retry."}, ensure_ascii=False)}\n\n'
+                                yield 'data: [DONE]\n\n'
+                                return
+                            continue
+
+                        try:
+                            _redis = _cache_svc._redis
+                            if _redis and _redis.exists(_cancel_key):
+                                _redis.delete(_cancel_key)
+                                logger.info('[/ask] master SSE cancelled req_id=%s', _stream_req_id)
+                                await _aiter.aclose()
+                                if _tok_buf:
+                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                yield 'data: [DONE]\n\n'
+                                return
+                        except Exception as _redis_err:
+                            logger.debug('[/ask] master Redis cancel check error: %s', _redis_err)
+
+                        _tok_buf.append(_tok)
+                        _full_text.append(_tok)
+                        _now = loop.time()
+                        if len(_tok_buf) >= _FLUSH_COUNT or (_now - _last_flush) >= _FLUSH_SECS:
+                            yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                            _tok_buf = []
+                            _last_flush = _now
+
+                except asyncio.CancelledError:
+                    logger.info('[/ask] master SSE client disconnected req_id=%s', _stream_req_id)
+                    raise
+                except Exception as _err:
+                    if _attempt < len(_models) - 1:
+                        logger.warning(
+                            '[/ask] master stream primary failed (%s), retrying with fallback %s',
+                            _err, _stream_fallback,
+                        )
+                        continue
+                    logger.error('[/ask] master SSE stream error: %s', _err)
+                    if _tok_buf:
+                        yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                    yield f'data: {json.dumps({"error": "Streaming failed. Please retry.", "text": ""}, ensure_ascii=False)}\n\n'
+                    yield 'data: [DONE]\n\n'
+                    return
+
+        return StreamingResponse(
+            _master_sse_generator(),
+            media_type='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',
+            },
         )
+
+    # ── Non-streaming fallback (thinking modes or stream not requested) ────────
+    from services.ai import get_last_finish_reason as _get_master_fr
+    _timeout_fallback_note: str | None = None
+    _master_truncated = False
+    try:
+        try:
+            answer = await call_ai_async(
+                prompt,
+                system_prompt=_master_system,
+                model=actx.selected_model,
+                history=actx.history,
+                endpoint='chat',
+                user_id=actx.verified_user_id,
+                timeout=actx.ai_timeout,
+                max_tokens_override=_max_tok,
+            )
+            if _get_master_fr() == 'length':
+                _master_truncated = True
+                logger.warning(
+                    '[/ask] master non-streaming truncated by max_tokens model=%s max_tokens=%d',
+                    actx.selected_model, _max_tok,
+                )
+        except Exception as _primary_err:
+            if actx.mode_fallback:
+                _is_timeout = 'timed out' in str(_primary_err).lower()
+                if _is_timeout:
+                    logger.warning(
+                        '[/ask] mode=master primary model %s timed out — switching to fallback %s',
+                        actx.selected_model, actx.mode_fallback,
+                    )
+                    _timeout_fallback_note = 'Master mode is taking longer than usual. Switching to fast mode...'
+                else:
+                    logger.warning(
+                        '[/ask] mode=master primary model %s failed (%s), retrying with fallback %s',
+                        actx.selected_model, _primary_err, actx.mode_fallback,
+                    )
+                answer = await call_ai_async(
+                    prompt,
+                    system_prompt=_master_system,
+                    model=actx.mode_fallback,
+                    history=actx.history,
+                    endpoint='chat',
+                    user_id=actx.verified_user_id,
+                    timeout=actx.ai_timeout,
+                    max_tokens_override=_max_tok,
+                )
+                if _get_master_fr() == 'length':
+                    _master_truncated = True
+                    logger.warning(
+                        '[/ask] master non-streaming fallback truncated by max_tokens model=%s max_tokens=%d',
+                        actx.mode_fallback, _max_tok,
+                    )
+            else:
+                raise
     except RuntimeError as _ai_err:
         _status, _msg = _map_ai_error(_ai_err)
         logger.warning('[/ask] master AI call failed: %s', _ai_err)
-        return JSONResponse({'success': False, 'error': _msg, 'request_id': actx.request_id}, status_code=_status)
-
-    if structured is None:
         return JSONResponse(
-            {
-                'success': False,
-                'error': 'AI returned malformed JSON after retry. Please try again.',
-                'error_type': 'MalformedJSON',
-            },
-            status_code=500,
+            {'success': False, 'error': _msg, 'request_id': getattr(request.state, 'request_id', '-')},
+            status_code=_status,
         )
 
-    _resp_topic = _extract_topic('master', structured, answer)
+    answer, thinking_content = extract_thinking_content(answer)
+    _resp_topic = _extract_topic('master', None, answer)
     _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
     _resp = {
-        'success':        True,
-        'mode':           actx.mode,
-        'answer':         answer,
-        'structured':     structured,
-        'topic':          _resp_topic,
-        'model_used':     actx.selected_model,
-        'context':        actx.context,
-        'similarity':     float(actx.similarity),
-        'is_relevant':    actx.is_relevant,
-        'source':         actx.source,
-        'sources':        actx.all_sources,
-        'complexity_used': actx.complexity,
-        'search_mode':    'hybrid' if actx.searcher.has_embeddings else 'tfidf',
+        'success':          True,
+        'mode':             actx.mode,
+        'answer':           answer,
+        'structured':       None,
+        'topic':            _resp_topic,
+        'model_used':       actx.selected_model,
+        'context':          actx.context,
+        'similarity':       float(actx.similarity),
+        'is_relevant':      actx.is_relevant,
+        'source':           actx.source,
+        'sources':          actx.all_sources,
+        'complexity_used':  actx.complexity,
+        'search_mode':      'hybrid' if actx.searcher.has_embeddings else 'tfidf',
         'thinking_content': thinking_content,
-        'fallback_note':  _timeout_fallback_note,
+        'fallback_note':    _timeout_fallback_note,
+        **({'truncated': True} if _master_truncated else {}),
         **({'viewer_action': _viewer_action} if _viewer_action else {}),
     }
     _write_cache(actx, _resp)
@@ -1140,6 +1525,8 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
 
     # ── Web citation pre-fetch ────────────────────────────────────────────────
     _research_web_citations: list = []
+    _search_fallback_used = False
+    logger.info('[research] web search attempted | question=%s', actx.question[:80])
     try:
         _, _research_web_citations = await call_ai_web_search_async(
             actx.question,
@@ -1150,8 +1537,13 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
             history=actx.history,
             user_id=actx.verified_user_id,
         )
+        logger.info(
+            '[research] web search complete | citations=%d',
+            len(_research_web_citations),
+        )
     except Exception as _rw_err:
-        logger.debug('[ask] research web citation fetch failed: %s', _rw_err)
+        _search_fallback_used = True
+        logger.warning('[research] web search failed — proceeding without citations | err=%s', _rw_err)
     if _research_web_citations:
         _cit_lines = '\n'.join(
             f'- {c.get("title", c.get("url", ""))} — {c.get("url", "")}'
@@ -1165,31 +1557,84 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
             f'[VERIFIED WEB SOURCES — include these real URLs in your sources array '
             f'when they are relevant to the question]\n{_cit_lines}'
         )
+    else:
+        prompt = (
+            f'{prompt}\n\n'
+            '[VERIFIED WEB SOURCES — none available. Return sources: [] and note '
+            'in summary that web citations were unavailable.]'
+        )
 
     _mode_instruction = MODE_SYSTEM_PROMPTS['research']
     _call_system = (actx.base_system + '\n\n' + _mode_instruction) if actx.base_system else _mode_instruction
     _response_format: dict = {"type": "json_object"}
-    _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+    _max_tok = (
+        _STRUCTURED_MODE_MAX_TOKENS.get(actx.mode, _MODE_MAX_TOKENS[None])
+        if actx.thinking_mode is None
+        else _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+    )
+
+    # Check cancellation after the web-search round-trip — no point synthesising
+    # a research card the client no longer wants.
+    if _is_cancelled(actx.request_id):
+        raise _AskCancelledError()
+
+    logger.info(
+        '[research] synthesis starting | model=%s | max_tokens=%d | citations_injected=%d | search_fallback=%s',
+        actx.selected_model, _max_tok, len(_research_web_citations), _search_fallback_used,
+    )
 
     try:
-        answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
+        answer, thinking_content, structured, _timeout_fallback_note, _truncated = await _call_structured_ai(
             prompt, _call_system, actx, _response_format, _max_tok,
         )
+    except _AskCancelledError:
+        raise
     except RuntimeError as _ai_err:
         _status, _msg = _map_ai_error(_ai_err)
-        logger.warning('[/ask] research AI call failed: %s', _ai_err)
+        logger.warning('[research] synthesis AI call failed: %s', _ai_err)
         return JSONResponse({'success': False, 'error': _msg, 'request_id': actx.request_id}, status_code=_status)
 
     if structured is None:
-        return JSONResponse(
-            {
-                'success': False,
-                'error': 'AI returned malformed JSON after retry. Please try again.',
-                'error_type': 'MalformedJSON',
-            },
-            status_code=500,
+        logger.warning(
+            '[research] JSON parse failed — degrading to plain-text fallback | model=%s',
+            actx.selected_model,
         )
+        if not answer:
+            return JSONResponse(
+                {'success': False, 'error': 'AI returned no content. Please try again.',
+                 'error_type': 'EmptyResponse'},
+                status_code=500,
+            )
+        _resp_topic = _extract_topic('research', None, answer)
+        _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
+        return {
+            'success':          True,
+            'mode':             actx.mode,
+            'answer':           answer,
+            'structured':       None,
+            'topic':            _resp_topic,
+            'model_used':       actx.selected_model,
+            'context':          actx.context,
+            'similarity':       float(actx.similarity),
+            'is_relevant':      actx.is_relevant,
+            'source':           actx.source,
+            'sources':          actx.all_sources,
+            'complexity_used':  actx.complexity,
+            'search_mode':      'hybrid' if actx.searcher.has_embeddings else 'tfidf',
+            'thinking_content': thinking_content,
+            'fallback_note':    'Structured card unavailable — showing plain-text answer.',
+            'web_citations':    _research_web_citations,
+            **({'truncated': True} if _truncated else {}),
+            **({'viewer_action': _viewer_action} if _viewer_action else {}),
+        }
 
+    logger.info(
+        '[research] synthesis complete | model=%s | sources_in_card=%d | has_confidence=%s | has_open_questions=%s',
+        actx.selected_model,
+        len(structured.get('sources') or []) if isinstance(structured, dict) else 0,
+        bool(isinstance(structured, dict) and structured.get('research_confidence')),
+        bool(isinstance(structured, dict) and structured.get('open_questions')),
+    )
     _resp_topic = _extract_topic('research', structured, answer)
     _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
     _resp = {
@@ -1209,6 +1654,7 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
         'thinking_content': thinking_content,
         'fallback_note':  _timeout_fallback_note,
         'web_citations':  _research_web_citations,
+        **({'truncated': True} if _truncated else {}),
         **({'viewer_action': _viewer_action} if _viewer_action else {}),
     }
     _write_cache(actx, _resp)
@@ -1604,49 +2050,94 @@ async def ask(request: Request, body: AskRequest):
         ]
         IDENTITY = _get_identity_for_user(verified_user_id, _identity_variants)
 
-        # Build viewer context block for system prompt injection
+        # Build viewer context block for system prompt injection.
+        # When the user has a PDF document loaded alongside a reference viewer
+        # (YouTube/Research), the payload carries both pdf_page/pdf_visible_text
+        # AND the reference fields.  Emit them as two labelled sections so the
+        # AI clearly distinguishes the primary document from the reference.
         _viewer_context_str = ''
         if viewer_state and viewer_state.get('type') not in ('none', None):
             _vs = viewer_state
-            _visible = _sanitize_untrusted(
-                _vs.get('visible_segment')
-                or _vs.get('pdf_visible_text')
-                or _vs.get('visible_transcript_segment')
-                or ''
-            )
-            # YouTube fallback — pull the cached transcript from Redis when no
-            # visible_segment was sent (e.g. the user just loaded the video and
-            # the IFrame API has not emitted its first infoDelivery event yet).
-            if not _visible and _vs.get('type') == 'youtube' and _vs.get('video_id'):
-                try:
-                    _yt_raw = ctx.redis.get(
-                        f'{_KEY_NS_PREFIX}yt_transcript:{_vs["video_id"]}'
-                    ) if ctx.redis else None
-                    if _yt_raw:
-                        try:
-                            _slides = json.loads(_yt_raw)
-                        except (TypeError, ValueError):
-                            _slides = None
-                        if isinstance(_slides, list):
-                            # Concatenate all slide texts; cap at ~8 000 chars
-                            # (≈2 000 tokens) to avoid bloating the prompt on
-                            # long videos while still covering the full topic.
-                            _all_text = _sanitize_untrusted(' '.join(
-                                ' '.join(s.get('content', [])) for s in _slides
-                            ))
-                            _ts = _vs.get('current_timestamp_seconds')
-                            if _ts is not None:
-                                _viewer_context_str = (
-                                    f'[VIDEO TRANSCRIPT — viewer at {int(_ts)}s]\n{_all_text}'
-                                )
-                            else:
-                                _viewer_context_str = f'[VIDEO TRANSCRIPT]\n{_all_text}'
-                except Exception as _yt_err:
-                    logger.debug('[ask] yt transcript fallback failed: %s', _yt_err)
-                    _viewer_context_str = _viewer_context_str or ''
+            _vs_type = _vs.get('type', '')
 
-            if _visible and not _viewer_context_str:
-                _viewer_context_str = f'[VIEWER CONTEXT]\n{_visible}'
+            # ── Document (PDF) context ──────────────────────────────────────
+            _pdf_page = _vs.get('pdf_page')
+            _pdf_text = _sanitize_untrusted(_vs.get('pdf_visible_text') or '')
+            _has_pdf = _pdf_page is not None or bool(_pdf_text)
+            _doc_block = ''
+            if _has_pdf:
+                _doc_block = '[DOCUMENT CONTEXT]'
+                if _pdf_page is not None:
+                    _doc_block += f'\nPage: {_pdf_page}'
+                if _pdf_text:
+                    _doc_block += f'\n{_pdf_text}'
+
+            # ── Reference viewer context (YouTube / Research) ───────────────
+            _ref_block = ''
+            if _vs_type == 'youtube':
+                _visible_seg = _sanitize_untrusted(
+                    _vs.get('visible_segment')
+                    or _vs.get('visible_transcript_segment')
+                    or ''
+                )
+                # YouTube fallback — pull the cached transcript from Redis when no
+                # visible_segment was sent (e.g. the user just loaded the video and
+                # the IFrame API has not emitted its first infoDelivery event yet).
+                if not _visible_seg and _vs.get('video_id'):
+                    try:
+                        _yt_raw = ctx.redis.get(
+                            f'{_KEY_NS_PREFIX}yt_transcript:{_vs["video_id"]}'
+                        ) if ctx.redis else None
+                        if _yt_raw:
+                            try:
+                                _slides = json.loads(_yt_raw)
+                            except (TypeError, ValueError):
+                                _slides = None
+                            if isinstance(_slides, list):
+                                # Concatenate all slide texts; cap at ~8 000 chars
+                                # (≈2 000 tokens) to avoid bloating the prompt on
+                                # long videos while still covering the full topic.
+                                _visible_seg = _sanitize_untrusted(' '.join(
+                                    ' '.join(s.get('content', [])) for s in _slides
+                                ))
+                    except Exception as _yt_err:
+                        logger.debug('[ask] yt transcript fallback failed: %s', _yt_err)
+                _ts = _vs.get('current_timestamp_seconds')
+                if _visible_seg:
+                    _ts_label = f' — viewer at {int(_ts)}s' if _ts is not None else ''
+                    _ref_block = f'[VIDEO TRANSCRIPT{_ts_label}]\n{_visible_seg}'
+                elif _vs.get('video_id'):
+                    _ref_block = f'[VIDEO REFERENCE]\nvideo_id: {_vs["video_id"]}'
+                    if _ts is not None:
+                        _ref_block += f' at {int(_ts)}s'
+
+            elif _vs_type == 'research':
+                _res_url = _sanitize_untrusted(
+                    _vs.get('research_url') or _vs.get('url') or ''
+                )
+                if _res_url:
+                    _ref_block = f'[RESEARCH REFERENCE]\n{_res_url}'
+
+            elif _vs_type == 'pdf':
+                # PDF-only — document block already covers this
+                pass
+
+            # ── Assemble ────────────────────────────────────────────────────
+            if _doc_block and _ref_block:
+                _viewer_context_str = _doc_block + '\n\n' + _ref_block
+            elif _doc_block:
+                _viewer_context_str = _doc_block
+            elif _ref_block:
+                _viewer_context_str = _ref_block
+            else:
+                # Legacy fallback for older payloads that only carry visible_segment
+                _visible = _sanitize_untrusted(
+                    _vs.get('visible_segment')
+                    or _vs.get('visible_transcript_segment')
+                    or ''
+                )
+                if _visible:
+                    _viewer_context_str = f'[VIEWER CONTEXT]\n{_visible}'
 
             if _viewer_context_str:
                 _viewer_context_str = (
@@ -2200,17 +2691,63 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 request_id=getattr(request.state, 'request_id', ''),
             )
             _req_id = getattr(request.state, 'request_id', request.headers.get('X-Request-Id', '-'))
+            # Observability helpers — hashed user identity (never raw email/token)
+            _uid_hash = hashlib.sha256(
+                (verified_user_id or '').encode(), usedforsecurity=False,
+            ).hexdigest()[:16]
+            _viewer_type = (viewer_state or {}).get('type', 'none') or 'none'
+            _has_pdf = bool(
+                doc_context
+                or (viewer_state and viewer_state.get('pdf_page') is not None)
+                or (viewer_state and (viewer_state.get('type') == 'pdf'))
+            )
+            _has_profile = bool(student_profile)
+            _t0_ask = time.monotonic()
             try:
+                from services.ai import get_last_finish_reason as _get_ask_fr
                 if mode == 'chunk':
-                    return await _handle_chunk(actx)
+                    _ask_result = await _handle_chunk(actx)
                 elif mode == 'master':
-                    return await _handle_master(actx)
+                    _ask_result = await _handle_master(actx, request)
                 elif mode == 'research':
-                    return await _handle_research(actx)
+                    _ask_result = await _handle_research(actx)
                 else:
-                    return await _handle_snap(actx, request)
+                    _ask_result = await _handle_snap(actx, request)
+                # For streaming responses the AI call runs in a background generator
+                # after we return, so finish_reason and latency_ms reflect dispatch
+                # time only (correct — do not fake values).
+                logger.info(
+                    '[ask:done] req_id=%s uid=%s mode=%s model=%s fallback=%s '
+                    'latency_ms=%d finish_reason=%s cache_hit=False viewer_type=%s '
+                    'has_pdf=%s has_profile=%s success=True',
+                    _req_id, _uid_hash, mode, selected_model, _mode_fallback or 'none',
+                    round((time.monotonic() - _t0_ask) * 1000),
+                    _get_ask_fr() or 'none',
+                    _viewer_type, _has_pdf, _has_profile,
+                )
+                return _ask_result
+            except _AskCancelledError:
+                logger.info('[/ask] %s handler cancelled by client req_id=%s', mode, _req_id)
+                logger.info(
+                    '[ask:done] req_id=%s uid=%s mode=%s model=%s fallback=%s '
+                    'latency_ms=%d finish_reason=none cache_hit=False viewer_type=%s '
+                    'has_pdf=%s has_profile=%s success=False error=cancelled',
+                    _req_id, _uid_hash, mode, selected_model, _mode_fallback or 'none',
+                    round((time.monotonic() - _t0_ask) * 1000),
+                    _viewer_type, _has_pdf, _has_profile,
+                )
+                return JSONResponse({'success': False, 'cancelled': True, 'request_id': _req_id})
             except Exception as _handler_err:
                 logger.warning('[/ask] %s handler failed: %s', mode, _handler_err, exc_info=True)
+                logger.info(
+                    '[ask:done] req_id=%s uid=%s mode=%s model=%s fallback=%s '
+                    'latency_ms=%d finish_reason=none cache_hit=False viewer_type=%s '
+                    'has_pdf=%s has_profile=%s success=False error=%s',
+                    _req_id, _uid_hash, mode, selected_model, _mode_fallback or 'none',
+                    round((time.monotonic() - _t0_ask) * 1000),
+                    _viewer_type, _has_pdf, _has_profile,
+                    type(_handler_err).__name__,
+                )
                 return JSONResponse({
                     'success': False,
                     'error': 'An unexpected error occurred. Please try again.',
