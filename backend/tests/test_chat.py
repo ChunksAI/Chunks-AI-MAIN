@@ -1,4 +1,6 @@
 """Tests for the chat blueprint (/ask)."""
+import json
+import logging
 import pytest
 from unittest.mock import MagicMock, AsyncMock
 
@@ -1925,3 +1927,396 @@ class TestStructuredModeTokenBudgets:
         body = resp.json()
         assert body['success'] is False
         assert body['error_type'] == 'EmptyResponse'
+
+
+# ── Four-mode regression suite ────────────────────────────────────────────────
+
+class TestFourModes:
+    """Regression tests protecting the four Chunks modes: snap, chunk, master, research.
+
+    Each test class method exercises one of the eight scenarios specified in the
+    observability/test engineering task so that future changes to mode handlers
+    cannot silently break production.
+    """
+
+    def _base_mocks(self, monkeypatch):
+        """Minimal mocks to reach any /ask handler without real network calls."""
+        import services.ai as ai_svc
+        import services.books as books_svc
+        import services.device_abuse as device_mod
+        import services.plan_limits as plan_mod
+
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+        monkeypatch.setattr(ai_svc, 'call_ai_web_search_async', AsyncMock(return_value=('', [])))
+        monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+        monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+
+        mock_searcher = MagicMock()
+        mock_searcher.chunks = []
+        mock_searcher.has_embeddings = False
+        monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+        return ai_svc
+
+    # ── 1. Snap mode — stream=True returns SSE ────────────────────────────────
+
+    def test_snap_stream_true_returns_event_stream(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """snap + stream=True returns text/event-stream (SSE) response."""
+        ai_svc = self._base_mocks(monkeypatch)
+
+        async def _fake_stream(*args, **kwargs):
+            for tok in ['Hello', ' world']:
+                yield tok
+
+        monkeypatch.setattr(ai_svc, 'call_ai_stream_async', _fake_stream)
+
+        resp = client.post('/ask', json={
+            'question': 'What is entropy?',
+            'mode': 'snap',
+            'stream': True,
+            'complexity': 3,
+        })
+        assert resp.status_code == 200
+        assert 'text/event-stream' in resp.headers.get('content-type', '')
+
+    def test_snap_non_streaming_returns_answer_field(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """snap without stream=True returns a JSON response with an answer field."""
+        ai_svc = self._base_mocks(monkeypatch)
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(return_value='Entropy measures disorder.'))
+
+        resp = client.post('/ask', json={
+            'question': 'What is entropy?',
+            'mode': 'snap',
+            'complexity': 3,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data['success'] is True
+        assert data['mode'] == 'snap'
+        assert 'answer' in data
+        assert data['answer'] == 'Entropy measures disorder.'
+
+    # ── 2. Chunk mode — all five required structured keys present ─────────────
+
+    def test_chunk_returns_all_required_structured_keys(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """chunk mode response structured field contains all five required keys."""
+        ai_svc = self._base_mocks(monkeypatch)
+
+        chunk_json = json.dumps({
+            'overview': 'Entropy measures the degree of disorder in a system.',
+            'key_concepts': ['disorder', 'thermodynamics', 'second law'],
+            'step_by_step': [
+                'Define the system boundaries.',
+                'Identify the initial and final states.',
+                'Calculate delta S using the formula.',
+                'Interpret the sign of delta S.',
+            ],
+            'example': 'Ice melting into liquid water increases entropy.',
+            'check_question': 'What does a positive delta S indicate about a process?',
+        })
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(return_value=chunk_json))
+
+        resp = client.post('/ask', json={
+            'question': 'Explain entropy',
+            'mode': 'chunk',
+            'complexity': 4,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data['success'] is True
+        assert data['mode'] == 'chunk'
+        structured = data['structured']
+        assert structured is not None, "structured field must not be None for valid chunk JSON"
+        for key in ('overview', 'key_concepts', 'step_by_step', 'example', 'check_question'):
+            assert key in structured, f"Missing required chunk key: {key!r}"
+
+    # ── 3. Master mode — stream=True returns SSE Markdown ────────────────────
+
+    def test_master_stream_true_returns_event_stream(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """master + stream=True returns text/event-stream (SSE) Markdown."""
+        ai_svc = self._base_mocks(monkeypatch)
+
+        async def _fake_stream(*args, **kwargs):
+            for tok in ['## Core Idea\n', 'Entropy measures disorder.']:
+                yield tok
+
+        monkeypatch.setattr(ai_svc, 'call_ai_stream_async', _fake_stream)
+
+        resp = client.post('/ask', json={
+            'question': 'Explain entropy in depth',
+            'mode': 'master',
+            'stream': True,
+            'complexity': 8,
+        })
+        assert resp.status_code == 200
+        assert 'text/event-stream' in resp.headers.get('content-type', '')
+
+    def test_master_non_streaming_returns_markdown_not_json(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """master mode without stream returns plain Markdown in answer; structured is None.
+
+        Master mode is SSE streaming Markdown — no JSON schema is enforced.
+        When stream is not requested (e.g. thinking mode or stream=False), the
+        handler falls back to a non-streaming call_ai_async and returns the raw
+        Markdown text.  The structured field must be None (not a parsed dict).
+        """
+        ai_svc = self._base_mocks(monkeypatch)
+
+        md_answer = (
+            '## Core Idea\n'
+            'Entropy is a measure of the number of possible microscopic configurations.\n\n'
+            '## Why It Works\n'
+            'The second law of thermodynamics requires entropy to increase in isolated systems.'
+        )
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(return_value=md_answer))
+
+        resp = client.post('/ask', json={
+            'question': 'Explain entropy',
+            'mode': 'master',
+            'complexity': 6,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data['success'] is True
+        assert data['mode'] == 'master'
+        # Master is Markdown — no JSON schema enforced
+        assert data['structured'] is None
+        assert '## Core Idea' in data['answer']
+
+    # ── 4. Research mode — all required structured keys present ───────────────
+
+    def test_research_returns_all_required_structured_keys(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """research mode response structured field contains all four required keys."""
+        ai_svc = self._base_mocks(monkeypatch)
+
+        research_json = json.dumps({
+            'summary': 'Quantum computing exploits superposition and entanglement.',
+            'key_findings': [
+                'Qubits can represent 0 and 1 simultaneously.',
+                'Grover\'s algorithm offers quadratic speedup for search problems.',
+            ],
+            'sources': [],
+            'simplified_explanation': (
+                'Think of it as many computers running in parallel in the same machine.'
+            ),
+            'research_confidence': 'high',
+            'open_questions': ['Can room-temperature qubits be stabilised?'],
+        })
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(return_value=research_json))
+
+        resp = client.post('/ask', json={
+            'question': 'Research quantum computing',
+            'mode': 'research',
+            'complexity': 5,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data['success'] is True
+        assert data['mode'] == 'research'
+        structured = data['structured']
+        assert structured is not None, "structured field must not be None for valid research JSON"
+        for key in ('summary', 'key_findings', 'sources', 'simplified_explanation'):
+            assert key in structured, f"Missing required research key: {key!r}"
+
+    # ── 5. viewer_state — pdf_page/pdf_visible_text with youtube/research ─────
+
+    def test_viewer_state_youtube_with_pdf_fields_accepted(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """youtube viewer_state that also carries pdf_page and pdf_visible_text is accepted.
+
+        This represents the merged-context scenario: the student has a PDF open
+        alongside a YouTube video.
+        """
+        ai_svc = self._base_mocks(monkeypatch)
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(return_value='Answer.'))
+
+        resp = client.post('/ask', json={
+            'question': 'Explain this concept',
+            'mode': 'snap',
+            'complexity': 4,
+            'viewer_state': {
+                'type': 'youtube',
+                'video_id': 'dQw4w9WgXcQ',
+                'current_timestamp_seconds': 42.0,
+                'visible_segment': 'At this point in the video the lecturer explains entropy.',
+                'pdf_page': 3,
+                'pdf_visible_text': 'Entropy is defined on page 3 as a measure of disorder.',
+            },
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data['success'] is True
+
+    def test_viewer_state_research_with_pdf_fields_accepted(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """research viewer_state that also carries pdf_page and pdf_visible_text is accepted."""
+        ai_svc = self._base_mocks(monkeypatch)
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(return_value='Answer.'))
+
+        resp = client.post('/ask', json={
+            'question': 'Explain the paper',
+            'mode': 'snap',
+            'complexity': 4,
+            'viewer_state': {
+                'type': 'research',
+                'research_url': 'https://arxiv.org/abs/1234.5678',
+                'pdf_page': 2,
+                'pdf_visible_text': 'Abstract: This paper presents novel evidence for...',
+            },
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data['success'] is True
+
+    # ── 6. Invalid mode — rejected cleanly by schema ──────────────────────────
+
+    def test_invalid_mode_is_rejected_by_schema(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """A completely unknown mode value is rejected at schema validation (400/422).
+
+        The AskRequest schema uses a Literal type for mode, so unknown values
+        must never reach any handler.
+        """
+        resp = client.post('/ask', json={
+            'question': 'Test question',
+            'mode': 'nonexistent_mode_xyz',
+            'complexity': 3,
+        })
+        assert resp.status_code in (400, 422)
+        data = resp.json()
+        assert data['success'] is False
+
+    # ── 7. Missing structured keys — warning logged, 200 returned ─────────────
+
+    def test_chunk_missing_required_key_logs_warning_and_returns_success(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user, caplog,
+    ):
+        """chunk JSON missing check_question logs a WARNING but still returns 200 success.
+
+        The handler validates required keys after parse and emits a WARNING for
+        any that are absent, but does not fail the request — the partial card is
+        still rendered on the frontend.
+        """
+        ai_svc = self._base_mocks(monkeypatch)
+
+        partial_json = json.dumps({
+            'overview': 'Overview text about entropy.',
+            'key_concepts': ['disorder', 'thermodynamics'],
+            'step_by_step': ['Step 1', 'Step 2', 'Step 3', 'Step 4'],
+            'example': 'Ice melting into water.',
+            # 'check_question' is deliberately omitted — triggers missing-key warning
+        })
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(return_value=partial_json))
+
+        with caplog.at_level(logging.WARNING, logger='routes.chat'):
+            resp = client.post('/ask', json={
+                'question': 'Explain entropy',
+                'mode': 'chunk',
+                'complexity': 3,
+            })
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data['success'] is True
+        assert data['structured'] is not None
+        # A WARNING about the missing key must have been logged
+        warning_messages = [r.message for r in caplog.records if r.levelno == logging.WARNING]
+        assert any('missing structured keys' in m for m in warning_messages), (
+            f"Expected 'missing structured keys' warning. Got: {warning_messages}"
+        )
+
+    # ── 8. JSON parse failure retry path works ────────────────────────────────
+
+    def test_chunk_json_parse_failure_retry_path_succeeds(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """chunk mode retries with a strict JSON system prompt after parse failure.
+
+        When the primary call returns malformed JSON, _call_structured_ai issues
+        a second call using _STRICT_JSON_SYSTEM_PROMPT.  If the retry returns
+        valid JSON the request must succeed and structured must be populated.
+        """
+        ai_svc = self._base_mocks(monkeypatch)
+
+        good_json = json.dumps({
+            'overview': 'Entropy is a measure of disorder.',
+            'key_concepts': ['disorder', 'second law'],
+            'step_by_step': ['Step 1', 'Step 2', 'Step 3', 'Step 4'],
+            'example': 'Ice melting into liquid water.',
+            'check_question': 'What does a positive delta S indicate?',
+        })
+
+        call_count = 0
+
+        async def _flaky_ai(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                # Primary call: intentionally broken JSON
+                return 'This is not JSON at all — bad primary response.'
+            # Retry call: valid JSON
+            return good_json
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', _flaky_ai)
+
+        resp = client.post('/ask', json={
+            'question': 'What is entropy?',
+            'mode': 'chunk',
+            'complexity': 3,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data['success'] is True
+        assert data['structured'] is not None, "structured must be populated after successful retry"
+        assert data['structured']['overview'] == 'Entropy is a measure of disorder.'
+        # Exactly two calls: primary (bad JSON) + retry (good JSON)
+        assert call_count == 2, f"Expected 2 AI calls (primary + retry), got {call_count}"
+
+    def test_research_json_parse_failure_retry_path_succeeds(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """research mode retries with a strict JSON prompt after parse failure; retry succeeds."""
+        ai_svc = self._base_mocks(monkeypatch)
+
+        good_json = json.dumps({
+            'summary': 'Quantum computing uses qubits.',
+            'key_findings': ['Superposition enables parallel computation.'],
+            'sources': [],
+            'simplified_explanation': 'Like many computers at once.',
+        })
+
+        call_count = 0
+
+        async def _flaky_ai(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return 'Malformed primary response — not JSON.'
+            return good_json
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', _flaky_ai)
+
+        resp = client.post('/ask', json={
+            'question': 'Research quantum computing',
+            'mode': 'research',
+            'complexity': 5,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data['success'] is True
+        assert data['structured'] is not None
+        assert data['structured']['summary'] == 'Quantum computing uses qubits.'
+        assert call_count == 2
