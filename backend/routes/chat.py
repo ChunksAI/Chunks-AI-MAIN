@@ -2702,6 +2702,11 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 or (viewer_state and (viewer_state.get('type') == 'pdf'))
             )
             _has_profile = bool(student_profile)
+            logger.info(
+                '[ask:start] req_id=%s mode=%s stream=%s model=%s fallback=%s has_viewer_state=%s',
+                _req_id, mode, stream_requested, selected_model, _mode_fallback or 'none',
+                bool(viewer_state),
+            )
             _t0_ask = time.monotonic()
             try:
                 from services.ai import get_last_finish_reason as _get_ask_fr
@@ -2759,9 +2764,12 @@ Keep the summary focused, clear, and easy to review before an exam."""
     except Exception as e:
         import traceback
         req_id = getattr(request.state, 'request_id', request.headers.get('X-Request-Id', '-'))
+        # Truncate the exception message to avoid accidentally logging user content
+        # that may appear in error strings from deeply nested callers.
+        _safe_msg = str(e)[:200]
         logger.error(
             "[/ask] UNHANDLED EXCEPTION req_id=%s type=%s msg=%s\ntraceback=%s",
-            req_id, type(e).__name__, str(e), traceback.format_exc()
+            req_id, type(e).__name__, _safe_msg, traceback.format_exc()
         )
         return JSONResponse({
             'success': False,

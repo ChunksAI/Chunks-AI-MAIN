@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * PdfViewer — pdf.js-powered PDF renderer.
+ * PdfViewer — pdf.js-powered PDF renderer with a custom toolbar.
  *
  * Replaces the native <iframe> approach so the app can track:
  *  - the real current page number
@@ -12,6 +12,12 @@
  * determines the most-visible page and fires onPageChange whenever
  * the user scrolls.
  *
+ * The custom toolbar (sticky at the top) provides:
+ *  - current page / total pages
+ *  - zoom out / zoom in / fit-width (reset zoom)
+ *  - download
+ *  - open in new tab
+ *
  * Worker configuration: webpack 5 (Next.js 13+) processes the
  * `new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url)`
  * pattern statically — it copies the worker bundle to
@@ -19,25 +25,33 @@
  * so no CDN or manual file-copying is required.
  */
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PDFDocumentLoadingTask } from 'pdfjs-dist';
 
 const RENDER_SCALE = 1.5;
 const MAX_VISIBLE_TEXT = 500;
 const OBSERVER_THRESHOLDS = [0, 0.25, 0.5, 0.75, 1.0];
+const ZOOM_STEP = 0.25;
+const ZOOM_MIN  = 0.5;
+const ZOOM_MAX  = 3.0;
 
 interface PdfViewerProps {
   blobUrl: string;
   onPageChange: (page: number, visibleText: string) => void;
+  /** Optional filename used when downloading. Defaults to 'document.pdf'. */
+  fileName?: string;
 }
 
 type Status = 'loading' | 'ready' | 'error';
 
-export default function PdfViewer({ blobUrl, onPageChange }: PdfViewerProps) {
+export default function PdfViewer({ blobUrl, onPageChange, fileName }: PdfViewerProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const pagesContainerRef = useRef<HTMLDivElement>(null);
-  const [status, setStatus] = useState<Status>('loading');
-  const [errorMsg, setErrorMsg] = useState('');
+  const pagesContainerRef  = useRef<HTMLDivElement>(null);
+  const [status,      setStatus]      = useState<Status>('loading');
+  const [errorMsg,    setErrorMsg]    = useState('');
+  const [totalPages,  setTotalPages]  = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [zoomLevel,   setZoomLevel]   = useState(1.0);
 
   // Keep onPageChange in a ref so the IntersectionObserver callback
   // always calls the latest version without re-creating the observer.
@@ -61,6 +75,8 @@ export default function PdfViewer({ blobUrl, onPageChange }: PdfViewerProps) {
     container.innerHTML = '';
     setStatus('loading');
     setErrorMsg('');
+    setTotalPages(0);
+    setCurrentPage(1);
 
     async function renderPdf() {
       // Dynamic import keeps pdf.js out of the server bundle entirely.
@@ -76,6 +92,8 @@ export default function PdfViewer({ blobUrl, onPageChange }: PdfViewerProps) {
       loadingTask = pdfjsLib.getDocument(blobUrl);
       const pdf = await loadingTask.promise;
       if (cancelled) return;
+
+      setTotalPages(pdf.numPages);
 
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         if (cancelled) break;
@@ -174,6 +192,7 @@ export default function PdfViewer({ blobUrl, onPageChange }: PdfViewerProps) {
           if (r > bestRatio) { bestRatio = r; bestPage = p; }
         });
 
+        setCurrentPage(bestPage);
         const el = pagesContainer.querySelector<HTMLElement>(
           `[data-page="${bestPage}"]`,
         );
@@ -189,27 +208,111 @@ export default function PdfViewer({ blobUrl, onPageChange }: PdfViewerProps) {
     return () => observer.disconnect();
   }, [status]);
 
+  // ── Toolbar actions ────────────────────────────────────────────────────────
+  const handleZoomOut = useCallback(() => {
+    setZoomLevel(z => Math.max(ZOOM_MIN, parseFloat((z - ZOOM_STEP).toFixed(2))));
+  }, []);
+
+  const handleZoomIn = useCallback(() => {
+    setZoomLevel(z => Math.min(ZOOM_MAX, parseFloat((z + ZOOM_STEP).toFixed(2))));
+  }, []);
+
+  const handleFitWidth = useCallback(() => { setZoomLevel(1.0); }, []);
+
+  const handleDownload = useCallback(() => {
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = fileName ? (fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`) : 'document.pdf';
+    a.click();
+  }, [blobUrl, fileName]);
+
+  const handleOpenNewTab = useCallback(() => {
+    window.open(blobUrl, '_blank', 'noopener,noreferrer');
+  }, [blobUrl]);
+
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="pdf-viewer" ref={scrollContainerRef}>
-      {status === 'loading' && (
-        <div className="pdf-loading-overlay">
-          <div style={{ fontSize: 28 }}>⏳</div>
-          <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 8 }}>
-            Rendering pages…
+    <div className="pdf-viewer-outer">
+      {/* ── Sticky toolbar ── */}
+      <div className="pdf-toolbar">
+        <span className="pdf-toolbar-pages">
+          {status === 'ready' ? `${currentPage} / ${totalPages}` : '— / —'}
+        </span>
+
+        <div className="pdf-toolbar-sep" />
+
+        <button
+          className="pdf-toolbar-btn"
+          onClick={handleZoomOut}
+          disabled={zoomLevel <= ZOOM_MIN}
+          title="Zoom out"
+          aria-label="Zoom out"
+        >
+          −
+        </button>
+        <span className="pdf-toolbar-zoom">{Math.round(zoomLevel * 100)}%</span>
+        <button
+          className="pdf-toolbar-btn"
+          onClick={handleZoomIn}
+          disabled={zoomLevel >= ZOOM_MAX}
+          title="Zoom in"
+          aria-label="Zoom in"
+        >
+          +
+        </button>
+        <button
+          className="pdf-toolbar-btn"
+          onClick={handleFitWidth}
+          title="Fit width (reset zoom)"
+          aria-label="Fit width"
+        >
+          ⊡
+        </button>
+
+        <div className="pdf-toolbar-sep" />
+
+        <button
+          className="pdf-toolbar-btn"
+          onClick={handleDownload}
+          title="Download PDF"
+          aria-label="Download PDF"
+        >
+          ↓
+        </button>
+        <button
+          className="pdf-toolbar-btn"
+          onClick={handleOpenNewTab}
+          title="Open in new tab"
+          aria-label="Open in new tab"
+        >
+          ↗
+        </button>
+      </div>
+
+      {/* ── Scrollable page area ── */}
+      <div className="pdf-viewer" ref={scrollContainerRef}>
+        {status === 'loading' && (
+          <div className="pdf-loading-overlay">
+            <div style={{ fontSize: 28 }}>⏳</div>
+            <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 8 }}>
+              Rendering pages…
+            </div>
           </div>
-        </div>
-      )}
-      {status === 'error' && (
-        <div style={{ padding: '20px', color: 'var(--danger, #e53)', fontSize: 13 }}>
-          ⚠️ {errorMsg}
-        </div>
-      )}
-      {/* Pages are injected here imperatively by the render effect. */}
-      <div
-        ref={pagesContainerRef}
-        style={{ display: status === 'ready' ? 'block' : 'none' }}
-      />
+        )}
+        {status === 'error' && (
+          <div style={{ padding: '20px', color: 'var(--danger, #e53)', fontSize: 13 }}>
+            ⚠️ {errorMsg}
+          </div>
+        )}
+        {/* Pages are injected here imperatively by the render effect. */}
+        <div
+          ref={pagesContainerRef}
+          style={{
+            display: status === 'ready' ? 'block' : 'none',
+            width: `${Math.round(zoomLevel * 100)}%`,
+          }}
+        />
+      </div>
     </div>
   );
 }

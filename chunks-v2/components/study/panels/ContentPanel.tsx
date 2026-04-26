@@ -199,7 +199,7 @@ export default function ContentPanel({ style, onExplain, onQuiz, onSummarize }: 
           <div style={{ fontWeight: 500 }}>Uploading &amp; parsing document…</div>
         </div>
       ) : pdfBlobUrl ? (
-        <PdfViewer blobUrl={pdfBlobUrl} onPageChange={handlePdfPageChange} />
+        <PdfViewer blobUrl={pdfBlobUrl} onPageChange={handlePdfPageChange} fileName={docTitle || undefined} />
       ) : (
         /* Fallback: no blob URL (e.g. after a page refresh — slides restored from sessionStorage) */
         <div className="pdf-viewer" ref={slidesContainerRef}>
