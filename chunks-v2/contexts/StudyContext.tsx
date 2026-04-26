@@ -1359,7 +1359,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       // 'snap' and 'master' are intentionally omitted — they stream (isStreamingMode === true).
       const placeholderText: Record<string, string> = {
         chunk:    '📖 Analyzing in depth…',
-        research: '🔬 Researching…',
+        research: '🔎 Searching sources…',
       };
       const aiMsgId = nextMsgId();
       const aiMsg: ChatMessage = {

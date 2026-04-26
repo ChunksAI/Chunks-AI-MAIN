@@ -118,6 +118,16 @@ function TypingIndicator() {
   );
 }
 
+// Staged placeholder labels shown while Research mode is waiting for a response.
+// Timings (ms from placeholder appearing): 0 / 8 000 / 16 000 / 20 000 / 45 000.
+const RESEARCH_STAGES = [
+  '🔎 Searching sources…',
+  '📚 Reading evidence…',
+  '🧠 Synthesizing findings…',
+  'Still researching sources…',
+  'This is taking longer than usual.',
+] as const;
+
 function MessageBubble({
   msg,
   onActionClick,
@@ -135,18 +145,31 @@ function MessageBubble({
   /** When provided, clicking a source citation chip opens it in the viewer panel. */
   onCitationClick?: (url: string) => void;
 }) {
-  // After 20 s, update the placeholder text to warn that the response is slow.
-  // Timer is started only for non-streaming placeholder messages and cleared
-  // automatically when the component re-renders with isPlaceholder = false.
+  // For Research-mode placeholders, cycle through RESEARCH_STAGES to give the user
+  // a sense of progress. For other non-streaming modes, fall back to a simple 20 s
+  // slow-warning.  All timers are cleared once isPlaceholder becomes false.
   const [slowWarning, setSlowWarning] = useState(false);
+  const [researchStage, setResearchStage] = useState(0);
+  const isResearch = msg.mode === 'research';
   useEffect(() => {
     if (!msg.isPlaceholder) {
       setSlowWarning(false);
+      setResearchStage(0);
       return;
+    }
+    if (isResearch) {
+      // Stage timings: 8 s → evidence, 16 s → synthesizing, 20 s → still, 45 s → slow
+      const timers = [
+        setTimeout(() => setResearchStage(1), 8_000),
+        setTimeout(() => setResearchStage(2), 16_000),
+        setTimeout(() => setResearchStage(3), 20_000),
+        setTimeout(() => setResearchStage(4), 45_000),
+      ];
+      return () => timers.forEach(clearTimeout);
     }
     const timer = setTimeout(() => setSlowWarning(true), 20_000);
     return () => clearTimeout(timer);
-  }, [msg.isPlaceholder]);
+  }, [msg.isPlaceholder, isResearch]);
   if (msg.role === 'user') {
     return (
       <div className="msg user">
@@ -171,7 +194,9 @@ function MessageBubble({
           {msg.isPlaceholder ? (
             <>
               <span className="msg-placeholder">
-                {slowWarning ? 'Still working… this is taking longer than usual.' : msg.text}
+                {isResearch
+                  ? RESEARCH_STAGES[researchStage]
+                  : (slowWarning ? 'Still working… this is taking longer than usual.' : msg.text)}
               </span>
               {onCancel && (
                 <button
