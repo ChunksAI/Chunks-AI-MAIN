@@ -32,8 +32,15 @@ const _BACKEND_BASE = (
 ).replace(/\/$/, '');
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  // Forward the raw body and the Authorization header (if present) to FastAPI.
-  // The backend handles rate limiting, JWT verification, and OpenRouter proxying.
+  // Read the body up front so the stream is not forwarded in a half-consumed
+  // state (which can cause fetch errors in some Node.js / Edge runtimes).
+  let rawBody: string;
+  try {
+    rawBody = await req.text();
+  } catch {
+    return NextResponse.json({ error: 'Failed to read request body' }, { status: 400 });
+  }
+
   const authHeader = req.headers.get('authorization');
 
   let upstream: Response;
@@ -44,10 +51,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         'Content-Type': 'application/json',
         ...(authHeader ? { Authorization: authHeader } : {}),
       },
-      body: req.body,
-      // duplex is required when forwarding a ReadableStream body in Node 18+
-      // @ts-expect-error — duplex is a valid fetch option in Node 18+ but not in the TypeScript lib
-      duplex: 'half',
+      body: rawBody,
       signal: AbortSignal.timeout(20_000),
     });
   } catch (err: unknown) {

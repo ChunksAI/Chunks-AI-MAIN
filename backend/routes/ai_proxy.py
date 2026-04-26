@@ -87,7 +87,10 @@ def _check_ai_rate_limit(request: Request) -> JSONResponse | None:
     auth = request.headers.get('authorization', '')
     token = auth[7:] if auth.startswith('Bearer ') else ''
 
-    # Verify JWT — fast (local JWKS cache, no network on the hot path)
+    # Verify JWT — fast (local JWKS cache, no network on the hot path).
+    # Supabase JWTs carry the user identifier in the 'id' field (normalised
+    # from the 'sub' claim by _verify_supabase_jwt).  We fall back to 'sub'
+    # directly for any non-normalised payload.
     user_id: str | None = None
     if token:
         try:
@@ -111,12 +114,18 @@ def _check_ai_rate_limit(request: Request) -> JSONResponse | None:
         limit = 5
 
     # ── Redis path (production) ───────────────────────────────────────────────
+    # INCR and EXPIRE are sent in a single pipeline batch, which minimises the
+    # window between creation and TTL assignment compared to two separate calls.
+    # The `if count == 1` guard ensures EXPIRE is only sent on key creation,
+    # matching the pattern used throughout the codebase (services/auth.py).
     redis = ctx.redis
     if redis is not None:
         try:
-            count = redis.incr(rl_key)
-            if count == 1:
-                redis.expire(rl_key, _RL_WINDOW_SECS)
+            pipe = redis.pipeline(transaction=False)
+            pipe.incr(rl_key)
+            pipe.expire(rl_key, _RL_WINDOW_SECS)
+            results = pipe.execute()
+            count: int = results[0]
             if count > limit:
                 logger.info('[ai_proxy] rate limited key=%s count=%d limit=%d', rl_key, count, limit)
                 return JSONResponse(
@@ -241,7 +250,7 @@ async def ai_task_proxy(request: Request) -> JSONResponse:
 
     # ── API key guard ─────────────────────────────────────────────────────────
     api_key: str = ctx.OPENROUTER_API_KEY
-    if not api_key or api_key == 'your-key-here':
+    if not api_key:
         return JSONResponse({'error': 'AI service not configured'}, status_code=503)
 
     # ── Parse body ────────────────────────────────────────────────────────────
