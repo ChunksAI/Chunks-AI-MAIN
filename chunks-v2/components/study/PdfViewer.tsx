@@ -342,8 +342,7 @@ export default function PdfViewer({
         // Autoplay blocked — stay in 'ready' (user can press play manually).
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listenStatus, audioUrl]);
+  }, [listenStatus, audioUrl, playbackRate]);
 
   const handlePlayPause = useCallback(() => {
     const audio = audioRef.current;
@@ -526,7 +525,7 @@ export default function PdfViewer({
                 <button
                   className="pdf-listen-ctrl-btn"
                   onClick={handlePlayPause}
-                  disabled={listenStatus === 'loading' || listenStatus === 'ready'}
+                  disabled={listenStatus === 'loading'}
                   title={listenStatus === 'playing' ? 'Pause' : 'Play'}
                   aria-label={listenStatus === 'playing' ? 'Pause' : 'Play'}
                 >
