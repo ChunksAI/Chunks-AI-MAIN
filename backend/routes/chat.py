@@ -34,6 +34,11 @@ logger = logging.getLogger(__name__)
 # Optional environment prefix for Redis key namespacing (e.g. 'prod:' / 'staging:')
 _KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
 
+# Maximum characters to include from an exception message in logs.
+# Truncating prevents accidental logging of user-supplied content that may
+# appear in deeply nested error strings from the AI pipeline.
+_MAX_EXCEPTION_LOG_CHARS = 200
+
 router = APIRouter()
 
 
@@ -2766,7 +2771,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
         req_id = getattr(request.state, 'request_id', request.headers.get('X-Request-Id', '-'))
         # Truncate the exception message to avoid accidentally logging user content
         # that may appear in error strings from deeply nested callers.
-        _safe_msg = str(e)[:200]
+        _safe_msg = str(e)[:_MAX_EXCEPTION_LOG_CHARS]
         logger.error(
             "[/ask] UNHANDLED EXCEPTION req_id=%s type=%s msg=%s\ntraceback=%s",
             req_id, type(e).__name__, _safe_msg, traceback.format_exc()

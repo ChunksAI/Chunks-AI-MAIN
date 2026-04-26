@@ -222,7 +222,11 @@ export default function PdfViewer({ blobUrl, onPageChange, fileName }: PdfViewer
   const handleDownload = useCallback(() => {
     const a = document.createElement('a');
     a.href = blobUrl;
-    a.download = fileName ? (fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`) : 'document.pdf';
+    let downloadName = 'document.pdf';
+    if (fileName) {
+      downloadName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+    }
+    a.download = downloadName;
     a.click();
   }, [blobUrl, fileName]);
 
