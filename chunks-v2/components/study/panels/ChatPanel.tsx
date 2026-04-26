@@ -309,13 +309,14 @@ export default function ChatPanel() {
   const hasDocument = !!(pdfBlobUrl || slides.length > 0 || uploadLoading);
 
   // ── Context chip — shows what the AI knows about ──────────────────────────
+  const fmtTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
   const contextChip = (() => {
     const { pdfLoaded, pdfPage, viewerType, isViewerOpen, currentTimestamp } = viewerState;
-    const fmtTime = (s: number) => {
-      const m = Math.floor(s / 60);
-      const sec = Math.floor(s % 60);
-      return `${m}:${sec.toString().padStart(2, '0')}`;
-    };
     const hasPdf = pdfLoaded;
     const hasYt  = isViewerOpen && viewerType === 'youtube';
     const hasRes = isViewerOpen && viewerType === 'research';
@@ -712,12 +713,51 @@ export default function ChatPanel() {
       dispatch({ type: 'SET_ACTIVE_TAB', payload: 'workspace' });
       return;
     }
+
+    const { pdfLoaded, pdfPage, viewerType, isViewerOpen, currentTimestamp } = viewerState;
+    const hasPdf = pdfLoaded;
+    const hasYt  = isViewerOpen && viewerType === 'youtube';
+    const hasRes = isViewerOpen && viewerType === 'research';
+
+    // Build a short context suffix so prompts stay concise
+    const pdfRef  = hasPdf ? `PDF page ${pdfPage}` : '';
+    const ytRef   = hasYt  ? `the video segment at ${fmtTime(currentTimestamp)}` : '';
+    const resRef  = hasRes ? 'this research paper' : '';
+
     const map: Record<string, string> = {
-      '✦ Explain simply': 'Explain the current topic in simple terms.',
+      '✦ Explain simply': hasPdf && hasYt
+        ? `Explain the content on ${pdfRef} in simple terms, also referencing ${ytRef}.`
+        : hasPdf
+        ? `Explain the content on ${pdfRef} in simple terms.`
+        : hasYt
+        ? `Explain what's being discussed in ${ytRef} in simple terms.`
+        : hasRes
+        ? `Explain the main idea of ${resRef} in simple terms.`
+        : 'Explain the current topic in simple terms.',
+
       '📋 Study plan': `Create a structured study plan with a checklist for "${cleanTopic(resolveStudyTopic(topic, docTitle, messages))}". Format it as a numbered list of actionable tasks.`,
-      '🔑 Key concepts': 'What are the key concepts I need to remember?',
-      '↓ Summarize': 'Summarize the main points of this topic.',
+
+      '🔑 Key concepts': hasPdf && hasYt
+        ? `What are the key concepts on ${pdfRef}? Also reference ${ytRef} where relevant.`
+        : hasPdf
+        ? `What are the key concepts covered on ${pdfRef}?`
+        : hasYt
+        ? `What are the key concepts discussed in ${ytRef}?`
+        : hasRes
+        ? `What are the key concepts from ${resRef}?`
+        : 'What are the key concepts I need to remember?',
+
+      '↓ Summarize': hasPdf && hasYt
+        ? `Summarize the content on ${pdfRef} and relate it to ${ytRef}.`
+        : hasPdf
+        ? `Summarize the content on ${pdfRef}.`
+        : hasYt
+        ? `Summarize what's covered in ${ytRef}.`
+        : hasRes
+        ? `Summarize ${resRef} and connect it to my current study topic.`
+        : 'Summarize the main points of this topic.',
     };
+
     const text = map[label];
     if (text) void handleSendMessage(text);
   };
