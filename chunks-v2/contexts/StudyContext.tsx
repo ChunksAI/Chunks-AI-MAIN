@@ -75,6 +75,38 @@ import { getAccessToken } from '@/lib/supabaseClient';
  */
 const FBD_MODES = new Set<string>(['snap', 'chunk', 'master']);
 
+/**
+ * Keywords that signal an analytically demanding question.
+ * When matched, complexity is bumped to the mode maximum so the backend
+ * can activate stronger model routing (e.g. DEEP_MODEL for master/research).
+ */
+const DEEP_QUESTION_RE =
+  /\b(deeply|mechanism|derive|deriv|analyz|analys|compar|research|sources?|latest)\b/i;
+
+/**
+ * Deterministically resolve a complexity score (1-10) from the chat mode and
+ * the user's question text.  No AI call is made.
+ *
+ * Base ranges (centre of the published routing bands):
+ *   snap     → 4  (small-tier model; minor bump keeps it responsive)
+ *   chunk    → 5  (medium-tier)
+ *   master   → 8  (large-tier; ≥9 activates DEEP_MODEL)
+ *   research → 8  (same)
+ *
+ * If the question contains deep-analysis keywords the score is raised to the
+ * mode maximum so master/research can cross the ≥9 threshold in ai_router.py.
+ */
+function resolveComplexity(mode: string, question: string): number {
+  const isDeep = DEEP_QUESTION_RE.test(question);
+  switch (mode) {
+    case 'snap':     return isDeep ? 5 : 4;
+    case 'chunk':    return isDeep ? 6 : 5;
+    case 'master':   return isDeep ? 9 : 8;
+    case 'research': return isDeep ? 9 : 8;
+    default:         return 5;
+  }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Strip HTML tags from a string using DOMParser (browser) for accuracy. */
@@ -1318,6 +1350,10 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       // placeholder so the user sees meaningful feedback during the 5-15 s wait.
       const currentChatMode = stateRef.current.chatMode;
       const isStreamingMode = currentChatMode === 'snap';
+      const complexity = resolveComplexity(currentChatMode, text);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[complexity] mode:', currentChatMode, '| resolved:', complexity, '| question excerpt:', text.slice(0, 80));
+      }
       // 'snap' is intentionally omitted — it never reads this map (isStreamingMode === true).
       const placeholderText: Record<string, string> = {
         chunk:    '📖 Analyzing in depth…',
@@ -1359,6 +1395,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             selected_text: opts.selectedText ?? '',
             doc_context: autoDocContext,
             mode: currentChatMode,
+            complexity,
             bookId: stateRef.current.bookId ?? undefined,
             viewer_state: buildViewerState(viewerStateRef.current),
           },
