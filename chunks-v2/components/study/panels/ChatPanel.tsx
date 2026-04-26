@@ -302,11 +302,30 @@ export default function ChatPanel() {
     handleSendImageMessage,
   } = useStudy();
   const { user } = useAuth();
-  const { viewerDispatch } = useViewerContext();
+  const { viewerState, viewerDispatch } = useViewerContext();
   const { messages, chatLoading, chatError, showMemoryBar, weakAreas, topic, docTitle, chatMode, pdfBlobUrl, slides, uploadLoading, uploadError } = state;
 
   // Banner is shown when no document is present and not in the middle of uploading
   const hasDocument = !!(pdfBlobUrl || slides.length > 0 || uploadLoading);
+
+  // ── Context chip — shows what the AI knows about ──────────────────────────
+  const contextChip = (() => {
+    const { pdfLoaded, pdfPage, viewerType, isViewerOpen, currentTimestamp } = viewerState;
+    const fmtTime = (s: number) => {
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return `${m}:${sec.toString().padStart(2, '0')}`;
+    };
+    const hasPdf = pdfLoaded;
+    const hasYt  = isViewerOpen && viewerType === 'youtube';
+    const hasRes = isViewerOpen && viewerType === 'research';
+    if (!hasPdf && !hasYt && !hasRes) return null;
+    const parts: string[] = [];
+    if (hasPdf) parts.push(`PDF p.\u202f${pdfPage}`);
+    if (hasYt)  parts.push(`YouTube\u202f${fmtTime(currentTimestamp)}`);
+    if (hasRes) parts.push('Research paper');
+    return parts.join(' · ');
+  })();
 
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -816,6 +835,12 @@ export default function ChatPanel() {
               <button className="image-preview-remove" onClick={handleRemoveImage} title="Remove image" aria-label="Remove image">
                 ✕
               </button>
+            </div>
+          )}
+          {contextChip && (
+            <div className="context-chip" aria-label={`AI context: ${contextChip}`}>
+              <span className="context-chip-dot" aria-hidden="true" />
+              {contextChip}
             </div>
           )}
           <div className="text-input-row">

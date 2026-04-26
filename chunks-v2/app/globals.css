@@ -947,6 +947,35 @@ body {
 }
 .image-preview-remove:hover { background: var(--danger-light); color: var(--danger); border-color: var(--danger); }
 
+/* ── Context chip — shows AI's active context above the textarea ── */
+.context-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px 4px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text3);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.context-chip-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent2);
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .context-chip { font-size: 10px; padding: 3px 10px 3px; }
+}
+
 .mode-dropdown-wrap {
   position: relative;
   margin-left: auto;
