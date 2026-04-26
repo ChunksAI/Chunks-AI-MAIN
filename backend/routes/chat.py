@@ -72,8 +72,12 @@ def _get_identity_for_user(user_id: str, variants: list[str]) -> str:
 NORMAL_MODE_PROMPT = (
     "Give a focused, complete answer to the student's question. "
     "Use as many paragraphs, headers, or bullets as the topic requires — never cut yourself off, never pad. "
-    "When [VIEWER CONTEXT], [VIDEO TRANSCRIPT], or [TEXTBOOK CONTEXT] is present, ground your answer in it explicitly: "
-    "quote a short fragment, cite the page (\U0001f4d6 Page N) or the timestamp ([MM:SS]) you are drawing from. "
+    "When [DOCUMENT CONTEXT], [VIDEO TRANSCRIPT], [RESEARCH REFERENCE], [VIEWER CONTEXT], or [TEXTBOOK CONTEXT] is present, "
+    "treat [DOCUMENT CONTEXT] as the student's PRIMARY study source and ground your answer in it first: "
+    "quote a short fragment and cite the page (\U0001f4d6 Page N). "
+    "[VIDEO TRANSCRIPT] and [RESEARCH REFERENCE] are SUPPORTING references only — use them to supplement, "
+    "not to replace, the document. If a supporting reference conflicts with [DOCUMENT CONTEXT], "
+    "acknowledge both and briefly explain the difference. "
     "If the loaded source does not actually answer the question, say so plainly in one sentence and then answer "
     "from general knowledge clearly labeled as such. "
     "End every conceptual answer with a single '> \U0001f4a1 Key takeaway:' blockquote."
@@ -201,7 +205,7 @@ One thoughtful exam-style question the student should now be able to answer.
 
 Rules:
 - Use $$ ... $$ for display equations and $ ... $ for inline math. Use \\ce{} for chemical formulas.
-- If [TEXTBOOK CONTEXT], [VIEWER CONTEXT], [DOCUMENT CONTEXT], or [VIDEO TRANSCRIPT] is present, ground your answer in it: quote a short fragment and cite the source (📖 Page N or [MM:SS]).
+- If [DOCUMENT CONTEXT], [VIDEO TRANSCRIPT], [RESEARCH REFERENCE], [TEXTBOOK CONTEXT], or [VIEWER CONTEXT] is present, treat [DOCUMENT CONTEXT] as the PRIMARY study source: quote a short fragment and cite the page (📖 Page N). Use [VIDEO TRANSCRIPT] and [RESEARCH REFERENCE] as supporting references only. If a supporting reference conflicts with [DOCUMENT CONTEXT], acknowledge both and briefly explain the difference.
 - Be thorough — never cut yourself off. This is a deep explanation.
 - Do NOT output JSON."""
 
