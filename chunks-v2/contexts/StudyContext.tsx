@@ -964,7 +964,7 @@ export function StudyProvider({ children }: { children: ReactNode }) {
   const CHAT_ACTION_TYPES = new Set<string>([
     'SEND_MESSAGE', 'SET_LAST_USER_MESSAGE', 'SET_CHAT_LOADING',
     'RECEIVE_MESSAGE', 'START_AI_MESSAGE', 'APPEND_MESSAGE_CHUNK',
-    'UPDATE_MESSAGE_META', 'REMOVE_MESSAGE', 'MESSAGE_ERROR', 'HANDLE_CHAT_ERROR',
+    'UPDATE_MESSAGE_META', 'UPDATE_AI_MESSAGE_FULL', 'REMOVE_MESSAGE', 'MESSAGE_ERROR', 'HANDLE_CHAT_ERROR',
     'CLEAR_CHAT_ERROR', 'SET_CHAT_MODE', 'RESTORE_MESSAGES', 'RESET_CHAT',
   ]);
   const QUIZ_ACTION_TYPES = new Set<string>([
@@ -1366,20 +1366,11 @@ export function StudyProvider({ children }: { children: ReactNode }) {
             fbdAccumulatedText += chunk;
             if (isStreamingMode) {
               chatDispatch({ type: 'APPEND_MESSAGE_CHUNK', payload: { id: aiMsgId, chunk } });
-            } else {
-              // Non-streaming: single chunk contains the full answer — replace placeholder.
-              chatDispatch({
-                type: 'REPLACE_AI_MESSAGE',
-                payload: {
-                  id: aiMsgId,
-                  text: chunk,
-                  actions: [
-                    { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
-                    { label: '🎯 Quiz me on this', actionKey: 'quiz' },
-                  ],
-                },
-              });
             }
+            // Non-streaming (chunk/master/research): do NOT dispatch here.
+            // The full atomic update (text + structured + meta) is dispatched
+            // together after sendMessageStream resolves, avoiding a flash of
+            // raw JSON before the structured card renders.
           },
           abortRef.current.signal,
           (reqId) => { currentRequestIdRef.current = reqId; },
@@ -1429,8 +1420,28 @@ export function StudyProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Update message with memory/performance metadata if present
-        if (res.topic || res.memory_recall || (res.performance_bars && res.performance_bars.length > 0) || res.structured || res.web_citations) {
+        if (!isStreamingMode) {
+          // Non-streaming (chunk/master/research): atomically set the answer text
+          // AND all structured metadata in one dispatch so the card renders in a
+          // single paint — no flash of raw JSON/markdown before the card appears.
+          chatDispatch({
+            type: 'UPDATE_AI_MESSAGE_FULL',
+            payload: {
+              id: aiMsgId,
+              text: res.answer,
+              actions: [
+                { label: '🃏 Generate flashcards', actionKey: 'flashcards' },
+                { label: '🎯 Quiz me on this', actionKey: 'quiz' },
+              ],
+              ...(res.topic ? { topic: res.topic } : {}),
+              memoryRecall: res.memory_recall,
+              performanceBars: res.performance_bars ?? [],
+              ...(res.structured !== undefined ? { structured: res.structured } : {}),
+              ...(res.web_citations ? { webCitations: res.web_citations } : {}),
+            },
+          });
+        } else if (res.topic || res.memory_recall || (res.performance_bars && res.performance_bars.length > 0) || res.structured || res.web_citations) {
+          // Streaming (snap): supplemental metadata arrives after stream completes.
           chatDispatch({
             type: 'UPDATE_MESSAGE_META',
             payload: {
