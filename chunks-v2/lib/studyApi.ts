@@ -22,6 +22,7 @@ import {
   type UploadDocumentResponse,
   type ViewerAction,
   type ViewerStatePayload,
+  type ListenPageRequest,
 } from '@/types/api';
 import { getAccessToken, getSupabaseClient } from './supabaseClient';
 
@@ -974,4 +975,47 @@ export interface ResearchIngestResponse {
  */
 export async function ingestResearch(url: string): Promise<ResearchIngestResponse> {
   return apiPost<ResearchIngestResponse>('/api/research/ingest', { url });
+}
+
+// ─── Professor Listen Mode ────────────────────────────────────────────────────
+
+/**
+ * Request audio narration for the current PDF page.
+ *
+ * POSTs to /api/listen/page. On success the backend returns raw audio/mpeg
+ * bytes. On error it returns a JSON { success: false, error: string }.
+ *
+ * Returns a Blob (audio/mpeg) on success, or throws ApiError on failure.
+ */
+export async function listenToPage(params: ListenPageRequest): Promise<Blob> {
+  const reqId = makeReqId();
+  const authHeaders = await getAuthHeaders();
+
+  const res = await fetchWithAuth(`${API_BASE}/api/listen/page`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Request-Id': reqId,
+      ...authHeaders,
+    },
+    body: JSON.stringify(params),
+  });
+
+  if (res.status === 429) {
+    throw new ApiError('Rate limit reached. Please wait a moment before trying again.', 429);
+  }
+
+  if (!res.ok) {
+    // The backend returns JSON errors for non-2xx responses.
+    let message = `Listen request failed (${res.status})`;
+    try {
+      const err = (await res.json()) as { error?: string; detail?: string };
+      message = err.error ?? err.detail ?? message;
+    } catch {
+      // ignore parse errors
+    }
+    throw new ApiError(message, res.status);
+  }
+
+  return res.blob();
 }

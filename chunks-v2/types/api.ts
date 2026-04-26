@@ -162,3 +162,24 @@ export class ApiError extends Error {
     this.status = status;
   }
 }
+
+// ─── Professor Listen Mode ────────────────────────────────────────────────────
+
+export interface ListenPageRequest {
+  doc_title?: string;
+  page: number;
+  visible_text: string;
+  book_id?: string;
+  session_id?: string;
+  mode?: 'simple' | 'professor' | 'exam_review';
+  voice?: string;
+}
+
+/** Post-listen learning action type sent to ContentPanel. */
+export type ListenAction = 'explain_slower' | 'quiz_me' | 'flashcards';
+
+/** Context forwarded with every ListenAction so the parent can build a prompt. */
+export interface ListenActionContext {
+  page: number;
+  docTitle: string;
+}

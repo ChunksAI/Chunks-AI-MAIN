@@ -711,6 +711,7 @@ from routes.share_content    import router as share_router            # noqa: E4
 from routes.tutor_brain      import router as tutor_router            # noqa: E402
 from routes.research_ingest  import router as research_ingest_router  # noqa: E402
 from routes.viewer_session   import router as viewer_session_router   # noqa: E402
+from routes.listen           import router as listen_router           # noqa: E402
 
 app.include_router(admin_router)
 app.include_router(ai_proxy_router)
@@ -731,6 +732,8 @@ app.include_router(youtube_v2_router)
 app.include_router(tutor_router)
 app.include_router(research_ingest_router)
 app.include_router(viewer_session_router)
+app.include_router(listen_router, prefix='/api')  # canonical: /api/listen/page
+app.include_router(listen_router)                 # legacy: /listen/page
 
 # ── PAEV and progress routes ──────────────────────────────────────────────────
 from routes.paev    import register_paev      # noqa: E402

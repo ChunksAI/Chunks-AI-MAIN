@@ -342,3 +342,21 @@ class ShareCreateRequest(_LenientBase):
     """Body for POST /api/share — create a shareable link."""
     type: Literal["deck", "exam", "plan"]
     data: Dict[str, Any] = Field(default_factory=dict)
+
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  /listen/page                                                              ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+_ListenMode = Literal['simple', 'professor', 'exam_review']
+
+
+class ListenRequest(_StrictBase):
+    """Request body for POST /listen/page (Professor Listen Mode)."""
+    doc_title: str = Field(default='', max_length=500)
+    page: int = Field(..., ge=1, le=100_000)
+    visible_text: str = Field(..., min_length=1, max_length=4000)
+    book_id: Optional[str] = Field(default=None, max_length=200)
+    session_id: Optional[str] = Field(default=None, max_length=200)
+    mode: _ListenMode = 'professor'
+    voice: Optional[str] = Field(default=None, max_length=64)
