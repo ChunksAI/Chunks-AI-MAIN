@@ -1780,3 +1780,148 @@ class TestAiErrorStatusCodes:
         assert resp.status_code == 504
         body = resp.json()
         assert body['success'] is False
+
+
+class TestStructuredModeTokenBudgets:
+    """_STRUCTURED_MODE_MAX_TOKENS values and JSON-parse fallback behaviour."""
+
+    def _base_mocks(self, monkeypatch):
+        """Set up the minimal mocks needed to reach a structured-mode handler."""
+        import services.ai as ai_svc
+        import services.books as books_svc
+        import services.device_abuse as device_mod
+        import services.plan_limits as plan_mod
+
+        monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+        monkeypatch.setattr(ai_svc, 'call_ai_web_search_async', AsyncMock(return_value=("", [])))
+        monkeypatch.setattr(device_mod, 'check_device_rate_limit', MagicMock(return_value=None))
+        monkeypatch.setattr(plan_mod, 'check_plan_limit', MagicMock(return_value=None))
+
+        mock_searcher = MagicMock()
+        mock_searcher.chunks = []
+        mock_searcher.has_embeddings = False
+        monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+        return ai_svc
+
+    def test_structured_mode_max_tokens_values(self):
+        """_STRUCTURED_MODE_MAX_TOKENS has the expected budgets."""
+        from routes.chat import _STRUCTURED_MODE_MAX_TOKENS
+        assert _STRUCTURED_MODE_MAX_TOKENS['chunk'] == 2000
+        assert _STRUCTURED_MODE_MAX_TOKENS['master'] == 4500
+        assert _STRUCTURED_MODE_MAX_TOKENS['research'] == 4000
+
+    def test_chunk_uses_structured_budget(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """chunk mode passes _STRUCTURED_MODE_MAX_TOKENS['chunk'] to call_ai_async."""
+        ai_svc = self._base_mocks(monkeypatch)
+
+        captured_max_tok: list = []
+
+        async def _mock_ai_async(*args, **kwargs):
+            captured_max_tok.append(kwargs.get('max_tokens_override'))
+            return '{"overview":"o","key_concepts":["c"],"step_by_step":["s"],"example":"e"}'
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', _mock_ai_async)
+
+        resp = client.post('/ask', json={'question': 'What is entropy?', 'mode': 'chunk', 'complexity': 3})
+        assert resp.status_code == 200
+        from routes.chat import _STRUCTURED_MODE_MAX_TOKENS
+        assert captured_max_tok[0] == _STRUCTURED_MODE_MAX_TOKENS['chunk']
+
+    def test_master_uses_structured_budget(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """master mode passes _STRUCTURED_MODE_MAX_TOKENS['master'] to call_ai_async."""
+        ai_svc = self._base_mocks(monkeypatch)
+
+        captured_max_tok: list = []
+
+        async def _mock_ai_async(*args, **kwargs):
+            captured_max_tok.append(kwargs.get('max_tokens_override'))
+            return ('{"core_explanation":"ce","mechanism":"m","analysis":"a",'
+                    '"connections":"c","key_insight":"ki"}')
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', _mock_ai_async)
+
+        resp = client.post('/ask', json={'question': 'Explain thermodynamics', 'mode': 'master', 'complexity': 3})
+        assert resp.status_code == 200
+        from routes.chat import _STRUCTURED_MODE_MAX_TOKENS
+        assert captured_max_tok[0] == _STRUCTURED_MODE_MAX_TOKENS['master']
+
+    def test_research_uses_structured_budget(self, client, monkeypatch, mock_guest_gate, mock_extract_user):
+        """research mode passes _STRUCTURED_MODE_MAX_TOKENS['research'] to call_ai_async."""
+        ai_svc = self._base_mocks(monkeypatch)
+
+        captured_max_tok: list = []
+
+        async def _mock_ai_async(*args, **kwargs):
+            captured_max_tok.append(kwargs.get('max_tokens_override'))
+            return ('{"summary":"s","key_findings":["f"],"sources":[],'
+                    '"simplified_explanation":"se"}')
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', _mock_ai_async)
+
+        resp = client.post('/ask', json={'question': 'Research quantum computing', 'mode': 'research', 'complexity': 3})
+        assert resp.status_code == 200
+        from routes.chat import _STRUCTURED_MODE_MAX_TOKENS
+        assert captured_max_tok[0] == _STRUCTURED_MODE_MAX_TOKENS['research']
+
+    def test_chunk_json_parse_failure_returns_plain_text_fallback(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """When JSON parsing fails for chunk mode, return 200 with plain-text answer."""
+        ai_svc = self._base_mocks(monkeypatch)
+
+        # Both primary and retry return non-JSON text
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(return_value='Not valid JSON at all'))
+
+        resp = client.post('/ask', json={'question': 'What is entropy?', 'mode': 'chunk', 'complexity': 3})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body['success'] is True
+        assert body['structured'] is None
+        assert body['answer'] == 'Not valid JSON at all'
+        assert 'fallback_note' in body
+
+    def test_master_json_parse_failure_returns_plain_text_fallback(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """When JSON parsing fails for master mode, return 200 with plain-text answer."""
+        ai_svc = self._base_mocks(monkeypatch)
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(return_value='Not valid JSON at all'))
+
+        resp = client.post('/ask', json={'question': 'Explain thermodynamics', 'mode': 'master', 'complexity': 3})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body['success'] is True
+        assert body['structured'] is None
+        assert body['answer'] == 'Not valid JSON at all'
+        assert 'fallback_note' in body
+
+    def test_research_json_parse_failure_returns_plain_text_fallback(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """When JSON parsing fails for research mode, return 200 with plain-text answer."""
+        ai_svc = self._base_mocks(monkeypatch)
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(return_value='Not valid JSON at all'))
+
+        resp = client.post('/ask', json={'question': 'Research quantum computing', 'mode': 'research', 'complexity': 3})
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body['success'] is True
+        assert body['structured'] is None
+        assert body['answer'] == 'Not valid JSON at all'
+        assert 'fallback_note' in body
+
+    def test_chunk_empty_answer_after_parse_failure_returns_500(
+        self, client, monkeypatch, mock_guest_gate, mock_extract_user,
+    ):
+        """When JSON parsing fails AND the model returns empty, return 500."""
+        ai_svc = self._base_mocks(monkeypatch)
+
+        monkeypatch.setattr(ai_svc, 'call_ai_async', AsyncMock(return_value=''))
+
+        resp = client.post('/ask', json={'question': 'What is entropy?', 'mode': 'chunk', 'complexity': 3})
+        assert resp.status_code == 500
+        body = resp.json()
+        assert body['success'] is False
+        assert body['error_type'] == 'EmptyResponse'

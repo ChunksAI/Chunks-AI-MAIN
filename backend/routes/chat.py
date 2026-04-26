@@ -107,6 +107,21 @@ _MODE_MAX_TOKENS = {
     None:        1500,  # normal / no thinking — full complete answer
 }
 
+# Per-mode token budgets for structured (chunk/master/research) calls.
+# These supersede _MODE_MAX_TOKENS[None] for normal-mode structured calls
+# because the JSON schemas require substantially more output than a snap answer:
+#   chunk   : 4 required fields, ~400-500 tokens each            ≈ 2 000
+#   master  : 5 fields × 80-200 words (≈130 tok avg)            ≈ 4 500
+#   research: summary + findings array + sources array + simplified ≈ 4 000
+# Thinking-mode budgets (_MODE_MAX_TOKENS['deep'/'thinking']) are not
+# overridden here — thinking modes are intentionally capped lower because
+# their <think> block also consumes tokens from the same budget.
+_STRUCTURED_MODE_MAX_TOKENS: dict[str, int] = {
+    'chunk':    2000,
+    'master':   4500,
+    'research': 4000,
+}
+
 # System-prompt overrides for structured-JSON modes (chunk / master / research).
 # These replace the free-form "answer helpfully" instruction with a strict JSON
 # schema so the frontend can render rich, structured UI cards.
@@ -554,6 +569,14 @@ async def _call_structured_ai(
     from services.ai import call_ai_async, extract_thinking_content
 
     _timeout_fallback_note: str | None = None
+    _parse_failed = False
+    _retry_used = False
+
+    logger.debug(
+        '[/ask] structured_ai start mode=%s model=%s max_tokens=%d',
+        actx.mode, actx.selected_model, max_tok,
+    )
+
     try:
         answer = await call_ai_async(
             prompt,
@@ -609,9 +632,11 @@ async def _call_structured_ai(
         if missing:
             logger.warning('[/ask] mode=%s missing structured keys: %s', actx.mode, missing)
     except (json.JSONDecodeError, TypeError):
+        _parse_failed = True
+        _retry_used = True
         logger.warning(
-            '[/ask] mode=%s model=%s failed to parse JSON response — retrying with stricter prompt',
-            actx.mode, actx.selected_model,
+            '[/ask] mode=%s model=%s max_tokens=%d failed to parse JSON — retrying with stricter prompt',
+            actx.mode, actx.selected_model, max_tok,
         )
         _retry_model = actx.mode_fallback or actx.selected_model
         try:
@@ -629,10 +654,11 @@ async def _call_structured_ai(
             _retry_answer, _ = extract_thinking_content(_retry_answer)
             _retry_raw = _strip_code_fences(_retry_answer) if _retry_answer else ''
             structured = json.loads(_retry_raw)
+            _parse_failed = False  # retry succeeded
         except (json.JSONDecodeError, TypeError):
             logger.warning(
-                '[/ask] mode=%s model=%s (retry) still failed to parse JSON — returning 500',
-                actx.mode, _retry_model,
+                '[/ask] mode=%s model=%s max_tokens=%d (retry) still failed to parse JSON',
+                actx.mode, _retry_model, max_tok,
             )
             structured = None
         except Exception as _retry_err:
@@ -642,6 +668,10 @@ async def _call_structured_ai(
             )
             structured = None
 
+    logger.info(
+        '[/ask] structured_ai done mode=%s model=%s max_tokens=%d parse_failed=%s retry_used=%s',
+        actx.mode, actx.selected_model, max_tok, _parse_failed, _retry_used,
+    )
     return answer, thinking_content, structured, _timeout_fallback_note
 
 
@@ -1036,7 +1066,13 @@ async def _handle_chunk(actx: AskContext) -> dict | JSONResponse:
     _mode_instruction = MODE_SYSTEM_PROMPTS['chunk']
     _call_system = (actx.base_system + '\n\n' + _mode_instruction) if actx.base_system else _mode_instruction
     _response_format: dict = {"type": "json_object"}
-    _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+    # Use the structured-mode budget for normal calls; keep thinking-mode budgets
+    # for 'deep'/'thinking' since those also need headroom for the reasoning chain.
+    _max_tok = (
+        _STRUCTURED_MODE_MAX_TOKENS.get(actx.mode, _MODE_MAX_TOKENS[None])
+        if actx.thinking_mode is None
+        else _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+    )
 
     try:
         answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
@@ -1048,14 +1084,38 @@ async def _handle_chunk(actx: AskContext) -> dict | JSONResponse:
         return JSONResponse({'success': False, 'error': _msg, 'request_id': actx.request_id}, status_code=_status)
 
     if structured is None:
-        return JSONResponse(
-            {
-                'success': False,
-                'error': 'AI returned malformed JSON after retry. Please try again.',
-                'error_type': 'MalformedJSON',
-            },
-            status_code=500,
+        # JSON parse failed after retry.  If we have any answer text, return it
+        # as plain-text rather than a hard 500 so the user still gets a response.
+        logger.warning(
+            '[/ask] chunk model=%s JSON parse failed — degrading to plain-text fallback',
+            actx.selected_model,
         )
+        if not answer:
+            return JSONResponse(
+                {'success': False, 'error': 'AI returned no content. Please try again.',
+                 'error_type': 'EmptyResponse'},
+                status_code=500,
+            )
+        _resp_topic = _extract_topic('chunk', None, answer)
+        _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
+        return {
+            'success':          True,
+            'mode':             actx.mode,
+            'answer':           answer,
+            'structured':       None,
+            'topic':            _resp_topic,
+            'model_used':       actx.selected_model,
+            'context':          actx.context,
+            'similarity':       float(actx.similarity),
+            'is_relevant':      actx.is_relevant,
+            'source':           actx.source,
+            'sources':          actx.all_sources,
+            'complexity_used':  actx.complexity,
+            'search_mode':      'hybrid' if actx.searcher.has_embeddings else 'tfidf',
+            'thinking_content': thinking_content,
+            'fallback_note':    'Structured card unavailable — showing plain-text answer.',
+            **({'viewer_action': _viewer_action} if _viewer_action else {}),
+        }
 
     _resp_topic = _extract_topic('chunk', structured, answer)
     _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
@@ -1087,7 +1147,11 @@ async def _handle_master(actx: AskContext) -> dict | JSONResponse:
     _mode_instruction = MODE_SYSTEM_PROMPTS['master']
     _call_system = (actx.base_system + '\n\n' + _mode_instruction) if actx.base_system else _mode_instruction
     _response_format: dict = {"type": "json_object"}
-    _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+    _max_tok = (
+        _STRUCTURED_MODE_MAX_TOKENS.get(actx.mode, _MODE_MAX_TOKENS[None])
+        if actx.thinking_mode is None
+        else _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+    )
 
     try:
         answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
@@ -1099,14 +1163,36 @@ async def _handle_master(actx: AskContext) -> dict | JSONResponse:
         return JSONResponse({'success': False, 'error': _msg, 'request_id': actx.request_id}, status_code=_status)
 
     if structured is None:
-        return JSONResponse(
-            {
-                'success': False,
-                'error': 'AI returned malformed JSON after retry. Please try again.',
-                'error_type': 'MalformedJSON',
-            },
-            status_code=500,
+        logger.warning(
+            '[/ask] master model=%s JSON parse failed — degrading to plain-text fallback',
+            actx.selected_model,
         )
+        if not answer:
+            return JSONResponse(
+                {'success': False, 'error': 'AI returned no content. Please try again.',
+                 'error_type': 'EmptyResponse'},
+                status_code=500,
+            )
+        _resp_topic = _extract_topic('master', None, answer)
+        _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
+        return {
+            'success':          True,
+            'mode':             actx.mode,
+            'answer':           answer,
+            'structured':       None,
+            'topic':            _resp_topic,
+            'model_used':       actx.selected_model,
+            'context':          actx.context,
+            'similarity':       float(actx.similarity),
+            'is_relevant':      actx.is_relevant,
+            'source':           actx.source,
+            'sources':          actx.all_sources,
+            'complexity_used':  actx.complexity,
+            'search_mode':      'hybrid' if actx.searcher.has_embeddings else 'tfidf',
+            'thinking_content': thinking_content,
+            'fallback_note':    'Structured card unavailable — showing plain-text answer.',
+            **({'viewer_action': _viewer_action} if _viewer_action else {}),
+        }
 
     _resp_topic = _extract_topic('master', structured, answer)
     _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
@@ -1169,7 +1255,11 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
     _mode_instruction = MODE_SYSTEM_PROMPTS['research']
     _call_system = (actx.base_system + '\n\n' + _mode_instruction) if actx.base_system else _mode_instruction
     _response_format: dict = {"type": "json_object"}
-    _max_tok = _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+    _max_tok = (
+        _STRUCTURED_MODE_MAX_TOKENS.get(actx.mode, _MODE_MAX_TOKENS[None])
+        if actx.thinking_mode is None
+        else _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
+    )
 
     try:
         answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
@@ -1181,14 +1271,37 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
         return JSONResponse({'success': False, 'error': _msg, 'request_id': actx.request_id}, status_code=_status)
 
     if structured is None:
-        return JSONResponse(
-            {
-                'success': False,
-                'error': 'AI returned malformed JSON after retry. Please try again.',
-                'error_type': 'MalformedJSON',
-            },
-            status_code=500,
+        logger.warning(
+            '[/ask] research model=%s JSON parse failed — degrading to plain-text fallback',
+            actx.selected_model,
         )
+        if not answer:
+            return JSONResponse(
+                {'success': False, 'error': 'AI returned no content. Please try again.',
+                 'error_type': 'EmptyResponse'},
+                status_code=500,
+            )
+        _resp_topic = _extract_topic('research', None, answer)
+        _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
+        return {
+            'success':          True,
+            'mode':             actx.mode,
+            'answer':           answer,
+            'structured':       None,
+            'topic':            _resp_topic,
+            'model_used':       actx.selected_model,
+            'context':          actx.context,
+            'similarity':       float(actx.similarity),
+            'is_relevant':      actx.is_relevant,
+            'source':           actx.source,
+            'sources':          actx.all_sources,
+            'complexity_used':  actx.complexity,
+            'search_mode':      'hybrid' if actx.searcher.has_embeddings else 'tfidf',
+            'thinking_content': thinking_content,
+            'fallback_note':    'Structured card unavailable — showing plain-text answer.',
+            'web_citations':    _research_web_citations,
+            **({'viewer_action': _viewer_action} if _viewer_action else {}),
+        }
 
     _resp_topic = _extract_topic('research', structured, answer)
     _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
