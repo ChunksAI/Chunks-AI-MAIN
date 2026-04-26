@@ -20,6 +20,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import type { PDFDocumentLoadingTask } from 'pdfjs-dist';
 
 const RENDER_SCALE = 1.5;
 const MAX_VISIBLE_TEXT = 500;
@@ -48,10 +49,8 @@ export default function PdfViewer({ blobUrl, onPageChange }: PdfViewerProps) {
     if (!blobUrl) return;
 
     let cancelled = false;
-    // Store the loading task handle for cleanup (typed as `any` because the
-    // pdfjs-dist getDocument return type doesn't expose destroy() directly).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let loadingTask: any = null;
+    // Store the loading task handle for cleanup.
+    let loadingTask: PDFDocumentLoadingTask | null = null;
     const pagesContainer = pagesContainerRef.current;
     if (!pagesContainer) return;
 
@@ -108,11 +107,12 @@ export default function PdfViewer({ blobUrl, onPageChange }: PdfViewerProps) {
         if (cancelled) { page.cleanup(); break; }
 
         // Extract plain text from pdf.js for the AI context.
+        // `TextItem` objects have a `str` field; `TextMarkedContent` objects do not.
         const textContent = await page.getTextContent();
         if (cancelled) { page.cleanup(); break; }
 
-        const pageText = (textContent.items as Array<{ str?: string }>)
-          .map(item => item.str ?? '')
+        const pageText = textContent.items
+          .map(item => ('str' in item ? item.str : ''))
           .join(' ')
           .replace(/\s+/g, ' ')
           .trim()
