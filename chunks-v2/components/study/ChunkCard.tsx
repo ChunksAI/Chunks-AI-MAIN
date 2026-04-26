@@ -73,10 +73,11 @@ function CollapsibleSection({
 // ─── Chunk mode renderer ──────────────────────────────────────────────────────
 
 function ChunkModeCard({ data }: { data: StructuredData }) {
-  const overview   = str(data.overview);
-  const concepts   = toList(data.key_concepts);
-  const steps      = toList(data.step_by_step);
-  const example    = str(data.example);
+  const overview      = str(data.overview);
+  const concepts      = toList(data.key_concepts);
+  const steps         = toList(data.step_by_step);
+  const example       = str(data.example);
+  const checkQuestion = str(data.check_question);
 
   return (
     <div className="cc-card">
@@ -124,6 +125,15 @@ function ChunkModeCard({ data }: { data: StructuredData }) {
           <SectionHeader icon="✨" label="Example" />
           <div className="cc-section-body">
             <div className="cc-example-block">{example}</div>
+          </div>
+        </div>
+      )}
+
+      {checkQuestion && (
+        <div className="cc-section">
+          <SectionHeader icon="🤔" label="Check Your Understanding" />
+          <div className="cc-section-body">
+            <div className="cc-check-question">{checkQuestion}</div>
           </div>
         </div>
       )}

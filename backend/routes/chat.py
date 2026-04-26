@@ -114,14 +114,14 @@ _MODE_MAX_TOKENS = {
 # Per-mode token budgets for structured (chunk/research) calls.
 # These supersede _MODE_MAX_TOKENS[None] for normal-mode structured calls
 # because the JSON schemas require substantially more output than a snap answer:
-#   chunk   : 4 required fields, ~400-500 tokens each            ≈ 2 000
+#   chunk   : 5 required fields, ~400-500 tokens each            ≈ 2 200
 #   research: summary + findings array + sources array + simplified ≈ 4 000
 # Master mode now uses SSE streaming markdown — see _MASTER_STREAM_MAX_TOKENS.
 # Thinking-mode budgets (_MODE_MAX_TOKENS['deep'/'thinking']) are not
 # overridden here — thinking modes are intentionally capped lower because
 # their <think> block also consumes tokens from the same budget.
 _STRUCTURED_MODE_MAX_TOKENS: dict[str, int] = {
-    'chunk':    2000,
+    'chunk':    2200,
     'research': 4000,
 }
 
@@ -142,10 +142,12 @@ Required keys (all must be present):
   "overview": "one paragraph — what this topic is",
   "key_concepts": ["concept 1", "concept 2", ...],
   "step_by_step": ["step 1", "step 2", ...],
-  "example": "a concrete real-world example"
+  "example": "a concrete real-world example",
+  "check_question": "one short question to test the student's understanding of this topic"
 }
 Rules: Simple, clear, teaching-focused. No assumed prior knowledge.
-step_by_step must contain exactly 4–7 steps. Each step is one complete sentence describing a single action or sub-concept. Do not use sub-bullets or nested lists inside steps.""",
+step_by_step must contain exactly 4–7 steps. Each step is one complete sentence describing a single action or sub-concept. Do not use sub-bullets or nested lists inside steps.
+check_question must be a single question (not multiple questions, not a list). It should test one key concept from the topic.""",
 
     'research': """You are an evidence-based research assistant.
 Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
@@ -215,7 +217,7 @@ Rules:
 
 # Required JSON keys for each structured mode — used to warn on partial responses.
 _STRUCTURED_REQUIRED_KEYS: dict[str, set[str]] = {
-    'chunk':    {'overview', 'key_concepts', 'step_by_step', 'example'},
+    'chunk':    {'overview', 'key_concepts', 'step_by_step', 'example', 'check_question'},
     'research': {'summary', 'key_findings', 'sources', 'simplified_explanation'},
 }
 
