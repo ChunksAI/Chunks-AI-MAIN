@@ -162,12 +162,16 @@ Required keys (all must be present):
       "note": "one-line description of what this source supports"
     }
   ],
-  "simplified_explanation": "plain-language explanation for a student"
+  "simplified_explanation": "plain-language explanation for a student",
+  "research_confidence": "high | medium | low — your confidence in the evidence quality",
+  "open_questions": ["unanswered question 1", "unanswered question 2"]
 }
 Rules:
 - Every source MUST include a real URL. If you cannot supply a URL, omit that source entirely.
 - Prefer primary literature, peer-reviewed journals, official institutional pages, .gov, .edu, .org.
-- Never fabricate URLs. If you have no verified sources, return an empty sources array and note in summary that web search is recommended.""",
+- ONLY use URLs that were provided to you in the [VERIFIED WEB SOURCES] block. Do NOT invent or guess any URL.
+- If no verified sources were provided, return sources: [] and explain in summary that web citations were unavailable.
+- research_confidence and open_questions are optional but strongly encouraged — omit only if genuinely irrelevant.""",
 }
 
 # System prompt for master mode — SSE streaming markdown, not structured JSON.
@@ -1417,6 +1421,8 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
 
     # ── Web citation pre-fetch ────────────────────────────────────────────────
     _research_web_citations: list = []
+    _search_fallback_used = False
+    logger.info('[research] web search attempted | question=%s', actx.question[:80])
     try:
         _, _research_web_citations = await call_ai_web_search_async(
             actx.question,
@@ -1427,8 +1433,13 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
             history=actx.history,
             user_id=actx.verified_user_id,
         )
+        logger.info(
+            '[research] web search complete | citations=%d',
+            len(_research_web_citations),
+        )
     except Exception as _rw_err:
-        logger.debug('[ask] research web citation fetch failed: %s', _rw_err)
+        _search_fallback_used = True
+        logger.warning('[research] web search failed — proceeding without citations | err=%s', _rw_err)
     if _research_web_citations:
         _cit_lines = '\n'.join(
             f'- {c.get("title", c.get("url", ""))} — {c.get("url", "")}'
@@ -1442,6 +1453,12 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
             f'[VERIFIED WEB SOURCES — include these real URLs in your sources array '
             f'when they are relevant to the question]\n{_cit_lines}'
         )
+    else:
+        prompt = (
+            f'{prompt}\n\n'
+            '[VERIFIED WEB SOURCES — none available. Return sources: [] and note '
+            'in summary that web citations were unavailable.]'
+        )
 
     _mode_instruction = MODE_SYSTEM_PROMPTS['research']
     _call_system = (actx.base_system + '\n\n' + _mode_instruction) if actx.base_system else _mode_instruction
@@ -1451,6 +1468,10 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
         if actx.thinking_mode is None
         else _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
     )
+    logger.info(
+        '[research] synthesis starting | model=%s | max_tokens=%d | citations_injected=%d | search_fallback=%s',
+        actx.selected_model, _max_tok, len(_research_web_citations), _search_fallback_used,
+    )
 
     try:
         answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
@@ -1458,12 +1479,12 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
         )
     except RuntimeError as _ai_err:
         _status, _msg = _map_ai_error(_ai_err)
-        logger.warning('[/ask] research AI call failed: %s', _ai_err)
+        logger.warning('[research] synthesis AI call failed: %s', _ai_err)
         return JSONResponse({'success': False, 'error': _msg, 'request_id': actx.request_id}, status_code=_status)
 
     if structured is None:
         logger.warning(
-            '[/ask] research model=%s JSON parse failed — degrading to plain-text fallback',
+            '[research] JSON parse failed — degrading to plain-text fallback | model=%s',
             actx.selected_model,
         )
         if not answer:
@@ -1494,6 +1515,13 @@ async def _handle_research(actx: AskContext) -> dict | JSONResponse:
             **({'viewer_action': _viewer_action} if _viewer_action else {}),
         }
 
+    logger.info(
+        '[research] synthesis complete | model=%s | sources_in_card=%d | has_confidence=%s | has_open_questions=%s',
+        actx.selected_model,
+        len(structured.get('sources') or []) if isinstance(structured, dict) else 0,
+        bool(isinstance(structured, dict) and structured.get('research_confidence')),
+        bool(isinstance(structured, dict) and structured.get('open_questions')),
+    )
     _resp_topic = _extract_topic('research', structured, answer)
     _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
     _resp = {
