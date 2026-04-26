@@ -403,7 +403,7 @@ export async function sendMessageStream(
       bookId: params.bookId ?? '',
       ...(params.student_profile ? { student_profile: params.student_profile } : {}),
       ...(params.viewer_state != null ? { viewer_state: params.viewer_state } : {}),
-      stream: params.mode === 'snap',
+      stream: params.mode === 'snap' || params.mode === 'master',
     }),
     signal,
   });

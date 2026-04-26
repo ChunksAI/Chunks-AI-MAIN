@@ -107,25 +107,29 @@ _MODE_MAX_TOKENS = {
     None:        1500,  # normal / no thinking — full complete answer
 }
 
-# Per-mode token budgets for structured (chunk/master/research) calls.
+# Per-mode token budgets for structured (chunk/research) calls.
 # These supersede _MODE_MAX_TOKENS[None] for normal-mode structured calls
 # because the JSON schemas require substantially more output than a snap answer:
 #   chunk   : 4 required fields, ~400-500 tokens each            ≈ 2 000
-#   master  : 5 fields × 80-200 words (≈130 tok avg)            ≈ 4 500
 #   research: summary + findings array + sources array + simplified ≈ 4 000
+# Master mode now uses SSE streaming markdown — see _MASTER_STREAM_MAX_TOKENS.
 # Thinking-mode budgets (_MODE_MAX_TOKENS['deep'/'thinking']) are not
 # overridden here — thinking modes are intentionally capped lower because
 # their <think> block also consumes tokens from the same budget.
 _STRUCTURED_MODE_MAX_TOKENS: dict[str, int] = {
     'chunk':    2000,
-    'master':   4500,
     'research': 4000,
 }
 
-# System-prompt overrides for structured-JSON modes (chunk / master / research).
+# Token budget for master-mode streaming markdown responses.
+# Higher than snap (1500) to allow thorough professor-level explanations
+# across 8+ markdown sections.  Kept ≤ 6 000 to respect upstream model caps.
+_MASTER_STREAM_MAX_TOKENS = 5000
+
+# System-prompt overrides for structured-JSON modes (chunk / research).
 # These replace the free-form "answer helpfully" instruction with a strict JSON
 # schema so the frontend can render rich, structured UI cards.
-# IMPORTANT: snap mode must NOT appear here — it uses SSE streaming.
+# IMPORTANT: snap and master must NOT appear here — they use SSE streaming.
 MODE_SYSTEM_PROMPTS: dict[str, str] = {
     'chunk': """You are a structured teaching assistant.
 Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
@@ -138,21 +142,6 @@ Required keys (all must be present):
 }
 Rules: Simple, clear, teaching-focused. No assumed prior knowledge.
 step_by_step must contain exactly 4–7 steps. Each step is one complete sentence describing a single action or sub-concept. Do not use sub-bullets or nested lists inside steps.""",
-
-    'master': """You are an advanced reasoning assistant.
-Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
-Required keys (all must be present):
-{
-  "core_explanation": "deep explanation of the concept",
-  "mechanism": "how/why it works at a fundamental level",
-  "analysis": "implications, edge cases, nuances",
-  "connections": "how this connects to related concepts",
-  "key_insight": "the single most important takeaway"
-}
-Rules: Analytical. Explain WHY and HOW. No fluff.
-Each field (core_explanation, mechanism, analysis, connections) must be 80–200 words.
-'connections' must reference at least 2 specific related concepts by name.
-'key_insight' must be a single sentence of under 30 words.""",
 
     'research': """You are an evidence-based research assistant.
 Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside JSON.
@@ -177,10 +166,48 @@ Rules:
 - Never fabricate URLs. If you have no verified sources, return an empty sources array and note in summary that web search is recommended.""",
 }
 
+# System prompt for master mode — SSE streaming markdown, not structured JSON.
+# Instructs a professor-level explanation across eight standard sections.
+MASTER_MARKDOWN_PROMPT = """You are an expert professor and deep tutor. Write a thorough, professor-level explanation in clean Markdown.
+
+Structure your response with exactly these ## section headers (in order):
+
+## Core Idea
+A clear, precise statement of the central concept in 2-4 sentences.
+
+## Why It Works
+The fundamental principles, theory, or logic that explain this at a deep level.
+
+## Mechanism
+How it operates mechanistically — include equations (LaTeX), processes, or reactions where relevant.
+
+## Step-by-Step Reasoning
+Walk through the logic or derivation step by step, numbered.
+
+## Common Mistakes
+Three or more frequent misconceptions or errors students make, with brief corrections.
+
+## Related Concepts
+Two or more related ideas, laws, or topics with a sentence explaining each connection.
+
+## Example
+A concrete, fully worked example that illustrates the concept from start to finish.
+
+## Key Takeaway
+> 💡 Key takeaway: One sentence capturing the single most important insight.
+
+## Check Your Understanding
+One thoughtful exam-style question the student should now be able to answer.
+
+Rules:
+- Use $$ ... $$ for display equations and $ ... $ for inline math. Use \\ce{} for chemical formulas.
+- If [TEXTBOOK CONTEXT], [VIEWER CONTEXT], [DOCUMENT CONTEXT], or [VIDEO TRANSCRIPT] is present, ground your answer in it: quote a short fragment and cite the source (📖 Page N or [MM:SS]).
+- Be thorough — never cut yourself off. This is a deep explanation.
+- Do NOT output JSON."""
+
 # Required JSON keys for each structured mode — used to warn on partial responses.
 _STRUCTURED_REQUIRED_KEYS: dict[str, set[str]] = {
     'chunk':    {'overview', 'key_concepts', 'step_by_step', 'example'},
-    'master':   {'core_explanation', 'mechanism', 'analysis', 'connections', 'key_insight'},
     'research': {'summary', 'key_findings', 'sources', 'simplified_explanation'},
 }
 
@@ -1141,77 +1168,237 @@ async def _handle_chunk(actx: AskContext) -> dict | JSONResponse:
     return _resp
 
 
-async def _handle_master(actx: AskContext) -> dict | JSONResponse:
-    """Handle master mode: deep structured JSON analysis card."""
+async def _handle_master(actx: AskContext, request: Request):
+    """Handle master mode: streaming Markdown deep-tutor explanation.
+
+    Master uses the same SSE streaming path as snap but with a higher token
+    budget and a richer professor-style system prompt (MASTER_MARKDOWN_PROMPT).
+    No JSON schema is enforced — the response is plain Markdown.
+    """
+    from services.ai import call_ai_stream_async, call_ai_async, extract_thinking_content
+
     prompt = _build_study_prompt(actx)
-    _mode_instruction = MODE_SYSTEM_PROMPTS['master']
-    _call_system = (actx.base_system + '\n\n' + _mode_instruction) if actx.base_system else _mode_instruction
-    _response_format: dict = {"type": "json_object"}
+    _master_system = (
+        (actx.base_system + '\n\n' + MASTER_MARKDOWN_PROMPT)
+        if actx.base_system
+        else MASTER_MARKDOWN_PROMPT
+    )
     _max_tok = (
-        _STRUCTURED_MODE_MAX_TOKENS.get(actx.mode, _MODE_MAX_TOKENS[None])
+        _MASTER_STREAM_MAX_TOKENS
         if actx.thinking_mode is None
         else _MODE_MAX_TOKENS.get(actx.thinking_mode, _MODE_MAX_TOKENS[None])
     )
 
-    try:
-        answer, thinking_content, structured, _timeout_fallback_note = await _call_structured_ai(
-            prompt, _call_system, actx, _response_format, _max_tok,
+    # ── Non-thinking streaming path ───────────────────────────────────────────
+    if actx.stream_requested and actx.thinking_mode is None:
+        _stream_model    = actx.selected_model
+        _stream_fallback = actx.mode_fallback
+        _stream_req_id   = actx.request_id
+        _stream_timeout  = actx.ai_timeout
+        _decision        = actx.decision
+        viewer_state     = actx.viewer_state
+
+        async def _master_sse_generator():
+            stream_id = uuid.uuid4().hex
+            loop = asyncio.get_running_loop()
+
+            _HEARTBEAT_SECS = 15.0
+            _FLUSH_SECS     = 0.05
+            _FLUSH_COUNT    = 3
+            _MAX_STREAM_SECS = 180.0   # master answers are longer than snap
+
+            _cancel_key = f'{_KEY_NS_PREFIX}cancel:{_stream_req_id}'
+            _tok_buf:   list[str] = []
+            _full_text: list[str] = []
+            _last_flush = loop.time()
+
+            yield f'data: {json.dumps({"stream_id": stream_id}, ensure_ascii=False)}\n\n'
+
+            _models = list(dict.fromkeys(m for m in [_stream_model, _stream_fallback] if m))
+            _stream_start = loop.time()
+
+            for _attempt, _model in enumerate(_models):
+                _full_text = []
+                _tok_buf = []
+                if _attempt > 0:
+                    yield f'data: {json.dumps({"meta": {"reset": True}}, ensure_ascii=False)}\n\n'
+                try:
+                    _aiter = call_ai_stream_async(
+                        prompt,
+                        system_prompt=_master_system,
+                        model=_model,
+                        history=actx.history,
+                        max_tokens_override=_max_tok,
+                        endpoint='chat',
+                        user_id=actx.verified_user_id,
+                        timeout=_stream_timeout,
+                    )
+                    while True:
+                        try:
+                            _tok = await asyncio.wait_for(
+                                _aiter.__anext__(),
+                                timeout=_HEARTBEAT_SECS,
+                            )
+                        except StopAsyncIteration:
+                            if _tok_buf:
+                                yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                            _full_answer = ''.join(_full_text)
+                            _sse_topic: str | None = None
+                            for _line in _full_answer.split('\n'):
+                                _ls = _line.strip()
+                                if _ls.startswith('##'):
+                                    _sse_topic = _ls.lstrip('#').strip()[:120]
+                                    break
+                            if _sse_topic:
+                                yield f'data: {json.dumps({"meta": {"topic": _sse_topic}}, ensure_ascii=False)}\n\n'
+                            _va = _build_viewer_action(_decision, _full_answer, viewer_state)
+                            if _va:
+                                yield f'data: {json.dumps({"meta": {"viewer_action": _va}}, ensure_ascii=False)}\n\n'
+                            yield 'data: [DONE]\n\n'
+                            try:
+                                _redis = _cache_svc._redis
+                                if _redis:
+                                    _buf_json = json.dumps(_full_text)
+                                    if len(_buf_json) <= 1024 * 1024:
+                                        _redis.setex(
+                                            f'{_KEY_NS_PREFIX}stream:{stream_id}',
+                                            300,
+                                            _buf_json,
+                                        )
+                            except Exception as _buf_err:
+                                logger.debug('[/ask] master stream buffer write error: %s', _buf_err)
+                            return
+                        except asyncio.TimeoutError:
+                            if _tok_buf:
+                                yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                _tok_buf = []
+                                _last_flush = loop.time()
+                            yield ': heartbeat\n\n'
+                            if loop.time() - _stream_start >= _MAX_STREAM_SECS:
+                                logger.warning(
+                                    '[/ask] master SSE stream exceeded %ss — closing req_id=%s model=%s',
+                                    _MAX_STREAM_SECS, _stream_req_id, _model,
+                                )
+                                await _aiter.aclose()
+                                yield f'data: {json.dumps({"error": "Generation timed out. Please retry."}, ensure_ascii=False)}\n\n'
+                                yield 'data: [DONE]\n\n'
+                                return
+                            continue
+
+                        try:
+                            _redis = _cache_svc._redis
+                            if _redis and _redis.exists(_cancel_key):
+                                _redis.delete(_cancel_key)
+                                logger.info('[/ask] master SSE cancelled req_id=%s', _stream_req_id)
+                                await _aiter.aclose()
+                                if _tok_buf:
+                                    yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                                yield 'data: [DONE]\n\n'
+                                return
+                        except Exception as _redis_err:
+                            logger.debug('[/ask] master Redis cancel check error: %s', _redis_err)
+
+                        _tok_buf.append(_tok)
+                        _full_text.append(_tok)
+                        _now = loop.time()
+                        if len(_tok_buf) >= _FLUSH_COUNT or (_now - _last_flush) >= _FLUSH_SECS:
+                            yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                            _tok_buf = []
+                            _last_flush = _now
+
+                except asyncio.CancelledError:
+                    logger.info('[/ask] master SSE client disconnected req_id=%s', _stream_req_id)
+                    raise
+                except Exception as _err:
+                    if _attempt < len(_models) - 1:
+                        logger.warning(
+                            '[/ask] master stream primary failed (%s), retrying with fallback %s',
+                            _err, _stream_fallback,
+                        )
+                        continue
+                    logger.error('[/ask] master SSE stream error: %s', _err)
+                    if _tok_buf:
+                        yield f'data: {json.dumps({"text": "".join(_tok_buf)}, ensure_ascii=False)}\n\n'
+                    yield f'data: {json.dumps({"error": "Streaming failed. Please retry.", "text": ""}, ensure_ascii=False)}\n\n'
+                    yield 'data: [DONE]\n\n'
+                    return
+
+        return StreamingResponse(
+            _master_sse_generator(),
+            media_type='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',
+            },
         )
+
+    # ── Non-streaming fallback (thinking modes or stream not requested) ────────
+    _timeout_fallback_note: str | None = None
+    try:
+        try:
+            answer = await call_ai_async(
+                prompt,
+                system_prompt=_master_system,
+                model=actx.selected_model,
+                history=actx.history,
+                endpoint='chat',
+                user_id=actx.verified_user_id,
+                timeout=actx.ai_timeout,
+                max_tokens_override=_max_tok,
+            )
+        except Exception as _primary_err:
+            if actx.mode_fallback:
+                _is_timeout = 'timed out' in str(_primary_err).lower()
+                if _is_timeout:
+                    logger.warning(
+                        '[/ask] mode=master primary model %s timed out — switching to fallback %s',
+                        actx.selected_model, actx.mode_fallback,
+                    )
+                    _timeout_fallback_note = 'Master mode is taking longer than usual. Switching to fast mode...'
+                else:
+                    logger.warning(
+                        '[/ask] mode=master primary model %s failed (%s), retrying with fallback %s',
+                        actx.selected_model, _primary_err, actx.mode_fallback,
+                    )
+                answer = await call_ai_async(
+                    prompt,
+                    system_prompt=_master_system,
+                    model=actx.mode_fallback,
+                    history=actx.history,
+                    endpoint='chat',
+                    user_id=actx.verified_user_id,
+                    timeout=actx.ai_timeout,
+                    max_tokens_override=_max_tok,
+                )
+            else:
+                raise
     except RuntimeError as _ai_err:
         _status, _msg = _map_ai_error(_ai_err)
         logger.warning('[/ask] master AI call failed: %s', _ai_err)
-        return JSONResponse({'success': False, 'error': _msg, 'request_id': actx.request_id}, status_code=_status)
-
-    if structured is None:
-        logger.warning(
-            '[/ask] master model=%s JSON parse failed — degrading to plain-text fallback',
-            actx.selected_model,
+        return JSONResponse(
+            {'success': False, 'error': _msg, 'request_id': getattr(request.state, 'request_id', '-')},
+            status_code=_status,
         )
-        if not answer:
-            return JSONResponse(
-                {'success': False, 'error': 'AI returned no content. Please try again.',
-                 'error_type': 'EmptyResponse'},
-                status_code=500,
-            )
-        _resp_topic = _extract_topic('master', None, answer)
-        _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
-        return {
-            'success':          True,
-            'mode':             actx.mode,
-            'answer':           answer,
-            'structured':       None,
-            'topic':            _resp_topic,
-            'model_used':       actx.selected_model,
-            'context':          actx.context,
-            'similarity':       float(actx.similarity),
-            'is_relevant':      actx.is_relevant,
-            'source':           actx.source,
-            'sources':          actx.all_sources,
-            'complexity_used':  actx.complexity,
-            'search_mode':      'hybrid' if actx.searcher.has_embeddings else 'tfidf',
-            'thinking_content': thinking_content,
-            'fallback_note':    'Structured card unavailable — showing plain-text answer.',
-            **({'viewer_action': _viewer_action} if _viewer_action else {}),
-        }
 
-    _resp_topic = _extract_topic('master', structured, answer)
+    answer, thinking_content = extract_thinking_content(answer)
+    _resp_topic = _extract_topic('master', None, answer)
     _viewer_action = _build_viewer_action(actx.decision, answer, actx.viewer_state)
     _resp = {
-        'success':        True,
-        'mode':           actx.mode,
-        'answer':         answer,
-        'structured':     structured,
-        'topic':          _resp_topic,
-        'model_used':     actx.selected_model,
-        'context':        actx.context,
-        'similarity':     float(actx.similarity),
-        'is_relevant':    actx.is_relevant,
-        'source':         actx.source,
-        'sources':        actx.all_sources,
-        'complexity_used': actx.complexity,
-        'search_mode':    'hybrid' if actx.searcher.has_embeddings else 'tfidf',
+        'success':          True,
+        'mode':             actx.mode,
+        'answer':           answer,
+        'structured':       None,
+        'topic':            _resp_topic,
+        'model_used':       actx.selected_model,
+        'context':          actx.context,
+        'similarity':       float(actx.similarity),
+        'is_relevant':      actx.is_relevant,
+        'source':           actx.source,
+        'sources':          actx.all_sources,
+        'complexity_used':  actx.complexity,
+        'search_mode':      'hybrid' if actx.searcher.has_embeddings else 'tfidf',
         'thinking_content': thinking_content,
-        'fallback_note':  _timeout_fallback_note,
+        'fallback_note':    _timeout_fallback_note,
         **({'viewer_action': _viewer_action} if _viewer_action else {}),
     }
     _write_cache(actx, _resp)
@@ -2362,7 +2549,7 @@ Keep the summary focused, clear, and easy to review before an exam."""
                 if mode == 'chunk':
                     return await _handle_chunk(actx)
                 elif mode == 'master':
-                    return await _handle_master(actx)
+                    return await _handle_master(actx, request)
                 elif mode == 'research':
                     return await _handle_research(actx)
                 else:

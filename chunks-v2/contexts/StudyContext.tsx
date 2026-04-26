@@ -1307,17 +1307,19 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       chatDispatch({ type: 'SEND_MESSAGE', payload: userMsg });
 
       // Build history from current messages (last MAX_HISTORY_ITEMS), stripping HTML tags.
-      // Filter out AI messages from structured modes (chunk/master/research) to prevent
-      // JSON/Markdown bleed when the user switches back to snap mode.
+      // Filter out AI messages from structured modes (chunk/research) to prevent
+      // JSON bleed when the user switches back to snap/master mode.
+      // Master is now streaming markdown — safe to include in history.
       // Primary signal: the mode field stamped when the message was created.
       // Defensive fallback: also drop anything that parses as JSON (plain or code-fenced),
       // which handles old messages that predate the mode field.
+      const STRUCTURED_MODES = new Set(['chunk', 'research']);
       const history: MessageHistoryItem[] = stateRef.current.messages
         .slice(-MAX_HISTORY_ITEMS)
         .filter((m) => {
           if (m.role !== 'ai') return true;
-          // Primary: drop AI messages from structured modes
-          if (m.mode && m.mode !== 'snap') return false;
+          // Primary: drop AI messages from structured JSON modes
+          if (m.mode && STRUCTURED_MODES.has(m.mode)) return false;
           // Defensive: also drop anything that looks like a JSON blob (plain or code-fenced).
           // Only strip code fences when both opening and closing are present.
           const raw = m.text.trim();
@@ -1349,15 +1351,14 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       // For non-streaming modes (chunk/master/research), show a mode-specific
       // placeholder so the user sees meaningful feedback during the 5-15 s wait.
       const currentChatMode = stateRef.current.chatMode;
-      const isStreamingMode = currentChatMode === 'snap';
+      const isStreamingMode = currentChatMode === 'snap' || currentChatMode === 'master';
       const complexity = resolveComplexity(currentChatMode, text);
       if (process.env.NODE_ENV === 'development') {
         console.debug('[complexity] mode:', currentChatMode, '| resolved:', complexity, '| question excerpt:', text.slice(0, 80));
       }
-      // 'snap' is intentionally omitted — it never reads this map (isStreamingMode === true).
+      // 'snap' and 'master' are intentionally omitted — they stream (isStreamingMode === true).
       const placeholderText: Record<string, string> = {
         chunk:    '📖 Analyzing in depth…',
-        master:   '🧠 Deep reasoning in progress…',
         research: '🔬 Researching…',
       };
       const aiMsgId = nextMsgId();
