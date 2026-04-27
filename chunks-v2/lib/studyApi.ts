@@ -135,13 +135,24 @@ async function apiPost<T>(path: string, body: unknown, signal?: AbortSignal): Pr
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
+    let backendReqId: string | undefined;
     try {
-      const err = (await res.json()) as { detail?: string; message?: string };
-      message = err.detail ?? err.message ?? message;
+      const err = (await res.json()) as {
+        detail?: string;
+        message?: string;
+        error?: string;
+        request_id?: string;
+      };
+      message = err.detail ?? err.message ?? err.error ?? message;
+      backendReqId = err.request_id;
     } catch {
       // ignore JSON parse errors
     }
-    console.error('[req:%s] API error on POST %s: %s', reqId, path, message);
+    const serverReqId = backendReqId ?? res.headers.get('x-request-id') ?? undefined;
+    console.error(
+      '[req:%s] API error on POST %s status=%d backend_req_id=%s msg=%s',
+      reqId, path, res.status, serverReqId ?? '-', message,
+    );
     throw new ApiError(message, res.status);
   }
 
@@ -163,13 +174,24 @@ async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
+    let backendReqId: string | undefined;
     try {
-      const err = (await res.json()) as { detail?: string; message?: string };
-      message = err.detail ?? err.message ?? message;
+      const err = (await res.json()) as {
+        detail?: string;
+        message?: string;
+        error?: string;
+        request_id?: string;
+      };
+      message = err.detail ?? err.message ?? err.error ?? message;
+      backendReqId = err.request_id;
     } catch {
       // ignore JSON parse errors
     }
-    console.error('[req:%s] API error on GET %s: %s', reqId, path, message);
+    const serverReqId = backendReqId ?? res.headers.get('x-request-id') ?? undefined;
+    console.error(
+      '[req:%s] API error on GET %s status=%d backend_req_id=%s msg=%s',
+      reqId, path, res.status, serverReqId ?? '-', message,
+    );
     throw new ApiError(message, res.status);
   }
 
@@ -414,12 +436,24 @@ export async function sendMessageStream(
   }
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
+    let backendReqId: string | undefined;
     try {
-      const err = (await res.json()) as { detail?: string; message?: string };
-      message = err.detail ?? err.message ?? message;
+      const err = (await res.json()) as {
+        detail?: string;
+        message?: string;
+        error?: string;
+        request_id?: string;
+      };
+      message = err.detail ?? err.message ?? err.error ?? message;
+      backendReqId = err.request_id;
     } catch {
       // ignore JSON parse errors
     }
+    const serverReqId = backendReqId ?? res.headers.get('x-request-id') ?? undefined;
+    console.error(
+      '[req:%s] sendMessageStream API error on POST /ask status=%d backend_req_id=%s msg=%s',
+      reqId, res.status, serverReqId ?? '-', message,
+    );
     throw new ApiError(message, res.status);
   }
 
@@ -1008,12 +1042,24 @@ export async function listenToPage(params: ListenPageRequest): Promise<Blob> {
   if (!res.ok) {
     // The backend returns JSON errors for non-2xx responses.
     let message = `Listen request failed (${res.status})`;
+    let backendReqId: string | undefined;
     try {
-      const err = (await res.json()) as { error?: string; detail?: string };
-      message = err.error ?? err.detail ?? message;
+      const err = (await res.json()) as {
+        error?: string;
+        detail?: string;
+        message?: string;
+        request_id?: string;
+      };
+      message = err.error ?? err.detail ?? err.message ?? message;
+      backendReqId = err.request_id;
     } catch {
       // ignore parse errors
     }
+    const serverReqId = backendReqId ?? res.headers.get('x-request-id') ?? undefined;
+    console.error(
+      '[req:%s] listenToPage API error on POST /api/listen/page status=%d backend_req_id=%s msg=%s',
+      reqId, res.status, serverReqId ?? '-', message,
+    );
     throw new ApiError(message, res.status);
   }
 
