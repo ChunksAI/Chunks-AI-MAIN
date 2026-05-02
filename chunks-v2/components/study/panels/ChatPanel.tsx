@@ -634,6 +634,9 @@ export default function ChatPanel() {
           });
       }
     } finally {
+      // The finally block always runs — including when any early `return` fires
+      // inside the try (e.g. chatLoading check for image sends).  This guarantees
+      // sendingRef is always reset so subsequent sends are not permanently blocked.
       sendingRef.current = false;
     }
   };
