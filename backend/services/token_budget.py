@@ -20,7 +20,7 @@ import datetime
 import json
 import logging
 import os
-from typing import Optional
+from typing import Any, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -522,7 +522,7 @@ def record_user_daily_tokens(user_id: str, tokens: int) -> None:
     _mem_user_daily_tokens[key] = _mem_user_daily_tokens.get(key, 0) + tokens
 
 
-def check_user_daily_token_budget(user_id: str, tier) -> None:
+def check_user_daily_token_budget(user_id: str, tier: Union[str, Any]) -> None:
     """Raise :class:`UserDailyTokenBudgetExceeded` if the user is over their daily cap.
 
     Parameters
