@@ -1013,6 +1013,13 @@ async def _handle_snap(actx: AskContext, request: Request):
                                             300,
                                             _buf_json,
                                         )
+                                        # Bind this stream buffer to its owner so the
+                                        # recovery endpoint can enforce access control.
+                                        _redis.setex(
+                                            f'{_KEY_NS_PREFIX}stream_user:{stream_id}',
+                                            300,
+                                            _stream_user_id,
+                                        )
                             except Exception as _buf_err:
                                 logger.debug('[/ask] stream buffer write error: %s', _buf_err)
                             return
@@ -1366,6 +1373,13 @@ async def _handle_master(actx: AskContext, request: Request):
                                             f'{_KEY_NS_PREFIX}stream:{stream_id}',
                                             300,
                                             _buf_json,
+                                        )
+                                        # Bind this stream buffer to its owner so the
+                                        # recovery endpoint can enforce access control.
+                                        _redis.setex(
+                                            f'{_KEY_NS_PREFIX}stream_user:{stream_id}',
+                                            300,
+                                            actx.verified_user_id,
                                         )
                             except Exception as _buf_err:
                                 logger.debug('[/ask] master stream buffer write error: %s', _buf_err)
@@ -2829,20 +2843,37 @@ async def cancel_ask(request: Request) -> JSONResponse:
 
 
 @router.get('/api/stream/{stream_id}')
-async def get_stream_buffer(stream_id: str) -> JSONResponse:
+async def get_stream_buffer(stream_id: str, request: Request) -> JSONResponse:
     """Retrieve the token buffer for a completed SSE stream.
 
     Returns ``{"complete": true, "tokens": [...]}`` when the stream finished
     and its buffer is still within the 5-minute TTL.  Returns HTTP 404 when
-    the ``stream_id`` is unknown or the TTL has expired.
+    the ``stream_id`` is unknown or the TTL has expired.  Returns HTTP 403
+    when the caller's verified identity does not match the stream's owner.
 
     This is a best-effort recovery endpoint — it only holds data for streams
     that completed successfully within the last 5 minutes.
     """
+    # Identify the caller (guest or authenticated) for ownership verification.
+    caller_user_id, _, _ = _extract_verified_user(request)
     try:
         _redis = _cache_svc._redis
         if not _redis:
             return JSONResponse({'detail': 'Stream not found.'}, status_code=404)
+        # Check ownership before fetching buffer contents.
+        # The stream_user key is written alongside the buffer by the SSE
+        # generator with the same TTL.  If it is absent the buffer has
+        # already expired (or was written before this guard was deployed).
+        owner_raw = _redis.get(f'{_KEY_NS_PREFIX}stream_user:{stream_id}')
+        if owner_raw is None:
+            return JSONResponse({'detail': 'Stream not found or expired.'}, status_code=404)
+        owner_user_id = owner_raw.decode() if isinstance(owner_raw, bytes) else str(owner_raw)
+        if owner_user_id != caller_user_id:
+            logger.warning(
+                '[/api/stream] forbidden: caller=%s owner=%s stream_id=%s',
+                caller_user_id[:16], owner_user_id[:16], stream_id,
+            )
+            return JSONResponse({'detail': 'Forbidden.'}, status_code=403)
         raw = _redis.get(f'{_KEY_NS_PREFIX}stream:{stream_id}')
         if raw is None:
             return JSONResponse({'detail': 'Stream not found or expired.'}, status_code=404)

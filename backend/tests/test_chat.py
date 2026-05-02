@@ -2334,3 +2334,119 @@ class TestFourModes:
         assert data['structured'] is not None
         assert data['structured']['summary'] == 'Quantum computing uses qubits.'
         assert call_count == 2
+
+
+class TestStreamBufferAuth:
+    """Regression tests for P0: /api/stream/{stream_id} ownership enforcement.
+
+    The recovery endpoint must:
+    - Return 404 when no ownership record exists (stream expired or never written).
+    - Return 403 when the caller's user_id does not match the recorded owner.
+    - Return 200 with the token list only when user_ids match.
+    """
+
+    def _patch_redis(self, monkeypatch, get_side_effect):
+        """Replace _cache_svc._redis with a MagicMock using the given get side-effect."""
+        import routes.chat as chat_mod
+        mock_redis = MagicMock()
+        mock_redis.get.side_effect = get_side_effect
+        monkeypatch.setattr(chat_mod._cache_svc, '_redis', mock_redis)
+        return mock_redis
+
+    def _patch_user(self, monkeypatch, user_id):
+        """Replace the locally-bound _extract_verified_user in routes.chat."""
+        import routes.chat as chat_mod
+        from services.auth import Tier
+        mock = MagicMock(return_value=(user_id, Tier.FREE, False))
+        monkeypatch.setattr(chat_mod, '_extract_verified_user', mock)
+        return mock
+
+    # ── 1. 404 when stream_user key absent ────────────────────────────────────
+
+    def test_stream_buffer_404_when_ownership_key_missing(self, client, monkeypatch):
+        """GET /api/stream/{id} returns 404 when stream_user key is absent."""
+        self._patch_redis(monkeypatch, lambda key: None)
+        self._patch_user(monkeypatch, 'user-a')
+
+        resp = client.get('/api/stream/nonexistent-id')
+        assert resp.status_code == 404
+        data = resp.json()
+        assert 'not found' in data.get('detail', '').lower()
+
+    # ── 2. 403 when caller is a different user ────────────────────────────────
+
+    def test_stream_buffer_403_for_wrong_user(self, client, monkeypatch):
+        """GET /api/stream/{id} returns 403 when caller != owner."""
+        stream_id = 'aabbccdd' * 4  # 32-char hex
+        tokens = ['Hello', ' world']
+
+        def _get(key):
+            if f'stream_user:{stream_id}' in key:
+                return b'user-a'
+            if f'stream:{stream_id}' in key:
+                return json.dumps(tokens).encode()
+            return None
+
+        self._patch_redis(monkeypatch, _get)
+        self._patch_user(monkeypatch, 'user-b')  # different user
+
+        resp = client.get(f'/api/stream/{stream_id}')
+        assert resp.status_code == 403
+        data = resp.json()
+        assert 'forbidden' in data.get('detail', '').lower()
+
+    # ── 3. 200 with tokens when caller matches owner ──────────────────────────
+
+    def test_stream_buffer_200_for_correct_user(self, client, monkeypatch):
+        """GET /api/stream/{id} returns tokens when caller == owner."""
+        stream_id = 'aabbccdd' * 4
+        tokens = ['The', ' answer', ' is', ' 42.']
+
+        def _get(key):
+            if f'stream_user:{stream_id}' in key:
+                return b'user-a'
+            if f'stream:{stream_id}' in key:
+                return json.dumps(tokens).encode()
+            return None
+
+        self._patch_redis(monkeypatch, _get)
+        self._patch_user(monkeypatch, 'user-a')  # same user
+
+        resp = client.get(f'/api/stream/{stream_id}')
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data['complete'] is True
+        assert data['tokens'] == tokens
+
+    # ── 4. 404 when buffer expired but ownership key still absent ─────────────
+
+    def test_stream_buffer_404_when_redis_unavailable(self, client, monkeypatch):
+        """GET /api/stream/{id} returns 404 gracefully when Redis is None."""
+        import routes.chat as chat_mod
+        monkeypatch.setattr(chat_mod._cache_svc, '_redis', None)
+        self._patch_user(monkeypatch, 'user-a')
+
+        resp = client.get('/api/stream/some-id')
+        assert resp.status_code == 404
+
+    # ── 5. Guest callers are matched by their IP-based user_id ───────────────
+
+    def test_stream_buffer_guest_identity_matches(self, client, monkeypatch):
+        """GET /api/stream/{id} allows recovery when guest IPs match."""
+        stream_id = '11223344' * 4
+        tokens = ['Guest', ' answer']
+        guest_id = 'ip:127.0.0.1'
+
+        def _get(key):
+            if f'stream_user:{stream_id}' in key:
+                return guest_id.encode()
+            if f'stream:{stream_id}' in key:
+                return json.dumps(tokens).encode()
+            return None
+
+        self._patch_redis(monkeypatch, _get)
+        self._patch_user(monkeypatch, guest_id)
+
+        resp = client.get(f'/api/stream/{stream_id}')
+        assert resp.status_code == 200
+        assert resp.json()['tokens'] == tokens
