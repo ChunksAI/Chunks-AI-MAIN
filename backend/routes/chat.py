@@ -1688,7 +1688,7 @@ async def ask(request: Request, body: AskRequest):
             call_ai_async, call_ai_stream_async, call_ai_web_search_async, sanitize_user_memory,
             should_search_textbook, extract_thinking_content,
         )
-        from services.prompt_guard import screen_prompt_async, neutralize_doc_context as _neutralize_doc_ctx
+        from services.prompt_guard import screen_prompt_async, neutralize_doc_context
         from services.books import BOOK_LIBRARY, TextbookSearch, get_book_index
         from services.ai_router import route, route_for_mode
         from services.mcq_parser import _parse_mcq
@@ -1765,7 +1765,7 @@ async def ask(request: Request, body: AskRequest):
         # like "ignore all previous instructions" that would override the system
         # prompt.  Neutralise any matches before the text reaches the model.
         if doc_context:
-            doc_context, _ = _neutralize_doc_ctx(doc_context, user_id=verified_user_id)
+            doc_context, _ = neutralize_doc_context(doc_context, user_id=verified_user_id)
 
         # ── Server-side student model (Redis-first) ───────────────────────────
         # Prefer the authoritative server-side model over the request body field.
@@ -2090,7 +2090,10 @@ async def ask(request: Request, body: AskRequest):
             # ── Document (PDF) context ──────────────────────────────────────
             _pdf_page = _vs.get('pdf_page')
             _pdf_text_raw = _sanitize_untrusted(_vs.get('pdf_visible_text') or '')
-            _pdf_text, _ = _neutralize_doc_ctx(_pdf_text_raw, user_id=verified_user_id)
+            # The flagged boolean is intentionally discarded: the neutralized text
+            # already has injection phrases replaced with [FILTERED]; the upstream
+            # doc_context screening already logs and handles flagged uploads.
+            _pdf_text, _ = neutralize_doc_context(_pdf_text_raw, user_id=verified_user_id)
             _has_pdf = _pdf_page is not None or bool(_pdf_text)
             _doc_block = ''
             if _has_pdf:
