@@ -1760,6 +1760,20 @@ async def ask(request: Request, body: AskRequest):
         except _UsageLimitExceeded as _ule:
             return _ule.response()
 
+        # ── Per-user daily token budget ───────────────────────────────────────
+        # Authenticated, non-exempt users are subject to a per-tier daily token
+        # cap that prevents runaway spend.  Guests are already rate-limited by
+        # the IP quota above; exempt (admin/owner) accounts are never blocked.
+        if verified_user_id and not verified_user_id.startswith('ip:') and not _is_exempt:
+            from services.token_budget import (
+                check_user_daily_token_budget as _check_token_budget,
+                UserDailyTokenBudgetExceeded  as _TokenBudgetExceeded,
+            )
+            try:
+                _check_token_budget(verified_user_id, user_tier)
+            except _TokenBudgetExceeded as _tbe:
+                return _tbe.response()
+
         # ── Screen uploaded document context for prompt injection ─────────────
         # doc_context is extracted from a user-uploaded file and injected into
         # the system prompt verbatim.  A poisoned PDF could contain patterns

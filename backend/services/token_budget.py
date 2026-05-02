@@ -105,10 +105,26 @@ _BUDGET_ENV = 'DAILY_COST_BUDGET_USD'
 _KEY_NS_PREFIX: str = os.environ.get('REDIS_KEY_PREFIX', '')
 _REDIS_DAILY_KEY_PREFIX = f'{_KEY_NS_PREFIX}token_budget:daily:'
 _REDIS_USER_MONTH_KEY_PREFIX = f'{_KEY_NS_PREFIX}token_usage:user:'
+_REDIS_USER_DAILY_TOKEN_PREFIX = f'{_KEY_NS_PREFIX}user_daily_tokens:'
 
 # In-memory fallback accumulators (lost on process restart).
 _mem_usage: dict[str, dict] = {}
 _mem_user_usage: dict[str, list[dict]] = {}  # key: "{user_id}:{YYYY-MM}"
+_mem_user_daily_tokens: dict[str, int] = {}  # key: "{user_id}:{YYYY-MM-DD}"
+
+# ── Per-user daily token caps ─────────────────────────────────────────────────
+#
+# Default caps per subscription tier (total prompt + completion tokens/day).
+# Override any tier by setting the corresponding environment variable:
+#   TOKEN_CAP_FREE=20000  TOKEN_CAP_PRO=400000  TOKEN_CAP_ULTRA=2000000
+#
+# Set a cap to 0 to make that tier unlimited.
+
+_DEFAULT_USER_DAILY_TOKEN_CAPS: dict[str, int] = {
+    'free':  int(os.environ.get('TOKEN_CAP_FREE',  '20000')),
+    'pro':   int(os.environ.get('TOKEN_CAP_PRO',   '400000')),
+    'ultra': int(os.environ.get('TOKEN_CAP_ULTRA', '2000000')),
+}
 
 
 def _today_key() -> str:
@@ -176,6 +192,14 @@ def record_usage(
     # ── Per-user monthly recording ────────────────────────────────────────
     if user_id:
         _record_user_month(user_id, month, entry)
+
+    # ── Per-user daily token counter ──────────────────────────────────────
+    # Authenticated users (non-ip: prefix) have their daily token consumption
+    # tracked here so check_user_daily_token_budget() can enforce tier caps.
+    if user_id and not user_id.startswith('ip:'):
+        _total = prompt_tokens + completion_tokens
+        if _total > 0:
+            record_user_daily_tokens(user_id, _total)
 
 
 def _mem_record(day: str, entry: dict) -> None:
@@ -417,3 +441,138 @@ def _scan_mem_user_month(month: str) -> dict[str, dict]:
             if entries:
                 users[uid] = _aggregate_entries(entries)
     return users
+
+
+# ── Per-user daily token budget ───────────────────────────────────────────────
+
+class UserDailyTokenBudgetExceeded(Exception):
+    """Raised when a user has consumed their daily token allowance for their tier."""
+
+    def __init__(self, used: int, cap: int, tier: str) -> None:
+        self.used = used
+        self.cap  = cap
+        self.tier = tier
+        super().__init__(
+            f'Daily token budget exceeded: {used}/{cap} tokens ({tier} plan)'
+        )
+
+    def response(self):
+        """Return a 429 JSONResponse ready to be returned from a route handler."""
+        from fastapi.responses import JSONResponse
+        tier_label = self.tier.capitalize()
+        cap_k      = self.cap // 1_000
+        return JSONResponse(
+            {
+                'success':            False,
+                'token_limited':      True,
+                'daily_tokens_used':  self.used,
+                'daily_token_cap':    self.cap,
+                'tier':               self.tier,
+                'error': (
+                    f"You've used your daily AI token allowance ({cap_k:,}K tokens) on the "
+                    f"{tier_label} plan. Your quota resets at midnight UTC. "
+                    "Upgrade for a higher daily limit!"
+                ),
+            },
+            status_code=429,
+        )
+
+
+def _user_daily_token_key(user_id: str) -> str:
+    """Build the Redis key for today's per-user token counter."""
+    return f'{_REDIS_USER_DAILY_TOKEN_PREFIX}{user_id}:{_today_key()}'
+
+
+def get_user_daily_tokens(user_id: str) -> int:
+    """Return the number of tokens the user has consumed today (UTC).
+
+    Reads from Redis when available, falls back to the in-process counter
+    (which may under-count with multiple workers).
+    """
+    key = _user_daily_token_key(user_id)
+    if _redis is not None:
+        try:
+            val = _redis.get(key)
+            return int(val) if val is not None else 0
+        except Exception as exc:
+            logger.warning('token_budget.get_user_daily_tokens: Redis error: %s', exc)
+    return _mem_user_daily_tokens.get(key, 0)
+
+
+def record_user_daily_tokens(user_id: str, tokens: int) -> None:
+    """Atomically add *tokens* to user_id's per-user daily counter.
+
+    Called automatically by :func:`record_usage` for authenticated users; you
+    should not need to call this directly.  TTL is 25 h (same as other daily
+    keys) so the counter expires cleanly after UTC midnight.
+    """
+    if tokens <= 0 or not user_id:
+        return
+    key = _user_daily_token_key(user_id)
+    if _redis is not None:
+        try:
+            new_val = _redis.incrby(key, tokens)
+            if new_val == tokens:
+                # First write today — stamp a 25 h TTL
+                _redis.expire(key, 90_000)
+            return
+        except Exception as exc:
+            logger.warning('token_budget.record_user_daily_tokens: Redis error: %s', exc)
+    # In-memory fallback (per-process; under-counts with multiple workers)
+    _mem_user_daily_tokens[key] = _mem_user_daily_tokens.get(key, 0) + tokens
+
+
+def check_user_daily_token_budget(user_id: str, tier) -> None:
+    """Raise :class:`UserDailyTokenBudgetExceeded` if the user is over their daily cap.
+
+    Parameters
+    ----------
+    user_id:
+        Authenticated user identifier.  Guest (``ip:``-prefixed) IDs are
+        *not* checked here — callers must skip this function for guests.
+    tier:
+        Subscription tier — either a ``Tier`` enum or a plain string
+        (``'free'``, ``'pro'``, ``'ultra'``).
+
+    Behaviour when Redis is unavailable
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    * Free users  → **fail closed** (blocked) to prevent abuse.
+    * Paid users  → **fail open** (allowed) so transient Redis outages do
+      not disrupt paying subscribers.
+    """
+    tier_str = tier.value if hasattr(tier, 'value') else str(tier).lower()
+    cap = _DEFAULT_USER_DAILY_TOKEN_CAPS.get(tier_str)
+    if cap is None:
+        cap = _DEFAULT_USER_DAILY_TOKEN_CAPS.get('free', 20_000)
+
+    if cap <= 0:
+        return  # 0 means unlimited for this tier
+
+    if _redis is not None:
+        try:
+            # Call Redis directly (not via get_user_daily_tokens) so that
+            # Redis errors are caught here and can trigger fail-closed logic.
+            key  = _user_daily_token_key(user_id)
+            val  = _redis.get(key)
+            used = int(val) if val is not None else 0
+            if used >= cap:
+                raise UserDailyTokenBudgetExceeded(used, cap, tier_str)
+            return
+        except UserDailyTokenBudgetExceeded:
+            raise
+        except Exception as exc:
+            _fail_closed = (tier_str == 'free')
+            logger.warning(
+                'token_budget.check_user_daily_token_budget: Redis error (%s) — '
+                'failing %s for user=%s tier=%s',
+                exc, 'closed' if _fail_closed else 'open', user_id, tier_str,
+            )
+            if _fail_closed:
+                raise UserDailyTokenBudgetExceeded(cap, cap, tier_str)
+            return   # paid users: allow on Redis error
+    else:
+        # No Redis configured — use in-memory counter (unreliable across workers)
+        used = _mem_user_daily_tokens.get(_user_daily_token_key(user_id), 0)
+        if used >= cap:
+            raise UserDailyTokenBudgetExceeded(used, cap, tier_str)
+
