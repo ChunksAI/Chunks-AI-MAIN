@@ -24,7 +24,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from routes.limiter import limiter, _dynamic_ask_limit
 from routes.shared import ctx, TEACHING_PROMPT
-from routes.schemas import AskRequest
+from routes.schemas import AskRequest, _HISTORY_MAX_ITEMS
 from services.usage import enforce as _enforce_usage, UsageLimitExceeded as _UsageLimitExceeded
 from services.auth import _extract_verified_user
 from services.cache import cache_svc as _cache_svc
@@ -1703,7 +1703,7 @@ async def ask(request: Request, body: AskRequest):
         web_search    = data.get('web_search', False)
         stream_requested = bool(data.get('stream', False))
         history       = data.get('history', [])
-        history       = history[-20:]  # defense-in-depth cap
+        history       = history[-_HISTORY_MAX_ITEMS:]  # defense-in-depth cap
         selected_text = data.get('selected_text', '').strip()[:2000]
         _raw_doc_context = data.get('doc_context', '')
         if len(_raw_doc_context.encode('utf-8')) > 80_000:
