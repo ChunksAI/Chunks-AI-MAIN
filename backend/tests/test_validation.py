@@ -41,6 +41,41 @@ def test_ask_complexity_out_of_range(client, mock_guest_gate, mock_extract_user)
     assert resp.status_code == 422
 
 
+def test_ask_history_too_many_items(client, mock_guest_gate, mock_extract_user):
+    """POST /ask with 100 history items is rejected with 422."""
+    history = [{'role': 'user', 'content': f'msg {i}'} for i in range(100)]
+    resp = client.post('/ask', json={'question': 'hi', 'history': history})
+    assert resp.status_code == 422
+    data = resp.json()
+    assert data['success'] is False
+
+
+def test_ask_history_serialized_too_large(client, mock_guest_gate, mock_extract_user):
+    """POST /ask with a few oversized history items (> 12 KB total) returns 422."""
+    # 3 items each with ~5 000-char content → well over 12 KB
+    large_item = {'role': 'user', 'content': 'x' * 5000}
+    resp = client.post('/ask', json={'question': 'hi', 'history': [large_item] * 3})
+    assert resp.status_code == 422
+    data = resp.json()
+    assert data['success'] is False
+
+
+def test_ask_history_at_limit_accepted(client, monkeypatch, mock_guest_gate, mock_extract_user):
+    """POST /ask with exactly 20 short history items passes validation."""
+    import services.ai as ai_svc
+    import services.books as books_svc
+    monkeypatch.setattr(ai_svc, 'call_ai', MagicMock(return_value='ok'))
+    monkeypatch.setattr(ai_svc, 'should_search_textbook', MagicMock(return_value=False))
+    mock_searcher = MagicMock()
+    mock_searcher.chunks = []
+    mock_searcher.has_embeddings = False
+    monkeypatch.setattr(books_svc, 'get_book_index', MagicMock(return_value=mock_searcher))
+
+    history = [{'role': 'user', 'content': 'hi'} for _ in range(20)]
+    resp = client.post('/ask', json={'question': 'hi', 'history': history})
+    assert resp.status_code == 200
+
+
 def test_ask_valid_defaults(client, monkeypatch, mock_guest_gate, mock_extract_user):
     """POST /ask with minimal valid payload passes validation."""
     import services.ai as ai_svc

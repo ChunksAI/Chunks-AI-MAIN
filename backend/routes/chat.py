@@ -1703,6 +1703,7 @@ async def ask(request: Request, body: AskRequest):
         web_search    = data.get('web_search', False)
         stream_requested = bool(data.get('stream', False))
         history       = data.get('history', [])
+        history       = history[-20:]  # defense-in-depth cap
         selected_text = data.get('selected_text', '').strip()[:2000]
         _raw_doc_context = data.get('doc_context', '')
         if len(_raw_doc_context.encode('utf-8')) > 80_000:

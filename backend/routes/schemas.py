@@ -10,6 +10,7 @@ unchanged.
 """
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -66,7 +67,7 @@ class AskRequest(_LenientBase):
     thinking: Optional[str] = None
     web_search: bool = False
     stream: bool = False
-    history: List[Any] = Field(default_factory=list)
+    history: List[Any] = Field(default_factory=list, max_length=20)
     selected_text: str = ""
     doc_context: str = ""
     user_memory: str = ""
@@ -88,6 +89,14 @@ class AskRequest(_LenientBase):
         }
     """
 
+    @field_validator('history')
+    @classmethod
+    def history_size_limit(cls, v: list) -> list:
+        """Reject history whose total serialized size exceeds 12 KB."""
+        if len(json.dumps(v).encode()) > 12_288:
+            raise ValueError('history serialized size exceeds 12 KB')
+        return v
+
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
 # ║  /ask-async                                                                ║
@@ -101,11 +110,19 @@ class AskAsyncRequest(_LenientBase):
     bookId: Optional[str] = None
     thinking: Optional[str] = None
     web_search: bool = False
-    history: List[Any] = Field(default_factory=list)
+    history: List[Any] = Field(default_factory=list, max_length=20)
     selected_text: str = ""
     doc_context: str = ""
     user_memory: str = ""
     task_type: Optional[str] = None
+
+    @field_validator('history')
+    @classmethod
+    def history_size_limit(cls, v: list) -> list:
+        """Reject history whose total serialized size exceeds 12 KB."""
+        if len(json.dumps(v).encode()) > 12_288:
+            raise ValueError('history serialized size exceeds 12 KB')
+        return v
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
