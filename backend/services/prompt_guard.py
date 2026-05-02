@@ -258,6 +258,38 @@ async def check_injection_llm_async(text: str) -> bool:
         return False
 
 
+def neutralize_doc_context(text: str, user_id: str = '') -> tuple[str, bool]:
+    """Screen *text* for prompt injection and neutralise any matches in place.
+
+    Unlike :func:`screen_prompt`, this function does not reject the content —
+    it replaces detected injection patterns with ``[FILTERED]`` so the rest of
+    the document remains available to the model for legitimate Q&A.
+
+    Parameters
+    ----------
+    text:
+        Raw document content (already control-char-sanitized is fine).
+    user_id:
+        Caller identity used in log output only — the full document text is
+        never logged to avoid leaking sensitive document content.
+
+    Returns
+    -------
+    (neutralized_text, was_flagged)
+        *was_flagged* is ``True`` when at least one injection pattern was found
+        and replaced.
+    """
+    if not text:
+        return text, False
+    if check_injection_regex(text):
+        logger.warning(
+            'prompt_guard DOC INJECTION neutralized | user=%s | preview=%r',
+            user_id or 'anonymous', text[:120],
+        )
+        return _INJECTION_RE.sub('[FILTERED]', text), True
+    return text, False
+
+
 async def screen_prompt_async(text: str, user_id: str = '') -> tuple[bool, str]:
     """Async counterpart to screen_prompt().
 
