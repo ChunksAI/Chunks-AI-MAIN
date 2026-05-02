@@ -32,6 +32,19 @@ class _LenientBase(BaseModel):
 # ║  /ask                                                                      ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
+# Maximum number of history items accepted in a single /ask request.
+_HISTORY_MAX_ITEMS: int = 20
+# Maximum total serialized size of the history list (bytes, UTF-8 encoded JSON).
+_HISTORY_MAX_BYTES: int = 12_288  # 12 KB
+
+
+def _validate_history_size(v: list) -> list:
+    """Shared history size guard used by AskRequest and AskAsyncRequest."""
+    if len(json.dumps(v).encode()) > _HISTORY_MAX_BYTES:
+        raise ValueError('history serialized size exceeds 12 KB')
+    return v
+
+
 _AskMode = Literal[
     # Current modes
     'snap', 'chunk', 'master', 'research',
@@ -67,7 +80,7 @@ class AskRequest(_LenientBase):
     thinking: Optional[str] = None
     web_search: bool = False
     stream: bool = False
-    history: List[Any] = Field(default_factory=list, max_length=20)
+    history: List[Any] = Field(default_factory=list, max_length=_HISTORY_MAX_ITEMS)
     selected_text: str = ""
     doc_context: str = ""
     user_memory: str = ""
@@ -92,10 +105,7 @@ class AskRequest(_LenientBase):
     @field_validator('history')
     @classmethod
     def history_size_limit(cls, v: list) -> list:
-        """Reject history whose total serialized size exceeds 12 KB."""
-        if len(json.dumps(v).encode()) > 12_288:
-            raise ValueError('history serialized size exceeds 12 KB')
-        return v
+        return _validate_history_size(v)
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
@@ -110,7 +120,7 @@ class AskAsyncRequest(_LenientBase):
     bookId: Optional[str] = None
     thinking: Optional[str] = None
     web_search: bool = False
-    history: List[Any] = Field(default_factory=list, max_length=20)
+    history: List[Any] = Field(default_factory=list, max_length=_HISTORY_MAX_ITEMS)
     selected_text: str = ""
     doc_context: str = ""
     user_memory: str = ""
@@ -119,10 +129,7 @@ class AskAsyncRequest(_LenientBase):
     @field_validator('history')
     @classmethod
     def history_size_limit(cls, v: list) -> list:
-        """Reject history whose total serialized size exceeds 12 KB."""
-        if len(json.dumps(v).encode()) > 12_288:
-            raise ValueError('history serialized size exceeds 12 KB')
-        return v
+        return _validate_history_size(v)
 
 
 # ╔══════════════════════════════════════════════════════════════════════════════╗
