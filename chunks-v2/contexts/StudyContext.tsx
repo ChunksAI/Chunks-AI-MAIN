@@ -1297,6 +1297,8 @@ export function StudyProvider({ children }: { children: ReactNode }) {
       // Prevent duplicate /ask calls on rapid clicks (e.g. double-submit).
       // inflightRef is reset to false in the finally block below.
       if (inflightRef.current) return;
+      // Block empty / whitespace-only messages at the API layer.
+      if (!text.trim()) return;
       inflightRef.current = true;
 
       abortRef.current?.abort();

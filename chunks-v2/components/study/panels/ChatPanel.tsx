@@ -333,6 +333,10 @@ export default function ChatPanel() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const sentinelRef = useAutoScroll([messages, chatLoading]);
+  // Prevents a second /ask call when the user double-clicks Send or presses
+  // Enter twice before the first request finishes.  A ref (not state) is used
+  // so the guard is set synchronously — before any re-render occurs.
+  const sendingRef = useRef(false);
 
   // ── Image attachment state ────────────────────────────────────────────────
   const [imageAttachment, setImageAttachment] = useState<{ dataUrl: string; mimeType: string } | null>(null);
@@ -555,73 +559,85 @@ export default function ChatPanel() {
     : null;
 
   const handleSend = async () => {
-    const val = inputValue.trim();
+    // Synchronous mutex: prevents a second call from executing before the first
+    // one finishes, even if triggered by rapid double-Enter or double-click.
+    if (sendingRef.current) return;
+    sendingRef.current = true;
 
-    // If there's an image attachment, send as image message
-    if (imageAttachment) {
-      if (chatLoading) return;
+    try {
+      const val = inputValue.trim();
+
+      // If there's an image attachment, send as image message
+      if (imageAttachment) {
+        if (chatLoading) return;
+        setInputValue('');
+        if (textareaRef.current) textareaRef.current.style.height = 'auto';
+        const attachment = imageAttachment;
+        setImageAttachment(null);
+        await handleSendImageMessage(attachment.dataUrl, attachment.mimeType, val || 'Explain this image.');
+        return;
+      }
+
+      if (!val || chatLoading) return;
+
+      // ── YouTube URL intercept — paste a video link to load it into the viewer ──
+      if (YT_URL_RE.test(val)) {
+        setInputValue('');
+        if (textareaRef.current) textareaRef.current.style.height = 'auto';
+        await handleIngestYouTube(val);
+        return;
+      }
+
       setInputValue('');
       if (textareaRef.current) textareaRef.current.style.height = 'auto';
-      const attachment = imageAttachment;
-      setImageAttachment(null);
-      await handleSendImageMessage(attachment.dataUrl, attachment.mimeType, val || 'Explain this image.');
-      return;
-    }
 
-    if (!val || chatLoading) return;
+      // Detect struggle phrases and record gap in tutor brain
+      const lower = val.toLowerCase();
+      if (lastTopic && STRUGGLE_PHRASES.some((p) => lower.includes(p))) {
+        tbRecordGap(lastTopic);
+        tbRecordStudying(lastTopic);
+      }
 
-    // ── YouTube URL intercept — paste a video link to load it into the viewer ──
-    if (YT_URL_RE.test(val)) {
-      setInputValue('');
-      if (textareaRef.current) textareaRef.current.style.height = 'auto';
-      await handleIngestYouTube(val);
-      return;
-    }
+      // Detect understanding / mastery phrases and mark topic as mastered
+      if (lastTopic && UNDERSTANDING_PHRASES.some((p) => lower.includes(p))) {
+        tbRecordMastery(lastTopic);
+      }
 
-    setInputValue('');
-    if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      // If the last AI message had a Socratic question, mark this as the student's answer
+      // Only capture if no evaluation is already pending (prevents double-overwrite)
+      if (lastSocraticQuestion && lastTopic && !pendingSocraticRef.current) {
+        pendingSocraticRef.current = {
+          question: lastSocraticQuestion,
+          answer: val,
+          topic: lastTopic,
+        };
+      }
 
-    // Detect struggle phrases and record gap in tutor brain
-    const lower = val.toLowerCase();
-    if (lastTopic && STRUGGLE_PHRASES.some((p) => lower.includes(p))) {
-      tbRecordGap(lastTopic);
-      tbRecordStudying(lastTopic);
-    }
+      await handleSendMessage(val);
 
-    // Detect understanding / mastery phrases and mark topic as mastered
-    if (lastTopic && UNDERSTANDING_PHRASES.some((p) => lower.includes(p))) {
-      tbRecordMastery(lastTopic);
-    }
-
-    // If the last AI message had a Socratic question, mark this as the student's answer
-    // Only capture if no evaluation is already pending (prevents double-overwrite)
-    if (lastSocraticQuestion && lastTopic && !pendingSocraticRef.current) {
-      pendingSocraticRef.current = {
-        question: lastSocraticQuestion,
-        answer: val,
-        topic: lastTopic,
-      };
-    }
-
-    await handleSendMessage(val);
-
-    // After the AI has responded, evaluate the Socratic answer (fire-and-forget)
-    if (pendingSocraticRef.current) {
-      const pending = pendingSocraticRef.current;
-      pendingSocraticRef.current = null;
-      evaluateSocraticAnswer(pending.question, pending.answer, pending.topic)
-        .then((res) => {
-          if (res.correct) {
-            // Correct → advance through failing→reviewing→recovering→mastered
-            tbRecordSocraticPass(pending.topic);
-          } else {
-            // Incorrect → ensure concept is tracked as a gap
-            tbRecordGap(pending.topic);
-          }
-        })
-        .catch(() => {
-          // Best-effort — silently ignore evaluation failures
-        });
+      // After the AI has responded, evaluate the Socratic answer (fire-and-forget)
+      if (pendingSocraticRef.current) {
+        const pending = pendingSocraticRef.current;
+        pendingSocraticRef.current = null;
+        evaluateSocraticAnswer(pending.question, pending.answer, pending.topic)
+          .then((res) => {
+            if (res.correct) {
+              // Correct → advance through failing→reviewing→recovering→mastered
+              tbRecordSocraticPass(pending.topic);
+            } else {
+              // Incorrect → ensure concept is tracked as a gap
+              tbRecordGap(pending.topic);
+            }
+          })
+          .catch(() => {
+            // Best-effort — silently ignore evaluation failures
+          });
+      }
+    } finally {
+      // The finally block always runs — including when any early `return` fires
+      // inside the try (e.g. chatLoading check for image sends).  This guarantees
+      // sendingRef is always reset so subsequent sends are not permanently blocked.
+      sendingRef.current = false;
     }
   };
 

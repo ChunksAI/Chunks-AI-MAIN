@@ -24,7 +24,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from routes.limiter import limiter, _dynamic_ask_limit
 from routes.shared import ctx, TEACHING_PROMPT
-from routes.schemas import AskRequest
+from routes.schemas import AskRequest, _HISTORY_MAX_ITEMS
 from services.usage import enforce as _enforce_usage, UsageLimitExceeded as _UsageLimitExceeded
 from services.auth import _extract_verified_user
 from services.cache import cache_svc as _cache_svc
@@ -1013,6 +1013,13 @@ async def _handle_snap(actx: AskContext, request: Request):
                                             300,
                                             _buf_json,
                                         )
+                                        # Bind this stream buffer to its owner so the
+                                        # recovery endpoint can enforce access control.
+                                        _redis.setex(
+                                            f'{_KEY_NS_PREFIX}stream_user:{stream_id}',
+                                            300,
+                                            _stream_user_id,
+                                        )
                             except Exception as _buf_err:
                                 logger.debug('[/ask] stream buffer write error: %s', _buf_err)
                             return
@@ -1367,6 +1374,13 @@ async def _handle_master(actx: AskContext, request: Request):
                                             300,
                                             _buf_json,
                                         )
+                                        # Bind this stream buffer to its owner so the
+                                        # recovery endpoint can enforce access control.
+                                        _redis.setex(
+                                            f'{_KEY_NS_PREFIX}stream_user:{stream_id}',
+                                            300,
+                                            actx.verified_user_id,
+                                        )
                             except Exception as _buf_err:
                                 logger.debug('[/ask] master stream buffer write error: %s', _buf_err)
                             return
@@ -1674,7 +1688,7 @@ async def ask(request: Request, body: AskRequest):
             call_ai_async, call_ai_stream_async, call_ai_web_search_async, sanitize_user_memory,
             should_search_textbook, extract_thinking_content,
         )
-        from services.prompt_guard import screen_prompt_async
+        from services.prompt_guard import screen_prompt_async, neutralize_doc_context
         from services.books import BOOK_LIBRARY, TextbookSearch, get_book_index
         from services.ai_router import route, route_for_mode
         from services.mcq_parser import _parse_mcq
@@ -1689,6 +1703,7 @@ async def ask(request: Request, body: AskRequest):
         web_search    = data.get('web_search', False)
         stream_requested = bool(data.get('stream', False))
         history       = data.get('history', [])
+        history       = history[-_HISTORY_MAX_ITEMS:]  # defense-in-depth cap
         selected_text = data.get('selected_text', '').strip()[:2000]
         _raw_doc_context = data.get('doc_context', '')
         if len(_raw_doc_context.encode('utf-8')) > 80_000:
@@ -1744,6 +1759,28 @@ async def ask(request: Request, body: AskRequest):
             )
         except _UsageLimitExceeded as _ule:
             return _ule.response()
+
+        # ── Per-user daily token budget ───────────────────────────────────────
+        # Authenticated, non-exempt users are subject to a per-tier daily token
+        # cap that prevents runaway spend.  Guests are already rate-limited by
+        # the IP quota above; exempt (admin/owner) accounts are never blocked.
+        if verified_user_id and not verified_user_id.startswith('ip:') and not _is_exempt:
+            from services.token_budget import (
+                check_user_daily_token_budget as _check_token_budget,
+                UserDailyTokenBudgetExceeded  as _TokenBudgetExceeded,
+            )
+            try:
+                _check_token_budget(verified_user_id, user_tier)
+            except _TokenBudgetExceeded as _tbe:
+                return _tbe.response()
+
+        # ── Screen uploaded document context for prompt injection ─────────────
+        # doc_context is extracted from a user-uploaded file and injected into
+        # the system prompt verbatim.  A poisoned PDF could contain patterns
+        # like "ignore all previous instructions" that would override the system
+        # prompt.  Neutralise any matches before the text reaches the model.
+        if doc_context:
+            doc_context, _ = neutralize_doc_context(doc_context, user_id=verified_user_id)
 
         # ── Server-side student model (Redis-first) ───────────────────────────
         # Prefer the authoritative server-side model over the request body field.
@@ -2067,7 +2104,11 @@ async def ask(request: Request, body: AskRequest):
 
             # ── Document (PDF) context ──────────────────────────────────────
             _pdf_page = _vs.get('pdf_page')
-            _pdf_text = _sanitize_untrusted(_vs.get('pdf_visible_text') or '')
+            _pdf_text_raw = _sanitize_untrusted(_vs.get('pdf_visible_text') or '')
+            # The flagged boolean is intentionally discarded: the neutralized text
+            # already has injection phrases replaced with [FILTERED]; the upstream
+            # doc_context screening already logs and handles flagged uploads.
+            _pdf_text, _ = neutralize_doc_context(_pdf_text_raw, user_id=verified_user_id)
             _has_pdf = _pdf_page is not None or bool(_pdf_text)
             _doc_block = ''
             if _has_pdf:
@@ -2829,20 +2870,37 @@ async def cancel_ask(request: Request) -> JSONResponse:
 
 
 @router.get('/api/stream/{stream_id}')
-async def get_stream_buffer(stream_id: str) -> JSONResponse:
+async def get_stream_buffer(stream_id: str, request: Request) -> JSONResponse:
     """Retrieve the token buffer for a completed SSE stream.
 
     Returns ``{"complete": true, "tokens": [...]}`` when the stream finished
     and its buffer is still within the 5-minute TTL.  Returns HTTP 404 when
-    the ``stream_id`` is unknown or the TTL has expired.
+    the ``stream_id`` is unknown or the TTL has expired.  Returns HTTP 403
+    when the caller's verified identity does not match the stream's owner.
 
     This is a best-effort recovery endpoint — it only holds data for streams
     that completed successfully within the last 5 minutes.
     """
+    # Identify the caller (guest or authenticated) for ownership verification.
+    caller_user_id, _, _ = _extract_verified_user(request)
     try:
         _redis = _cache_svc._redis
         if not _redis:
             return JSONResponse({'detail': 'Stream not found.'}, status_code=404)
+        # Check ownership before fetching buffer contents.
+        # The stream_user key is written alongside the buffer by the SSE
+        # generator with the same TTL.  If it is absent the buffer has
+        # already expired (or was written before this guard was deployed).
+        owner_raw = _redis.get(f'{_KEY_NS_PREFIX}stream_user:{stream_id}')
+        if owner_raw is None:
+            return JSONResponse({'detail': 'Stream not found or expired.'}, status_code=404)
+        owner_user_id = owner_raw.decode() if isinstance(owner_raw, bytes) else str(owner_raw)
+        if owner_user_id != caller_user_id:
+            logger.warning(
+                '[/api/stream] forbidden: caller=%s owner=%s stream_id=%s',
+                caller_user_id[:16], owner_user_id[:16], stream_id,
+            )
+            return JSONResponse({'detail': 'Forbidden.'}, status_code=403)
         raw = _redis.get(f'{_KEY_NS_PREFIX}stream:{stream_id}')
         if raw is None:
             return JSONResponse({'detail': 'Stream not found or expired.'}, status_code=404)

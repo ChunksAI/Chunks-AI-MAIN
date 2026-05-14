@@ -3,6 +3,7 @@ import json
 import os
 from unittest.mock import MagicMock, patch
 
+import pytest
 import services.token_budget as tb
 
 
@@ -200,3 +201,174 @@ class TestInit:
         tb.init(redis=sentinel)
         assert tb._redis is sentinel
         tb._redis = None  # cleanup
+
+
+class TestUserDailyTokenBudget:
+    """Tests for per-user daily token cap enforcement."""
+
+    def setup_method(self):
+        tb._redis = None
+        tb._mem_user_daily_tokens.clear()
+
+    # ── cap lookup ────────────────────────────────────────────────────────────
+
+    def test_default_caps_match_requirements(self):
+        assert tb._DEFAULT_USER_DAILY_TOKEN_CAPS['free']  == 20_000
+        assert tb._DEFAULT_USER_DAILY_TOKEN_CAPS['pro']   == 400_000
+        assert tb._DEFAULT_USER_DAILY_TOKEN_CAPS['ultra'] == 2_000_000
+
+    def test_env_override_free_cap(self):
+        """The free cap can be overridden (simulates TOKEN_CAP_FREE env var)."""
+        original = tb._DEFAULT_USER_DAILY_TOKEN_CAPS['free']
+        tb._DEFAULT_USER_DAILY_TOKEN_CAPS['free'] = 5_000
+        try:
+            tb.record_user_daily_tokens('user-override', 5_000)
+            with pytest.raises(tb.UserDailyTokenBudgetExceeded) as exc_info:
+                tb.check_user_daily_token_budget('user-override', 'free')
+            assert exc_info.value.cap == 5_000
+        finally:
+            tb._DEFAULT_USER_DAILY_TOKEN_CAPS['free'] = original
+            tb._mem_user_daily_tokens.clear()
+
+    # ── record_user_daily_tokens (in-memory) ──────────────────────────────────
+
+    def test_record_increments_counter(self):
+        tb.record_user_daily_tokens('user-1', 500)
+        tb.record_user_daily_tokens('user-1', 300)
+        assert tb.get_user_daily_tokens('user-1') == 800
+
+    def test_record_zero_is_noop(self):
+        tb.record_user_daily_tokens('user-1', 0)
+        assert tb.get_user_daily_tokens('user-1') == 0
+
+    def test_record_empty_user_id_is_noop(self):
+        tb.record_user_daily_tokens('', 100)
+        assert tb._mem_user_daily_tokens == {}
+
+    def test_get_unknown_user_returns_zero(self):
+        assert tb.get_user_daily_tokens('nobody') == 0
+
+    # ── check_user_daily_token_budget (in-memory) ─────────────────────────────
+
+    def test_check_allows_when_under_cap(self):
+        tb.record_user_daily_tokens('user-a', 1_000)
+        tb.check_user_daily_token_budget('user-a', 'free')  # should not raise
+
+    def test_check_blocks_when_at_cap(self):
+        tb.record_user_daily_tokens('user-b', 20_000)
+        with pytest.raises(tb.UserDailyTokenBudgetExceeded) as exc_info:
+            tb.check_user_daily_token_budget('user-b', 'free')
+        assert exc_info.value.used == 20_000
+        assert exc_info.value.cap  == 20_000
+        assert exc_info.value.tier == 'free'
+
+    def test_check_blocks_when_over_cap(self):
+        tb.record_user_daily_tokens('user-c', 21_000)
+        with pytest.raises(tb.UserDailyTokenBudgetExceeded):
+            tb.check_user_daily_token_budget('user-c', 'free')
+
+    def test_check_allows_pro_within_cap(self):
+        tb.record_user_daily_tokens('user-d', 399_999)
+        tb.check_user_daily_token_budget('user-d', 'pro')  # should not raise
+
+    def test_check_blocks_pro_over_cap(self):
+        tb.record_user_daily_tokens('user-e', 400_001)
+        with pytest.raises(tb.UserDailyTokenBudgetExceeded) as exc_info:
+            tb.check_user_daily_token_budget('user-e', 'pro')
+        assert exc_info.value.tier == 'pro'
+
+    def test_unknown_tier_falls_back_to_free_cap(self):
+        """An unrecognised tier string is treated as free."""
+        tb.record_user_daily_tokens('user-f', 20_001)
+        with pytest.raises(tb.UserDailyTokenBudgetExceeded):
+            tb.check_user_daily_token_budget('user-f', 'enterprise')
+
+    def test_zero_cap_means_unlimited(self):
+        """Setting a cap to 0 should never block the user."""
+        original = tb._DEFAULT_USER_DAILY_TOKEN_CAPS.copy()
+        tb._DEFAULT_USER_DAILY_TOKEN_CAPS['free'] = 0
+        try:
+            tb.record_user_daily_tokens('user-g', 999_999)
+            tb.check_user_daily_token_budget('user-g', 'free')  # must not raise
+        finally:
+            tb._DEFAULT_USER_DAILY_TOKEN_CAPS.update(original)
+
+    # ── response shape ────────────────────────────────────────────────────────
+
+    def test_exceeded_response_is_429(self):
+        exc = tb.UserDailyTokenBudgetExceeded(used=20_000, cap=20_000, tier='free')
+        resp = exc.response()
+        assert resp.status_code == 429
+        import json as _json
+        body = _json.loads(resp.body)
+        assert body['success'] is False
+        assert body['token_limited'] is True
+        assert body['tier'] == 'free'
+        assert 'error' in body
+
+    # ── Redis integration ─────────────────────────────────────────────────────
+
+    def test_record_uses_incrby_on_redis(self):
+        mock_redis = MagicMock()
+        mock_redis.incrby.return_value = 500
+        tb._redis = mock_redis
+        try:
+            tb.record_user_daily_tokens('user-h', 500)
+            mock_redis.incrby.assert_called_once()
+            mock_redis.expire.assert_called_once()
+        finally:
+            tb._redis = None
+
+    def test_check_reads_from_redis(self):
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = b'5000'
+        tb._redis = mock_redis
+        try:
+            # 5 000 < 20 000 (free cap) → allowed
+            tb.check_user_daily_token_budget('user-i', 'free')
+        finally:
+            tb._redis = None
+
+    def test_check_redis_blocks_when_over_cap(self):
+        mock_redis = MagicMock()
+        mock_redis.get.return_value = b'25000'   # over free cap of 20 000
+        tb._redis = mock_redis
+        try:
+            with pytest.raises(tb.UserDailyTokenBudgetExceeded):
+                tb.check_user_daily_token_budget('user-j', 'free')
+        finally:
+            tb._redis = None
+
+    def test_check_redis_error_blocks_free_user(self):
+        """Redis failure should fail-closed for free users."""
+        mock_redis = MagicMock()
+        mock_redis.get.side_effect = Exception('Redis down')
+        tb._redis = mock_redis
+        try:
+            with pytest.raises(tb.UserDailyTokenBudgetExceeded):
+                tb.check_user_daily_token_budget('user-k', 'free')
+        finally:
+            tb._redis = None
+
+    def test_check_redis_error_allows_pro_user(self):
+        """Redis failure should fail-open for paid users."""
+        mock_redis = MagicMock()
+        mock_redis.get.side_effect = Exception('Redis down')
+        tb._redis = mock_redis
+        try:
+            tb.check_user_daily_token_budget('user-l', 'pro')  # must not raise
+        finally:
+            tb._redis = None
+
+    # ── record_usage integration ──────────────────────────────────────────────
+
+    def test_record_usage_populates_daily_token_counter(self):
+        """record_usage() should automatically update the per-user daily counter."""
+        tb.record_usage('model/x', 300, 200, 0.01, 'chat', user_id='user-m')
+        assert tb.get_user_daily_tokens('user-m') == 500  # 300 + 200
+
+    def test_record_usage_skips_guest_ip_prefix(self):
+        """Guest ip: user IDs must NOT increment the daily token counter."""
+        tb.record_usage('model/x', 100, 50, 0.01, 'chat', user_id='ip:1.2.3.4')
+        assert tb.get_user_daily_tokens('ip:1.2.3.4') == 0
+        assert tb._mem_user_daily_tokens == {}

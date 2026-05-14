@@ -37,11 +37,19 @@ function NoteCard({ note }: { note: NoteItem }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const isNew = note.content === '' && note.createdAt === note.updatedAt;
 
-  // Set initial innerHTML once on mount so contenteditable can edit freely
+  // Populate the contenteditable using safe DOM nodes — never via innerHTML —
+  // so arbitrary note content cannot become executable HTML.
   useEffect(() => {
-    if (contentRef.current) {
-      contentRef.current.innerHTML = note.content.replace(/\n/g, '<br/>');
-    }
+    const el = contentRef.current;
+    if (!el) return;
+    el.textContent = '';
+    const lines = note.content.split('\n');
+    lines.forEach((line, i) => {
+      el.appendChild(document.createTextNode(line));
+      if (i < lines.length - 1) {
+        el.appendChild(document.createElement('br'));
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note.id]);
 
