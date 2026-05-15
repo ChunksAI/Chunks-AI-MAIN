@@ -42,6 +42,17 @@ export async function getSupabaseClient(): Promise<SupabaseClient> {
     );
   }
 
+  // Guard against a bare project ref (e.g. "abcxyz") being used instead of
+  // the full URL (e.g. "https://abcxyz.supabase.co").  createClient() accepts
+  // any string without validation, so an invalid URL causes every auth call to
+  // fail with net::ERR_NAME_NOT_RESOLVED / AuthRetryableFetchError.
+  if (!supabaseUrl.startsWith('https://')) {
+    throw new Error(
+      `Invalid SUPABASE_URL "${supabaseUrl}": must start with https://. ` +
+        'Expected format: https://<project-ref>.supabase.co',
+    );
+  }
+
   _client = createClient(supabaseUrl, supabaseAnonKey);
   return _client;
 }

@@ -197,6 +197,27 @@ SUPABASE_URL         = os.environ.get('SUPABASE_URL', '')
 SUPABASE_SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_KEY', '')
 SUPABASE_ANON_KEY    = os.environ.get('SUPABASE_ANON_KEY', '')
 
+# Normalise SUPABASE_URL: if only the project ref was provided (no scheme),
+# expand it to the canonical https://<ref>.supabase.co form so that the
+# Supabase client and the frontend /api/config endpoint always receive a
+# fully-qualified URL.  A bare ref causes net::ERR_NAME_NOT_RESOLVED in the
+# browser because the JS client tries to refresh tokens against an invalid host.
+if SUPABASE_URL and not SUPABASE_URL.startswith('https://'):
+    if SUPABASE_URL.startswith('http://'):
+        logger.warning(
+            "⚠️  SUPABASE_URL starts with http:// — Supabase requires HTTPS. "
+            "Update SUPABASE_URL to use https://."
+        )
+    else:
+        # Treat the value as a bare project reference and expand it.
+        _expanded = f'https://{SUPABASE_URL}.supabase.co'
+        logger.warning(
+            "⚠️  SUPABASE_URL looks like a bare project ref (%r). "
+            "Expanding to %r. Set SUPABASE_URL to the full URL to silence this warning.",
+            SUPABASE_URL, _expanded,
+        )
+        SUPABASE_URL = _expanded
+
 FREE_TIER_DAILY_LIMIT = 20
 MAX_HISTORY_TURNS     = 10
 
